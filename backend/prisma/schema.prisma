@@ -102,6 +102,7 @@ model FarmLot {
   @@unique([farmId, lotNumber])
   @@index([farmId])
   LotPerformance LotPerformance[]
+  vaccinations Vaccination[]
 }
 
 /// ---------- Hatchery (chicks supplier) ----------
@@ -302,4 +303,26 @@ model FarmPerformance {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Vaccination {
+  id        String   @id @default(cuid())
+  lotId     String
+  lot       FarmLot @relation(fields: [lotId], references: [id])
+
+  vaccine   String
+  scheduledDate DateTime  // when the vaccination is planned
+  completedDate DateTime? // when the vaccination was actually done
+  status     VaccinationStatus @default(PENDING) // track status: pending/done/missed
+  notes      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum VaccinationStatus {
+  PENDING
+  SCHEDULED
+  COMPLETED
+  MISSED
 }
