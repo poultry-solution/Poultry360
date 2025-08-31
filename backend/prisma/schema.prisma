@@ -36,7 +36,6 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  Hatchery Hatchery[]
 }
 
 model Address {
@@ -112,10 +111,9 @@ model Hatchery {
   location  String
   contactNo String
 
-  supplies HatcherySupply[]
+  supplierName String
 
-  ownerId String
-  owner   User @relation(fields: [ownerId], references: [id])
+  supplies HatcherySupply[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
