@@ -1,0 +1,616 @@
+// Poultry360 - Complete Database Schema
+// PostgreSQL with Prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum UserRole {
+  OWNER
+  MANAGER
+}
+
+enum BatchStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum TransactionType {
+  PURCHASE
+  SALE
+  PAYMENT
+  ADJUSTMENT
+}
+
+enum NotificationType {
+  LOW_INVENTORY
+  VACCINATION_DUE
+  BATCH_COMPLETION
+  PAYMENT_DUE
+  MORTALITY_ALERT
+}
+
+enum NotificationStatus {
+  PENDING
+  READ
+  DISMISSED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+}
+
+// ==================== CORE MODELS ====================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  phone     String
+  password  String
+  role      UserRole @default(OWNER)
+  isActive  Boolean  @default(true)
+  
+  // Relationships
+  farms     Farm[]
+  managers  User[]   @relation("UserManagers")
+  owner     User?    @relation("UserManagers", fields: [ownerId], references: [id])
+  ownerId   String?
+  
+  // Categories
+  expenseCategories ExpenseCategory[]
+  salesCategories   SalesCategory[]
+  inventoryCategories InventoryCategory[]
+  
+  // Suppliers
+  dealers   Dealer[]
+  hatcheries Hatchery[]
+  medicineSuppliers MedicineSupplier[]
+  
+  // Audit
+  auditLogs AuditLog[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Farm {
+  id          String   @id @default(cuid())
+  name        String
+  location    String
+  capacity    Int
+  description String?
+  
+  // Relationships
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  batches     Batch[]
+  expenses    Expense[]
+  sales       Sale[]
+  
+  // Audit
+  auditLogs   AuditLog[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Batch {
+  id          String      @id @default(cuid())
+  batchNumber String
+  startDate   DateTime
+  endDate     DateTime?
+  status      BatchStatus @default(ACTIVE)
+  initialChicks Int
+  currentChicks Int
+  initialChickWeight Decimal @db.Decimal(6, 2) @default(0.045) // Default 45g per chick
+  
+  // Relationships
+  farmId      String
+  farm        Farm        @relation(fields: [farmId], references: [id])
+  expenses    Expense[]
+  sales       Sale[]
+  mortalities Mortality[]
+  vaccinations Vaccination[]
+  feedConsumptions FeedConsumption[]
+  birdWeights BirdWeight[]
+  
+  // Audit
+  auditLogs   AuditLog[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([farmId, batchNumber])
+}
+
+// ==================== EXPENSE & SALES CATEGORIES ====================
+
+model ExpenseCategory {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  
+  // Relationships
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  expenses    Expense[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([userId, name])
+}
+
+model SalesCategory {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  
+  // Relationships
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  sales       Sale[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([userId, name])
+}
+
+// ==================== EXPENSES & SALES ====================
+
+model Expense {
+  id          String   @id @default(cuid())
+  date        DateTime
+  amount      Decimal  @db.Decimal(10, 2)
+  description String?
+  quantity    Decimal? @db.Decimal(10, 2)
+  unitPrice   Decimal? @db.Decimal(10, 2)
+  
+  // Relationships
+  farmId      String
+  farm        Farm     @relation(fields: [farmId], references: [id])
+  batchId     String?
+  batch       Batch?   @relation(fields: [batchId], references: [id])
+  categoryId  String
+  category    ExpenseCategory @relation(fields: [categoryId], references: [id])
+  
+  // Audit
+  auditLogs   AuditLog[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Sale {
+  id          String   @id @default(cuid())
+  date        DateTime
+  amount      Decimal  @db.Decimal(10, 2)
+  quantity    Decimal  @db.Decimal(10, 2)
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  description String?
+  
+  // Relationships
+  farmId      String
+  farm        Farm     @relation(fields: [farmId], references: [id])
+  batchId     String?
+  batch       Batch?   @relation(fields: [batchId], references: [id])
+  categoryId  String
+  category    SalesCategory @relation(fields: [categoryId], references: [id])
+  
+  // Audit
+  auditLogs   AuditLog[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==================== INVENTORY SYSTEM ====================
+
+model InventoryCategory {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  
+  // Relationships
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  items       InventoryItem[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([userId, name])
+}
+
+model InventoryItem {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  currentStock Decimal @db.Decimal(10, 2) @default(0)
+  unit        String
+  minStock    Decimal? @db.Decimal(10, 2)
+  
+  // Relationships
+  categoryId  String
+  category    InventoryCategory @relation(fields: [categoryId], references: [id])
+  transactions InventoryTransaction[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([categoryId, name])
+}
+
+model InventoryTransaction {
+  id          String          @id @default(cuid())
+  type        TransactionType
+  quantity    Decimal         @db.Decimal(10, 2)
+  unitPrice   Decimal         @db.Decimal(10, 2)
+  totalAmount Decimal         @db.Decimal(10, 2)
+  date        DateTime
+  description String?
+  
+  // Relationships
+  itemId      String
+  item        InventoryItem   @relation(fields: [itemId], references: [id])
+  
+  // Audit
+  auditLogs   AuditLog[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==================== DEALERS & SUPPLIERS ====================
+
+model Dealer {
+  id          String   @id @default(cuid())
+  name        String
+  contact     String
+  address     String?
+  balance     Decimal  @db.Decimal(10, 2) @default(0)  // Positive = we owe them, Negative = they owe us
+  
+  // Relationships
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  transactions DealerTransaction[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([userId, name])
+}
+
+model DealerTransaction {
+  id          String          @id @default(cuid())
+  type        TransactionType
+  amount      Decimal         @db.Decimal(10, 2)
+  date        DateTime
+  description String?
+  reference   String?         // Invoice number, receipt number, etc.
+  
+  // Relationships
+  dealerId    String
+  dealer      Dealer          @relation(fields: [dealerId], references: [id])
+  
+  // Audit
+  auditLogs   AuditLog[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Hatchery {
+  id          String   @id @default(cuid())
+  name        String
+  contact     String
+  address     String?
+  balance     Decimal  @db.Decimal(10, 2) @default(0)  // Positive = we owe them, Negative = they owe us
+  
+  // Relationships
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  transactions HatcheryTransaction[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([userId, name])
+}
+
+model HatcheryTransaction {
+  id          String          @id @default(cuid())
+  type        TransactionType
+  amount      Decimal         @db.Decimal(10, 2)
+  quantity    Int
+  date        DateTime
+  description String?
+  reference   String?         // Invoice number, receipt number, etc.
+  
+  // Relationships
+  hatcheryId  String
+  hatchery    Hatchery        @relation(fields: [hatcheryId], references: [id])
+  
+  // Audit
+  auditLogs   AuditLog[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model MedicineSupplier {
+  id          String   @id @default(cuid())
+  name        String
+  contact     String
+  address     String?
+  balance     Decimal  @db.Decimal(10, 2) @default(0)  // Positive = we owe them, Negative = they owe us
+  
+  // Relationships
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  transactions MedicineTransaction[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([userId, name])
+}
+
+model MedicineTransaction {
+  id          String          @id @default(cuid())
+  type        TransactionType
+  amount      Decimal         @db.Decimal(10, 2)
+  quantity    Int
+  medicineName String
+  date        DateTime
+  description String?
+  reference   String?         // Invoice number, receipt number, etc.
+  
+  // Relationships
+  supplierId  String
+  supplier    MedicineSupplier @relation(fields: [supplierId], references: [id])
+  
+  // Audit
+  auditLogs   AuditLog[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==================== BATCH TRACKING ====================
+
+model Mortality {
+  id          String   @id @default(cuid())
+  date        DateTime
+  count       Int
+  reason      String?
+  
+  // Relationships
+  batchId     String
+  batch       Batch    @relation(fields: [batchId], references: [id])
+  
+  // Audit
+  auditLogs   AuditLog[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Vaccination {
+  id          String   @id @default(cuid())
+  vaccineName String
+  scheduledDate DateTime
+  completedDate DateTime?
+  status      String   @default("PENDING") // PENDING, COMPLETED, MISSED
+  notes       String?
+  
+  // Relationships
+  batchId     String
+  batch       Batch    @relation(fields: [batchId], references: [id])
+  
+  // Audit
+  auditLogs   AuditLog[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model FeedConsumption {
+  id          String   @id @default(cuid())
+  date        DateTime
+  quantity    Decimal  @db.Decimal(10, 2)
+  feedType    String
+  
+  // Relationships
+  batchId     String
+  batch       Batch    @relation(fields: [batchId], references: [id])
+  
+  // Audit
+  auditLogs   AuditLog[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BirdWeight {
+  id          String   @id @default(cuid())
+  date        DateTime
+  avgWeight   Decimal  @db.Decimal(6, 2)  // Average weight per bird in kg
+  sampleCount Int      // Number of birds weighed for this average
+  
+  // Relationships
+  batchId     String
+  batch       Batch    @relation(fields: [batchId], references: [id])
+  
+  // Audit
+  auditLogs   AuditLog[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==================== NOTIFICATIONS ====================
+
+model Notification {
+  id          String            @id @default(cuid())
+  type        NotificationType
+  title       String
+  message     String
+  status      NotificationStatus @default(PENDING)
+  data        Json?             // Additional data for the notification
+  
+  // Relationships
+  userId      String
+  user        User              @relation(fields: [userId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==================== AUDIT TRAIL ====================
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  action      AuditAction
+  tableName   String
+  recordId    String
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  userAgent   String?
+  
+  // Relationships
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  
+  createdAt   DateTime @default(now())
+}
+
+// ==================== ANALYTICS & REPORTS ====================
+
+model BatchAnalytics {
+  id              String   @id @default(cuid())
+  
+  // Batch Info
+  batchId         String   @unique
+  batchNumber     String
+  farmId          String
+  farmName        String
+  
+  // Performance Metrics
+  totalExpenses   Decimal  @db.Decimal(12, 2)
+  totalSales      Decimal  @db.Decimal(12, 2)
+  grossProfit     Decimal  @db.Decimal(12, 2)
+  netProfit       Decimal  @db.Decimal(12, 2)
+  
+  // Bird Metrics
+  initialChicks   Int
+  finalChicks     Int
+  mortalityCount  Int
+  mortalityRate   Decimal  @db.Decimal(5, 2)
+  
+  // Weight Metrics
+  initialChickWeight Decimal @db.Decimal(6, 2)
+  finalBirdWeight    Decimal @db.Decimal(6, 2)
+  totalWeightGain    Decimal @db.Decimal(8, 2)
+  
+  // Feed Metrics
+  totalFeedUsed   Decimal  @db.Decimal(10, 2)
+  feedCost        Decimal  @db.Decimal(12, 2)
+  fcr             Decimal? @db.Decimal(6, 3) // Feed Conversion Ratio = Total Feed / Total Weight Gain
+  
+  // Per Bird Metrics
+  costPerBird     Decimal  @db.Decimal(8, 2)
+  revenuePerBird  Decimal  @db.Decimal(8, 2)
+  profitPerBird   Decimal  @db.Decimal(8, 2)
+  
+  // Timeline
+  startDate       DateTime
+  endDate         DateTime
+  duration        Int      // in days
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model FarmAnalytics {
+  id              String   @id @default(cuid())
+  
+  // Farm Info
+  farmId          String   @unique
+  farmName        String
+  
+  // Performance Metrics
+  totalBatches    Int
+  completedBatches Int
+  activeBatches   Int
+  
+  totalExpenses   Decimal  @db.Decimal(14, 2)
+  totalSales      Decimal  @db.Decimal(14, 2)
+  totalProfit     Decimal  @db.Decimal(14, 2)
+  
+  // Bird Metrics
+  totalChicks     Int
+  totalMortality  Int
+  avgMortalityRate Decimal @db.Decimal(5, 2)
+  
+  // Feed Metrics
+  totalFeedUsed   Decimal  @db.Decimal(12, 2)
+  totalFeedCost   Decimal  @db.Decimal(14, 2)
+  avgFCR          Decimal? @db.Decimal(6, 3)
+  
+  // Per Bird Metrics
+  avgCostPerBird  Decimal  @db.Decimal(8, 2)
+  avgRevenuePerBird Decimal @db.Decimal(8, 2)
+  avgProfitPerBird Decimal  @db.Decimal(8, 2)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ==================== LIFETIME DATA ====================
+
+model LifetimeData {
+  id              String   @id @default(cuid())
+  
+  // User Info
+  userId          String   @unique
+  userName        String
+  
+  // Overall Performance
+  totalFarms      Int
+  totalBatches    Int
+  totalChicks     Int
+  totalMortality  Int
+  
+  // Financial Summary
+  totalExpenses   Decimal  @db.Decimal(16, 2)
+  totalSales      Decimal  @db.Decimal(16, 2)
+  totalProfit     Decimal  @db.Decimal(16, 2)
+  
+  // Averages
+  avgMortalityRate Decimal @db.Decimal(5, 2)
+  avgProfitPerBatch Decimal @db.Decimal(12, 2)
+  avgProfitPerBird Decimal  @db.Decimal(8, 2)
+  
+  // Timeline
+  firstBatchDate  DateTime?
+  lastBatchDate   DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
