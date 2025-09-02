@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 export default function SignupPage() {
   return (
     <div className="min-h-screen bg-background">
-      <div className="border-b">
+      <div className="border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 lg:px-6 h-14 flex items-center">
           <Link href="/" className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
