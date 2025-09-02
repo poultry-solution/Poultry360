@@ -9,7 +9,7 @@ export default function Hero() {
         {/* Left Column - Text Content */}
         <div className="space-y-8">
           {/* Trust Badge */}
-          <Badge className="bg-[#4CAF50] text-white px-3 py-1 rounded-full flex items-center w-fit">
+          <Badge className="bg-primary text-primary-foreground px-3 py-1 rounded-full flex items-center w-fit">
             <Check className="w-4 h-4 mr-2" />
             Trusted by 500+ Poultry Farmers
           </Badge>
@@ -17,7 +17,7 @@ export default function Hero() {
           {/* Main Heading */}
           <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 leading-tight">
             Manage Your Poultry Farm
-            <span className="text-[#4CAF50]"> Anytime, Anywhere</span>
+            <span className="text-primary"> Anytime, Anywhere</span>
           </h1>
 
           {/* Description */}
@@ -29,11 +29,11 @@ export default function Hero() {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4">
-            <Button className="bg-[#4CAF50] hover:bg-[#45a049] text-white px-8 py-3 rounded-lg flex items-center">
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-lg flex items-center">
               <Monitor className="w-5 h-5 mr-2" />
               Use Web Version
             </Button>
-            <Button variant="outline" className="border-[#4CAF50] text-[#4CAF50] hover:bg-[#4CAF50] hover:text-white px-8 py-3 rounded-lg flex items-center">
+            <Button variant="outline" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground px-8 py-3 rounded-lg flex items-center">
               <Download className="w-5 h-5 mr-2" />
               Download Poultry360
             </Button>
@@ -43,7 +43,7 @@ export default function Hero() {
         {/* Right Column - Visual Illustration */}
         <div className="relative">
           {/* Background Shape */}
-          <div className="absolute inset-0 bg-[#4CAF50] rounded-[3rem] transform rotate-3 scale-105 opacity-10"></div>
+          <div className="absolute inset-0 bg-primary rounded-[3rem] transform rotate-3 scale-105 opacity-10"></div>
           
           {/* Main Illustration Container */}
           <div className="relative bg-white rounded-[2rem] p-8 shadow-2xl border border-gray-100">
@@ -85,15 +85,15 @@ export default function Hero() {
               </div>
               <div className="flex justify-between mt-4">
                 <div className="text-center">
-                  <div className="text-lg font-bold text-[#4CAF50]">1,250</div>
+                  <div className="text-lg font-bold text-primary">1,250</div>
                   <div className="text-xs text-gray-500">Birds</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-bold text-[#4CAF50]">₹45,000</div>
+                  <div className="text-lg font-bold text-primary">₹45,000</div>
                   <div className="text-xs text-gray-500">Revenue</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-bold text-[#4CAF50]">85%</div>
+                  <div className="text-lg font-bold text-primary">85%</div>
                   <div className="text-xs text-gray-500">Health</div>
                 </div>
               </div>

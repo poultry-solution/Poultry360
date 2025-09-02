@@ -7,7 +7,7 @@ export default function Reviews() {
     <section className="py-16 lg:py-24 bg-gradient-to-br from-gray-50 to-white">
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="text-center mb-16">
-          <Badge className="bg-[#4CAF50] text-white px-4 py-2 rounded-full mb-4">
+          <Badge className="bg-primary text-primary-foreground px-4 py-2 rounded-full mb-4">
             <Star className="w-4 h-4 mr-2" />
             Trusted by 500+ Farmers
           </Badge>
@@ -23,8 +23,8 @@ export default function Reviews() {
           {/* Review Card 1 */}
           <div className="relative bg-white rounded-2xl p-8 shadow-xl border border-gray-100 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
             <div className="absolute -top-4 left-8">
-              <div className="w-16 h-16 bg-[#4CAF50] rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-xl">R</span>
+              <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center">
+                <span className="text-primary-foreground font-bold text-xl">R</span>
               </div>
             </div>
             
@@ -34,7 +34,7 @@ export default function Reviews() {
               ))}
             </div>
             
-            <Quote className="w-8 h-8 text-[#4CAF50] mb-4 opacity-50" />
+            <Quote className="w-8 h-8 text-primary mb-4 opacity-50" />
             
             <p className="text-gray-700 mb-6 leading-relaxed">
               &ldquo;Poultry360 transformed my broiler farm completely. The health monitoring feature helped me reduce mortality by 40%. 
@@ -54,8 +54,8 @@ export default function Reviews() {
           {/* Review Card 2 */}
           <div className="relative bg-white rounded-2xl p-8 shadow-xl border border-gray-100 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
             <div className="absolute -top-4 left-8">
-              <div className="w-16 h-16 bg-[#4CAF50] rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-xl">P</span>
+              <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center">
+                <span className="text-primary-foreground font-bold text-xl">P</span>
               </div>
             </div>
             
@@ -65,7 +65,7 @@ export default function Reviews() {
               ))}
             </div>
             
-            <Quote className="w-8 h-8 text-[#4CAF50] mb-4 opacity-50" />
+            <Quote className="w-8 h-8 text-primary mb-4 opacity-50" />
             
             <p className="text-gray-700 mb-6 leading-relaxed">
               &ldquo;The financial tracking feature is a game-changer! I can now see exactly where my money is going and calculate real profits. 
@@ -85,8 +85,8 @@ export default function Reviews() {
           {/* Review Card 3 */}
           <div className="relative bg-white rounded-2xl p-8 shadow-xl border border-gray-100 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
             <div className="absolute -top-4 left-8">
-              <div className="w-16 h-16 bg-[#4CAF50] rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-xl">A</span>
+              <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center">
+                <span className="text-primary-foreground font-bold text-xl">A</span>
               </div>
             </div>
             
@@ -96,7 +96,7 @@ export default function Reviews() {
               ))}
             </div>
             
-            <Quote className="w-8 h-8 text-[#4CAF50] mb-4 opacity-50" />
+            <Quote className="w-8 h-8 text-primary mb-4 opacity-50" />
             
             <p className="text-gray-700 mb-6 leading-relaxed">
               &ldquo;As a feed dealer, Poultry360 helps me manage inventory and track customer orders efficiently. 
@@ -117,19 +117,19 @@ export default function Reviews() {
         {/* Stats Section */}
         <div className="grid md:grid-cols-4 gap-8 bg-white rounded-2xl p-8 shadow-lg">
           <div className="text-center">
-            <div className="text-3xl font-bold text-[#4CAF50] mb-2">500+</div>
+            <div className="text-3xl font-bold text-primary mb-2">500+</div>
             <p className="text-gray-600">Active Farmers</p>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-[#4CAF50] mb-2">4.9/5</div>
+            <div className="text-3xl font-bold text-primary mb-2">4.9/5</div>
             <p className="text-gray-600">Average Rating</p>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-[#4CAF50] mb-2">25%</div>
+            <div className="text-3xl font-bold text-primary mb-2">25%</div>
             <p className="text-gray-600">Avg. Production Increase</p>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-[#4CAF50] mb-2">24/7</div>
+            <div className="text-3xl font-bold text-primary mb-2">24/7</div>
             <p className="text-gray-600">Customer Support</p>
           </div>
         </div>
@@ -143,10 +143,10 @@ export default function Reviews() {
             Start your journey with Poultry360 today and transform your poultry farming business like hundreds of other farmers.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button className="bg-[#4CAF50] hover:bg-[#45a049] text-white px-8 py-3 rounded-lg">
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-lg">
               Start Free Trial
             </Button>
-            <Button variant="outline" className="border-[#4CAF50] text-[#4CAF50] hover:bg-[#4CAF50] hover:text-white px-8 py-3 rounded-lg">
+            <Button variant="outline" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground px-8 py-3 rounded-lg">
               View More Reviews
             </Button>
           </div>

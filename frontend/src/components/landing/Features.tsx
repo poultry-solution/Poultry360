@@ -5,7 +5,7 @@ export default function Features() {
     <section id="features" className="py-16 lg:py-24 bg-white">
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="text-center mb-16">
-          <Badge className="bg-[#4CAF50] text-white px-3 py-1 rounded-full mb-4">
+          <Badge className="bg-primary text-primary-foreground px-3 py-1 rounded-full mb-4">
             Key Features
           </Badge>
           <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
@@ -24,7 +24,7 @@ export default function Features() {
               <div className="relative w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center mb-4">
                 <div className="flex space-x-2">
                   <div className="w-16 h-20 bg-white rounded shadow-sm border flex flex-col items-center justify-center">
-                    <div className="w-6 h-6 bg-[#4CAF50] rounded-full mb-1"></div>
+                    <div className="w-6 h-6 bg-primary rounded-full mb-1"></div>
                     <div className="text-xs text-gray-600">₹2,500</div>
                   </div>
                   <div className="w-16 h-20 bg-white rounded shadow-sm border flex flex-col items-center justify-center">
@@ -32,7 +32,7 @@ export default function Features() {
                     <div className="text-xs text-gray-600">₹1,200</div>
                   </div>
                   <div className="w-16 h-20 bg-white rounded shadow-sm border flex flex-col items-center justify-center">
-                    <div className="w-6 h-6 bg-[#4CAF50] rounded-full mb-1"></div>
+                    <div className="w-6 h-6 bg-primary rounded-full mb-1"></div>
                     <div className="text-xs text-gray-600">₹3,800</div>
                   </div>
                 </div>
@@ -49,7 +49,7 @@ export default function Features() {
               <div className="relative w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center mb-4">
                 <div className="flex space-x-2">
                   <div className="w-12 h-16 bg-white rounded shadow-sm border flex flex-col items-center justify-center">
-                    <div className="w-4 h-4 bg-[#4CAF50] rounded-full mb-1"></div>
+                    <div className="w-4 h-4 bg-primary rounded-full mb-1"></div>
                     <div className="text-xs text-gray-600">1,250↑</div>
                   </div>
                   <div className="w-12 h-16 bg-white rounded shadow-sm border flex flex-col items-center justify-center">
@@ -57,11 +57,11 @@ export default function Features() {
                     <div className="text-xs text-gray-600">45↓</div>
                   </div>
                   <div className="w-12 h-16 bg-white rounded shadow-sm border flex flex-col items-center justify-center">
-                    <div className="w-4 h-4 bg-[#4CAF50] rounded-full mb-1"></div>
+                    <div className="w-4 h-4 bg-primary rounded-full mb-1"></div>
                     <div className="text-xs text-gray-600">85%</div>
                   </div>
                   <div className="w-12 h-16 bg-white rounded shadow-sm border flex flex-col items-center justify-center">
-                    <div className="w-4 h-4 bg-[#4CAF50] rounded-full mb-1"></div>
+                    <div className="w-4 h-4 bg-primary rounded-full mb-1"></div>
                     <div className="text-xs text-gray-600">32d</div>
                   </div>
                 </div>
@@ -78,7 +78,7 @@ export default function Features() {
               <div className="relative w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center mb-4">
                 <div className="flex items-center space-x-4">
                   <div className="flex flex-col items-center">
-                    <div className="w-8 h-8 bg-[#4CAF50] rounded-full flex items-center justify-center mb-2">
+                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center mb-2">
                       <span className="text-white text-sm font-bold">+</span>
                     </div>
                     <div className="text-xs text-gray-600">Add</div>
@@ -106,10 +106,10 @@ export default function Features() {
               <div className="relative w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center mb-4">
                 <div className="w-full max-w-32">
                   <div className="flex items-end space-x-2 h-20">
-                    <div className="w-6 bg-[#4CAF50] rounded-t" style={{height: '60%'}}></div>
+                    <div className="w-6 bg-primary rounded-t" style={{height: '60%'}}></div>
                     <div className="w-6 bg-red-500 rounded-t" style={{height: '30%'}}></div>
-                    <div className="w-6 bg-[#4CAF50] rounded-t" style={{height: '80%'}}></div>
-                    <div className="w-6 bg-[#4CAF50] rounded-t" style={{height: '45%'}}></div>
+                    <div className="w-6 bg-primary rounded-t" style={{height: '80%'}}></div>
+                    <div className="w-6 bg-primary rounded-t" style={{height: '45%'}}></div>
                   </div>
                   <div className="flex justify-between text-xs text-gray-600 mt-2">
                     <span>₹45K↑</span>
@@ -161,7 +161,7 @@ export default function Features() {
                     <span className="text-xs font-bold text-blue-800">1000</span>
                   </div>
                   <div className="text-2xl text-gray-400">=</div>
-                  <div className="w-12 h-12 bg-[#4CAF50] rounded-full flex items-center justify-center">
+                  <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center">
                     <span className="text-xs font-bold text-white">0.05</span>
                   </div>
                 </div>
@@ -178,10 +178,10 @@ export default function Features() {
               <div className="relative w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center mb-4">
                 <div className="flex flex-col items-center space-y-2">
                   <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-[#4CAF50] rounded-full flex items-center justify-center">
+                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
                       <span className="text-white text-xs">✓</span>
                     </div>
-                    <div className="w-8 h-8 bg-[#4CAF50] rounded-full flex items-center justify-center">
+                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
                       <span className="text-white text-xs">✓</span>
                     </div>
                     <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
@@ -205,15 +205,15 @@ export default function Features() {
               {/* Visual Illustration */}
               <div className="relative w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center mb-4">
                 <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-[#4CAF50] rounded-full flex items-center justify-center">
+                  <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
                     <span className="text-white text-xs">1</span>
                   </div>
                   <div className="w-1 h-4 bg-gray-300"></div>
-                  <div className="w-8 h-8 bg-[#4CAF50] rounded-full flex items-center justify-center">
+                  <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
                     <span className="text-white text-xs">2</span>
                   </div>
                   <div className="w-1 h-4 bg-gray-300"></div>
-                  <div className="w-8 h-8 bg-[#4CAF50] rounded-full flex items-center justify-center">
+                  <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
                     <span className="text-white text-xs">3</span>
                   </div>
                   <div className="w-1 h-4 bg-gray-300"></div>

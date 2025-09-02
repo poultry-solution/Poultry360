@@ -28,7 +28,7 @@ export default function Contact() {
                     type="text"
                     id="firstName"
                     name="firstName"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4CAF50] focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="Enter your first name"
                     required
                   />
@@ -41,7 +41,7 @@ export default function Contact() {
                     type="text"
                     id="lastName"
                     name="lastName"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4CAF50] focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="Enter your last name"
                     required
                   />
@@ -56,7 +56,7 @@ export default function Contact() {
                   type="email"
                   id="email"
                   name="email"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4CAF50] focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                   placeholder="Enter your email address"
                   required
                 />
@@ -82,7 +82,7 @@ export default function Contact() {
                 <select
                   id="farmType"
                   name="farmType"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4CAF50] focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
                   <option value="">Select your farm type</option>
                   <option value="broiler">Broiler Farming</option>
@@ -102,13 +102,13 @@ export default function Contact() {
                   id="message"
                   name="message"
                   rows={4}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4CAF50] focus:border-transparent resize-none"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
                   placeholder="Tell us about your poultry farming needs..."
                   required
                 ></textarea>
               </div>
 
-              <Button type="submit" className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-3 rounded-lg flex items-center justify-center">
+              <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 rounded-lg flex items-center justify-center">
                 <Send className="w-5 h-5 mr-2" />
                 Send Message
               </Button>
@@ -126,7 +126,7 @@ export default function Contact() {
 
             <div className="space-y-6">
               <div className="flex items-start space-x-4">
-                <div className="w-12 h-12 bg-[#4CAF50] rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
                   <Mail className="w-6 h-6 text-white" />
                 </div>
                 <div>
@@ -137,7 +137,7 @@ export default function Contact() {
               </div>
 
               <div className="flex items-start space-x-4">
-                <div className="w-12 h-12 bg-[#4CAF50] rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
                   <Phone className="w-6 h-6 text-white" />
                 </div>
                 <div>
@@ -148,7 +148,7 @@ export default function Contact() {
               </div>
 
               <div className="flex items-start space-x-4">
-                <div className="w-12 h-12 bg-[#4CAF50] rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
                   <MapPin className="w-6 h-6 text-white" />
                 </div>
                 <div>

@@ -91,7 +91,7 @@ model User {
   
   // Inventory
   inventoryItems InventoryItem[]
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
