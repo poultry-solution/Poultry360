@@ -1,0 +1,26 @@
+{
+  "name": "Poultry360",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "build:types": "rm -rf packages/shared-types/dist && pnpm --filter @myapp/shared-types build",
+    "watch:types": "pnpm --filter @myapp/shared-types exec tsc -w"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.15.1",
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0"
+  }
+}

@@ -1,0 +1,1734 @@
+import { z } from "zod";
+export declare const UserRoleSchema: z.ZodEnum<{
+    OWNER: "OWNER";
+    MANAGER: "MANAGER";
+}>;
+export type UserRole = z.infer<typeof UserRoleSchema>;
+export declare const BatchStatusSchema: z.ZodEnum<{
+    ACTIVE: "ACTIVE";
+    COMPLETED: "COMPLETED";
+    CANCELLED: "CANCELLED";
+}>;
+export type BatchStatus = z.infer<typeof BatchStatusSchema>;
+export declare const TransactionTypeSchema: z.ZodEnum<{
+    PURCHASE: "PURCHASE";
+    SALE: "SALE";
+    PAYMENT: "PAYMENT";
+    RECEIPT: "RECEIPT";
+    ADJUSTMENT: "ADJUSTMENT";
+    OPENING_BALANCE: "OPENING_BALANCE";
+}>;
+export type TransactionType = z.infer<typeof TransactionTypeSchema>;
+export declare const NotificationTypeSchema: z.ZodEnum<{
+    LOW_INVENTORY: "LOW_INVENTORY";
+    VACCINATION_DUE: "VACCINATION_DUE";
+    BATCH_COMPLETION: "BATCH_COMPLETION";
+    PAYMENT_DUE: "PAYMENT_DUE";
+    MORTALITY_ALERT: "MORTALITY_ALERT";
+}>;
+export type NotificationType = z.infer<typeof NotificationTypeSchema>;
+export declare const NotificationStatusSchema: z.ZodEnum<{
+    PENDING: "PENDING";
+    READ: "READ";
+    DISMISSED: "DISMISSED";
+}>;
+export type NotificationStatus = z.infer<typeof NotificationStatusSchema>;
+export declare const VaccinationStatusSchema: z.ZodEnum<{
+    COMPLETED: "COMPLETED";
+    PENDING: "PENDING";
+    MISSED: "MISSED";
+    OVERDUE: "OVERDUE";
+}>;
+export type VaccinationStatus = z.infer<typeof VaccinationStatusSchema>;
+export declare const AuditActionSchema: z.ZodEnum<{
+    CREATE: "CREATE";
+    UPDATE: "UPDATE";
+    DELETE: "DELETE";
+    LOGIN: "LOGIN";
+    LOGOUT: "LOGOUT";
+}>;
+export type AuditAction = z.infer<typeof AuditActionSchema>;
+export declare const CategoryTypeSchema: z.ZodEnum<{
+    EXPENSE: "EXPENSE";
+    SALES: "SALES";
+    INVENTORY: "INVENTORY";
+}>;
+export type CategoryType = z.infer<typeof CategoryTypeSchema>;
+export declare const BaseSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+}, z.core.$strip>;
+export declare const UserSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    email: z.ZodEmail;
+    name: z.ZodString;
+    phone: z.ZodString;
+    password: z.ZodString;
+    role: z.ZodEnum<{
+        OWNER: "OWNER";
+        MANAGER: "MANAGER";
+    }>;
+    gender: z.ZodEnum<{
+        MALE: "MALE";
+        FEMALE: "FEMALE";
+        OTHER: "OTHER";
+    }>;
+    status: z.ZodEnum<{
+        ACTIVE: "ACTIVE";
+        INACTIVE: "INACTIVE";
+        PENDING_VERIFICATION: "PENDING_VERIFICATION";
+    }>;
+    ownerId: z.ZodNullable<z.ZodString>;
+}, z.core.$strip>;
+export type User = z.infer<typeof UserSchema>;
+export declare const CreateUserSchema: z.ZodObject<{
+    email: z.ZodEmail;
+    name: z.ZodString;
+    phone: z.ZodString;
+    password: z.ZodString;
+    role: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+        OWNER: "OWNER";
+        MANAGER: "MANAGER";
+    }>>>;
+    gender: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+        MALE: "MALE";
+        FEMALE: "FEMALE";
+        OTHER: "OTHER";
+    }>>>;
+    ownerId: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export type CreateUser = z.infer<typeof CreateUserSchema>;
+export declare const UpdateUserSchema: z.ZodObject<{
+    email: z.ZodOptional<z.ZodEmail>;
+    name: z.ZodOptional<z.ZodString>;
+    phone: z.ZodOptional<z.ZodString>;
+    role: z.ZodOptional<z.ZodEnum<{
+        OWNER: "OWNER";
+        MANAGER: "MANAGER";
+    }>>;
+    gender: z.ZodOptional<z.ZodEnum<{
+        MALE: "MALE";
+        FEMALE: "FEMALE";
+        OTHER: "OTHER";
+    }>>;
+    status: z.ZodOptional<z.ZodEnum<{
+        ACTIVE: "ACTIVE";
+        INACTIVE: "INACTIVE";
+        PENDING_VERIFICATION: "PENDING_VERIFICATION";
+    }>>;
+    ownerId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+}, z.core.$strip>;
+export type UpdateUser = z.infer<typeof UpdateUserSchema>;
+export declare const FarmSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    name: z.ZodString;
+    location: z.ZodString;
+    capacity: z.ZodNumber;
+    description: z.ZodNullable<z.ZodString>;
+    ownerId: z.ZodString;
+    managers: z.ZodOptional<z.ZodArray<z.ZodString>>;
+}, z.core.$strip>;
+export type Farm = z.infer<typeof FarmSchema>;
+export declare const CreateFarmSchema: z.ZodObject<{
+    name: z.ZodString;
+    location: z.ZodString;
+    capacity: z.ZodNumber;
+    description: z.ZodOptional<z.ZodString>;
+    ownerId: z.ZodString;
+    managers: z.ZodOptional<z.ZodArray<z.ZodString>>;
+}, z.core.$strip>;
+export type CreateFarm = z.infer<typeof CreateFarmSchema>;
+export declare const UpdateFarmSchema: z.ZodObject<{
+    name: z.ZodOptional<z.ZodString>;
+    location: z.ZodOptional<z.ZodString>;
+    capacity: z.ZodOptional<z.ZodNumber>;
+    description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    ownerId: z.ZodOptional<z.ZodString>;
+    managers: z.ZodOptional<z.ZodArray<z.ZodString>>;
+}, z.core.$strip>;
+export type UpdateFarm = z.infer<typeof UpdateFarmSchema>;
+export declare const BatchSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    batchNumber: z.ZodString;
+    startDate: z.ZodISODateTime;
+    endDate: z.ZodNullable<z.ZodISODateTime>;
+    status: z.ZodEnum<{
+        ACTIVE: "ACTIVE";
+        COMPLETED: "COMPLETED";
+        CANCELLED: "CANCELLED";
+    }>;
+    initialChicks: z.ZodNumber;
+    initialChickWeight: z.ZodNumber;
+    farmId: z.ZodString;
+}, z.core.$strip>;
+export type Batch = z.infer<typeof BatchSchema>;
+export declare const CreateBatchSchema: z.ZodObject<{
+    batchNumber: z.ZodString;
+    startDate: z.ZodISODateTime;
+    endDate: z.ZodOptional<z.ZodISODateTime>;
+    status: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+        ACTIVE: "ACTIVE";
+        COMPLETED: "COMPLETED";
+        CANCELLED: "CANCELLED";
+    }>>>;
+    initialChicks: z.ZodNumber;
+    initialChickWeight: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
+}, z.core.$strip>;
+export type CreateBatch = z.infer<typeof CreateBatchSchema>;
+export declare const UpdateBatchSchema: z.ZodObject<{
+    batchNumber: z.ZodOptional<z.ZodString>;
+    startDate: z.ZodOptional<z.ZodISODateTime>;
+    endDate: z.ZodOptional<z.ZodNullable<z.ZodISODateTime>>;
+    status: z.ZodOptional<z.ZodEnum<{
+        ACTIVE: "ACTIVE";
+        COMPLETED: "COMPLETED";
+        CANCELLED: "CANCELLED";
+    }>>;
+    initialChicks: z.ZodOptional<z.ZodNumber>;
+    initialChickWeight: z.ZodOptional<z.ZodNumber>;
+}, z.core.$strip>;
+export type UpdateBatch = z.infer<typeof UpdateBatchSchema>;
+export declare const CategorySchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    name: z.ZodString;
+    type: z.ZodEnum<{
+        EXPENSE: "EXPENSE";
+        SALES: "SALES";
+        INVENTORY: "INVENTORY";
+    }>;
+    description: z.ZodNullable<z.ZodString>;
+    userId: z.ZodString;
+}, z.core.$strip>;
+export type Category = z.infer<typeof CategorySchema>;
+export declare const CreateCategorySchema: z.ZodObject<{
+    name: z.ZodString;
+    type: z.ZodEnum<{
+        EXPENSE: "EXPENSE";
+        SALES: "SALES";
+        INVENTORY: "INVENTORY";
+    }>;
+    description: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export type CreateCategory = z.infer<typeof CreateCategorySchema>;
+export declare const UpdateCategorySchema: z.ZodObject<{
+    name: z.ZodOptional<z.ZodString>;
+    type: z.ZodOptional<z.ZodEnum<{
+        EXPENSE: "EXPENSE";
+        SALES: "SALES";
+        INVENTORY: "INVENTORY";
+    }>>;
+    description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+}, z.core.$strip>;
+export type UpdateCategory = z.infer<typeof UpdateCategorySchema>;
+export declare const ExpenseSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    date: z.ZodString;
+    amount: z.ZodNumber;
+    description: z.ZodNullable<z.ZodString>;
+    quantity: z.ZodNullable<z.ZodNumber>;
+    unitPrice: z.ZodNullable<z.ZodNumber>;
+    farmId: z.ZodString;
+    batchId: z.ZodNullable<z.ZodString>;
+    categoryId: z.ZodString;
+}, z.core.$strip>;
+export type Expense = z.infer<typeof ExpenseSchema>;
+export declare const CreateExpenseSchema: z.ZodObject<{
+    date: z.ZodString;
+    amount: z.ZodNumber;
+    description: z.ZodOptional<z.ZodString>;
+    quantity: z.ZodOptional<z.ZodNumber>;
+    unitPrice: z.ZodOptional<z.ZodNumber>;
+    farmId: z.ZodString;
+    batchId: z.ZodOptional<z.ZodString>;
+    categoryId: z.ZodString;
+}, z.core.$strip>;
+export type CreateExpense = z.infer<typeof CreateExpenseSchema>;
+export declare const UpdateExpenseSchema: z.ZodObject<{
+    date: z.ZodOptional<z.ZodString>;
+    amount: z.ZodOptional<z.ZodNumber>;
+    description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    quantity: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    unitPrice: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    farmId: z.ZodOptional<z.ZodString>;
+    batchId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    categoryId: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export type UpdateExpense = z.infer<typeof UpdateExpenseSchema>;
+export declare const SaleSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    date: z.ZodString;
+    amount: z.ZodNumber;
+    quantity: z.ZodNumber;
+    unitPrice: z.ZodNumber;
+    description: z.ZodNullable<z.ZodString>;
+    isCredit: z.ZodBoolean;
+    paidAmount: z.ZodNumber;
+    dueAmount: z.ZodNullable<z.ZodNumber>;
+    farmId: z.ZodString;
+    batchId: z.ZodNullable<z.ZodString>;
+    categoryId: z.ZodString;
+    customerId: z.ZodNullable<z.ZodString>;
+}, z.core.$strip>;
+export type Sale = z.infer<typeof SaleSchema>;
+export declare const CreateSaleSchema: z.ZodObject<{
+    date: z.ZodString;
+    amount: z.ZodNumber;
+    quantity: z.ZodNumber;
+    unitPrice: z.ZodNumber;
+    description: z.ZodOptional<z.ZodString>;
+    isCredit: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
+    paidAmount: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
+    dueAmount: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
+    farmId: z.ZodString;
+    batchId: z.ZodOptional<z.ZodString>;
+    categoryId: z.ZodString;
+    customerId: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export type CreateSale = z.infer<typeof CreateSaleSchema>;
+export declare const UpdateSaleSchema: z.ZodObject<{
+    date: z.ZodOptional<z.ZodString>;
+    amount: z.ZodOptional<z.ZodNumber>;
+    quantity: z.ZodOptional<z.ZodNumber>;
+    unitPrice: z.ZodOptional<z.ZodNumber>;
+    description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    isCredit: z.ZodOptional<z.ZodBoolean>;
+    paidAmount: z.ZodOptional<z.ZodNumber>;
+    dueAmount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    farmId: z.ZodOptional<z.ZodString>;
+    batchId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    categoryId: z.ZodOptional<z.ZodString>;
+    customerId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+}, z.core.$strip>;
+export type UpdateSale = z.infer<typeof UpdateSaleSchema>;
+export declare const SalePaymentSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    amount: z.ZodNumber;
+    date: z.ZodString;
+    description: z.ZodNullable<z.ZodString>;
+    saleId: z.ZodString;
+}, z.core.$strip>;
+export type SalePayment = z.infer<typeof SalePaymentSchema>;
+export declare const CreateSalePaymentSchema: z.ZodObject<{
+    amount: z.ZodNumber;
+    date: z.ZodDefault<z.ZodOptional<z.ZodString>>;
+    description: z.ZodOptional<z.ZodString>;
+    saleId: z.ZodString;
+}, z.core.$strip>;
+export type CreateSalePayment = z.infer<typeof CreateSalePaymentSchema>;
+export declare const InventoryItemSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    name: z.ZodString;
+    description: z.ZodNullable<z.ZodString>;
+    currentStock: z.ZodNumber;
+    unit: z.ZodString;
+    minStock: z.ZodNullable<z.ZodNumber>;
+    userId: z.ZodString;
+    categoryId: z.ZodString;
+}, z.core.$strip>;
+export type InventoryItem = z.infer<typeof InventoryItemSchema>;
+export declare const CreateInventoryItemSchema: z.ZodObject<{
+    name: z.ZodString;
+    description: z.ZodOptional<z.ZodString>;
+    currentStock: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
+    unit: z.ZodString;
+    minStock: z.ZodOptional<z.ZodNumber>;
+    categoryId: z.ZodString;
+}, z.core.$strip>;
+export type CreateInventoryItem = z.infer<typeof CreateInventoryItemSchema>;
+export declare const UpdateInventoryItemSchema: z.ZodObject<{
+    name: z.ZodOptional<z.ZodString>;
+    description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    currentStock: z.ZodOptional<z.ZodNumber>;
+    unit: z.ZodOptional<z.ZodString>;
+    minStock: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    categoryId: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export type UpdateInventoryItem = z.infer<typeof UpdateInventoryItemSchema>;
+export declare const InventoryTransactionSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    type: z.ZodEnum<{
+        PURCHASE: "PURCHASE";
+        SALE: "SALE";
+        PAYMENT: "PAYMENT";
+        RECEIPT: "RECEIPT";
+        ADJUSTMENT: "ADJUSTMENT";
+        OPENING_BALANCE: "OPENING_BALANCE";
+    }>;
+    quantity: z.ZodNumber;
+    unitPrice: z.ZodNumber;
+    totalAmount: z.ZodNumber;
+    date: z.ZodString;
+    description: z.ZodNullable<z.ZodString>;
+    itemId: z.ZodString;
+}, z.core.$strip>;
+export type InventoryTransaction = z.infer<typeof InventoryTransactionSchema>;
+export declare const CreateInventoryTransactionSchema: z.ZodObject<{
+    type: z.ZodEnum<{
+        PURCHASE: "PURCHASE";
+        SALE: "SALE";
+        PAYMENT: "PAYMENT";
+        RECEIPT: "RECEIPT";
+        ADJUSTMENT: "ADJUSTMENT";
+        OPENING_BALANCE: "OPENING_BALANCE";
+    }>;
+    quantity: z.ZodNumber;
+    unitPrice: z.ZodNumber;
+    totalAmount: z.ZodNumber;
+    date: z.ZodString;
+    description: z.ZodOptional<z.ZodString>;
+    itemId: z.ZodString;
+}, z.core.$strip>;
+export type CreateInventoryTransaction = z.infer<typeof CreateInventoryTransactionSchema>;
+export declare const InventoryUsageSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    date: z.ZodString;
+    quantity: z.ZodNumber;
+    unitPrice: z.ZodNullable<z.ZodNumber>;
+    totalAmount: z.ZodNullable<z.ZodNumber>;
+    notes: z.ZodNullable<z.ZodString>;
+    itemId: z.ZodString;
+    expenseId: z.ZodNullable<z.ZodString>;
+    batchId: z.ZodNullable<z.ZodString>;
+    farmId: z.ZodString;
+}, z.core.$strip>;
+export type InventoryUsage = z.infer<typeof InventoryUsageSchema>;
+export declare const CreateInventoryUsageSchema: z.ZodObject<{
+    date: z.ZodString;
+    quantity: z.ZodNumber;
+    unitPrice: z.ZodOptional<z.ZodNumber>;
+    totalAmount: z.ZodOptional<z.ZodNumber>;
+    notes: z.ZodOptional<z.ZodString>;
+    itemId: z.ZodString;
+    expenseId: z.ZodOptional<z.ZodString>;
+    batchId: z.ZodOptional<z.ZodString>;
+    farmId: z.ZodString;
+}, z.core.$strip>;
+export type CreateInventoryUsage = z.infer<typeof CreateInventoryUsageSchema>;
+export declare const EntityTransactionSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    type: z.ZodEnum<{
+        PURCHASE: "PURCHASE";
+        SALE: "SALE";
+        PAYMENT: "PAYMENT";
+        RECEIPT: "RECEIPT";
+        ADJUSTMENT: "ADJUSTMENT";
+        OPENING_BALANCE: "OPENING_BALANCE";
+    }>;
+    amount: z.ZodNumber;
+    quantity: z.ZodNullable<z.ZodNumber>;
+    itemName: z.ZodNullable<z.ZodString>;
+    date: z.ZodString;
+    description: z.ZodNullable<z.ZodString>;
+    reference: z.ZodNullable<z.ZodString>;
+    entityType: z.ZodString;
+    entityId: z.ZodString;
+}, z.core.$strip>;
+export type EntityTransaction = z.infer<typeof EntityTransactionSchema>;
+export declare const CreateEntityTransactionSchema: z.ZodObject<{
+    type: z.ZodEnum<{
+        PURCHASE: "PURCHASE";
+        SALE: "SALE";
+        PAYMENT: "PAYMENT";
+        RECEIPT: "RECEIPT";
+        ADJUSTMENT: "ADJUSTMENT";
+        OPENING_BALANCE: "OPENING_BALANCE";
+    }>;
+    amount: z.ZodNumber;
+    quantity: z.ZodOptional<z.ZodNumber>;
+    itemName: z.ZodOptional<z.ZodString>;
+    date: z.ZodString;
+    description: z.ZodOptional<z.ZodString>;
+    reference: z.ZodOptional<z.ZodString>;
+    entityType: z.ZodString;
+    entityId: z.ZodString;
+}, z.core.$strip>;
+export type CreateEntityTransaction = z.infer<typeof CreateEntityTransactionSchema>;
+export declare const DealerSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    name: z.ZodString;
+    contact: z.ZodString;
+    address: z.ZodNullable<z.ZodString>;
+    userId: z.ZodString;
+}, z.core.$strip>;
+export type Dealer = z.infer<typeof DealerSchema>;
+export declare const CreateDealerSchema: z.ZodObject<{
+    name: z.ZodString;
+    contact: z.ZodString;
+    address: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export type CreateDealer = z.infer<typeof CreateDealerSchema>;
+export declare const UpdateDealerSchema: z.ZodObject<{
+    name: z.ZodOptional<z.ZodString>;
+    contact: z.ZodOptional<z.ZodString>;
+    address: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+}, z.core.$strip>;
+export type UpdateDealer = z.infer<typeof UpdateDealerSchema>;
+export declare const HatcherySchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    name: z.ZodString;
+    contact: z.ZodString;
+    address: z.ZodNullable<z.ZodString>;
+    userId: z.ZodString;
+}, z.core.$strip>;
+export type Hatchery = z.infer<typeof HatcherySchema>;
+export declare const CreateHatcherySchema: z.ZodObject<{
+    name: z.ZodString;
+    contact: z.ZodString;
+    address: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export type CreateHatchery = z.infer<typeof CreateHatcherySchema>;
+export declare const UpdateHatcherySchema: z.ZodObject<{
+    name: z.ZodOptional<z.ZodString>;
+    contact: z.ZodOptional<z.ZodString>;
+    address: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+}, z.core.$strip>;
+export type UpdateHatchery = z.infer<typeof UpdateHatcherySchema>;
+export declare const MedicineSupplierSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    name: z.ZodString;
+    contact: z.ZodString;
+    address: z.ZodNullable<z.ZodString>;
+    userId: z.ZodString;
+}, z.core.$strip>;
+export type MedicineSupplier = z.infer<typeof MedicineSupplierSchema>;
+export declare const CreateMedicineSupplierSchema: z.ZodObject<{
+    name: z.ZodString;
+    contact: z.ZodString;
+    address: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export type CreateMedicineSupplier = z.infer<typeof CreateMedicineSupplierSchema>;
+export declare const UpdateMedicineSupplierSchema: z.ZodObject<{
+    name: z.ZodOptional<z.ZodString>;
+    contact: z.ZodOptional<z.ZodString>;
+    address: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+}, z.core.$strip>;
+export type UpdateMedicineSupplier = z.infer<typeof UpdateMedicineSupplierSchema>;
+export declare const CustomerSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    name: z.ZodString;
+    phone: z.ZodString;
+    category: z.ZodNullable<z.ZodString>;
+    address: z.ZodNullable<z.ZodString>;
+    balance: z.ZodNumber;
+    userId: z.ZodString;
+}, z.core.$strip>;
+export type Customer = z.infer<typeof CustomerSchema>;
+export declare const CreateCustomerSchema: z.ZodObject<{
+    name: z.ZodString;
+    phone: z.ZodString;
+    category: z.ZodOptional<z.ZodString>;
+    address: z.ZodOptional<z.ZodString>;
+    balance: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
+}, z.core.$strip>;
+export type CreateCustomer = z.infer<typeof CreateCustomerSchema>;
+export declare const UpdateCustomerSchema: z.ZodObject<{
+    name: z.ZodOptional<z.ZodString>;
+    phone: z.ZodOptional<z.ZodString>;
+    category: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    address: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    balance: z.ZodOptional<z.ZodNumber>;
+}, z.core.$strip>;
+export type UpdateCustomer = z.infer<typeof UpdateCustomerSchema>;
+export declare const CustomerTransactionSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    type: z.ZodEnum<{
+        PURCHASE: "PURCHASE";
+        SALE: "SALE";
+        PAYMENT: "PAYMENT";
+        RECEIPT: "RECEIPT";
+        ADJUSTMENT: "ADJUSTMENT";
+        OPENING_BALANCE: "OPENING_BALANCE";
+    }>;
+    amount: z.ZodNumber;
+    date: z.ZodString;
+    description: z.ZodNullable<z.ZodString>;
+    reference: z.ZodNullable<z.ZodString>;
+    customerId: z.ZodString;
+}, z.core.$strip>;
+export type CustomerTransaction = z.infer<typeof CustomerTransactionSchema>;
+export declare const CreateCustomerTransactionSchema: z.ZodObject<{
+    type: z.ZodEnum<{
+        PURCHASE: "PURCHASE";
+        SALE: "SALE";
+        PAYMENT: "PAYMENT";
+        RECEIPT: "RECEIPT";
+        ADJUSTMENT: "ADJUSTMENT";
+        OPENING_BALANCE: "OPENING_BALANCE";
+    }>;
+    amount: z.ZodNumber;
+    date: z.ZodString;
+    description: z.ZodOptional<z.ZodString>;
+    reference: z.ZodOptional<z.ZodString>;
+    customerId: z.ZodString;
+}, z.core.$strip>;
+export type CreateCustomerTransaction = z.infer<typeof CreateCustomerTransactionSchema>;
+export declare const MortalitySchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    date: z.ZodString;
+    count: z.ZodNumber;
+    reason: z.ZodNullable<z.ZodString>;
+    batchId: z.ZodString;
+}, z.core.$strip>;
+export type Mortality = z.infer<typeof MortalitySchema>;
+export declare const CreateMortalitySchema: z.ZodObject<{
+    date: z.ZodString;
+    count: z.ZodNumber;
+    reason: z.ZodOptional<z.ZodString>;
+    batchId: z.ZodString;
+}, z.core.$strip>;
+export type CreateMortality = z.infer<typeof CreateMortalitySchema>;
+export declare const UpdateMortalitySchema: z.ZodObject<{
+    date: z.ZodOptional<z.ZodString>;
+    count: z.ZodOptional<z.ZodNumber>;
+    reason: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+}, z.core.$strip>;
+export type UpdateMortality = z.infer<typeof UpdateMortalitySchema>;
+export declare const VaccinationSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    vaccineName: z.ZodString;
+    scheduledDate: z.ZodString;
+    completedDate: z.ZodNullable<z.ZodString>;
+    status: z.ZodEnum<{
+        COMPLETED: "COMPLETED";
+        PENDING: "PENDING";
+        MISSED: "MISSED";
+        OVERDUE: "OVERDUE";
+    }>;
+    notes: z.ZodNullable<z.ZodString>;
+    batchId: z.ZodString;
+}, z.core.$strip>;
+export type Vaccination = z.infer<typeof VaccinationSchema>;
+export declare const CreateVaccinationSchema: z.ZodObject<{
+    vaccineName: z.ZodString;
+    scheduledDate: z.ZodString;
+    completedDate: z.ZodOptional<z.ZodString>;
+    status: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+        COMPLETED: "COMPLETED";
+        PENDING: "PENDING";
+        MISSED: "MISSED";
+        OVERDUE: "OVERDUE";
+    }>>>;
+    notes: z.ZodOptional<z.ZodString>;
+    batchId: z.ZodString;
+}, z.core.$strip>;
+export type CreateVaccination = z.infer<typeof CreateVaccinationSchema>;
+export declare const UpdateVaccinationSchema: z.ZodObject<{
+    vaccineName: z.ZodOptional<z.ZodString>;
+    scheduledDate: z.ZodOptional<z.ZodString>;
+    completedDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    status: z.ZodOptional<z.ZodEnum<{
+        COMPLETED: "COMPLETED";
+        PENDING: "PENDING";
+        MISSED: "MISSED";
+        OVERDUE: "OVERDUE";
+    }>>;
+    notes: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+}, z.core.$strip>;
+export type UpdateVaccination = z.infer<typeof UpdateVaccinationSchema>;
+export declare const FeedConsumptionSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    date: z.ZodString;
+    quantity: z.ZodNumber;
+    feedType: z.ZodString;
+    batchId: z.ZodString;
+}, z.core.$strip>;
+export type FeedConsumption = z.infer<typeof FeedConsumptionSchema>;
+export declare const CreateFeedConsumptionSchema: z.ZodObject<{
+    date: z.ZodString;
+    quantity: z.ZodNumber;
+    feedType: z.ZodString;
+    batchId: z.ZodString;
+}, z.core.$strip>;
+export type CreateFeedConsumption = z.infer<typeof CreateFeedConsumptionSchema>;
+export declare const UpdateFeedConsumptionSchema: z.ZodObject<{
+    date: z.ZodOptional<z.ZodString>;
+    quantity: z.ZodOptional<z.ZodNumber>;
+    feedType: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export type UpdateFeedConsumption = z.infer<typeof UpdateFeedConsumptionSchema>;
+export declare const BirdWeightSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    date: z.ZodString;
+    avgWeight: z.ZodNumber;
+    sampleCount: z.ZodNumber;
+    batchId: z.ZodString;
+}, z.core.$strip>;
+export type BirdWeight = z.infer<typeof BirdWeightSchema>;
+export declare const CreateBirdWeightSchema: z.ZodObject<{
+    date: z.ZodString;
+    avgWeight: z.ZodNumber;
+    sampleCount: z.ZodNumber;
+    batchId: z.ZodString;
+}, z.core.$strip>;
+export type CreateBirdWeight = z.infer<typeof CreateBirdWeightSchema>;
+export declare const UpdateBirdWeightSchema: z.ZodObject<{
+    date: z.ZodOptional<z.ZodString>;
+    avgWeight: z.ZodOptional<z.ZodNumber>;
+    sampleCount: z.ZodOptional<z.ZodNumber>;
+}, z.core.$strip>;
+export type UpdateBirdWeight = z.infer<typeof UpdateBirdWeightSchema>;
+export declare const NotificationSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    type: z.ZodEnum<{
+        LOW_INVENTORY: "LOW_INVENTORY";
+        VACCINATION_DUE: "VACCINATION_DUE";
+        BATCH_COMPLETION: "BATCH_COMPLETION";
+        PAYMENT_DUE: "PAYMENT_DUE";
+        MORTALITY_ALERT: "MORTALITY_ALERT";
+    }>;
+    title: z.ZodString;
+    message: z.ZodString;
+    status: z.ZodEnum<{
+        PENDING: "PENDING";
+        READ: "READ";
+        DISMISSED: "DISMISSED";
+    }>;
+    data: z.ZodNullable<z.ZodAny>;
+    userId: z.ZodString;
+}, z.core.$strip>;
+export type Notification = z.infer<typeof NotificationSchema>;
+export declare const CreateNotificationSchema: z.ZodObject<{
+    type: z.ZodEnum<{
+        LOW_INVENTORY: "LOW_INVENTORY";
+        VACCINATION_DUE: "VACCINATION_DUE";
+        BATCH_COMPLETION: "BATCH_COMPLETION";
+        PAYMENT_DUE: "PAYMENT_DUE";
+        MORTALITY_ALERT: "MORTALITY_ALERT";
+    }>;
+    title: z.ZodString;
+    message: z.ZodString;
+    status: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+        PENDING: "PENDING";
+        READ: "READ";
+        DISMISSED: "DISMISSED";
+    }>>>;
+    data: z.ZodOptional<z.ZodAny>;
+    userId: z.ZodString;
+}, z.core.$strip>;
+export type CreateNotification = z.infer<typeof CreateNotificationSchema>;
+export declare const UpdateNotificationSchema: z.ZodObject<{
+    type: z.ZodOptional<z.ZodEnum<{
+        LOW_INVENTORY: "LOW_INVENTORY";
+        VACCINATION_DUE: "VACCINATION_DUE";
+        BATCH_COMPLETION: "BATCH_COMPLETION";
+        PAYMENT_DUE: "PAYMENT_DUE";
+        MORTALITY_ALERT: "MORTALITY_ALERT";
+    }>>;
+    title: z.ZodOptional<z.ZodString>;
+    message: z.ZodOptional<z.ZodString>;
+    status: z.ZodOptional<z.ZodEnum<{
+        PENDING: "PENDING";
+        READ: "READ";
+        DISMISSED: "DISMISSED";
+    }>>;
+    data: z.ZodOptional<z.ZodNullable<z.ZodAny>>;
+}, z.core.$strip>;
+export type UpdateNotification = z.infer<typeof UpdateNotificationSchema>;
+export declare const AuditLogSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    action: z.ZodEnum<{
+        CREATE: "CREATE";
+        UPDATE: "UPDATE";
+        DELETE: "DELETE";
+        LOGIN: "LOGIN";
+        LOGOUT: "LOGOUT";
+    }>;
+    tableName: z.ZodString;
+    recordId: z.ZodString;
+    oldValues: z.ZodNullable<z.ZodAny>;
+    newValues: z.ZodNullable<z.ZodAny>;
+    ipAddress: z.ZodNullable<z.ZodString>;
+    userAgent: z.ZodNullable<z.ZodString>;
+    userId: z.ZodString;
+}, z.core.$strip>;
+export type AuditLog = z.infer<typeof AuditLogSchema>;
+export declare const CreateAuditLogSchema: z.ZodObject<{
+    action: z.ZodEnum<{
+        CREATE: "CREATE";
+        UPDATE: "UPDATE";
+        DELETE: "DELETE";
+        LOGIN: "LOGIN";
+        LOGOUT: "LOGOUT";
+    }>;
+    tableName: z.ZodString;
+    recordId: z.ZodString;
+    oldValues: z.ZodOptional<z.ZodAny>;
+    newValues: z.ZodOptional<z.ZodAny>;
+    ipAddress: z.ZodOptional<z.ZodString>;
+    userAgent: z.ZodOptional<z.ZodString>;
+    userId: z.ZodString;
+}, z.core.$strip>;
+export type CreateAuditLog = z.infer<typeof CreateAuditLogSchema>;
+export declare const LoginSchema: z.ZodObject<{
+    emailOrPhone: z.ZodString;
+    password: z.ZodString;
+}, z.core.$strip>;
+export type Login = z.infer<typeof LoginSchema>;
+export declare const SignupSchema: z.ZodObject<{
+    name: z.ZodString;
+    email: z.ZodEmail;
+    phone: z.ZodString;
+    password: z.ZodString;
+    gender: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+        MALE: "MALE";
+        FEMALE: "FEMALE";
+        OTHER: "OTHER";
+    }>>>;
+    role: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+        OWNER: "OWNER";
+        MANAGER: "MANAGER";
+    }>>>;
+}, z.core.$strip>;
+export type Signup = z.infer<typeof SignupSchema>;
+export declare const BatchAnalyticsSchema: z.ZodObject<{
+    batchId: z.ZodString;
+    currentChicks: z.ZodNumber;
+    totalMortality: z.ZodNumber;
+    totalExpenses: z.ZodNumber;
+    totalSales: z.ZodNumber;
+    fcr: z.ZodNullable<z.ZodNumber>;
+    avgWeight: z.ZodNullable<z.ZodNumber>;
+    daysActive: z.ZodNumber;
+}, z.core.$strip>;
+export type BatchAnalytics = z.infer<typeof BatchAnalyticsSchema>;
+export declare const FarmAnalyticsSchema: z.ZodObject<{
+    farmId: z.ZodString;
+    totalBatches: z.ZodNumber;
+    activeBatches: z.ZodNumber;
+    totalExpenses: z.ZodNumber;
+    totalSales: z.ZodNumber;
+    profit: z.ZodNumber;
+    profitMargin: z.ZodNumber;
+}, z.core.$strip>;
+export type FarmAnalytics = z.infer<typeof FarmAnalyticsSchema>;
+export declare const UserResponseSchema: z.ZodObject<{
+    id: z.ZodString;
+    name: z.ZodString;
+    email: z.ZodString;
+    phone: z.ZodString;
+    role: z.ZodEnum<{
+        OWNER: "OWNER";
+        MANAGER: "MANAGER";
+    }>;
+    gender: z.ZodEnum<{
+        MALE: "MALE";
+        FEMALE: "FEMALE";
+        OTHER: "OTHER";
+    }>;
+    status: z.ZodEnum<{
+        ACTIVE: "ACTIVE";
+        INACTIVE: "INACTIVE";
+        PENDING_VERIFICATION: "PENDING_VERIFICATION";
+    }>;
+    managedFarms: z.ZodOptional<z.ZodArray<z.ZodString>>;
+}, z.core.$strip>;
+export type UserResponse = z.infer<typeof UserResponseSchema>;
+export declare const AuthResponseSchema: z.ZodObject<{
+    accessToken: z.ZodString;
+    user: z.ZodObject<{
+        id: z.ZodString;
+        name: z.ZodString;
+        email: z.ZodString;
+        phone: z.ZodString;
+        role: z.ZodEnum<{
+            OWNER: "OWNER";
+            MANAGER: "MANAGER";
+        }>;
+        gender: z.ZodEnum<{
+            MALE: "MALE";
+            FEMALE: "FEMALE";
+            OTHER: "OTHER";
+        }>;
+        status: z.ZodEnum<{
+            ACTIVE: "ACTIVE";
+            INACTIVE: "INACTIVE";
+            PENDING_VERIFICATION: "PENDING_VERIFICATION";
+        }>;
+        managedFarms: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    }, z.core.$strip>;
+}, z.core.$strip>;
+export type AuthResponse = z.infer<typeof AuthResponseSchema>;
+export declare const schemas: {
+    readonly UserRole: z.ZodEnum<{
+        OWNER: "OWNER";
+        MANAGER: "MANAGER";
+    }>;
+    readonly BatchStatus: z.ZodEnum<{
+        ACTIVE: "ACTIVE";
+        COMPLETED: "COMPLETED";
+        CANCELLED: "CANCELLED";
+    }>;
+    readonly TransactionType: z.ZodEnum<{
+        PURCHASE: "PURCHASE";
+        SALE: "SALE";
+        PAYMENT: "PAYMENT";
+        RECEIPT: "RECEIPT";
+        ADJUSTMENT: "ADJUSTMENT";
+        OPENING_BALANCE: "OPENING_BALANCE";
+    }>;
+    readonly NotificationType: z.ZodEnum<{
+        LOW_INVENTORY: "LOW_INVENTORY";
+        VACCINATION_DUE: "VACCINATION_DUE";
+        BATCH_COMPLETION: "BATCH_COMPLETION";
+        PAYMENT_DUE: "PAYMENT_DUE";
+        MORTALITY_ALERT: "MORTALITY_ALERT";
+    }>;
+    readonly NotificationStatus: z.ZodEnum<{
+        PENDING: "PENDING";
+        READ: "READ";
+        DISMISSED: "DISMISSED";
+    }>;
+    readonly VaccinationStatus: z.ZodEnum<{
+        COMPLETED: "COMPLETED";
+        PENDING: "PENDING";
+        MISSED: "MISSED";
+        OVERDUE: "OVERDUE";
+    }>;
+    readonly AuditAction: z.ZodEnum<{
+        CREATE: "CREATE";
+        UPDATE: "UPDATE";
+        DELETE: "DELETE";
+        LOGIN: "LOGIN";
+        LOGOUT: "LOGOUT";
+    }>;
+    readonly CategoryType: z.ZodEnum<{
+        EXPENSE: "EXPENSE";
+        SALES: "SALES";
+        INVENTORY: "INVENTORY";
+    }>;
+    readonly Base: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+    }, z.core.$strip>;
+    readonly User: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        email: z.ZodEmail;
+        name: z.ZodString;
+        phone: z.ZodString;
+        password: z.ZodString;
+        role: z.ZodEnum<{
+            OWNER: "OWNER";
+            MANAGER: "MANAGER";
+        }>;
+        gender: z.ZodEnum<{
+            MALE: "MALE";
+            FEMALE: "FEMALE";
+            OTHER: "OTHER";
+        }>;
+        status: z.ZodEnum<{
+            ACTIVE: "ACTIVE";
+            INACTIVE: "INACTIVE";
+            PENDING_VERIFICATION: "PENDING_VERIFICATION";
+        }>;
+        ownerId: z.ZodNullable<z.ZodString>;
+    }, z.core.$strip>;
+    readonly CreateUser: z.ZodObject<{
+        email: z.ZodEmail;
+        name: z.ZodString;
+        phone: z.ZodString;
+        password: z.ZodString;
+        role: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+            OWNER: "OWNER";
+            MANAGER: "MANAGER";
+        }>>>;
+        gender: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+            MALE: "MALE";
+            FEMALE: "FEMALE";
+            OTHER: "OTHER";
+        }>>>;
+        ownerId: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>;
+    readonly UpdateUser: z.ZodObject<{
+        email: z.ZodOptional<z.ZodEmail>;
+        name: z.ZodOptional<z.ZodString>;
+        phone: z.ZodOptional<z.ZodString>;
+        role: z.ZodOptional<z.ZodEnum<{
+            OWNER: "OWNER";
+            MANAGER: "MANAGER";
+        }>>;
+        gender: z.ZodOptional<z.ZodEnum<{
+            MALE: "MALE";
+            FEMALE: "FEMALE";
+            OTHER: "OTHER";
+        }>>;
+        status: z.ZodOptional<z.ZodEnum<{
+            ACTIVE: "ACTIVE";
+            INACTIVE: "INACTIVE";
+            PENDING_VERIFICATION: "PENDING_VERIFICATION";
+        }>>;
+        ownerId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    }, z.core.$strip>;
+    readonly Farm: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        name: z.ZodString;
+        location: z.ZodString;
+        capacity: z.ZodNumber;
+        description: z.ZodNullable<z.ZodString>;
+        ownerId: z.ZodString;
+        managers: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    }, z.core.$strip>;
+    readonly CreateFarm: z.ZodObject<{
+        name: z.ZodString;
+        location: z.ZodString;
+        capacity: z.ZodNumber;
+        description: z.ZodOptional<z.ZodString>;
+        ownerId: z.ZodString;
+        managers: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    }, z.core.$strip>;
+    readonly UpdateFarm: z.ZodObject<{
+        name: z.ZodOptional<z.ZodString>;
+        location: z.ZodOptional<z.ZodString>;
+        capacity: z.ZodOptional<z.ZodNumber>;
+        description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        ownerId: z.ZodOptional<z.ZodString>;
+        managers: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    }, z.core.$strip>;
+    readonly Batch: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        batchNumber: z.ZodString;
+        startDate: z.ZodISODateTime;
+        endDate: z.ZodNullable<z.ZodISODateTime>;
+        status: z.ZodEnum<{
+            ACTIVE: "ACTIVE";
+            COMPLETED: "COMPLETED";
+            CANCELLED: "CANCELLED";
+        }>;
+        initialChicks: z.ZodNumber;
+        initialChickWeight: z.ZodNumber;
+        farmId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateBatch: z.ZodObject<{
+        batchNumber: z.ZodString;
+        startDate: z.ZodISODateTime;
+        endDate: z.ZodOptional<z.ZodISODateTime>;
+        status: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+            ACTIVE: "ACTIVE";
+            COMPLETED: "COMPLETED";
+            CANCELLED: "CANCELLED";
+        }>>>;
+        initialChicks: z.ZodNumber;
+        initialChickWeight: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
+    }, z.core.$strip>;
+    readonly UpdateBatch: z.ZodObject<{
+        batchNumber: z.ZodOptional<z.ZodString>;
+        startDate: z.ZodOptional<z.ZodISODateTime>;
+        endDate: z.ZodOptional<z.ZodNullable<z.ZodISODateTime>>;
+        status: z.ZodOptional<z.ZodEnum<{
+            ACTIVE: "ACTIVE";
+            COMPLETED: "COMPLETED";
+            CANCELLED: "CANCELLED";
+        }>>;
+        initialChicks: z.ZodOptional<z.ZodNumber>;
+        initialChickWeight: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strip>;
+    readonly Category: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        name: z.ZodString;
+        type: z.ZodEnum<{
+            EXPENSE: "EXPENSE";
+            SALES: "SALES";
+            INVENTORY: "INVENTORY";
+        }>;
+        description: z.ZodNullable<z.ZodString>;
+        userId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateCategory: z.ZodObject<{
+        name: z.ZodString;
+        type: z.ZodEnum<{
+            EXPENSE: "EXPENSE";
+            SALES: "SALES";
+            INVENTORY: "INVENTORY";
+        }>;
+        description: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>;
+    readonly UpdateCategory: z.ZodObject<{
+        name: z.ZodOptional<z.ZodString>;
+        type: z.ZodOptional<z.ZodEnum<{
+            EXPENSE: "EXPENSE";
+            SALES: "SALES";
+            INVENTORY: "INVENTORY";
+        }>>;
+        description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    }, z.core.$strip>;
+    readonly Expense: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        date: z.ZodString;
+        amount: z.ZodNumber;
+        description: z.ZodNullable<z.ZodString>;
+        quantity: z.ZodNullable<z.ZodNumber>;
+        unitPrice: z.ZodNullable<z.ZodNumber>;
+        farmId: z.ZodString;
+        batchId: z.ZodNullable<z.ZodString>;
+        categoryId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateExpense: z.ZodObject<{
+        date: z.ZodString;
+        amount: z.ZodNumber;
+        description: z.ZodOptional<z.ZodString>;
+        quantity: z.ZodOptional<z.ZodNumber>;
+        unitPrice: z.ZodOptional<z.ZodNumber>;
+        farmId: z.ZodString;
+        batchId: z.ZodOptional<z.ZodString>;
+        categoryId: z.ZodString;
+    }, z.core.$strip>;
+    readonly UpdateExpense: z.ZodObject<{
+        date: z.ZodOptional<z.ZodString>;
+        amount: z.ZodOptional<z.ZodNumber>;
+        description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        quantity: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        unitPrice: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        farmId: z.ZodOptional<z.ZodString>;
+        batchId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        categoryId: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>;
+    readonly Sale: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        date: z.ZodString;
+        amount: z.ZodNumber;
+        quantity: z.ZodNumber;
+        unitPrice: z.ZodNumber;
+        description: z.ZodNullable<z.ZodString>;
+        isCredit: z.ZodBoolean;
+        paidAmount: z.ZodNumber;
+        dueAmount: z.ZodNullable<z.ZodNumber>;
+        farmId: z.ZodString;
+        batchId: z.ZodNullable<z.ZodString>;
+        categoryId: z.ZodString;
+        customerId: z.ZodNullable<z.ZodString>;
+    }, z.core.$strip>;
+    readonly CreateSale: z.ZodObject<{
+        date: z.ZodString;
+        amount: z.ZodNumber;
+        quantity: z.ZodNumber;
+        unitPrice: z.ZodNumber;
+        description: z.ZodOptional<z.ZodString>;
+        isCredit: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
+        paidAmount: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
+        dueAmount: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
+        farmId: z.ZodString;
+        batchId: z.ZodOptional<z.ZodString>;
+        categoryId: z.ZodString;
+        customerId: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>;
+    readonly UpdateSale: z.ZodObject<{
+        date: z.ZodOptional<z.ZodString>;
+        amount: z.ZodOptional<z.ZodNumber>;
+        quantity: z.ZodOptional<z.ZodNumber>;
+        unitPrice: z.ZodOptional<z.ZodNumber>;
+        description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        isCredit: z.ZodOptional<z.ZodBoolean>;
+        paidAmount: z.ZodOptional<z.ZodNumber>;
+        dueAmount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        farmId: z.ZodOptional<z.ZodString>;
+        batchId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        categoryId: z.ZodOptional<z.ZodString>;
+        customerId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    }, z.core.$strip>;
+    readonly SalePayment: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        amount: z.ZodNumber;
+        date: z.ZodString;
+        description: z.ZodNullable<z.ZodString>;
+        saleId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateSalePayment: z.ZodObject<{
+        amount: z.ZodNumber;
+        date: z.ZodDefault<z.ZodOptional<z.ZodString>>;
+        description: z.ZodOptional<z.ZodString>;
+        saleId: z.ZodString;
+    }, z.core.$strip>;
+    readonly InventoryItem: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        name: z.ZodString;
+        description: z.ZodNullable<z.ZodString>;
+        currentStock: z.ZodNumber;
+        unit: z.ZodString;
+        minStock: z.ZodNullable<z.ZodNumber>;
+        userId: z.ZodString;
+        categoryId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateInventoryItem: z.ZodObject<{
+        name: z.ZodString;
+        description: z.ZodOptional<z.ZodString>;
+        currentStock: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
+        unit: z.ZodString;
+        minStock: z.ZodOptional<z.ZodNumber>;
+        categoryId: z.ZodString;
+    }, z.core.$strip>;
+    readonly UpdateInventoryItem: z.ZodObject<{
+        name: z.ZodOptional<z.ZodString>;
+        description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        currentStock: z.ZodOptional<z.ZodNumber>;
+        unit: z.ZodOptional<z.ZodString>;
+        minStock: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        categoryId: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>;
+    readonly InventoryTransaction: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        type: z.ZodEnum<{
+            PURCHASE: "PURCHASE";
+            SALE: "SALE";
+            PAYMENT: "PAYMENT";
+            RECEIPT: "RECEIPT";
+            ADJUSTMENT: "ADJUSTMENT";
+            OPENING_BALANCE: "OPENING_BALANCE";
+        }>;
+        quantity: z.ZodNumber;
+        unitPrice: z.ZodNumber;
+        totalAmount: z.ZodNumber;
+        date: z.ZodString;
+        description: z.ZodNullable<z.ZodString>;
+        itemId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateInventoryTransaction: z.ZodObject<{
+        type: z.ZodEnum<{
+            PURCHASE: "PURCHASE";
+            SALE: "SALE";
+            PAYMENT: "PAYMENT";
+            RECEIPT: "RECEIPT";
+            ADJUSTMENT: "ADJUSTMENT";
+            OPENING_BALANCE: "OPENING_BALANCE";
+        }>;
+        quantity: z.ZodNumber;
+        unitPrice: z.ZodNumber;
+        totalAmount: z.ZodNumber;
+        date: z.ZodString;
+        description: z.ZodOptional<z.ZodString>;
+        itemId: z.ZodString;
+    }, z.core.$strip>;
+    readonly InventoryUsage: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        date: z.ZodString;
+        quantity: z.ZodNumber;
+        unitPrice: z.ZodNullable<z.ZodNumber>;
+        totalAmount: z.ZodNullable<z.ZodNumber>;
+        notes: z.ZodNullable<z.ZodString>;
+        itemId: z.ZodString;
+        expenseId: z.ZodNullable<z.ZodString>;
+        batchId: z.ZodNullable<z.ZodString>;
+        farmId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateInventoryUsage: z.ZodObject<{
+        date: z.ZodString;
+        quantity: z.ZodNumber;
+        unitPrice: z.ZodOptional<z.ZodNumber>;
+        totalAmount: z.ZodOptional<z.ZodNumber>;
+        notes: z.ZodOptional<z.ZodString>;
+        itemId: z.ZodString;
+        expenseId: z.ZodOptional<z.ZodString>;
+        batchId: z.ZodOptional<z.ZodString>;
+        farmId: z.ZodString;
+    }, z.core.$strip>;
+    readonly EntityTransaction: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        type: z.ZodEnum<{
+            PURCHASE: "PURCHASE";
+            SALE: "SALE";
+            PAYMENT: "PAYMENT";
+            RECEIPT: "RECEIPT";
+            ADJUSTMENT: "ADJUSTMENT";
+            OPENING_BALANCE: "OPENING_BALANCE";
+        }>;
+        amount: z.ZodNumber;
+        quantity: z.ZodNullable<z.ZodNumber>;
+        itemName: z.ZodNullable<z.ZodString>;
+        date: z.ZodString;
+        description: z.ZodNullable<z.ZodString>;
+        reference: z.ZodNullable<z.ZodString>;
+        entityType: z.ZodString;
+        entityId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateEntityTransaction: z.ZodObject<{
+        type: z.ZodEnum<{
+            PURCHASE: "PURCHASE";
+            SALE: "SALE";
+            PAYMENT: "PAYMENT";
+            RECEIPT: "RECEIPT";
+            ADJUSTMENT: "ADJUSTMENT";
+            OPENING_BALANCE: "OPENING_BALANCE";
+        }>;
+        amount: z.ZodNumber;
+        quantity: z.ZodOptional<z.ZodNumber>;
+        itemName: z.ZodOptional<z.ZodString>;
+        date: z.ZodString;
+        description: z.ZodOptional<z.ZodString>;
+        reference: z.ZodOptional<z.ZodString>;
+        entityType: z.ZodString;
+        entityId: z.ZodString;
+    }, z.core.$strip>;
+    readonly Dealer: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        name: z.ZodString;
+        contact: z.ZodString;
+        address: z.ZodNullable<z.ZodString>;
+        userId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateDealer: z.ZodObject<{
+        name: z.ZodString;
+        contact: z.ZodString;
+        address: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>;
+    readonly UpdateDealer: z.ZodObject<{
+        name: z.ZodOptional<z.ZodString>;
+        contact: z.ZodOptional<z.ZodString>;
+        address: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    }, z.core.$strip>;
+    readonly Hatchery: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        name: z.ZodString;
+        contact: z.ZodString;
+        address: z.ZodNullable<z.ZodString>;
+        userId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateHatchery: z.ZodObject<{
+        name: z.ZodString;
+        contact: z.ZodString;
+        address: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>;
+    readonly UpdateHatchery: z.ZodObject<{
+        name: z.ZodOptional<z.ZodString>;
+        contact: z.ZodOptional<z.ZodString>;
+        address: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    }, z.core.$strip>;
+    readonly MedicineSupplier: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        name: z.ZodString;
+        contact: z.ZodString;
+        address: z.ZodNullable<z.ZodString>;
+        userId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateMedicineSupplier: z.ZodObject<{
+        name: z.ZodString;
+        contact: z.ZodString;
+        address: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>;
+    readonly UpdateMedicineSupplier: z.ZodObject<{
+        name: z.ZodOptional<z.ZodString>;
+        contact: z.ZodOptional<z.ZodString>;
+        address: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    }, z.core.$strip>;
+    readonly Customer: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        name: z.ZodString;
+        phone: z.ZodString;
+        category: z.ZodNullable<z.ZodString>;
+        address: z.ZodNullable<z.ZodString>;
+        balance: z.ZodNumber;
+        userId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateCustomer: z.ZodObject<{
+        name: z.ZodString;
+        phone: z.ZodString;
+        category: z.ZodOptional<z.ZodString>;
+        address: z.ZodOptional<z.ZodString>;
+        balance: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
+    }, z.core.$strip>;
+    readonly UpdateCustomer: z.ZodObject<{
+        name: z.ZodOptional<z.ZodString>;
+        phone: z.ZodOptional<z.ZodString>;
+        category: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        address: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        balance: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strip>;
+    readonly CustomerTransaction: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        type: z.ZodEnum<{
+            PURCHASE: "PURCHASE";
+            SALE: "SALE";
+            PAYMENT: "PAYMENT";
+            RECEIPT: "RECEIPT";
+            ADJUSTMENT: "ADJUSTMENT";
+            OPENING_BALANCE: "OPENING_BALANCE";
+        }>;
+        amount: z.ZodNumber;
+        date: z.ZodString;
+        description: z.ZodNullable<z.ZodString>;
+        reference: z.ZodNullable<z.ZodString>;
+        customerId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateCustomerTransaction: z.ZodObject<{
+        type: z.ZodEnum<{
+            PURCHASE: "PURCHASE";
+            SALE: "SALE";
+            PAYMENT: "PAYMENT";
+            RECEIPT: "RECEIPT";
+            ADJUSTMENT: "ADJUSTMENT";
+            OPENING_BALANCE: "OPENING_BALANCE";
+        }>;
+        amount: z.ZodNumber;
+        date: z.ZodString;
+        description: z.ZodOptional<z.ZodString>;
+        reference: z.ZodOptional<z.ZodString>;
+        customerId: z.ZodString;
+    }, z.core.$strip>;
+    readonly Mortality: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        date: z.ZodString;
+        count: z.ZodNumber;
+        reason: z.ZodNullable<z.ZodString>;
+        batchId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateMortality: z.ZodObject<{
+        date: z.ZodString;
+        count: z.ZodNumber;
+        reason: z.ZodOptional<z.ZodString>;
+        batchId: z.ZodString;
+    }, z.core.$strip>;
+    readonly UpdateMortality: z.ZodObject<{
+        date: z.ZodOptional<z.ZodString>;
+        count: z.ZodOptional<z.ZodNumber>;
+        reason: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    }, z.core.$strip>;
+    readonly Vaccination: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        vaccineName: z.ZodString;
+        scheduledDate: z.ZodString;
+        completedDate: z.ZodNullable<z.ZodString>;
+        status: z.ZodEnum<{
+            COMPLETED: "COMPLETED";
+            PENDING: "PENDING";
+            MISSED: "MISSED";
+            OVERDUE: "OVERDUE";
+        }>;
+        notes: z.ZodNullable<z.ZodString>;
+        batchId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateVaccination: z.ZodObject<{
+        vaccineName: z.ZodString;
+        scheduledDate: z.ZodString;
+        completedDate: z.ZodOptional<z.ZodString>;
+        status: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+            COMPLETED: "COMPLETED";
+            PENDING: "PENDING";
+            MISSED: "MISSED";
+            OVERDUE: "OVERDUE";
+        }>>>;
+        notes: z.ZodOptional<z.ZodString>;
+        batchId: z.ZodString;
+    }, z.core.$strip>;
+    readonly UpdateVaccination: z.ZodObject<{
+        vaccineName: z.ZodOptional<z.ZodString>;
+        scheduledDate: z.ZodOptional<z.ZodString>;
+        completedDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        status: z.ZodOptional<z.ZodEnum<{
+            COMPLETED: "COMPLETED";
+            PENDING: "PENDING";
+            MISSED: "MISSED";
+            OVERDUE: "OVERDUE";
+        }>>;
+        notes: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    }, z.core.$strip>;
+    readonly FeedConsumption: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        date: z.ZodString;
+        quantity: z.ZodNumber;
+        feedType: z.ZodString;
+        batchId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateFeedConsumption: z.ZodObject<{
+        date: z.ZodString;
+        quantity: z.ZodNumber;
+        feedType: z.ZodString;
+        batchId: z.ZodString;
+    }, z.core.$strip>;
+    readonly UpdateFeedConsumption: z.ZodObject<{
+        date: z.ZodOptional<z.ZodString>;
+        quantity: z.ZodOptional<z.ZodNumber>;
+        feedType: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>;
+    readonly BirdWeight: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        date: z.ZodString;
+        avgWeight: z.ZodNumber;
+        sampleCount: z.ZodNumber;
+        batchId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateBirdWeight: z.ZodObject<{
+        date: z.ZodString;
+        avgWeight: z.ZodNumber;
+        sampleCount: z.ZodNumber;
+        batchId: z.ZodString;
+    }, z.core.$strip>;
+    readonly UpdateBirdWeight: z.ZodObject<{
+        date: z.ZodOptional<z.ZodString>;
+        avgWeight: z.ZodOptional<z.ZodNumber>;
+        sampleCount: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strip>;
+    readonly Notification: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        type: z.ZodEnum<{
+            LOW_INVENTORY: "LOW_INVENTORY";
+            VACCINATION_DUE: "VACCINATION_DUE";
+            BATCH_COMPLETION: "BATCH_COMPLETION";
+            PAYMENT_DUE: "PAYMENT_DUE";
+            MORTALITY_ALERT: "MORTALITY_ALERT";
+        }>;
+        title: z.ZodString;
+        message: z.ZodString;
+        status: z.ZodEnum<{
+            PENDING: "PENDING";
+            READ: "READ";
+            DISMISSED: "DISMISSED";
+        }>;
+        data: z.ZodNullable<z.ZodAny>;
+        userId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateNotification: z.ZodObject<{
+        type: z.ZodEnum<{
+            LOW_INVENTORY: "LOW_INVENTORY";
+            VACCINATION_DUE: "VACCINATION_DUE";
+            BATCH_COMPLETION: "BATCH_COMPLETION";
+            PAYMENT_DUE: "PAYMENT_DUE";
+            MORTALITY_ALERT: "MORTALITY_ALERT";
+        }>;
+        title: z.ZodString;
+        message: z.ZodString;
+        status: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+            PENDING: "PENDING";
+            READ: "READ";
+            DISMISSED: "DISMISSED";
+        }>>>;
+        data: z.ZodOptional<z.ZodAny>;
+        userId: z.ZodString;
+    }, z.core.$strip>;
+    readonly UpdateNotification: z.ZodObject<{
+        type: z.ZodOptional<z.ZodEnum<{
+            LOW_INVENTORY: "LOW_INVENTORY";
+            VACCINATION_DUE: "VACCINATION_DUE";
+            BATCH_COMPLETION: "BATCH_COMPLETION";
+            PAYMENT_DUE: "PAYMENT_DUE";
+            MORTALITY_ALERT: "MORTALITY_ALERT";
+        }>>;
+        title: z.ZodOptional<z.ZodString>;
+        message: z.ZodOptional<z.ZodString>;
+        status: z.ZodOptional<z.ZodEnum<{
+            PENDING: "PENDING";
+            READ: "READ";
+            DISMISSED: "DISMISSED";
+        }>>;
+        data: z.ZodOptional<z.ZodNullable<z.ZodAny>>;
+    }, z.core.$strip>;
+    readonly AuditLog: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        action: z.ZodEnum<{
+            CREATE: "CREATE";
+            UPDATE: "UPDATE";
+            DELETE: "DELETE";
+            LOGIN: "LOGIN";
+            LOGOUT: "LOGOUT";
+        }>;
+        tableName: z.ZodString;
+        recordId: z.ZodString;
+        oldValues: z.ZodNullable<z.ZodAny>;
+        newValues: z.ZodNullable<z.ZodAny>;
+        ipAddress: z.ZodNullable<z.ZodString>;
+        userAgent: z.ZodNullable<z.ZodString>;
+        userId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateAuditLog: z.ZodObject<{
+        action: z.ZodEnum<{
+            CREATE: "CREATE";
+            UPDATE: "UPDATE";
+            DELETE: "DELETE";
+            LOGIN: "LOGIN";
+            LOGOUT: "LOGOUT";
+        }>;
+        tableName: z.ZodString;
+        recordId: z.ZodString;
+        oldValues: z.ZodOptional<z.ZodAny>;
+        newValues: z.ZodOptional<z.ZodAny>;
+        ipAddress: z.ZodOptional<z.ZodString>;
+        userAgent: z.ZodOptional<z.ZodString>;
+        userId: z.ZodString;
+    }, z.core.$strip>;
+    readonly Login: z.ZodObject<{
+        emailOrPhone: z.ZodString;
+        password: z.ZodString;
+    }, z.core.$strip>;
+    readonly Signup: z.ZodObject<{
+        name: z.ZodString;
+        email: z.ZodEmail;
+        phone: z.ZodString;
+        password: z.ZodString;
+        gender: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+            MALE: "MALE";
+            FEMALE: "FEMALE";
+            OTHER: "OTHER";
+        }>>>;
+        role: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+            OWNER: "OWNER";
+            MANAGER: "MANAGER";
+        }>>>;
+    }, z.core.$strip>;
+    readonly BatchAnalytics: z.ZodObject<{
+        batchId: z.ZodString;
+        currentChicks: z.ZodNumber;
+        totalMortality: z.ZodNumber;
+        totalExpenses: z.ZodNumber;
+        totalSales: z.ZodNumber;
+        fcr: z.ZodNullable<z.ZodNumber>;
+        avgWeight: z.ZodNullable<z.ZodNumber>;
+        daysActive: z.ZodNumber;
+    }, z.core.$strip>;
+    readonly FarmAnalytics: z.ZodObject<{
+        farmId: z.ZodString;
+        totalBatches: z.ZodNumber;
+        activeBatches: z.ZodNumber;
+        totalExpenses: z.ZodNumber;
+        totalSales: z.ZodNumber;
+        profit: z.ZodNumber;
+        profitMargin: z.ZodNumber;
+    }, z.core.$strip>;
+    readonly UserResponse: z.ZodObject<{
+        id: z.ZodString;
+        name: z.ZodString;
+        email: z.ZodString;
+        phone: z.ZodString;
+        role: z.ZodEnum<{
+            OWNER: "OWNER";
+            MANAGER: "MANAGER";
+        }>;
+        gender: z.ZodEnum<{
+            MALE: "MALE";
+            FEMALE: "FEMALE";
+            OTHER: "OTHER";
+        }>;
+        status: z.ZodEnum<{
+            ACTIVE: "ACTIVE";
+            INACTIVE: "INACTIVE";
+            PENDING_VERIFICATION: "PENDING_VERIFICATION";
+        }>;
+        managedFarms: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    }, z.core.$strip>;
+    readonly AuthResponse: z.ZodObject<{
+        accessToken: z.ZodString;
+        user: z.ZodObject<{
+            id: z.ZodString;
+            name: z.ZodString;
+            email: z.ZodString;
+            phone: z.ZodString;
+            role: z.ZodEnum<{
+                OWNER: "OWNER";
+                MANAGER: "MANAGER";
+            }>;
+            gender: z.ZodEnum<{
+                MALE: "MALE";
+                FEMALE: "FEMALE";
+                OTHER: "OTHER";
+            }>;
+            status: z.ZodEnum<{
+                ACTIVE: "ACTIVE";
+                INACTIVE: "INACTIVE";
+                PENDING_VERIFICATION: "PENDING_VERIFICATION";
+            }>;
+            managedFarms: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        }, z.core.$strip>;
+    }, z.core.$strip>;
+};
+export declare const ApiResponseSchema: <T extends z.ZodTypeAny>(dataSchema: T) => z.ZodObject<{
+    success: z.ZodBoolean;
+    data: z.ZodOptional<T>;
+    message: z.ZodOptional<z.ZodString>;
+    error: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export declare const PaginatedResponseSchema: <T extends z.ZodTypeAny>(itemSchema: T) => z.ZodObject<{
+    success: z.ZodBoolean;
+    data: z.ZodArray<T>;
+    pagination: z.ZodObject<{
+        page: z.ZodNumber;
+        limit: z.ZodNumber;
+        total: z.ZodNumber;
+        totalPages: z.ZodNumber;
+    }, z.core.$strip>;
+    message: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
