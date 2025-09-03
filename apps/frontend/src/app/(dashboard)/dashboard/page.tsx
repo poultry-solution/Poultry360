@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Layers, Package, TrendingUp } from "lucide-react";
+import { Building2, Layers, Package, TrendingUp, DollarSign, CreditCard, Receipt } from "lucide-react";
 
 export default function DashboardPage() {
   return (
@@ -62,6 +62,48 @@ export default function DashboardPage() {
             <div className="text-2xl font-bold">₹2.4M</div>
             <p className="text-xs text-muted-foreground">
               +12% from last month
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Money Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Money to Receive</CardTitle>
+            <DollarSign className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">₹1.8M</div>
+            <p className="text-xs text-muted-foreground">
+              From completed batches
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Money to Give</CardTitle>
+            <CreditCard className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">₹235,000</div>
+            <p className="text-xs text-muted-foreground">
+              To suppliers & dealers
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+            <Receipt className="h-4 w-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">₹450,000</div>
+            <p className="text-xs text-muted-foreground">
+              This month
             </p>
           </CardContent>
         </Card>
