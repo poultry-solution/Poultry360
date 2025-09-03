@@ -1,36 +1,37 @@
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default function Navbar() {
   return (
-    <nav className="bg-background border-b border-gray-100 px-4 lg:px-6 py-4">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
+    <nav className="bg-background border-b sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 lg:px-6 h-16 flex items-center justify-between">
         {/* Logo */}
-        <div className="flex items-center space-x-2">
+        <Link href="/" className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
             <span className="text-primary-foreground font-bold text-lg">P</span>
           </div>
-          <span className="text-xl font-bold text-gray-900">Poultry360</span>
-        </div>
+          <span className="font-bold text-foreground">Poultry360</span>
+        </Link>
 
         {/* Navigation Links */}
         <div className="hidden md:flex items-center space-x-8">
-          <a href="#home" className="text-gray-700 hover:text-primary transition-colors">
-            Home
-          </a>
-          <a href="#features" className="text-gray-700 hover:text-primary transition-colors">
+          <Link href="#features" className="text-muted-foreground hover:text-foreground transition-colors">
             Features
-          </a>
-          <a href="#contact" className="text-gray-700 hover:text-primary transition-colors">
+          </Link>
+          <Link href="#reviews" className="text-muted-foreground hover:text-foreground transition-colors">
+            Reviews
+          </Link>
+          <Link href="#contact" className="text-muted-foreground hover:text-foreground transition-colors">
             Contact
-          </a>
+          </Link>
         </div>
 
         {/* CTA Button */}
-        <a href="/auth/signup">
-          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2 rounded-lg">
-            Get Started &gt;
-          </Button>
-        </a>
+        <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground">
+          <Link href="/dashboard">
+            Get Started
+          </Link>
+        </Button>
       </div>
     </nav>
   );
