@@ -19,13 +19,13 @@ import { Button } from "@/components/ui/button";
 
 const navigation = [
   { name: "Home", href: "/dashboard", icon: Home },
-  { name: "Farms", href: "/dashboard/farms", icon: Building2 },
-  { name: "Batches", href: "/dashboard/batches", icon: Layers },
-  { name: "Dealer Ledger", href: "/dashboard/dealer-ledger", icon: Users },
-  { name: "Medical Supplier Ledger", href: "/dashboard/medical-supplier-ledger", icon: Pill },
-  { name: "Hatchery Ledger", href: "/dashboard/hatchery-ledger", icon: Egg },
-  { name: "Inventory", href: "/dashboard/inventory", icon: Package },
-  { name: "Chat with Doctor", href: "/dashboard/chat-doctor", icon: MessageCircle },
+  { name: "Farms", href: "/farms", icon: Building2 },
+  { name: "Batches", href: "/batches", icon: Layers },
+  { name: "Dealer Ledger", href: "/dealer-ledger", icon: Users },
+  { name: "Medical Supplier Ledger", href: "/medical-supplier-ledger", icon: Pill },
+  { name: "Hatchery Ledger", href: "/hatchery-ledger", icon: Egg },
+  { name: "Inventory", href: "/inventory", icon: Package },
+  { name: "Chat with Doctor", href: "/chat-doctor", icon: MessageCircle },
 ];
 
 interface SidebarProps {
