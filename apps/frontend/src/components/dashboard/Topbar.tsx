@@ -1,6 +1,14 @@
 "use client";
 
-import { Search, Bell, User, Menu, Settings, LogOut, ChevronDown } from "lucide-react";
+import {
+  Search,
+  Bell,
+  User,
+  Menu,
+  Settings,
+  LogOut,
+  ChevronDown,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,13 +20,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
+import { useAuth } from "@/store/store";
+import { useRouter } from "next/navigation";
 interface TopbarProps {
   isCollapsed: boolean;
   onToggle: () => void;
 }
 
 export default function Topbar({ isCollapsed, onToggle }: TopbarProps) {
+  const { user, logout } = useAuth();
+  console.log("user", user);
+  const router = useRouter();
   const handleProfileClick = () => {
     console.log("Profile clicked");
     // Add your profile logic here
@@ -31,6 +43,8 @@ export default function Topbar({ isCollapsed, onToggle }: TopbarProps) {
 
   const handleSignOutClick = () => {
     console.log("Sign out clicked");
+    logout();
+    router.push("/auth/login");
     // Add your sign out logic here
   };
 
@@ -68,8 +82,8 @@ export default function Topbar({ isCollapsed, onToggle }: TopbarProps) {
         {/* Notification Button */}
         <Button variant="ghost" size="icon" className="h-9 w-9 relative">
           <Bell className="h-5 w-5" />
-          <Badge 
-            variant="destructive" 
+          <Badge
+            variant="destructive"
             className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
           >
             3
@@ -86,9 +100,11 @@ export default function Topbar({ isCollapsed, onToggle }: TopbarProps) {
           <DropdownMenuTrigger>
             <Button variant="ghost" className="h-9 px-3 gap-2 hover:bg-muted">
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">A</span>
+                <span className="text-primary-foreground font-bold text-sm">
+                  A
+                </span>
               </div>
-              <span className="font-medium text-foreground">Avash Neupane</span>
+              <span className="font-medium text-foreground">{user?.name}</span>
               <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
@@ -104,7 +120,10 @@ export default function Topbar({ isCollapsed, onToggle }: TopbarProps) {
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOutClick} className="text-red-600">
+            <DropdownMenuItem
+              onClick={handleSignOutClick}
+              className="text-red-600"
+            >
               <LogOut className="mr-2 h-4 w-4" />
               Sign Out
             </DropdownMenuItem>

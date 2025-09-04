@@ -53,7 +53,7 @@ export default function SignupPage() {
         phone: `${formData.countryCode}${formData.phone}`,
         password: formData.password,
         gender: formData.gender,
-        role: "MANAGER" as const,
+        role: "OWNER" as const,
       };
 
       await register(registerData);

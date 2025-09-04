@@ -1,12 +1,32 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Layers, Package, TrendingUp, DollarSign, CreditCard, Receipt } from "lucide-react";
+"use client";
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Building2,
+  Layers,
+  Package,
+  TrendingUp,
+  DollarSign,
+  CreditCard,
+  Receipt,
+} from "lucide-react";
+import { useAuth } from "@/store/store";
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   return (
     <div className="space-y-6">
       {/* Welcome Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Welcome back, Rajesh!</h1>
+        <h1 className="text-3xl font-bold tracking-tight">
+          Welcome back, {user?.name}!
+        </h1>
         <p className="text-muted-foreground">
           Here&apos;s what&apos;s happening with your farms today.
         </p>
@@ -21,15 +41,15 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">3</div>
-            <p className="text-xs text-muted-foreground">
-              +1 from last month
-            </p>
+            <p className="text-xs text-muted-foreground">+1 from last month</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Batches</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Active Batches
+            </CardTitle>
             <Layers className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -55,7 +75,9 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Monthly Revenue
+            </CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -71,7 +93,9 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Money to Receive</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Money to Receive
+            </CardTitle>
             <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
@@ -97,14 +121,14 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Expenses
+            </CardTitle>
             <Receipt className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">₹450,000</div>
-            <p className="text-xs text-muted-foreground">
-              This month
-            </p>
+            <p className="text-xs text-muted-foreground">This month</p>
           </CardContent>
         </Card>
       </div>
@@ -122,22 +146,30 @@ export default function DashboardPage() {
             <div className="flex items-center space-x-4">
               <div className="w-2 h-2 bg-primary rounded-full"></div>
               <div className="flex-1">
-                <p className="text-sm font-medium">Batch #B-2024-001 completed</p>
-                <p className="text-xs text-muted-foreground">Farm A - 2 hours ago</p>
+                <p className="text-sm font-medium">
+                  Batch #B-2024-001 completed
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Farm A - 2 hours ago
+                </p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
               <div className="w-2 h-2 bg-primary rounded-full"></div>
               <div className="flex-1">
                 <p className="text-sm font-medium">New expense recorded</p>
-                <p className="text-xs text-muted-foreground">Feed purchase - ₹45,000 - 4 hours ago</p>
+                <p className="text-xs text-muted-foreground">
+                  Feed purchase - ₹45,000 - 4 hours ago
+                </p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
               <div className="w-2 h-2 bg-primary rounded-full"></div>
               <div className="flex-1">
                 <p className="text-sm font-medium">Low inventory alert</p>
-                <p className="text-xs text-muted-foreground">Medicine stock below threshold - 6 hours ago</p>
+                <p className="text-xs text-muted-foreground">
+                  Medicine stock below threshold - 6 hours ago
+                </p>
               </div>
             </div>
           </div>

@@ -4,28 +4,37 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { 
-  Home, 
-  Building2, 
-  Layers, 
-  Users, 
-  Pill, 
-  Egg, 
-  Package, 
+import {
+  Home,
+  Building2,
+  Layers,
+  Users,
+  Pill,
+  Egg,
+  Package,
   MessageCircle,
-  ChevronLeft
+  ChevronLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/store/store";
 
 const navigation = [
-  { name: "Home", href: "/dashboard", icon: Home },
-  { name: "Farms", href: "/farms", icon: Building2 },
-  { name: "Batches", href: "/batches", icon: Layers },
-  { name: "Dealer Ledger", href: "/dealer-ledger", icon: Users },
-  { name: "Medical Supplier Ledger", href: "/medical-supplier-ledger", icon: Pill },
-  { name: "Hatchery Ledger", href: "/hatchery-ledger", icon: Egg },
-  { name: "Inventory", href: "/inventory", icon: Package },
-  { name: "Chat with Doctor", href: "/chat-doctor", icon: MessageCircle },
+  { name: "Home", href: "/dashboard/home", icon: Home },
+  { name: "Farms", href: "/dashboard/farms", icon: Building2 },
+  { name: "Batches", href: "/dashboard/batches", icon: Layers },
+  { name: "Dealer Ledger", href: "/dashboard/dealer-ledger", icon: Users },
+  {
+    name: "Medical Supplier Ledger",
+    href: "/dashboard/medical-supplier-ledger",
+    icon: Pill,
+  },
+  { name: "Hatchery Ledger", href: "/dashboard/hatchery-ledger", icon: Egg },
+  { name: "Inventory", href: "/dashboard/inventory", icon: Package },
+  {
+    name: "Chat with Doctor",
+    href: "/dashboard/chat-doctor",
+    icon: MessageCircle,
+  },
 ];
 
 interface SidebarProps {
@@ -35,12 +44,15 @@ interface SidebarProps {
 
 export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
-
+  const { user } = useAuth();
+  console.log("user", user);
   return (
-    <div className={cn(
-      "flex h-full flex-col bg-card border-r transition-all duration-300 ease-in-out",
-      isCollapsed ? "w-0 overflow-hidden" : "w-64"
-    )}>
+    <div
+      className={cn(
+        "flex h-full flex-col bg-card border-r transition-all duration-300 ease-in-out",
+        isCollapsed ? "w-0 overflow-hidden" : "w-64"
+      )}
+    >
       {/* Logo and Company Name */}
       <div className="flex h-16 items-center justify-between border-b px-6 min-w-0">
         <div className="flex items-center space-x-3 min-w-0">
@@ -52,7 +64,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             <p className="text-xs text-muted-foreground">Farm Management</p>
           </div>
         </div>
-        
+
         {/* Collapse Button */}
         <Button
           variant="ghost"
@@ -67,7 +79,9 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
       {/* Company Name Display */}
       <div className="px-6 py-4 border-b min-w-0">
-        <p className="text-sm font-medium text-foreground">Rajesh Kumar Farms</p>
+        <p className="text-sm font-medium text-foreground">
+          Rajesh Kumar Farms
+        </p>
         <p className="text-xs text-muted-foreground">Owner</p>
       </div>
 
@@ -89,7 +103,9 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
               <item.icon
                 className={cn(
                   "mr-3 h-5 w-5 flex-shrink-0",
-                  isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
+                  isActive
+                    ? "text-primary-foreground"
+                    : "text-muted-foreground group-hover:text-foreground"
                 )}
               />
               {item.name}
