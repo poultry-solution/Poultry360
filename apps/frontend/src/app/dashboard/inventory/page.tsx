@@ -163,14 +163,14 @@ export default function InventoryPage() {
     }
   };
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'feed': return 'bg-green-100 text-green-800';
-      case 'medicine': return 'bg-blue-100 text-blue-800';
-      case 'other': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+  // const getCategoryColor = (category: string) => {
+  //   switch (category) {
+  //     case 'feed': return 'bg-green-100 text-green-800';
+  //     case 'medicine': return 'bg-blue-100 text-blue-800';
+  //     case 'other': return 'bg-gray-100 text-gray-800';
+  //     default: return 'bg-gray-100 text-gray-800';
+  //   }
+  // };
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -246,6 +246,7 @@ export default function InventoryPage() {
           ].map((tab) => (
             <button
               key={tab.key}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               onClick={() => setActiveTab(tab.key as any)}
               className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                 activeTab === tab.key
@@ -352,7 +353,11 @@ export default function InventoryPage() {
       </Card>
 
       {/* Add Item Modal */}
-      <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)}>
+      <Modal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)}
+        title={`Add ${formData.category.charAt(0).toUpperCase() + formData.category.slice(1)} Item`}
+      >
         <div className="space-y-4">
           <h2 className="text-xl font-semibold">Add {formData.category.charAt(0).toUpperCase() + formData.category.slice(1)} Item</h2>
           

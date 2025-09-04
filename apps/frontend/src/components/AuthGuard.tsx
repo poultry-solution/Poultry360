@@ -16,6 +16,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
   allowedRoles = ["OWNER", "MANAGER", "ADMIN"],
 }) => {
   const { isAuthenticated, user, isInitialized, isLoading } = useAuthStore();
+  const pathname = usePathname();
 
   if (isLoading) {
     return <div>Loading...</div>;
@@ -24,8 +25,6 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
   if (!isInitialized) {
     return <div>Not initialized</div>;
   }
-
-  const pathname = usePathname();
 
   // if path name starts with /dashboard then requireAuth should be true
   const needsAuth = requireAuth || pathname.startsWith("/dashboard");

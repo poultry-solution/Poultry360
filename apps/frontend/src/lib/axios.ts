@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from "axios";
 import { useAuthStore } from "@/store/store";
 
 // Simple API URL setup
-let API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081/api/v1";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081/api/v1";
 
 console.log("🔧 API_URL:", API_URL);
 
@@ -16,7 +17,7 @@ const axiosInstance = axios.create({
 });
 
 // Request interceptor - add token
-axiosInstance.interceptors.request.use((config) => {
+axiosInstance.interceptors.request.use((config: any) => {
   const { accessToken } = useAuthStore.getState();
 
   if (accessToken) {
@@ -29,8 +30,8 @@ axiosInstance.interceptors.request.use((config) => {
 
 // Response interceptor - handle token refresh
 axiosInstance.interceptors.response.use(
-  (response) => response,
-  async (error) => {
+  (response: any) => response,
+  async (error: any) => {
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
