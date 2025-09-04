@@ -211,6 +211,7 @@ export const useAuthStore = create<AuthState>()(
             const response = await apiCall("/auth/refresh-token", {
               method: "POST",
             });
+            console.log("Refresh token response:", response);
 
             const { accessToken } = response;
 
@@ -221,6 +222,7 @@ export const useAuthStore = create<AuthState>()(
             });
           } catch (error) {
             // If refresh fails, logout user
+            console.error("Refresh token error:", error);
             set({
               user: null,
               accessToken: null,

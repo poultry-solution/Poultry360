@@ -59,8 +59,9 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
     res.cookie("refreshToken", tokens.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      // secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+      secure: true,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -177,9 +178,10 @@ export const refreshToken = async (
   res: Response
 ): Promise<any> => {
   try {
-    const refreshToken = req.cookies.refreshToken;
+    console.log("🔄 Refresh token:", req.cookies);
+    console.log("🔄 Refresh token:", req.cookies.refreshToken);
 
-    console.log("🔄 Refresh token:", refreshToken);
+    const refreshToken = req.cookies.refreshToken;
 
     if (!refreshToken) {
       return res.status(401).json({ message: "Refresh token not found" });

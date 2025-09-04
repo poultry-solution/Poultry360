@@ -33,7 +33,10 @@ export default function RootLayout({
       >
         <AuthProvider>
           <QueryProvider>
-            <AuthGuard> {children} </AuthGuard>
+            <AuthGuard>
+               {children} 
+
+            </AuthGuard>
           </QueryProvider>
         </AuthProvider>
       </body>
