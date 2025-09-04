@@ -15,11 +15,15 @@ import {
   DollarSign,
   CreditCard,
   Receipt,
+  Plus,
+  Clock,
 } from "lucide-react";
 import { useAuth } from "@/store/store";
 import { useState } from "react";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -27,6 +31,17 @@ export default function DashboardPage() {
   const [isBatchesOpen, setIsBatchesOpen] = useState(false);
   const [isReceiveOpen, setIsReceiveOpen] = useState(false);
   const [isGiveOpen, setIsGiveOpen] = useState(false);
+  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+  const [reminderForm, setReminderForm] = useState({
+    title: '',
+    date: '',
+    time: '',
+    type: 'Task Reminder'
+  });
+  const [reminders, setReminders] = useState([
+    { id: 1, title: 'Collect payment from Ram', date: '2025-09-10', time: '11:36 PM', type: 'Task Reminder' },
+    { id: 2, title: 'Vaccination for Batch B-2024-001', date: '2025-09-12', time: '09:00 AM', type: 'Medical Reminder' }
+  ]);
 
   const farms = [
     { id: 1, name: "Farm A", location: "Bharatpur, Chitwan", capacity: 5000, activeBatches: 2, closedBatches: 5 },
@@ -49,6 +64,22 @@ export default function DashboardPage() {
     { id: 1, party: "Medico Pharma", reference: "Invoice MP-1021", amount: 35000, dueDate: "2025-09-08" },
     { id: 2, party: "VetCare", reference: "Invoice VC-332", amount: 18000, dueDate: "2025-09-15" },
   ];
+
+  const handleAddReminder = () => {
+    if (!reminderForm.title.trim() || !reminderForm.date || !reminderForm.time) return;
+
+    const newReminder = {
+      id: Date.now(),
+      title: reminderForm.title,
+      date: reminderForm.date,
+      time: reminderForm.time,
+      type: reminderForm.type
+    };
+
+    setReminders([...reminders, newReminder]);
+    setReminderForm({ title: '', date: '', time: '', type: 'Task Reminder' });
+    setIsReminderModalOpen(false);
+  };
   return (
     <div className="space-y-6">
       {/* Welcome Header */}
@@ -137,6 +168,66 @@ export default function DashboardPage() {
           <Button variant="outline" onClick={() => setIsGiveOpen(false)}>Close</Button>
         </ModalFooter>
       </Modal>
+
+      <Modal isOpen={isReminderModalOpen} onClose={() => setIsReminderModalOpen(false)} title="Add New Reminder">
+        <ModalContent>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="reminderTitle">Reminder Title *</Label>
+              <Input
+                id="reminderTitle"
+                value={reminderForm.title}
+                onChange={(e) => setReminderForm(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="e.g. Collect payment from Ram"
+                className="mt-1"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="reminderDate">Select Date *</Label>
+                <Input
+                  id="reminderDate"
+                  type="date"
+                  value={reminderForm.date}
+                  onChange={(e) => setReminderForm(prev => ({ ...prev, date: e.target.value }))}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="reminderTime">Select Time *</Label>
+                <Input
+                  id="reminderTime"
+                  type="time"
+                  value={reminderForm.time}
+                  onChange={(e) => setReminderForm(prev => ({ ...prev, time: e.target.value }))}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="reminderType">Reminder Type</Label>
+              <select
+                id="reminderType"
+                value={reminderForm.type}
+                onChange={(e) => setReminderForm(prev => ({ ...prev, type: e.target.value }))}
+                className="mt-1 w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+              >
+                <option value="Task Reminder">Task Reminder</option>
+                <option value="Medical Reminder">Medical Reminder</option>
+                <option value="Payment Reminder">Payment Reminder</option>
+                <option value="Maintenance Reminder">Maintenance Reminder</option>
+              </select>
+            </div>
+          </div>
+        </ModalContent>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setIsReminderModalOpen(false)}>Cancel</Button>
+          <Button onClick={handleAddReminder} className="bg-primary hover:bg-primary/90">Add Reminder</Button>
+        </ModalFooter>
+      </Modal>
+
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card onClick={() => setIsFarmsOpen(true)} className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white">
@@ -236,48 +327,102 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>
-            Latest updates from your farms and batches.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center space-x-4">
-              <div className="w-2 h-2 bg-primary rounded-full"></div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">
-                  Batch #B-2024-001 completed
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Farm A - 2 hours ago
-                </p>
+      {/* Recent Activity and Reminders */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Activity</CardTitle>
+            <CardDescription>
+              Latest updates from your farms and batches.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <div className="w-2 h-2 bg-primary rounded-full"></div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">
+                    Batch #B-2024-001 completed
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Farm A - 2 hours ago
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="w-2 h-2 bg-primary rounded-full"></div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">New expense recorded</p>
+                  <p className="text-xs text-muted-foreground">
+                    Feed purchase - ₹45,000 - 4 hours ago
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="w-2 h-2 bg-primary rounded-full"></div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Low inventory alert</p>
+                  <p className="text-xs text-muted-foreground">
+                    Medicine stock below threshold - 6 hours ago
+                  </p>
+                </div>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="w-2 h-2 bg-primary rounded-full"></div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">New expense recorded</p>
-                <p className="text-xs text-muted-foreground">
-                  Feed purchase - ₹45,000 - 4 hours ago
-                </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Reminders</CardTitle>
+                <CardDescription>
+                  Your upcoming tasks and reminders.
+                </CardDescription>
               </div>
+              <Button 
+                size="sm" 
+                onClick={() => setIsReminderModalOpen(true)}
+                className="bg-primary hover:bg-primary/90"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add
+              </Button>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="w-2 h-2 bg-primary rounded-full"></div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">Low inventory alert</p>
-                <p className="text-xs text-muted-foreground">
-                  Medicine stock below threshold - 6 hours ago
-                </p>
-              </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {reminders.map((reminder) => (
+                <div key={reminder.id} className="flex items-center space-x-4 p-3 border rounded-lg hover:bg-muted/50">
+                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                    <Clock className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{reminder.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {reminder.date} • {reminder.time} • {reminder.type}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {reminders.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No reminders yet</p>
+                  <Button 
+                    size="sm" 
+                    onClick={() => setIsReminderModalOpen(true)}
+                    className="mt-4 bg-primary hover:bg-primary/90"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add First Reminder
+                  </Button>
+                </div>
+              )}
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
