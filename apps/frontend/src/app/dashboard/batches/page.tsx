@@ -25,6 +25,8 @@ interface BatchItem {
   status: "Active" | "Closed";
 }
 
+
+
 export default function BatchesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [batches, setBatches] = useState<BatchItem[]>([
@@ -205,7 +207,7 @@ export default function BatchesPage() {
       {/* Batches List */}
       <div className="grid gap-4">
         {batches.map((b) => (
-          <Link key={b.id} href={`/batches/${b.id}`} className="block">
+          <Link key={b.id} href={`  /dashboard/batches/${b.id}`} className="block">
             <Card className="hover:border-primary cursor-pointer">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">

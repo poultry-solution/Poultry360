@@ -127,7 +127,7 @@ export default function FarmsPage() {
       </div>
 
       {/* Farms Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
         {farms.map((farm) => (
           <Card key={farm.id} className="hover:shadow-md transition-shadow">
             <CardHeader>
@@ -151,17 +151,17 @@ export default function FarmsPage() {
                 </div>
 
                 {/* Batches Actions */}
-                <div className="flex items-center gap-2 pt-2">
+                <div className="flex flex-wrap items-center gap-2 pt-2">
                   <Button
                     variant="outline"
-                    className="h-8 px-3 cursor-pointer hover:border-primary hover:text-primary"
+                    className="h-8 px-3 cursor-pointer hover:border-primary hover:text-primary w-full sm:w-auto"
                     onClick={() => openBatchesModal(farm.id, farm.name, "active")}
                   >
                     Active Batches ({farm.activeBatches})
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-8 px-3 cursor-pointer hover:border-primary hover:text-primary"
+                    className="h-8 px-3 cursor-pointer hover:border-primary hover:text-primary w-full sm:w-auto"
                     onClick={() => openBatchesModal(farm.id, farm.name, "closed")}
                   >
                     Closed Batches ({farm.closedBatches})
@@ -266,7 +266,7 @@ export default function FarmsPage() {
         <ModalContent>
           <div className="space-y-3">
             {getBatchesForFarm(selectedFarm?.id ?? 0, batchFilter).map((b) => (
-              <Link key={b.id} href={`/batches/${b.id}`} className="block">
+              <Link key={b.id} href={`/dashboard/batches/${b.id}`} className="block">
                 <div className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60 cursor-pointer">
                   <div>
                     <div className="font-medium">{b.code}</div>
