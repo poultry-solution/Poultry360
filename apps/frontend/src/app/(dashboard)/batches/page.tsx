@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Layers, Plus, TrendingUp, Users } from "lucide-react";
@@ -145,35 +146,37 @@ export default function BatchesPage() {
       {/* Batches List */}
       <div className="grid gap-4">
         {batches.map((b) => (
-          <Card key={b.id}>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>{b.code}</span>
-                <Badge variant="default" className={b.status === "Active" ? "bg-green-100 text-green-800" : ""}>{b.status}</Badge>
-              </CardTitle>
-              <CardDescription>{b.farm} • Started: {new Date(b.startDate).toLocaleDateString()}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Initial Birds:</span>
-                  <p className="font-medium">{b.initialBirds.toLocaleString()}</p>
+          <Link key={b.id} href={`/batches/${b.id}`} className="block">
+            <Card className="hover:border-primary cursor-pointer">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>{b.code}</span>
+                  <Badge variant="default" className={b.status === "Active" ? "bg-green-100 text-green-800" : ""}>{b.status}</Badge>
+                </CardTitle>
+                <CardDescription>{b.farm} • Started: {new Date(b.startDate).toLocaleDateString()}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Initial Birds:</span>
+                    <p className="font-medium">{b.initialBirds.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Current Birds:</span>
+                    <p className="font-medium">—</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Age:</span>
+                    <p className="font-medium">—</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Status:</span>
+                    <p className={`font-medium ${b.status === 'Active' ? 'text-green-600' : ''}`}>{b.status}</p>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Current Birds:</span>
-                  <p className="font-medium">—</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Age:</span>
-                  <p className="font-medium">—</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Status:</span>
-                  <p className={`font-medium ${b.status === 'Active' ? 'text-green-600' : ''}`}>{b.status}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
 
@@ -231,13 +234,15 @@ export default function BatchesPage() {
         <ModalContent>
           <div className="space-y-3">
             {(countFilter === "Active" ? activeBatches : closedBatches).map((b) => (
-              <div key={b.id} className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60">
-                <div>
-                  <div className="font-medium">{b.code}</div>
-                  <div className="text-xs text-muted-foreground">{b.farm} • Started: {new Date(b.startDate).toLocaleDateString()}</div>
+              <Link key={b.id} href={`/batches/${b.id}`} className="block">
+                <div className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60 cursor-pointer">
+                  <div>
+                    <div className="font-medium">{b.code}</div>
+                    <div className="text-xs text-muted-foreground">{b.farm} • Started: {new Date(b.startDate).toLocaleDateString()}</div>
+                  </div>
+                  <Badge variant="outline" className={countFilter === "Active" ? "text-green-600 border-green-600/30" : ""}>{b.status}</Badge>
                 </div>
-                <Badge variant="outline" className={countFilter === "Active" ? "text-green-600 border-green-600/30" : ""}>{b.status}</Badge>
-              </div>
+              </Link>
             ))}
             {(countFilter === "Active" ? activeBatches : closedBatches).length === 0 && (
               <p className="text-sm text-muted-foreground">No {countFilter.toLowerCase()} batches.</p>

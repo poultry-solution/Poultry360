@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, Plus } from "lucide-react";
@@ -98,10 +99,10 @@ export default function FarmsPage() {
   // Mock batches generator (replace with API later)
   function getBatchesForFarm(farmId: number, filter: "active" | "closed") {
     const sample = [
-      { code: "B-2024-001", birds: 2500, ageDays: 32, status: "Active" },
-      { code: "B-2024-002", birds: 2000, ageDays: 27, status: "Active" },
-      { code: "B-2023-019", birds: 2300, ageDays: 45, status: "Closed" },
-      { code: "B-2023-020", birds: 2100, ageDays: 46, status: "Closed" },
+      { id: 1, code: "B-2024-001", birds: 2500, ageDays: 32, status: "Active" },
+      { id: 2, code: "B-2024-002", birds: 2000, ageDays: 27, status: "Active" },
+      { id: 3, code: "B-2023-019", birds: 2300, ageDays: 45, status: "Closed" },
+      { id: 4, code: "B-2023-020", birds: 2100, ageDays: 46, status: "Closed" },
     ];
     return sample.filter(b => (filter === "active" ? b.status === "Active" : b.status === "Closed"));
   }
@@ -265,15 +266,17 @@ export default function FarmsPage() {
         <ModalContent>
           <div className="space-y-3">
             {getBatchesForFarm(selectedFarm?.id ?? 0, batchFilter).map((b) => (
-              <div key={b.code} className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60">
-                <div>
-                  <div className="font-medium">{b.code}</div>
-                  <div className="text-xs text-muted-foreground">Birds: {b.birds} • Age: {b.ageDays} days</div>
+              <Link key={b.id} href={`/batches/${b.id}`} className="block">
+                <div className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60 cursor-pointer">
+                  <div>
+                    <div className="font-medium">{b.code}</div>
+                    <div className="text-xs text-muted-foreground">Birds: {b.birds} • Age: {b.ageDays} days</div>
+                  </div>
+                  <span className={batchFilter === 'active' ? 'text-green-600 text-sm font-medium' : 'text-muted-foreground text-sm font-medium'}>
+                    {batchFilter === "active" ? "Active" : "Closed"}
+                  </span>
                 </div>
-                <span className={batchFilter === 'active' ? 'text-green-600 text-sm font-medium' : 'text-muted-foreground text-sm font-medium'}>
-                  {batchFilter === "active" ? "Active" : "Closed"}
-                </span>
-              </div>
+              </Link>
             ))}
             {getBatchesForFarm(selectedFarm?.id ?? 0, batchFilter).length === 0 && (
               <p className="text-sm text-muted-foreground">No {batchFilter} batches found.</p>
