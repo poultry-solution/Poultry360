@@ -154,14 +154,14 @@ export default function FarmsPage() {
                 <div className="flex flex-wrap items-center gap-2 pt-2">
                   <Button
                     variant="outline"
-                    className="h-8 px-3 cursor-pointer hover:border-primary hover:text-primary w-full sm:w-auto"
+                    className="h-8 px-3 cursor-pointer w-full sm:w-auto transition-colors hover:bg-[#10841E] hover:text-white hover:border-[#10841E]"
                     onClick={() => openBatchesModal(farm.id, farm.name, "active")}
                   >
                     Active Batches ({farm.activeBatches})
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-8 px-3 cursor-pointer hover:border-primary hover:text-primary w-full sm:w-auto"
+                    className="h-8 px-3 cursor-pointer w-full sm:w-auto transition-colors hover:bg-[#10841E] hover:text-white hover:border-[#10841E]"
                     onClick={() => openBatchesModal(farm.id, farm.name, "closed")}
                   >
                     Closed Batches ({farm.closedBatches})
