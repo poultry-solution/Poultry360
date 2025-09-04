@@ -353,7 +353,7 @@ export default function BatchesPage() {
           <div className="space-y-3">
             {(countFilter === "Active" ? activeBatches : closedBatches).map(
               (b) => (
-                <Link key={b.id} href={`dashboard/batches/${b.id}`} className="block">
+                <Link key={b.id} href={`/dashboard/batches/${b.id}`} className="block">
                   <div className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60 cursor-pointer">
                     <div>
                       <div className="font-medium">{b.code}</div>
