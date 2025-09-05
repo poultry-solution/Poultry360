@@ -10,7 +10,7 @@ import {
 import {
   Building2,
   Layers,
-  Package,
+
   TrendingUp,
   DollarSign,
   CreditCard,

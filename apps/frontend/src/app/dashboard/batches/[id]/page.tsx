@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
@@ -231,17 +232,17 @@ export default function BatchDetailPage() {
     try {
       localStorage.setItem(storageKey("expenses"), JSON.stringify(expenses));
     } catch {}
-  }, [expenses]);
+  }, [expenses, storageKey]);
   useEffect(() => {
     try {
       localStorage.setItem(storageKey("sales"), JSON.stringify(sales));
     } catch {}
-  }, [sales]);
+  }, [sales, storageKey]);
   useEffect(() => {
     try {
       localStorage.setItem(storageKey("ledger"), JSON.stringify(ledger));
     } catch {}
-  }, [ledger]);
+  }, [ledger, storageKey]);
 
   // --- Expense Modal ---
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);

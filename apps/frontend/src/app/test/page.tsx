@@ -13,10 +13,7 @@ export default function TestPage() {
     isAuthenticated,
     isLoading,
     error,
-    login,
-    register,
-    logout,
-    clearError,
+    
   } = useAuth();
   const router = useRouter();
 
