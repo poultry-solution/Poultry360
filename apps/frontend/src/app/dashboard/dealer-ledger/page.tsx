@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DataTable, Column, createColumn } from "@/components/ui/data-table";
 
 export default function DealerLedgerPage() {
   const [dealers, setDealers] = useState<string[]>(["Dealer One", "Dealer Two", "Dealer Three"]);
@@ -56,6 +57,39 @@ export default function DealerLedgerPage() {
     const yyyy = d.getUTCFullYear();
     return `${dd}/${mm}/${yyyy}`;
   }
+
+  // Column configuration for DataTable
+  const ledgerColumns: Column[] = [
+    createColumn('item', 'Item'),
+    createColumn('rate', 'Rate', {
+      type: 'currency',
+      align: 'right'
+    }),
+    createColumn('quantity', 'Quantity', {
+      type: 'number',
+      align: 'right'
+    }),
+    createColumn('amount', 'Amount', {
+      type: 'currency',
+      align: 'right',
+      render: (_, row) => `₹${(row.rate * row.quantity).toLocaleString()}`
+    }),
+    createColumn('paid', 'Amount Paid', {
+      type: 'currency',
+      align: 'right'
+    }),
+    createColumn('due', 'Amount Due', {
+      type: 'currency',
+      align: 'right',
+      render: (_, row) => `₹${(row.rate * row.quantity - row.paid).toLocaleString()}`
+    }),
+    createColumn('date', 'Date', {
+      type: 'date'
+    }),
+    createColumn('dueDate', 'Due Date', {
+      render: (_, row) => row.dueDate && row.dueDate !== "" ? row.dueDate : getRowDueDate(row.date)
+    })
+  ];
 
   function handleAddDealer(e: React.FormEvent) {
     e.preventDefault();
@@ -256,58 +290,29 @@ export default function DealerLedgerPage() {
             </div>
             <CardDescription>Itemized ledger for this dealer</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-separate border-spacing-0 rounded-lg overflow-hidden">
-                <thead className="sticky top-0 z-10 bg-muted/60 backdrop-blur supports-[backdrop-filter]:bg-muted/40">
-                  <tr>
-                    <th className="text-left px-3 py-2 border-b">Item</th>
-                    <th className="text-right px-3 py-2 border-b">Rate</th>
-                    <th className="text-right px-3 py-2 border-b">Quantity</th>
-                    <th className="text-right px-3 py-2 border-b">Amount</th>
-                    <th className="text-right px-3 py-2 border-b">Amount Paid</th>
-                    <th className="text-right px-3 py-2 border-b">Amount Due</th>
-                    <th className="text-left px-3 py-2 border-b">Date</th>
-                    <th className="text-left px-3 py-2 border-b">Due Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ledgerByDealer[active]?.map((row) => (
-                    <tr key={`${active}-${row.id}`} className="hover:bg-primary/5">
-                      <td className="px-3 py-2 border-b">{row.item}</td>
-                      <td className="px-3 py-2 border-b text-right">₹{row.rate.toLocaleString()}</td>
-                      <td className="px-3 py-2 border-b text-right">{row.quantity.toLocaleString()}</td>
-                      <td className="px-3 py-2 border-b text-right">₹{(row.rate * row.quantity).toLocaleString()}</td>
-                      <td className="px-3 py-2 border-b text-right">₹{row.paid.toLocaleString()}</td>
-                      <td className="px-3 py-2 border-b text-right">₹{(row.rate * row.quantity - row.paid).toLocaleString()}</td>
-                      <td className="px-3 py-2 border-b">{row.date}</td>
-                      <td className="px-3 py-2 border-b">{row.dueDate && row.dueDate !== "" ? row.dueDate : getRowDueDate(row.date)}</td>
-                    </tr>
-                  ))}
-                  {ledgerByDealer[active]?.length === 0 && (
-                    <tr>
-                      <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">No entries</td>
-                    </tr>
-                  )}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td className="px-3 py-2" colSpan={3}>Total</td>
-                    <td className="px-3 py-2 text-right font-medium">
-                      ₹{ledgerByDealer[active]?.reduce((sum, r) => sum + r.rate * r.quantity, 0).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2 text-right font-medium">
-                      ₹{ledgerByDealer[active]?.reduce((sum, r) => sum + r.paid, 0).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2 text-right font-medium">
-                      ₹{ledgerByDealer[active]?.reduce((sum, r) => sum + (r.rate * r.quantity - r.paid), 0).toLocaleString()}
-                    </td>
-                    <td />
-                    <td />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+          <CardContent className="p-0">
+            <DataTable
+              data={ledgerByDealer[active] || []}
+              columns={ledgerColumns}
+              showFooter={true}
+              footerContent={
+                <div className="grid grid-cols-8 gap-4 text-sm">
+                  <div className="col-span-3 font-semibold text-gray-900">Total</div>
+                  <div className="text-right font-medium">
+                    ₹{ledgerByDealer[active]?.reduce((sum, r) => sum + r.rate * r.quantity, 0).toLocaleString() || '0'}
+                  </div>
+                  <div className="text-right font-medium">
+                    ₹{ledgerByDealer[active]?.reduce((sum, r) => sum + r.paid, 0).toLocaleString() || '0'}
+                  </div>
+                  <div className="text-right font-medium">
+                    ₹{ledgerByDealer[active]?.reduce((sum, r) => sum + (r.rate * r.quantity - r.paid), 0).toLocaleString() || '0'}
+                  </div>
+                  <div></div>
+                  <div></div>
+                </div>
+              }
+              emptyMessage="No entries for this dealer"
+            />
           </CardContent>
         </Card>
       </div>

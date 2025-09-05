@@ -18,6 +18,7 @@ import { Layers, ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DataTable, Column, createActions, createColumn } from "@/components/ui/data-table";
 
 interface BatchDetail {
   id: number;
@@ -580,6 +581,232 @@ export default function BatchDetailPage() {
     ? expensesTotal / batch.initialBirds
     : 0;
 
+  // Column configurations for DataTable
+  const expenseColumns: Column<ExpenseRow>[] = [
+    createColumn('category', 'Category', {
+      type: 'badge',
+      width: '120px',
+      render: (value) => (
+        <Badge 
+          variant="secondary"
+          className={
+            value === "Feed" ? "bg-blue-100 text-blue-800" :
+            value === "Medicine" ? "bg-red-100 text-red-800" :
+            value === "Hatchery" ? "bg-green-100 text-green-800" :
+            "bg-gray-100 text-gray-800"
+          }
+        >
+          {value}
+        </Badge>
+      )
+    }),
+    createColumn('details', 'Details', {
+      render: (_, row) => {
+        if (row.category === "Feed") {
+          return `${row.feedBrand ?? ""} • Qty ${row.feedQuantity ?? 0} • Rate ₹${row.feedRate?.toLocaleString()}`;
+        } else if (row.category === "Hatchery") {
+          return `${row.hatcheryName ?? ""} • Qty ${row.hatcheryQuantity ?? 0} • Rate ₹${row.hatcheryRate?.toLocaleString()}`;
+        } else if (row.category === "Medicine") {
+          return `${row.medicineName ?? ""} • Qty ${row.medicineQuantity ?? 0} • Rate ₹${row.medicineRate?.toLocaleString()}`;
+        } else {
+          return `${row.otherName ?? ""} • Qty ${row.otherQuantity ?? 0} • Rate ₹${row.otherRate?.toLocaleString()}`;
+        }
+      }
+    }),
+    createColumn('amount', 'Amount', {
+      type: 'currency',
+      align: 'right',
+      width: '120px'
+    }),
+    createColumn('date', 'Date', {
+      type: 'date',
+      width: '100px',
+      render: (value) => formatDateYYYYMMDD(value)
+    }),
+    createColumn('notes', 'Notes', {
+      render: (value) => value || '—'
+    }),
+    {
+      key: 'actions',
+      label: 'Actions',
+      type: 'actions',
+      align: 'right',
+      width: '120px',
+      render: (_, row) => (
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-300"
+            onClick={() => openEditExpense(row)}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
+            onClick={() => deleteExpense(row.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      )
+    }
+  ];
+
+  const salesColumns: Column<SaleRow>[] = [
+    createColumn('item', 'Item', {
+      type: 'badge',
+      width: '100px',
+      render: (value) => (
+        <Badge variant="secondary" className="bg-green-100 text-green-800">
+          {value}
+        </Badge>
+      )
+    }),
+    createColumn('rate', 'Rate', {
+      type: 'currency',
+      align: 'right',
+      width: '100px'
+    }),
+    createColumn('quantity', 'Quantity', {
+      type: 'number',
+      align: 'right',
+      width: '100px'
+    }),
+    createColumn('remaining', 'Remaining', {
+      type: 'badge',
+      align: 'center',
+      width: '100px',
+      render: (value) => (
+        <Badge 
+          variant="secondary"
+          className={value ? "bg-orange-100 text-orange-800" : "bg-gray-100 text-gray-800"}
+        >
+          {value ? "Yes" : "No"}
+        </Badge>
+      )
+    }),
+    createColumn('customerName', 'Customer', {
+      render: (_, row) => row.customer?.name || '—'
+    }),
+    createColumn('customerContact', 'Contact', {
+      render: (_, row) => row.customer?.contact || '—'
+    }),
+    createColumn('customerCategory', 'Category', {
+      render: (_, row) => row.customer?.category ? (
+        <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+          {row.customer.category}
+        </Badge>
+      ) : '—'
+    }),
+    createColumn('customerBalance', 'Balance', {
+      type: 'currency',
+      align: 'right',
+      width: '120px',
+      render: (_, row) => row.customer ? `₹${row.customer.balance.toLocaleString()}` : '—'
+    }),
+    createColumn('date', 'Date', {
+      type: 'date',
+      width: '100px',
+      render: (value) => formatDateYYYYMMDD(value)
+    }),
+    createColumn('totalAmount', 'Amount', {
+      type: 'currency',
+      align: 'right',
+      width: '120px',
+      render: (_, row) => `₹${(row.rate * row.quantity).toLocaleString()}`
+    }),
+    {
+      key: 'actions',
+      label: 'Actions',
+      type: 'actions',
+      align: 'right',
+      width: '120px',
+      render: (_, row) => (
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-300"
+            onClick={() => openEditSale(row)}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
+            onClick={() => deleteSale(row.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      )
+    }
+  ];
+
+  const ledgerColumns: Column<LedgerRow>[] = [
+    createColumn('name', 'Name', {
+      render: (value) => <span className="font-medium">{value}</span>
+    }),
+    createColumn('contact', 'Contact'),
+    createColumn('category', 'Category', {
+      type: 'badge',
+      render: (value) => (
+        <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+          {value}
+        </Badge>
+      )
+    }),
+    createColumn('sales', 'Sales', {
+      type: 'currency',
+      align: 'right'
+    }),
+    createColumn('received', 'Received', {
+      type: 'currency',
+      align: 'right',
+      render: (value) => <span className="text-green-600">₹{value.toLocaleString()}</span>
+    }),
+    createColumn('balance', 'Balance', {
+      type: 'currency',
+      align: 'right',
+      render: (value) => (
+        <span className={value > 0 ? 'text-orange-600 font-bold' : 'text-green-600 font-bold'}>
+          ₹{value.toLocaleString()}
+        </span>
+      )
+    }),
+    {
+      key: 'actions',
+      label: 'Actions',
+      type: 'actions',
+      align: 'right',
+      width: '120px',
+      render: (_, row) => (
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-300"
+            onClick={() => openEditLedger(row)}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
+            onClick={() => deleteLedger(row.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      )
+    }
+  ];
+
   return (
     <div className="space-y-6">
       {banner && <Banner type={banner.type} message={banner.message} />}
@@ -637,23 +864,21 @@ export default function BatchDetailPage() {
         </Card>
       </div>
 
-      <div className="border-b">
-        <div className="flex flex-wrap gap-2">
-          {TABS.map((tab) => (
-            <Button
-              key={tab}
-              variant={activeTab === tab ? "default" : "outline"}
-              className={
-                activeTab === tab
-                  ? "bg-primary text-primary-foreground"
-                  : "hover:border-primary hover:text-primary"
-              }
-              onClick={() => setActiveTab(tab)}
-            >
-              {tab}
-            </Button>
-          ))}
-        </div>
+      <div className="flex flex-wrap gap-2">
+        {TABS.map((tab) => (
+          <Button
+            key={tab}
+            variant={activeTab === tab ? "default" : "outline"}
+            className={
+              activeTab === tab
+                ? "bg-primary text-primary-foreground"
+                : "hover:border-primary hover:text-primary"
+            }
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab}
+          </Button>
+        ))}
       </div>
 
       {activeTab === "Overview" && (
@@ -738,74 +963,21 @@ export default function BatchDetailPage() {
               Add Expense
             </Button>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-separate border-spacing-0 rounded-lg overflow-hidden">
-                <thead className="sticky top-0 z-10 bg-muted/60 backdrop-blur supports-[backdrop-filter]:bg-muted/40">
-                  <tr>
-                    <th className="text-left px-3 py-2 border-b">Category</th>
-                    <th className="text-left px-3 py-2 border-b">Details</th>
-                    <th className="text-right px-3 py-2 border-b">Amount</th>
-                    <th className="text-left px-3 py-2 border-b">Date</th>
-                    <th className="text-left px-3 py-2 border-b">Notes</th>
-                    <th className="text-right px-3 py-2 border-b">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {expenses.map((ex) => (
-                    <tr key={ex.id} className="hover:bg-primary/5">
-                      <td className="px-3 py-2 border-b">{ex.category}</td>
-                      <td className="px-3 py-2 border-b">
-                        {ex.category === "Feed" &&
-                          `${ex.feedBrand ?? ""} • Qty ${ex.feedQuantity ?? 0} • Rate ₹${ex.feedRate?.toLocaleString()}`}
-                        {ex.category === "Hatchery" &&
-                          `${ex.hatcheryName ?? ""} • Qty ${ex.hatcheryQuantity ?? 0} • Rate ₹${ex.hatcheryRate?.toLocaleString()}`}
-                        {ex.category === "Medicine" &&
-                          `${ex.medicineName ?? ""} • Qty ${ex.medicineQuantity ?? 0} • Rate ₹${ex.medicineRate?.toLocaleString()}`}
-                        {ex.category === "Other" &&
-                          `${ex.otherName ?? ""} • Qty ${ex.otherQuantity ?? 0} • Rate ₹${ex.otherRate?.toLocaleString()}`}
-                      </td>
-                      <td className="px-3 py-2 border-b text-right">
-                        ₹{ex.amount.toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2 border-b">
-                        {formatDateYYYYMMDD(ex.date)}
-                      </td>
-                      <td className="px-3 py-2 border-b">{ex.notes ?? "—"}</td>
-                      <td className="px-3 py-2 border-b text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 px-2 mr-2"
-                          onClick={() => openEditExpense(ex)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 px-2"
-                          onClick={() => deleteExpense(ex.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td className="px-3 py-2" colSpan={2}>
-                      Total
-                    </td>
-                    <td className="px-3 py-2 text-right font-medium">
-                      ₹{expensesTotal.toLocaleString()}
-                    </td>
-                    <td colSpan={2} />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+          <CardContent className="p-0">
+            <DataTable
+              data={expenses}
+              columns={expenseColumns}
+              showFooter={true}
+              footerContent={
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-gray-900">Total Expenses</span>
+                  <span className="font-bold text-lg text-gray-900">
+                    ₹{expensesTotal.toLocaleString()}
+                  </span>
+                </div>
+              }
+              emptyMessage="No expenses recorded yet"
+            />
           </CardContent>
         </Card>
       )}
@@ -825,93 +997,21 @@ export default function BatchDetailPage() {
               Add Sale
             </Button>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-separate border-spacing-0 rounded-lg overflow-hidden">
-                <thead className="sticky top-0 z-10 bg-muted/60 backdrop-blur supports-[backdrop-filter]:bg-muted/40">
-                  <tr>
-                    <th className="text-left px-3 py-2 border-b">Item</th>
-                    <th className="text-right px-3 py-2 border-b">Rate</th>
-                    <th className="text-right px-3 py-2 border-b">Quantity</th>
-                    <th className="text-center px-3 py-2 border-b">
-                      Remaining
-                    </th>
-                    <th className="text-left px-3 py-2 border-b">Customer</th>
-                    <th className="text-left px-3 py-2 border-b">Contact</th>
-                    <th className="text-left px-3 py-2 border-b">Category</th>
-                    <th className="text-right px-3 py-2 border-b">Balance</th>
-                    <th className="text-left px-3 py-2 border-b">Date</th>
-                    <th className="text-right px-3 py-2 border-b">Amount</th>
-                    <th className="text-right px-3 py-2 border-b">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sales.map((s) => (
-                    <tr key={s.id} className="hover:bg-primary/5">
-                      <td className="px-3 py-2 border-b">{s.item}</td>
-                      <td className="px-3 py-2 border-b text-right">
-                        ₹{s.rate.toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2 border-b text-right">
-                        {s.quantity.toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2 border-b text-center">
-                        {s.remaining ? "Yes" : "No"}
-                      </td>
-                      <td className="px-3 py-2 border-b">
-                        {s.customer?.name ?? "—"}
-                      </td>
-                      <td className="px-3 py-2 border-b">
-                        {s.customer?.contact ?? "—"}
-                      </td>
-                      <td className="px-3 py-2 border-b">
-                        {s.customer?.category ?? "—"}
-                      </td>
-                      <td className="px-3 py-2 border-b text-right">
-                        {s.customer
-                          ? `₹${s.customer.balance.toLocaleString()}`
-                          : "—"}
-                      </td>
-                      <td className="px-3 py-2 border-b">
-                        {formatDateYYYYMMDD(s.date)}
-                      </td>
-                      <td className="px-3 py-2 border-b text-right">
-                        ₹{(s.rate * s.quantity).toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2 border-b text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 px-2 mr-2"
-                          onClick={() => openEditSale(s)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 px-2"
-                          onClick={() => deleteSale(s.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td className="px-3 py-2" colSpan={9}>
-                      Total
-                    </td>
-                    <td className="px-3 py-2 text-right font-medium">
-                      ₹{salesTotal.toLocaleString()}
-                    </td>
-                    <td />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+          <CardContent className="p-0">
+            <DataTable
+              data={sales}
+              columns={salesColumns}
+              showFooter={true}
+              footerContent={
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-gray-900">Total Sales</span>
+                  <span className="font-bold text-lg text-green-600">
+                    ₹{salesTotal.toLocaleString()}
+                  </span>
+                </div>
+              }
+              emptyMessage="No sales recorded yet"
+            />
           </CardContent>
         </Card>
       )}
@@ -933,69 +1033,21 @@ export default function BatchDetailPage() {
               Add Entry
             </Button>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-separate border-spacing-0 rounded-lg overflow-hidden">
-                <thead className="sticky top-0 z-10 bg-muted/60 backdrop-blur supports-[backdrop-filter]:bg-muted/40">
-                  <tr>
-                    <th className="text-left px-3 py-2 border-b">Name</th>
-                    <th className="text-left px-3 py-2 border-b">Contact</th>
-                    <th className="text-left px-3 py-2 border-b">Category</th>
-                    <th className="text-right px-3 py-2 border-b">Sales</th>
-                    <th className="text-right px-3 py-2 border-b">Received</th>
-                    <th className="text-right px-3 py-2 border-b">Balance</th>
-                    <th className="text-right px-3 py-2 border-b">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ledger.map((l) => (
-                    <tr key={l.id} className="hover:bg-primary/5">
-                      <td className="px-3 py-2 border-b">{l.name}</td>
-                      <td className="px-3 py-2 border-b">{l.contact}</td>
-                      <td className="px-3 py-2 border-b">{l.category}</td>
-                      <td className="px-3 py-2 border-b text-right">
-                        ₹{l.sales.toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2 border-b text-right">
-                        ₹{l.received.toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2 border-b text-right">
-                        ₹{l.balance.toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2 border-b text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 px-2 mr-2"
-                          onClick={() => openEditLedger(l)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 px-2"
-                          onClick={() => deleteLedger(l.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td className="px-3 py-2" colSpan={5}>
-                      Total Receivable
-                    </td>
-                    <td className="px-3 py-2 text-right font-medium">
-                      ₹{receivableTotal.toLocaleString()}
-                    </td>
-                    <td />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+          <CardContent className="p-0">
+            <DataTable
+              data={ledger}
+              columns={ledgerColumns}
+              showFooter={true}
+              footerContent={
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-gray-900">Total Receivable</span>
+                  <span className="font-bold text-lg text-orange-600">
+                    ₹{receivableTotal.toLocaleString()}
+                  </span>
+                </div>
+              }
+              emptyMessage="No ledger entries yet"
+            />
           </CardContent>
         </Card>
       )}

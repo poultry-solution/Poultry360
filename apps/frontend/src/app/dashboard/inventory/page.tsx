@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DataTable, Column, createColumn } from "@/components/ui/data-table";
 
 interface InventoryItem {
   id: string;
@@ -163,14 +164,69 @@ export default function InventoryPage() {
     }
   };
 
-  // const getCategoryColor = (category: string) => {
-  //   switch (category) {
-  //     case 'feed': return 'bg-green-100 text-green-800';
-  //     case 'medicine': return 'bg-blue-100 text-blue-800';
-  //     case 'other': return 'bg-gray-100 text-gray-800';
-  //     default: return 'bg-gray-100 text-gray-800';
-  //   }
-  // };
+  // Column configurations for different categories
+  const getInventoryColumns = (category: 'feed' | 'medicine' | 'other'): Column<InventoryItem>[] => {
+    const baseColumns: Column<InventoryItem>[] = [
+      createColumn('name', 'Item', {
+        render: (_, item) => (
+          <div>
+            <p className="font-medium">{item.name}</p>
+            {item.batchNumber && (
+              <p className="text-sm text-gray-600">Batch: {item.batchNumber}</p>
+            )}
+          </div>
+        )
+      }),
+      createColumn('quantity', 'Quantity', {
+        render: (_, item) => (
+          <div className="flex items-center space-x-1">
+            <span className="font-medium">{item.quantity}</span>
+            <span className="text-sm text-gray-600">{item.unit}</span>
+          </div>
+        )
+      }),
+      createColumn('rate', 'Rate', {
+        type: 'currency',
+        align: 'right'
+      }),
+      createColumn('totalValue', 'Value', {
+        type: 'currency',
+        align: 'right'
+      }),
+      createColumn('supplier', 'Supplier', {
+        render: (value) => value || '—'
+      })
+    ];
+
+    // Add expiry date column for medicine
+    if (category === 'medicine') {
+      baseColumns.splice(4, 0, createColumn('expiryDate', 'Expiry', {
+        render: (value) => {
+          if (!value) return '—';
+          const isExpired = new Date(value) < new Date();
+          return (
+            <span className={isExpired ? 'text-red-600 font-medium' : ''}>
+              {new Date(value).toLocaleDateString()}
+            </span>
+          );
+        }
+      }));
+    }
+
+    // Add status column
+    baseColumns.push(createColumn('status', 'Status', {
+      render: (_, item) => (
+        <Badge 
+          variant={item.quantity < 50 ? "destructive" : "secondary"}
+          className={item.quantity < 50 ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}
+        >
+          {item.quantity < 50 ? 'Low Stock' : 'In Stock'}
+        </Badge>
+      )
+    }));
+
+    return baseColumns;
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -275,7 +331,7 @@ export default function InventoryPage() {
             {filteredInventory.length} items in {activeTab} category
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {filteredInventory.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -289,65 +345,11 @@ export default function InventoryPage() {
               </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-2 font-medium">Item</th>
-                    <th className="text-left py-3 px-2 font-medium">Quantity</th>
-                    <th className="text-left py-3 px-2 font-medium">Rate</th>
-                    <th className="text-left py-3 px-2 font-medium">Value</th>
-                    <th className="text-left py-3 px-2 font-medium">Supplier</th>
-                    {activeTab === 'medicine' && (
-                      <th className="text-left py-3 px-2 font-medium">Expiry</th>
-                    )}
-                    <th className="text-left py-3 px-2 font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredInventory.map((item) => (
-                    <tr key={item.id} className="border-b hover:bg-muted/50">
-                      <td className="py-3 px-2">
-                        <div>
-                          <p className="font-medium">{item.name}</p>
-                          {item.batchNumber && (
-                            <p className="text-sm text-muted-foreground">Batch: {item.batchNumber}</p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 px-2">
-                        <div className="flex items-center space-x-1">
-                          <span className="font-medium">{item.quantity}</span>
-                          <span className="text-sm text-muted-foreground">{item.unit}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-2">₹{item.rate}</td>
-                      <td className="py-3 px-2 font-medium">₹{item.totalValue.toLocaleString()}</td>
-                      <td className="py-3 px-2 text-sm text-muted-foreground">
-                        {item.supplier || '-'}
-                      </td>
-                      {activeTab === 'medicine' && (
-                        <td className="py-3 px-2 text-sm">
-                          {item.expiryDate ? (
-                            <span className={new Date(item.expiryDate) < new Date() ? 'text-red-600' : ''}>
-                              {new Date(item.expiryDate).toLocaleDateString()}
-                            </span>
-                          ) : '-'}
-                        </td>
-                      )}
-                      <td className="py-3 px-2">
-                        <Badge 
-                          variant={item.quantity < 50 ? "destructive" : "secondary"}
-                          className={item.quantity < 50 ? "bg-red-100 text-red-800" : ""}
-                        >
-                          {item.quantity < 50 ? 'Low Stock' : 'In Stock'}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              data={filteredInventory}
+              columns={getInventoryColumns(activeTab)}
+              emptyMessage={`No ${activeTab} items found`}
+            />
           )}
         </CardContent>
       </Card>
