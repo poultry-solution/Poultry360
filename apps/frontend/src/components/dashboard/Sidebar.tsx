@@ -48,11 +48,13 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   return (
     <div
       className={cn(
-        "flex h-full flex-col bg-card border-r transition-transform duration-300 ease-in-out",
-        // Mobile: off-canvas overlay behavior
-        isCollapsed ? "-translate-x-full fixed inset-y-0 left-0 w-64 z-50 md:translate-x-0 md:static md:w-64" : "translate-x-0 fixed inset-y-0 left-0 w-64 z-50 md:static md:w-64",
-        // Desktop: persistent sidebar
-        "md:translate-x-0"
+        "flex h-full flex-col bg-card border-r transition-all duration-300 ease-in-out",
+        // Base positioning: off-canvas on mobile, static on desktop
+        "fixed inset-y-0 left-0 z-50 w-64 md:static",
+        // Mobile transform (slide in/out)
+        isCollapsed ? "-translate-x-full md:translate-x-0" : "translate-x-0",
+        // Desktop width collapse/expand
+        isCollapsed ? "md:w-0 md:overflow-hidden" : "md:w-64"
       )}
     >
       {/* Logo and Company Name */}
