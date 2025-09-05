@@ -48,8 +48,11 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   return (
     <div
       className={cn(
-        "flex h-full flex-col bg-card border-r transition-all duration-300 ease-in-out",
-        isCollapsed ? "w-0 overflow-hidden" : "w-64"
+        "flex h-full flex-col bg-card border-r transition-transform duration-300 ease-in-out",
+        // Mobile: off-canvas overlay behavior
+        isCollapsed ? "-translate-x-full fixed inset-y-0 left-0 w-64 z-50 md:translate-x-0 md:static md:w-64" : "translate-x-0 fixed inset-y-0 left-0 w-64 z-50 md:static md:w-64",
+        // Desktop: persistent sidebar
+        "md:translate-x-0"
       )}
     >
       {/* Logo and Company Name */}
