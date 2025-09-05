@@ -180,6 +180,7 @@ export declare const CreateBatchSchema: z.ZodObject<{
     }>>>;
     initialChicks: z.ZodNumber;
     initialChickWeight: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
+    farmId: z.ZodString;
 }, z.core.$strip>;
 export type CreateBatch = z.infer<typeof CreateBatchSchema>;
 export declare const UpdateBatchSchema: z.ZodObject<{
@@ -193,6 +194,7 @@ export declare const UpdateBatchSchema: z.ZodObject<{
     }>>;
     initialChicks: z.ZodOptional<z.ZodNumber>;
     initialChickWeight: z.ZodOptional<z.ZodNumber>;
+    farmId: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type UpdateBatch = z.infer<typeof UpdateBatchSchema>;
 export declare const CategorySchema: z.ZodObject<{
@@ -1060,6 +1062,7 @@ export declare const schemas: {
         }>>>;
         initialChicks: z.ZodNumber;
         initialChickWeight: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
+        farmId: z.ZodString;
     }, z.core.$strip>;
     readonly UpdateBatch: z.ZodObject<{
         batchNumber: z.ZodOptional<z.ZodString>;
@@ -1072,6 +1075,7 @@ export declare const schemas: {
         }>>;
         initialChicks: z.ZodOptional<z.ZodNumber>;
         initialChickWeight: z.ZodOptional<z.ZodNumber>;
+        farmId: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>;
     readonly Category: z.ZodObject<{
         id: z.ZodString;

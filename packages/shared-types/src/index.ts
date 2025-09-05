@@ -158,6 +158,7 @@ export const CreateBatchSchema = z.object({
   status: BatchStatusSchema.optional().default("ACTIVE"),
   initialChicks: z.number().int().positive(),
   initialChickWeight: z.number().positive().optional().default(0.045),
+  farmId: z.string(),
 });
 
 export type CreateBatch = z.infer<typeof CreateBatchSchema>;
@@ -169,6 +170,7 @@ export const UpdateBatchSchema = z.object({
   status: BatchStatusSchema.optional(),
   initialChicks: z.number().int().positive().optional(),
   initialChickWeight: z.number().positive().optional(),
+  farmId: z.string().optional(),
 });
 
 export type UpdateBatch = z.infer<typeof UpdateBatchSchema>;
