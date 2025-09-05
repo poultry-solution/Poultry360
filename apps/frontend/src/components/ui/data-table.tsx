@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React from "react";
@@ -54,6 +55,10 @@ export function DataTable<T = any>({
   showFooter = false,
   footerContent
 }: DataTableProps<T>) {
+  const gridTemplate = React.useMemo(
+    () => columns.map((c) => `minmax(${c.width ?? '140px'}, 1fr)`).join(' '),
+    [columns]
+  );
   const handleSort = (key: string) => {
     if (!onSort) return;
     
@@ -137,88 +142,90 @@ export function DataTable<T = any>({
 
   return (
     <div className={cn("w-full border border-gray-200 rounded-lg overflow-hidden bg-white", className)}>
-      {showHeader && (
-        <div className="bg-gray-50 border-b border-gray-200">
-          <div className="grid" style={{ gridTemplateColumns: `repeat(${columns.length}, 1fr)` }}>
-            {columns.map((column) => (
-              <div
-                key={column.key}
-                className={cn(
-                  "px-4 py-3 text-sm font-semibold text-gray-900 border-r border-gray-200 last:border-r-0",
-                  column.align === 'center' && "text-center",
-                  column.align === 'right' && "text-right",
-                  column.className
-                )}
-                style={{ width: column.width }}
-              >
-                <div className="flex items-center gap-2">
-                  <span>{column.label}</span>
-                  {column.sortable && onSort && (
-                    <div className="flex flex-col">
-                      <button
-                        onClick={() => handleSort(column.key)}
-                        className={cn(
-                          "h-3 w-3 flex items-center justify-center hover:bg-gray-200 rounded",
-                          sortKey === column.key && sortDirection === 'asc' && "text-primary"
-                        )}
-                      >
-                        <ChevronUp className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => handleSort(column.key)}
-                        className={cn(
-                          "h-3 w-3 flex items-center justify-center hover:bg-gray-200 rounded -mt-1",
-                          sortKey === column.key && sortDirection === 'desc' && "text-primary"
-                        )}
-                      >
-                        <ChevronDown className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      
-      <div className="divide-y divide-gray-200">
-        {data.length === 0 ? (
-          <div className="px-4 py-12 text-center text-gray-500">
-            {emptyMessage}
-          </div>
-        ) : (
-          data.map((row, index) => (
-            <div
-              key={index}
-              className={cn(
-                "grid hover:bg-gray-50 transition-colors duration-150",
-                index % 2 === 0 ? "bg-white" : "bg-gray-50/30"
-              )}
-              style={{ gridTemplateColumns: `repeat(${columns.length}, 1fr)` }}
-            >
+      <div className="overflow-x-auto">
+        <div className="min-w-max">
+          {showHeader && (
+            <div className="bg-gray-50 border-b border-gray-200">
+              <div className="grid" style={{ gridTemplateColumns: gridTemplate }}>
               {columns.map((column) => (
                 <div
                   key={column.key}
                   className={cn(
-                    "px-4 py-3 text-sm border-r border-gray-200 last:border-r-0",
+                    "px-4 py-3 text-sm font-semibold text-gray-900 border-r border-gray-200 last:border-r-0",
                     column.align === 'center' && "text-center",
                     column.align === 'right' && "text-right",
                     column.className
                   )}
-                  style={{ width: column.width }}
                 >
-                  {renderCell(column, row, index)}
+                  <div className="flex items-center gap-2">
+                    <span>{column.label}</span>
+                    {column.sortable && onSort && (
+                      <div className="flex flex-col">
+                        <button
+                          onClick={() => handleSort(column.key)}
+                          className={cn(
+                            "h-3 w-3 flex items-center justify-center hover:bg-gray-200 rounded",
+                            sortKey === column.key && sortDirection === 'asc' && "text-primary"
+                          )}
+                        >
+                          <ChevronUp className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => handleSort(column.key)}
+                          className={cn(
+                            "h-3 w-3 flex items-center justify-center hover:bg-gray-200 rounded -mt-1",
+                            sortKey === column.key && sortDirection === 'desc' && "text-primary"
+                          )}
+                        >
+                          <ChevronDown className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
+              </div>
             </div>
-          ))
-        )}
+          )}
+          
+          <div className="divide-y divide-gray-200">
+            {data.length === 0 ? (
+              <div className="px-4 py-12 text-center text-gray-500">
+                {emptyMessage}
+              </div>
+            ) : (
+              data.map((row, index) => (
+                <div
+                  key={index}
+                  className={cn(
+                    "grid hover:bg-gray-50 transition-colors duration-150",
+                    index % 2 === 0 ? "bg-white" : "bg-gray-50/30"
+                  )}
+                  style={{ gridTemplateColumns: gridTemplate }}
+                >
+                  {columns.map((column) => (
+                    <div
+                      key={column.key}
+                      className={cn(
+                        "px-4 py-3 text-sm border-r border-gray-200 last:border-r-0",
+                        column.align === 'center' && "text-center",
+                        column.align === 'right' && "text-right",
+                        column.className
+                      )}
+                    >
+                      {renderCell(column, row, index)}
+                    </div>
+                  ))}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
       
       {showFooter && footerContent && (
-        <div className="bg-gray-50 border-t border-gray-200 px-4 py-3">
-          {footerContent}
+        <div className="bg-gray-50 border-t border-gray-200 px-4 py-3 overflow-x-auto">
+          <div className="min-w-max">{footerContent}</div>
         </div>
       )}
     </div>
