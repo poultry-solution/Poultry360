@@ -1,23 +1,23 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from "axios";
+import { toast } from "sonner";
 import { useAuthStore } from "@/store/store";
 
-// Simple API URL setup
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081/api/v1";
+// ==================== API URL ====================
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081/api/v1";
 
 console.log("🔧 API_URL:", API_URL);
 
-// Main axios instance
+// ==================== MAIN AXIOS INSTANCE ====================
 const axiosInstance = axios.create({
   baseURL: API_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  headers: { "Content-Type": "application/json" },
   withCredentials: true,
 });
 
-// Request interceptor - add token
+// ==================== REQUEST INTERCEPTOR ====================
 axiosInstance.interceptors.request.use((config: any) => {
   const { accessToken } = useAuthStore.getState();
 
@@ -29,12 +29,13 @@ axiosInstance.interceptors.request.use((config: any) => {
   return config;
 });
 
-// Response interceptor - handle token refresh
+// ==================== RESPONSE INTERCEPTOR ====================
 axiosInstance.interceptors.response.use(
   (response: any) => response,
   async (error: any) => {
     const originalRequest = error.config;
 
+    // --- Handle 401 token refresh ---
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
@@ -52,17 +53,24 @@ axiosInstance.interceptors.response.use(
       }
     }
 
+    // --- Normalize and toast error ---
+    const message =
+      error?.response?.data?.message ||
+      error?.message ||
+      "Something went wrong. Please try again.";
+
+    toast.error(message);
+
     return Promise.reject(error);
   }
 );
 
-// Public instance (no auth)
+// ==================== PUBLIC API (NO AUTH) ====================
 export const publicApi = axios.create({
   baseURL: API_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  headers: { "Content-Type": "application/json" },
   withCredentials: true,
 });
 
+// ==================== EXPORT ====================
 export default axiosInstance;
