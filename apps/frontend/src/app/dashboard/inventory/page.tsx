@@ -173,9 +173,9 @@ export default function InventoryPage() {
             className="bg-primary hover:bg-primary/90 w-full sm:w-auto"
             onClick={openAddModal}
           >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Item
-          </Button>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Item
+        </Button>
         ) : (
           <div className="text-sm text-muted-foreground">
             Items are automatically added when you make purchases in {activeTab === 'feed' ? 'Dealer Ledger' : 'Medical Supplier Ledger'}
@@ -259,8 +259,8 @@ export default function InventoryPage() {
       </div>
 
       {/* Inventory Table */}
-      <Card>
-        <CardHeader>
+        <Card>
+          <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             {getCategoryIcon(activeTab)}
             <span>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Inventory</span>
@@ -268,7 +268,7 @@ export default function InventoryPage() {
           <CardDescription>
             {filteredInventory.length} items in {activeTab} category
           </CardDescription>
-        </CardHeader>
+          </CardHeader>
         <CardContent className="p-0">
           {filteredInventory.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -295,8 +295,8 @@ export default function InventoryPage() {
               emptyMessage={`No ${activeTab} items found`}
             />
           )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
       {/* Add Item Modal (for Other tab only) */}
       <Modal 
@@ -308,7 +308,7 @@ export default function InventoryPage() {
           <h2 className="text-xl font-semibold">Add Other Item</h2>
           
           <div className="grid gap-4">
-            <div>
+                <div>
               <Label htmlFor="name">Item Name *</Label>
               <Input
                 id="name"
@@ -317,7 +317,7 @@ export default function InventoryPage() {
                 placeholder="Enter item name"
               />
               {errors.name && <p className="text-sm text-red-600 mt-1">{errors.name}</p>}
-            </div>
+                </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -331,7 +331,7 @@ export default function InventoryPage() {
                 />
                 {errors.quantity && <p className="text-sm text-red-600 mt-1">{errors.quantity}</p>}
               </div>
-              <div>
+                <div>
                 <Label htmlFor="unit">Unit *</Label>
                 <Input
                   id="unit"
@@ -394,7 +394,7 @@ export default function InventoryPage() {
               Add Item
             </Button>
           </div>
-        </div>
+      </div>
       </Modal>
 
     </div>

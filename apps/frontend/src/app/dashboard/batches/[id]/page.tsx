@@ -19,6 +19,7 @@ import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DataTable, Column, createActions, createColumn } from "@/components/ui/data-table";
+import { useInventory } from "@/contexts/InventoryContext";
 
 interface BatchDetail {
   id: number;
@@ -132,6 +133,11 @@ export default function BatchDetailPage() {
     [batchId]
   );
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>("Overview");
+  
+  // Inventory integration
+  const { inventory, updateInventoryItem, getInventoryByCategory } = useInventory();
+  const feedInventory = getInventoryByCategory('feed');
+  const medicineInventory = getInventoryByCategory('medicine');
 
   // --- State (with localStorage persistence) ---
   const storageKey = (suffix: string) => `p360:batch:${batchId}:${suffix}`;
@@ -255,12 +261,14 @@ export default function BatchDetailPage() {
     feedBrand: "",
     feedQuantity: "",
     feedRate: "",
+    selectedFeedId: "", // New field for selected feed from inventory
     hatcheryName: "",
     hatcheryRate: "",
     hatcheryQuantity: "",
     medicineName: "",
     medicineRate: "",
     medicineQuantity: "",
+    selectedMedicineId: "", // New field for selected medicine from inventory
     otherName: "",
     otherRate: "",
     otherQuantity: "",
@@ -271,8 +279,53 @@ export default function BatchDetailPage() {
     const { name, value } = e.target;
     setExpenseForm((p) => ({ ...p, [name]: value }));
   }
+
+  // Handle feed selection from inventory
+  function handleFeedSelection(feedId: string) {
+    const selectedFeed = feedInventory.find(feed => feed.id === feedId);
+    if (selectedFeed) {
+      setExpenseForm(prev => ({
+        ...prev,
+        selectedFeedId: feedId,
+        feedBrand: selectedFeed.name,
+        feedRate: selectedFeed.rate.toString()
+      }));
+    }
+  }
+
+  // Handle medicine selection from inventory
+  function handleMedicineSelection(medicineId: string) {
+    const selectedMedicine = medicineInventory.find(medicine => medicine.id === medicineId);
+    if (selectedMedicine) {
+      setExpenseForm(prev => ({
+        ...prev,
+        selectedMedicineId: medicineId,
+        medicineName: selectedMedicine.name,
+        medicineRate: selectedMedicine.rate.toString()
+      }));
+    }
+  }
   function openNewExpense() {
     setEditingExpenseId(null);
+    setExpenseForm({
+      category: "Feed" as ExpenseCategory,
+      date: "",
+      notes: "",
+      feedBrand: "",
+      feedQuantity: "",
+      feedRate: "",
+      selectedFeedId: "",
+      hatcheryName: "",
+      hatcheryRate: "",
+      hatcheryQuantity: "",
+      medicineName: "",
+      medicineRate: "",
+      medicineQuantity: "",
+      selectedMedicineId: "",
+      otherName: "",
+      otherRate: "",
+      otherQuantity: "",
+    });
     setIsExpenseModalOpen(true);
   }
   function openEditExpense(row: ExpenseRow) {
@@ -284,12 +337,14 @@ export default function BatchDetailPage() {
       feedBrand: row.feedBrand?.toString() ?? "",
       feedQuantity: row.feedQuantity?.toString() ?? "",
       feedRate: row.feedRate?.toString() ?? "",
+      selectedFeedId: "", // For editing, we'll keep it empty to allow manual editing
       hatcheryName: row.hatcheryName?.toString() ?? "",
       hatcheryRate: row.hatcheryRate?.toString() ?? "",
       hatcheryQuantity: row.hatcheryQuantity?.toString() ?? "",
       medicineName: row.medicineName?.toString() ?? "",
       medicineRate: row.medicineRate?.toString() ?? "",
       medicineQuantity: row.medicineQuantity?.toString() ?? "",
+      selectedMedicineId: "", // For editing, we'll keep it empty to allow manual editing
       otherName: row.otherName?.toString() ?? "",
       otherRate: row.otherRate?.toString() ?? "",
       otherQuantity: row.otherQuantity?.toString() ?? "",
@@ -318,9 +373,18 @@ export default function BatchDetailPage() {
     const errs: Record<string, string> = {};
     if (!expenseForm.date) errs.date = "Date is required";
     if (expenseForm.category === "Feed") {
-      if (!expenseForm.feedBrand) errs.feedBrand = "Brand required";
+      if (!expenseForm.selectedFeedId) errs.feedBrand = "Please select a feed from inventory";
       if (!expenseForm.feedQuantity) errs.feedQuantity = "Quantity required";
       if (!expenseForm.feedRate) errs.feedRate = "Rate required";
+      
+      // Check if quantity exceeds available inventory
+      if (expenseForm.selectedFeedId && expenseForm.feedQuantity) {
+        const selectedFeed = feedInventory.find(feed => feed.id === expenseForm.selectedFeedId);
+        const requestedQty = Number(expenseForm.feedQuantity);
+        if (selectedFeed && requestedQty > selectedFeed.quantity) {
+          errs.feedQuantity = `Only ${selectedFeed.quantity} ${selectedFeed.unit} available`;
+        }
+      }
     } else if (expenseForm.category === "Hatchery") {
       if (!expenseForm.hatcheryName)
         errs.hatcheryName = "Hatchery name required";
@@ -328,11 +392,19 @@ export default function BatchDetailPage() {
         errs.hatcheryQuantity = "Quantity required";
       if (!expenseForm.hatcheryRate) errs.hatcheryRate = "Rate required";
     } else if (expenseForm.category === "Medicine") {
-      if (!expenseForm.medicineName)
-        errs.medicineName = "Medicine name required";
+      if (!expenseForm.selectedMedicineId) errs.medicineName = "Please select a medicine from inventory";
       if (!expenseForm.medicineQuantity)
         errs.medicineQuantity = "Quantity required";
       if (!expenseForm.medicineRate) errs.medicineRate = "Rate required";
+      
+      // Check if quantity exceeds available inventory
+      if (expenseForm.selectedMedicineId && expenseForm.medicineQuantity) {
+        const selectedMedicine = medicineInventory.find(medicine => medicine.id === expenseForm.selectedMedicineId);
+        const requestedQty = Number(expenseForm.medicineQuantity);
+        if (selectedMedicine && requestedQty > selectedMedicine.quantity) {
+          errs.medicineQuantity = `Only ${selectedMedicine.quantity} ${selectedMedicine.unit} available`;
+        }
+      }
     } else {
       if (!expenseForm.otherName) errs.otherName = "Expense name required";
       if (!expenseForm.otherQuantity) errs.otherQuantity = "Quantity required";
@@ -368,6 +440,18 @@ export default function BatchDetailPage() {
         feedRate: r,
         amount,
       });
+
+      // Update inventory - subtract used quantity
+      if (expenseForm.selectedFeedId && q > 0) {
+        const selectedFeed = feedInventory.find(feed => feed.id === expenseForm.selectedFeedId);
+        if (selectedFeed) {
+          const newQuantity = Math.max(0, selectedFeed.quantity - q);
+          updateInventoryItem(expenseForm.selectedFeedId, {
+            quantity: newQuantity,
+            totalValue: newQuantity * selectedFeed.rate
+          });
+        }
+      }
     } else if (ec === "Hatchery") {
       const q = Number(expenseForm.hatcheryQuantity || 0),
         r = Number(expenseForm.hatcheryRate || 0);
@@ -388,6 +472,18 @@ export default function BatchDetailPage() {
         medicineRate: r,
         amount,
       });
+
+      // Update inventory - subtract used quantity
+      if (expenseForm.selectedMedicineId && q > 0) {
+        const selectedMedicine = medicineInventory.find(medicine => medicine.id === expenseForm.selectedMedicineId);
+        if (selectedMedicine) {
+          const newQuantity = Math.max(0, selectedMedicine.quantity - q);
+          updateInventoryItem(expenseForm.selectedMedicineId, {
+            quantity: newQuantity,
+            totalValue: newQuantity * selectedMedicine.rate
+          });
+        }
+      }
     } else {
       const q = Number(expenseForm.otherQuantity || 0),
         r = Number(expenseForm.otherRate || 0);
@@ -864,21 +960,21 @@ export default function BatchDetailPage() {
         </Card>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {TABS.map((tab) => (
-          <Button
-            key={tab}
-            variant={activeTab === tab ? "default" : "outline"}
-            className={
-              activeTab === tab
-                ? "bg-primary text-primary-foreground"
-                : "hover:border-primary hover:text-primary"
-            }
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab}
-          </Button>
-        ))}
+        <div className="flex flex-wrap gap-2">
+          {TABS.map((tab) => (
+            <Button
+              key={tab}
+              variant={activeTab === tab ? "default" : "outline"}
+              className={
+                activeTab === tab
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:border-primary hover:text-primary"
+              }
+              onClick={() => setActiveTab(tab)}
+            >
+              {tab}
+            </Button>
+          ))}
       </div>
 
       {activeTab === "Overview" && (
@@ -972,9 +1068,9 @@ export default function BatchDetailPage() {
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-gray-900">Total Expenses</span>
                   <span className="font-bold text-lg text-gray-900">
-                    ₹{expensesTotal.toLocaleString()}
+                      ₹{expensesTotal.toLocaleString()}
                   </span>
-                </div>
+            </div>
               }
               emptyMessage="No expenses recorded yet"
             />
@@ -1006,9 +1102,9 @@ export default function BatchDetailPage() {
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-gray-900">Total Sales</span>
                   <span className="font-bold text-lg text-green-600">
-                    ₹{salesTotal.toLocaleString()}
+                      ₹{salesTotal.toLocaleString()}
                   </span>
-                </div>
+            </div>
               }
               emptyMessage="No sales recorded yet"
             />
@@ -1042,9 +1138,9 @@ export default function BatchDetailPage() {
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-gray-900">Total Receivable</span>
                   <span className="font-bold text-lg text-orange-600">
-                    ₹{receivableTotal.toLocaleString()}
+                      ₹{receivableTotal.toLocaleString()}
                   </span>
-                </div>
+            </div>
               }
               emptyMessage="No ledger entries yet"
             />
@@ -1125,6 +1221,7 @@ export default function BatchDetailPage() {
         onClose={() => {
           setIsExpenseModalOpen(false);
           setEditingExpenseId(null);
+          setExpenseErrors({});
         }}
         title={editingExpenseId ? "Edit Expense" : "Add Expense"}
       >
@@ -1164,13 +1261,21 @@ export default function BatchDetailPage() {
               {expenseForm.category === "Feed" && (
                 <div className="md:col-span-2 grid md:grid-cols-3 gap-4 border rounded-md p-4">
                   <div>
-                    <Label htmlFor="feedBrand">Feed Brand</Label>
-                    <Input
-                      id="feedBrand"
-                      name="feedBrand"
-                      value={expenseForm.feedBrand}
-                      onChange={updateExpenseField}
-                    />
+                    <Label htmlFor="selectedFeedId">Feed Brand</Label>
+                    <select
+                      id="selectedFeedId"
+                      name="selectedFeedId"
+                      value={expenseForm.selectedFeedId}
+                      onChange={(e) => handleFeedSelection(e.target.value)}
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                    >
+                      <option value="">Select feed from inventory</option>
+                      {feedInventory.map((feed) => (
+                        <option key={feed.id} value={feed.id}>
+                          {feed.name} ({feed.quantity} {feed.unit} available)
+                        </option>
+                      ))}
+                    </select>
                     {expenseErrors.feedBrand && (
                       <p className="text-xs text-red-600 mt-1">
                         {expenseErrors.feedBrand}
@@ -1200,10 +1305,18 @@ export default function BatchDetailPage() {
                       type="number"
                       value={expenseForm.feedRate}
                       onChange={updateExpenseField}
+                      readOnly={!!expenseForm.selectedFeedId}
+                      className={expenseForm.selectedFeedId ? "bg-gray-50" : ""}
+                      placeholder={expenseForm.selectedFeedId ? "Auto-filled from inventory" : "Enter rate"}
                     />
                     {expenseErrors.feedRate && (
                       <p className="text-xs text-red-600 mt-1">
                         {expenseErrors.feedRate}
+                      </p>
+                    )}
+                    {expenseForm.selectedFeedId && (
+                      <p className="text-xs text-green-600 mt-1">
+                        Rate auto-filled from inventory
                       </p>
                     )}
                   </div>
@@ -1260,13 +1373,21 @@ export default function BatchDetailPage() {
               {expenseForm.category === "Medicine" && (
                 <div className="md:col-span-2 grid md:grid-cols-3 gap-4 border rounded-md p-4">
                   <div>
-                    <Label htmlFor="medicineName">Medicine Name</Label>
-                    <Input
-                      id="medicineName"
-                      name="medicineName"
-                      value={expenseForm.medicineName}
-                      onChange={updateExpenseField}
-                    />
+                    <Label htmlFor="selectedMedicineId">Medicine Name</Label>
+                    <select
+                      id="selectedMedicineId"
+                      name="selectedMedicineId"
+                      value={expenseForm.selectedMedicineId}
+                      onChange={(e) => handleMedicineSelection(e.target.value)}
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                    >
+                      <option value="">Select medicine from inventory</option>
+                      {medicineInventory.map((medicine) => (
+                        <option key={medicine.id} value={medicine.id}>
+                          {medicine.name} ({medicine.quantity} {medicine.unit} available)
+                        </option>
+                      ))}
+                    </select>
                     {expenseErrors.medicineName && (
                       <p className="text-xs text-red-600 mt-1">
                         {expenseErrors.medicineName}
@@ -1296,10 +1417,18 @@ export default function BatchDetailPage() {
                       type="number"
                       value={expenseForm.medicineRate}
                       onChange={updateExpenseField}
+                      readOnly={!!expenseForm.selectedMedicineId}
+                      className={expenseForm.selectedMedicineId ? "bg-gray-50" : ""}
+                      placeholder={expenseForm.selectedMedicineId ? "Auto-filled from inventory" : "Enter rate"}
                     />
                     {expenseErrors.medicineRate && (
                       <p className="text-xs text-red-600 mt-1">
                         {expenseErrors.medicineRate}
+                      </p>
+                    )}
+                    {expenseForm.selectedMedicineId && (
+                      <p className="text-xs text-green-600 mt-1">
+                        Rate auto-filled from inventory
                       </p>
                     )}
                   </div>
