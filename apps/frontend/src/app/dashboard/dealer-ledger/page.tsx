@@ -8,6 +8,7 @@ import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DataTable, Column, createColumn } from "@/components/ui/data-table";
+import { useInventory } from "@/contexts/InventoryContext";
 
 export default function DealerLedgerPage() {
   const [dealers, setDealers] = useState<string[]>(["Dealer One", "Dealer Two", "Dealer Three"]);
@@ -19,6 +20,8 @@ export default function DealerLedgerPage() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<{ dealer: string; entryId: number } | null>(null);
   const [selectedHistoryEntry, setSelectedHistoryEntry] = useState<{ dealer: string; entryId: number } | null>(null);
+  
+  const { addInventoryItem } = useInventory();
 
   const [newDealer, setNewDealer] = useState({ name: "", phone: "" });
   const [newEntry, setNewEntry] = useState({ item: "", rate: "", quantity: "", paid: "", date: "", dueDate: "" });
@@ -155,6 +158,8 @@ export default function DealerLedgerPage() {
     const date = newEntry.date || new Date().toISOString().slice(0, 10);
     const dueDate = newEntry.dueDate || "";
     if (!newEntry.item || !rate || !quantity) return;
+    
+    // Add to ledger
     setLedgerByDealer((prev) => {
       const rows = prev[active] ?? [];
       const next = {
@@ -175,6 +180,29 @@ export default function DealerLedgerPage() {
       };
       return next;
     });
+
+    // Auto-add to inventory (feed category)
+    addInventoryItem({
+      name: newEntry.item,
+      category: 'feed',
+      quantity: quantity,
+      unit: 'kg', // Default unit for feed
+      rate: rate,
+      totalValue: quantity * rate,
+      supplier: active,
+      batchNumber: `DL-${Date.now()}`,
+      description: `Feed purchase from ${active}`
+    }, [{
+      id: `p-${Date.now()}`,
+      source: 'dealer',
+      sourceId: active,
+      purchaseDate: date,
+      quantity: quantity,
+      rate: rate,
+      totalAmount: quantity * rate,
+      paymentStatus: paid >= (quantity * rate) ? 'paid' : paid > 0 ? 'partial' : 'due'
+    }]);
+    
     setIsAddEntryOpen(false);
     setNewEntry({ item: "", rate: "", quantity: "", paid: "", date: "", dueDate: "" });
   }

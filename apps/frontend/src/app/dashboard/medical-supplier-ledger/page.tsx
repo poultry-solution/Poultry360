@@ -8,6 +8,7 @@ import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DataTable, Column, createColumn } from "@/components/ui/data-table";
+import { useInventory } from "@/contexts/InventoryContext";
 
 export default function MedicalSupplierLedgerPage() {
   const [suppliers, setSuppliers] = useState<string[]>(["Medico Pharma", "HealthPlus", "VetCare"]);
@@ -19,6 +20,8 @@ export default function MedicalSupplierLedgerPage() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<{ supplier: string; entryId: number } | null>(null);
   const [selectedHistoryEntry, setSelectedHistoryEntry] = useState<{ supplier: string; entryId: number } | null>(null);
+  
+  const { addInventoryItem } = useInventory();
 
   const [newSupplier, setNewSupplier] = useState({ name: "", phone: "" });
   const [newEntry, setNewEntry] = useState({ item: "", rate: "", quantity: "", paid: "", date: "", dueDate: "" });
@@ -155,6 +158,8 @@ export default function MedicalSupplierLedgerPage() {
     const date = newEntry.date || new Date().toISOString().slice(0, 10);
     const dueDate = newEntry.dueDate || "";
     if (!newEntry.item || !rate || !quantity) return;
+    
+    // Add to ledger
     setLedgerBySupplier((prev) => {
       const rows = prev[active] ?? [];
       const next = {
@@ -175,6 +180,30 @@ export default function MedicalSupplierLedgerPage() {
       };
       return next;
     });
+
+    // Auto-add to inventory (medicine category)
+    addInventoryItem({
+      name: newEntry.item,
+      category: 'medicine',
+      quantity: quantity,
+      unit: 'bottles', // Default unit for medicine
+      rate: rate,
+      totalValue: quantity * rate,
+      supplier: active,
+      expiryDate: dueDate || undefined,
+      batchNumber: `MS-${Date.now()}`,
+      description: `Medicine purchase from ${active}`
+    }, [{
+      id: `p-${Date.now()}`,
+      source: 'medical_supplier',
+      sourceId: active,
+      purchaseDate: date,
+      quantity: quantity,
+      rate: rate,
+      totalAmount: quantity * rate,
+      paymentStatus: paid >= (quantity * rate) ? 'paid' : paid > 0 ? 'partial' : 'due'
+    }]);
+    
     setIsAddEntryOpen(false);
     setNewEntry({ item: "", rate: "", quantity: "", paid: "", date: "", dueDate: "" });
   }

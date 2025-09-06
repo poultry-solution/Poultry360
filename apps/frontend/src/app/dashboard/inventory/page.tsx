@@ -1,105 +1,40 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Plus, AlertTriangle, Wheat, Pill, Box } from "lucide-react";
+import { Package, AlertTriangle, Wheat, Pill, Box, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DataTable, Column, createColumn } from "@/components/ui/data-table";
-
-interface InventoryItem {
-  id: string;
-  name: string;
-  category: 'feed' | 'medicine' | 'other';
-  quantity: number;
-  unit: string;
-  rate: number;
-  totalValue: number;
-  supplier?: string;
-  expiryDate?: string;
-  batchNumber?: string;
-  description?: string;
-}
+import { useInventory, InventoryItem } from "@/contexts/InventoryContext";
 
 export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState<'feed' | 'medicine' | 'other'>('feed');
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  
+  const { 
+    inventory, 
+    getInventoryByCategory, 
+    getInventoryStats,
+    addInventoryItem
+  } = useInventory();
+
   const [formData, setFormData] = useState({
     name: '',
-    category: 'feed' as 'feed' | 'medicine' | 'other',
     quantity: '',
     unit: '',
     rate: '',
     supplier: '',
-    expiryDate: '',
     batchNumber: '',
     description: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Load inventory from localStorage on mount
-  useEffect(() => {
-    const savedInventory = localStorage.getItem('inventory');
-    if (savedInventory) {
-      setInventory(JSON.parse(savedInventory));
-    } else {
-      // Mock data
-      const mockInventory: InventoryItem[] = [
-        {
-          id: '1',
-          name: 'Broiler Starter Feed',
-          category: 'feed',
-          quantity: 500,
-          unit: 'kg',
-          rate: 45,
-          totalValue: 22500,
-          supplier: 'ABC Feed Company',
-          batchNumber: 'BF-2024-001'
-        },
-        {
-          id: '2',
-          name: 'Vitamin D3',
-          category: 'medicine',
-          quantity: 10,
-          unit: 'bottles',
-          rate: 250,
-          totalValue: 2500,
-          supplier: 'MediCorp',
-          expiryDate: '2025-12-31',
-          batchNumber: 'VD3-2024-001'
-        },
-        {
-          id: '3',
-          name: 'Water Troughs',
-          category: 'other',
-          quantity: 20,
-          unit: 'pieces',
-          rate: 150,
-          totalValue: 3000,
-          supplier: 'Farm Equipment Ltd',
-          description: 'Plastic water troughs for chicks'
-        }
-      ];
-      setInventory(mockInventory);
-      localStorage.setItem('inventory', JSON.stringify(mockInventory));
-    }
-  }, []);
-
-  // Save inventory to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('inventory', JSON.stringify(inventory));
-  }, [inventory]);
-
-  const filteredInventory = inventory.filter(item => item.category === activeTab);
-
-  const totalItems = inventory.length;
-  const lowStockItems = inventory.filter(item => item.quantity < 50).length;
-  const totalValue = inventory.reduce((sum, item) => sum + item.totalValue, 0);
-  const categories = [...new Set(inventory.map(item => item.category))].length;
+  const filteredInventory = getInventoryByCategory(activeTab);
+  const stats = getInventoryStats();
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -109,10 +44,6 @@ export default function InventoryPage() {
     if (!formData.unit.trim()) newErrors.unit = 'Unit is required';
     if (!formData.rate || parseFloat(formData.rate) <= 0) newErrors.rate = 'Valid rate is required';
     
-    if (formData.category === 'medicine' && !formData.expiryDate) {
-      newErrors.expiryDate = 'Expiry date is required for medicine';
-    }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -120,38 +51,32 @@ export default function InventoryPage() {
   const handleSubmit = () => {
     if (!validateForm()) return;
 
-    const newItem: InventoryItem = {
-      id: Date.now().toString(),
+    addInventoryItem({
       name: formData.name,
-      category: formData.category,
+      category: 'other',
       quantity: parseFloat(formData.quantity),
       unit: formData.unit,
       rate: parseFloat(formData.rate),
       totalValue: parseFloat(formData.quantity) * parseFloat(formData.rate),
       supplier: formData.supplier || undefined,
-      expiryDate: formData.expiryDate || undefined,
       batchNumber: formData.batchNumber || undefined,
       description: formData.description || undefined
-    };
+    });
 
-    setInventory([...inventory, newItem]);
     setIsAddModalOpen(false);
     setFormData({
       name: '',
-      category: 'feed',
       quantity: '',
       unit: '',
       rate: '',
       supplier: '',
-      expiryDate: '',
       batchNumber: '',
       description: ''
     });
     setErrors({});
   };
 
-  const openAddModal = (category: 'feed' | 'medicine' | 'other') => {
-    setFormData(prev => ({ ...prev, category }));
+  const openAddModal = () => {
     setIsAddModalOpen(true);
   };
 
@@ -225,6 +150,8 @@ export default function InventoryPage() {
       )
     }));
 
+    // No purchase history column needed in inventory - that data belongs in ledgers
+
     return baseColumns;
   };
 
@@ -234,15 +161,26 @@ export default function InventoryPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Inventory</h1>
-          <p className="text-muted-foreground">Manage feed, medicine, and supplies.</p>
+          <p className="text-muted-foreground">
+            {activeTab === 'other' 
+              ? 'Manage other supplies and equipment.' 
+              : 'Track feed, medicine, and supplies from purchases.'
+            }
+          </p>
         </div>
-        <Button 
-          className="bg-primary hover:bg-primary/90 w-full sm:w-auto"
-          onClick={() => openAddModal(activeTab)}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-        </Button>
+        {activeTab === 'other' ? (
+          <Button 
+            className="bg-primary hover:bg-primary/90 w-full sm:w-auto"
+            onClick={openAddModal}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Item
+          </Button>
+        ) : (
+          <div className="text-sm text-muted-foreground">
+            Items are automatically added when you make purchases in {activeTab === 'feed' ? 'Dealer Ledger' : 'Medical Supplier Ledger'}
+          </div>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -253,7 +191,7 @@ export default function InventoryPage() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">{totalItems}</div>
+            <div className="text-xl sm:text-2xl font-bold">{stats.totalItems}</div>
             <p className="text-xs text-muted-foreground">In stock</p>
           </CardContent>
         </Card>
@@ -264,7 +202,7 @@ export default function InventoryPage() {
             <AlertTriangle className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">{lowStockItems}</div>
+            <div className="text-xl sm:text-2xl font-bold">{stats.lowStockItems}</div>
             <p className="text-xs text-muted-foreground">Need reorder</p>
           </CardContent>
         </Card>
@@ -275,7 +213,7 @@ export default function InventoryPage() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">₹{totalValue.toLocaleString()}</div>
+            <div className="text-xl sm:text-2xl font-bold">₹{stats.totalValue.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">Inventory worth</p>
           </CardContent>
         </Card>
@@ -286,7 +224,7 @@ export default function InventoryPage() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">{categories}</div>
+            <div className="text-xl sm:text-2xl font-bold">{stats.categories}</div>
             <p className="text-xs text-muted-foreground">Item types</p>
           </CardContent>
         </Card>
@@ -336,13 +274,19 @@ export default function InventoryPage() {
             <div className="text-center py-8 text-muted-foreground">
               <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No {activeTab} items found</p>
-              <Button 
-                className="mt-4 bg-primary hover:bg-primary/90"
-                onClick={() => openAddModal(activeTab)}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add First {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Item
-              </Button>
+              {activeTab === 'other' ? (
+                <Button 
+                  className="mt-4 bg-primary hover:bg-primary/90"
+                  onClick={openAddModal}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add First {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Item
+                </Button>
+              ) : (
+                <p className="text-sm mt-2">
+                  Items will appear here when you make purchases in {activeTab === 'feed' ? 'Dealer Ledger' : 'Medical Supplier Ledger'}
+                </p>
+              )}
             </div>
           ) : (
             <DataTable
@@ -354,14 +298,14 @@ export default function InventoryPage() {
         </CardContent>
       </Card>
 
-      {/* Add Item Modal */}
+      {/* Add Item Modal (for Other tab only) */}
       <Modal 
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)}
-        title={`Add ${formData.category.charAt(0).toUpperCase() + formData.category.slice(1)} Item`}
+        title="Add Other Item"
       >
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Add {formData.category.charAt(0).toUpperCase() + formData.category.slice(1)} Item</h2>
+          <h2 className="text-xl font-semibold">Add Other Item</h2>
           
           <div className="grid gap-4">
             <div>
@@ -393,7 +337,7 @@ export default function InventoryPage() {
                   id="unit"
                   value={formData.unit}
                   onChange={(e) => setFormData(prev => ({ ...prev, unit: e.target.value }))}
-                  placeholder="kg, pieces, bottles"
+                  placeholder="pieces, kg, bottles"
                 />
                 {errors.unit && <p className="text-sm text-red-600 mt-1">{errors.unit}</p>}
               </div>
@@ -420,19 +364,6 @@ export default function InventoryPage() {
                 placeholder="Supplier name"
               />
             </div>
-
-            {formData.category === 'medicine' && (
-              <div>
-                <Label htmlFor="expiryDate">Expiry Date *</Label>
-                <Input
-                  id="expiryDate"
-                  type="date"
-                  value={formData.expiryDate}
-                  onChange={(e) => setFormData(prev => ({ ...prev, expiryDate: e.target.value }))}
-                />
-                {errors.expiryDate && <p className="text-sm text-red-600 mt-1">{errors.expiryDate}</p>}
-              </div>
-            )}
 
             <div>
               <Label htmlFor="batchNumber">Batch Number</Label>
@@ -465,6 +396,7 @@ export default function InventoryPage() {
           </div>
         </div>
       </Modal>
+
     </div>
   );
 }
