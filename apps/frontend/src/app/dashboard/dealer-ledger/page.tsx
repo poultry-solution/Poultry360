@@ -15,19 +15,24 @@ export default function DealerLedgerPage() {
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isAddDealerOpen, setIsAddDealerOpen] = useState(false);
   const [isAddEntryOpen, setIsAddEntryOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<{ dealer: string; entryId: number } | null>(null);
+  const [selectedHistoryEntry, setSelectedHistoryEntry] = useState<{ dealer: string; entryId: number } | null>(null);
 
   const [newDealer, setNewDealer] = useState({ name: "", phone: "" });
   const [newEntry, setNewEntry] = useState({ item: "", rate: "", quantity: "", paid: "", date: "", dueDate: "" });
+  const [paymentForm, setPaymentForm] = useState({ amount: "", date: "", note: "" });
 
-  const [ledgerByDealer, setLedgerByDealer] = useState<Record<string, { id: number; item: string; rate: number; quantity: number; paid: number; date: string; dueDate?: string }[]>>({
+  const [ledgerByDealer, setLedgerByDealer] = useState<Record<string, { id: number; item: string; rate: number; quantity: number; paid: number; date: string; dueDate?: string; paymentHistory?: { amount: number; date: string; note?: string }[] }[]>>({
     "Dealer One": [
-      { id: 1, item: "Feed Brand A", rate: 28, quantity: 100, paid: 1500, date: "2025-08-18" },
+      { id: 1, item: "Feed Brand A", rate: 28, quantity: 100, paid: 1500, date: "2025-08-18", paymentHistory: [{ amount: 1500, date: "2025-08-18", note: "Initial payment" }] },
     ],
     "Dealer Two": [
-      { id: 1, item: "Feed Brand B", rate: 30, quantity: 80, paid: 1000, date: "2025-08-22" },
+      { id: 1, item: "Feed Brand B", rate: 30, quantity: 80, paid: 1000, date: "2025-08-22", paymentHistory: [{ amount: 1000, date: "2025-08-22", note: "Initial payment" }] },
     ],
     "Dealer Three": [
-      { id: 1, item: "Feed Brand C", rate: 27, quantity: 120, paid: 2500, date: "2025-08-25" },
+      { id: 1, item: "Feed Brand C", rate: 27, quantity: 120, paid: 2500, date: "2025-08-25", paymentHistory: [{ amount: 2500, date: "2025-08-25", note: "Initial payment" }] },
     ],
   });
 
@@ -81,13 +86,48 @@ export default function DealerLedgerPage() {
     createColumn('due', 'Amount Due', {
       type: 'currency',
       align: 'right',
-      render: (_, row) => `₹${(row.rate * row.quantity - row.paid).toLocaleString()}`
+      render: (_, row) => {
+        const due = row.rate * row.quantity - row.paid;
+        return (
+          <div className="flex items-center justify-between">
+            <span className={due > 0 ? "text-red-600 font-medium" : "text-green-600 font-medium"}>
+              ₹{due.toLocaleString()}
+            </span>
+            {due > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="ml-2 h-6 px-2 text-xs bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
+                onClick={() => openPaymentModal(active, row.id)}
+              >
+                Pay
+              </Button>
+            )}
+          </div>
+        );
+      }
     }),
     createColumn('date', 'Date', {
       type: 'date'
     }),
     createColumn('dueDate', 'Due Date', {
       render: (_, row) => row.dueDate && row.dueDate !== "" ? row.dueDate : getRowDueDate(row.date)
+    }),
+    createColumn('paymentHistory', 'Payment History', {
+      render: (_, row) => {
+        const history = row.paymentHistory || [];
+        const totalPayments = history.length;
+        const totalPaid = history.reduce((sum: number, payment: { amount: number }) => sum + payment.amount, 0);
+        
+        return (
+          <div 
+            className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline"
+            onClick={() => openHistoryModal(active, row.id)}
+          >
+            {totalPayments} payment{totalPayments !== 1 ? 's' : ''} (₹{totalPaid.toLocaleString()})
+          </div>
+        );
+      }
     })
   ];
 
@@ -121,13 +161,62 @@ export default function DealerLedgerPage() {
         ...prev,
         [active]: [
           ...rows,
-          { id: rows.length ? rows[rows.length - 1].id + 1 : 1, item: newEntry.item, rate, quantity, paid: paid || 0, date, dueDate: dueDate || undefined },
+          { 
+            id: rows.length ? rows[rows.length - 1].id + 1 : 1, 
+            item: newEntry.item, 
+            rate, 
+            quantity, 
+            paid: paid || 0, 
+            date, 
+            dueDate: dueDate || undefined,
+            paymentHistory: paid > 0 ? [{ amount: paid, date, note: "Initial payment" }] : []
+          },
         ],
       };
       return next;
     });
     setIsAddEntryOpen(false);
     setNewEntry({ item: "", rate: "", quantity: "", paid: "", date: "", dueDate: "" });
+  }
+
+  function handleAddPayment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedEntry || !paymentForm.amount) return;
+    
+    const paymentAmount = Number(paymentForm.amount);
+    const paymentDate = paymentForm.date || new Date().toISOString().slice(0, 10);
+    
+    setLedgerByDealer((prev) => {
+      const dealer = selectedEntry.dealer;
+      const rows = prev[dealer] || [];
+      const updatedRows = rows.map((row) => {
+        if (row.id === selectedEntry.entryId) {
+          const newPaid = row.paid + paymentAmount;
+          const newPaymentHistory = [
+            ...(row.paymentHistory || []),
+            { amount: paymentAmount, date: paymentDate, note: paymentForm.note || "Payment" }
+          ];
+          return { ...row, paid: newPaid, paymentHistory: newPaymentHistory };
+        }
+        return row;
+      });
+      
+      return { ...prev, [dealer]: updatedRows };
+    });
+    
+    setIsPaymentModalOpen(false);
+    setSelectedEntry(null);
+    setPaymentForm({ amount: "", date: "", note: "" });
+  }
+
+  function openPaymentModal(dealer: string, entryId: number) {
+    setSelectedEntry({ dealer, entryId });
+    setIsPaymentModalOpen(true);
+  }
+
+  function openHistoryModal(dealer: string, entryId: number) {
+    setSelectedHistoryEntry({ dealer, entryId });
+    setIsHistoryModalOpen(true);
   }
 
   return (
@@ -262,6 +351,132 @@ export default function DealerLedgerPage() {
         </form>
       </Modal>
 
+      {/* Payment Modal */}
+      <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="Add Payment">
+        <form onSubmit={handleAddPayment}>
+          <ModalContent>
+            <div className="space-y-4">
+              {selectedEntry && (
+                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-blue-800">
+                    <strong>Entry:</strong> {ledgerByDealer[selectedEntry.dealer]?.find(e => e.id === selectedEntry.entryId)?.item}
+                  </p>
+                  <p className="text-sm text-blue-800">
+                    <strong>Amount Due:</strong> ₹{(() => {
+                      const entry = ledgerByDealer[selectedEntry.dealer]?.find(e => e.id === selectedEntry.entryId);
+                      return entry ? (entry.rate * entry.quantity - entry.paid).toLocaleString() : '0';
+                    })()}
+                  </p>
+                </div>
+              )}
+              <div>
+                <Label htmlFor="paymentAmount">Payment Amount</Label>
+                <Input 
+                  id="paymentAmount" 
+                  type="number" 
+                  value={paymentForm.amount} 
+                  onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })} 
+                  placeholder="Enter amount" 
+                  required 
+                />
+              </div>
+              <div>
+                <Label htmlFor="paymentDate">Payment Date</Label>
+                <Input 
+                  id="paymentDate" 
+                  type="date" 
+                  value={paymentForm.date} 
+                  onChange={(e) => setPaymentForm({ ...paymentForm, date: e.target.value })} 
+                />
+              </div>
+              <div>
+                <Label htmlFor="paymentNote">Note (optional)</Label>
+                <Input 
+                  id="paymentNote" 
+                  value={paymentForm.note} 
+                  onChange={(e) => setPaymentForm({ ...paymentForm, note: e.target.value })} 
+                  placeholder="Payment reference or note" 
+                />
+              </div>
+            </div>
+          </ModalContent>
+          <ModalFooter>
+            <Button type="button" variant="outline" onClick={() => setIsPaymentModalOpen(false)}>Cancel</Button>
+            <Button type="submit" className="bg-green-600 hover:bg-green-700">Record Payment</Button>
+          </ModalFooter>
+        </form>
+      </Modal>
+
+      {/* Payment History Modal */}
+      <Modal isOpen={isHistoryModalOpen} onClose={() => setIsHistoryModalOpen(false)} title="Payment History">
+        <ModalContent>
+          <div className="space-y-4">
+            {selectedHistoryEntry && (() => {
+              const entry = ledgerByDealer[selectedHistoryEntry.dealer]?.find(e => e.id === selectedHistoryEntry.entryId);
+              const history = entry?.paymentHistory || [];
+              const totalAmount = entry ? entry.rate * entry.quantity : 0;
+              const totalPaid = history.reduce((sum: number, payment: { amount: number }) => sum + payment.amount, 0);
+              const remaining = totalAmount - totalPaid;
+              
+              return (
+                <>
+                  <div className="p-4 bg-gray-50 rounded-lg border">
+                    <h3 className="font-semibold text-lg mb-2">{entry?.item}</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600">Total Amount:</span>
+                        <span className="ml-2 font-medium">₹{totalAmount.toLocaleString()}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Total Paid:</span>
+                        <span className="ml-2 font-medium text-green-600">₹{totalPaid.toLocaleString()}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Remaining:</span>
+                        <span className={`ml-2 font-medium ${remaining > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          ₹{remaining.toLocaleString()}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Payments:</span>
+                        <span className="ml-2 font-medium">{history.length}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-gray-900">Payment Details</h4>
+                    {history.length === 0 ? (
+                      <p className="text-gray-500 text-center py-4">No payments recorded yet</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {history.map((payment, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 bg-white border rounded-lg">
+                            <div>
+                              <div className="font-medium">₹{payment.amount.toLocaleString()}</div>
+                              <div className="text-sm text-gray-600">{payment.date}</div>
+                              {payment.note && (
+                                <div className="text-sm text-gray-500">{payment.note}</div>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              Payment #{index + 1}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </ModalContent>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setIsHistoryModalOpen(false)}>Close</Button>
+        </ModalFooter>
+      </Modal>
+
       {/* Tabs: one per dealer */}
       <div className="space-y-3">
         <div className="flex flex-wrap gap-2">
@@ -296,7 +511,7 @@ export default function DealerLedgerPage() {
               columns={ledgerColumns}
               showFooter={true}
               footerContent={
-                <div className="grid grid-cols-8 gap-4 text-sm">
+                <div className="grid grid-cols-9 gap-4 text-sm">
                   <div className="col-span-3 font-semibold text-gray-900">Total</div>
                   <div className="text-right font-medium">
                     ₹{ledgerByDealer[active]?.reduce((sum, r) => sum + r.rate * r.quantity, 0).toLocaleString() || '0'}
@@ -307,6 +522,7 @@ export default function DealerLedgerPage() {
                   <div className="text-right font-medium">
                     ₹{ledgerByDealer[active]?.reduce((sum, r) => sum + (r.rate * r.quantity - r.paid), 0).toLocaleString() || '0'}
                   </div>
+                  <div></div>
                   <div></div>
                   <div></div>
                 </div>
