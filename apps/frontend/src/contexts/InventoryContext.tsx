@@ -58,88 +58,76 @@ interface InventoryProviderProps {
 export const InventoryProvider: React.FC<InventoryProviderProps> = ({ children }) => {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
 
-  // Load inventory from localStorage on mount
+  // Initialize with mock data
   useEffect(() => {
-    const savedInventory = localStorage.getItem('unified-inventory');
-    if (savedInventory) {
-      setInventory(JSON.parse(savedInventory));
-    } else {
-      // Mock data for initial setup
-      const mockInventory: InventoryItem[] = [
-        {
-          id: '1',
-          name: 'Broiler Starter Feed',
-          category: 'feed',
+    const mockInventory: InventoryItem[] = [
+      {
+        id: '1',
+        name: 'Broiler Starter Feed',
+        category: 'feed',
+        quantity: 500,
+        unit: 'kg',
+        rate: 45,
+        totalValue: 22500,
+        supplier: 'ABC Feed Company',
+        batchNumber: 'BF-2024-001',
+        purchaseHistory: [{
+          id: 'p1',
+          source: 'manual',
+          sourceId: 'Initial Setup',
+          purchaseDate: '2024-01-01',
           quantity: 500,
-          unit: 'kg',
           rate: 45,
-          totalValue: 22500,
-          supplier: 'ABC Feed Company',
-          batchNumber: 'BF-2024-001',
-          purchaseHistory: [{
-            id: 'p1',
-            source: 'manual',
-            sourceId: 'Initial Setup',
-            purchaseDate: '2024-01-01',
-            quantity: 500,
-            rate: 45,
-            totalAmount: 22500,
-            paymentStatus: 'paid'
-          }]
-        },
-        {
-          id: '2',
-          name: 'Vitamin D3',
-          category: 'medicine',
+          totalAmount: 22500,
+          paymentStatus: 'paid'
+        }]
+      },
+      {
+        id: '2',
+        name: 'Vitamin D3',
+        category: 'medicine',
+        quantity: 10,
+        unit: 'bottles',
+        rate: 250,
+        totalValue: 2500,
+        supplier: 'MediCorp',
+        expiryDate: '2025-12-31',
+        batchNumber: 'VD3-2024-001',
+        purchaseHistory: [{
+          id: 'p2',
+          source: 'manual',
+          sourceId: 'Initial Setup',
+          purchaseDate: '2024-01-01',
           quantity: 10,
-          unit: 'bottles',
           rate: 250,
-          totalValue: 2500,
-          supplier: 'MediCorp',
-          expiryDate: '2025-12-31',
-          batchNumber: 'VD3-2024-001',
-          purchaseHistory: [{
-            id: 'p2',
-            source: 'manual',
-            sourceId: 'Initial Setup',
-            purchaseDate: '2024-01-01',
-            quantity: 10,
-            rate: 250,
-            totalAmount: 2500,
-            paymentStatus: 'paid'
-          }]
-        },
-        {
-          id: '3',
-          name: 'Water Troughs',
-          category: 'other',
+          totalAmount: 2500,
+          paymentStatus: 'paid'
+        }]
+      },
+      {
+        id: '3',
+        name: 'Water Troughs',
+        category: 'other',
+        quantity: 20,
+        unit: 'pieces',
+        rate: 150,
+        totalValue: 3000,
+        supplier: 'Farm Equipment Ltd',
+        description: 'Plastic water troughs for chicks',
+        purchaseHistory: [{
+          id: 'p3',
+          source: 'manual',
+          sourceId: 'Initial Setup',
+          purchaseDate: '2024-01-01',
           quantity: 20,
-          unit: 'pieces',
           rate: 150,
-          totalValue: 3000,
-          supplier: 'Farm Equipment Ltd',
-          description: 'Plastic water troughs for chicks',
-          purchaseHistory: [{
-            id: 'p3',
-            source: 'manual',
-            sourceId: 'Initial Setup',
-            purchaseDate: '2024-01-01',
-            quantity: 20,
-            rate: 150,
-            totalAmount: 3000,
-            paymentStatus: 'paid'
-          }]
-        }
-      ];
-      setInventory(mockInventory);
-      localStorage.setItem('unified-inventory', JSON.stringify(mockInventory));
-    }
+          totalAmount: 3000,
+          paymentStatus: 'paid'
+        }]
+      }
+    ];
+    setInventory(mockInventory);
   }, []);
-
-  // Save inventory to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('unified-inventory', JSON.stringify(inventory));
-  }, [inventory]);
 
   const addInventoryItem = (itemData: Omit<InventoryItem, 'id' | 'purchaseHistory'>, purchaseHistory?: InventoryItem['purchaseHistory']) => {
     const newItem: InventoryItem = {
