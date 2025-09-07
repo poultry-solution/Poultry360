@@ -76,19 +76,27 @@ enum UserStatus {
 
 model User {
   id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
+  email     String   @unique //rm 
+  // companyName String?
+  // farmLocation String? // Province + Location 
+  // farmNumber Int?
+  // farmCapacity Int?
+ 
+
+  name      String //rm
   phone     String
   password  String  
   role      UserRole @default(OWNER)  
-  gender    Gender   @default(OTHER)
+  gender    Gender   @default(OTHER) //rm 
   status    UserStatus @default(PENDING_VERIFICATION)
   // Relationships
   // Farms this user owns
   ownedFarms Farm[]
 
+
   // Farms this user manages
   managedFarms Farm[] @relation("FarmManagers")
+
 
   customers Customer[]
   notifications Notification[]
@@ -113,7 +121,7 @@ model User {
 model Farm {
   id          String   @id @default(cuid())
   name        String
-  location    String
+  location    String //rm 
   capacity    Int
   description String?
   

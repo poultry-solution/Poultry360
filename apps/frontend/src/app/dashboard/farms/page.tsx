@@ -13,8 +13,6 @@ export default function FarmsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    location: "",
-    province: "",
     capacity: "",
     description: ""
   });
@@ -24,7 +22,6 @@ export default function FarmsPage() {
     {
       id: 1,
       name: "Farm A",
-      location: "Bharatpur, Chitwan",
       capacity: "5,000 birds",
       activeBatches: 2,
       closedBatches: 5,
@@ -33,7 +30,6 @@ export default function FarmsPage() {
     {
       id: 2,
       name: "Farm B", 
-      location: "Pokhara, Kaski",
       capacity: "3,500 birds",
       activeBatches: 1,
       closedBatches: 3,
@@ -42,7 +38,6 @@ export default function FarmsPage() {
     {
       id: 3,
       name: "Farm C",
-      location: "Butwal, Rupandehi", 
       capacity: "4,000 birds",
       activeBatches: 2,
       closedBatches: 4,
@@ -76,7 +71,6 @@ export default function FarmsPage() {
     const newFarm = {
       id: farms.length + 1,
       name: formData.name,
-      location: `${formData.location}, ${formData.province}`,
       capacity: `${formData.capacity} birds`,
       activeBatches: 0,
       closedBatches: 0,
@@ -88,12 +82,12 @@ export default function FarmsPage() {
     
     // Reset form and close modal
     setIsModalOpen(false);
-    setFormData({ name: "", location: "", province: "", capacity: "", description: "" });
+    setFormData({ name: "", capacity: "", description: "" });
   };
 
   const handleClose = () => {
     setIsModalOpen(false);
-    setFormData({ name: "", location: "", province: "", capacity: "", description: "" });
+    setFormData({ name: "", capacity: "", description: "" });
   };
 
   // Mock batches generator (replace with API later)
@@ -137,7 +131,7 @@ export default function FarmsPage() {
                   {farm.name}
                 </span>
               </CardTitle>
-              <CardDescription>{farm.location}</CardDescription>
+              <CardDescription>Farm ID: {farm.id}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -194,29 +188,6 @@ export default function FarmsPage() {
                 />
               </div>
 
-              <div>
-                <Label htmlFor="province">Province</Label>
-                <Input
-                  id="province"
-                  name="province"
-                  value={formData.province}
-                  onChange={handleInputChange}
-                  placeholder="Select province"
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="location">Location/City</Label>
-                <Input
-                  id="location"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleInputChange}
-                  placeholder="Enter city or area"
-                  required
-                />
-              </div>
 
               <div>
                 <Label htmlFor="capacity">Capacity (Number of Birds)</Label>

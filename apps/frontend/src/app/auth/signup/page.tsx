@@ -7,13 +7,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/store/store";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function SignupPage() {
   const router = useRouter();
   const { register, isLoading, error, clearError } = useAuth();
   
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
   const [formData, setFormData] = useState({
-    farmName: "",
+    companyName: "",
     province: "Bagmati",
     location: "",
     countryCode: "+977",
@@ -21,10 +25,8 @@ export default function SignupPage() {
     farmsCount: "",
     totalCapacity: "",
     password: "",
+    confirmPassword: "",
     // Updated fields to match new schema
-    name: "",
-    email: "",
-    gender: "OTHER" as const,
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -38,21 +40,26 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate password match
+    if (formData.password !== formData.confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+    
     try {
       // Generate email from farm name or phone if not provided
-      const email = formData.email || 
-                   `${formData.farmName.toLowerCase().replace(/\s+/g, '')}@farm.com` || 
+      const email = `${formData.companyName.toLowerCase().replace(/\s+/g, '')}@farm.com` || 
                    `user${formData.phone.slice(-4)}@farm.com`;
       
-      // Generate name from farm name if not provided
-      const name = formData.name || formData.farmName || 'Farm Owner';
+      // Generate name from farm name
+      const name = formData.companyName || 'Farm Owner';
       
       const registerData = {
         name,
         email,
         phone: `${formData.countryCode}${formData.phone}`,
         password: formData.password,
-        gender: formData.gender,
+        gender: "OTHER" as const,
         role: "OWNER" as const,
       };
 
@@ -96,11 +103,11 @@ export default function SignupPage() {
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="farmName">Farm name *</Label>
+              <Label htmlFor="farmName"> Company name *</Label>
               <Input 
                 id="farmName" 
                 name="farmName" 
-                value={formData.farmName}
+                value={formData.companyName}
                 onChange={handleInputChange}
                 placeholder="Poultry360 Farms Pvt. Ltd." 
                 required 
@@ -198,60 +205,53 @@ export default function SignupPage() {
               </div>
             </div>
             
-            {/* Updated fields to match new schema */}
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name *</Label>
-              <Input 
-                id="name" 
-                name="name" 
-                value={formData.name}
-                onChange={handleInputChange}
-                placeholder="Your full name" 
-                required 
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
-              <Input 
-                id="email" 
-                name="email" 
-                type="email" 
-                value={formData.email}
-                onChange={handleInputChange}
-                placeholder="your.email@example.com" 
-                required 
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="gender">Gender *</Label>
-              <select
-                id="gender"
-                name="gender"
-                value={formData.gender}
-                onChange={handleInputChange}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                required
-              >
-                <option value="MALE">Male</option>
-                <option value="FEMALE">Female</option>
-                <option value="OTHER">Other</option>
-              </select>
-            </div>
             
             <div className="space-y-2">
               <Label htmlFor="password">Password *</Label>
-              <Input 
-                id="password" 
-                name="password" 
-                type="password" 
-                value={formData.password}
-                onChange={handleInputChange}
-                placeholder="••••••••" 
-                required 
-                minLength={6}
-              />
+              <div className="relative">
+                <Input 
+                  id="password" 
+                  name="password" 
+                  type={showPassword ? "text" : "password"}
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  placeholder="••••••••" 
+                  required 
+                  minLength={6}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Re-enter Password *</Label>
+              <div className="relative">
+                <Input 
+                  id="confirmPassword" 
+                  name="confirmPassword" 
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  placeholder="••••••••" 
+                  required 
+                  minLength={6}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             
             <Button 
