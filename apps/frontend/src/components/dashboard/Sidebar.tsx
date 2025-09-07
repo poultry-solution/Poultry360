@@ -84,7 +84,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
       {/* Company Name Display */}
       <div className="px-6 py-4 border-b min-w-0">
         <p className="text-sm font-medium text-foreground">
-          Rajesh Kumar Farms
+          {user?.companyName || user?.name}
         </p>
         <p className="text-xs text-muted-foreground">Owner</p>
       </div>

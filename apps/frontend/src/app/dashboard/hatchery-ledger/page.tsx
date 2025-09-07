@@ -1,153 +1,217 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Egg, Plus, TrendingUp } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Egg, Plus, TrendingUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DataTable, Column, createColumn } from "@/components/ui/data-table";
+import { toast } from "sonner";
+import {
+  useGetAllHatcheries,
+  useGetHatcheryStatistics,
+  useGetHatcheryById,
+  useCreateHatchery,
+  useAddHatcheryTransaction,
+} from "@/fetchers/hatcheries/hatcheryQueries";
+import { TransactionType } from "@myapp/shared-types";
 
 export default function HatcheryLedgerPage() {
-  const [hatcheries, setHatcheries] = useState<string[]>(["Hatchery A", "Hatchery B", "Hatchery C"]);
-  const [active, setActive] = useState<string>("Hatchery A");
+  const [activeHatcheryId, setActiveHatcheryId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddHatcheryOpen, setIsAddHatcheryOpen] = useState(false);
   const [isAddEntryOpen, setIsAddEntryOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-  const [selectedEntry, setSelectedEntry] = useState<{ hatchery: string; entryId: number } | null>(null);
-  const [selectedHistoryEntry, setSelectedHistoryEntry] = useState<{ hatchery: string; entryId: number } | null>(null);
+  const [selectedEntry, setSelectedEntry] = useState<{
+    hatcheryId: string;
+    entryId: string;
+  } | null>(null);
+  const [selectedHistoryEntry, setSelectedHistoryEntry] = useState<{
+    hatcheryId: string;
+    entryId: string;
+  } | null>(null);
 
-  const [newHatchery, setNewHatchery] = useState({ name: "", phone: "" });
-  const [newEntry, setNewEntry] = useState({ item: "", rate: "", quantity: "", paid: "", date: "", dueDate: "" });
-  const [paymentForm, setPaymentForm] = useState({ amount: "", date: "", note: "" });
-
-  const [ledgerByHatchery, setLedgerByHatchery] = useState<Record<string, { id: number; item: string; rate: number; quantity: number; paid: number; date: string; dueDate?: string; paymentHistory?: { amount: number; date: string; note?: string }[] }[]>>({
-    "Hatchery A": [
-      { id: 1, item: "Broiler Chicks", rate: 45, quantity: 1200, paid: 45000, date: "2025-08-20", paymentHistory: [{ amount: 45000, date: "2025-08-20", note: "Initial payment" }] },
-      { id: 2, item: "Broiler Chicks", rate: 44, quantity: 800, paid: 35200, date: "2025-08-28", paymentHistory: [{ amount: 35200, date: "2025-08-28", note: "Initial payment" }] },
-    ],
-    "Hatchery B": [
-      { id: 1, item: "Layer Chicks", rate: 52, quantity: 600, paid: 25000, date: "2025-08-22", paymentHistory: [{ amount: 25000, date: "2025-08-22", note: "Initial payment" }] },
-    ],
-    "Hatchery C": [
-      { id: 1, item: "Broiler Chicks", rate: 46, quantity: 1000, paid: 20000, date: "2025-08-25", paymentHistory: [{ amount: 20000, date: "2025-08-25", note: "Initial payment" }] },
-    ],
+  const [newHatchery, setNewHatchery] = useState({
+    name: "",
+    contact: "",
+    address: "",
+  });
+  const [newEntry, setNewEntry] = useState({
+    item: "",
+    rate: "",
+    quantity: "",
+    paid: "",
+    date: "",
+    dueDate: "",
+  });
+  const [paymentForm, setPaymentForm] = useState({
+    amount: "",
+    date: "",
+    note: "",
   });
 
-  function handleAddHatchery(e: React.FormEvent) {
-    e.preventDefault();
-    const name = newHatchery.name.trim();
-    if (!name) return;
-    if (hatcheries.includes(name)) {
-      setIsAddHatcheryOpen(false);
-      setNewHatchery({ name: "", phone: "" });
-      return;
+  // API Queries
+  const {
+    data: hatcheriesResponse,
+    isLoading: hatcheriesLoading,
+    error: hatcheriesError,
+  } = useGetAllHatcheries();
+
+  const { data: statisticsResponse, isLoading: statisticsLoading } =
+    useGetHatcheryStatistics();
+
+  const { data: activeHatcheryResponse, isLoading: activeHatcheryLoading } =
+    useGetHatcheryById(activeHatcheryId);
+
+  // Mutations
+  const createHatcheryMutation = useCreateHatchery();
+  const addTransactionMutation = useAddHatcheryTransaction();
+
+  // Extract data from responses
+  const hatcheries = hatcheriesResponse?.data || [];
+  const statistics = statisticsResponse?.data || {
+    totalHatcheries: 0,
+    activeHatcheries: 0,
+    outstandingAmount: 0,
+    thisMonthAmount: 0,
+  };
+  const activeHatchery = activeHatcheryResponse?.data;
+
+  // Auto-select first hatchery when data is available
+  useEffect(() => {
+    if (hatcheries.length > 0 && !activeHatcheryId) {
+      setActiveHatcheryId(hatcheries[0].id);
     }
-    setHatcheries((prev) => [...prev, name]);
-    setLedgerByHatchery((prev) => ({ ...prev, [name]: [] }));
-    setActive(name);
-    setIsAddHatcheryOpen(false);
-    setNewHatchery({ name: "", phone: "" });
+  }, [hatcheries, activeHatcheryId]);
+
+  async function handleAddHatchery(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newHatchery.name.trim()) return;
+
+    try {
+      await createHatcheryMutation.mutateAsync({
+        name: newHatchery.name.trim(),
+        contact: newHatchery.contact.trim(),
+        address: newHatchery.address.trim() || undefined,
+      });
+
+      toast.success("Hatchery added successfully!");
+      setIsAddHatcheryOpen(false);
+      setNewHatchery({ name: "", contact: "", address: "" });
+    } catch (error) {
+      console.error("Failed to add hatchery:", error);
+      // Error toast is handled by axios interceptor
+    }
   }
 
-  function handleAddEntry(e: React.FormEvent) {
+  async function handleAddEntry(e: React.FormEvent) {
     e.preventDefault();
     const rate = Number(newEntry.rate);
     const quantity = Number(newEntry.quantity);
     const paid = Number(newEntry.paid);
-    const date = newEntry.date || new Date().toISOString().slice(0, 10);
-    const dueDate = newEntry.dueDate || "";
-    if (!newEntry.item || !rate || !quantity) return;
-    setLedgerByHatchery((prev) => {
-      const rows = prev[active] ?? [];
-      const next = {
-        ...prev,
-        [active]: [
-          ...rows,
-          { 
-            id: rows.length ? rows[rows.length - 1].id + 1 : 1, 
-            item: newEntry.item, 
-            rate, 
+    const date = newEntry.date || new Date().toISOString();
+    if (!newEntry.item || !rate || !quantity || !activeHatcheryId) return;
+
+    try {
+      // Add purchase transaction
+      await addTransactionMutation.mutateAsync({
+        hatcheryId: activeHatcheryId,
+        data: {
+          type: "PURCHASE" as TransactionType,
+          amount: rate * quantity,
             quantity, 
-            paid: paid || 0, 
+          itemName: newEntry.item,
+          date,
+          description: `Purchase of ${newEntry.item}`,
+          entityType: "HATCHERY",
+          entityId: activeHatcheryId,
+        },
+      });
+
+      // Add payment transaction if paid amount > 0
+      if (paid > 0) {
+        await addTransactionMutation.mutateAsync({
+          hatcheryId: activeHatcheryId,
+          data: {
+            type: "PAYMENT" as TransactionType,
+            amount: paid,
             date, 
-            dueDate: dueDate || undefined,
-            paymentHistory: paid > 0 ? [{ amount: paid, date, note: "Initial payment" }] : []
+            description: `Initial payment for ${newEntry.item}`,
+            entityType: "HATCHERY",
+            entityId: activeHatcheryId,
           },
-        ],
-      };
-      return next;
     });
+      }
+
+      toast.success("Transaction added successfully!");
     setIsAddEntryOpen(false);
-    setNewEntry({ item: "", rate: "", quantity: "", paid: "", date: "", dueDate: "" });
+      setNewEntry({
+        item: "",
+        rate: "",
+        quantity: "",
+        paid: "",
+        date: "",
+        dueDate: "",
+      });
+    } catch (error) {
+      console.error("Failed to add transaction:", error);
+      // Error toast is handled by axios interceptor
+    }
   }
 
-  function handleAddPayment(e: React.FormEvent) {
+  async function handleAddPayment(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedEntry || !paymentForm.amount) return;
+    if (!selectedEntry || !paymentForm.amount || !activeHatcheryId) return;
     
     const paymentAmount = Number(paymentForm.amount);
-    const paymentDate = paymentForm.date || new Date().toISOString().slice(0, 10);
-    
-    setLedgerByHatchery((prev) => {
-      const hatchery = selectedEntry.hatchery;
-      const rows = prev[hatchery] || [];
-      const updatedRows = rows.map((row) => {
-        if (row.id === selectedEntry.entryId) {
-          const newPaid = row.paid + paymentAmount;
-          const newPaymentHistory = [
-            ...(row.paymentHistory || []),
-            { amount: paymentAmount, date: paymentDate, note: paymentForm.note || "Payment" }
-          ];
-          return { ...row, paid: newPaid, paymentHistory: newPaymentHistory };
-        }
-        return row;
+    const paymentDate = paymentForm.date || new Date().toISOString();
+
+    try {
+      await addTransactionMutation.mutateAsync({
+        hatcheryId: activeHatcheryId,
+        data: {
+          type: "PAYMENT" as TransactionType,
+          amount: paymentAmount,
+          date: paymentDate,
+          description: paymentForm.note || "Payment",
+          entityType: "HATCHERY",
+          entityId: activeHatcheryId,
+        },
       });
-      
-      return { ...prev, [hatchery]: updatedRows };
-    });
-    
+
+      toast.success("Payment recorded successfully!");
     setIsPaymentModalOpen(false);
     setSelectedEntry(null);
     setPaymentForm({ amount: "", date: "", note: "" });
+    } catch (error) {
+      console.error("Failed to record payment:", error);
+      // Error toast is handled by axios interceptor
+    }
   }
 
-  function openPaymentModal(hatchery: string, entryId: number) {
-    setSelectedEntry({ hatchery, entryId });
+  function openPaymentModal(hatcheryId: string | null, entryId: string) {
+    if (!hatcheryId) return;
+    setSelectedEntry({ hatcheryId, entryId });
     setIsPaymentModalOpen(true);
   }
 
-  function openHistoryModal(hatchery: string, entryId: number) {
-    setSelectedHistoryEntry({ hatchery, entryId });
+  function openHistoryModal(hatcheryId: string | null, entryId: string) {
+    if (!hatcheryId) return;
+    setSelectedHistoryEntry({ hatcheryId, entryId });
     setIsHistoryModalOpen(true);
   }
 
-  function getDueFor(h: string) {
-    const rows = ledgerByHatchery[h] ?? [];
-    const total = rows.reduce((s, r) => s + r.rate * r.quantity, 0);
-    const paid = rows.reduce((s, r) => s + r.paid, 0);
-    return Math.max(0, total - paid);
-  }
-
-  function getDueDateFor(h: string) {
-    const rows = ledgerByHatchery[h] ?? [];
-    if (rows.length === 0) return "—";
-    const latest = rows
-      .map((r) => new Date(r.date + "T00:00:00Z").getTime())
-      .reduce((a, b) => Math.max(a, b), 0);
-    const dueTs = latest + 7 * 24 * 60 * 60 * 1000; // +7 days
-    const d = new Date(dueTs);
-    const dd = String(d.getUTCDate()).padStart(2, "0");
-    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const yyyy = d.getUTCFullYear();
-    return `${dd}/${mm}/${yyyy}`;
-  }
-
   function getRowDueDate(date: string) {
-    const base = new Date(date + "T00:00:00Z");
+    const base = new Date(date);
     const due = new Date(base.getTime() + 7 * 24 * 60 * 60 * 1000);
     const dd = String(due.getUTCDate()).padStart(2, "0");
     const mm = String(due.getUTCMonth() + 1).padStart(2, "0");
@@ -157,32 +221,37 @@ export default function HatcheryLedgerPage() {
 
   // Column configuration for DataTable
   const ledgerColumns: Column[] = [
-    createColumn('item', 'Item'),
-    createColumn('rate', 'Rate', {
-      type: 'currency',
-      align: 'right'
+    createColumn("itemName", "Item"),
+    createColumn("rate", "Rate", {
+      type: "currency",
+      align: "right",
     }),
-    createColumn('quantity', 'Quantity', {
-      type: 'number',
-      align: 'right'
+    createColumn("quantity", "Quantity", {
+      type: "number",
+      align: "right",
     }),
-    createColumn('amount', 'Amount', {
-      type: 'currency',
-      align: 'right',
-      render: (_, row) => `₹${(row.rate * row.quantity).toLocaleString()}`
+    createColumn("totalAmount", "Amount", {
+      type: "currency",
+      align: "right",
     }),
-    createColumn('paid', 'Amount Paid', {
-      type: 'currency',
-      align: 'right'
+    createColumn("amountPaid", "Amount Paid", {
+      type: "currency",
+      align: "right",
     }),
-    createColumn('due', 'Amount Due', {
-      type: 'currency',
-      align: 'right',
+    createColumn("amountDue", "Amount Due", {
+      type: "currency",
+      align: "right",
       render: (_, row) => {
-        const due = row.rate * row.quantity - row.paid;
+        const due = row.amountDue;
         return (
           <div className="flex items-center justify-between">
-            <span className={due > 0 ? "text-red-600 font-medium" : "text-green-600 font-medium"}>
+            <span
+              className={
+                due > 0
+                  ? "text-red-600 font-medium"
+                  : "text-green-600 font-medium"
+              }
+            >
               ₹{due.toLocaleString()}
             </span>
             {due > 0 && (
@@ -190,37 +259,41 @@ export default function HatcheryLedgerPage() {
                 size="sm"
                 variant="outline"
                 className="ml-2 h-6 px-2 text-xs bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
-                onClick={() => openPaymentModal(active, row.id)}
+                onClick={() => openPaymentModal(activeHatcheryId, row.itemName)}
               >
                 Pay
               </Button>
             )}
           </div>
         );
-      }
+      },
     }),
-    createColumn('date', 'Date', {
-      type: 'date'
+    createColumn("date", "Date", {
+      type: "date",
     }),
-    createColumn('dueDate', 'Due Date', {
-      render: (_, row) => row.dueDate && row.dueDate !== "" ? row.dueDate : getRowDueDate(row.date)
+    createColumn("dueDate", "Due Date", {
+      render: (_, row) => getRowDueDate(row.date),
     }),
-    createColumn('paymentHistory', 'Payment History', {
+    createColumn("payments", "Payment History", {
       render: (_, row) => {
-        const history = row.paymentHistory || [];
+        const history = row.payments || [];
         const totalPayments = history.length;
-        const totalPaid = history.reduce((sum: number, payment: { amount: number }) => sum + payment.amount, 0);
+        const totalPaid = history.reduce(
+          (sum: number, payment: { amount: number }) => sum + payment.amount,
+          0
+        );
         
         return (
           <div 
             className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline"
-            onClick={() => openHistoryModal(active, row.id)}
+            onClick={() => openHistoryModal(activeHatcheryId, row.itemName)}
           >
-            {totalPayments} payment{totalPayments !== 1 ? 's' : ''} (₹{totalPaid.toLocaleString()})
+            {totalPayments} payment{totalPayments !== 1 ? "s" : ""} (₹
+            {totalPaid.toLocaleString()})
           </div>
         );
-      }
-    })
+      },
+    }),
   ];
 
   return (
@@ -228,22 +301,38 @@ export default function HatcheryLedgerPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Hatchery Ledger</h1>
-          <p className="text-muted-foreground">Manage chick purchases and hatchery balances.</p>
+          <p className="text-muted-foreground">
+            Manage chick purchases and hatchery balances.
+          </p>
         </div>
-        <Button className="bg-primary hover:bg-primary/90" onClick={() => setIsAddHatcheryOpen(true)}>
+        <Button
+          className="bg-primary hover:bg-primary/90"
+          onClick={() => setIsAddHatcheryOpen(true)}
+        >
           <Plus className="mr-2 h-4 w-4" />
           Add Hatchery
         </Button>
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        <Card onClick={() => setIsModalOpen(true)} className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white">
+        <Card
+          onClick={() => setIsModalOpen(true)}
+          className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white"
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Hatcheries</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Hatcheries
+            </CardTitle>
             <Egg className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3</div>
+            {statisticsLoading ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : (
+              <div className="text-2xl font-bold">
+                {statistics.totalHatcheries || 0}
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">Chick suppliers</p>
           </CardContent>
         </Card>
@@ -254,7 +343,13 @@ export default function HatcheryLedgerPage() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹75,000</div>
+            {statisticsLoading ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : (
+              <div className="text-2xl font-bold">
+                ₹{(statistics.outstandingAmount || 0).toLocaleString()}
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">Amount Due</p>
           </CardContent>
         </Card>
@@ -265,109 +360,267 @@ export default function HatcheryLedgerPage() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹25,000</div>
+            {statisticsLoading ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : (
+              <div className="text-2xl font-bold">
+                ₹{(statistics.thisMonthAmount || 0).toLocaleString()}
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">New purchases</p>
           </CardContent>
         </Card>
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Hatcheries – Amount Due">
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Hatcheries – Amount Due"
+      >
         <ModalContent>
           <div className="space-y-3">
-            {hatcheries.map((h) => (
-              <div key={h} className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60">
-                <div>
-                  <div className="font-medium">{h}</div>
-                  <div className="text-xs text-muted-foreground">Due Date: {getDueDateFor(h)}</div>
-                </div>
-                <div className="text-right font-medium">₹{getDueFor(h).toLocaleString()}</div>
+            {hatcheriesLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <span className="ml-2">Loading hatcheries...</span>
               </div>
-            ))}
+            ) : hatcheriesError ? (
+              <div className="text-center py-4 text-red-600">
+                Failed to load hatcheries
+              </div>
+            ) : (
+              hatcheries.map((hatchery: any) => (
+                <div
+                  key={hatchery.id}
+                  className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60"
+                >
+                <div>
+                    <div className="font-medium">{hatchery.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Contact: {hatchery.contact}
+                    </div>
+                  </div>
+                  <div className="text-right font-medium">
+                    ₹{(hatchery.balance || 0).toLocaleString()}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </ModalContent>
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsModalOpen(false)}>Close</Button>
+          <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+            Close
+          </Button>
         </ModalFooter>
       </Modal>
 
       {/* Add Hatchery Modal */}
-      <Modal isOpen={isAddHatcheryOpen} onClose={() => setIsAddHatcheryOpen(false)} title="Add Hatchery">
+      <Modal
+        isOpen={isAddHatcheryOpen}
+        onClose={() => setIsAddHatcheryOpen(false)}
+        title="Add Hatchery"
+      >
         <form onSubmit={handleAddHatchery}>
           <ModalContent>
             <div className="space-y-4">
               <div>
                 <Label htmlFor="hname">Hatchery Name</Label>
-                <Input id="hname" value={newHatchery.name} onChange={(e) => setNewHatchery({ ...newHatchery, name: e.target.value })} placeholder="e.g., Sunrise Hatchery" required />
+                <Input
+                  id="hname"
+                  value={newHatchery.name}
+                  onChange={(e) =>
+                    setNewHatchery({ ...newHatchery, name: e.target.value })
+                  }
+                  placeholder="e.g., Sunrise Hatchery"
+                  required
+                />
               </div>
               <div>
-                <Label htmlFor="hphone">Phone (optional)</Label>
-                <Input id="hphone" value={newHatchery.phone} onChange={(e) => setNewHatchery({ ...newHatchery, phone: e.target.value })} placeholder="98XXXXXXXX" />
+                <Label htmlFor="hcontact">Contact</Label>
+                <Input
+                  id="hcontact"
+                  value={newHatchery.contact}
+                  onChange={(e) =>
+                    setNewHatchery({ ...newHatchery, contact: e.target.value })
+                  }
+                  placeholder="Phone number or email"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="haddress">Address (optional)</Label>
+                <Input
+                  id="haddress"
+                  value={newHatchery.address}
+                  onChange={(e) =>
+                    setNewHatchery({ ...newHatchery, address: e.target.value })
+                  }
+                  placeholder="Hatchery address"
+                />
               </div>
             </div>
           </ModalContent>
           <ModalFooter>
-            <Button type="button" variant="outline" onClick={() => setIsAddHatcheryOpen(false)}>Cancel</Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90">Add</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsAddHatcheryOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="bg-primary hover:bg-primary/90"
+              disabled={createHatcheryMutation.isPending}
+            >
+              {createHatcheryMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                "Add"
+              )}
+            </Button>
           </ModalFooter>
         </form>
       </Modal>
 
       {/* Add Entry Modal */}
-      <Modal isOpen={isAddEntryOpen} onClose={() => setIsAddEntryOpen(false)} title={`Add Entry – ${active}`}>
+      <Modal
+        isOpen={isAddEntryOpen}
+        onClose={() => setIsAddEntryOpen(false)}
+        title={`Add Entry – ${activeHatchery?.name || "Hatchery"}`}
+      >
         <form onSubmit={handleAddEntry}>
           <ModalContent>
             <div className="space-y-4">
               <div>
                 <Label htmlFor="item">Item</Label>
-                <Input id="item" value={newEntry.item} onChange={(e) => setNewEntry({ ...newEntry, item: e.target.value })} placeholder="Broiler Chicks" required />
+                <Input
+                  id="item"
+                  value={newEntry.item}
+                  onChange={(e) =>
+                    setNewEntry({ ...newEntry, item: e.target.value })
+                  }
+                  placeholder="Broiler Chicks"
+                  required
+                />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="rate">Rate</Label>
-                  <Input id="rate" type="number" value={newEntry.rate} onChange={(e) => setNewEntry({ ...newEntry, rate: e.target.value })} placeholder="45" required />
+                  <Input
+                    id="rate"
+                    type="number"
+                    value={newEntry.rate}
+                    onChange={(e) =>
+                      setNewEntry({ ...newEntry, rate: e.target.value })
+                    }
+                    placeholder="45"
+                    required
+                  />
                 </div>
                 <div>
                   <Label htmlFor="quantity">Quantity</Label>
-                  <Input id="quantity" type="number" value={newEntry.quantity} onChange={(e) => setNewEntry({ ...newEntry, quantity: e.target.value })} placeholder="1000" required />
+                  <Input
+                    id="quantity"
+                    type="number"
+                    value={newEntry.quantity}
+                    onChange={(e) =>
+                      setNewEntry({ ...newEntry, quantity: e.target.value })
+                    }
+                    placeholder="1000"
+                    required
+                  />
                 </div>
                 <div>
                   <Label htmlFor="paid">Paid</Label>
-                  <Input id="paid" type="number" value={newEntry.paid} onChange={(e) => setNewEntry({ ...newEntry, paid: e.target.value })} placeholder="20000" />
+                  <Input
+                    id="paid"
+                    type="number"
+                    value={newEntry.paid}
+                    onChange={(e) =>
+                      setNewEntry({ ...newEntry, paid: e.target.value })
+                    }
+                    placeholder="20000"
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="date">Date</Label>
-                  <Input id="date" type="date" value={newEntry.date} onChange={(e) => setNewEntry({ ...newEntry, date: e.target.value })} />
+                  <Input
+                    id="date"
+                    type="date"
+                    value={newEntry.date}
+                    onChange={(e) =>
+                      setNewEntry({ ...newEntry, date: e.target.value })
+                    }
+                  />
                 </div>
                 <div>
                   <Label htmlFor="dueDate">Due Date (optional)</Label>
-                  <Input id="dueDate" type="date" value={newEntry.dueDate} onChange={(e) => setNewEntry({ ...newEntry, dueDate: e.target.value })} />
+                  <Input
+                    id="dueDate"
+                    type="date"
+                    value={newEntry.dueDate}
+                    onChange={(e) =>
+                      setNewEntry({ ...newEntry, dueDate: e.target.value })
+                    }
+                  />
                 </div>
               </div>
             </div>
           </ModalContent>
           <ModalFooter>
-            <Button type="button" variant="outline" onClick={() => setIsAddEntryOpen(false)}>Cancel</Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90">Save</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsAddEntryOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="bg-primary hover:bg-primary/90"
+              disabled={addTransactionMutation.isPending}
+            >
+              {addTransactionMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save"
+              )}
+            </Button>
           </ModalFooter>
         </form>
       </Modal>
 
       {/* Payment Modal */}
-      <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="Add Payment">
+      <Modal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        title="Add Payment"
+      >
         <form onSubmit={handleAddPayment}>
           <ModalContent>
             <div className="space-y-4">
               {selectedEntry && (
                 <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-sm text-blue-800">
-                    <strong>Entry:</strong> {ledgerByHatchery[selectedEntry.hatchery]?.find(e => e.id === selectedEntry.entryId)?.item}
+                    <strong>Entry:</strong> {selectedEntry.entryId}
                   </p>
                   <p className="text-sm text-blue-800">
-                    <strong>Amount Due:</strong> ₹{(() => {
-                      const entry = ledgerByHatchery[selectedEntry.hatchery]?.find(e => e.id === selectedEntry.entryId);
-                      return entry ? (entry.rate * entry.quantity - entry.paid).toLocaleString() : '0';
+                    <strong>Amount Due:</strong> ₹
+                    {(() => {
+                      const entry = activeHatchery?.transactionTable?.find(
+                        (e: any) => e.itemName === selectedEntry.entryId
+                      );
+                      return entry ? entry.amountDue.toLocaleString() : "0";
                     })()}
                   </p>
                 </div>
@@ -378,7 +631,9 @@ export default function HatcheryLedgerPage() {
                   id="paymentAmount" 
                   type="number" 
                   value={paymentForm.amount} 
-                  onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })} 
+                  onChange={(e) =>
+                    setPaymentForm({ ...paymentForm, amount: e.target.value })
+                  }
                   placeholder="Enter amount" 
                   required 
                 />
@@ -389,7 +644,9 @@ export default function HatcheryLedgerPage() {
                   id="paymentDate" 
                   type="date" 
                   value={paymentForm.date} 
-                  onChange={(e) => setPaymentForm({ ...paymentForm, date: e.target.value })} 
+                  onChange={(e) =>
+                    setPaymentForm({ ...paymentForm, date: e.target.value })
+                  }
                 />
               </div>
               <div>
@@ -397,69 +654,120 @@ export default function HatcheryLedgerPage() {
                 <Input 
                   id="paymentNote" 
                   value={paymentForm.note} 
-                  onChange={(e) => setPaymentForm({ ...paymentForm, note: e.target.value })} 
+                  onChange={(e) =>
+                    setPaymentForm({ ...paymentForm, note: e.target.value })
+                  }
                   placeholder="Payment reference or note" 
                 />
               </div>
             </div>
           </ModalContent>
           <ModalFooter>
-            <Button type="button" variant="outline" onClick={() => setIsPaymentModalOpen(false)}>Cancel</Button>
-            <Button type="submit" className="bg-green-600 hover:bg-green-700">Record Payment</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsPaymentModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="bg-green-600 hover:bg-green-700"
+              disabled={addTransactionMutation.isPending}
+            >
+              {addTransactionMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Recording...
+                </>
+              ) : (
+                "Record Payment"
+              )}
+            </Button>
           </ModalFooter>
         </form>
       </Modal>
 
       {/* Payment History Modal */}
-      <Modal isOpen={isHistoryModalOpen} onClose={() => setIsHistoryModalOpen(false)} title="Payment History">
+      <Modal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        title="Payment History"
+      >
         <ModalContent>
           <div className="space-y-4">
-            {selectedHistoryEntry && (() => {
-              const entry = ledgerByHatchery[selectedHistoryEntry.hatchery]?.find(e => e.id === selectedHistoryEntry.entryId);
-              const history = entry?.paymentHistory || [];
-              const totalAmount = entry ? entry.rate * entry.quantity : 0;
-              const totalPaid = history.reduce((sum: number, payment: { amount: number }) => sum + payment.amount, 0);
-              const remaining = totalAmount - totalPaid;
+            {selectedHistoryEntry &&
+              (() => {
+                const entry = activeHatchery?.transactionTable?.find(
+                  (e: any) => e.itemName === selectedHistoryEntry.entryId
+                );
+                const history = entry?.payments || [];
+                const totalAmount = entry ? entry.totalAmount : 0;
+                const totalPaid = entry ? entry.amountPaid : 0;
+                const remaining = entry ? entry.amountDue : 0;
               
               return (
                 <>
                   <div className="p-4 bg-gray-50 rounded-lg border">
-                    <h3 className="font-semibold text-lg mb-2">{entry?.item}</h3>
+                      <h3 className="font-semibold text-lg mb-2">
+                        {entry?.itemName}
+                      </h3>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="text-gray-600">Total Amount:</span>
-                        <span className="ml-2 font-medium">₹{totalAmount.toLocaleString()}</span>
+                          <span className="ml-2 font-medium">
+                            ₹{totalAmount.toLocaleString()}
+                          </span>
                       </div>
                       <div>
                         <span className="text-gray-600">Total Paid:</span>
-                        <span className="ml-2 font-medium text-green-600">₹{totalPaid.toLocaleString()}</span>
+                          <span className="ml-2 font-medium text-green-600">
+                            ₹{totalPaid.toLocaleString()}
+                          </span>
                       </div>
                       <div>
                         <span className="text-gray-600">Remaining:</span>
-                        <span className={`ml-2 font-medium ${remaining > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          <span
+                            className={`ml-2 font-medium ${remaining > 0 ? "text-red-600" : "text-green-600"}`}
+                          >
                           ₹{remaining.toLocaleString()}
                         </span>
                       </div>
                       <div>
                         <span className="text-gray-600">Payments:</span>
-                        <span className="ml-2 font-medium">{history.length}</span>
-                      </div>
+                          <span className="ml-2 font-medium">
+                            {history.length}
+                          </span>
+                        </div>
                     </div>
                   </div>
                   
                   <div className="space-y-3">
-                    <h4 className="font-medium text-gray-900">Payment Details</h4>
+                      <h4 className="font-medium text-gray-900">
+                        Payment Details
+                      </h4>
                     {history.length === 0 ? (
-                      <p className="text-gray-500 text-center py-4">No payments recorded yet</p>
+                        <p className="text-gray-500 text-center py-4">
+                          No payments recorded yet
+                        </p>
                     ) : (
                       <div className="space-y-2">
-                        {history.map((payment, index) => (
-                          <div key={index} className="flex items-center justify-between p-3 bg-white border rounded-lg">
+                          {history.map((payment: any, index: number) => (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between p-3 bg-white border rounded-lg"
+                            >
                             <div>
-                              <div className="font-medium">₹{payment.amount.toLocaleString()}</div>
-                              <div className="text-sm text-gray-600">{payment.date}</div>
-                              {payment.note && (
-                                <div className="text-sm text-gray-500">{payment.note}</div>
+                                <div className="font-medium">
+                                  ₹{payment.amount.toLocaleString()}
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  {new Date(payment.date).toLocaleDateString()}
+                                </div>
+                                {payment.reference && (
+                                  <div className="text-sm text-gray-500">
+                                    {payment.reference}
+                                  </div>
                               )}
                             </div>
                             <div className="text-sm text-gray-500">
@@ -476,23 +784,43 @@ export default function HatcheryLedgerPage() {
           </div>
         </ModalContent>
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsHistoryModalOpen(false)}>Close</Button>
+          <Button
+            variant="outline"
+            onClick={() => setIsHistoryModalOpen(false)}
+          >
+            Close
+          </Button>
         </ModalFooter>
       </Modal>
 
       {/* Tabs: one per hatchery */}
       <div className="space-y-3">
         <div className="flex flex-wrap gap-2">
-          {hatcheries.map((h) => (
+          {hatcheriesLoading ? (
+            <div className="flex items-center">
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              <span>Loading hatcheries...</span>
+            </div>
+          ) : hatcheriesError ? (
+            <div className="text-red-600">Failed to load hatcheries</div>
+          ) : (
+            hatcheries.map((hatchery: any) => (
             <Button
-              key={h}
-              variant={active === h ? "default" : "outline"}
-              className={active === h ? "bg-primary hover:bg-primary/90" : ""}
-              onClick={() => setActive(h)}
-            >
-              {h}
+                key={hatchery.id}
+                variant={
+                  activeHatcheryId === hatchery.id ? "default" : "outline"
+                }
+                className={
+                  activeHatcheryId === hatchery.id
+                    ? "bg-primary hover:bg-primary/90"
+                    : ""
+                }
+                onClick={() => setActiveHatcheryId(hatchery.id)}
+              >
+                {hatchery.name}
             </Button>
-          ))}
+            ))
+          )}
           <Button variant="outline" onClick={() => setIsAddHatcheryOpen(true)}>
             <Plus className="mr-2 h-4 w-4" /> Add Hatchery
           </Button>
@@ -501,29 +829,62 @@ export default function HatcheryLedgerPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>{active}</CardTitle>
-              <Button className="bg-primary hover:bg-primary/90" onClick={() => setIsAddEntryOpen(true)}>
+              <CardTitle>
+                {activeHatcheryLoading ? (
+                  <div className="flex items-center">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Loading...
+                  </div>
+                ) : (
+                  activeHatchery?.name || "Select a hatchery"
+                )}
+              </CardTitle>
+              <Button
+                className="bg-primary hover:bg-primary/90"
+                onClick={() => setIsAddEntryOpen(true)}
+                disabled={!activeHatcheryId}
+              >
                 <Plus className="mr-2 h-4 w-4" /> Add Entry
               </Button>
             </div>
             <CardDescription>Itemized ledger for this hatchery</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
+            {activeHatcheryLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <span className="ml-2">Loading hatchery data...</span>
+              </div>
+            ) : (
             <DataTable
-              data={ledgerByHatchery[active] || []}
+                data={activeHatchery?.transactionTable || []}
               columns={ledgerColumns}
               showFooter={true}
               footerContent={
                 <div className="grid grid-cols-9 gap-4 text-sm">
-                  <div className="col-span-3 font-semibold text-gray-900">Total</div>
+                    <div className="col-span-3 font-semibold text-gray-900">
+                      Total
+                    </div>
                   <div className="text-right font-medium">
-                    ₹{ledgerByHatchery[active]?.reduce((sum, r) => sum + r.rate * r.quantity, 0).toLocaleString() || '0'}
+                      ₹
+                      {activeHatchery?.transactionTable
+                        ?.reduce(
+                          (sum: number, r: any) => sum + r.totalAmount,
+                          0
+                        )
+                        .toLocaleString() || "0"}
                   </div>
                   <div className="text-right font-medium">
-                    ₹{ledgerByHatchery[active]?.reduce((sum, r) => sum + r.paid, 0).toLocaleString() || '0'}
+                      ₹
+                      {activeHatchery?.transactionTable
+                        ?.reduce((sum: number, r: any) => sum + r.amountPaid, 0)
+                        .toLocaleString() || "0"}
                   </div>
                   <div className="text-right font-medium">
-                    ₹{ledgerByHatchery[active]?.reduce((sum, r) => sum + (r.rate * r.quantity - r.paid), 0).toLocaleString() || '0'}
+                      ₹
+                      {activeHatchery?.transactionTable
+                        ?.reduce((sum: number, r: any) => sum + r.amountDue, 0)
+                        .toLocaleString() || "0"}
                   </div>
                   <div></div>
                   <div></div>
@@ -532,6 +893,7 @@ export default function HatcheryLedgerPage() {
               }
               emptyMessage="No entries for this hatchery"
             />
+            )}
           </CardContent>
         </Card>
       </div>
