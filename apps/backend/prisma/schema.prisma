@@ -5,10 +5,12 @@ generator client {
   provider = "prisma-client-js"
 }
 
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
 
 // ==================== ENUMS ====================
 
@@ -20,7 +22,7 @@ enum UserRole {
 enum BatchStatus {
   ACTIVE
   COMPLETED
-  CANCELLED
+  // CANCELLED
 }
 
 enum TransactionType {
@@ -76,14 +78,14 @@ enum UserStatus {
 
 model User {
   id        String   @id @default(cuid())
-  email     String   @unique //rm 
-  // companyName String?
-  // farmLocation String? // Province + Location 
-  // farmNumber Int?
-  // farmCapacity Int?
+ 
+  companyName String?
+  farmLocation String? // Province + Location 
+  farmNumber Int?
+  farmCapacity Int?
  
 
-  name      String //rm
+
   phone     String
   password  String  
   role      UserRole @default(OWNER)  
@@ -121,7 +123,7 @@ model User {
 model Farm {
   id          String   @id @default(cuid())
   name        String
-  location    String //rm 
+
   capacity    Int
   description String?
   
@@ -150,6 +152,7 @@ model Batch {
   endDate     DateTime?
   status      BatchStatus @default(ACTIVE)
   initialChicks Int
+
   // Removed currentChicks - will be computed from mortalities
   initialChickWeight Decimal @db.Decimal(6, 2) @default(0.045) // Default 45g per chick
   
