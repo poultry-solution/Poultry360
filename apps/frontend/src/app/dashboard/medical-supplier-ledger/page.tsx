@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Pill, Plus, TrendingUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -88,6 +88,13 @@ export default function MedicalSupplierLedgerPage() {
     thisMonthAmount: 0,
   };
   const activeSupplier = activeSupplierResponse?.data;
+
+  // Auto-select first supplier when data is available
+  useEffect(() => {
+    if (suppliers.length > 0 && !activeSupplierId) {
+      setActiveSupplierId(suppliers[0].id);
+    }
+  }, [suppliers, activeSupplierId]);
 
   function getRowDueDate(date: string) {
     const base = new Date(date);
@@ -290,10 +297,17 @@ export default function MedicalSupplierLedgerPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Medical Supplier Ledger</h1>
-          <p className="text-muted-foreground">Track medicine purchases and supplier balances.</p>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Medical Supplier Ledger
+          </h1>
+          <p className="text-muted-foreground">
+            Track medicine purchases and supplier balances.
+          </p>
         </div>
-        <Button className="bg-primary hover:bg-primary/90" onClick={() => setIsAddSupplierOpen(true)}>
+        <Button
+          className="bg-primary hover:bg-primary/90"
+          onClick={() => setIsAddSupplierOpen(true)}
+        >
           <Plus className="mr-2 h-4 w-4" />
           Add Supplier
         </Button>
@@ -305,7 +319,9 @@ export default function MedicalSupplierLedgerPage() {
           className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white"
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Suppliers</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Suppliers
+            </CardTitle>
             <Pill className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -787,7 +803,9 @@ export default function MedicalSupplierLedgerPage() {
             {suppliers.map((supplier: any) => (
               <Button
                 key={supplier.id}
-                variant={activeSupplierId === supplier.id ? "default" : "outline"}
+                variant={
+                  activeSupplierId === supplier.id ? "default" : "outline"
+                }
                 className={
                   activeSupplierId === supplier.id
                     ? "bg-primary hover:bg-primary/90"
@@ -798,7 +816,10 @@ export default function MedicalSupplierLedgerPage() {
                 {supplier.name}
               </Button>
             ))}
-            <Button variant="outline" onClick={() => setIsAddSupplierOpen(true)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsAddSupplierOpen(true)}
+            >
               <Plus className="mr-2 h-4 w-4" /> Add Supplier
             </Button>
           </div>
