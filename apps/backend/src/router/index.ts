@@ -1,8 +1,9 @@
 import express from "express";
-import authRoutes from "./authRoutes.js";
-import userRoutes from "./userRoutes.js";
-import farmRoutes from "./farmRoutes.js";
-import batchRoutes from "./batchRoutes.js";
+import authRoutes from "./authRoutes";
+import userRoutes from "./userRoutes";
+import farmRoutes from "./farmRoutes";
+import batchRoutes from "./batchRoutes";
+import dealerRoutes from "./dealerRoutes";
 
 const router = express.Router();
 
@@ -10,5 +11,6 @@ router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
 router.use("/farms", farmRoutes);
 router.use("/batches", batchRoutes);
+router.use("/dealers", dealerRoutes);
 
 export default router;

@@ -9,53 +9,44 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Layers, Plus, TrendingUp, Users } from "lucide-react";
+import { Layers, Plus, TrendingUp, Users, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-interface BatchItem {
-  id: number;
-  code: string;
-  farm: string;
-  startDate: string;
-  initialBirds: number;
-  status: "Active" | "Closed";
-}
-
-
+import {
+  useGetAllBatches,
+  useCreateBatch,
+} from "@/fetchers/batches/batchQueries";
+import { useGetUserFarms as useGetFarms } from "@/fetchers/farms/farmQueries";
+import { toast } from "sonner";
+import { BatchResponse, BatchStatus } from "@myapp/shared-types";
 
 export default function BatchesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [batches, setBatches] = useState<BatchItem[]>([
-    {
-      id: 1,
-      code: "B-2024-001",
-      farm: "Farm A",
-      startDate: "2024-01-15",
-      initialBirds: 2500,
-      status: "Active",
-    },
-    {
-      id: 2,
-      code: "B-2024-002",
-      farm: "Farm B",
-      startDate: "2024-01-20",
-      initialBirds: 2000,
-      status: "Active",
-    },
-  ]);
 
-  // Mock farms list (later replace with API data)
-  const farms = ["Farm A", "Farm B", "Farm C"];
+  // Fetch batches data
+  const {
+    data: batchesResponse,
+    isLoading: batchesLoading,
+    error: batchesError,
+  } = useGetAllBatches();
+  const batches = batchesResponse?.data || [];
+
+  // Fetch farms for the form
+  const { data: farmsResponse, isLoading: farmsLoading } = useGetFarms("all");
+  const farms = farmsResponse?.data || [];
+
+  // Create batch mutation
+  const createBatchMutation = useCreateBatch();
 
   const [formData, setFormData] = useState({
-    code: "",
-    farm: farms[0] ?? "",
+    batchNumber: "",
+    farmId: "",
     startDate: "",
-    initialBirds: "",
+    initialChicks: "",
+    initialChickWeight: "0.045",
     notes: "",
   });
 
@@ -77,42 +68,55 @@ export default function BatchesPage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newBatch: BatchItem = {
-      id: batches.length + 1,
-      code:
-        formData.code ||
-        `B-${new Date().getFullYear()}-${String(batches.length + 1).padStart(3, "0")}`,
-      farm: formData.farm || farms[0] || "Unknown Farm",
-      startDate: formData.startDate || new Date().toISOString().slice(0, 10),
-      initialBirds: Number(formData.initialBirds || 0),
-      status: "Active",
-    };
-    setBatches((prev) => [newBatch, ...prev]);
+
+    try {
+      await createBatchMutation.mutateAsync({
+        batchNumber:
+          formData.batchNumber ||
+          `B-${new Date().getFullYear()}-${String(batches.length + 1).padStart(3, "0")}`,
+        farmId: formData.farmId,
+        startDate: formData.startDate ? new Date(formData.startDate).toISOString() : new Date().toISOString(),
+        initialChicks: parseInt(formData.initialChicks),
+        initialChickWeight: parseFloat(formData.initialChickWeight),
+        status: "ACTIVE" as BatchStatus,
+      });
+
+      toast.success("Batch created successfully!");
+      setIsModalOpen(false);
+      setFormData({
+        batchNumber: "",
+        farmId: "",
+        startDate: "",
+        initialChicks: "",
+        initialChickWeight: "0.045",
+        notes: "",
+      });
+    } catch (error) {
+      console.error("Failed to create batch:", error);
+      // Error toast is handled by axios interceptor
+    }
+  };
+
+  const handleClose = () => {
     setIsModalOpen(false);
     setFormData({
-      code: "",
-      farm: farms[0] ?? "",
+      batchNumber: "",
+      farmId: "",
       startDate: "",
-      initialBirds: "",
+      initialChicks: "",
+      initialChickWeight: "0.045",
       notes: "",
     });
-  }
+  };
 
-  function handleClose() {
-    setIsModalOpen(false);
-    setFormData({
-      code: "",
-      farm: farms[0] ?? "",
-      startDate: "",
-      initialBirds: "",
-      notes: "",
-    });
-  }
-
-  const activeBatches = batches.filter((b) => b.status === "Active");
-  const closedBatches = batches.filter((b) => b.status === "Closed");
+  const activeBatches = batches.filter(
+    (b: BatchResponse) => b.status === "ACTIVE"
+  );
+  const closedBatches = batches.filter(
+    (b: BatchResponse) => b.status === "COMPLETED"
+  );
 
   return (
     <div className="space-y-6">
@@ -127,139 +131,196 @@ export default function BatchesPage() {
         <Button
           className="bg-primary hover:bg-primary/90 cursor-pointer"
           onClick={() => setIsModalOpen(true)}
+          disabled={farmsLoading}
         >
           <Plus className="mr-2 h-4 w-4" />
           New Batch
         </Button>
       </div>
 
+      {/* Loading State */}
+      {batchesLoading && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="ml-2">Loading batches...</span>
+        </div>
+      )}
+
+      {/* Error State */}
+      {batchesError && (
+        <div className="text-center py-8">
+          <p className="text-red-600">
+            Failed to load batches. Please try again.
+          </p>
+        </div>
+      )}
+
       {/* Batch Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card
-          className="group cursor-pointer transition-colors hover:bg-primary hover:text-primary-foreground hover:border-transparent"
-          onClick={() => openCountModal("Active")}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium group-hover:text-primary-foreground">
-              Active Batches
-            </CardTitle>
-            <Layers className="h-4 w-4 text-muted-foreground group-hover:text-primary-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold group-hover:text-primary-foreground">
-              {activeBatches.length}
-            </div>
-            <p className="text-xs text-muted-foreground group-hover:text-primary-foreground">
-              Currently running
-            </p>
-          </CardContent>
-        </Card>
+      {!batchesLoading && !batchesError && (
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card
+            className="group cursor-pointer transition-colors hover:bg-primary hover:text-primary-foreground hover:border-transparent"
+            onClick={() => openCountModal("Active")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium group-hover:text-primary-foreground">
+                Active Batches
+              </CardTitle>
+              <Layers className="h-4 w-4 text-muted-foreground group-hover:text-primary-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold group-hover:text-primary-foreground">
+                {activeBatches.length}
+              </div>
+              <p className="text-xs text-muted-foreground group-hover:text-primary-foreground">
+                Currently running
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Birds</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {batches.reduce((sum, b) => sum + b.initialBirds, 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">Across all batches</p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Birds</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {batches
+                  .reduce((sum, b: BatchResponse) => sum + b.initialChicks, 0)
+                  .toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Across all batches
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Avg. Mortality
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">2.3%</div>
-            <p className="text-xs text-muted-foreground">
-              Industry standard: 3%
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Current Birds
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {batches
+                  .reduce((sum, b: BatchResponse) => sum + b.currentChicks, 0)
+                  .toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground">Currently alive</p>
+            </CardContent>
+          </Card>
 
-        <Card
-          className="group cursor-pointer transition-colors hover:bg-primary hover:text-primary-foreground hover:border-transparent"
-          onClick={() => openCountModal("Closed")}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium group-hover:text-primary-foreground">
-              Closed Batches
-            </CardTitle>
-            <Layers className="h-4 w-4 text-muted-foreground group-hover:text-primary-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold group-hover:text-primary-foreground">
-              {closedBatches.length}
-            </div>
-            <p className="text-xs text-muted-foreground group-hover:text-primary-foreground">
-              Till now
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card
+            className="group cursor-pointer transition-colors hover:bg-primary hover:text-primary-foreground hover:border-transparent"
+            onClick={() => openCountModal("Closed")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium group-hover:text-primary-foreground">
+                Closed Batches
+              </CardTitle>
+              <Layers className="h-4 w-4 text-muted-foreground group-hover:text-primary-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold group-hover:text-primary-foreground">
+                {closedBatches.length}
+              </div>
+              <p className="text-xs text-muted-foreground group-hover:text-primary-foreground">
+                Till now
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Batches List */}
-      <div className="grid gap-4">
-        {batches.map((b) => (
-          <Link key={b.id} href={`  /dashboard/batches/${b.id}`} className="block">
-            <Card className="hover:border-primary cursor-pointer">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>{b.code}</span>
-                  <Badge
-                    variant="default"
-                    className={
-                      b.status === "Active" ? "bg-green-100 text-green-800" : ""
-                    }
-                  >
-                    {b.status}
-                  </Badge>
-                </CardTitle>
-                <CardDescription>
-                  {b.farm} • Started:{" "}
-                  {new Date(b.startDate).toLocaleDateString()}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">
-                      Initial Birds:
-                    </span>
-                    <p className="font-medium">
-                      {b.initialBirds.toLocaleString()}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">
-                      Current Birds:
-                    </span>
-                    <p className="font-medium">—</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Age:</span>
-                    <p className="font-medium">—</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Status:</span>
-                    <p
-                      className={`font-medium ${b.status === "Active" ? "text-green-600" : ""}`}
-                    >
-                      {b.status}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
+      {!batchesLoading && !batchesError && (
+        <div className="grid gap-4">
+          {batches.length === 0 ? (
+            <div className="text-center py-8">
+              <Layers className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No batches found</h3>
+              <p className="text-muted-foreground mb-4">
+                Get started by creating your first batch.
+              </p>
+              <Button onClick={() => setIsModalOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Batch
+              </Button>
+            </div>
+          ) : (
+            batches.map((b: BatchResponse) => (
+              <Link
+                key={b.id}
+                href={`/dashboard/batches/${b.id}`}
+                className="block"
+              >
+                <Card className="hover:border-primary cursor-pointer">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span>{b.batchNumber}</span>
+                      <Badge
+                        variant="default"
+                        className={
+                          b.status === "ACTIVE"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-gray-100 text-gray-800"
+                        }
+                      >
+                        {b.status}
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription>
+                      {b.farm.name} • Started:{" "}
+                      {new Date(b.startDate).toLocaleDateString()}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">
+                          Initial Birds:
+                        </span>
+                        <p className="font-medium">
+                          {b.initialChicks.toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">
+                          Current Birds:
+                        </span>
+                        <p className="font-medium">
+                          {b.currentChicks.toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Age:</span>
+                        <p className="font-medium">
+                          {Math.floor(
+                            (new Date().getTime() -
+                              new Date(b.startDate).getTime()) /
+                              (1000 * 60 * 60 * 24)
+                          )}{" "}
+                          days
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Status:</span>
+                        <p
+                          className={`font-medium ${b.status === "ACTIVE" ? "text-green-600" : "text-gray-600"}`}
+                        >
+                          {b.status}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))
+          )}
+        </div>
+      )}
 
       {/* New Batch Modal */}
       <Modal
@@ -271,28 +332,29 @@ export default function BatchesPage() {
           <ModalContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="code">Batch Code</Label>
+                <Label htmlFor="batchNumber">Batch Number</Label>
                 <Input
-                  id="code"
-                  name="code"
-                  value={formData.code}
+                  id="batchNumber"
+                  name="batchNumber"
+                  value={formData.batchNumber}
                   onChange={handleChange}
                   placeholder="e.g., B-2024-003"
                 />
               </div>
               <div>
-                <Label htmlFor="farm">Farm</Label>
+                <Label htmlFor="farmId">Farm</Label>
                 <select
-                  id="farm"
-                  name="farm"
-                  value={formData.farm}
+                  id="farmId"
+                  name="farmId"
+                  value={formData.farmId}
                   onChange={handleChange}
                   className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                   required
                 >
-                  {farms.map((f) => (
-                    <option key={f} value={f}>
-                      {f}
+                  <option value="">Select a farm</option>
+                  {farms.map((farm) => (
+                    <option key={farm.id} value={farm.id}>
+                      {farm.name}
                     </option>
                   ))}
                 </select>
@@ -309,14 +371,29 @@ export default function BatchesPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="initialBirds">Initial Birds</Label>
+                <Label htmlFor="initialChicks">Initial Chicks</Label>
                 <Input
-                  id="initialBirds"
-                  name="initialBirds"
+                  id="initialChicks"
+                  name="initialChicks"
                   type="number"
-                  value={formData.initialBirds}
+                  value={formData.initialChicks}
                   onChange={handleChange}
                   placeholder="e.g., 2500"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="initialChickWeight">
+                  Initial Chick Weight (kg)
+                </Label>
+                <Input
+                  id="initialChickWeight"
+                  name="initialChickWeight"
+                  type="number"
+                  step="0.001"
+                  value={formData.initialChickWeight}
+                  onChange={handleChange}
+                  placeholder="e.g., 0.045"
                   required
                 />
               </div>
@@ -338,8 +415,19 @@ export default function BatchesPage() {
             <Button type="button" variant="outline" onClick={handleClose}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90">
-              Create Batch
+            <Button
+              type="submit"
+              className="bg-primary hover:bg-primary/90"
+              disabled={createBatchMutation.isPending}
+            >
+              {createBatchMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Batch"
+              )}
             </Button>
           </ModalFooter>
         </form>
@@ -354,13 +442,17 @@ export default function BatchesPage() {
         <ModalContent>
           <div className="space-y-3">
             {(countFilter === "Active" ? activeBatches : closedBatches).map(
-              (b) => (
-                <Link key={b.id} href={`/dashboard/batches/${b.id}`} className="block">
+              (b: BatchResponse) => (
+                <Link
+                  key={b.id}
+                  href={`/dashboard/batches/${b.id}`}
+                  className="block"
+                >
                   <div className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60 cursor-pointer">
                     <div>
-                      <div className="font-medium">{b.code}</div>
+                      <div className="font-medium">{b.batchNumber}</div>
                       <div className="text-xs text-muted-foreground">
-                        {b.farm} • Started:{" "}
+                        {b.farm.name} • Started:{" "}
                         {new Date(b.startDate).toLocaleDateString()}
                       </div>
                     </div>
@@ -369,7 +461,7 @@ export default function BatchesPage() {
                       className={
                         countFilter === "Active"
                           ? "text-green-600 border-green-600/30"
-                          : ""
+                          : "text-gray-600 border-gray-600/30"
                       }
                     >
                       {b.status}

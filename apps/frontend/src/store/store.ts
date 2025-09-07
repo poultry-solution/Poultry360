@@ -9,6 +9,10 @@ export interface User {
   name: string;
   email: string;
   phone: string;
+  companyName?: string;
+  companyFarmLocation?: string;
+  companyFarmNumber?: string;
+  companyFarmCapacity?: number;
   role: "OWNER" | "MANAGER";
   gender: "MALE" | "FEMALE" | "OTHER";
   status: "ACTIVE" | "INACTIVE" | "PENDING_VERIFICATION";
@@ -22,11 +26,15 @@ export interface LoginCredentials {
 
 export interface RegisterData {
   name: string;
-  email: string;
+  email?: string;
   password: string;
-  phone: string;
+  phone?: string;
   gender: "MALE" | "FEMALE" | "OTHER";
   role: "OWNER" | "MANAGER";
+  companyName?: string;
+  companyFarmLocation?: string;
+  companyFarmNumber?: string;
+  companyFarmCapacity?: number;
 }
 
 interface AuthState {
@@ -116,6 +124,10 @@ export const useAuthStore = create<AuthState>()(
               name: user.name,
               email: user.email,
               phone: user.phone,
+              companyName: user.companyName,
+              companyFarmLocation: user.companyFarmLocation,
+              companyFarmNumber: user.companyFarmNumber,
+              companyFarmCapacity: user.companyFarmCapacity,
               role: user.role,
               gender: user.gender || "OTHER",
               status: user.status || "ACTIVE",
@@ -158,6 +170,10 @@ export const useAuthStore = create<AuthState>()(
               name: user.name,
               email: user.email,
               phone: user.phone,
+              companyName: user.companyName,
+              companyFarmLocation: user.companyFarmLocation,
+              companyFarmNumber: user.companyFarmNumber,
+              companyFarmCapacity: user.companyFarmCapacity,
               role: user.role,
               gender: data.gender,
               status: "ACTIVE", // New users are active by default
@@ -257,6 +273,10 @@ export const useAuthStore = create<AuthState>()(
                 name: response.user.name,
                 email: response.user.email,
                 phone: response.user.phone,
+                companyName: response.user.companyName,
+                companyFarmLocation: response.user.companyFarmLocation,
+                companyFarmNumber: response.user.companyFarmNumber,
+                companyFarmCapacity: response.user.companyFarmCapacity,
                 role: response.user.role,
                 gender: response.user.gender || "OTHER",
                 status: response.user.status || "ACTIVE",
@@ -309,6 +329,10 @@ export const useAuthStore = create<AuthState>()(
               name: userData.name,
               email: userData.email,
               phone: userData.phone,
+              companyName: userData.companyName,
+              companyFarmLocation: userData.companyFarmLocation,
+              companyFarmNumber: userData.companyFarmNumber,
+              companyFarmCapacity: userData.companyFarmCapacity,
               role: userData.role,
               gender: userData.gender || "OTHER",
               status: userData.status || "ACTIVE",
@@ -337,17 +361,25 @@ export const useAuthStore = create<AuthState>()(
         initialize: async () => {
           if (get().isInitialized) return;
 
-          set({ isLoading: true });
+          // Only set loading if we're not already authenticated
+          // This prevents showing loading during login/register operations
+          const { isAuthenticated } = get();
+          if (!isAuthenticated) {
+            set({ isLoading: true });
+          }
 
           try {
-            // First try to refresh the token (uses httpOnly cookie)
-            await get().refreshToken();
+            // Only try to refresh/validate if we don't already have a valid session
+            if (!isAuthenticated) {
+              // First try to refresh the token (uses httpOnly cookie)
+              await get().refreshToken();
 
-            // If refresh successful, validate the token
-            const isValid = await get().validateToken();
+              // If refresh successful, validate the token
+              const isValid = await get().validateToken();
 
-            if (!isValid) {
-              throw new Error("Token validation failed");
+              if (!isValid) {
+                throw new Error("Token validation failed");
+              }
             }
           } catch (error) {
             // If refresh fails, clear any stored data

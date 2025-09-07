@@ -7,7 +7,6 @@ export type UserRole = z.infer<typeof UserRoleSchema>;
 export declare const BatchStatusSchema: z.ZodEnum<{
     ACTIVE: "ACTIVE";
     COMPLETED: "COMPLETED";
-    CANCELLED: "CANCELLED";
 }>;
 export type BatchStatus = z.infer<typeof BatchStatusSchema>;
 export declare const TransactionTypeSchema: z.ZodEnum<{
@@ -63,9 +62,9 @@ export declare const UserSchema: z.ZodObject<{
     id: z.ZodString;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
-    email: z.ZodEmail;
+    email: z.ZodOptional<z.ZodEmail>;
     name: z.ZodString;
-    phone: z.ZodString;
+    phone: z.ZodOptional<z.ZodString>;
     password: z.ZodString;
     role: z.ZodEnum<{
         OWNER: "OWNER";
@@ -82,12 +81,16 @@ export declare const UserSchema: z.ZodObject<{
         PENDING_VERIFICATION: "PENDING_VERIFICATION";
     }>;
     ownerId: z.ZodNullable<z.ZodString>;
+    companyName: z.ZodNullable<z.ZodString>;
+    CompanyFarmLocation: z.ZodNullable<z.ZodString>;
+    CompanyFarmNumber: z.ZodNullable<z.ZodString>;
+    CompanyFarmCapacity: z.ZodNullable<z.ZodNumber>;
 }, z.core.$strip>;
 export type User = z.infer<typeof UserSchema>;
 export declare const CreateUserSchema: z.ZodObject<{
-    email: z.ZodEmail;
+    email: z.ZodOptional<z.ZodEmail>;
     name: z.ZodString;
-    phone: z.ZodString;
+    phone: z.ZodOptional<z.ZodString>;
     password: z.ZodString;
     role: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
         OWNER: "OWNER";
@@ -99,6 +102,10 @@ export declare const CreateUserSchema: z.ZodObject<{
         OTHER: "OTHER";
     }>>>;
     ownerId: z.ZodOptional<z.ZodString>;
+    companyName: z.ZodOptional<z.ZodString>;
+    CompanyFarmLocation: z.ZodOptional<z.ZodString>;
+    CompanyFarmNumber: z.ZodOptional<z.ZodString>;
+    CompanyFarmCapacity: z.ZodOptional<z.ZodNumber>;
 }, z.core.$strip>;
 export type CreateUser = z.infer<typeof CreateUserSchema>;
 export declare const UpdateUserSchema: z.ZodObject<{
@@ -120,6 +127,10 @@ export declare const UpdateUserSchema: z.ZodObject<{
         PENDING_VERIFICATION: "PENDING_VERIFICATION";
     }>>;
     ownerId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    companyName: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    CompanyFarmLocation: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    CompanyFarmNumber: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    CompanyFarmCapacity: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
 }, z.core.$strip>;
 export type UpdateUser = z.infer<typeof UpdateUserSchema>;
 export declare const FarmSchema: z.ZodObject<{
@@ -127,27 +138,83 @@ export declare const FarmSchema: z.ZodObject<{
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
     name: z.ZodString;
-    location: z.ZodString;
     capacity: z.ZodNumber;
     description: z.ZodNullable<z.ZodString>;
     ownerId: z.ZodString;
     managers: z.ZodOptional<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
 export type Farm = z.infer<typeof FarmSchema>;
+export declare const FarmOwnerSchema: z.ZodObject<{
+    id: z.ZodString;
+    name: z.ZodString;
+    email: z.ZodNullable<z.ZodString>;
+    role: z.ZodEnum<{
+        OWNER: "OWNER";
+        MANAGER: "MANAGER";
+    }>;
+}, z.core.$strip>;
+export type FarmOwner = z.infer<typeof FarmOwnerSchema>;
+export declare const FarmManagerSchema: z.ZodObject<{
+    id: z.ZodString;
+    name: z.ZodString;
+    email: z.ZodNullable<z.ZodString>;
+    role: z.ZodEnum<{
+        OWNER: "OWNER";
+        MANAGER: "MANAGER";
+    }>;
+}, z.core.$strip>;
+export type FarmManager = z.infer<typeof FarmManagerSchema>;
+export declare const FarmCountSchema: z.ZodObject<{
+    batches: z.ZodNumber;
+    expenses: z.ZodNumber;
+    sales: z.ZodNumber;
+}, z.core.$strip>;
+export type FarmCount = z.infer<typeof FarmCountSchema>;
+export declare const FarmResponseSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    name: z.ZodString;
+    capacity: z.ZodNumber;
+    description: z.ZodNullable<z.ZodString>;
+    ownerId: z.ZodString;
+    owner: z.ZodObject<{
+        id: z.ZodString;
+        name: z.ZodString;
+        email: z.ZodNullable<z.ZodString>;
+        role: z.ZodEnum<{
+            OWNER: "OWNER";
+            MANAGER: "MANAGER";
+        }>;
+    }, z.core.$strip>;
+    managers: z.ZodArray<z.ZodObject<{
+        id: z.ZodString;
+        name: z.ZodString;
+        email: z.ZodNullable<z.ZodString>;
+        role: z.ZodEnum<{
+            OWNER: "OWNER";
+            MANAGER: "MANAGER";
+        }>;
+    }, z.core.$strip>>;
+    _count: z.ZodObject<{
+        batches: z.ZodNumber;
+        expenses: z.ZodNumber;
+        sales: z.ZodNumber;
+    }, z.core.$strip>;
+}, z.core.$strip>;
+export type FarmResponse = z.infer<typeof FarmResponseSchema>;
 export declare const CreateFarmSchema: z.ZodObject<{
     name: z.ZodString;
-    location: z.ZodString;
     capacity: z.ZodNumber;
     description: z.ZodOptional<z.ZodString>;
-    ownerId: z.ZodString;
+    ownerId: z.ZodOptional<z.ZodString>;
     managers: z.ZodOptional<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
 export type CreateFarm = z.infer<typeof CreateFarmSchema>;
 export declare const UpdateFarmSchema: z.ZodObject<{
     name: z.ZodOptional<z.ZodString>;
-    location: z.ZodOptional<z.ZodString>;
     capacity: z.ZodOptional<z.ZodNumber>;
-    description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    description: z.ZodOptional<z.ZodString>;
     ownerId: z.ZodOptional<z.ZodString>;
     managers: z.ZodOptional<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
@@ -162,13 +229,70 @@ export declare const BatchSchema: z.ZodObject<{
     status: z.ZodEnum<{
         ACTIVE: "ACTIVE";
         COMPLETED: "COMPLETED";
-        CANCELLED: "CANCELLED";
     }>;
     initialChicks: z.ZodNumber;
     initialChickWeight: z.ZodNumber;
     farmId: z.ZodString;
+    notes: z.ZodNullable<z.ZodString>;
 }, z.core.$strip>;
 export type Batch = z.infer<typeof BatchSchema>;
+export declare const BatchFarmSchema: z.ZodObject<{
+    id: z.ZodString;
+    name: z.ZodString;
+    capacity: z.ZodNumber;
+    owner: z.ZodObject<{
+        id: z.ZodString;
+        name: z.ZodString;
+        email: z.ZodNullable<z.ZodString>;
+    }, z.core.$strip>;
+}, z.core.$strip>;
+export type BatchFarm = z.infer<typeof BatchFarmSchema>;
+export declare const BatchCountSchema: z.ZodObject<{
+    expenses: z.ZodNumber;
+    sales: z.ZodNumber;
+    mortalities: z.ZodNumber;
+    vaccinations: z.ZodNumber;
+    feedConsumptions: z.ZodNumber;
+    birdWeights: z.ZodNumber;
+    notes: z.ZodNullable<z.ZodString>;
+}, z.core.$strip>;
+export type BatchCount = z.infer<typeof BatchCountSchema>;
+export declare const BatchResponseSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    batchNumber: z.ZodString;
+    startDate: z.ZodISODateTime;
+    endDate: z.ZodNullable<z.ZodISODateTime>;
+    status: z.ZodEnum<{
+        ACTIVE: "ACTIVE";
+        COMPLETED: "COMPLETED";
+    }>;
+    initialChicks: z.ZodNumber;
+    initialChickWeight: z.ZodNumber;
+    farmId: z.ZodString;
+    currentChicks: z.ZodNumber;
+    farm: z.ZodObject<{
+        id: z.ZodString;
+        name: z.ZodString;
+        capacity: z.ZodNumber;
+        owner: z.ZodObject<{
+            id: z.ZodString;
+            name: z.ZodString;
+            email: z.ZodNullable<z.ZodString>;
+        }, z.core.$strip>;
+    }, z.core.$strip>;
+    _count: z.ZodObject<{
+        expenses: z.ZodNumber;
+        sales: z.ZodNumber;
+        mortalities: z.ZodNumber;
+        vaccinations: z.ZodNumber;
+        feedConsumptions: z.ZodNumber;
+        birdWeights: z.ZodNumber;
+        notes: z.ZodNullable<z.ZodString>;
+    }, z.core.$strip>;
+}, z.core.$strip>;
+export type BatchResponse = z.infer<typeof BatchResponseSchema>;
 export declare const CreateBatchSchema: z.ZodObject<{
     batchNumber: z.ZodString;
     startDate: z.ZodISODateTime;
@@ -176,7 +300,6 @@ export declare const CreateBatchSchema: z.ZodObject<{
     status: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
         ACTIVE: "ACTIVE";
         COMPLETED: "COMPLETED";
-        CANCELLED: "CANCELLED";
     }>>>;
     initialChicks: z.ZodNumber;
     initialChickWeight: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
@@ -190,7 +313,6 @@ export declare const UpdateBatchSchema: z.ZodObject<{
     status: z.ZodOptional<z.ZodEnum<{
         ACTIVE: "ACTIVE";
         COMPLETED: "COMPLETED";
-        CANCELLED: "CANCELLED";
     }>>;
     initialChicks: z.ZodOptional<z.ZodNumber>;
     initialChickWeight: z.ZodOptional<z.ZodNumber>;
@@ -813,8 +935,8 @@ export declare const LoginSchema: z.ZodObject<{
 export type Login = z.infer<typeof LoginSchema>;
 export declare const SignupSchema: z.ZodObject<{
     name: z.ZodString;
-    email: z.ZodEmail;
-    phone: z.ZodString;
+    email: z.ZodOptional<z.ZodEmail>;
+    phone: z.ZodOptional<z.ZodString>;
     password: z.ZodString;
     gender: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
         MALE: "MALE";
@@ -825,6 +947,10 @@ export declare const SignupSchema: z.ZodObject<{
         OWNER: "OWNER";
         MANAGER: "MANAGER";
     }>>>;
+    companyName: z.ZodOptional<z.ZodString>;
+    companyFarmLocation: z.ZodOptional<z.ZodString>;
+    companyFarmNumber: z.ZodOptional<z.ZodString>;
+    companyFarmCapacity: z.ZodOptional<z.ZodNumber>;
 }, z.core.$strip>;
 export type Signup = z.infer<typeof SignupSchema>;
 export declare const BatchAnalyticsSchema: z.ZodObject<{
@@ -868,6 +994,10 @@ export declare const UserResponseSchema: z.ZodObject<{
         PENDING_VERIFICATION: "PENDING_VERIFICATION";
     }>;
     managedFarms: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    companyName: z.ZodOptional<z.ZodString>;
+    companyFarmLocation: z.ZodOptional<z.ZodString>;
+    companyFarmNumber: z.ZodOptional<z.ZodString>;
+    companyFarmCapacity: z.ZodOptional<z.ZodNumber>;
 }, z.core.$strip>;
 export type UserResponse = z.infer<typeof UserResponseSchema>;
 export declare const AuthResponseSchema: z.ZodObject<{
@@ -892,9 +1022,173 @@ export declare const AuthResponseSchema: z.ZodObject<{
             PENDING_VERIFICATION: "PENDING_VERIFICATION";
         }>;
         managedFarms: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        companyName: z.ZodOptional<z.ZodString>;
+        companyFarmLocation: z.ZodOptional<z.ZodString>;
+        companyFarmNumber: z.ZodOptional<z.ZodString>;
+        companyFarmCapacity: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strip>;
 }, z.core.$strip>;
 export type AuthResponse = z.infer<typeof AuthResponseSchema>;
+export declare const FarmListResponseSchema: z.ZodObject<{
+    success: z.ZodBoolean;
+    data: z.ZodArray<z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        name: z.ZodString;
+        capacity: z.ZodNumber;
+        description: z.ZodNullable<z.ZodString>;
+        ownerId: z.ZodString;
+        owner: z.ZodObject<{
+            id: z.ZodString;
+            name: z.ZodString;
+            email: z.ZodNullable<z.ZodString>;
+            role: z.ZodEnum<{
+                OWNER: "OWNER";
+                MANAGER: "MANAGER";
+            }>;
+        }, z.core.$strip>;
+        managers: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            name: z.ZodString;
+            email: z.ZodNullable<z.ZodString>;
+            role: z.ZodEnum<{
+                OWNER: "OWNER";
+                MANAGER: "MANAGER";
+            }>;
+        }, z.core.$strip>>;
+        _count: z.ZodObject<{
+            batches: z.ZodNumber;
+            expenses: z.ZodNumber;
+            sales: z.ZodNumber;
+        }, z.core.$strip>;
+    }, z.core.$strip>>;
+    message: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export type FarmListResponse = z.infer<typeof FarmListResponseSchema>;
+export declare const FarmDetailResponseSchema: z.ZodObject<{
+    success: z.ZodBoolean;
+    data: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        name: z.ZodString;
+        capacity: z.ZodNumber;
+        description: z.ZodNullable<z.ZodString>;
+        ownerId: z.ZodString;
+        owner: z.ZodObject<{
+            id: z.ZodString;
+            name: z.ZodString;
+            email: z.ZodNullable<z.ZodString>;
+            role: z.ZodEnum<{
+                OWNER: "OWNER";
+                MANAGER: "MANAGER";
+            }>;
+        }, z.core.$strip>;
+        managers: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            name: z.ZodString;
+            email: z.ZodNullable<z.ZodString>;
+            role: z.ZodEnum<{
+                OWNER: "OWNER";
+                MANAGER: "MANAGER";
+            }>;
+        }, z.core.$strip>>;
+        _count: z.ZodObject<{
+            batches: z.ZodNumber;
+            expenses: z.ZodNumber;
+            sales: z.ZodNumber;
+        }, z.core.$strip>;
+    }, z.core.$strip>;
+    message: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export type FarmDetailResponse = z.infer<typeof FarmDetailResponseSchema>;
+export declare const BatchListResponseSchema: z.ZodObject<{
+    success: z.ZodBoolean;
+    data: z.ZodArray<z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        batchNumber: z.ZodString;
+        startDate: z.ZodISODateTime;
+        endDate: z.ZodNullable<z.ZodISODateTime>;
+        status: z.ZodEnum<{
+            ACTIVE: "ACTIVE";
+            COMPLETED: "COMPLETED";
+        }>;
+        initialChicks: z.ZodNumber;
+        initialChickWeight: z.ZodNumber;
+        farmId: z.ZodString;
+        currentChicks: z.ZodNumber;
+        farm: z.ZodObject<{
+            id: z.ZodString;
+            name: z.ZodString;
+            capacity: z.ZodNumber;
+            owner: z.ZodObject<{
+                id: z.ZodString;
+                name: z.ZodString;
+                email: z.ZodNullable<z.ZodString>;
+            }, z.core.$strip>;
+        }, z.core.$strip>;
+        _count: z.ZodObject<{
+            expenses: z.ZodNumber;
+            sales: z.ZodNumber;
+            mortalities: z.ZodNumber;
+            vaccinations: z.ZodNumber;
+            feedConsumptions: z.ZodNumber;
+            birdWeights: z.ZodNumber;
+            notes: z.ZodNullable<z.ZodString>;
+        }, z.core.$strip>;
+    }, z.core.$strip>>;
+    pagination: z.ZodObject<{
+        page: z.ZodNumber;
+        limit: z.ZodNumber;
+        total: z.ZodNumber;
+        totalPages: z.ZodNumber;
+    }, z.core.$strip>;
+    message: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export type BatchListResponse = z.infer<typeof BatchListResponseSchema>;
+export declare const BatchDetailResponseSchema: z.ZodObject<{
+    success: z.ZodBoolean;
+    data: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        batchNumber: z.ZodString;
+        startDate: z.ZodISODateTime;
+        endDate: z.ZodNullable<z.ZodISODateTime>;
+        status: z.ZodEnum<{
+            ACTIVE: "ACTIVE";
+            COMPLETED: "COMPLETED";
+        }>;
+        initialChicks: z.ZodNumber;
+        initialChickWeight: z.ZodNumber;
+        farmId: z.ZodString;
+        currentChicks: z.ZodNumber;
+        farm: z.ZodObject<{
+            id: z.ZodString;
+            name: z.ZodString;
+            capacity: z.ZodNumber;
+            owner: z.ZodObject<{
+                id: z.ZodString;
+                name: z.ZodString;
+                email: z.ZodNullable<z.ZodString>;
+            }, z.core.$strip>;
+        }, z.core.$strip>;
+        _count: z.ZodObject<{
+            expenses: z.ZodNumber;
+            sales: z.ZodNumber;
+            mortalities: z.ZodNumber;
+            vaccinations: z.ZodNumber;
+            feedConsumptions: z.ZodNumber;
+            birdWeights: z.ZodNumber;
+            notes: z.ZodNullable<z.ZodString>;
+        }, z.core.$strip>;
+    }, z.core.$strip>;
+    message: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export type BatchDetailResponse = z.infer<typeof BatchDetailResponseSchema>;
 export declare const schemas: {
     readonly UserRole: z.ZodEnum<{
         OWNER: "OWNER";
@@ -903,7 +1197,6 @@ export declare const schemas: {
     readonly BatchStatus: z.ZodEnum<{
         ACTIVE: "ACTIVE";
         COMPLETED: "COMPLETED";
-        CANCELLED: "CANCELLED";
     }>;
     readonly TransactionType: z.ZodEnum<{
         PURCHASE: "PURCHASE";
@@ -952,9 +1245,9 @@ export declare const schemas: {
         id: z.ZodString;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
-        email: z.ZodEmail;
+        email: z.ZodOptional<z.ZodEmail>;
         name: z.ZodString;
-        phone: z.ZodString;
+        phone: z.ZodOptional<z.ZodString>;
         password: z.ZodString;
         role: z.ZodEnum<{
             OWNER: "OWNER";
@@ -971,11 +1264,15 @@ export declare const schemas: {
             PENDING_VERIFICATION: "PENDING_VERIFICATION";
         }>;
         ownerId: z.ZodNullable<z.ZodString>;
+        companyName: z.ZodNullable<z.ZodString>;
+        CompanyFarmLocation: z.ZodNullable<z.ZodString>;
+        CompanyFarmNumber: z.ZodNullable<z.ZodString>;
+        CompanyFarmCapacity: z.ZodNullable<z.ZodNumber>;
     }, z.core.$strip>;
     readonly CreateUser: z.ZodObject<{
-        email: z.ZodEmail;
+        email: z.ZodOptional<z.ZodEmail>;
         name: z.ZodString;
-        phone: z.ZodString;
+        phone: z.ZodOptional<z.ZodString>;
         password: z.ZodString;
         role: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
             OWNER: "OWNER";
@@ -987,6 +1284,10 @@ export declare const schemas: {
             OTHER: "OTHER";
         }>>>;
         ownerId: z.ZodOptional<z.ZodString>;
+        companyName: z.ZodOptional<z.ZodString>;
+        CompanyFarmLocation: z.ZodOptional<z.ZodString>;
+        CompanyFarmNumber: z.ZodOptional<z.ZodString>;
+        CompanyFarmCapacity: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strip>;
     readonly UpdateUser: z.ZodObject<{
         email: z.ZodOptional<z.ZodEmail>;
@@ -1007,13 +1308,16 @@ export declare const schemas: {
             PENDING_VERIFICATION: "PENDING_VERIFICATION";
         }>>;
         ownerId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        companyName: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        CompanyFarmLocation: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        CompanyFarmNumber: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        CompanyFarmCapacity: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
     }, z.core.$strip>;
     readonly Farm: z.ZodObject<{
         id: z.ZodString;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
         name: z.ZodString;
-        location: z.ZodString;
         capacity: z.ZodNumber;
         description: z.ZodNullable<z.ZodString>;
         ownerId: z.ZodString;
@@ -1021,19 +1325,144 @@ export declare const schemas: {
     }, z.core.$strip>;
     readonly CreateFarm: z.ZodObject<{
         name: z.ZodString;
-        location: z.ZodString;
         capacity: z.ZodNumber;
         description: z.ZodOptional<z.ZodString>;
-        ownerId: z.ZodString;
+        ownerId: z.ZodOptional<z.ZodString>;
         managers: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>;
     readonly UpdateFarm: z.ZodObject<{
         name: z.ZodOptional<z.ZodString>;
-        location: z.ZodOptional<z.ZodString>;
         capacity: z.ZodOptional<z.ZodNumber>;
-        description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        description: z.ZodOptional<z.ZodString>;
         ownerId: z.ZodOptional<z.ZodString>;
         managers: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    }, z.core.$strip>;
+    readonly FarmResponse: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        name: z.ZodString;
+        capacity: z.ZodNumber;
+        description: z.ZodNullable<z.ZodString>;
+        ownerId: z.ZodString;
+        owner: z.ZodObject<{
+            id: z.ZodString;
+            name: z.ZodString;
+            email: z.ZodNullable<z.ZodString>;
+            role: z.ZodEnum<{
+                OWNER: "OWNER";
+                MANAGER: "MANAGER";
+            }>;
+        }, z.core.$strip>;
+        managers: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            name: z.ZodString;
+            email: z.ZodNullable<z.ZodString>;
+            role: z.ZodEnum<{
+                OWNER: "OWNER";
+                MANAGER: "MANAGER";
+            }>;
+        }, z.core.$strip>>;
+        _count: z.ZodObject<{
+            batches: z.ZodNumber;
+            expenses: z.ZodNumber;
+            sales: z.ZodNumber;
+        }, z.core.$strip>;
+    }, z.core.$strip>;
+    readonly FarmOwner: z.ZodObject<{
+        id: z.ZodString;
+        name: z.ZodString;
+        email: z.ZodNullable<z.ZodString>;
+        role: z.ZodEnum<{
+            OWNER: "OWNER";
+            MANAGER: "MANAGER";
+        }>;
+    }, z.core.$strip>;
+    readonly FarmManager: z.ZodObject<{
+        id: z.ZodString;
+        name: z.ZodString;
+        email: z.ZodNullable<z.ZodString>;
+        role: z.ZodEnum<{
+            OWNER: "OWNER";
+            MANAGER: "MANAGER";
+        }>;
+    }, z.core.$strip>;
+    readonly FarmCount: z.ZodObject<{
+        batches: z.ZodNumber;
+        expenses: z.ZodNumber;
+        sales: z.ZodNumber;
+    }, z.core.$strip>;
+    readonly FarmDetailResponse: z.ZodObject<{
+        success: z.ZodBoolean;
+        data: z.ZodObject<{
+            id: z.ZodString;
+            createdAt: z.ZodString;
+            updatedAt: z.ZodString;
+            name: z.ZodString;
+            capacity: z.ZodNumber;
+            description: z.ZodNullable<z.ZodString>;
+            ownerId: z.ZodString;
+            owner: z.ZodObject<{
+                id: z.ZodString;
+                name: z.ZodString;
+                email: z.ZodNullable<z.ZodString>;
+                role: z.ZodEnum<{
+                    OWNER: "OWNER";
+                    MANAGER: "MANAGER";
+                }>;
+            }, z.core.$strip>;
+            managers: z.ZodArray<z.ZodObject<{
+                id: z.ZodString;
+                name: z.ZodString;
+                email: z.ZodNullable<z.ZodString>;
+                role: z.ZodEnum<{
+                    OWNER: "OWNER";
+                    MANAGER: "MANAGER";
+                }>;
+            }, z.core.$strip>>;
+            _count: z.ZodObject<{
+                batches: z.ZodNumber;
+                expenses: z.ZodNumber;
+                sales: z.ZodNumber;
+            }, z.core.$strip>;
+        }, z.core.$strip>;
+        message: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>;
+    readonly FarmListResponse: z.ZodObject<{
+        success: z.ZodBoolean;
+        data: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            createdAt: z.ZodString;
+            updatedAt: z.ZodString;
+            name: z.ZodString;
+            capacity: z.ZodNumber;
+            description: z.ZodNullable<z.ZodString>;
+            ownerId: z.ZodString;
+            owner: z.ZodObject<{
+                id: z.ZodString;
+                name: z.ZodString;
+                email: z.ZodNullable<z.ZodString>;
+                role: z.ZodEnum<{
+                    OWNER: "OWNER";
+                    MANAGER: "MANAGER";
+                }>;
+            }, z.core.$strip>;
+            managers: z.ZodArray<z.ZodObject<{
+                id: z.ZodString;
+                name: z.ZodString;
+                email: z.ZodNullable<z.ZodString>;
+                role: z.ZodEnum<{
+                    OWNER: "OWNER";
+                    MANAGER: "MANAGER";
+                }>;
+            }, z.core.$strip>>;
+            _count: z.ZodObject<{
+                batches: z.ZodNumber;
+                expenses: z.ZodNumber;
+                sales: z.ZodNumber;
+            }, z.core.$strip>;
+        }, z.core.$strip>>;
+        message: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>;
     readonly Batch: z.ZodObject<{
         id: z.ZodString;
@@ -1045,11 +1474,11 @@ export declare const schemas: {
         status: z.ZodEnum<{
             ACTIVE: "ACTIVE";
             COMPLETED: "COMPLETED";
-            CANCELLED: "CANCELLED";
         }>;
         initialChicks: z.ZodNumber;
         initialChickWeight: z.ZodNumber;
         farmId: z.ZodString;
+        notes: z.ZodNullable<z.ZodString>;
     }, z.core.$strip>;
     readonly CreateBatch: z.ZodObject<{
         batchNumber: z.ZodString;
@@ -1058,7 +1487,6 @@ export declare const schemas: {
         status: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
             ACTIVE: "ACTIVE";
             COMPLETED: "COMPLETED";
-            CANCELLED: "CANCELLED";
         }>>>;
         initialChicks: z.ZodNumber;
         initialChickWeight: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
@@ -1071,11 +1499,148 @@ export declare const schemas: {
         status: z.ZodOptional<z.ZodEnum<{
             ACTIVE: "ACTIVE";
             COMPLETED: "COMPLETED";
-            CANCELLED: "CANCELLED";
         }>>;
         initialChicks: z.ZodOptional<z.ZodNumber>;
         initialChickWeight: z.ZodOptional<z.ZodNumber>;
         farmId: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>;
+    readonly BatchResponse: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        batchNumber: z.ZodString;
+        startDate: z.ZodISODateTime;
+        endDate: z.ZodNullable<z.ZodISODateTime>;
+        status: z.ZodEnum<{
+            ACTIVE: "ACTIVE";
+            COMPLETED: "COMPLETED";
+        }>;
+        initialChicks: z.ZodNumber;
+        initialChickWeight: z.ZodNumber;
+        farmId: z.ZodString;
+        currentChicks: z.ZodNumber;
+        farm: z.ZodObject<{
+            id: z.ZodString;
+            name: z.ZodString;
+            capacity: z.ZodNumber;
+            owner: z.ZodObject<{
+                id: z.ZodString;
+                name: z.ZodString;
+                email: z.ZodNullable<z.ZodString>;
+            }, z.core.$strip>;
+        }, z.core.$strip>;
+        _count: z.ZodObject<{
+            expenses: z.ZodNumber;
+            sales: z.ZodNumber;
+            mortalities: z.ZodNumber;
+            vaccinations: z.ZodNumber;
+            feedConsumptions: z.ZodNumber;
+            birdWeights: z.ZodNumber;
+            notes: z.ZodNullable<z.ZodString>;
+        }, z.core.$strip>;
+    }, z.core.$strip>;
+    readonly BatchFarm: z.ZodObject<{
+        id: z.ZodString;
+        name: z.ZodString;
+        capacity: z.ZodNumber;
+        owner: z.ZodObject<{
+            id: z.ZodString;
+            name: z.ZodString;
+            email: z.ZodNullable<z.ZodString>;
+        }, z.core.$strip>;
+    }, z.core.$strip>;
+    readonly BatchCount: z.ZodObject<{
+        expenses: z.ZodNumber;
+        sales: z.ZodNumber;
+        mortalities: z.ZodNumber;
+        vaccinations: z.ZodNumber;
+        feedConsumptions: z.ZodNumber;
+        birdWeights: z.ZodNumber;
+        notes: z.ZodNullable<z.ZodString>;
+    }, z.core.$strip>;
+    readonly BatchListResponse: z.ZodObject<{
+        success: z.ZodBoolean;
+        data: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            createdAt: z.ZodString;
+            updatedAt: z.ZodString;
+            batchNumber: z.ZodString;
+            startDate: z.ZodISODateTime;
+            endDate: z.ZodNullable<z.ZodISODateTime>;
+            status: z.ZodEnum<{
+                ACTIVE: "ACTIVE";
+                COMPLETED: "COMPLETED";
+            }>;
+            initialChicks: z.ZodNumber;
+            initialChickWeight: z.ZodNumber;
+            farmId: z.ZodString;
+            currentChicks: z.ZodNumber;
+            farm: z.ZodObject<{
+                id: z.ZodString;
+                name: z.ZodString;
+                capacity: z.ZodNumber;
+                owner: z.ZodObject<{
+                    id: z.ZodString;
+                    name: z.ZodString;
+                    email: z.ZodNullable<z.ZodString>;
+                }, z.core.$strip>;
+            }, z.core.$strip>;
+            _count: z.ZodObject<{
+                expenses: z.ZodNumber;
+                sales: z.ZodNumber;
+                mortalities: z.ZodNumber;
+                vaccinations: z.ZodNumber;
+                feedConsumptions: z.ZodNumber;
+                birdWeights: z.ZodNumber;
+                notes: z.ZodNullable<z.ZodString>;
+            }, z.core.$strip>;
+        }, z.core.$strip>>;
+        pagination: z.ZodObject<{
+            page: z.ZodNumber;
+            limit: z.ZodNumber;
+            total: z.ZodNumber;
+            totalPages: z.ZodNumber;
+        }, z.core.$strip>;
+        message: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>;
+    readonly BatchDetailResponse: z.ZodObject<{
+        success: z.ZodBoolean;
+        data: z.ZodObject<{
+            id: z.ZodString;
+            createdAt: z.ZodString;
+            updatedAt: z.ZodString;
+            batchNumber: z.ZodString;
+            startDate: z.ZodISODateTime;
+            endDate: z.ZodNullable<z.ZodISODateTime>;
+            status: z.ZodEnum<{
+                ACTIVE: "ACTIVE";
+                COMPLETED: "COMPLETED";
+            }>;
+            initialChicks: z.ZodNumber;
+            initialChickWeight: z.ZodNumber;
+            farmId: z.ZodString;
+            currentChicks: z.ZodNumber;
+            farm: z.ZodObject<{
+                id: z.ZodString;
+                name: z.ZodString;
+                capacity: z.ZodNumber;
+                owner: z.ZodObject<{
+                    id: z.ZodString;
+                    name: z.ZodString;
+                    email: z.ZodNullable<z.ZodString>;
+                }, z.core.$strip>;
+            }, z.core.$strip>;
+            _count: z.ZodObject<{
+                expenses: z.ZodNumber;
+                sales: z.ZodNumber;
+                mortalities: z.ZodNumber;
+                vaccinations: z.ZodNumber;
+                feedConsumptions: z.ZodNumber;
+                birdWeights: z.ZodNumber;
+                notes: z.ZodNullable<z.ZodString>;
+            }, z.core.$strip>;
+        }, z.core.$strip>;
+        message: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>;
     readonly Category: z.ZodObject<{
         id: z.ZodString;
@@ -1641,8 +2206,8 @@ export declare const schemas: {
     }, z.core.$strip>;
     readonly Signup: z.ZodObject<{
         name: z.ZodString;
-        email: z.ZodEmail;
-        phone: z.ZodString;
+        email: z.ZodOptional<z.ZodEmail>;
+        phone: z.ZodOptional<z.ZodString>;
         password: z.ZodString;
         gender: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
             MALE: "MALE";
@@ -1653,6 +2218,10 @@ export declare const schemas: {
             OWNER: "OWNER";
             MANAGER: "MANAGER";
         }>>>;
+        companyName: z.ZodOptional<z.ZodString>;
+        companyFarmLocation: z.ZodOptional<z.ZodString>;
+        companyFarmNumber: z.ZodOptional<z.ZodString>;
+        companyFarmCapacity: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strip>;
     readonly BatchAnalytics: z.ZodObject<{
         batchId: z.ZodString;
@@ -1693,6 +2262,10 @@ export declare const schemas: {
             PENDING_VERIFICATION: "PENDING_VERIFICATION";
         }>;
         managedFarms: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        companyName: z.ZodOptional<z.ZodString>;
+        companyFarmLocation: z.ZodOptional<z.ZodString>;
+        companyFarmNumber: z.ZodOptional<z.ZodString>;
+        companyFarmCapacity: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strip>;
     readonly AuthResponse: z.ZodObject<{
         accessToken: z.ZodString;
@@ -1716,6 +2289,10 @@ export declare const schemas: {
                 PENDING_VERIFICATION: "PENDING_VERIFICATION";
             }>;
             managedFarms: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            companyName: z.ZodOptional<z.ZodString>;
+            companyFarmLocation: z.ZodOptional<z.ZodString>;
+            companyFarmNumber: z.ZodOptional<z.ZodString>;
+            companyFarmCapacity: z.ZodOptional<z.ZodNumber>;
         }, z.core.$strip>;
     }, z.core.$strip>;
 };

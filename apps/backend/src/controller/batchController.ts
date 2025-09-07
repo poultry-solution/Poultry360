@@ -55,7 +55,6 @@ export const getAllBatches = async (
             select: {
               id: true,
               name: true,
-              location: true,
               capacity: true,
               owner: {
                 select: {
@@ -133,7 +132,6 @@ export const getBatchById = async (
           select: {
             id: true,
             name: true,
-            location: true,
             capacity: true,
             owner: {
               select: {
@@ -435,13 +433,13 @@ export const createBatch = async (
         initialChicks: data.initialChicks,
         initialChickWeight: data.initialChickWeight || 0.045,
         farmId: data.farmId,
+        
       },
       include: {
         farm: {
           select: {
             id: true,
             name: true,
-            location: true,
             owner: {
               select: {
                 id: true,
@@ -544,7 +542,6 @@ export const updateBatch = async (
           select: {
             id: true,
             name: true,
-            location: true,
             owner: {
               select: {
                 id: true,

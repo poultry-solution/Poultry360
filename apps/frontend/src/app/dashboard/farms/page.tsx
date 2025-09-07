@@ -2,104 +2,98 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Plus } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Building2, Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
+import { useGetUserFarms, useCreateFarm } from "@/fetchers/farms/farmQueries";
+import { toast } from "sonner";
+import { useAuth } from "@/store/store";
+import { FarmResponse } from "@myapp/shared-types";
 
 export default function FarmsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     capacity: "",
-    description: ""
+    description: "",
   });
 
-  // State to manage farms list
-  const [farms, setFarms] = useState([
-    {
-      id: 1,
-      name: "Farm A",
-      capacity: "5,000 birds",
-      activeBatches: 2,
-      closedBatches: 5,
-      status: "Active"
-    },
-    {
-      id: 2,
-      name: "Farm B", 
-      capacity: "3,500 birds",
-      activeBatches: 1,
-      closedBatches: 3,
-      status: "Active"
-    },
-    {
-      id: 3,
-      name: "Farm C",
-      capacity: "4,000 birds",
-      activeBatches: 2,
-      closedBatches: 4,
-      status: "Active"
-    }
-  ]);
+  // Fetch user's farms
+  const {
+    data: farmsResponse,
+    isLoading: farmsLoading,
+    error: farmsError,
+  } = useGetUserFarms("all");
+  const farms = farmsResponse?.data || [];
+
+  // Create farm mutation
+  const createFarmMutation = useCreateFarm();
+  const { user } = useAuth();
 
   // Batches modal state
   const [isBatchesModalOpen, setIsBatchesModalOpen] = useState(false);
   const [batchFilter, setBatchFilter] = useState<"active" | "closed">("active");
-  const [selectedFarm, setSelectedFarm] = useState<{ id: number; name: string } | null>(null);
+  const [selectedFarm, setSelectedFarm] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
-  const openBatchesModal = (farmId: number, farmName: string, filter: "active" | "closed") => {
+  const openBatchesModal = (
+    farmId: string,
+    farmName: string,
+    filter: "active" | "closed"
+  ) => {
     setSelectedFarm({ id: farmId, name: farmName });
     setBatchFilter(filter);
     setIsBatchesModalOpen(true);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Create new farm object
-    const newFarm = {
-      id: farms.length + 1,
-      name: formData.name,
-      capacity: `${formData.capacity} birds`,
-      activeBatches: 0,
-      closedBatches: 0,
-      status: "Active"
-    } as const;
 
-    // Add new farm to the list
-    setFarms(prevFarms => [...prevFarms, newFarm]);
-    
-    // Reset form and close modal
-    setIsModalOpen(false);
-    setFormData({ name: "", capacity: "", description: "" });
+    try {
+      await createFarmMutation.mutateAsync({
+        name: formData.name,
+        capacity: parseInt(formData.capacity),
+        description: formData.description || undefined,
+        ownerId: user?.id || "",
+        managers: [],
+      });
+
+      toast.success("Farm created successfully!");
+
+      // Reset form and close modal
+      setIsModalOpen(false);
+      setFormData({ name: "", capacity: "", description: "" });
+    } catch (error) {
+      console.error("Failed to create farm:", error);
+      // Error toast is handled by axios interceptor
+    }
   };
 
   const handleClose = () => {
     setIsModalOpen(false);
     setFormData({ name: "", capacity: "", description: "" });
   };
-
-  // Mock batches generator (replace with API later)
-  function getBatchesForFarm(farmId: number, filter: "active" | "closed") {
-    const sample = [
-      { id: 1, code: "B-2024-001", birds: 2500, ageDays: 32, status: "Active" },
-      { id: 2, code: "B-2024-002", birds: 2000, ageDays: 27, status: "Active" },
-      { id: 3, code: "B-2023-019", birds: 2300, ageDays: 45, status: "Closed" },
-      { id: 4, code: "B-2023-020", birds: 2100, ageDays: 46, status: "Closed" },
-    ];
-    return sample.filter(b => (filter === "active" ? b.status === "Active" : b.status === "Closed"));
-  }
 
   return (
     <div className="space-y-6">
@@ -111,7 +105,7 @@ export default function FarmsPage() {
             Manage your farm locations and details.
           </p>
         </div>
-        <Button 
+        <Button
           className="bg-primary hover:bg-primary/90 cursor-pointer"
           onClick={() => setIsModalOpen(true)}
         >
@@ -120,59 +114,99 @@ export default function FarmsPage() {
         </Button>
       </div>
 
-      {/* Farms Grid */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-        {farms.map((farm) => (
-          <Card key={farm.id} className="hover:shadow-md transition-shadow">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-primary" />
-                  {farm.name}
-                </span>
-              </CardTitle>
-              <CardDescription>Farm ID: {farm.id}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Capacity:</span>
-                  <span className="font-medium">{farm.capacity}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Status:</span>
-                  <span className="text-green-600 font-medium">{farm.status}</span>
-                </div>
+      {/* Loading State */}
+      {farmsLoading && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="ml-2">Loading farms...</span>
+        </div>
+      )}
 
-                {/* Batches Actions */}
-                <div className="flex flex-wrap items-center gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    className="h-8 px-3 cursor-pointer w-full sm:w-auto transition-colors hover:bg-[#10841E] hover:text-white hover:border-[#10841E]"
-                    onClick={() => openBatchesModal(farm.id, farm.name, "active")}
-                  >
-                    Active Batches ({farm.activeBatches})
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-8 px-3 cursor-pointer w-full sm:w-auto transition-colors hover:bg-[#10841E] hover:text-white hover:border-[#10841E]"
-                    onClick={() => openBatchesModal(farm.id, farm.name, "closed")}
-                  >
-                    Closed Batches ({farm.closedBatches})
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Error State */}
+      {farmsError && (
+        <div className="text-center py-8">
+          <p className="text-red-600">
+            Failed to load farms. Please try again.
+          </p>
+        </div>
+      )}
+
+      {/* Farms Grid */}
+      {!farmsLoading && !farmsError && (
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+          {farms.length === 0 ? (
+            <div className="col-span-full text-center py-8">
+              <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No farms found</h3>
+              <p className="text-muted-foreground mb-4">
+                Get started by creating your first farm.
+              </p>
+              <Button onClick={() => setIsModalOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Farm
+              </Button>
+            </div>
+          ) : (
+            farms.map((farm: FarmResponse) => (
+              <Card key={farm.id} className="hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5 text-primary" />
+                      {farm.name}
+                    </span>
+                  </CardTitle>
+                  <CardDescription>Farm ID: {farm.id}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Capacity:</span>
+                      <span className="font-medium">
+                        {farm.capacity.toLocaleString()} birds
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Owner:</span>
+                      <span className="font-medium">{farm.owner.name}</span>
+                    </div>
+                    {farm.description && (
+                      <div className="text-sm text-muted-foreground">
+                        {farm.description}
+                      </div>
+                    )}
+
+                    {/* Batches Actions */}
+                    <div className="flex flex-wrap items-center gap-2 pt-2">
+                      <Button
+                        variant="outline"
+                        className="h-8 px-3 cursor-pointer w-full sm:w-auto transition-colors hover:bg-[#10841E] hover:text-white hover:border-[#10841E]"
+                        onClick={() =>
+                          openBatchesModal(farm.id, farm.name, "active")
+                        }
+                      >
+                        Active Batches ({farm._count.batches})
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-8 px-3 cursor-pointer w-full sm:w-auto transition-colors hover:bg-[#10841E] hover:text-white hover:border-[#10841E]"
+                        onClick={() =>
+                          openBatchesModal(farm.id, farm.name, "closed")
+                        }
+                      >
+                        View Details
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
 
       {/* Add Farm Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={handleClose}
-        title="Add New Farm"
-      >
+      <Modal isOpen={isModalOpen} onClose={handleClose} title="Add New Farm">
         <form onSubmit={handleSubmit}>
           <ModalContent>
             <div className="space-y-4">
@@ -187,7 +221,6 @@ export default function FarmsPage() {
                   required
                 />
               </div>
-
 
               <div>
                 <Label htmlFor="capacity">Capacity (Number of Birds)</Label>
@@ -221,8 +254,19 @@ export default function FarmsPage() {
             <Button type="button" variant="outline" onClick={handleClose}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90">
-              Create Farm
+            <Button
+              type="submit"
+              className="bg-primary hover:bg-primary/90"
+              disabled={createFarmMutation.isPending}
+            >
+              {createFarmMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Farm"
+              )}
             </Button>
           </ModalFooter>
         </form>
@@ -236,26 +280,24 @@ export default function FarmsPage() {
       >
         <ModalContent>
           <div className="space-y-3">
-            {getBatchesForFarm(selectedFarm?.id ?? 0, batchFilter).map((b) => (
-              <Link key={b.id} href={`/dashboard/batches/${b.id}`} className="block">
-                <div className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60 cursor-pointer">
-                  <div>
-                    <div className="font-medium">{b.code}</div>
-                    <div className="text-xs text-muted-foreground">Birds: {b.birds} • Age: {b.ageDays} days</div>
-                  </div>
-                  <span className={batchFilter === 'active' ? 'text-green-600 text-sm font-medium' : 'text-muted-foreground text-sm font-medium'}>
-                    {batchFilter === "active" ? "Active" : "Closed"}
-                  </span>
-                </div>
-              </Link>
-            ))}
-            {getBatchesForFarm(selectedFarm?.id ?? 0, batchFilter).length === 0 && (
-              <p className="text-sm text-muted-foreground">No {batchFilter} batches found.</p>
-            )}
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">
+                Batch management will be available soon.
+                {batchFilter === "active"
+                  ? " Active batches"
+                  : " Closed batches"}{" "}
+                for this farm will be displayed here.
+              </p>
+            </div>
           </div>
         </ModalContent>
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsBatchesModalOpen(false)}>Close</Button>
+          <Button
+            variant="outline"
+            onClick={() => setIsBatchesModalOpen(false)}
+          >
+            Close
+          </Button>
         </ModalFooter>
       </Modal>
     </div>

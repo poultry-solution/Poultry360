@@ -2,7 +2,7 @@
 import { z } from "zod";
 // ==================== ENUMS ====================
 export const UserRoleSchema = z.enum(["OWNER", "MANAGER"]);
-export const BatchStatusSchema = z.enum(["ACTIVE", "COMPLETED", "CANCELLED"]);
+export const BatchStatusSchema = z.enum(["ACTIVE", "COMPLETED"]);
 export const TransactionTypeSchema = z.enum([
     "PURCHASE",
     "SALE",
@@ -45,23 +45,31 @@ export const BaseSchema = z.object({
 });
 // ==================== USER SCHEMAS ====================
 export const UserSchema = BaseSchema.extend({
-    email: z.email(),
+    email: z.email().optional(),
     name: z.string(),
-    phone: z.string(),
+    phone: z.string().optional(),
     password: z.string(),
     role: UserRoleSchema,
     gender: z.enum(["MALE", "FEMALE", "OTHER"]),
     status: z.enum(["ACTIVE", "INACTIVE", "PENDING_VERIFICATION"]),
     ownerId: z.string().nullable(),
+    companyName: z.string().nullable(),
+    CompanyFarmLocation: z.string().nullable(),
+    CompanyFarmNumber: z.string().nullable(),
+    CompanyFarmCapacity: z.number().int().nullable(),
 });
 export const CreateUserSchema = z.object({
-    email: z.email(),
+    email: z.email().optional(),
     name: z.string(),
-    phone: z.string(),
+    phone: z.string().optional(),
     password: z.string(),
     role: UserRoleSchema.optional().default("OWNER"),
     gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional().default("OTHER"),
     ownerId: z.string().optional(),
+    companyName: z.string().optional(),
+    CompanyFarmLocation: z.string().optional(),
+    CompanyFarmNumber: z.string().optional(),
+    CompanyFarmCapacity: z.number().int().optional(),
 });
 export const UpdateUserSchema = z.object({
     email: z.email().optional(),
@@ -71,29 +79,57 @@ export const UpdateUserSchema = z.object({
     gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
     status: z.enum(["ACTIVE", "INACTIVE", "PENDING_VERIFICATION"]).optional(),
     ownerId: z.string().nullable().optional(),
+    companyName: z.string().nullable().optional(),
+    CompanyFarmLocation: z.string().nullable().optional(),
+    CompanyFarmNumber: z.string().nullable().optional(),
+    CompanyFarmCapacity: z.number().int().nullable().optional(),
 });
 // ==================== FARM SCHEMAS ====================
 export const FarmSchema = BaseSchema.extend({
     name: z.string(),
-    location: z.string(),
     capacity: z.number().int().positive(),
     description: z.string().nullable(),
     ownerId: z.string(), // Farm owner
     managers: z.array(z.string()).optional(), // Farm managers (array of user IDs)
 });
+// ==================== FARM RESPONSE SCHEMAS ====================
+export const FarmOwnerSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    email: z.string().nullable(),
+    role: UserRoleSchema,
+});
+export const FarmManagerSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    email: z.string().nullable(),
+    role: UserRoleSchema,
+});
+export const FarmCountSchema = z.object({
+    batches: z.number().int().nonnegative(),
+    expenses: z.number().int().nonnegative(),
+    sales: z.number().int().nonnegative(),
+});
+export const FarmResponseSchema = BaseSchema.extend({
+    name: z.string(),
+    capacity: z.number().int().positive(),
+    description: z.string().nullable(),
+    ownerId: z.string(),
+    owner: FarmOwnerSchema,
+    managers: z.array(FarmManagerSchema),
+    _count: FarmCountSchema,
+});
 export const CreateFarmSchema = z.object({
     name: z.string(),
-    location: z.string(),
     capacity: z.number().int().positive(),
     description: z.string().optional(),
-    ownerId: z.string(),
+    ownerId: z.string().optional(), // Will be set by backend from auth
     managers: z.array(z.string()).optional(),
 });
 export const UpdateFarmSchema = z.object({
     name: z.string().optional(),
-    location: z.string().optional(),
     capacity: z.number().int().positive().optional(),
-    description: z.string().nullable().optional(),
+    description: z.string().optional(),
     ownerId: z.string().optional(),
     managers: z.array(z.string()).optional(),
 });
@@ -106,6 +142,39 @@ export const BatchSchema = BaseSchema.extend({
     initialChicks: z.number().int().positive(),
     initialChickWeight: z.number().positive(),
     farmId: z.string(),
+    notes: z.string().nullable(),
+});
+// ==================== BATCH RESPONSE SCHEMAS ====================
+export const BatchFarmSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    capacity: z.number().int().positive(),
+    owner: z.object({
+        id: z.string(),
+        name: z.string(),
+        email: z.string().nullable(),
+    }),
+});
+export const BatchCountSchema = z.object({
+    expenses: z.number().int().nonnegative(),
+    sales: z.number().int().nonnegative(),
+    mortalities: z.number().int().nonnegative(),
+    vaccinations: z.number().int().nonnegative(),
+    feedConsumptions: z.number().int().nonnegative(),
+    birdWeights: z.number().int().nonnegative(),
+    notes: z.string().nullable(),
+});
+export const BatchResponseSchema = BaseSchema.extend({
+    batchNumber: z.string(),
+    startDate: z.iso.datetime(),
+    endDate: z.iso.datetime().nullable(),
+    status: BatchStatusSchema,
+    initialChicks: z.number().int().positive(),
+    initialChickWeight: z.number().positive(),
+    farmId: z.string(),
+    currentChicks: z.number().int().nonnegative(), // Computed field
+    farm: BatchFarmSchema,
+    _count: BatchCountSchema,
 });
 export const CreateBatchSchema = z.object({
     batchNumber: z.string(),
@@ -537,11 +606,15 @@ export const LoginSchema = z.object({
 });
 export const SignupSchema = z.object({
     name: z.string(),
-    email: z.email(),
-    phone: z.string(),
+    email: z.email().optional(),
+    phone: z.string().optional(),
     password: z.string(),
     gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional().default("OTHER"),
     role: UserRoleSchema.optional().default("OWNER"),
+    companyName: z.string().optional(),
+    companyFarmLocation: z.string().optional(),
+    companyFarmNumber: z.string().optional(),
+    companyFarmCapacity: z.number().int().optional(),
 });
 // ==================== COMPUTED TYPES ====================
 export const BatchAnalyticsSchema = z.object({
@@ -572,10 +645,41 @@ export const UserResponseSchema = z.object({
     gender: z.enum(["MALE", "FEMALE", "OTHER"]),
     status: z.enum(["ACTIVE", "INACTIVE", "PENDING_VERIFICATION"]),
     managedFarms: z.array(z.string()).optional(), // For managers
+    companyName: z.string().optional(),
+    companyFarmLocation: z.string().optional(),
+    companyFarmNumber: z.string().optional(),
+    companyFarmCapacity: z.number().int().optional(),
 });
 export const AuthResponseSchema = z.object({
     accessToken: z.string(),
     user: UserResponseSchema,
+});
+export const FarmListResponseSchema = z.object({
+    success: z.boolean(),
+    data: z.array(FarmResponseSchema),
+    message: z.string().optional(),
+});
+export const FarmDetailResponseSchema = z.object({
+    success: z.boolean(),
+    data: FarmResponseSchema,
+    message: z.string().optional(),
+});
+// ==================== BATCH API RESPONSE SCHEMAS ====================
+export const BatchListResponseSchema = z.object({
+    success: z.boolean(),
+    data: z.array(BatchResponseSchema),
+    pagination: z.object({
+        page: z.number().int().positive(),
+        limit: z.number().int().positive(),
+        total: z.number().int().nonnegative(),
+        totalPages: z.number().int().nonnegative(),
+    }),
+    message: z.string().optional(),
+});
+export const BatchDetailResponseSchema = z.object({
+    success: z.boolean(),
+    data: BatchResponseSchema,
+    message: z.string().optional(),
 });
 // ==================== EXPORT ALL SCHEMAS ====================
 export const schemas = {
@@ -597,9 +701,22 @@ export const schemas = {
     Farm: FarmSchema,
     CreateFarm: CreateFarmSchema,
     UpdateFarm: UpdateFarmSchema,
+    // Farm Response Types
+    FarmResponse: FarmResponseSchema,
+    FarmOwner: FarmOwnerSchema,
+    FarmManager: FarmManagerSchema,
+    FarmCount: FarmCountSchema,
+    FarmDetailResponse: FarmDetailResponseSchema,
+    FarmListResponse: FarmListResponseSchema,
     Batch: BatchSchema,
     CreateBatch: CreateBatchSchema,
     UpdateBatch: UpdateBatchSchema,
+    // Batch Response Types
+    BatchResponse: BatchResponseSchema,
+    BatchFarm: BatchFarmSchema,
+    BatchCount: BatchCountSchema,
+    BatchListResponse: BatchListResponseSchema,
+    BatchDetailResponse: BatchDetailResponseSchema,
     Category: CategorySchema,
     CreateCategory: CreateCategorySchema,
     UpdateCategory: UpdateCategorySchema,
@@ -688,4 +805,5 @@ export const PaginatedResponseSchema = (itemSchema) => z.object({
     }),
     message: z.string().optional(),
 });
+// ==================== FARM API RESPONSE SCHEMAS ====================
 // ==================== USER RESPONSE SCHEMAS ====================

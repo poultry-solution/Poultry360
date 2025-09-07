@@ -320,7 +320,6 @@ export const createFarm = async (req: Request, res: Response): Promise<any> => {
     const farm = await prisma.farm.create({
       data: {
         name: data.name,
-        location: data.location,
         capacity: data.capacity,
         description: data.description,
         ownerId: currentUserId as string,
@@ -375,7 +374,7 @@ export const updateFarm = async (req: Request, res: Response): Promise<any> => {
     // Check if farm exists
     const existingFarm = await prisma.farm.findUnique({
       where: { id },
-      include: { managers: true },
+      include: { managers: true, owner: true },
     });
 
     if (!existingFarm) {

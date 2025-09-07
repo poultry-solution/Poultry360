@@ -9,8 +9,8 @@ import {
   getManagerUsers,
   updateUserStatus,
   getUserStatistics,
-} from "../controller/userController.js";
-import { authMiddleware } from "../middelware/middelware.js";
+} from "../controller/userController";
+import { authMiddleware } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
 
 const userRouter = Router();

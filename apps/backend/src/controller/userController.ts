@@ -1,36 +1,39 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { UserRole, UserStatus } from "@prisma/client";
-import { 
-  CreateUserSchema, 
-  UpdateUserSchema, 
+import {
+  CreateUserSchema,
+  UpdateUserSchema,
   UserSchema,
-  UserResponseSchema 
+  UserResponseSchema,
 } from "@myapp/shared-types";
 
 // ==================== GET ALL USERS ====================
-export const getAllUsers = async (req: Request, res: Response): Promise<any> => {
+export const getAllUsers = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const { page = 1, limit = 10, role, status, search } = req.query;
-    
+
     const skip = (Number(page) - 1) * Number(limit);
-    
+
     // Build where clause
     const where: any = {};
-    
+
     if (role) {
       where.role = role as UserRole;
     }
-    
+
     if (status) {
       where.status = status as UserStatus;
     }
-    
+
     if (search) {
       where.OR = [
-        { name: { contains: search as string, mode: 'insensitive' } },
-        { email: { contains: search as string, mode: 'insensitive' } },
-        { phone: { contains: search as string, mode: 'insensitive' } }
+        { name: { contains: search as string, mode: "insensitive" } },
+        { email: { contains: search as string, mode: "insensitive" } },
+        { phone: { contains: search as string, mode: "insensitive" } },
       ];
     }
 
@@ -47,18 +50,22 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
           role: true,
           gender: true,
           status: true,
+          companyName: true,
+          CompanyFarmLocation: true,
+          CompanyFarmNumber: true,
+          CompanyFarmCapacity: true,
           createdAt: true,
           updatedAt: true,
           _count: {
             select: {
               ownedFarms: true,
               managedFarms: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: "desc" },
       }),
-      prisma.user.count({ where })
+      prisma.user.count({ where }),
     ]);
 
     return res.json({
@@ -68,8 +75,8 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
         page: Number(page),
         limit: Number(limit),
         total,
-        totalPages: Math.ceil(total / Number(limit))
-      }
+        totalPages: Math.ceil(total / Number(limit)),
+      },
     });
   } catch (error) {
     console.error("Get all users error:", error);
@@ -78,10 +85,13 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
 };
 
 // ==================== GET USER BY ID ====================
-export const getUserById = async (req: Request, res: Response): Promise<any> => {
+export const getUserById = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const { id } = req.params;
-    
+
     const user = await prisma.user.findUnique({
       where: { id },
       include: {
@@ -89,29 +99,27 @@ export const getUserById = async (req: Request, res: Response): Promise<any> => 
           select: {
             id: true,
             name: true,
-            location: true,
             capacity: true,
             description: true,
-            createdAt: true
-          }
+            createdAt: true,
+          },
         },
         managedFarms: {
           select: {
             id: true,
             name: true,
-            location: true,
             capacity: true,
             description: true,
-            createdAt: true
-          }
+            createdAt: true,
+          },
         },
         categories: {
           select: {
             id: true,
             name: true,
             type: true,
-            description: true
-          }
+            description: true,
+          },
         },
         _count: {
           select: {
@@ -120,10 +128,10 @@ export const getUserById = async (req: Request, res: Response): Promise<any> => 
             hatcheries: true,
             medicineSuppliers: true,
             inventoryItems: true,
-            notifications: true
-          }
-        }
-      }
+            notifications: true,
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -135,7 +143,7 @@ export const getUserById = async (req: Request, res: Response): Promise<any> => 
 
     return res.json({
       success: true,
-      data: userWithoutPassword
+      data: userWithoutPassword,
     });
   } catch (error) {
     console.error("Get user by ID error:", error);
@@ -144,10 +152,13 @@ export const getUserById = async (req: Request, res: Response): Promise<any> => 
 };
 
 // ==================== GET CURRENT USER PROFILE ====================
-export const getCurrentUser = async (req: Request, res: Response): Promise<any> => {
+export const getCurrentUser = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const userId = req.userId; // From auth middleware
-    
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -155,7 +166,6 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<any> 
           select: {
             id: true,
             name: true,
-            location: true,
             capacity: true,
             description: true,
             createdAt: true,
@@ -163,16 +173,15 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<any> 
               select: {
                 batches: true,
                 expenses: true,
-                sales: true
-              }
-            }
-          }
+                sales: true,
+              },
+            },
+          },
         },
         managedFarms: {
           select: {
             id: true,
             name: true,
-            location: true,
             capacity: true,
             description: true,
             createdAt: true,
@@ -180,20 +189,20 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<any> 
               select: {
                 batches: true,
                 expenses: true,
-                sales: true
-              }
-            }
-          }
+                sales: true,
+              },
+            },
+          },
         },
         categories: {
           select: {
             id: true,
             name: true,
             type: true,
-            description: true
-          }
-        }
-      }
+            description: true,
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -205,7 +214,7 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<any> 
 
     return res.json({
       success: true,
-      data: userWithoutPassword
+      data: userWithoutPassword,
     });
   } catch (error) {
     console.error("Get current user error:", error);
@@ -228,7 +237,7 @@ export const updateUser = async (req: Request, res: Response): Promise<any> => {
 
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!existingUser) {
@@ -249,17 +258,25 @@ export const updateUser = async (req: Request, res: Response): Promise<any> => {
     // Check for email uniqueness if email is being updated
     if (data.email && data.email !== existingUser.email) {
       const emailExists = await prisma.user.findUnique({
-        where: { email: data.email }
+        where: { email: data.email },
       });
       if (emailExists) {
         return res.status(400).json({ message: "Email already exists" });
       }
     }
 
+    // Convert string fields to appropriate types
+    const updateData = {
+      ...data,
+      CompanyFarmNumber: data.CompanyFarmNumber
+        ? parseInt(data.CompanyFarmNumber as string)
+        : null,
+    };
+
     // Update user
     const updatedUser = await prisma.user.update({
       where: { id },
-      data,
+      data: updateData,
       select: {
         id: true,
         name: true,
@@ -268,15 +285,19 @@ export const updateUser = async (req: Request, res: Response): Promise<any> => {
         role: true,
         gender: true,
         status: true,
+        companyName: true,
+        CompanyFarmLocation: true,
+        CompanyFarmNumber: true,
+        CompanyFarmCapacity: true,
         createdAt: true,
-        updatedAt: true
-      }
+        updatedAt: true,
+      },
     });
 
     return res.json({
       success: true,
       data: updatedUser,
-      message: "User updated successfully"
+      message: "User updated successfully",
     });
   } catch (error) {
     console.error("Update user error:", error);
@@ -293,7 +314,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<any> => {
 
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!existingUser) {
@@ -306,33 +327,33 @@ export const deleteUser = async (req: Request, res: Response): Promise<any> => {
     }
 
     if (currentUserId === id) {
-      return res.status(400).json({ message: "Cannot delete your own account" });
+      return res
+        .status(400)
+        .json({ message: "Cannot delete your own account" });
     }
 
     // Check if user has any farms
     const userFarms = await prisma.farm.count({
       where: {
-        OR: [
-          { ownerId: id },
-          { managers: { some: { id } } }
-        ]
-      }
+        OR: [{ ownerId: id }, { managers: { some: { id } } }],
+      },
     });
 
     if (userFarms > 0) {
-      return res.status(400).json({ 
-        message: "Cannot delete user with associated farms. Please reassign farms first." 
+      return res.status(400).json({
+        message:
+          "Cannot delete user with associated farms. Please reassign farms first.",
       });
     }
 
     // Delete user
     await prisma.user.delete({
-      where: { id }
+      where: { id },
     });
 
     return res.json({
       success: true,
-      message: "User deleted successfully"
+      message: "User deleted successfully",
     });
   } catch (error) {
     console.error("Delete user error:", error);
@@ -341,21 +362,24 @@ export const deleteUser = async (req: Request, res: Response): Promise<any> => {
 };
 
 // ==================== GET OWNER USERS ====================
-export const getOwnerUsers = async (req: Request, res: Response): Promise<any> => {
+export const getOwnerUsers = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const { page = 1, limit = 10, search } = req.query;
-    
+
     const skip = (Number(page) - 1) * Number(limit);
-    
+
     const where: any = {
-      role: UserRole.OWNER
+      role: UserRole.OWNER,
     };
-    
+
     if (search) {
       where.OR = [
-        { name: { contains: search as string, mode: 'insensitive' } },
-        { email: { contains: search as string, mode: 'insensitive' } },
-        { phone: { contains: search as string, mode: 'insensitive' } }
+        { name: { contains: search as string, mode: "insensitive" } },
+        { email: { contains: search as string, mode: "insensitive" } },
+        { phone: { contains: search as string, mode: "insensitive" } },
       ];
     }
 
@@ -371,17 +395,21 @@ export const getOwnerUsers = async (req: Request, res: Response): Promise<any> =
           phone: true,
           gender: true,
           status: true,
+          companyName: true,
+          CompanyFarmLocation: true,
+          CompanyFarmNumber: true,
+          CompanyFarmCapacity: true,
           createdAt: true,
           _count: {
             select: {
               ownedFarms: true,
               managedFarms: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: "desc" },
       }),
-      prisma.user.count({ where })
+      prisma.user.count({ where }),
     ]);
 
     return res.json({
@@ -391,8 +419,8 @@ export const getOwnerUsers = async (req: Request, res: Response): Promise<any> =
         page: Number(page),
         limit: Number(limit),
         total,
-        totalPages: Math.ceil(total / Number(limit))
-      }
+        totalPages: Math.ceil(total / Number(limit)),
+      },
     });
   } catch (error) {
     console.error("Get owner users error:", error);
@@ -401,21 +429,24 @@ export const getOwnerUsers = async (req: Request, res: Response): Promise<any> =
 };
 
 // ==================== GET MANAGER USERS ====================
-export const getManagerUsers = async (req: Request, res: Response): Promise<any> => {
+export const getManagerUsers = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const { page = 1, limit = 10, search } = req.query;
-    
+
     const skip = (Number(page) - 1) * Number(limit);
-    
+
     const where: any = {
-      role: UserRole.MANAGER
+      role: UserRole.MANAGER,
     };
-    
+
     if (search) {
       where.OR = [
-        { name: { contains: search as string, mode: 'insensitive' } },
-        { email: { contains: search as string, mode: 'insensitive' } },
-        { phone: { contains: search as string, mode: 'insensitive' } }
+        { name: { contains: search as string, mode: "insensitive" } },
+        { email: { contains: search as string, mode: "insensitive" } },
+        { phone: { contains: search as string, mode: "insensitive" } },
       ];
     }
 
@@ -431,17 +462,21 @@ export const getManagerUsers = async (req: Request, res: Response): Promise<any>
           phone: true,
           gender: true,
           status: true,
+          companyName: true,
+          CompanyFarmLocation: true,
+          CompanyFarmNumber: true,
+          CompanyFarmCapacity: true,
           createdAt: true,
           _count: {
             select: {
               ownedFarms: true,
               managedFarms: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: "desc" },
       }),
-      prisma.user.count({ where })
+      prisma.user.count({ where }),
     ]);
 
     return res.json({
@@ -451,8 +486,8 @@ export const getManagerUsers = async (req: Request, res: Response): Promise<any>
         page: Number(page),
         limit: Number(limit),
         total,
-        totalPages: Math.ceil(total / Number(limit))
-      }
+        totalPages: Math.ceil(total / Number(limit)),
+      },
     });
   } catch (error) {
     console.error("Get manager users error:", error);
@@ -461,7 +496,10 @@ export const getManagerUsers = async (req: Request, res: Response): Promise<any>
 };
 
 // ==================== UPDATE USER STATUS ====================
-export const updateUserStatus = async (req: Request, res: Response): Promise<any> => {
+export const updateUserStatus = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -479,7 +517,7 @@ export const updateUserStatus = async (req: Request, res: Response): Promise<any
 
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!existingUser) {
@@ -496,14 +534,14 @@ export const updateUserStatus = async (req: Request, res: Response): Promise<any
         email: true,
         role: true,
         status: true,
-        updatedAt: true
-      }
+        updatedAt: true,
+      },
     });
 
     return res.json({
       success: true,
       data: updatedUser,
-      message: "User status updated successfully"
+      message: "User status updated successfully",
     });
   } catch (error) {
     console.error("Update user status error:", error);
@@ -512,7 +550,10 @@ export const updateUserStatus = async (req: Request, res: Response): Promise<any
 };
 
 // ==================== GET USER STATISTICS ====================
-export const getUserStatistics = async (req: Request, res: Response): Promise<any> => {
+export const getUserStatistics = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const currentUserRole = req.role;
 
@@ -527,14 +568,14 @@ export const getUserStatistics = async (req: Request, res: Response): Promise<an
       totalManagers,
       activeUsers,
       pendingUsers,
-      inactiveUsers
+      inactiveUsers,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { role: UserRole.OWNER } }),
       prisma.user.count({ where: { role: UserRole.MANAGER } }),
       prisma.user.count({ where: { status: UserStatus.ACTIVE } }),
       prisma.user.count({ where: { status: UserStatus.PENDING_VERIFICATION } }),
-      prisma.user.count({ where: { status: UserStatus.INACTIVE } })
+      prisma.user.count({ where: { status: UserStatus.INACTIVE } }),
     ]);
 
     return res.json({
@@ -545,8 +586,8 @@ export const getUserStatistics = async (req: Request, res: Response): Promise<an
         totalManagers,
         activeUsers,
         pendingUsers,
-        inactiveUsers
-      }
+        inactiveUsers,
+      },
     });
   } catch (error) {
     console.error("Get user statistics error:", error);

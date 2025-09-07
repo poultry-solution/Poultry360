@@ -9,15 +9,15 @@ import {
   addManagerToFarm,
   removeManagerFromFarm,
   getFarmAnalytics,
-} from "../controller/farmController.js";
-import { authMiddleware } from "../middelware/middelware.js";
+} from "../controller/farmController";
+import { authMiddleware } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
 
 const farmRouter = Router();
 
 // Apply auth middleware to all routes
 farmRouter.use((req, res, next) => {
-  authMiddleware(req, res, next, []); // Allow all authenticated users
+  authMiddleware(req, res, next, ["OWNER"]); // Allow all authenticated users
 });
 
 // ==================== FARM ROUTES ====================

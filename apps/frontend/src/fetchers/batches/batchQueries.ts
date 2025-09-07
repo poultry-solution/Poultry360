@@ -3,10 +3,12 @@ import {
   Batch, 
   CreateBatch, 
   UpdateBatch,
-  BatchStatus 
+  BatchStatus,
+  BatchResponse,
+  BatchListResponse,
+  BatchDetailResponse
 } from "@myapp/shared-types";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+import axiosInstance from "@/lib/axios";
 
 // ==================== QUERY KEYS ====================
 export const batchKeys = {
@@ -29,21 +31,12 @@ export const useGetAllBatches = (params?: {
   status?: BatchStatus;
   search?: string;
 }) => {
-  return useQuery({
+  return useQuery<BatchListResponse>({
     queryKey: batchKeys.list(params || {}),
     queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params?.page) searchParams.append("page", params.page.toString());
-      if (params?.limit) searchParams.append("limit", params.limit.toString());
-      if (params?.farmId) searchParams.append("farmId", params.farmId);
-      if (params?.status) searchParams.append("status", params.status);
-      if (params?.search) searchParams.append("search", params.search);
-
-      const response = await fetch(`${API_BASE}/batches?${searchParams}`, {
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to fetch batches");
-      return response.json();
+      const response = await axiosInstance.get("/batches", { params });
+      console.log("Get All Batches", response.data);
+      return response.data;
     },
   });
 };
@@ -54,19 +47,12 @@ export const useGetFarmBatches = (farmId: string, params?: {
   page?: number;
   limit?: number;
 }) => {
-  return useQuery({
+  return useQuery<BatchListResponse>({
     queryKey: [...batchKeys.farmBatches(farmId), params || {}],
     queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params?.status) searchParams.append("status", params.status);
-      if (params?.page) searchParams.append("page", params.page.toString());
-      if (params?.limit) searchParams.append("limit", params.limit.toString());
-
-      const response = await fetch(`${API_BASE}/batches/farm/${farmId}?${searchParams}`, {
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to fetch farm batches");
-      return response.json();
+      const response = await axiosInstance.get(`/batches/farm/${farmId}`, { params });
+      console.log("Get Farm Batches", response.data);
+      return response.data;
     },
     enabled: !!farmId,
   });
@@ -74,14 +60,11 @@ export const useGetFarmBatches = (farmId: string, params?: {
 
 // Get batch by ID
 export const useGetBatchById = (id: string) => {
-  return useQuery({
+  return useQuery<BatchDetailResponse>({
     queryKey: batchKeys.detail(id),
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/batches/${id}`, {
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to fetch batch");
-      return response.json();
+      const response = await axiosInstance.get(`/batches/${id}`);
+      return response.data;
     },
     enabled: !!id,
   });
@@ -92,11 +75,8 @@ export const useGetBatchAnalytics = (id: string) => {
   return useQuery({
     queryKey: batchKeys.analytics(id),
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/batches/${id}/analytics`, {
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to fetch batch analytics");
-      return response.json();
+      const response = await axiosInstance.get(`/batches/${id}/analytics`);
+      return response.data;
     },
     enabled: !!id,
   });
@@ -110,16 +90,8 @@ export const useCreateBatch = () => {
 
   return useMutation({
     mutationFn: async (data: CreateBatch) => {
-      const response = await fetch(`${API_BASE}/batches`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Failed to create batch");
-      return response.json();
+      const response = await axiosInstance.post("/batches", data);
+      return response.data;
     },
     onSuccess: (data) => {
       // Invalidate batch queries
@@ -137,16 +109,8 @@ export const useUpdateBatch = () => {
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: UpdateBatch }) => {
-      const response = await fetch(`${API_BASE}/batches/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Failed to update batch");
-      return response.json();
+      const response = await axiosInstance.put(`/batches/${id}`, data);
+      return response.data;
     },
     onSuccess: (data, variables) => {
       // Invalidate batch queries
@@ -168,16 +132,8 @@ export const useUpdateBatchStatus = () => {
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: BatchStatus }) => {
-      const response = await fetch(`${API_BASE}/batches/${id}/status`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({ status }),
-      });
-      if (!response.ok) throw new Error("Failed to update batch status");
-      return response.json();
+      const response = await axiosInstance.patch(`/batches/${id}/status`, { status });
+      return response.data;
     },
     onSuccess: (data, variables) => {
       // Invalidate batch queries
@@ -194,12 +150,8 @@ export const useDeleteBatch = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`${API_BASE}/batches/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to delete batch");
-      return response.json();
+      const response = await axiosInstance.delete(`/batches/${id}`);
+      return response.data;
     },
     onSuccess: (data, id) => {
       // Remove from cache and invalidate lists

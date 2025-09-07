@@ -8,15 +8,15 @@ import {
   deleteBatch,
   updateBatchStatus,
   getBatchAnalytics,
-} from "../controller/batchController.js";
-import { authMiddleware } from "../middelware/middelware.js";
+} from "../controller/batchController";
+import { authMiddleware } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
 
 const batchRouter = Router();
 
 // Apply auth middleware to all routes
 batchRouter.use((req, res, next) => {
-  authMiddleware(req, res, next, []); // Allow all authenticated users
+  authMiddleware(req, res, next, ["OWNER"]); // Allow all authenticated users
 });
 
 // ==================== BATCH ROUTES ====================

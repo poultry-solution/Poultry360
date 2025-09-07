@@ -19,6 +19,7 @@ export const authMiddleware = (
   next: NextFunction,
   allowedRoles: UserRole[] = []
 ): any => {
+  console.log("authMiddleware");
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: "No token provided" });
 
@@ -29,6 +30,7 @@ export const authMiddleware = (
     decoded = jwt.verify(token, process.env.JWT_SECRET || "mysupersecretkey");
     console.log("decoded", decoded);
   } catch (err) {
+    console.log("error", err);
     return res.status(403).json({ error: "Access denied" });
   }
 
@@ -44,11 +46,12 @@ export const authMiddleware = (
 
   // if nothing is passed then allow all roles
   if (allowedRoles.length === 0) {
-    next();
+    return next();
   }
 
   if (allowedRoles.length > 0 && !allowedRoles.includes(role)) {
     return res.status(403).json({ error: "Access denied for this role" });
   }
+  
   next();
 };

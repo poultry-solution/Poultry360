@@ -2,10 +2,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   Farm, 
   CreateFarm, 
-  UpdateFarm 
+  UpdateFarm,
+  FarmResponse,
+  FarmListResponse,
+  FarmDetailResponse
 } from "@myapp/shared-types";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+import axiosInstance from "@/lib/axios";
 
 // ==================== QUERY KEYS ====================
 export const farmKeys = {
@@ -28,52 +30,36 @@ export const useGetAllFarms = (params?: {
   ownerId?: string;
   managerId?: string;
 }) => {
-  return useQuery({
+  return useQuery<FarmListResponse>({
     queryKey: farmKeys.list(params || {}),
     queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params?.page) searchParams.append("page", params.page.toString());
-      if (params?.limit) searchParams.append("limit", params.limit.toString());
-      if (params?.search) searchParams.append("search", params.search);
-      if (params?.ownerId) searchParams.append("ownerId", params.ownerId);
-      if (params?.managerId) searchParams.append("managerId", params.managerId);
-
-      const response = await fetch(`${API_BASE}/farms?${searchParams}`, {
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to fetch farms");
-      return response.json();
+      const response = await axiosInstance.get("/farms", { params });
+      return response.data;
     },
   });
 };
 
 // Get current user's farms
 export const useGetUserFarms = (type?: "owned" | "managed" | "all") => {
-  return useQuery({
+  return useQuery<FarmListResponse>({
     queryKey: [...farmKeys.myFarms(), { type }],
     queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (type) searchParams.append("type", type);
-
-      const response = await fetch(`${API_BASE}/farms/my-farms?${searchParams}`, {
-        credentials: "include",
+      const response = await axiosInstance.get("/farms/my-farms", { 
+        params: { type } 
       });
-      if (!response.ok) throw new Error("Failed to fetch user farms");
-      return response.json();
+      console.log("Get User farms", response.data);
+      return response.data;
     },
   });
 };
 
 // Get farm by ID
 export const useGetFarmById = (id: string) => {
-  return useQuery({
+  return useQuery<FarmDetailResponse>({
     queryKey: farmKeys.detail(id),
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/farms/${id}`, {
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to fetch farm");
-      return response.json();
+      const response = await axiosInstance.get(`/farms/${id}`);
+      return response.data;
     },
     enabled: !!id,
   });
@@ -84,11 +70,8 @@ export const useGetFarmAnalytics = (id: string) => {
   return useQuery({
     queryKey: farmKeys.analytics(id),
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/farms/${id}/analytics`, {
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to fetch farm analytics");
-      return response.json();
+      const response = await axiosInstance.get(`/farms/${id}/analytics`);
+      return response.data;
     },
     enabled: !!id,
   });
@@ -102,16 +85,8 @@ export const useCreateFarm = () => {
 
   return useMutation({
     mutationFn: async (data: CreateFarm) => {
-      const response = await fetch(`${API_BASE}/farms`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Failed to create farm");
-      return response.json();
+      const response = await axiosInstance.post("/farms", data);
+      return response.data;
     },
     onSuccess: () => {
       // Invalidate farm queries
@@ -127,16 +102,8 @@ export const useUpdateFarm = () => {
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: UpdateFarm }) => {
-      const response = await fetch(`${API_BASE}/farms/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Failed to update farm");
-      return response.json();
+      const response = await axiosInstance.put(`/farms/${id}`, data);
+      return response.data;
     },
     onSuccess: (data, variables) => {
       // Invalidate farm queries
@@ -154,12 +121,8 @@ export const useDeleteFarm = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`${API_BASE}/farms/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to delete farm");
-      return response.json();
+      const response = await axiosInstance.delete(`/farms/${id}`);
+      return response.data;
     },
     onSuccess: (data, id) => {
       // Remove from cache and invalidate lists
@@ -177,16 +140,8 @@ export const useAddManagerToFarm = () => {
 
   return useMutation({
     mutationFn: async ({ farmId, managerId }: { farmId: string; managerId: string }) => {
-      const response = await fetch(`${API_BASE}/farms/${farmId}/managers`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({ managerId }),
-      });
-      if (!response.ok) throw new Error("Failed to add manager to farm");
-      return response.json();
+      const response = await axiosInstance.post(`/farms/${farmId}/managers`, { managerId });
+      return response.data;
     },
     onSuccess: (data, variables) => {
       // Invalidate farm queries
@@ -203,12 +158,8 @@ export const useRemoveManagerFromFarm = () => {
 
   return useMutation({
     mutationFn: async ({ farmId, managerId }: { farmId: string; managerId: string }) => {
-      const response = await fetch(`${API_BASE}/farms/${farmId}/managers/${managerId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to remove manager from farm");
-      return response.json();
+      const response = await axiosInstance.delete(`/farms/${farmId}/managers/${managerId}`);
+      return response.data;
     },
     onSuccess: (data, variables) => {
       // Invalidate farm queries

@@ -78,18 +78,21 @@ enum UserStatus {
 
 model User {
   id        String   @id @default(cuid())
- 
-  companyName String?
-  farmLocation String? // Province + Location 
-  farmNumber Int?
-  farmCapacity Int?
+  email     String?  @unique
+  phone     String?  @unique
+  name      String  //name of the user 
+  
+  companyName String? //name of the company
+  CompanyFarmLocation String? // Province + Location 
+  CompanyFarmNumber Int?
+  CompanyFarmCapacity Int?
  
 
 
-  phone     String
   password  String  
+
   role      UserRole @default(OWNER)  
-  gender    Gender   @default(OTHER) //rm 
+  gender    Gender   @default(MALE) //rm 
   status    UserStatus @default(PENDING_VERIFICATION)
   // Relationships
   // Farms this user owns
@@ -152,6 +155,7 @@ model Batch {
   endDate     DateTime?
   status      BatchStatus @default(ACTIVE)
   initialChicks Int
+  notes       String?
 
   // Removed currentChicks - will be computed from mortalities
   initialChickWeight Decimal @db.Decimal(6, 2) @default(0.045) // Default 45g per chick
@@ -358,13 +362,30 @@ model EntityTransaction {
   description String?
   reference   String?         // Invoice/receipt number
   
-  // Generic entity linking
-  entityType  String          // "DEALER", "HATCHERY", "MEDICINE_SUPPLIER", "CUSTOMER"
-  entityId    String          // The actual entity ID
+  // ✅ Proper foreign key relationships
+  dealerId    String?
+  dealer      Dealer?         @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  
+  hatcheryId  String?
+  hatchery    Hatchery?       @relation(fields: [hatcheryId], references: [id], onDelete: Cascade)
+  
+  medicineSupplierId String?
+  medicineSupplier   MedicineSupplier? @relation(fields: [medicineSupplierId], references: [id], onDelete: Cascade)
+  
+  customerId  String?
+  customer    Customer?       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // Keep generic fields for backward compatibility and flexibility
+  entityType  String?         // "DEALER", "HATCHERY", "MEDICINE_SUPPLIER", "CUSTOMER"
+  entityId    String?         // The actual entity ID (for custom entities)
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  @@index([dealerId, date])
+  @@index([hatcheryId, date])
+  @@index([medicineSupplierId, date])
+  @@index([customerId, date])
   @@index([entityType, entityId, date])
 }
 
@@ -379,6 +400,9 @@ model Dealer {
   
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // ✅ Direct relationship to transactions
+  transactions EntityTransaction[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -396,6 +420,9 @@ model Hatchery {
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
+  // ✅ Direct relationship to transactions
+  transactions EntityTransaction[]
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
@@ -411,6 +438,9 @@ model MedicineSupplier {
   
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // ✅ Direct relationship to transactions
+  transactions EntityTransaction[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -431,6 +461,9 @@ model Customer {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   sales       Sale[]
   transactions CustomerTransaction[]
+  
+  // ✅ Direct relationship to entity transactions
+  entityTransactions EntityTransaction[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
