@@ -59,10 +59,10 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
     res.cookie("refreshToken", tokens.refreshToken, {
       httpOnly: true,
-      // secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: "/",
     });
 
     let userWithFarms: any = {
@@ -166,9 +166,10 @@ export const register = async (req: Request, res: Response): Promise<any> => {
 
     res.cookie("refreshToken", tokens.refreshToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: "none",
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: "/",
     });
 
     // Return access token and user data
@@ -233,9 +234,10 @@ export const refreshToken = async (
     // Set new refresh token
     res.cookie("refreshToken", tokens.refreshToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: "none",
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: "/",
     });
 
     // Return new access token
@@ -249,8 +251,9 @@ export const logout = (req: Request, res: Response): any => {
   // Clear refresh token cookie
   res.clearCookie("refreshToken", {
     httpOnly: true,
-    secure: true,
-    sameSite: "none",
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    path: "/",
   });
 
   return res.json({ message: "Logged out successfully" });

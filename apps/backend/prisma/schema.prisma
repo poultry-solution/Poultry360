@@ -189,6 +189,15 @@ enum CategoryType {
   INVENTORY
 }
 
+// 🔗 NEW: Inventory item types based on supplier
+enum InventoryItemType {
+  FEED           // From Dealers
+  CHICKS         // From Hatcheries  
+  MEDICINE       // From Medicine Suppliers
+  EQUIPMENT      // General equipment
+  OTHER          // Other items
+}
+
 model Category {
   id          String   @id @default(cuid())
   name        String
@@ -220,13 +229,17 @@ model Expense {
   unitPrice   Decimal? @db.Decimal(10, 2)
   
   // Relationships
-  farmId      String
-  farm        Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  farmId      String?
+  farm        Farm?     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  
   batchId     String?
   batch       Batch?   @relation(fields: [batchId], references: [id], onDelete: SetNull)
   categoryId  String
   category    Category @relation(fields: [categoryId], references: [id])
   inventoryUsages InventoryUsage[]
+  
+  // 🔗 NEW: Connect to supplier transactions
+  entityTransactions EntityTransaction[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -248,8 +261,8 @@ model Sale {
   paidAmount  Decimal  @db.Decimal(10, 2) @default(0)
   dueAmount   Decimal?  @db.Decimal(10, 2) @default(0)
   // Relationships
-  farmId      String
-  farm        Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  farmId      String?
+  farm        Farm?     @relation(fields: [farmId], references: [id], onDelete: Cascade)
   batchId     String?
   batch       Batch?   @relation(fields: [batchId], references: [id], onDelete: SetNull)
   categoryId  String
@@ -290,6 +303,9 @@ model InventoryItem {
   unit        String
   minStock    Decimal? @db.Decimal(10, 2)
   
+  // 🔗 NEW: Item type based on supplier
+  itemType    InventoryItemType @default(OTHER)
+  
   // Relationships
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -297,6 +313,9 @@ model InventoryItem {
   category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   transactions InventoryTransaction[]
   usages      InventoryUsage[]
+  
+  // 🔗 NEW: Connect to supplier transactions
+  entityTransactions EntityTransaction[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -375,6 +394,14 @@ model EntityTransaction {
   customerId  String?
   customer    Customer?       @relation(fields: [customerId], references: [id], onDelete: Cascade)
   
+  // 🔗 NEW: Connect to inventory system
+  inventoryItemId String?
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  
+  // 🔗 NEW: Connect to expense system
+  expenseId String?
+  expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  
   // Keep generic fields for backward compatibility and flexibility
   entityType  String?         // "DEALER", "HATCHERY", "MEDICINE_SUPPLIER", "CUSTOMER"
   entityId    String?         // The actual entity ID (for custom entities)
@@ -387,6 +414,7 @@ model EntityTransaction {
   @@index([medicineSupplierId, date])
   @@index([customerId, date])
   @@index([entityType, entityId, date])
+  @@index([inventoryItemId, date])
 }
 
 // ==================== SUPPLIERS (SIMPLIFIED) ====================

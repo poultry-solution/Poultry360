@@ -38,10 +38,10 @@ app.get("/", (req, res) => {
 app.use((req, res, next) => {
   console.log("--------------------------------");
   console.log(`${req.method} ${req.url}`);
-  console.log(req.body);
-  console.log(req.headers);
-  console.log(req.params);
-  console.log(req.query);
+  // console.log(req.body);
+  // console.log(req.headers);
+  // console.log(req.params);
+  // console.log(req.query);
   next();
 });
 

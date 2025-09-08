@@ -39,17 +39,21 @@ axiosInstance.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
-      try {
-        await useAuthStore.getState().refreshToken();
-        const { accessToken } = useAuthStore.getState();
+      console.log("🔄 Token expired, attempting refresh...");
 
-        if (accessToken) {
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+      try {
+        const newAccessToken = await useAuthStore.getState().refreshToken();
+        
+        if (newAccessToken) {
+          console.log("✅ Token refreshed successfully");
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
           return axiosInstance(originalRequest);
         }
       } catch (refreshError) {
+        console.log("❌ Token refresh failed, logging out...");
         useAuthStore.getState().logout();
-        window.location.href = "/login";
+        window.location.href = "/auth/login";
+        return Promise.reject(refreshError);
       }
     }
 
@@ -59,7 +63,10 @@ axiosInstance.interceptors.response.use(
       error?.message ||
       "Something went wrong. Please try again.";
 
-    toast.error(message);
+    // Don't show toast for 401 errors (handled above)
+    if (error.response?.status !== 401) {
+      toast.error(message);
+    }
 
     return Promise.reject(error);
   }

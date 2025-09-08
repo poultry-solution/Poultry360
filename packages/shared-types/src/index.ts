@@ -414,6 +414,8 @@ export type CreateSalePayment = z.infer<typeof CreateSalePaymentSchema>;
 
 // ==================== INVENTORY SCHEMAS ====================
 
+export const InventoryItemTypeSchema = z.enum(["FEED", "CHICKS", "MEDICINE", "EQUIPMENT", "OTHER"]);
+export type InventoryItemType = z.infer<typeof InventoryItemTypeSchema>;
 export const InventoryItemSchema = BaseSchema.extend({
   name: z.string(),
   description: z.string().nullable(),
@@ -422,6 +424,7 @@ export const InventoryItemSchema = BaseSchema.extend({
   minStock: z.number().nonnegative().nullable(),
   userId: z.string(),
   categoryId: z.string(),
+  itemType: InventoryItemTypeSchema.optional(),
 });
 
 export type InventoryItem = z.infer<typeof InventoryItemSchema>;
@@ -433,7 +436,8 @@ export const CreateInventoryItemSchema = z.object({
   unit: z.string(),
   minStock: z.number().nonnegative().optional(),
   categoryId: z.string(),
-});
+  itemType: InventoryItemTypeSchema.optional(),
+  });
 
 export type CreateInventoryItem = z.infer<typeof CreateInventoryItemSchema>;
 
@@ -444,6 +448,7 @@ export const UpdateInventoryItemSchema = z.object({
   unit: z.string().optional(),
   minStock: z.number().nonnegative().nullable().optional(),
   categoryId: z.string().optional(),
+  itemType: InventoryItemTypeSchema.optional(),
 });
 
 export type UpdateInventoryItem = z.infer<typeof UpdateInventoryItemSchema>;
@@ -1049,6 +1054,7 @@ export const schemas = {
   VaccinationStatus: VaccinationStatusSchema,
   AuditAction: AuditActionSchema,
   CategoryType: CategoryTypeSchema,
+  InventoryItemType: InventoryItemTypeSchema,
 
   // Base
   Base: BaseSchema,

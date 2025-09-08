@@ -6,6 +6,7 @@ import {
   UpdateDealerSchema,
   DealerSchema,
 } from "@myapp/shared-types";
+import { InventoryService } from "../services/inventoryService";
 
 // ==================== GET ALL DEALERS ====================
 export const getAllDealers = async (
@@ -421,7 +422,15 @@ export const addDealerTransaction = async (
 ): Promise<any> => {
   try {
     const { id } = req.params;
+
     const currentUserId = req.userId;
+
+    if (!currentUserId) {
+      return res.status(400).json({
+        message: "No User found in COntrooler",
+      });
+    }
+    
     const {
       type,
       amount,
@@ -457,21 +466,40 @@ export const addDealerTransaction = async (
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    // Create transaction
-    const transaction = await prisma.entityTransaction.create({
-      data: {
-        type,
-        amount: Number(amount),
-        quantity: quantity ? Number(quantity) : null,
-        itemName: itemName || null,
+    let transaction;
+
+    if (type === TransactionType.PURCHASE && itemName && quantity) {
+      // 🔗 NEW: Use inventory service for purchases
+      const result = await InventoryService.processSupplierPurchase({
+        dealerId: id,
+        itemName,
+        quantity: Number(quantity),
+        unitPrice: Number(unitPrice || amount / quantity),
+        totalAmount: Number(amount),
         date: new Date(date),
-        description: description || null,
-        reference: reference || null,
-        dealerId: id, // ✅ Use proper foreign key
-        entityType: "DEALER", // Keep for backward compatibility
-        entityId: id,
-      },
-    });
+        description,
+        reference,
+        userId: currentUserId,
+      });
+
+      transaction = result.entityTransaction;
+    } else {
+      // Simple transaction (payments, adjustments, etc.)
+      transaction = await prisma.entityTransaction.create({
+        data: {
+          type,
+          amount: Number(amount),
+          quantity: quantity ? Number(quantity) : null,
+          itemName: itemName || null,
+          date: new Date(date),
+          description: description || null,
+          reference: reference || null,
+          dealerId: id,
+          entityType: "DEALER",
+          entityId: id,
+        },
+      });
+    }
 
     return res.status(201).json({
       success: true,

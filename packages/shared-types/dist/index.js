@@ -136,8 +136,8 @@ export const UpdateFarmSchema = z.object({
 // ==================== BATCH SCHEMAS ====================
 export const BatchSchema = BaseSchema.extend({
     batchNumber: z.string(),
-    startDate: z.iso.datetime(),
-    endDate: z.iso.datetime().nullable(),
+    startDate: z.string().datetime(),
+    endDate: z.string().datetime().nullable(),
     status: BatchStatusSchema,
     initialChicks: z.number().int().positive(),
     initialChickWeight: z.number().positive(),
@@ -166,8 +166,8 @@ export const BatchCountSchema = z.object({
 });
 export const BatchResponseSchema = BaseSchema.extend({
     batchNumber: z.string(),
-    startDate: z.iso.datetime(),
-    endDate: z.iso.datetime().nullable(),
+    startDate: z.string().datetime(),
+    endDate: z.string().datetime().nullable(),
     status: BatchStatusSchema,
     initialChicks: z.number().int().positive(),
     initialChickWeight: z.number().positive(),
@@ -178,8 +178,8 @@ export const BatchResponseSchema = BaseSchema.extend({
 });
 export const CreateBatchSchema = z.object({
     batchNumber: z.string(),
-    startDate: z.iso.datetime(),
-    endDate: z.iso.datetime().optional(),
+    startDate: z.string().datetime(),
+    endDate: z.string().datetime().optional(),
     status: BatchStatusSchema.optional().default("ACTIVE"),
     initialChicks: z.number().int().positive(),
     initialChickWeight: z.number().positive().optional().default(0.045),
@@ -187,8 +187,8 @@ export const CreateBatchSchema = z.object({
 });
 export const UpdateBatchSchema = z.object({
     batchNumber: z.string().optional(),
-    startDate: z.iso.datetime().optional(),
-    endDate: z.iso.datetime().nullable().optional(),
+    startDate: z.string().datetime().optional(),
+    endDate: z.string().datetime().nullable().optional(),
     status: BatchStatusSchema.optional(),
     initialChicks: z.number().int().positive().optional(),
     initialChickWeight: z.number().positive().optional(),
@@ -303,6 +303,7 @@ export const CreateSalePaymentSchema = z.object({
     saleId: z.string(),
 });
 // ==================== INVENTORY SCHEMAS ====================
+export const InventoryItemTypeSchema = z.enum(["FEED", "CHICKS", "MEDICINE", "EQUIPMENT", "OTHER"]);
 export const InventoryItemSchema = BaseSchema.extend({
     name: z.string(),
     description: z.string().nullable(),
@@ -311,6 +312,7 @@ export const InventoryItemSchema = BaseSchema.extend({
     minStock: z.number().nonnegative().nullable(),
     userId: z.string(),
     categoryId: z.string(),
+    itemType: InventoryItemTypeSchema.optional(),
 });
 export const CreateInventoryItemSchema = z.object({
     name: z.string(),
@@ -319,6 +321,7 @@ export const CreateInventoryItemSchema = z.object({
     unit: z.string(),
     minStock: z.number().nonnegative().optional(),
     categoryId: z.string(),
+    itemType: InventoryItemTypeSchema.optional(),
 });
 export const UpdateInventoryItemSchema = z.object({
     name: z.string().optional(),
@@ -327,6 +330,7 @@ export const UpdateInventoryItemSchema = z.object({
     unit: z.string().optional(),
     minStock: z.number().nonnegative().nullable().optional(),
     categoryId: z.string().optional(),
+    itemType: InventoryItemTypeSchema.optional(),
 });
 export const InventoryTransactionSchema = BaseSchema.extend({
     type: TransactionTypeSchema,
@@ -407,6 +411,67 @@ export const UpdateDealerSchema = z.object({
     name: z.string().optional(),
     contact: z.string().optional(),
     address: z.string().nullable().optional(),
+});
+// ==================== DEALER RESPONSE SCHEMAS ====================
+export const DealerTransactionSchema = z.object({
+    id: z.string(),
+    type: TransactionTypeSchema,
+    amount: z.number(),
+    quantity: z.number().int().nullable(),
+    itemName: z.string().nullable(),
+    date: z.string().datetime(),
+    description: z.string().nullable(),
+    reference: z.string().nullable(),
+    entityType: z.string(),
+    entityId: z.string(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+});
+export const DealerResponseSchema = BaseSchema.extend({
+    name: z.string(),
+    contact: z.string(),
+    address: z.string().nullable(),
+    userId: z.string(),
+    balance: z.number().nonnegative(), // Computed field
+    thisMonthAmount: z.number().nonnegative(), // Computed field
+    totalTransactions: z.number().int().nonnegative(), // Computed field
+    recentTransactions: z.array(DealerTransactionSchema), // Computed field
+});
+export const DealerStatisticsSchema = z.object({
+    totalDealers: z.number().int().nonnegative(),
+    activeDealers: z.number().int().nonnegative(),
+    outstandingAmount: z.number().nonnegative(),
+    thisMonthAmount: z.number().nonnegative(),
+});
+export const DealerDetailResponseSchema = BaseSchema.extend({
+    name: z.string(),
+    contact: z.string(),
+    address: z.string().nullable(),
+    userId: z.string(),
+    balance: z.number().nonnegative(),
+    thisMonthAmount: z.number().nonnegative(),
+    totalTransactions: z.number().int().nonnegative(),
+    transactionTable: z.array(z.object({
+        itemName: z.string(),
+        rate: z.number(),
+        quantity: z.number(),
+        totalAmount: z.number(),
+        amountPaid: z.number(),
+        amountDue: z.number(),
+        date: z.string().datetime(),
+        dueDate: z.string().datetime(),
+        payments: z.array(z.object({
+            amount: z.number(),
+            date: z.string().datetime(),
+            reference: z.string().nullable(),
+        })),
+    })),
+    summary: z.object({
+        totalPurchases: z.number().int().nonnegative(),
+        totalPayments: z.number().int().nonnegative(),
+        outstandingAmount: z.number().nonnegative(),
+        thisMonthPurchases: z.number().int().nonnegative(),
+    }),
 });
 export const HatcherySchema = BaseSchema.extend({
     name: z.string(),
@@ -692,6 +757,7 @@ export const schemas = {
     VaccinationStatus: VaccinationStatusSchema,
     AuditAction: AuditActionSchema,
     CategoryType: CategoryTypeSchema,
+    InventoryItemType: InventoryItemTypeSchema,
     // Base
     Base: BaseSchema,
     // Core Models
@@ -744,6 +810,11 @@ export const schemas = {
     Dealer: DealerSchema,
     CreateDealer: CreateDealerSchema,
     UpdateDealer: UpdateDealerSchema,
+    // Dealer Response Types
+    DealerResponse: DealerResponseSchema,
+    DealerTransaction: DealerTransactionSchema,
+    DealerStatistics: DealerStatisticsSchema,
+    DealerDetailResponse: DealerDetailResponseSchema,
     Hatchery: HatcherySchema,
     CreateHatchery: CreateHatcherySchema,
     UpdateHatchery: UpdateHatcherySchema,

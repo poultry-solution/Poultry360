@@ -6,6 +6,7 @@ import {
   UpdateMedicineSupplierSchema,
   MedicineSupplierSchema,
 } from "@myapp/shared-types";
+import { InventoryService } from "../services/inventoryService";
 
 // ==================== GET ALL MEDICAL SUPPLIERS ====================
 export const getAllMedicalSuppliers = async (
@@ -262,7 +263,9 @@ export const createMedicalSupplier = async (
     const currentUserId = req.userId;
 
     // Validate request body
-    const { success, data, error } = CreateMedicineSupplierSchema.safeParse(req.body);
+    const { success, data, error } = CreateMedicineSupplierSchema.safeParse(
+      req.body
+    );
     if (!success) {
       return res.status(400).json({ message: error?.message });
     }
@@ -312,7 +315,9 @@ export const updateMedicalSupplier = async (
     const currentUserId = req.userId;
 
     // Validate request body
-    const { success, data, error } = UpdateMedicineSupplierSchema.safeParse(req.body);
+    const { success, data, error } = UpdateMedicineSupplierSchema.safeParse(
+      req.body
+    );
     if (!success) {
       return res.status(400).json({ message: error?.message });
     }
@@ -422,6 +427,13 @@ export const addMedicalSupplierTransaction = async (
   try {
     const { id } = req.params;
     const currentUserId = req.userId;
+
+    if (!currentUserId) {
+      return res.status(400).json({
+        message: "No User found in COntrooler",
+      });
+    }
+
     const {
       type,
       amount,
@@ -457,21 +469,46 @@ export const addMedicalSupplierTransaction = async (
       return res.status(404).json({ message: "Medical supplier not found" });
     }
 
-    // Create transaction
-    const transaction = await prisma.entityTransaction.create({
-      data: {
-        type,
-        amount: Number(amount),
-        quantity: quantity ? Number(quantity) : null,
-        itemName: itemName || null,
+    let transaction;
+
+    console.log("type", type);
+    console.log("itemName", itemName);
+    console.log("quantity", quantity);
+    console.log("currentUserId", currentUserId);
+    console.log(type, itemName, quantity, currentUserId);
+
+    if (type === TransactionType.PURCHASE && itemName && quantity) {
+      // 🔗 NEW: Use inventory service for purchases
+      const result = await InventoryService.processSupplierPurchase({
+        medicineSupplierId: id,
+        itemName,
+        quantity: Number(quantity),
+        unitPrice: Number(unitPrice || amount / quantity),
+        totalAmount: Number(amount),
         date: new Date(date),
-        description: description || null,
-        reference: reference || null,
-        medicineSupplierId: id, // ✅ Use proper foreign key
-        entityType: "MEDICINE_SUPPLIER", // Keep for backward compatibility
-        entityId: id,
-      },
-    });
+        description,
+        reference,
+        userId: currentUserId,
+      });
+
+      transaction = result.entityTransaction;
+    } else {
+      // Simple transaction (payments, adjustments, etc.)
+      transaction = await prisma.entityTransaction.create({
+        data: {
+          type,
+          amount: Number(amount),
+          quantity: quantity ? Number(quantity) : null,
+          itemName: itemName || null,
+          date: new Date(date),
+          description: description || null,
+          reference: reference || null,
+          medicineSupplierId: id,
+          entityType: "MEDICINE_SUPPLIER",
+          entityId: id,
+        },
+      });
+    }
 
     return res.status(201).json({
       success: true,

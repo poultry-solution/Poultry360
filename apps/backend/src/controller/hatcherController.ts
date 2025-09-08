@@ -6,6 +6,7 @@ import {
   UpdateHatcherySchema,
   HatcherySchema,
 } from "@myapp/shared-types";
+import { InventoryService } from "../services/inventoryService";
 
 // ==================== GET ALL HATCHERIES ====================
 export const getAllHatcheries = async (
@@ -422,6 +423,13 @@ export const addHatcheryTransaction = async (
   try {
     const { id } = req.params;
     const currentUserId = req.userId;
+
+    if (!currentUserId) {
+      return res.status(400).json({
+        message: "No User found in Controller",
+      });
+    }
+
     const {
       type,
       amount,
@@ -457,21 +465,40 @@ export const addHatcheryTransaction = async (
       return res.status(404).json({ message: "Hatchery not found" });
     }
 
-    // Create transaction
-    const transaction = await prisma.entityTransaction.create({
-      data: {
-        type,
-        amount: Number(amount),
-        quantity: quantity ? Number(quantity) : null,
-        itemName: itemName || null,
-        date: new Date(date),
-        description: description || null,
-        reference: reference || null,
-        hatcheryId: id, // ✅ Use proper foreign key
-        entityType: "HATCHERY", // Keep for backward compatibility
-        entityId: id,
-      },
-    });
+    let transaction;
+
+        if (type === TransactionType.PURCHASE && itemName && quantity) {
+          // 🔗 NEW: Use inventory service for purchases
+          const result = await InventoryService.processSupplierPurchase({
+            hatcheryId: id,
+            itemName,
+            quantity: Number(quantity),
+            unitPrice: Number(unitPrice || amount / quantity),
+            totalAmount: Number(amount),
+            date: new Date(date),
+            description,
+            reference,
+            userId: currentUserId,
+          });
+      
+      transaction = result.entityTransaction;
+    } else {
+      // Simple transaction (payments, adjustments, etc.)
+      transaction = await prisma.entityTransaction.create({
+        data: {
+          type,
+          amount: Number(amount),
+          quantity: quantity ? Number(quantity) : null,
+          itemName: itemName || null,
+          date: new Date(date),
+          description: description || null,
+          reference: reference || null,
+          hatcheryId: id,
+          entityType: "HATCHERY",
+          entityId: id,
+        },
+      });
+    }
 
     return res.status(201).json({
       success: true,

@@ -50,13 +50,14 @@ interface AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
-  refreshToken: () => Promise<void>;
+  refreshToken: () => Promise<string>;
   validateToken: () => Promise<boolean>;
   getUserInfo: () => Promise<void>;
   clearError: () => void;
   initialize: () => Promise<void>;
   setUser: (user: User) => void;
   setAccessToken: (token: string) => void;
+  testRefreshToken: () => Promise<any>;
 }
 
 // API base URL - adjust according to your setup
@@ -80,12 +81,16 @@ const apiCall = async (endpoint: string, options: RequestInit = {}) => {
     credentials: "include", // Important for cookies
   };
 
+  console.log(`🌐 API Call: ${config.method || 'GET'} ${url}`);
+  console.log(`🍪 Cookies will be included: ${config.credentials === 'include'}`);
+
   const response = await fetch(url, config);
 
   if (!response.ok) {
     const errorData = await response
       .json()
       .catch(() => ({ message: "Unknown error" }));
+    console.error(`❌ API Error: ${response.status} - ${errorData.message}`);
     throw new Error(
       errorData.message || `HTTP error! status: ${response.status}`
     );
@@ -228,7 +233,7 @@ export const useAuthStore = create<AuthState>()(
             const response = await apiCall("/auth/refresh-token", {
               method: "POST",
             });
-            console.log("Refresh token response:", response);
+            console.log("🔄 Refresh token response:", response);
 
             const { accessToken } = response;
 
@@ -237,9 +242,11 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: true,
               error: null,
             });
+
+            return accessToken;
           } catch (error) {
             // If refresh fails, logout user
-            console.error("Refresh token error:", error);
+            console.error("❌ Refresh token error:", error);
             set({
               user: null,
               accessToken: null,
@@ -363,14 +370,16 @@ export const useAuthStore = create<AuthState>()(
 
           // Only set loading if we're not already authenticated
           // This prevents showing loading during login/register operations
-          const { isAuthenticated } = get();
+          const { isAuthenticated, accessToken } = get();
           if (!isAuthenticated) {
             set({ isLoading: true });
           }
 
           try {
             // Only try to refresh/validate if we don't already have a valid session
-            if (!isAuthenticated) {
+            if (!isAuthenticated || !accessToken) {
+              console.log("🔄 Initializing auth - trying to refresh token...");
+              
               // First try to refresh the token (uses httpOnly cookie)
               await get().refreshToken();
 
@@ -380,8 +389,13 @@ export const useAuthStore = create<AuthState>()(
               if (!isValid) {
                 throw new Error("Token validation failed");
               }
+              
+              console.log("✅ Auth initialized successfully");
+            } else {
+              console.log("✅ Auth already initialized");
             }
           } catch (error) {
+            console.log("❌ Auth initialization failed:", error);
             // If refresh fails, clear any stored data
             set({
               user: null,
@@ -402,6 +416,21 @@ export const useAuthStore = create<AuthState>()(
 
         setAccessToken: (token: string) => {
           set({ accessToken: token });
+        },
+
+        // Debug function to test refresh token
+        testRefreshToken: async () => {
+          try {
+            console.log("🧪 Testing refresh token...");
+            const response = await apiCall("/auth/refresh-token", {
+              method: "POST",
+            });
+            console.log("🧪 Refresh token test response:", response);
+            return response;
+          } catch (error) {
+            console.error("🧪 Refresh token test failed:", error);
+            throw error;
+          }
         },
       }),
       {
