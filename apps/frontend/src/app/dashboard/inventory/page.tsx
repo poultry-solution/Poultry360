@@ -106,7 +106,8 @@ export default function InventoryPage() {
         unit: formData.unit,
         minStock: 0,
         itemType: "OTHER" as InventoryItemType,
-        categoryId: "", // This will need to be handled - we need to get or create a category
+        // categoryId will be automatically created by the backend
+        rate: parseFloat(formData.rate), // Pass rate for initial transaction
       });
 
       toast.success("Item added successfully!");

@@ -320,8 +320,9 @@ export const CreateInventoryItemSchema = z.object({
     currentStock: z.number().nonnegative().optional().default(0),
     unit: z.string(),
     minStock: z.number().nonnegative().optional(),
-    categoryId: z.string(),
+    categoryId: z.string().optional(), // Made optional - backend will create category automatically
     itemType: InventoryItemTypeSchema.optional(),
+    rate: z.number().nonnegative().optional(), // For manual additions with price
 });
 export const UpdateInventoryItemSchema = z.object({
     name: z.string().optional(),

@@ -488,7 +488,7 @@ export declare const CreateInventoryItemSchema: z.ZodObject<{
     currentStock: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
     unit: z.ZodString;
     minStock: z.ZodOptional<z.ZodNumber>;
-    categoryId: z.ZodString;
+    categoryId: z.ZodOptional<z.ZodString>;
     itemType: z.ZodOptional<z.ZodEnum<{
         OTHER: "OTHER";
         FEED: "FEED";
@@ -496,6 +496,7 @@ export declare const CreateInventoryItemSchema: z.ZodObject<{
         MEDICINE: "MEDICINE";
         EQUIPMENT: "EQUIPMENT";
     }>>;
+    rate: z.ZodOptional<z.ZodNumber>;
 }, z.core.$strip>;
 export type CreateInventoryItem = z.infer<typeof CreateInventoryItemSchema>;
 export declare const UpdateInventoryItemSchema: z.ZodObject<{
@@ -1924,7 +1925,7 @@ export declare const schemas: {
         currentStock: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
         unit: z.ZodString;
         minStock: z.ZodOptional<z.ZodNumber>;
-        categoryId: z.ZodString;
+        categoryId: z.ZodOptional<z.ZodString>;
         itemType: z.ZodOptional<z.ZodEnum<{
             OTHER: "OTHER";
             FEED: "FEED";
@@ -1932,6 +1933,7 @@ export declare const schemas: {
             MEDICINE: "MEDICINE";
             EQUIPMENT: "EQUIPMENT";
         }>>;
+        rate: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strip>;
     readonly UpdateInventoryItem: z.ZodObject<{
         name: z.ZodOptional<z.ZodString>;

@@ -1,6 +1,11 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
-import { UserRole, InventoryItemType, TransactionType } from "@prisma/client";
+import {
+  UserRole,
+  InventoryItemType,
+  TransactionType,
+  CategoryType,
+} from "@prisma/client";
 import {
   CreateInventoryItemSchema,
   UpdateInventoryItemSchema,
@@ -222,6 +227,10 @@ export const createInventoryItem = async (
       return res.status(400).json({ message: error?.message });
     }
 
+    if (!currentUserId) {
+      return res.status(400).json({ message: "No User found in COntrooler" });
+    }
+
     // Check if item with same name already exists for this user
     const existingItem = await prisma.inventoryItem.findFirst({
       where: {
@@ -237,18 +246,82 @@ export const createInventoryItem = async (
         .json({ message: "Inventory item with this name already exists" });
     }
 
-    // Create inventory item
-    const item = await prisma.inventoryItem.create({
-      data: {
-        name: data.name,
-        description: data.description,
-        currentStock: data.currentStock || 0,
-        unit: data.unit,
-        minStock: data.minStock,
-        itemType: data.itemType || InventoryItemType.OTHER,
-        userId: currentUserId as string,
-        categoryId: data.categoryId,
+    // Find or create category
+    const itemType = data.itemType || InventoryItemType.OTHER;
+    const categoryName =
+      itemType === InventoryItemType.FEED
+        ? "Feed"
+        : itemType === InventoryItemType.CHICKS
+          ? "Chicks"
+          : itemType === InventoryItemType.MEDICINE
+            ? "Medicine"
+            : itemType === InventoryItemType.EQUIPMENT
+              ? "Equipment"
+              : "Other";
+
+    let category = await prisma.category.findFirst({
+      where: {
+        userId: currentUserId,
+        type: CategoryType.INVENTORY,
+        name: categoryName,
       },
+    });
+
+    // Create category if it doesn't exist
+    if (!category) {
+      category = await prisma.category.create({
+        data: {
+          name: categoryName,
+          type: CategoryType.INVENTORY,
+          description: `Category for ${categoryName} items`,
+          userId: currentUserId as string,
+        },
+      });
+    }
+
+    // Create inventory item with initial transaction if stock > 0
+    const item = await prisma.$transaction(async (tx) => {
+      const inventoryItem = await tx.inventoryItem.create({
+        data: {
+          name: data.name,
+          description: data.description,
+          currentStock: data.currentStock || 0,
+          unit: data.unit,
+          minStock: data.minStock,
+          itemType: itemType,
+          userId: currentUserId as string,
+          categoryId: category.id,
+        },
+      });
+
+      // If initial stock > 0, create an initial transaction
+      if (data.currentStock && data.currentStock > 0) {
+        // Get unit price from validated data (for manual additions)
+        const unitPrice = data.rate || 0;
+        const totalAmount = unitPrice * data.currentStock;
+
+        await tx.inventoryTransaction.create({
+          data: {
+            type: TransactionType.PURCHASE,
+            quantity: data.currentStock,
+            unitPrice: unitPrice,
+            totalAmount: totalAmount,
+            date: new Date(),
+            description:
+              unitPrice > 0
+                ? "Initial stock added manually with price"
+                : "Initial stock added manually",
+            itemId: inventoryItem.id,
+          },
+        });
+      }
+
+      return inventoryItem;
+    });
+
+    // Fetch the created item with category info
+    const itemWithCategory = await prisma.inventoryItem.findUnique({
+      where: { id: item.id },
       include: {
         category: {
           select: {
@@ -262,7 +335,7 @@ export const createInventoryItem = async (
 
     return res.status(201).json({
       success: true,
-      data: item,
+      data: itemWithCategory,
       message: "Inventory item created successfully",
     });
   } catch (error) {
