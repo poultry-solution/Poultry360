@@ -136,8 +136,8 @@ export const UpdateFarmSchema = z.object({
 // ==================== BATCH SCHEMAS ====================
 export const BatchSchema = BaseSchema.extend({
     batchNumber: z.string(),
-    startDate: z.string().datetime(),
-    endDate: z.string().datetime().nullable(),
+    startDate: z.date(),
+    endDate: z.date().nullable(),
     status: BatchStatusSchema,
     initialChicks: z.number().int().positive(),
     initialChickWeight: z.number().positive(),
@@ -166,20 +166,53 @@ export const BatchCountSchema = z.object({
 });
 export const BatchResponseSchema = BaseSchema.extend({
     batchNumber: z.string(),
-    startDate: z.string().datetime(),
-    endDate: z.string().datetime().nullable(),
+    startDate: z.date(),
+    endDate: z.date().nullable(),
     status: BatchStatusSchema,
     initialChicks: z.number().int().positive(),
     initialChickWeight: z.number().positive(),
     farmId: z.string(),
     currentChicks: z.number().int().nonnegative(), // Computed field
     farm: BatchFarmSchema,
+    expenses: z
+        .array(z.object({
+        id: z.string(),
+        date: z.date(),
+        amount: z.number(),
+        description: z.string().nullable(),
+        quantity: z.number().nullable(),
+        unitPrice: z.number().nullable(),
+        category: z.object({
+            id: z.string(),
+            name: z.string(),
+            type: z.string(),
+        }),
+    }))
+        .optional(),
+    sales: z
+        .array(z.object({
+        id: z.string(),
+        date: z.date(),
+        amount: z.number(),
+        quantity: z.number(),
+        unitPrice: z.number(),
+        description: z.string().nullable(),
+        isCredit: z.boolean(),
+        paidAmount: z.number(),
+        dueAmount: z.number().nullable(),
+        category: z.object({
+            id: z.string(),
+            name: z.string(),
+            type: z.string(),
+        }),
+    }))
+        .optional(),
     _count: BatchCountSchema,
 });
 export const CreateBatchSchema = z.object({
     batchNumber: z.string(),
-    startDate: z.string().datetime(),
-    endDate: z.string().datetime().optional(),
+    startDate: z.date(),
+    endDate: z.date().optional(),
     status: BatchStatusSchema.optional().default("ACTIVE"),
     initialChicks: z.number().int().positive(),
     initialChickWeight: z.number().positive().optional().default(0.045),
@@ -187,8 +220,8 @@ export const CreateBatchSchema = z.object({
 });
 export const UpdateBatchSchema = z.object({
     batchNumber: z.string().optional(),
-    startDate: z.string().datetime().optional(),
-    endDate: z.string().datetime().nullable().optional(),
+    startDate: z.date().optional(),
+    endDate: z.date().nullable().optional(),
     status: BatchStatusSchema.optional(),
     initialChicks: z.number().int().positive().optional(),
     initialChickWeight: z.number().positive().optional(),
@@ -213,7 +246,7 @@ export const UpdateCategorySchema = z.object({
 });
 // ==================== EXPENSE SCHEMAS ====================
 export const ExpenseSchema = BaseSchema.extend({
-    date: z.string().datetime(),
+    date: z.date(),
     amount: z.number().positive(),
     description: z.string().nullable(),
     quantity: z.number().positive().nullable(),
@@ -223,7 +256,7 @@ export const ExpenseSchema = BaseSchema.extend({
     categoryId: z.string(),
 });
 export const CreateExpenseSchema = z.object({
-    date: z.string().datetime(),
+    date: z.date(),
     amount: z.number().positive(),
     description: z.string().optional(),
     quantity: z.number().positive().optional(),
@@ -233,7 +266,7 @@ export const CreateExpenseSchema = z.object({
     categoryId: z.string(),
 });
 export const UpdateExpenseSchema = z.object({
-    date: z.string().datetime().optional(),
+    date: z.date().optional(),
     amount: z.number().positive().optional(),
     description: z.string().nullable().optional(),
     quantity: z.number().positive().nullable().optional(),
@@ -244,7 +277,7 @@ export const UpdateExpenseSchema = z.object({
 });
 // ==================== SALE SCHEMAS ====================
 export const SaleSchema = BaseSchema.extend({
-    date: z.string().datetime(),
+    date: z.date(),
     amount: z.number().positive(),
     quantity: z.number().positive(),
     unitPrice: z.number().positive(),
@@ -258,7 +291,7 @@ export const SaleSchema = BaseSchema.extend({
     customerId: z.string().nullable(),
 });
 export const CreateSaleSchema = z.object({
-    date: z.string().datetime(),
+    date: z.date(),
     amount: z.number().positive(),
     quantity: z.number().positive(),
     unitPrice: z.number().positive(),
@@ -272,7 +305,7 @@ export const CreateSaleSchema = z.object({
     customerId: z.string().optional(),
 });
 export const UpdateSaleSchema = z.object({
-    date: z.string().datetime().optional(),
+    date: z.date().optional(),
     amount: z.number().positive().optional(),
     quantity: z.number().positive().optional(),
     unitPrice: z.number().positive().optional(),
@@ -288,22 +321,27 @@ export const UpdateSaleSchema = z.object({
 // ==================== SALE PAYMENT SCHEMAS ====================
 export const SalePaymentSchema = BaseSchema.extend({
     amount: z.number().positive(),
-    date: z.string().datetime(),
+    date: z.date(),
     description: z.string().nullable(),
     saleId: z.string(),
 });
 export const CreateSalePaymentSchema = z.object({
     amount: z.number().positive(),
     date: z
-        .string()
-        .datetime()
+        .date()
         .optional()
-        .default(() => new Date().toISOString()),
+        .default(() => new Date()),
     description: z.string().optional(),
     saleId: z.string(),
 });
 // ==================== INVENTORY SCHEMAS ====================
-export const InventoryItemTypeSchema = z.enum(["FEED", "CHICKS", "MEDICINE", "EQUIPMENT", "OTHER"]);
+export const InventoryItemTypeSchema = z.enum([
+    "FEED",
+    "CHICKS",
+    "MEDICINE",
+    "EQUIPMENT",
+    "OTHER",
+]);
 export const InventoryItemSchema = BaseSchema.extend({
     name: z.string(),
     description: z.string().nullable(),
@@ -338,7 +376,7 @@ export const InventoryTransactionSchema = BaseSchema.extend({
     quantity: z.number().positive(),
     unitPrice: z.number().positive(),
     totalAmount: z.number().positive(),
-    date: z.string().datetime(),
+    date: z.date(),
     description: z.string().nullable(),
     itemId: z.string(),
 });
@@ -347,12 +385,12 @@ export const CreateInventoryTransactionSchema = z.object({
     quantity: z.number().positive(),
     unitPrice: z.number().positive(),
     totalAmount: z.number().positive(),
-    date: z.string().datetime(),
+    date: z.date(),
     description: z.string().optional(),
     itemId: z.string(),
 });
 export const InventoryUsageSchema = BaseSchema.extend({
-    date: z.string().datetime(),
+    date: z.date(),
     quantity: z.number().positive(),
     unitPrice: z.number().positive().nullable(),
     totalAmount: z.number().positive().nullable(),
@@ -363,7 +401,7 @@ export const InventoryUsageSchema = BaseSchema.extend({
     farmId: z.string(),
 });
 export const CreateInventoryUsageSchema = z.object({
-    date: z.string().datetime(),
+    date: z.date(),
     quantity: z.number().positive(),
     unitPrice: z.number().positive().optional(),
     totalAmount: z.number().positive().optional(),
@@ -379,7 +417,7 @@ export const EntityTransactionSchema = BaseSchema.extend({
     amount: z.number(),
     quantity: z.number().int().nullable(),
     itemName: z.string().nullable(),
-    date: z.string().datetime(),
+    date: z.date(),
     description: z.string().nullable(),
     reference: z.string().nullable(),
     entityType: z.string(),
@@ -390,7 +428,7 @@ export const CreateEntityTransactionSchema = z.object({
     amount: z.number(),
     quantity: z.number().int().optional(),
     itemName: z.string().optional(),
-    date: z.string().datetime(),
+    date: z.date(),
     description: z.string().optional(),
     reference: z.string().optional(),
     entityType: z.string(),
@@ -420,13 +458,13 @@ export const DealerTransactionSchema = z.object({
     amount: z.number(),
     quantity: z.number().int().nullable(),
     itemName: z.string().nullable(),
-    date: z.string().datetime(),
+    date: z.date(),
     description: z.string().nullable(),
     reference: z.string().nullable(),
     entityType: z.string(),
     entityId: z.string(),
-    createdAt: z.string().datetime(),
-    updatedAt: z.string().datetime(),
+    createdAt: z.date(),
+    updatedAt: z.date(),
 });
 export const DealerResponseSchema = BaseSchema.extend({
     name: z.string(),
@@ -459,11 +497,11 @@ export const DealerDetailResponseSchema = BaseSchema.extend({
         totalAmount: z.number(),
         amountPaid: z.number(),
         amountDue: z.number(),
-        date: z.string().datetime(),
-        dueDate: z.string().datetime(),
+        date: z.date(),
+        dueDate: z.date(),
         payments: z.array(z.object({
             amount: z.number(),
-            date: z.string().datetime(),
+            date: z.date(),
             reference: z.string().nullable(),
         })),
     })),
@@ -532,7 +570,7 @@ export const UpdateCustomerSchema = z.object({
 export const CustomerTransactionSchema = BaseSchema.extend({
     type: TransactionTypeSchema,
     amount: z.number(),
-    date: z.string().datetime(),
+    date: z.date(),
     description: z.string().nullable(),
     reference: z.string().nullable(),
     customerId: z.string(),
@@ -540,83 +578,83 @@ export const CustomerTransactionSchema = BaseSchema.extend({
 export const CreateCustomerTransactionSchema = z.object({
     type: TransactionTypeSchema,
     amount: z.number(),
-    date: z.string().datetime(),
+    date: z.date(),
     description: z.string().optional(),
     reference: z.string().optional(),
     customerId: z.string(),
 });
 // ==================== BATCH TRACKING SCHEMAS ====================
 export const MortalitySchema = BaseSchema.extend({
-    date: z.string().datetime(),
+    date: z.date(),
     count: z.number().int().positive(),
     reason: z.string().nullable(),
     batchId: z.string(),
 });
 export const CreateMortalitySchema = z.object({
-    date: z.string().datetime(),
+    date: z.date(),
     count: z.number().int().positive(),
     reason: z.string().optional(),
     batchId: z.string(),
 });
 export const UpdateMortalitySchema = z.object({
-    date: z.string().datetime().optional(),
+    date: z.date().optional(),
     count: z.number().int().positive().optional(),
     reason: z.string().nullable().optional(),
 });
 export const VaccinationSchema = BaseSchema.extend({
     vaccineName: z.string(),
-    scheduledDate: z.string().datetime(),
-    completedDate: z.string().datetime().nullable(),
+    scheduledDate: z.date(),
+    completedDate: z.date().nullable(),
     status: VaccinationStatusSchema,
     notes: z.string().nullable(),
     batchId: z.string(),
 });
 export const CreateVaccinationSchema = z.object({
     vaccineName: z.string(),
-    scheduledDate: z.string().datetime(),
-    completedDate: z.string().datetime().optional(),
+    scheduledDate: z.date(),
+    completedDate: z.date().optional(),
     status: VaccinationStatusSchema.optional().default("PENDING"),
     notes: z.string().optional(),
     batchId: z.string(),
 });
 export const UpdateVaccinationSchema = z.object({
     vaccineName: z.string().optional(),
-    scheduledDate: z.string().datetime().optional(),
-    completedDate: z.string().datetime().nullable().optional(),
+    scheduledDate: z.date().optional(),
+    completedDate: z.date().nullable().optional(),
     status: VaccinationStatusSchema.optional(),
     notes: z.string().nullable().optional(),
 });
 export const FeedConsumptionSchema = BaseSchema.extend({
-    date: z.string().datetime(),
+    date: z.date(),
     quantity: z.number().positive(),
     feedType: z.string(),
     batchId: z.string(),
 });
 export const CreateFeedConsumptionSchema = z.object({
-    date: z.string().datetime(),
+    date: z.date(),
     quantity: z.number().positive(),
     feedType: z.string(),
     batchId: z.string(),
 });
 export const UpdateFeedConsumptionSchema = z.object({
-    date: z.string().datetime().optional(),
+    date: z.date().optional(),
     quantity: z.number().positive().optional(),
     feedType: z.string().optional(),
 });
 export const BirdWeightSchema = BaseSchema.extend({
-    date: z.string().datetime(),
+    date: z.date(),
     avgWeight: z.number().positive(),
     sampleCount: z.number().int().positive(),
     batchId: z.string(),
 });
 export const CreateBirdWeightSchema = z.object({
-    date: z.string().datetime(),
+    date: z.date(),
     avgWeight: z.number().positive(),
     sampleCount: z.number().int().positive(),
     batchId: z.string(),
 });
 export const UpdateBirdWeightSchema = z.object({
-    date: z.string().datetime().optional(),
+    date: z.date().optional(),
     avgWeight: z.number().positive().optional(),
     sampleCount: z.number().int().positive().optional(),
 });

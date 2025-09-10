@@ -14,21 +14,20 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Layers, ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react";
+import { Layers, ArrowLeft, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DataTable, Column, createActions, createColumn } from "@/components/ui/data-table";
+import {
+  DataTable,
+  Column,
+  createColumn,
+} from "@/components/ui/data-table";
 import { useInventory } from "@/contexts/InventoryContext";
-
-interface BatchDetail {
-  id: number;
-  code: string;
-  farm: string;
-  startDate: string; // ISO yyyy-mm-dd
-  status: "Active" | "Closed";
-  initialBirds: number;
-}
+import {
+  useGetBatchById,
+  useGetBatchAnalytics,
+} from "@/fetchers/batches/batchQueries";
 
 type ExpenseCategory = "Feed" | "Medicine" | "Hatchery" | "Other";
 
@@ -77,25 +76,6 @@ type LedgerRow = {
   balance: number;
 };
 
-const MOCK_BATCHES: BatchDetail[] = [
-  {
-    id: 1,
-    code: "B-2024-001",
-    farm: "Farm A",
-    startDate: "2024-01-15",
-    status: "Active",
-    initialBirds: 2500,
-  },
-  {
-    id: 2,
-    code: "B-2024-002",
-    farm: "Farm B",
-    startDate: "2024-01-20",
-    status: "Active",
-    initialBirds: 2000,
-  },
-];
-
 const TABS = [
   "Overview",
   "Expenses",
@@ -104,9 +84,9 @@ const TABS = [
   "Profit & Loss",
 ] as const;
 
-function formatDateYYYYMMDD(dateStr: string): string {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  return d.toLocaleDateString("en-GB", { timeZone: "UTC" });
+function formatDateYYYYMMDD(dateStr: string | Date): string {
+  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+  return date.toISOString().split('T')[0];
 }
 
 // helper banner
@@ -127,17 +107,32 @@ function Banner({
 
 export default function BatchDetailPage() {
   const params = useParams<{ id: string }>();
-  const batchId = Number(params?.id);
-  const batch = useMemo(
-    () => MOCK_BATCHES.find((b) => b.id === batchId),
-    [batchId]
-  );
+  const batchId = params?.id;
+
+  // Fetch batch data
+  const {
+    data: batchResponse,
+    isLoading: batchLoading,
+    error: batchError,
+  } = useGetBatchById(batchId || "");
+
+  // Fetch batch analytics
+  const {
+    data: analyticsResponse,
+    isLoading: analyticsLoading,
+    error: analyticsError,
+  } = useGetBatchAnalytics(batchId || "");
+
+  const batch = batchResponse?.data;
+  const analytics = analyticsResponse?.data;
+
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>("Overview");
-  
+
   // Inventory integration
-  const { inventory, updateInventoryItem, getInventoryByCategory } = useInventory();
-  const feedInventory = getInventoryByCategory('feed');
-  const medicineInventory = getInventoryByCategory('medicine');
+  const { inventory, updateInventoryItem, getInventoryByCategory } =
+    useInventory();
+  const feedInventory = getInventoryByCategory("feed");
+  const medicineInventory = getInventoryByCategory("medicine");
 
   // --- State (with localStorage persistence) ---
   const storageKey = (suffix: string) => `p360:batch:${batchId}:${suffix}`;
@@ -282,26 +277,28 @@ export default function BatchDetailPage() {
 
   // Handle feed selection from inventory
   function handleFeedSelection(feedId: string) {
-    const selectedFeed = feedInventory.find(feed => feed.id === feedId);
+    const selectedFeed = feedInventory.find((feed) => feed.id === feedId);
     if (selectedFeed) {
-      setExpenseForm(prev => ({
+      setExpenseForm((prev) => ({
         ...prev,
         selectedFeedId: feedId,
         feedBrand: selectedFeed.name,
-        feedRate: selectedFeed.rate.toString()
+        feedRate: selectedFeed.rate.toString(),
       }));
     }
   }
 
   // Handle medicine selection from inventory
   function handleMedicineSelection(medicineId: string) {
-    const selectedMedicine = medicineInventory.find(medicine => medicine.id === medicineId);
+    const selectedMedicine = medicineInventory.find(
+      (medicine) => medicine.id === medicineId
+    );
     if (selectedMedicine) {
-      setExpenseForm(prev => ({
+      setExpenseForm((prev) => ({
         ...prev,
         selectedMedicineId: medicineId,
         medicineName: selectedMedicine.name,
-        medicineRate: selectedMedicine.rate.toString()
+        medicineRate: selectedMedicine.rate.toString(),
       }));
     }
   }
@@ -373,13 +370,16 @@ export default function BatchDetailPage() {
     const errs: Record<string, string> = {};
     if (!expenseForm.date) errs.date = "Date is required";
     if (expenseForm.category === "Feed") {
-      if (!expenseForm.selectedFeedId) errs.feedBrand = "Please select a feed from inventory";
+      if (!expenseForm.selectedFeedId)
+        errs.feedBrand = "Please select a feed from inventory";
       if (!expenseForm.feedQuantity) errs.feedQuantity = "Quantity required";
       if (!expenseForm.feedRate) errs.feedRate = "Rate required";
-      
+
       // Check if quantity exceeds available inventory
       if (expenseForm.selectedFeedId && expenseForm.feedQuantity) {
-        const selectedFeed = feedInventory.find(feed => feed.id === expenseForm.selectedFeedId);
+        const selectedFeed = feedInventory.find(
+          (feed) => feed.id === expenseForm.selectedFeedId
+        );
         const requestedQty = Number(expenseForm.feedQuantity);
         if (selectedFeed && requestedQty > selectedFeed.quantity) {
           errs.feedQuantity = `Only ${selectedFeed.quantity} ${selectedFeed.unit} available`;
@@ -392,14 +392,17 @@ export default function BatchDetailPage() {
         errs.hatcheryQuantity = "Quantity required";
       if (!expenseForm.hatcheryRate) errs.hatcheryRate = "Rate required";
     } else if (expenseForm.category === "Medicine") {
-      if (!expenseForm.selectedMedicineId) errs.medicineName = "Please select a medicine from inventory";
+      if (!expenseForm.selectedMedicineId)
+        errs.medicineName = "Please select a medicine from inventory";
       if (!expenseForm.medicineQuantity)
         errs.medicineQuantity = "Quantity required";
       if (!expenseForm.medicineRate) errs.medicineRate = "Rate required";
-      
+
       // Check if quantity exceeds available inventory
       if (expenseForm.selectedMedicineId && expenseForm.medicineQuantity) {
-        const selectedMedicine = medicineInventory.find(medicine => medicine.id === expenseForm.selectedMedicineId);
+        const selectedMedicine = medicineInventory.find(
+          (medicine) => medicine.id === expenseForm.selectedMedicineId
+        );
         const requestedQty = Number(expenseForm.medicineQuantity);
         if (selectedMedicine && requestedQty > selectedMedicine.quantity) {
           errs.medicineQuantity = `Only ${selectedMedicine.quantity} ${selectedMedicine.unit} available`;
@@ -443,12 +446,14 @@ export default function BatchDetailPage() {
 
       // Update inventory - subtract used quantity
       if (expenseForm.selectedFeedId && q > 0) {
-        const selectedFeed = feedInventory.find(feed => feed.id === expenseForm.selectedFeedId);
+        const selectedFeed = feedInventory.find(
+          (feed) => feed.id === expenseForm.selectedFeedId
+        );
         if (selectedFeed) {
           const newQuantity = Math.max(0, selectedFeed.quantity - q);
           updateInventoryItem(expenseForm.selectedFeedId, {
             quantity: newQuantity,
-            totalValue: newQuantity * selectedFeed.rate
+            totalValue: newQuantity * selectedFeed.rate,
           });
         }
       }
@@ -475,12 +480,14 @@ export default function BatchDetailPage() {
 
       // Update inventory - subtract used quantity
       if (expenseForm.selectedMedicineId && q > 0) {
-        const selectedMedicine = medicineInventory.find(medicine => medicine.id === expenseForm.selectedMedicineId);
+        const selectedMedicine = medicineInventory.find(
+          (medicine) => medicine.id === expenseForm.selectedMedicineId
+        );
         if (selectedMedicine) {
           const newQuantity = Math.max(0, selectedMedicine.quantity - q);
           updateInventoryItem(expenseForm.selectedMedicineId, {
             quantity: newQuantity,
-            totalValue: newQuantity * selectedMedicine.rate
+            totalValue: newQuantity * selectedMedicine.rate,
           });
         }
       }
@@ -664,39 +671,70 @@ export default function BatchDetailPage() {
     flash("success", editingLedgerId ? "Ledger updated" : "Ledger entry added");
   }
 
-  if (!batch) return notFound();
+  // Loading state
+  if (batchLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading batch details...</span>
+      </div>
+    );
+  }
 
-  const salesTotal = sales.reduce((sum, s) => sum + s.rate * s.quantity, 0);
-  const expensesTotal = expenses.reduce((sum, ex) => sum + ex.amount, 0);
+  // Error state
+  if (batchError || !batch) {
+    return notFound();
+  }
+
+  // Calculate totals from real data
+  const salesTotal =
+    (batch as any).sales?.reduce(
+      (sum: number, s: any) => sum + Number(s.amount),
+      0
+    ) || 0;
+  const expensesTotal =
+    (batch as any).expenses?.reduce(
+      (sum: number, ex: any) => sum + Number(ex.amount),
+      0
+    ) || 0;
   const receivableTotal = ledger.reduce((sum, l) => sum + l.balance, 0);
   const profit = salesTotal - expensesTotal;
-  const perBirdRevenue = batch.initialBirds
-    ? salesTotal / batch.initialBirds
+  const perBirdRevenue = batch.initialChicks
+    ? salesTotal / batch.initialChicks
     : 0;
-  const perBirdExpense = batch.initialBirds
-    ? expensesTotal / batch.initialBirds
+  const perBirdExpense = batch.initialChicks
+    ? expensesTotal / batch.initialChicks
     : 0;
+
+  // Calculate current age in days
+  const currentAge = Math.ceil(
+    (new Date().getTime() - new Date(batch.startDate).getTime()) /
+      (1000 * 60 * 60 * 24)
+  );
 
   // Column configurations for DataTable
   const expenseColumns: Column<ExpenseRow>[] = [
-    createColumn('category', 'Category', {
-      type: 'badge',
-      width: '120px',
+    createColumn("category", "Category", {
+      type: "badge",
+      width: "120px",
       render: (value) => (
-        <Badge 
+        <Badge
           variant="secondary"
           className={
-            value === "Feed" ? "bg-blue-100 text-blue-800" :
-            value === "Medicine" ? "bg-red-100 text-red-800" :
-            value === "Hatchery" ? "bg-green-100 text-green-800" :
-            "bg-gray-100 text-gray-800"
+            value === "Feed"
+              ? "bg-blue-100 text-blue-800"
+              : value === "Medicine"
+                ? "bg-red-100 text-red-800"
+                : value === "Hatchery"
+                  ? "bg-green-100 text-green-800"
+                  : "bg-gray-100 text-gray-800"
           }
         >
           {value}
         </Badge>
-      )
+      ),
     }),
-    createColumn('details', 'Details', {
+    createColumn("details", "Details", {
       render: (_, row) => {
         if (row.category === "Feed") {
           return `${row.feedBrand ?? ""} • Qty ${row.feedQuantity ?? 0} • Rate ₹${row.feedRate?.toLocaleString()}`;
@@ -707,27 +745,27 @@ export default function BatchDetailPage() {
         } else {
           return `${row.otherName ?? ""} • Qty ${row.otherQuantity ?? 0} • Rate ₹${row.otherRate?.toLocaleString()}`;
         }
-      }
+      },
     }),
-    createColumn('amount', 'Amount', {
-      type: 'currency',
-      align: 'right',
-      width: '120px'
+    createColumn("amount", "Amount", {
+      type: "currency",
+      align: "right",
+      width: "120px",
     }),
-    createColumn('date', 'Date', {
-      type: 'date',
-      width: '100px',
-      render: (value) => formatDateYYYYMMDD(value)
+    createColumn("date", "Date", {
+      type: "date",
+      width: "100px",
+      render: (value) => formatDateYYYYMMDD(value),
     }),
-    createColumn('notes', 'Notes', {
-      render: (value) => value || '—'
+    createColumn("notes", "Notes", {
+      render: (value) => value || "—",
     }),
     {
-      key: 'actions',
-      label: 'Actions',
-      type: 'actions',
-      align: 'right',
-      width: '120px',
+      key: "actions",
+      label: "Actions",
+      type: "actions",
+      align: "right",
+      width: "120px",
       render: (_, row) => (
         <div className="flex items-center justify-end gap-2">
           <Button
@@ -747,79 +785,87 @@ export default function BatchDetailPage() {
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
-      )
-    }
+      ),
+    },
   ];
 
   const salesColumns: Column<SaleRow>[] = [
-    createColumn('item', 'Item', {
-      type: 'badge',
-      width: '100px',
+    createColumn("item", "Item", {
+      type: "badge",
+      width: "100px",
       render: (value) => (
         <Badge variant="secondary" className="bg-green-100 text-green-800">
           {value}
         </Badge>
-      )
+      ),
     }),
-    createColumn('rate', 'Rate', {
-      type: 'currency',
-      align: 'right',
-      width: '100px'
+    createColumn("rate", "Rate", {
+      type: "currency",
+      align: "right",
+      width: "100px",
     }),
-    createColumn('quantity', 'Quantity', {
-      type: 'number',
-      align: 'right',
-      width: '100px'
+    createColumn("quantity", "Quantity", {
+      type: "number",
+      align: "right",
+      width: "100px",
     }),
-    createColumn('remaining', 'Remaining', {
-      type: 'badge',
-      align: 'center',
-      width: '100px',
+    createColumn("remaining", "Remaining", {
+      type: "badge",
+      align: "center",
+      width: "100px",
       render: (value) => (
-        <Badge 
+        <Badge
           variant="secondary"
-          className={value ? "bg-orange-100 text-orange-800" : "bg-gray-100 text-gray-800"}
+          className={
+            value
+              ? "bg-orange-100 text-orange-800"
+              : "bg-gray-100 text-gray-800"
+          }
         >
           {value ? "Yes" : "No"}
         </Badge>
-      )
+      ),
     }),
-    createColumn('customerName', 'Customer', {
-      render: (_, row) => row.customer?.name || '—'
+    createColumn("customerName", "Customer", {
+      render: (_, row) => row.customer?.name || "—",
     }),
-    createColumn('customerContact', 'Contact', {
-      render: (_, row) => row.customer?.contact || '—'
+    createColumn("customerContact", "Contact", {
+      render: (_, row) => row.customer?.contact || "—",
     }),
-    createColumn('customerCategory', 'Category', {
-      render: (_, row) => row.customer?.category ? (
-        <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-          {row.customer.category}
-        </Badge>
-      ) : '—'
+    createColumn("customerCategory", "Category", {
+      render: (_, row) =>
+        row.customer?.category ? (
+          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+            {row.customer.category}
+          </Badge>
+        ) : (
+          "—"
+        ),
     }),
-    createColumn('customerBalance', 'Balance', {
-      type: 'currency',
-      align: 'right',
-      width: '120px',
-      render: (_, row) => row.customer ? `₹${row.customer.balance.toLocaleString()}` : '—'
+    createColumn("customerBalance", "Balance", {
+      type: "currency",
+      align: "right",
+      width: "120px",
+      render: (_, row) =>
+        row.customer ? `₹${row.customer.balance.toLocaleString()}` : "—",
     }),
-    createColumn('date', 'Date', {
-      type: 'date',
-      width: '100px',
-      render: (value) => formatDateYYYYMMDD(value)
+    createColumn("date", "Date", {
+      type: "date",
+      width: "100px",
+      render: (value) => formatDateYYYYMMDD(value),
     }),
-    createColumn('totalAmount', 'Amount', {
-      type: 'currency',
-      align: 'right',
-      width: '120px',
-      render: (_, row) => `₹${(row.rate * row.quantity).toLocaleString()}`
+    createColumn("totalAmount", "Amount", {
+      type: "currency",
+      align: "right",
+      width: "120px",
+      render: (_, row) => `₹${(row.rate * row.quantity).toLocaleString()}`,
     }),
     {
-      key: 'actions',
-      label: 'Actions',
-      type: 'actions',
-      align: 'right',
-      width: '120px',
+      key: "actions",
+      label: "Actions",
+      type: "actions",
+      align: "right",
+      width: "120px",
       render: (_, row) => (
         <div className="flex items-center justify-end gap-2">
           <Button
@@ -839,47 +885,53 @@ export default function BatchDetailPage() {
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
-      )
-    }
+      ),
+    },
   ];
 
   const ledgerColumns: Column<LedgerRow>[] = [
-    createColumn('name', 'Name', {
-      render: (value) => <span className="font-medium">{value}</span>
+    createColumn("name", "Name", {
+      render: (value) => <span className="font-medium">{value}</span>,
     }),
-    createColumn('contact', 'Contact'),
-    createColumn('category', 'Category', {
-      type: 'badge',
+    createColumn("contact", "Contact"),
+    createColumn("category", "Category", {
+      type: "badge",
       render: (value) => (
         <Badge variant="secondary" className="bg-blue-100 text-blue-800">
           {value}
         </Badge>
-      )
+      ),
     }),
-    createColumn('sales', 'Sales', {
-      type: 'currency',
-      align: 'right'
+    createColumn("sales", "Sales", {
+      type: "currency",
+      align: "right",
     }),
-    createColumn('received', 'Received', {
-      type: 'currency',
-      align: 'right',
-      render: (value) => <span className="text-green-600">₹{value.toLocaleString()}</span>
-    }),
-    createColumn('balance', 'Balance', {
-      type: 'currency',
-      align: 'right',
+    createColumn("received", "Received", {
+      type: "currency",
+      align: "right",
       render: (value) => (
-        <span className={value > 0 ? 'text-orange-600 font-bold' : 'text-green-600 font-bold'}>
+        <span className="text-green-600">₹{value.toLocaleString()}</span>
+      ),
+    }),
+    createColumn("balance", "Balance", {
+      type: "currency",
+      align: "right",
+      render: (value) => (
+        <span
+          className={
+            value > 0 ? "text-orange-600 font-bold" : "text-green-600 font-bold"
+          }
+        >
           ₹{value.toLocaleString()}
         </span>
-      )
+      ),
     }),
     {
-      key: 'actions',
-      label: 'Actions',
-      type: 'actions',
-      align: 'right',
-      width: '120px',
+      key: "actions",
+      label: "Actions",
+      type: "actions",
+      align: "right",
+      width: "120px",
       render: (_, row) => (
         <div className="flex items-center justify-end gap-2">
           <Button
@@ -899,8 +951,8 @@ export default function BatchDetailPage() {
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
-      )
-    }
+      ),
+    },
   ];
 
   return (
@@ -916,14 +968,14 @@ export default function BatchDetailPage() {
           </Link>
           <span className="text-muted-foreground">/</span>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Layers className="h-6 w-6 text-primary" /> {batch.code}
+            <Layers className="h-6 w-6 text-primary" /> {batch.batchNumber}
           </h1>
           <Badge
             variant="outline"
             className={
-              batch.status === "Active"
+              batch.status === "ACTIVE"
                 ? "text-green-600 border-green-600/30"
-                : ""
+                : "text-gray-600 border-gray-600/30"
             }
           >
             {batch.status}
@@ -931,7 +983,7 @@ export default function BatchDetailPage() {
         </div>
         <div className="text-right">
           <div className="text-sm text-muted-foreground">Farm</div>
-          <div className="font-medium">{batch.farm}</div>
+          <div className="font-medium">{batch.farm.name}</div>
         </div>
       </div>
 
@@ -948,33 +1000,33 @@ export default function BatchDetailPage() {
           <CardHeader>
             <CardTitle className="text-sm">Initial Birds</CardTitle>
             <CardDescription>
-              {batch.initialBirds.toLocaleString()}
+              {batch.initialChicks.toLocaleString()}
             </CardDescription>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">Current Age</CardTitle>
-            <CardDescription>— days</CardDescription>
+            <CardDescription>{currentAge} days</CardDescription>
           </CardHeader>
         </Card>
       </div>
 
-        <div className="flex flex-wrap gap-2">
-          {TABS.map((tab) => (
-            <Button
-              key={tab}
-              variant={activeTab === tab ? "default" : "outline"}
-              className={
-                activeTab === tab
-                  ? "bg-primary text-primary-foreground"
-                  : "hover:border-primary hover:text-primary"
-              }
-              onClick={() => setActiveTab(tab)}
-            >
-              {tab}
-            </Button>
-          ))}
+      <div className="flex flex-wrap gap-2">
+        {TABS.map((tab) => (
+          <Button
+            key={tab}
+            variant={activeTab === tab ? "default" : "outline"}
+            className={
+              activeTab === tab
+                ? "bg-primary text-primary-foreground"
+                : "hover:border-primary hover:text-primary"
+            }
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab}
+          </Button>
+        ))}
       </div>
 
       {activeTab === "Overview" && (
@@ -987,19 +1039,16 @@ export default function BatchDetailPage() {
             <CardContent>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <div className="text-muted-foreground">
-                    Expense per Broiler
-                  </div>
+                  <div className="text-muted-foreground">Current Birds</div>
                   <div className="font-medium">
-                    ₹{perBirdExpense.toFixed(2)}
+                    {batch.currentChicks?.toLocaleString() ||
+                      batch.initialChicks.toLocaleString()}
                   </div>
                 </div>
                 <div>
-                  <div className="text-muted-foreground">
-                    Revenue per Broiler
-                  </div>
+                  <div className="text-muted-foreground">Mortality Rate</div>
                   <div className="font-medium">
-                    ₹{perBirdRevenue.toFixed(2)}
+                    {analytics?.mortalityRate?.toFixed(2) || 0}%
                   </div>
                 </div>
                 <div>
@@ -1014,29 +1063,61 @@ export default function BatchDetailPage() {
                     ₹{salesTotal.toLocaleString()}
                   </div>
                 </div>
+                <div>
+                  <div className="text-muted-foreground">Expense per Bird</div>
+                  <div className="font-medium">
+                    ₹{perBirdExpense.toFixed(2)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Revenue per Bird</div>
+                  <div className="font-medium">
+                    ₹{perBirdRevenue.toFixed(2)}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Latest updates for this batch</CardDescription>
+              <CardTitle>Batch Information</CardTitle>
+              <CardDescription>Details about this batch</CardDescription>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2 text-sm">
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-primary rounded-full" /> Expense
-                  added: Feed purchase
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-primary rounded-full" /> Sales
-                  recorded: 120 birds
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-primary rounded-full" /> Medicine
-                  issued: Vitamin D3
-                </li>
-              </ul>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Farm Owner:</span>
+                  <span className="font-medium">{batch.farm.owner.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Initial Weight:</span>
+                  <span className="font-medium">
+                    {batch.initialChickWeight}g
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Days Active:</span>
+                  <span className="font-medium">{currentAge} days</span>
+                </div>
+                {analytics?.currentAvgWeight && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      Current Avg Weight:
+                    </span>
+                    <span className="font-medium">
+                      {analytics.currentAvgWeight.toFixed(2)}g
+                    </span>
+                  </div>
+                )}
+                {analytics?.fcr && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">FCR:</span>
+                    <span className="font-medium">
+                      {analytics.fcr.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -1066,11 +1147,13 @@ export default function BatchDetailPage() {
               showFooter={true}
               footerContent={
                 <div className="flex justify-between items-center">
-                  <span className="font-semibold text-gray-900">Total Expenses</span>
-                  <span className="font-bold text-lg text-gray-900">
-                      ₹{expensesTotal.toLocaleString()}
+                  <span className="font-semibold text-gray-900">
+                    Total Expenses
                   </span>
-            </div>
+                  <span className="font-bold text-lg text-gray-900">
+                    ₹{expensesTotal.toLocaleString()}
+                  </span>
+                </div>
               }
               emptyMessage="No expenses recorded yet"
             />
@@ -1094,20 +1177,85 @@ export default function BatchDetailPage() {
             </Button>
           </CardHeader>
           <CardContent className="p-0">
-            <DataTable
-              data={sales}
-              columns={salesColumns}
-              showFooter={true}
-              footerContent={
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold text-gray-900">Total Sales</span>
-                  <span className="font-bold text-lg text-green-600">
-                      ₹{salesTotal.toLocaleString()}
-                  </span>
-            </div>
-              }
-              emptyMessage="No sales recorded yet"
-            />
+            {(batch as any).sales && (batch as any).sales.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Description
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Quantity
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Unit Price
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Credit
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {(batch as any).sales.map((sale: any) => (
+                      <tr key={sale.id}>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatDateYYYYMMDD(sale.date)}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-gray-900">
+                          {sale.description || "Sale"}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                          {sale.quantity}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                          ₹{Number(sale.unitPrice).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                          ₹{Number(sale.amount).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-center">
+                          <Badge
+                            variant="secondary"
+                            className={
+                              sale.isCredit
+                                ? "bg-orange-100 text-orange-800"
+                                : "bg-gray-100 text-gray-800"
+                            }
+                          >
+                            {sale.isCredit ? "Yes" : "No"}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-gray-50">
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-4 py-3 text-sm font-semibold text-gray-900 text-right"
+                      >
+                        Total Sales:
+                      </td>
+                      <td className="px-4 py-3 text-sm font-bold text-green-600 text-right">
+                        ₹{salesTotal.toLocaleString()}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No sales recorded yet</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -1136,11 +1284,13 @@ export default function BatchDetailPage() {
               showFooter={true}
               footerContent={
                 <div className="flex justify-between items-center">
-                  <span className="font-semibold text-gray-900">Total Receivable</span>
-                  <span className="font-bold text-lg text-orange-600">
-                      ₹{receivableTotal.toLocaleString()}
+                  <span className="font-semibold text-gray-900">
+                    Total Receivable
                   </span>
-            </div>
+                  <span className="font-bold text-lg text-orange-600">
+                    ₹{receivableTotal.toLocaleString()}
+                  </span>
+                </div>
               }
               emptyMessage="No ledger entries yet"
             />
@@ -1152,9 +1302,7 @@ export default function BatchDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle>Profit & Loss</CardTitle>
-            <CardDescription>
-              Computed from Sales and Expenses (mock)
-            </CardDescription>
+            <CardDescription>Computed from Sales and Expenses</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2 text-sm">
@@ -1187,6 +1335,14 @@ export default function BatchDetailPage() {
                     ₹{perBirdExpense.toFixed(2)}
                   </span>
                 </div>
+                {analytics?.profitMargin && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Profit Margin</span>
+                    <span className="font-medium">
+                      {analytics.profitMargin.toFixed(2)}%
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between">
@@ -1209,6 +1365,26 @@ export default function BatchDetailPage() {
                     ₹{receivableTotal.toLocaleString()}
                   </span>
                 </div>
+                {analytics?.totalMortality && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      Total Mortality
+                    </span>
+                    <span className="font-medium text-red-600">
+                      {analytics.totalMortality} birds
+                    </span>
+                  </div>
+                )}
+                {analytics?.totalFeedConsumption && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      Total Feed Consumed
+                    </span>
+                    <span className="font-medium">
+                      {analytics.totalFeedConsumption.toFixed(2)} kg
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
@@ -1307,7 +1483,11 @@ export default function BatchDetailPage() {
                       onChange={updateExpenseField}
                       readOnly={!!expenseForm.selectedFeedId}
                       className={expenseForm.selectedFeedId ? "bg-gray-50" : ""}
-                      placeholder={expenseForm.selectedFeedId ? "Auto-filled from inventory" : "Enter rate"}
+                      placeholder={
+                        expenseForm.selectedFeedId
+                          ? "Auto-filled from inventory"
+                          : "Enter rate"
+                      }
                     />
                     {expenseErrors.feedRate && (
                       <p className="text-xs text-red-600 mt-1">
@@ -1384,7 +1564,8 @@ export default function BatchDetailPage() {
                       <option value="">Select medicine from inventory</option>
                       {medicineInventory.map((medicine) => (
                         <option key={medicine.id} value={medicine.id}>
-                          {medicine.name} ({medicine.quantity} {medicine.unit} available)
+                          {medicine.name} ({medicine.quantity} {medicine.unit}{" "}
+                          available)
                         </option>
                       ))}
                     </select>
@@ -1418,8 +1599,14 @@ export default function BatchDetailPage() {
                       value={expenseForm.medicineRate}
                       onChange={updateExpenseField}
                       readOnly={!!expenseForm.selectedMedicineId}
-                      className={expenseForm.selectedMedicineId ? "bg-gray-50" : ""}
-                      placeholder={expenseForm.selectedMedicineId ? "Auto-filled from inventory" : "Enter rate"}
+                      className={
+                        expenseForm.selectedMedicineId ? "bg-gray-50" : ""
+                      }
+                      placeholder={
+                        expenseForm.selectedMedicineId
+                          ? "Auto-filled from inventory"
+                          : "Enter rate"
+                      }
                     />
                     {expenseErrors.medicineRate && (
                       <p className="text-xs text-red-600 mt-1">

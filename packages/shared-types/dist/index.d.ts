@@ -224,8 +224,8 @@ export declare const BatchSchema: z.ZodObject<{
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
     batchNumber: z.ZodString;
-    startDate: z.ZodString;
-    endDate: z.ZodNullable<z.ZodString>;
+    startDate: z.ZodDate;
+    endDate: z.ZodNullable<z.ZodDate>;
     status: z.ZodEnum<{
         ACTIVE: "ACTIVE";
         COMPLETED: "COMPLETED";
@@ -262,8 +262,8 @@ export declare const BatchResponseSchema: z.ZodObject<{
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
     batchNumber: z.ZodString;
-    startDate: z.ZodString;
-    endDate: z.ZodNullable<z.ZodString>;
+    startDate: z.ZodDate;
+    endDate: z.ZodNullable<z.ZodDate>;
     status: z.ZodEnum<{
         ACTIVE: "ACTIVE";
         COMPLETED: "COMPLETED";
@@ -282,6 +282,35 @@ export declare const BatchResponseSchema: z.ZodObject<{
             email: z.ZodNullable<z.ZodString>;
         }, z.core.$strip>;
     }, z.core.$strip>;
+    expenses: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        id: z.ZodString;
+        date: z.ZodDate;
+        amount: z.ZodNumber;
+        description: z.ZodNullable<z.ZodString>;
+        quantity: z.ZodNullable<z.ZodNumber>;
+        unitPrice: z.ZodNullable<z.ZodNumber>;
+        category: z.ZodObject<{
+            id: z.ZodString;
+            name: z.ZodString;
+            type: z.ZodString;
+        }, z.core.$strip>;
+    }, z.core.$strip>>>;
+    sales: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        id: z.ZodString;
+        date: z.ZodDate;
+        amount: z.ZodNumber;
+        quantity: z.ZodNumber;
+        unitPrice: z.ZodNumber;
+        description: z.ZodNullable<z.ZodString>;
+        isCredit: z.ZodBoolean;
+        paidAmount: z.ZodNumber;
+        dueAmount: z.ZodNullable<z.ZodNumber>;
+        category: z.ZodObject<{
+            id: z.ZodString;
+            name: z.ZodString;
+            type: z.ZodString;
+        }, z.core.$strip>;
+    }, z.core.$strip>>>;
     _count: z.ZodObject<{
         expenses: z.ZodNumber;
         sales: z.ZodNumber;
@@ -295,8 +324,8 @@ export declare const BatchResponseSchema: z.ZodObject<{
 export type BatchResponse = z.infer<typeof BatchResponseSchema>;
 export declare const CreateBatchSchema: z.ZodObject<{
     batchNumber: z.ZodString;
-    startDate: z.ZodString;
-    endDate: z.ZodOptional<z.ZodString>;
+    startDate: z.ZodDate;
+    endDate: z.ZodOptional<z.ZodDate>;
     status: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
         ACTIVE: "ACTIVE";
         COMPLETED: "COMPLETED";
@@ -308,8 +337,8 @@ export declare const CreateBatchSchema: z.ZodObject<{
 export type CreateBatch = z.infer<typeof CreateBatchSchema>;
 export declare const UpdateBatchSchema: z.ZodObject<{
     batchNumber: z.ZodOptional<z.ZodString>;
-    startDate: z.ZodOptional<z.ZodString>;
-    endDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    startDate: z.ZodOptional<z.ZodDate>;
+    endDate: z.ZodOptional<z.ZodNullable<z.ZodDate>>;
     status: z.ZodOptional<z.ZodEnum<{
         ACTIVE: "ACTIVE";
         COMPLETED: "COMPLETED";
@@ -357,7 +386,7 @@ export declare const ExpenseSchema: z.ZodObject<{
     id: z.ZodString;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
-    date: z.ZodString;
+    date: z.ZodDate;
     amount: z.ZodNumber;
     description: z.ZodNullable<z.ZodString>;
     quantity: z.ZodNullable<z.ZodNumber>;
@@ -368,7 +397,7 @@ export declare const ExpenseSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type Expense = z.infer<typeof ExpenseSchema>;
 export declare const CreateExpenseSchema: z.ZodObject<{
-    date: z.ZodString;
+    date: z.ZodDate;
     amount: z.ZodNumber;
     description: z.ZodOptional<z.ZodString>;
     quantity: z.ZodOptional<z.ZodNumber>;
@@ -379,7 +408,7 @@ export declare const CreateExpenseSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type CreateExpense = z.infer<typeof CreateExpenseSchema>;
 export declare const UpdateExpenseSchema: z.ZodObject<{
-    date: z.ZodOptional<z.ZodString>;
+    date: z.ZodOptional<z.ZodDate>;
     amount: z.ZodOptional<z.ZodNumber>;
     description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     quantity: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
@@ -393,7 +422,7 @@ export declare const SaleSchema: z.ZodObject<{
     id: z.ZodString;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
-    date: z.ZodString;
+    date: z.ZodDate;
     amount: z.ZodNumber;
     quantity: z.ZodNumber;
     unitPrice: z.ZodNumber;
@@ -408,7 +437,7 @@ export declare const SaleSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type Sale = z.infer<typeof SaleSchema>;
 export declare const CreateSaleSchema: z.ZodObject<{
-    date: z.ZodString;
+    date: z.ZodDate;
     amount: z.ZodNumber;
     quantity: z.ZodNumber;
     unitPrice: z.ZodNumber;
@@ -423,7 +452,7 @@ export declare const CreateSaleSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type CreateSale = z.infer<typeof CreateSaleSchema>;
 export declare const UpdateSaleSchema: z.ZodObject<{
-    date: z.ZodOptional<z.ZodString>;
+    date: z.ZodOptional<z.ZodDate>;
     amount: z.ZodOptional<z.ZodNumber>;
     quantity: z.ZodOptional<z.ZodNumber>;
     unitPrice: z.ZodOptional<z.ZodNumber>;
@@ -442,14 +471,14 @@ export declare const SalePaymentSchema: z.ZodObject<{
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
     amount: z.ZodNumber;
-    date: z.ZodString;
+    date: z.ZodDate;
     description: z.ZodNullable<z.ZodString>;
     saleId: z.ZodString;
 }, z.core.$strip>;
 export type SalePayment = z.infer<typeof SalePaymentSchema>;
 export declare const CreateSalePaymentSchema: z.ZodObject<{
     amount: z.ZodNumber;
-    date: z.ZodDefault<z.ZodOptional<z.ZodString>>;
+    date: z.ZodDefault<z.ZodOptional<z.ZodDate>>;
     description: z.ZodOptional<z.ZodString>;
     saleId: z.ZodString;
 }, z.core.$strip>;
@@ -530,7 +559,7 @@ export declare const InventoryTransactionSchema: z.ZodObject<{
     quantity: z.ZodNumber;
     unitPrice: z.ZodNumber;
     totalAmount: z.ZodNumber;
-    date: z.ZodString;
+    date: z.ZodDate;
     description: z.ZodNullable<z.ZodString>;
     itemId: z.ZodString;
 }, z.core.$strip>;
@@ -547,7 +576,7 @@ export declare const CreateInventoryTransactionSchema: z.ZodObject<{
     quantity: z.ZodNumber;
     unitPrice: z.ZodNumber;
     totalAmount: z.ZodNumber;
-    date: z.ZodString;
+    date: z.ZodDate;
     description: z.ZodOptional<z.ZodString>;
     itemId: z.ZodString;
 }, z.core.$strip>;
@@ -556,7 +585,7 @@ export declare const InventoryUsageSchema: z.ZodObject<{
     id: z.ZodString;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
-    date: z.ZodString;
+    date: z.ZodDate;
     quantity: z.ZodNumber;
     unitPrice: z.ZodNullable<z.ZodNumber>;
     totalAmount: z.ZodNullable<z.ZodNumber>;
@@ -568,7 +597,7 @@ export declare const InventoryUsageSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type InventoryUsage = z.infer<typeof InventoryUsageSchema>;
 export declare const CreateInventoryUsageSchema: z.ZodObject<{
-    date: z.ZodString;
+    date: z.ZodDate;
     quantity: z.ZodNumber;
     unitPrice: z.ZodOptional<z.ZodNumber>;
     totalAmount: z.ZodOptional<z.ZodNumber>;
@@ -594,7 +623,7 @@ export declare const EntityTransactionSchema: z.ZodObject<{
     amount: z.ZodNumber;
     quantity: z.ZodNullable<z.ZodNumber>;
     itemName: z.ZodNullable<z.ZodString>;
-    date: z.ZodString;
+    date: z.ZodDate;
     description: z.ZodNullable<z.ZodString>;
     reference: z.ZodNullable<z.ZodString>;
     entityType: z.ZodString;
@@ -613,7 +642,7 @@ export declare const CreateEntityTransactionSchema: z.ZodObject<{
     amount: z.ZodNumber;
     quantity: z.ZodOptional<z.ZodNumber>;
     itemName: z.ZodOptional<z.ZodString>;
-    date: z.ZodString;
+    date: z.ZodDate;
     description: z.ZodOptional<z.ZodString>;
     reference: z.ZodOptional<z.ZodString>;
     entityType: z.ZodString;
@@ -655,13 +684,13 @@ export declare const DealerTransactionSchema: z.ZodObject<{
     amount: z.ZodNumber;
     quantity: z.ZodNullable<z.ZodNumber>;
     itemName: z.ZodNullable<z.ZodString>;
-    date: z.ZodString;
+    date: z.ZodDate;
     description: z.ZodNullable<z.ZodString>;
     reference: z.ZodNullable<z.ZodString>;
     entityType: z.ZodString;
     entityId: z.ZodString;
-    createdAt: z.ZodString;
-    updatedAt: z.ZodString;
+    createdAt: z.ZodDate;
+    updatedAt: z.ZodDate;
 }, z.core.$strip>;
 export type DealerTransaction = z.infer<typeof DealerTransactionSchema>;
 export declare const DealerResponseSchema: z.ZodObject<{
@@ -688,13 +717,13 @@ export declare const DealerResponseSchema: z.ZodObject<{
         amount: z.ZodNumber;
         quantity: z.ZodNullable<z.ZodNumber>;
         itemName: z.ZodNullable<z.ZodString>;
-        date: z.ZodString;
+        date: z.ZodDate;
         description: z.ZodNullable<z.ZodString>;
         reference: z.ZodNullable<z.ZodString>;
         entityType: z.ZodString;
         entityId: z.ZodString;
-        createdAt: z.ZodString;
-        updatedAt: z.ZodString;
+        createdAt: z.ZodDate;
+        updatedAt: z.ZodDate;
     }, z.core.$strip>>;
 }, z.core.$strip>;
 export type DealerResponse = z.infer<typeof DealerResponseSchema>;
@@ -723,11 +752,11 @@ export declare const DealerDetailResponseSchema: z.ZodObject<{
         totalAmount: z.ZodNumber;
         amountPaid: z.ZodNumber;
         amountDue: z.ZodNumber;
-        date: z.ZodString;
-        dueDate: z.ZodString;
+        date: z.ZodDate;
+        dueDate: z.ZodDate;
         payments: z.ZodArray<z.ZodObject<{
             amount: z.ZodNumber;
-            date: z.ZodString;
+            date: z.ZodDate;
             reference: z.ZodNullable<z.ZodString>;
         }, z.core.$strip>>;
     }, z.core.$strip>>;
@@ -824,7 +853,7 @@ export declare const CustomerTransactionSchema: z.ZodObject<{
         OPENING_BALANCE: "OPENING_BALANCE";
     }>;
     amount: z.ZodNumber;
-    date: z.ZodString;
+    date: z.ZodDate;
     description: z.ZodNullable<z.ZodString>;
     reference: z.ZodNullable<z.ZodString>;
     customerId: z.ZodString;
@@ -840,7 +869,7 @@ export declare const CreateCustomerTransactionSchema: z.ZodObject<{
         OPENING_BALANCE: "OPENING_BALANCE";
     }>;
     amount: z.ZodNumber;
-    date: z.ZodString;
+    date: z.ZodDate;
     description: z.ZodOptional<z.ZodString>;
     reference: z.ZodOptional<z.ZodString>;
     customerId: z.ZodString;
@@ -850,21 +879,21 @@ export declare const MortalitySchema: z.ZodObject<{
     id: z.ZodString;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
-    date: z.ZodString;
+    date: z.ZodDate;
     count: z.ZodNumber;
     reason: z.ZodNullable<z.ZodString>;
     batchId: z.ZodString;
 }, z.core.$strip>;
 export type Mortality = z.infer<typeof MortalitySchema>;
 export declare const CreateMortalitySchema: z.ZodObject<{
-    date: z.ZodString;
+    date: z.ZodDate;
     count: z.ZodNumber;
     reason: z.ZodOptional<z.ZodString>;
     batchId: z.ZodString;
 }, z.core.$strip>;
 export type CreateMortality = z.infer<typeof CreateMortalitySchema>;
 export declare const UpdateMortalitySchema: z.ZodObject<{
-    date: z.ZodOptional<z.ZodString>;
+    date: z.ZodOptional<z.ZodDate>;
     count: z.ZodOptional<z.ZodNumber>;
     reason: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 }, z.core.$strip>;
@@ -874,8 +903,8 @@ export declare const VaccinationSchema: z.ZodObject<{
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
     vaccineName: z.ZodString;
-    scheduledDate: z.ZodString;
-    completedDate: z.ZodNullable<z.ZodString>;
+    scheduledDate: z.ZodDate;
+    completedDate: z.ZodNullable<z.ZodDate>;
     status: z.ZodEnum<{
         COMPLETED: "COMPLETED";
         PENDING: "PENDING";
@@ -888,8 +917,8 @@ export declare const VaccinationSchema: z.ZodObject<{
 export type Vaccination = z.infer<typeof VaccinationSchema>;
 export declare const CreateVaccinationSchema: z.ZodObject<{
     vaccineName: z.ZodString;
-    scheduledDate: z.ZodString;
-    completedDate: z.ZodOptional<z.ZodString>;
+    scheduledDate: z.ZodDate;
+    completedDate: z.ZodOptional<z.ZodDate>;
     status: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
         COMPLETED: "COMPLETED";
         PENDING: "PENDING";
@@ -902,8 +931,8 @@ export declare const CreateVaccinationSchema: z.ZodObject<{
 export type CreateVaccination = z.infer<typeof CreateVaccinationSchema>;
 export declare const UpdateVaccinationSchema: z.ZodObject<{
     vaccineName: z.ZodOptional<z.ZodString>;
-    scheduledDate: z.ZodOptional<z.ZodString>;
-    completedDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    scheduledDate: z.ZodOptional<z.ZodDate>;
+    completedDate: z.ZodOptional<z.ZodNullable<z.ZodDate>>;
     status: z.ZodOptional<z.ZodEnum<{
         COMPLETED: "COMPLETED";
         PENDING: "PENDING";
@@ -917,21 +946,21 @@ export declare const FeedConsumptionSchema: z.ZodObject<{
     id: z.ZodString;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
-    date: z.ZodString;
+    date: z.ZodDate;
     quantity: z.ZodNumber;
     feedType: z.ZodString;
     batchId: z.ZodString;
 }, z.core.$strip>;
 export type FeedConsumption = z.infer<typeof FeedConsumptionSchema>;
 export declare const CreateFeedConsumptionSchema: z.ZodObject<{
-    date: z.ZodString;
+    date: z.ZodDate;
     quantity: z.ZodNumber;
     feedType: z.ZodString;
     batchId: z.ZodString;
 }, z.core.$strip>;
 export type CreateFeedConsumption = z.infer<typeof CreateFeedConsumptionSchema>;
 export declare const UpdateFeedConsumptionSchema: z.ZodObject<{
-    date: z.ZodOptional<z.ZodString>;
+    date: z.ZodOptional<z.ZodDate>;
     quantity: z.ZodOptional<z.ZodNumber>;
     feedType: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
@@ -940,21 +969,21 @@ export declare const BirdWeightSchema: z.ZodObject<{
     id: z.ZodString;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
-    date: z.ZodString;
+    date: z.ZodDate;
     avgWeight: z.ZodNumber;
     sampleCount: z.ZodNumber;
     batchId: z.ZodString;
 }, z.core.$strip>;
 export type BirdWeight = z.infer<typeof BirdWeightSchema>;
 export declare const CreateBirdWeightSchema: z.ZodObject<{
-    date: z.ZodString;
+    date: z.ZodDate;
     avgWeight: z.ZodNumber;
     sampleCount: z.ZodNumber;
     batchId: z.ZodString;
 }, z.core.$strip>;
 export type CreateBirdWeight = z.infer<typeof CreateBirdWeightSchema>;
 export declare const UpdateBirdWeightSchema: z.ZodObject<{
-    date: z.ZodOptional<z.ZodString>;
+    date: z.ZodOptional<z.ZodDate>;
     avgWeight: z.ZodOptional<z.ZodNumber>;
     sampleCount: z.ZodOptional<z.ZodNumber>;
 }, z.core.$strip>;
@@ -1237,8 +1266,8 @@ export declare const BatchListResponseSchema: z.ZodObject<{
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
         batchNumber: z.ZodString;
-        startDate: z.ZodString;
-        endDate: z.ZodNullable<z.ZodString>;
+        startDate: z.ZodDate;
+        endDate: z.ZodNullable<z.ZodDate>;
         status: z.ZodEnum<{
             ACTIVE: "ACTIVE";
             COMPLETED: "COMPLETED";
@@ -1257,6 +1286,35 @@ export declare const BatchListResponseSchema: z.ZodObject<{
                 email: z.ZodNullable<z.ZodString>;
             }, z.core.$strip>;
         }, z.core.$strip>;
+        expenses: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            date: z.ZodDate;
+            amount: z.ZodNumber;
+            description: z.ZodNullable<z.ZodString>;
+            quantity: z.ZodNullable<z.ZodNumber>;
+            unitPrice: z.ZodNullable<z.ZodNumber>;
+            category: z.ZodObject<{
+                id: z.ZodString;
+                name: z.ZodString;
+                type: z.ZodString;
+            }, z.core.$strip>;
+        }, z.core.$strip>>>;
+        sales: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            date: z.ZodDate;
+            amount: z.ZodNumber;
+            quantity: z.ZodNumber;
+            unitPrice: z.ZodNumber;
+            description: z.ZodNullable<z.ZodString>;
+            isCredit: z.ZodBoolean;
+            paidAmount: z.ZodNumber;
+            dueAmount: z.ZodNullable<z.ZodNumber>;
+            category: z.ZodObject<{
+                id: z.ZodString;
+                name: z.ZodString;
+                type: z.ZodString;
+            }, z.core.$strip>;
+        }, z.core.$strip>>>;
         _count: z.ZodObject<{
             expenses: z.ZodNumber;
             sales: z.ZodNumber;
@@ -1283,8 +1341,8 @@ export declare const BatchDetailResponseSchema: z.ZodObject<{
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
         batchNumber: z.ZodString;
-        startDate: z.ZodString;
-        endDate: z.ZodNullable<z.ZodString>;
+        startDate: z.ZodDate;
+        endDate: z.ZodNullable<z.ZodDate>;
         status: z.ZodEnum<{
             ACTIVE: "ACTIVE";
             COMPLETED: "COMPLETED";
@@ -1303,6 +1361,35 @@ export declare const BatchDetailResponseSchema: z.ZodObject<{
                 email: z.ZodNullable<z.ZodString>;
             }, z.core.$strip>;
         }, z.core.$strip>;
+        expenses: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            date: z.ZodDate;
+            amount: z.ZodNumber;
+            description: z.ZodNullable<z.ZodString>;
+            quantity: z.ZodNullable<z.ZodNumber>;
+            unitPrice: z.ZodNullable<z.ZodNumber>;
+            category: z.ZodObject<{
+                id: z.ZodString;
+                name: z.ZodString;
+                type: z.ZodString;
+            }, z.core.$strip>;
+        }, z.core.$strip>>>;
+        sales: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            date: z.ZodDate;
+            amount: z.ZodNumber;
+            quantity: z.ZodNumber;
+            unitPrice: z.ZodNumber;
+            description: z.ZodNullable<z.ZodString>;
+            isCredit: z.ZodBoolean;
+            paidAmount: z.ZodNumber;
+            dueAmount: z.ZodNullable<z.ZodNumber>;
+            category: z.ZodObject<{
+                id: z.ZodString;
+                name: z.ZodString;
+                type: z.ZodString;
+            }, z.core.$strip>;
+        }, z.core.$strip>>>;
         _count: z.ZodObject<{
             expenses: z.ZodNumber;
             sales: z.ZodNumber;
@@ -1603,8 +1690,8 @@ export declare const schemas: {
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
         batchNumber: z.ZodString;
-        startDate: z.ZodString;
-        endDate: z.ZodNullable<z.ZodString>;
+        startDate: z.ZodDate;
+        endDate: z.ZodNullable<z.ZodDate>;
         status: z.ZodEnum<{
             ACTIVE: "ACTIVE";
             COMPLETED: "COMPLETED";
@@ -1616,8 +1703,8 @@ export declare const schemas: {
     }, z.core.$strip>;
     readonly CreateBatch: z.ZodObject<{
         batchNumber: z.ZodString;
-        startDate: z.ZodString;
-        endDate: z.ZodOptional<z.ZodString>;
+        startDate: z.ZodDate;
+        endDate: z.ZodOptional<z.ZodDate>;
         status: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
             ACTIVE: "ACTIVE";
             COMPLETED: "COMPLETED";
@@ -1628,8 +1715,8 @@ export declare const schemas: {
     }, z.core.$strip>;
     readonly UpdateBatch: z.ZodObject<{
         batchNumber: z.ZodOptional<z.ZodString>;
-        startDate: z.ZodOptional<z.ZodString>;
-        endDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        startDate: z.ZodOptional<z.ZodDate>;
+        endDate: z.ZodOptional<z.ZodNullable<z.ZodDate>>;
         status: z.ZodOptional<z.ZodEnum<{
             ACTIVE: "ACTIVE";
             COMPLETED: "COMPLETED";
@@ -1643,8 +1730,8 @@ export declare const schemas: {
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
         batchNumber: z.ZodString;
-        startDate: z.ZodString;
-        endDate: z.ZodNullable<z.ZodString>;
+        startDate: z.ZodDate;
+        endDate: z.ZodNullable<z.ZodDate>;
         status: z.ZodEnum<{
             ACTIVE: "ACTIVE";
             COMPLETED: "COMPLETED";
@@ -1663,6 +1750,35 @@ export declare const schemas: {
                 email: z.ZodNullable<z.ZodString>;
             }, z.core.$strip>;
         }, z.core.$strip>;
+        expenses: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            date: z.ZodDate;
+            amount: z.ZodNumber;
+            description: z.ZodNullable<z.ZodString>;
+            quantity: z.ZodNullable<z.ZodNumber>;
+            unitPrice: z.ZodNullable<z.ZodNumber>;
+            category: z.ZodObject<{
+                id: z.ZodString;
+                name: z.ZodString;
+                type: z.ZodString;
+            }, z.core.$strip>;
+        }, z.core.$strip>>>;
+        sales: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            date: z.ZodDate;
+            amount: z.ZodNumber;
+            quantity: z.ZodNumber;
+            unitPrice: z.ZodNumber;
+            description: z.ZodNullable<z.ZodString>;
+            isCredit: z.ZodBoolean;
+            paidAmount: z.ZodNumber;
+            dueAmount: z.ZodNullable<z.ZodNumber>;
+            category: z.ZodObject<{
+                id: z.ZodString;
+                name: z.ZodString;
+                type: z.ZodString;
+            }, z.core.$strip>;
+        }, z.core.$strip>>>;
         _count: z.ZodObject<{
             expenses: z.ZodNumber;
             sales: z.ZodNumber;
@@ -1699,8 +1815,8 @@ export declare const schemas: {
             createdAt: z.ZodString;
             updatedAt: z.ZodString;
             batchNumber: z.ZodString;
-            startDate: z.ZodString;
-            endDate: z.ZodNullable<z.ZodString>;
+            startDate: z.ZodDate;
+            endDate: z.ZodNullable<z.ZodDate>;
             status: z.ZodEnum<{
                 ACTIVE: "ACTIVE";
                 COMPLETED: "COMPLETED";
@@ -1719,6 +1835,35 @@ export declare const schemas: {
                     email: z.ZodNullable<z.ZodString>;
                 }, z.core.$strip>;
             }, z.core.$strip>;
+            expenses: z.ZodOptional<z.ZodArray<z.ZodObject<{
+                id: z.ZodString;
+                date: z.ZodDate;
+                amount: z.ZodNumber;
+                description: z.ZodNullable<z.ZodString>;
+                quantity: z.ZodNullable<z.ZodNumber>;
+                unitPrice: z.ZodNullable<z.ZodNumber>;
+                category: z.ZodObject<{
+                    id: z.ZodString;
+                    name: z.ZodString;
+                    type: z.ZodString;
+                }, z.core.$strip>;
+            }, z.core.$strip>>>;
+            sales: z.ZodOptional<z.ZodArray<z.ZodObject<{
+                id: z.ZodString;
+                date: z.ZodDate;
+                amount: z.ZodNumber;
+                quantity: z.ZodNumber;
+                unitPrice: z.ZodNumber;
+                description: z.ZodNullable<z.ZodString>;
+                isCredit: z.ZodBoolean;
+                paidAmount: z.ZodNumber;
+                dueAmount: z.ZodNullable<z.ZodNumber>;
+                category: z.ZodObject<{
+                    id: z.ZodString;
+                    name: z.ZodString;
+                    type: z.ZodString;
+                }, z.core.$strip>;
+            }, z.core.$strip>>>;
             _count: z.ZodObject<{
                 expenses: z.ZodNumber;
                 sales: z.ZodNumber;
@@ -1744,8 +1889,8 @@ export declare const schemas: {
             createdAt: z.ZodString;
             updatedAt: z.ZodString;
             batchNumber: z.ZodString;
-            startDate: z.ZodString;
-            endDate: z.ZodNullable<z.ZodString>;
+            startDate: z.ZodDate;
+            endDate: z.ZodNullable<z.ZodDate>;
             status: z.ZodEnum<{
                 ACTIVE: "ACTIVE";
                 COMPLETED: "COMPLETED";
@@ -1764,6 +1909,35 @@ export declare const schemas: {
                     email: z.ZodNullable<z.ZodString>;
                 }, z.core.$strip>;
             }, z.core.$strip>;
+            expenses: z.ZodOptional<z.ZodArray<z.ZodObject<{
+                id: z.ZodString;
+                date: z.ZodDate;
+                amount: z.ZodNumber;
+                description: z.ZodNullable<z.ZodString>;
+                quantity: z.ZodNullable<z.ZodNumber>;
+                unitPrice: z.ZodNullable<z.ZodNumber>;
+                category: z.ZodObject<{
+                    id: z.ZodString;
+                    name: z.ZodString;
+                    type: z.ZodString;
+                }, z.core.$strip>;
+            }, z.core.$strip>>>;
+            sales: z.ZodOptional<z.ZodArray<z.ZodObject<{
+                id: z.ZodString;
+                date: z.ZodDate;
+                amount: z.ZodNumber;
+                quantity: z.ZodNumber;
+                unitPrice: z.ZodNumber;
+                description: z.ZodNullable<z.ZodString>;
+                isCredit: z.ZodBoolean;
+                paidAmount: z.ZodNumber;
+                dueAmount: z.ZodNullable<z.ZodNumber>;
+                category: z.ZodObject<{
+                    id: z.ZodString;
+                    name: z.ZodString;
+                    type: z.ZodString;
+                }, z.core.$strip>;
+            }, z.core.$strip>>>;
             _count: z.ZodObject<{
                 expenses: z.ZodNumber;
                 sales: z.ZodNumber;
@@ -1811,7 +1985,7 @@ export declare const schemas: {
         id: z.ZodString;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
-        date: z.ZodString;
+        date: z.ZodDate;
         amount: z.ZodNumber;
         description: z.ZodNullable<z.ZodString>;
         quantity: z.ZodNullable<z.ZodNumber>;
@@ -1821,7 +1995,7 @@ export declare const schemas: {
         categoryId: z.ZodString;
     }, z.core.$strip>;
     readonly CreateExpense: z.ZodObject<{
-        date: z.ZodString;
+        date: z.ZodDate;
         amount: z.ZodNumber;
         description: z.ZodOptional<z.ZodString>;
         quantity: z.ZodOptional<z.ZodNumber>;
@@ -1831,7 +2005,7 @@ export declare const schemas: {
         categoryId: z.ZodString;
     }, z.core.$strip>;
     readonly UpdateExpense: z.ZodObject<{
-        date: z.ZodOptional<z.ZodString>;
+        date: z.ZodOptional<z.ZodDate>;
         amount: z.ZodOptional<z.ZodNumber>;
         description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         quantity: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
@@ -1844,7 +2018,7 @@ export declare const schemas: {
         id: z.ZodString;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
-        date: z.ZodString;
+        date: z.ZodDate;
         amount: z.ZodNumber;
         quantity: z.ZodNumber;
         unitPrice: z.ZodNumber;
@@ -1858,7 +2032,7 @@ export declare const schemas: {
         customerId: z.ZodNullable<z.ZodString>;
     }, z.core.$strip>;
     readonly CreateSale: z.ZodObject<{
-        date: z.ZodString;
+        date: z.ZodDate;
         amount: z.ZodNumber;
         quantity: z.ZodNumber;
         unitPrice: z.ZodNumber;
@@ -1872,7 +2046,7 @@ export declare const schemas: {
         customerId: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>;
     readonly UpdateSale: z.ZodObject<{
-        date: z.ZodOptional<z.ZodString>;
+        date: z.ZodOptional<z.ZodDate>;
         amount: z.ZodOptional<z.ZodNumber>;
         quantity: z.ZodOptional<z.ZodNumber>;
         unitPrice: z.ZodOptional<z.ZodNumber>;
@@ -1890,13 +2064,13 @@ export declare const schemas: {
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
         amount: z.ZodNumber;
-        date: z.ZodString;
+        date: z.ZodDate;
         description: z.ZodNullable<z.ZodString>;
         saleId: z.ZodString;
     }, z.core.$strip>;
     readonly CreateSalePayment: z.ZodObject<{
         amount: z.ZodNumber;
-        date: z.ZodDefault<z.ZodOptional<z.ZodString>>;
+        date: z.ZodDefault<z.ZodOptional<z.ZodDate>>;
         description: z.ZodOptional<z.ZodString>;
         saleId: z.ZodString;
     }, z.core.$strip>;
@@ -1965,7 +2139,7 @@ export declare const schemas: {
         quantity: z.ZodNumber;
         unitPrice: z.ZodNumber;
         totalAmount: z.ZodNumber;
-        date: z.ZodString;
+        date: z.ZodDate;
         description: z.ZodNullable<z.ZodString>;
         itemId: z.ZodString;
     }, z.core.$strip>;
@@ -1981,7 +2155,7 @@ export declare const schemas: {
         quantity: z.ZodNumber;
         unitPrice: z.ZodNumber;
         totalAmount: z.ZodNumber;
-        date: z.ZodString;
+        date: z.ZodDate;
         description: z.ZodOptional<z.ZodString>;
         itemId: z.ZodString;
     }, z.core.$strip>;
@@ -1989,7 +2163,7 @@ export declare const schemas: {
         id: z.ZodString;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
-        date: z.ZodString;
+        date: z.ZodDate;
         quantity: z.ZodNumber;
         unitPrice: z.ZodNullable<z.ZodNumber>;
         totalAmount: z.ZodNullable<z.ZodNumber>;
@@ -2000,7 +2174,7 @@ export declare const schemas: {
         farmId: z.ZodString;
     }, z.core.$strip>;
     readonly CreateInventoryUsage: z.ZodObject<{
-        date: z.ZodString;
+        date: z.ZodDate;
         quantity: z.ZodNumber;
         unitPrice: z.ZodOptional<z.ZodNumber>;
         totalAmount: z.ZodOptional<z.ZodNumber>;
@@ -2025,7 +2199,7 @@ export declare const schemas: {
         amount: z.ZodNumber;
         quantity: z.ZodNullable<z.ZodNumber>;
         itemName: z.ZodNullable<z.ZodString>;
-        date: z.ZodString;
+        date: z.ZodDate;
         description: z.ZodNullable<z.ZodString>;
         reference: z.ZodNullable<z.ZodString>;
         entityType: z.ZodString;
@@ -2043,7 +2217,7 @@ export declare const schemas: {
         amount: z.ZodNumber;
         quantity: z.ZodOptional<z.ZodNumber>;
         itemName: z.ZodOptional<z.ZodString>;
-        date: z.ZodString;
+        date: z.ZodDate;
         description: z.ZodOptional<z.ZodString>;
         reference: z.ZodOptional<z.ZodString>;
         entityType: z.ZodString;
@@ -2092,13 +2266,13 @@ export declare const schemas: {
             amount: z.ZodNumber;
             quantity: z.ZodNullable<z.ZodNumber>;
             itemName: z.ZodNullable<z.ZodString>;
-            date: z.ZodString;
+            date: z.ZodDate;
             description: z.ZodNullable<z.ZodString>;
             reference: z.ZodNullable<z.ZodString>;
             entityType: z.ZodString;
             entityId: z.ZodString;
-            createdAt: z.ZodString;
-            updatedAt: z.ZodString;
+            createdAt: z.ZodDate;
+            updatedAt: z.ZodDate;
         }, z.core.$strip>>;
     }, z.core.$strip>;
     readonly DealerTransaction: z.ZodObject<{
@@ -2114,13 +2288,13 @@ export declare const schemas: {
         amount: z.ZodNumber;
         quantity: z.ZodNullable<z.ZodNumber>;
         itemName: z.ZodNullable<z.ZodString>;
-        date: z.ZodString;
+        date: z.ZodDate;
         description: z.ZodNullable<z.ZodString>;
         reference: z.ZodNullable<z.ZodString>;
         entityType: z.ZodString;
         entityId: z.ZodString;
-        createdAt: z.ZodString;
-        updatedAt: z.ZodString;
+        createdAt: z.ZodDate;
+        updatedAt: z.ZodDate;
     }, z.core.$strip>;
     readonly DealerStatistics: z.ZodObject<{
         totalDealers: z.ZodNumber;
@@ -2146,11 +2320,11 @@ export declare const schemas: {
             totalAmount: z.ZodNumber;
             amountPaid: z.ZodNumber;
             amountDue: z.ZodNumber;
-            date: z.ZodString;
-            dueDate: z.ZodString;
+            date: z.ZodDate;
+            dueDate: z.ZodDate;
             payments: z.ZodArray<z.ZodObject<{
                 amount: z.ZodNumber;
-                date: z.ZodString;
+                date: z.ZodDate;
                 reference: z.ZodNullable<z.ZodString>;
             }, z.core.$strip>>;
         }, z.core.$strip>>;
@@ -2237,7 +2411,7 @@ export declare const schemas: {
             OPENING_BALANCE: "OPENING_BALANCE";
         }>;
         amount: z.ZodNumber;
-        date: z.ZodString;
+        date: z.ZodDate;
         description: z.ZodNullable<z.ZodString>;
         reference: z.ZodNullable<z.ZodString>;
         customerId: z.ZodString;
@@ -2252,7 +2426,7 @@ export declare const schemas: {
             OPENING_BALANCE: "OPENING_BALANCE";
         }>;
         amount: z.ZodNumber;
-        date: z.ZodString;
+        date: z.ZodDate;
         description: z.ZodOptional<z.ZodString>;
         reference: z.ZodOptional<z.ZodString>;
         customerId: z.ZodString;
@@ -2261,19 +2435,19 @@ export declare const schemas: {
         id: z.ZodString;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
-        date: z.ZodString;
+        date: z.ZodDate;
         count: z.ZodNumber;
         reason: z.ZodNullable<z.ZodString>;
         batchId: z.ZodString;
     }, z.core.$strip>;
     readonly CreateMortality: z.ZodObject<{
-        date: z.ZodString;
+        date: z.ZodDate;
         count: z.ZodNumber;
         reason: z.ZodOptional<z.ZodString>;
         batchId: z.ZodString;
     }, z.core.$strip>;
     readonly UpdateMortality: z.ZodObject<{
-        date: z.ZodOptional<z.ZodString>;
+        date: z.ZodOptional<z.ZodDate>;
         count: z.ZodOptional<z.ZodNumber>;
         reason: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     }, z.core.$strip>;
@@ -2282,8 +2456,8 @@ export declare const schemas: {
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
         vaccineName: z.ZodString;
-        scheduledDate: z.ZodString;
-        completedDate: z.ZodNullable<z.ZodString>;
+        scheduledDate: z.ZodDate;
+        completedDate: z.ZodNullable<z.ZodDate>;
         status: z.ZodEnum<{
             COMPLETED: "COMPLETED";
             PENDING: "PENDING";
@@ -2295,8 +2469,8 @@ export declare const schemas: {
     }, z.core.$strip>;
     readonly CreateVaccination: z.ZodObject<{
         vaccineName: z.ZodString;
-        scheduledDate: z.ZodString;
-        completedDate: z.ZodOptional<z.ZodString>;
+        scheduledDate: z.ZodDate;
+        completedDate: z.ZodOptional<z.ZodDate>;
         status: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
             COMPLETED: "COMPLETED";
             PENDING: "PENDING";
@@ -2308,8 +2482,8 @@ export declare const schemas: {
     }, z.core.$strip>;
     readonly UpdateVaccination: z.ZodObject<{
         vaccineName: z.ZodOptional<z.ZodString>;
-        scheduledDate: z.ZodOptional<z.ZodString>;
-        completedDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        scheduledDate: z.ZodOptional<z.ZodDate>;
+        completedDate: z.ZodOptional<z.ZodNullable<z.ZodDate>>;
         status: z.ZodOptional<z.ZodEnum<{
             COMPLETED: "COMPLETED";
             PENDING: "PENDING";
@@ -2322,19 +2496,19 @@ export declare const schemas: {
         id: z.ZodString;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
-        date: z.ZodString;
+        date: z.ZodDate;
         quantity: z.ZodNumber;
         feedType: z.ZodString;
         batchId: z.ZodString;
     }, z.core.$strip>;
     readonly CreateFeedConsumption: z.ZodObject<{
-        date: z.ZodString;
+        date: z.ZodDate;
         quantity: z.ZodNumber;
         feedType: z.ZodString;
         batchId: z.ZodString;
     }, z.core.$strip>;
     readonly UpdateFeedConsumption: z.ZodObject<{
-        date: z.ZodOptional<z.ZodString>;
+        date: z.ZodOptional<z.ZodDate>;
         quantity: z.ZodOptional<z.ZodNumber>;
         feedType: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>;
@@ -2342,19 +2516,19 @@ export declare const schemas: {
         id: z.ZodString;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
-        date: z.ZodString;
+        date: z.ZodDate;
         avgWeight: z.ZodNumber;
         sampleCount: z.ZodNumber;
         batchId: z.ZodString;
     }, z.core.$strip>;
     readonly CreateBirdWeight: z.ZodObject<{
-        date: z.ZodString;
+        date: z.ZodDate;
         avgWeight: z.ZodNumber;
         sampleCount: z.ZodNumber;
         batchId: z.ZodString;
     }, z.core.$strip>;
     readonly UpdateBirdWeight: z.ZodObject<{
-        date: z.ZodOptional<z.ZodString>;
+        date: z.ZodOptional<z.ZodDate>;
         avgWeight: z.ZodOptional<z.ZodNumber>;
         sampleCount: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strip>;

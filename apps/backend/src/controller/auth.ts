@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import prisma from "../utils/prisma";
-import { Gender, UserRole, UserStatus } from "@prisma/client";
+import {  UserRole, UserStatus } from "@prisma/client";
 import { LoginSchema, SignupSchema } from "@myapp/shared-types";
 
 const generateTokens = (userId: string, role: UserRole) => {
@@ -24,6 +24,7 @@ const generateTokens = (userId: string, role: UserRole) => {
 
   return { accessToken, refreshToken };
 };
+
 
 export const login = async (req: Request, res: Response): Promise<any> => {
   try {

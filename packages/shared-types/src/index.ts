@@ -190,8 +190,8 @@ export type UpdateFarm = z.infer<typeof UpdateFarmSchema>;
 
 export const BatchSchema = BaseSchema.extend({
   batchNumber: z.string(),
-  startDate: z.string().datetime(),
-  endDate: z.string().datetime().nullable(),
+  startDate: z.date(),
+  endDate: z.date().nullable(),
   status: BatchStatusSchema,
   initialChicks: z.number().int().positive(),
   initialChickWeight: z.number().positive(),
@@ -230,14 +230,51 @@ export type BatchCount = z.infer<typeof BatchCountSchema>;
 
 export const BatchResponseSchema = BaseSchema.extend({
   batchNumber: z.string(),
-  startDate: z.string().datetime(),
-  endDate: z.string().datetime().nullable(),
+  startDate: z.date(),
+  endDate: z.date().nullable(),
   status: BatchStatusSchema,
   initialChicks: z.number().int().positive(),
   initialChickWeight: z.number().positive(),
   farmId: z.string(),
   currentChicks: z.number().int().nonnegative(), // Computed field
   farm: BatchFarmSchema,
+  expenses: z
+    .array(
+      z.object({
+        id: z.string(),
+        date: z.date(),
+        amount: z.number(),
+        description: z.string().nullable(),
+        quantity: z.number().nullable(),
+        unitPrice: z.number().nullable(),
+        category: z.object({
+          id: z.string(),
+          name: z.string(),
+          type: z.string(),
+        }),
+      })
+    )
+    .optional(),
+  sales: z
+    .array(
+      z.object({
+        id: z.string(),
+        date: z.date(),
+        amount: z.number(),
+        quantity: z.number(),
+        unitPrice: z.number(),
+        description: z.string().nullable(),
+        isCredit: z.boolean(),
+        paidAmount: z.number(),
+        dueAmount: z.number().nullable(),
+        category: z.object({
+          id: z.string(),
+          name: z.string(),
+          type: z.string(),
+        }),
+      })
+    )
+    .optional(),
   _count: BatchCountSchema,
 });
 
@@ -245,8 +282,8 @@ export type BatchResponse = z.infer<typeof BatchResponseSchema>;
 
 export const CreateBatchSchema = z.object({
   batchNumber: z.string(),
-  startDate: z.string().datetime(),
-  endDate: z.string().datetime().optional(),
+  startDate: z.date(),
+  endDate: z.date().optional(),
   status: BatchStatusSchema.optional().default("ACTIVE"),
   initialChicks: z.number().int().positive(),
   initialChickWeight: z.number().positive().optional().default(0.045),
@@ -257,8 +294,8 @@ export type CreateBatch = z.infer<typeof CreateBatchSchema>;
 
 export const UpdateBatchSchema = z.object({
   batchNumber: z.string().optional(),
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().nullable().optional(),
+  startDate: z.date().optional(),
+  endDate: z.date().nullable().optional(),
   status: BatchStatusSchema.optional(),
   initialChicks: z.number().int().positive().optional(),
   initialChickWeight: z.number().positive().optional(),
@@ -297,7 +334,7 @@ export type UpdateCategory = z.infer<typeof UpdateCategorySchema>;
 // ==================== EXPENSE SCHEMAS ====================
 
 export const ExpenseSchema = BaseSchema.extend({
-  date: z.string().datetime(),
+  date: z.date(),
   amount: z.number().positive(),
   description: z.string().nullable(),
   quantity: z.number().positive().nullable(),
@@ -310,7 +347,7 @@ export const ExpenseSchema = BaseSchema.extend({
 export type Expense = z.infer<typeof ExpenseSchema>;
 
 export const CreateExpenseSchema = z.object({
-  date: z.string().datetime(),
+  date: z.date(),
   amount: z.number().positive(),
   description: z.string().optional(),
   quantity: z.number().positive().optional(),
@@ -323,7 +360,7 @@ export const CreateExpenseSchema = z.object({
 export type CreateExpense = z.infer<typeof CreateExpenseSchema>;
 
 export const UpdateExpenseSchema = z.object({
-  date: z.string().datetime().optional(),
+  date: z.date().optional(),
   amount: z.number().positive().optional(),
   description: z.string().nullable().optional(),
   quantity: z.number().positive().nullable().optional(),
@@ -338,7 +375,7 @@ export type UpdateExpense = z.infer<typeof UpdateExpenseSchema>;
 // ==================== SALE SCHEMAS ====================
 
 export const SaleSchema = BaseSchema.extend({
-  date: z.string().datetime(),
+  date: z.date(),
   amount: z.number().positive(),
   quantity: z.number().positive(),
   unitPrice: z.number().positive(),
@@ -355,7 +392,7 @@ export const SaleSchema = BaseSchema.extend({
 export type Sale = z.infer<typeof SaleSchema>;
 
 export const CreateSaleSchema = z.object({
-  date: z.string().datetime(),
+  date: z.date(),
   amount: z.number().positive(),
   quantity: z.number().positive(),
   unitPrice: z.number().positive(),
@@ -372,7 +409,7 @@ export const CreateSaleSchema = z.object({
 export type CreateSale = z.infer<typeof CreateSaleSchema>;
 
 export const UpdateSaleSchema = z.object({
-  date: z.string().datetime().optional(),
+  date: z.date().optional(),
   amount: z.number().positive().optional(),
   quantity: z.number().positive().optional(),
   unitPrice: z.number().positive().optional(),
@@ -392,7 +429,7 @@ export type UpdateSale = z.infer<typeof UpdateSaleSchema>;
 
 export const SalePaymentSchema = BaseSchema.extend({
   amount: z.number().positive(),
-  date: z.string().datetime(),
+  date: z.date(),
   description: z.string().nullable(),
   saleId: z.string(),
 });
@@ -402,10 +439,9 @@ export type SalePayment = z.infer<typeof SalePaymentSchema>;
 export const CreateSalePaymentSchema = z.object({
   amount: z.number().positive(),
   date: z
-    .string()
-    .datetime()
+    .date()
     .optional()
-    .default(() => new Date().toISOString()),
+    .default(() => new Date()),
   description: z.string().optional(),
   saleId: z.string(),
 });
@@ -414,7 +450,13 @@ export type CreateSalePayment = z.infer<typeof CreateSalePaymentSchema>;
 
 // ==================== INVENTORY SCHEMAS ====================
 
-export const InventoryItemTypeSchema = z.enum(["FEED", "CHICKS", "MEDICINE", "EQUIPMENT", "OTHER"]);
+export const InventoryItemTypeSchema = z.enum([
+  "FEED",
+  "CHICKS",
+  "MEDICINE",
+  "EQUIPMENT",
+  "OTHER",
+]);
 export type InventoryItemType = z.infer<typeof InventoryItemTypeSchema>;
 export const InventoryItemSchema = BaseSchema.extend({
   name: z.string(),
@@ -438,7 +480,7 @@ export const CreateInventoryItemSchema = z.object({
   categoryId: z.string().optional(), // Made optional - backend will create category automatically
   itemType: InventoryItemTypeSchema.optional(),
   rate: z.number().nonnegative().optional(), // For manual additions with price
-  });
+});
 
 export type CreateInventoryItem = z.infer<typeof CreateInventoryItemSchema>;
 
@@ -459,7 +501,7 @@ export const InventoryTransactionSchema = BaseSchema.extend({
   quantity: z.number().positive(),
   unitPrice: z.number().positive(),
   totalAmount: z.number().positive(),
-  date: z.string().datetime(),
+  date: z.date(),
   description: z.string().nullable(),
   itemId: z.string(),
 });
@@ -471,7 +513,7 @@ export const CreateInventoryTransactionSchema = z.object({
   quantity: z.number().positive(),
   unitPrice: z.number().positive(),
   totalAmount: z.number().positive(),
-  date: z.string().datetime(),
+  date: z.date(),
   description: z.string().optional(),
   itemId: z.string(),
 });
@@ -481,7 +523,7 @@ export type CreateInventoryTransaction = z.infer<
 >;
 
 export const InventoryUsageSchema = BaseSchema.extend({
-  date: z.string().datetime(),
+  date: z.date(),
   quantity: z.number().positive(),
   unitPrice: z.number().positive().nullable(),
   totalAmount: z.number().positive().nullable(),
@@ -495,7 +537,7 @@ export const InventoryUsageSchema = BaseSchema.extend({
 export type InventoryUsage = z.infer<typeof InventoryUsageSchema>;
 
 export const CreateInventoryUsageSchema = z.object({
-  date: z.string().datetime(),
+  date: z.date(),
   quantity: z.number().positive(),
   unitPrice: z.number().positive().optional(),
   totalAmount: z.number().positive().optional(),
@@ -515,7 +557,7 @@ export const EntityTransactionSchema = BaseSchema.extend({
   amount: z.number(),
   quantity: z.number().int().nullable(),
   itemName: z.string().nullable(),
-  date: z.string().datetime(),
+  date: z.date(),
   description: z.string().nullable(),
   reference: z.string().nullable(),
   entityType: z.string(),
@@ -529,7 +571,7 @@ export const CreateEntityTransactionSchema = z.object({
   amount: z.number(),
   quantity: z.number().int().optional(),
   itemName: z.string().optional(),
-  date: z.string().datetime(),
+  date: z.date(),
   description: z.string().optional(),
   reference: z.string().optional(),
   entityType: z.string(),
@@ -575,13 +617,13 @@ export const DealerTransactionSchema = z.object({
   amount: z.number(),
   quantity: z.number().int().nullable(),
   itemName: z.string().nullable(),
-  date: z.string().datetime(),
+  date: z.date(),
   description: z.string().nullable(),
   reference: z.string().nullable(),
   entityType: z.string(),
   entityId: z.string(),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
 });
 
 export type DealerTransaction = z.infer<typeof DealerTransactionSchema>;
@@ -616,21 +658,25 @@ export const DealerDetailResponseSchema = BaseSchema.extend({
   balance: z.number().nonnegative(),
   thisMonthAmount: z.number().nonnegative(),
   totalTransactions: z.number().int().nonnegative(),
-  transactionTable: z.array(z.object({
-    itemName: z.string(),
-    rate: z.number(),
-    quantity: z.number(),
-    totalAmount: z.number(),
-    amountPaid: z.number(),
-    amountDue: z.number(),
-    date: z.string().datetime(),
-    dueDate: z.string().datetime(),
-    payments: z.array(z.object({
-      amount: z.number(),
-      date: z.string().datetime(),
-      reference: z.string().nullable(),
-    })),
-  })),
+  transactionTable: z.array(
+    z.object({
+      itemName: z.string(),
+      rate: z.number(),
+      quantity: z.number(),
+      totalAmount: z.number(),
+      amountPaid: z.number(),
+      amountDue: z.number(),
+      date: z.date(),
+      dueDate: z.date(),
+      payments: z.array(
+        z.object({
+          amount: z.number(),
+          date: z.date(),
+          reference: z.string().nullable(),
+        })
+      ),
+    })
+  ),
   summary: z.object({
     totalPurchases: z.number().int().nonnegative(),
     totalPayments: z.number().int().nonnegative(),
@@ -731,7 +777,7 @@ export type UpdateCustomer = z.infer<typeof UpdateCustomerSchema>;
 export const CustomerTransactionSchema = BaseSchema.extend({
   type: TransactionTypeSchema,
   amount: z.number(),
-  date: z.string().datetime(),
+  date: z.date(),
   description: z.string().nullable(),
   reference: z.string().nullable(),
   customerId: z.string(),
@@ -742,7 +788,7 @@ export type CustomerTransaction = z.infer<typeof CustomerTransactionSchema>;
 export const CreateCustomerTransactionSchema = z.object({
   type: TransactionTypeSchema,
   amount: z.number(),
-  date: z.string().datetime(),
+  date: z.date(),
   description: z.string().optional(),
   reference: z.string().optional(),
   customerId: z.string(),
@@ -755,7 +801,7 @@ export type CreateCustomerTransaction = z.infer<
 // ==================== BATCH TRACKING SCHEMAS ====================
 
 export const MortalitySchema = BaseSchema.extend({
-  date: z.string().datetime(),
+  date: z.date(),
   count: z.number().int().positive(),
   reason: z.string().nullable(),
   batchId: z.string(),
@@ -764,7 +810,7 @@ export const MortalitySchema = BaseSchema.extend({
 export type Mortality = z.infer<typeof MortalitySchema>;
 
 export const CreateMortalitySchema = z.object({
-  date: z.string().datetime(),
+  date: z.date(),
   count: z.number().int().positive(),
   reason: z.string().optional(),
   batchId: z.string(),
@@ -773,7 +819,7 @@ export const CreateMortalitySchema = z.object({
 export type CreateMortality = z.infer<typeof CreateMortalitySchema>;
 
 export const UpdateMortalitySchema = z.object({
-  date: z.string().datetime().optional(),
+  date: z.date().optional(),
   count: z.number().int().positive().optional(),
   reason: z.string().nullable().optional(),
 });
@@ -782,8 +828,8 @@ export type UpdateMortality = z.infer<typeof UpdateMortalitySchema>;
 
 export const VaccinationSchema = BaseSchema.extend({
   vaccineName: z.string(),
-  scheduledDate: z.string().datetime(),
-  completedDate: z.string().datetime().nullable(),
+  scheduledDate: z.date(),
+  completedDate: z.date().nullable(),
   status: VaccinationStatusSchema,
   notes: z.string().nullable(),
   batchId: z.string(),
@@ -793,8 +839,8 @@ export type Vaccination = z.infer<typeof VaccinationSchema>;
 
 export const CreateVaccinationSchema = z.object({
   vaccineName: z.string(),
-  scheduledDate: z.string().datetime(),
-  completedDate: z.string().datetime().optional(),
+  scheduledDate: z.date(),
+  completedDate: z.date().optional(),
   status: VaccinationStatusSchema.optional().default("PENDING"),
   notes: z.string().optional(),
   batchId: z.string(),
@@ -804,8 +850,8 @@ export type CreateVaccination = z.infer<typeof CreateVaccinationSchema>;
 
 export const UpdateVaccinationSchema = z.object({
   vaccineName: z.string().optional(),
-  scheduledDate: z.string().datetime().optional(),
-  completedDate: z.string().datetime().nullable().optional(),
+  scheduledDate: z.date().optional(),
+  completedDate: z.date().nullable().optional(),
   status: VaccinationStatusSchema.optional(),
   notes: z.string().nullable().optional(),
 });
@@ -813,7 +859,7 @@ export const UpdateVaccinationSchema = z.object({
 export type UpdateVaccination = z.infer<typeof UpdateVaccinationSchema>;
 
 export const FeedConsumptionSchema = BaseSchema.extend({
-  date: z.string().datetime(),
+  date: z.date(),
   quantity: z.number().positive(),
   feedType: z.string(),
   batchId: z.string(),
@@ -822,7 +868,7 @@ export const FeedConsumptionSchema = BaseSchema.extend({
 export type FeedConsumption = z.infer<typeof FeedConsumptionSchema>;
 
 export const CreateFeedConsumptionSchema = z.object({
-  date: z.string().datetime(),
+  date: z.date(),
   quantity: z.number().positive(),
   feedType: z.string(),
   batchId: z.string(),
@@ -831,7 +877,7 @@ export const CreateFeedConsumptionSchema = z.object({
 export type CreateFeedConsumption = z.infer<typeof CreateFeedConsumptionSchema>;
 
 export const UpdateFeedConsumptionSchema = z.object({
-  date: z.string().datetime().optional(),
+  date: z.date().optional(),
   quantity: z.number().positive().optional(),
   feedType: z.string().optional(),
 });
@@ -839,7 +885,7 @@ export const UpdateFeedConsumptionSchema = z.object({
 export type UpdateFeedConsumption = z.infer<typeof UpdateFeedConsumptionSchema>;
 
 export const BirdWeightSchema = BaseSchema.extend({
-  date: z.string().datetime(),
+  date: z.date(),
   avgWeight: z.number().positive(),
   sampleCount: z.number().int().positive(),
   batchId: z.string(),
@@ -848,7 +894,7 @@ export const BirdWeightSchema = BaseSchema.extend({
 export type BirdWeight = z.infer<typeof BirdWeightSchema>;
 
 export const CreateBirdWeightSchema = z.object({
-  date: z.string().datetime(),
+  date: z.date(),
   avgWeight: z.number().positive(),
   sampleCount: z.number().int().positive(),
   batchId: z.string(),
@@ -857,7 +903,7 @@ export const CreateBirdWeightSchema = z.object({
 export type CreateBirdWeight = z.infer<typeof CreateBirdWeightSchema>;
 
 export const UpdateBirdWeightSchema = z.object({
-  date: z.string().datetime().optional(),
+  date: z.date().optional(),
   avgWeight: z.number().positive().optional(),
   sampleCount: z.number().int().positive().optional(),
 });
@@ -1001,8 +1047,6 @@ export const AuthResponseSchema = z.object({
 
 export type AuthResponse = z.infer<typeof AuthResponseSchema>;
 
-
-
 export const FarmListResponseSchema = z.object({
   success: z.boolean(),
   data: z.array(FarmResponseSchema),
@@ -1068,7 +1112,7 @@ export const schemas = {
   Farm: FarmSchema,
   CreateFarm: CreateFarmSchema,
   UpdateFarm: UpdateFarmSchema,
-  
+
   // Farm Response Types
   FarmResponse: FarmResponseSchema,
   FarmOwner: FarmOwnerSchema,
@@ -1080,7 +1124,7 @@ export const schemas = {
   Batch: BatchSchema,
   CreateBatch: CreateBatchSchema,
   UpdateBatch: UpdateBatchSchema,
-  
+
   // Batch Response Types
   BatchResponse: BatchResponseSchema,
   BatchFarm: BatchFarmSchema,
@@ -1123,7 +1167,7 @@ export const schemas = {
   Dealer: DealerSchema,
   CreateDealer: CreateDealerSchema,
   UpdateDealer: UpdateDealerSchema,
-  
+
   // Dealer Response Types
   DealerResponse: DealerResponseSchema,
   DealerTransaction: DealerTransactionSchema,

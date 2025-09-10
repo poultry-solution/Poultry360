@@ -23,7 +23,7 @@ export const getAllBatches = async (
     const where: any = {};
 
     // Role-based filtering
-    if (currentUserRole === UserRole.MANAGER) {
+    if (currentUserRole === UserRole.MANAGER || currentUserRole === UserRole.OWNER) {
       // Managers can only see batches from farms they manage or own
       where.farm = {
         OR: [

@@ -77,7 +77,9 @@ export default function BatchesPage() {
           formData.batchNumber ||
           `B-${new Date().getFullYear()}-${String(batches.length + 1).padStart(3, "0")}`,
         farmId: formData.farmId,
-        startDate: formData.startDate ? new Date(formData.startDate).toISOString() : new Date().toISOString(),
+        startDate: formData.startDate
+          ? new Date(formData.startDate)
+          : new Date(),
         initialChicks: parseInt(formData.initialChicks),
         initialChickWeight: parseFloat(formData.initialChickWeight),
         status: "ACTIVE" as BatchStatus,
