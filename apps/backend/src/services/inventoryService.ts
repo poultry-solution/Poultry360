@@ -230,7 +230,7 @@ export class InventoryService {
       // 4. Create inventory transaction (stock reduction)
       await tx.inventoryTransaction.create({
         data: {
-          type: TransactionType.SALE, // Using SALE for consumption
+          type: TransactionType.USAGE, // Using USAGE for internal consumption
           quantity,
           unitPrice: 0, // No price for usage
           totalAmount: 0,
@@ -365,7 +365,7 @@ export class InventoryService {
       // 7. Create inventory transaction (stock reduction)
       await tx.inventoryTransaction.create({
         data: {
-          type: TransactionType.SALE, // Using SALE for consumption
+          type: TransactionType.USAGE, // Using USAGE for internal consumption
           quantity,
           unitPrice,
           totalAmount,
@@ -384,4 +384,5 @@ export class InventoryService {
       };
     });
   }
+
 }

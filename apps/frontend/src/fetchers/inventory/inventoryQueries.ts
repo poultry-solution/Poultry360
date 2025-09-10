@@ -65,6 +65,7 @@ export const useGetInventoryTableData = (itemType?: InventoryItemType) => {
     queryFn: async () => {
       const params = itemType ? { itemType } : {};
       const response = await axiosInstance.get("/inventory/table", { params });
+      console.log("response.data in useGetInventoryTableData", response.data);
       return response.data;
     },
   });

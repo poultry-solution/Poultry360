@@ -16,6 +16,7 @@ export declare const TransactionTypeSchema: z.ZodEnum<{
     RECEIPT: "RECEIPT";
     ADJUSTMENT: "ADJUSTMENT";
     OPENING_BALANCE: "OPENING_BALANCE";
+    USAGE: "USAGE";
 }>;
 export type TransactionType = z.infer<typeof TransactionTypeSchema>;
 export declare const NotificationTypeSchema: z.ZodEnum<{
@@ -397,18 +398,23 @@ export declare const ExpenseSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type Expense = z.infer<typeof ExpenseSchema>;
 export declare const CreateExpenseSchema: z.ZodObject<{
-    date: z.ZodDate;
+    date: z.ZodString;
     amount: z.ZodNumber;
     description: z.ZodOptional<z.ZodString>;
     quantity: z.ZodOptional<z.ZodNumber>;
     unitPrice: z.ZodOptional<z.ZodNumber>;
-    farmId: z.ZodString;
+    farmId: z.ZodOptional<z.ZodString>;
     batchId: z.ZodOptional<z.ZodString>;
     categoryId: z.ZodString;
+    inventoryItems: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        itemId: z.ZodString;
+        quantity: z.ZodNumber;
+        notes: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>>;
 }, z.core.$strip>;
 export type CreateExpense = z.infer<typeof CreateExpenseSchema>;
 export declare const UpdateExpenseSchema: z.ZodObject<{
-    date: z.ZodOptional<z.ZodDate>;
+    date: z.ZodOptional<z.ZodString>;
     amount: z.ZodOptional<z.ZodNumber>;
     description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     quantity: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
@@ -437,29 +443,27 @@ export declare const SaleSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type Sale = z.infer<typeof SaleSchema>;
 export declare const CreateSaleSchema: z.ZodObject<{
-    date: z.ZodDate;
+    date: z.ZodString;
     amount: z.ZodNumber;
     quantity: z.ZodNumber;
     unitPrice: z.ZodNumber;
     description: z.ZodOptional<z.ZodString>;
     isCredit: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
     paidAmount: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
-    dueAmount: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
-    farmId: z.ZodString;
+    farmId: z.ZodOptional<z.ZodString>;
     batchId: z.ZodOptional<z.ZodString>;
     categoryId: z.ZodString;
     customerId: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type CreateSale = z.infer<typeof CreateSaleSchema>;
 export declare const UpdateSaleSchema: z.ZodObject<{
-    date: z.ZodOptional<z.ZodDate>;
+    date: z.ZodOptional<z.ZodString>;
     amount: z.ZodOptional<z.ZodNumber>;
     quantity: z.ZodOptional<z.ZodNumber>;
     unitPrice: z.ZodOptional<z.ZodNumber>;
     description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     isCredit: z.ZodOptional<z.ZodBoolean>;
     paidAmount: z.ZodOptional<z.ZodNumber>;
-    dueAmount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
     farmId: z.ZodOptional<z.ZodString>;
     batchId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     categoryId: z.ZodOptional<z.ZodString>;
@@ -555,6 +559,7 @@ export declare const InventoryTransactionSchema: z.ZodObject<{
         RECEIPT: "RECEIPT";
         ADJUSTMENT: "ADJUSTMENT";
         OPENING_BALANCE: "OPENING_BALANCE";
+        USAGE: "USAGE";
     }>;
     quantity: z.ZodNumber;
     unitPrice: z.ZodNumber;
@@ -572,6 +577,7 @@ export declare const CreateInventoryTransactionSchema: z.ZodObject<{
         RECEIPT: "RECEIPT";
         ADJUSTMENT: "ADJUSTMENT";
         OPENING_BALANCE: "OPENING_BALANCE";
+        USAGE: "USAGE";
     }>;
     quantity: z.ZodNumber;
     unitPrice: z.ZodNumber;
@@ -619,6 +625,7 @@ export declare const EntityTransactionSchema: z.ZodObject<{
         RECEIPT: "RECEIPT";
         ADJUSTMENT: "ADJUSTMENT";
         OPENING_BALANCE: "OPENING_BALANCE";
+        USAGE: "USAGE";
     }>;
     amount: z.ZodNumber;
     quantity: z.ZodNullable<z.ZodNumber>;
@@ -638,6 +645,7 @@ export declare const CreateEntityTransactionSchema: z.ZodObject<{
         RECEIPT: "RECEIPT";
         ADJUSTMENT: "ADJUSTMENT";
         OPENING_BALANCE: "OPENING_BALANCE";
+        USAGE: "USAGE";
     }>;
     amount: z.ZodNumber;
     quantity: z.ZodOptional<z.ZodNumber>;
@@ -680,6 +688,7 @@ export declare const DealerTransactionSchema: z.ZodObject<{
         RECEIPT: "RECEIPT";
         ADJUSTMENT: "ADJUSTMENT";
         OPENING_BALANCE: "OPENING_BALANCE";
+        USAGE: "USAGE";
     }>;
     amount: z.ZodNumber;
     quantity: z.ZodNullable<z.ZodNumber>;
@@ -713,6 +722,7 @@ export declare const DealerResponseSchema: z.ZodObject<{
             RECEIPT: "RECEIPT";
             ADJUSTMENT: "ADJUSTMENT";
             OPENING_BALANCE: "OPENING_BALANCE";
+            USAGE: "USAGE";
         }>;
         amount: z.ZodNumber;
         quantity: z.ZodNullable<z.ZodNumber>;
@@ -851,6 +861,7 @@ export declare const CustomerTransactionSchema: z.ZodObject<{
         RECEIPT: "RECEIPT";
         ADJUSTMENT: "ADJUSTMENT";
         OPENING_BALANCE: "OPENING_BALANCE";
+        USAGE: "USAGE";
     }>;
     amount: z.ZodNumber;
     date: z.ZodDate;
@@ -867,6 +878,7 @@ export declare const CreateCustomerTransactionSchema: z.ZodObject<{
         RECEIPT: "RECEIPT";
         ADJUSTMENT: "ADJUSTMENT";
         OPENING_BALANCE: "OPENING_BALANCE";
+        USAGE: "USAGE";
     }>;
     amount: z.ZodNumber;
     date: z.ZodDate;
@@ -1419,6 +1431,7 @@ export declare const schemas: {
         RECEIPT: "RECEIPT";
         ADJUSTMENT: "ADJUSTMENT";
         OPENING_BALANCE: "OPENING_BALANCE";
+        USAGE: "USAGE";
     }>;
     readonly NotificationType: z.ZodEnum<{
         LOW_INVENTORY: "LOW_INVENTORY";
@@ -1995,17 +2008,22 @@ export declare const schemas: {
         categoryId: z.ZodString;
     }, z.core.$strip>;
     readonly CreateExpense: z.ZodObject<{
-        date: z.ZodDate;
+        date: z.ZodString;
         amount: z.ZodNumber;
         description: z.ZodOptional<z.ZodString>;
         quantity: z.ZodOptional<z.ZodNumber>;
         unitPrice: z.ZodOptional<z.ZodNumber>;
-        farmId: z.ZodString;
+        farmId: z.ZodOptional<z.ZodString>;
         batchId: z.ZodOptional<z.ZodString>;
         categoryId: z.ZodString;
+        inventoryItems: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            itemId: z.ZodString;
+            quantity: z.ZodNumber;
+            notes: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>>>;
     }, z.core.$strip>;
     readonly UpdateExpense: z.ZodObject<{
-        date: z.ZodOptional<z.ZodDate>;
+        date: z.ZodOptional<z.ZodString>;
         amount: z.ZodOptional<z.ZodNumber>;
         description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         quantity: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
@@ -2032,28 +2050,26 @@ export declare const schemas: {
         customerId: z.ZodNullable<z.ZodString>;
     }, z.core.$strip>;
     readonly CreateSale: z.ZodObject<{
-        date: z.ZodDate;
+        date: z.ZodString;
         amount: z.ZodNumber;
         quantity: z.ZodNumber;
         unitPrice: z.ZodNumber;
         description: z.ZodOptional<z.ZodString>;
         isCredit: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
         paidAmount: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
-        dueAmount: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
-        farmId: z.ZodString;
+        farmId: z.ZodOptional<z.ZodString>;
         batchId: z.ZodOptional<z.ZodString>;
         categoryId: z.ZodString;
         customerId: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>;
     readonly UpdateSale: z.ZodObject<{
-        date: z.ZodOptional<z.ZodDate>;
+        date: z.ZodOptional<z.ZodString>;
         amount: z.ZodOptional<z.ZodNumber>;
         quantity: z.ZodOptional<z.ZodNumber>;
         unitPrice: z.ZodOptional<z.ZodNumber>;
         description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         isCredit: z.ZodOptional<z.ZodBoolean>;
         paidAmount: z.ZodOptional<z.ZodNumber>;
-        dueAmount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         farmId: z.ZodOptional<z.ZodString>;
         batchId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         categoryId: z.ZodOptional<z.ZodString>;
@@ -2135,6 +2151,7 @@ export declare const schemas: {
             RECEIPT: "RECEIPT";
             ADJUSTMENT: "ADJUSTMENT";
             OPENING_BALANCE: "OPENING_BALANCE";
+            USAGE: "USAGE";
         }>;
         quantity: z.ZodNumber;
         unitPrice: z.ZodNumber;
@@ -2151,6 +2168,7 @@ export declare const schemas: {
             RECEIPT: "RECEIPT";
             ADJUSTMENT: "ADJUSTMENT";
             OPENING_BALANCE: "OPENING_BALANCE";
+            USAGE: "USAGE";
         }>;
         quantity: z.ZodNumber;
         unitPrice: z.ZodNumber;
@@ -2195,6 +2213,7 @@ export declare const schemas: {
             RECEIPT: "RECEIPT";
             ADJUSTMENT: "ADJUSTMENT";
             OPENING_BALANCE: "OPENING_BALANCE";
+            USAGE: "USAGE";
         }>;
         amount: z.ZodNumber;
         quantity: z.ZodNullable<z.ZodNumber>;
@@ -2213,6 +2232,7 @@ export declare const schemas: {
             RECEIPT: "RECEIPT";
             ADJUSTMENT: "ADJUSTMENT";
             OPENING_BALANCE: "OPENING_BALANCE";
+            USAGE: "USAGE";
         }>;
         amount: z.ZodNumber;
         quantity: z.ZodOptional<z.ZodNumber>;
@@ -2262,6 +2282,7 @@ export declare const schemas: {
                 RECEIPT: "RECEIPT";
                 ADJUSTMENT: "ADJUSTMENT";
                 OPENING_BALANCE: "OPENING_BALANCE";
+                USAGE: "USAGE";
             }>;
             amount: z.ZodNumber;
             quantity: z.ZodNullable<z.ZodNumber>;
@@ -2284,6 +2305,7 @@ export declare const schemas: {
             RECEIPT: "RECEIPT";
             ADJUSTMENT: "ADJUSTMENT";
             OPENING_BALANCE: "OPENING_BALANCE";
+            USAGE: "USAGE";
         }>;
         amount: z.ZodNumber;
         quantity: z.ZodNullable<z.ZodNumber>;
@@ -2409,6 +2431,7 @@ export declare const schemas: {
             RECEIPT: "RECEIPT";
             ADJUSTMENT: "ADJUSTMENT";
             OPENING_BALANCE: "OPENING_BALANCE";
+            USAGE: "USAGE";
         }>;
         amount: z.ZodNumber;
         date: z.ZodDate;
@@ -2424,6 +2447,7 @@ export declare const schemas: {
             RECEIPT: "RECEIPT";
             ADJUSTMENT: "ADJUSTMENT";
             OPENING_BALANCE: "OPENING_BALANCE";
+            USAGE: "USAGE";
         }>;
         amount: z.ZodNumber;
         date: z.ZodDate;

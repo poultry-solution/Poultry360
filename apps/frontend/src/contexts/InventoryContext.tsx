@@ -1,11 +1,17 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 
 export interface InventoryItem {
   id: string;
   name: string;
-  category: 'feed' | 'medicine' | 'other';
+  category: "feed" | "medicine" | "other";
   quantity: number;
   unit: string;
   rate: number;
@@ -17,22 +23,27 @@ export interface InventoryItem {
   // Purchase tracking
   purchaseHistory?: {
     id: string;
-    source: 'dealer' | 'medical_supplier' | 'manual';
+    source: "dealer" | "medical_supplier" | "manual";
     sourceId: string; // dealer/supplier name
     purchaseDate: string;
     quantity: number;
     rate: number;
     totalAmount: number;
-    paymentStatus: 'paid' | 'partial' | 'due';
+    paymentStatus: "paid" | "partial" | "due";
   }[];
 }
 
 interface InventoryContextType {
   inventory: InventoryItem[];
-  addInventoryItem: (item: Omit<InventoryItem, 'id' | 'purchaseHistory'>, purchaseHistory?: InventoryItem['purchaseHistory']) => void;
+  addInventoryItem: (
+    item: Omit<InventoryItem, "id" | "purchaseHistory">,
+    purchaseHistory?: InventoryItem["purchaseHistory"]
+  ) => void;
   updateInventoryItem: (id: string, updates: Partial<InventoryItem>) => void;
   removeInventoryItem: (id: string) => void;
-  getInventoryByCategory: (category: 'feed' | 'medicine' | 'other') => InventoryItem[];
+  getInventoryByCategory: (
+    category: "feed" | "medicine" | "other"
+  ) => InventoryItem[];
   getInventoryStats: () => {
     totalItems: number;
     lowStockItems: number;
@@ -41,12 +52,14 @@ interface InventoryContextType {
   };
 }
 
-const InventoryContext = createContext<InventoryContextType | undefined>(undefined);
+const InventoryContext = createContext<InventoryContextType | undefined>(
+  undefined
+);
 
 export const useInventory = () => {
   const context = useContext(InventoryContext);
   if (!context) {
-    throw new Error('useInventory must be used within an InventoryProvider');
+    throw new Error("useInventory must be used within an InventoryProvider");
   }
   return context;
 };
@@ -55,116 +68,131 @@ interface InventoryProviderProps {
   children: ReactNode;
 }
 
-export const InventoryProvider: React.FC<InventoryProviderProps> = ({ children }) => {
+export const InventoryProvider: React.FC<InventoryProviderProps> = ({
+  children,
+}) => {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
 
   // Initialize with mock data
   useEffect(() => {
     const mockInventory: InventoryItem[] = [
       {
-        id: '1',
-        name: 'Broiler Starter Feed',
-        category: 'feed',
+        id: "1",
+        name: "Broiler Starter Feed",
+        category: "feed",
         quantity: 500,
-        unit: 'kg',
+        unit: "kg",
         rate: 45,
         totalValue: 22500,
-        supplier: 'ABC Feed Company',
-        batchNumber: 'BF-2024-001',
-        purchaseHistory: [{
-          id: 'p1',
-          source: 'manual',
-          sourceId: 'Initial Setup',
-          purchaseDate: '2024-01-01',
-          quantity: 500,
-          rate: 45,
-          totalAmount: 22500,
-          paymentStatus: 'paid'
-        }]
+        supplier: "ABC Feed Company",
+        batchNumber: "BF-2024-001",
+        purchaseHistory: [
+          {
+            id: "p1",
+            source: "manual",
+            sourceId: "Initial Setup",
+            purchaseDate: "2024-01-01",
+            quantity: 500,
+            rate: 45,
+            totalAmount: 22500,
+            paymentStatus: "paid",
+          },
+        ],
       },
       {
-        id: '2',
-        name: 'Vitamin D3',
-        category: 'medicine',
+        id: "2",
+        name: "Vitamin D3",
+        category: "medicine",
         quantity: 10,
-        unit: 'bottles',
+        unit: "bottles",
         rate: 250,
         totalValue: 2500,
-        supplier: 'MediCorp',
-        expiryDate: '2025-12-31',
-        batchNumber: 'VD3-2024-001',
-        purchaseHistory: [{
-          id: 'p2',
-          source: 'manual',
-          sourceId: 'Initial Setup',
-          purchaseDate: '2024-01-01',
-          quantity: 10,
-          rate: 250,
-          totalAmount: 2500,
-          paymentStatus: 'paid'
-        }]
+        supplier: "MediCorp",
+        expiryDate: "2025-12-31",
+        batchNumber: "VD3-2024-001",
+        purchaseHistory: [
+          {
+            id: "p2",
+            source: "manual",
+            sourceId: "Initial Setup",
+            purchaseDate: "2024-01-01",
+            quantity: 10,
+            rate: 250,
+            totalAmount: 2500,
+            paymentStatus: "paid",
+          },
+        ],
       },
       {
-        id: '3',
-        name: 'Water Troughs',
-        category: 'other',
+        id: "3",
+        name: "Water Troughs",
+        category: "other",
         quantity: 20,
-        unit: 'pieces',
+        unit: "pieces",
         rate: 150,
         totalValue: 3000,
-        supplier: 'Farm Equipment Ltd',
-        description: 'Plastic water troughs for chicks',
-        purchaseHistory: [{
-          id: 'p3',
-          source: 'manual',
-          sourceId: 'Initial Setup',
-          purchaseDate: '2024-01-01',
-          quantity: 20,
-          rate: 150,
-          totalAmount: 3000,
-          paymentStatus: 'paid'
-        }]
-      }
+        supplier: "Farm Equipment Ltd",
+        description: "Plastic water troughs for chicks",
+        purchaseHistory: [
+          {
+            id: "p3",
+            source: "manual",
+            sourceId: "Initial Setup",
+            purchaseDate: "2024-01-01",
+            quantity: 20,
+            rate: 150,
+            totalAmount: 3000,
+            paymentStatus: "paid",
+          },
+        ],
+      },
     ];
     setInventory(mockInventory);
   }, []);
 
-  const addInventoryItem = (itemData: Omit<InventoryItem, 'id' | 'purchaseHistory'>, purchaseHistory?: InventoryItem['purchaseHistory']) => {
+  const addInventoryItem = (
+    itemData: Omit<InventoryItem, "id" | "purchaseHistory">,
+    purchaseHistory?: InventoryItem["purchaseHistory"]
+  ) => {
     const newItem: InventoryItem = {
       ...itemData,
       id: Date.now().toString(),
-      purchaseHistory: purchaseHistory || []
+      purchaseHistory: purchaseHistory || [],
     };
-    setInventory(prev => [...prev, newItem]);
+    setInventory((prev) => [...prev, newItem]);
   };
 
   const updateInventoryItem = (id: string, updates: Partial<InventoryItem>) => {
-    setInventory(prev => 
-      prev.map(item => 
-        item.id === id ? { ...item, ...updates } : item
-      )
+    setInventory((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
     );
   };
 
   const removeInventoryItem = (id: string) => {
-    setInventory(prev => prev.filter(item => item.id !== id));
+    setInventory((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const getInventoryByCategory = (category: 'feed' | 'medicine' | 'other') => {
-    return inventory.filter(item => item.category === category);
+  const getInventoryByCategory = (category: "feed" | "medicine" | "other") => {
+    const items = inventory.filter((item) => item.category === category);
+    console.log("items", items);
+    return items;
   };
 
   const getInventoryStats = () => {
     const totalItems = inventory.length;
-    const lowStockItems = inventory.filter(item => item.quantity < 50).length;
-    const totalValue = inventory.reduce((sum, item) => sum + item.totalValue, 0);
-    const categories = [...new Set(inventory.map(item => item.category))].length;
+    const lowStockItems = inventory.filter((item) => item.quantity < 50).length;
+    const totalValue = inventory.reduce(
+      (sum, item) => sum + item.totalValue,
+      0
+    );
+    const categories = [...new Set(inventory.map((item) => item.category))]
+      .length;
 
     return {
       totalItems,
       lowStockItems,
       totalValue,
-      categories
+      categories,
     };
   };
 
@@ -174,7 +202,7 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({ children }
     updateInventoryItem,
     removeInventoryItem,
     getInventoryByCategory,
-    getInventoryStats
+    getInventoryStats,
   };
 
   return (

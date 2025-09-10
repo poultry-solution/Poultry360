@@ -3,7 +3,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, notFound } from "next/navigation";
 import {
   Card,
@@ -18,16 +18,20 @@ import { Layers, ArrowLeft, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  DataTable,
-  Column,
-  createColumn,
-} from "@/components/ui/data-table";
-import { useInventory } from "@/contexts/InventoryContext";
+import { DataTable, Column, createColumn } from "@/components/ui/data-table";
 import {
   useGetBatchById,
   useGetBatchAnalytics,
 } from "@/fetchers/batches/batchQueries";
+import {
+  useGetBatchExpenses,
+  useCreateExpense,
+  useUpdateExpense,
+  useDeleteExpense,
+  useGetExpenseCategories,
+} from "@/fetchers/expenses/expenseQueries";
+import { useGetInventoryTableData } from "@/fetchers/inventory/inventoryQueries";
+import { useBatchSalesManagement } from "@/fetchers/sale/saleQueries";
 
 type ExpenseCategory = "Feed" | "Medicine" | "Hatchery" | "Other";
 
@@ -67,7 +71,7 @@ type SaleRow = {
 };
 
 type LedgerRow = {
-  id: number;
+  id: string | number;
   name: string;
   contact: string;
   category: "Chicken" | "Other";
@@ -85,8 +89,8 @@ const TABS = [
 ] as const;
 
 function formatDateYYYYMMDD(dateStr: string | Date): string {
-  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
-  return date.toISOString().split('T')[0];
+  const date = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
+  return date.toISOString().split("T")[0];
 }
 
 // helper banner
@@ -128,79 +132,108 @@ export default function BatchDetailPage() {
 
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>("Overview");
 
-  // Inventory integration
-  const { inventory, updateInventoryItem, getInventoryByCategory } =
-    useInventory();
-  const feedInventory = getInventoryByCategory("feed");
-  const medicineInventory = getInventoryByCategory("medicine");
-
   // --- State (with localStorage persistence) ---
   const storageKey = (suffix: string) => `p360:batch:${batchId}:${suffix}`;
 
-  const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
-  const [sales, setSales] = useState<SaleRow[]>([]);
+  // Fetch real expense data
+  const {
+    data: expensesResponse,
+    isLoading: expensesLoading,
+    error: expensesError,
+  } = useGetBatchExpenses(batchId || "");
+
+  const expenses = expensesResponse?.data || [];
+
+  // Fetch expense categories
+  const { data: categoriesResponse } = useGetExpenseCategories("EXPENSE");
+  const expenseCategories = categoriesResponse?.data || [];
+
+  // Fetch inventory items for selection (using table data for better structure)
+  const { data: inventoryResponse } = useGetInventoryTableData();
+  const inventoryItems = inventoryResponse?.data || [];
+
+  // Fetch sales data for this batch
+  const {
+    sales: batchSales,
+    categories: salesCategories,
+    isLoading: salesLoading,
+    error: salesError,
+    createSale,
+    updateSale,
+    deleteSale,
+    addPayment,
+    isCreating,
+    isUpdating,
+    isDeleting,
+    isAddingPayment,
+    refetch: refetchSales,
+  } = useBatchSalesManagement(batchId || "");
+
+  // Inventory integration - using the new data structure
+  const feedInventory = inventoryItems.filter(
+    (item: any) => item.itemType === "FEED"
+  );
+  const medicineInventory = inventoryItems.filter(
+    (item: any) => item.itemType === "MEDICINE"
+  );
+
+  // Calculate customer balances from sales data
+  const customerBalances = useMemo(() => {
+    if (!batchSales) return [];
+
+    const customerMap = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        contact: string;
+        category: "Chicken" | "Other";
+        sales: number;
+        received: number;
+        balance: number;
+      }
+    >();
+
+    batchSales.forEach((sale: any) => {
+      if (sale.isCredit && sale.customerId) {
+        const customerId = sale.customerId;
+        const existing = customerMap.get(customerId) || {
+          id: customerId,
+          name: `Customer ${customerId.slice(-4)}`, // Fallback name
+          contact: "—",
+          category: "Chicken" as "Chicken" | "Other",
+          sales: 0,
+          received: 0,
+          balance: 0,
+        };
+
+        existing.sales += sale.amount;
+        existing.received += sale.paidAmount;
+        existing.balance += sale.dueAmount || 0;
+
+        customerMap.set(customerId, existing);
+      }
+    });
+
+    return Array.from(customerMap.values());
+  }, [batchSales]);
+
+  // Calculate total receivable from customer balances
+  const receivableTotal = customerBalances.reduce(
+    (sum, customer) => sum + customer.balance,
+    0
+  );
+
+  // Expense mutations
+  const createExpenseMutation = useCreateExpense();
+  const updateExpenseMutation = useUpdateExpense();
+  const deleteExpenseMutation = useDeleteExpense();
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
 
-  // Load
+  // Load ledger data from localStorage
   useEffect(() => {
     try {
-      const ex = localStorage.getItem(storageKey("expenses"));
-      const sa = localStorage.getItem(storageKey("sales"));
       const le = localStorage.getItem(storageKey("ledger"));
-      setExpenses(
-        ex
-          ? JSON.parse(ex)
-          : [
-              {
-                id: 1,
-                category: "Feed",
-                feedBrand: "Broiler Starter",
-                feedQuantity: 10,
-                feedRate: 4500,
-                amount: 45000,
-                date: "2024-02-10",
-                notes: "25kg x 10",
-              },
-              {
-                id: 2,
-                category: "Medicine",
-                medicineName: "Vitamin D3",
-                medicineQuantity: 2,
-                medicineRate: 3250,
-                amount: 6500,
-                date: "2024-02-12",
-              },
-            ]
-      );
-      setSales(
-        sa
-          ? JSON.parse(sa)
-          : [
-              {
-                id: 1,
-                item: "Chicken",
-                rate: 240,
-                quantity: 120,
-                remaining: false,
-                customer: null,
-                date: "2024-03-01",
-              },
-              {
-                id: 2,
-                item: "Chicken",
-                rate: 235,
-                quantity: 90,
-                remaining: true,
-                customer: {
-                  name: "Sharma Traders",
-                  contact: "9800000000",
-                  category: "Chicken",
-                  balance: 5000,
-                },
-                date: "2024-03-05",
-              },
-            ]
-      );
       setLedger(
         le
           ? JSON.parse(le)
@@ -229,17 +262,7 @@ export default function BatchDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [batchId]);
 
-  // Save
-  useEffect(() => {
-    try {
-      localStorage.setItem(storageKey("expenses"), JSON.stringify(expenses));
-    } catch {}
-  }, [expenses, storageKey]);
-  useEffect(() => {
-    try {
-      localStorage.setItem(storageKey("sales"), JSON.stringify(sales));
-    } catch {}
-  }, [sales, storageKey]);
+  // Save ledger data to localStorage
   useEffect(() => {
     try {
       localStorage.setItem(storageKey("ledger"), JSON.stringify(ledger));
@@ -277,28 +300,29 @@ export default function BatchDetailPage() {
 
   // Handle feed selection from inventory
   function handleFeedSelection(feedId: string) {
-    const selectedFeed = feedInventory.find((feed) => feed.id === feedId);
+    const selectedFeed = inventoryItems.find((feed: any) => feed.id === feedId);
     if (selectedFeed) {
+      console.log("selectedFeed", selectedFeed);
       setExpenseForm((prev) => ({
         ...prev,
         selectedFeedId: feedId,
         feedBrand: selectedFeed.name,
-        feedRate: selectedFeed.rate.toString(),
+        feedRate: selectedFeed.rate?.toString() || "0",
       }));
     }
   }
 
   // Handle medicine selection from inventory
   function handleMedicineSelection(medicineId: string) {
-    const selectedMedicine = medicineInventory.find(
-      (medicine) => medicine.id === medicineId
+    const selectedMedicine = inventoryItems.find(
+      (medicine: any) => medicine.id === medicineId
     );
     if (selectedMedicine) {
       setExpenseForm((prev) => ({
         ...prev,
         selectedMedicineId: medicineId,
         medicineName: selectedMedicine.name,
-        medicineRate: selectedMedicine.rate.toString(),
+        medicineRate: selectedMedicine.rate?.toString() || "0",
       }));
     }
   }
@@ -325,31 +349,37 @@ export default function BatchDetailPage() {
     });
     setIsExpenseModalOpen(true);
   }
-  function openEditExpense(row: ExpenseRow) {
-    setEditingExpenseId(row.id);
+  function openEditExpense(row: any) {
+    setEditingExpenseId(parseInt(row.id));
     setExpenseForm({
-      category: row.category,
-      date: row.date,
-      notes: row.notes ?? "",
-      feedBrand: row.feedBrand?.toString() ?? "",
-      feedQuantity: row.feedQuantity?.toString() ?? "",
-      feedRate: row.feedRate?.toString() ?? "",
-      selectedFeedId: "", // For editing, we'll keep it empty to allow manual editing
-      hatcheryName: row.hatcheryName?.toString() ?? "",
-      hatcheryRate: row.hatcheryRate?.toString() ?? "",
-      hatcheryQuantity: row.hatcheryQuantity?.toString() ?? "",
-      medicineName: row.medicineName?.toString() ?? "",
-      medicineRate: row.medicineRate?.toString() ?? "",
-      medicineQuantity: row.medicineQuantity?.toString() ?? "",
-      selectedMedicineId: "", // For editing, we'll keep it empty to allow manual editing
-      otherName: row.otherName?.toString() ?? "",
-      otherRate: row.otherRate?.toString() ?? "",
-      otherQuantity: row.otherQuantity?.toString() ?? "",
+      category: row.category?.name || "Other",
+      date: row.date ? new Date(row.date).toISOString().slice(0, 10) : "",
+      notes: row.description || "",
+      feedBrand: "",
+      feedQuantity: row.quantity?.toString() || "",
+      feedRate: row.unitPrice?.toString() || "",
+      selectedFeedId: "",
+      hatcheryName: "",
+      hatcheryRate: row.unitPrice?.toString() || "",
+      hatcheryQuantity: row.quantity?.toString() || "",
+      medicineName: "",
+      medicineRate: row.unitPrice?.toString() || "",
+      medicineQuantity: row.quantity?.toString() || "",
+      selectedMedicineId: "",
+      otherName: "",
+      otherRate: row.unitPrice?.toString() || "",
+      otherQuantity: row.quantity?.toString() || "",
     });
     setIsExpenseModalOpen(true);
   }
-  function deleteExpense(id: number) {
-    setExpenses((prev) => prev.filter((r) => r.id !== id));
+  async function deleteExpense(id: number) {
+    try {
+      await deleteExpenseMutation.mutateAsync(id.toString());
+      flash("success", "Expense deleted successfully");
+    } catch (error) {
+      console.error("Failed to delete expense:", error);
+      flash("error", "Failed to delete expense. Please try again.");
+    }
   }
 
   // Banners
@@ -378,8 +408,9 @@ export default function BatchDetailPage() {
       // Check if quantity exceeds available inventory
       if (expenseForm.selectedFeedId && expenseForm.feedQuantity) {
         const selectedFeed = feedInventory.find(
-          (feed) => feed.id === expenseForm.selectedFeedId
+          (feed: any) => feed.id === expenseForm.selectedFeedId
         );
+
         const requestedQty = Number(expenseForm.feedQuantity);
         if (selectedFeed && requestedQty > selectedFeed.quantity) {
           errs.feedQuantity = `Only ${selectedFeed.quantity} ${selectedFeed.unit} available`;
@@ -401,7 +432,7 @@ export default function BatchDetailPage() {
       // Check if quantity exceeds available inventory
       if (expenseForm.selectedMedicineId && expenseForm.medicineQuantity) {
         const selectedMedicine = medicineInventory.find(
-          (medicine) => medicine.id === expenseForm.selectedMedicineId
+          (medicine: any) => medicine.id === expenseForm.selectedMedicineId
         );
         const requestedQty = Number(expenseForm.medicineQuantity);
         if (selectedMedicine && requestedQty > selectedMedicine.quantity) {
@@ -416,101 +447,115 @@ export default function BatchDetailPage() {
     setExpenseErrors(errs);
     return Object.keys(errs).length === 0;
   }
-  function submitExpense(e: React.FormEvent) {
+  async function submitExpense(e: React.FormEvent) {
     e.preventDefault();
     if (!validateExpense()) {
       flash("error", "Please fill all required fields");
       return;
     }
-    let amount = 0;
-    const ec = expenseForm.category;
-    const base: any = {
-      id:
-        editingExpenseId ??
-        (expenses.length ? Math.max(...expenses.map((r) => r.id)) + 1 : 1),
-      category: ec,
-      amount: 0,
-      date: expenseForm.date || new Date().toISOString().slice(0, 10),
-      notes: expenseForm.notes,
-    };
-    if (ec === "Feed") {
-      const q = Number(expenseForm.feedQuantity || 0),
-        r = Number(expenseForm.feedRate || 0);
-      amount = q * r;
-      Object.assign(base, {
-        feedBrand: expenseForm.feedBrand,
-        feedQuantity: q,
-        feedRate: r,
-        amount,
-      });
 
-      // Update inventory - subtract used quantity
-      if (expenseForm.selectedFeedId && q > 0) {
-        const selectedFeed = feedInventory.find(
-          (feed) => feed.id === expenseForm.selectedFeedId
-        );
-        if (selectedFeed) {
-          const newQuantity = Math.max(0, selectedFeed.quantity - q);
-          updateInventoryItem(expenseForm.selectedFeedId, {
-            quantity: newQuantity,
-            totalValue: newQuantity * selectedFeed.rate,
+    try {
+      let amount = 0;
+      let quantity = 0;
+      let unitPrice = 0;
+      let description = expenseForm.notes || "";
+      let inventoryItems: any[] = [];
+
+      const ec = expenseForm.category;
+
+      // Find the appropriate category
+      const category = expenseCategories.find((cat: any) =>
+        cat.name.toLowerCase().includes(ec.toLowerCase())
+      );
+
+      if (!category) {
+        flash("error", "Category not found. Please create the category first.");
+        return;
+      }
+
+      if (ec === "Feed") {
+        const q = Number(expenseForm.feedQuantity || 0);
+        const r = Number(expenseForm.feedRate || 0);
+        amount = q * r;
+        quantity = q;
+        unitPrice = r;
+        description = `${expenseForm.feedBrand} - ${description}`;
+
+        // Add inventory item if selected
+        if (expenseForm.selectedFeedId && q > 0) {
+          console.log("expenseForm.selectedFeedId", expenseForm.selectedFeedId);
+          inventoryItems.push({
+            itemId: expenseForm.selectedFeedId,
+            quantity: q,
+            notes: `Feed: ${expenseForm.feedBrand}`,
           });
         }
-      }
-    } else if (ec === "Hatchery") {
-      const q = Number(expenseForm.hatcheryQuantity || 0),
-        r = Number(expenseForm.hatcheryRate || 0);
-      amount = q * r;
-      Object.assign(base, {
-        hatcheryName: expenseForm.hatcheryName,
-        hatcheryQuantity: q,
-        hatcheryRate: r,
-        amount,
-      });
-    } else if (ec === "Medicine") {
-      const q = Number(expenseForm.medicineQuantity || 0),
-        r = Number(expenseForm.medicineRate || 0);
-      amount = q * r;
-      Object.assign(base, {
-        medicineName: expenseForm.medicineName,
-        medicineQuantity: q,
-        medicineRate: r,
-        amount,
-      });
+      } else if (ec === "Hatchery") {
+        const q = Number(expenseForm.hatcheryQuantity || 0);
+        const r = Number(expenseForm.hatcheryRate || 0);
+        amount = q * r;
+        quantity = q;
+        unitPrice = r;
+        description = `${expenseForm.hatcheryName} - ${description}`;
+      } else if (ec === "Medicine") {
+        const q = Number(expenseForm.medicineQuantity || 0);
+        const r = Number(expenseForm.medicineRate || 0);
+        amount = q * r;
+        quantity = q;
+        unitPrice = r;
+        description = `${expenseForm.medicineName} - ${description}`;
 
-      // Update inventory - subtract used quantity
-      if (expenseForm.selectedMedicineId && q > 0) {
-        const selectedMedicine = medicineInventory.find(
-          (medicine) => medicine.id === expenseForm.selectedMedicineId
-        );
-        if (selectedMedicine) {
-          const newQuantity = Math.max(0, selectedMedicine.quantity - q);
-          updateInventoryItem(expenseForm.selectedMedicineId, {
-            quantity: newQuantity,
-            totalValue: newQuantity * selectedMedicine.rate,
+        // Add inventory item if selected
+        if (expenseForm.selectedMedicineId && q > 0) {
+          inventoryItems.push({
+            itemId: expenseForm.selectedMedicineId,
+            quantity: q,
+            notes: `Medicine: ${expenseForm.medicineName}`,
           });
         }
+      } else {
+        const q = Number(expenseForm.otherQuantity || 0);
+        const r = Number(expenseForm.otherRate || 0);
+        amount = q * r;
+        quantity = q;
+        unitPrice = r;
+        description = `${expenseForm.otherName} - ${description}`;
       }
-    } else {
-      const q = Number(expenseForm.otherQuantity || 0),
-        r = Number(expenseForm.otherRate || 0);
-      amount = q * r;
-      Object.assign(base, {
-        otherName: expenseForm.otherName,
-        otherQuantity: q,
-        otherRate: r,
+
+      const expenseData = {
+        date: expenseForm.date
+          ? new Date(expenseForm.date).toISOString()
+          : new Date().toISOString(),
         amount,
-      });
+        description,
+        quantity,
+        unitPrice,
+        farmId: batch?.farmId,
+        batchId: batchId,
+        categoryId: category.id,
+        inventoryItems: inventoryItems.length > 0 ? inventoryItems : undefined,
+      };
+
+      if (editingExpenseId) {
+        // Update existing expense
+        await updateExpenseMutation.mutateAsync({
+          id: editingExpenseId.toString(),
+          data: expenseData,
+        });
+        flash("success", "Expense updated successfully");
+      } else {
+        // Create new expense
+        await createExpenseMutation.mutateAsync(expenseData);
+        flash("success", "Expense added successfully");
+      }
+
+      setIsExpenseModalOpen(false);
+      setEditingExpenseId(null);
+      setExpenseErrors({});
+    } catch (error) {
+      console.error("Failed to save expense:", error);
+      flash("error", "Failed to save expense. Please try again.");
     }
-    setExpenses((prev) =>
-      editingExpenseId
-        ? prev.map((r: any) => (r.id === editingExpenseId ? base : r))
-        : [base, ...prev]
-    );
-    setIsExpenseModalOpen(false);
-    setEditingExpenseId(null);
-    setExpenseErrors({});
-    flash("success", editingExpenseId ? "Expense updated" : "Expense added");
   }
 
   // --- Sales Modal ---
@@ -523,7 +568,8 @@ export default function BatchDetailPage() {
     remaining: false,
     customerName: "",
     contact: "",
-    category: "Chicken",
+    categoryId: "",
+    customerCategory: "Chicken",
     balance: "",
     date: "",
   });
@@ -539,6 +585,18 @@ export default function BatchDetailPage() {
   }
   function openNewSale() {
     setEditingSaleId(null);
+    setSaleForm({
+      item: "Chicken",
+      rate: "",
+      quantity: "",
+      remaining: false,
+      customerName: "",
+      contact: "",
+      categoryId: salesCategories[0]?.id || "",
+      customerCategory: "Chicken",
+      balance: "",
+      date: new Date().toISOString().split("T")[0], // Set today's date in YYYY-MM-DD format
+    });
     setIsSaleModalOpen(true);
   }
   function openEditSale(row: SaleRow) {
@@ -550,21 +608,30 @@ export default function BatchDetailPage() {
       remaining: row.remaining,
       customerName: row.customer?.name || "",
       contact: row.customer?.contact || "",
-      category: row.customer?.category || "Chicken",
+      categoryId: "", // TODO: Get category ID from sale data
+      customerCategory: row.customer?.category || "Chicken",
       balance: String(row.customer?.balance ?? ""),
       date: row.date,
     });
     setIsSaleModalOpen(true);
   }
-  function deleteSale(id: number) {
-    setSales((prev) => prev.filter((r) => r.id !== id));
+  async function handleDeleteSale(id: string) {
+    try {
+      await deleteSale(id);
+      flash("success", "Sale deleted successfully");
+    } catch (error) {
+      console.error("Failed to delete sale:", error);
+      flash("error", "Failed to delete sale");
+    }
   }
 
   const [saleErrors, setSaleErrors] = useState<Record<string, string>>({});
   function validateSale(): boolean {
     const errs: Record<string, string> = {};
+    if (!saleForm.item) errs.item = "Item description required";
     if (!saleForm.rate) errs.rate = "Rate required";
     if (!saleForm.quantity) errs.quantity = "Quantity required";
+    if (!saleForm.date) errs.date = "Date required";
     if (saleForm.remaining) {
       if (!saleForm.customerName) errs.customerName = "Customer name required";
       if (!saleForm.balance) errs.balance = "Balance required";
@@ -572,35 +639,45 @@ export default function BatchDetailPage() {
     setSaleErrors(errs);
     return Object.keys(errs).length === 0;
   }
-  function submitSale(e: React.FormEvent) {
+  async function submitSale(e: React.FormEvent) {
     e.preventDefault();
-    const newRow: SaleRow = {
-      id:
-        editingSaleId ??
-        (sales.length ? Math.max(...sales.map((r) => r.id)) + 1 : 1),
-      item: saleForm.item,
-      rate: Number(saleForm.rate || 0),
-      quantity: Number(saleForm.quantity || 0),
-      remaining: saleForm.remaining,
-      customer: saleForm.remaining
-        ? {
-            name: saleForm.customerName,
-            contact: saleForm.contact,
-            category: saleForm.category as any,
-            balance: Number(saleForm.balance || 0),
-          }
-        : null,
-      date: saleForm.date || new Date().toISOString().slice(0, 10),
-    };
-    setSales((prev) =>
-      editingSaleId
-        ? prev.map((r) => (r.id === editingSaleId ? newRow : r))
-        : [newRow, ...prev]
-    );
-    setIsSaleModalOpen(false);
-    setEditingSaleId(null);
-    setSaleErrors({});
-    flash("success", editingSaleId ? "Sale updated" : "Sale added");
+
+    if (!validateSale()) return;
+
+    try {
+      const saleData = {
+        date: saleForm.date
+          ? `${saleForm.date}T00:00:00.000Z`
+          : new Date().toISOString(),
+        amount: Number(saleForm.rate || 0) * Number(saleForm.quantity || 0),
+        quantity: Number(saleForm.quantity || 0),
+        unitPrice: Number(saleForm.rate || 0),
+        description: saleForm.item,
+        isCredit: saleForm.remaining,
+        paidAmount: saleForm.remaining
+          ? 0
+          : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0),
+        farmId: batch?.farmId,
+        batchId: batchId,
+        categoryId: saleForm.categoryId || salesCategories[0]?.id || "", // Use selected or first available category
+        customerId: saleForm.remaining ? undefined : undefined, // TODO: Create customer if needed
+      };
+
+      if (editingSaleId) {
+        await updateSale({ id: String(editingSaleId), data: saleData });
+        flash("success", "Sale updated successfully");
+      } else {
+        await createSale(saleData);
+        flash("success", "Sale added successfully");
+      }
+
+      setIsSaleModalOpen(false);
+      setEditingSaleId(null);
+      setSaleErrors({});
+    } catch (error) {
+      console.error("Failed to save sale:", error);
+      flash("error", "Failed to save sale");
+    }
   }
 
   // --- Ledger Modal ---
@@ -613,6 +690,23 @@ export default function BatchDetailPage() {
     sales: "",
     received: "",
   });
+
+  // Payment management state
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<{
+    id: string;
+    name: string;
+    balance: number;
+  } | null>(null);
+  const [paymentForm, setPaymentForm] = useState({
+    amount: "",
+    date: new Date().toISOString().split("T")[0],
+    description: "",
+    reference: "",
+  });
+  const [paymentErrors, setPaymentErrors] = useState<Record<string, string>>(
+    {}
+  );
   function updateLedgerField(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) {
@@ -624,7 +718,7 @@ export default function BatchDetailPage() {
     setIsLedgerModalOpen(true);
   }
   function openEditLedger(row: LedgerRow) {
-    setEditingLedgerId(row.id);
+    setEditingLedgerId(typeof row.id === "string" ? parseInt(row.id) : row.id);
     setLedgerForm({
       name: row.name,
       contact: row.contact,
@@ -652,7 +746,13 @@ export default function BatchDetailPage() {
     const newRow: LedgerRow = {
       id:
         editingLedgerId ??
-        (ledger.length ? Math.max(...ledger.map((r) => r.id)) + 1 : 1),
+        (customerBalances.length
+          ? Math.max(
+              ...customerBalances.map((r) =>
+                typeof r.id === "number" ? r.id : parseInt(r.id)
+              )
+            ) + 1
+          : 1),
       name: ledgerForm.name,
       contact: ledgerForm.contact,
       category: ledgerForm.category,
@@ -669,6 +769,88 @@ export default function BatchDetailPage() {
     setEditingLedgerId(null);
     setLedgerErrors({});
     flash("success", editingLedgerId ? "Ledger updated" : "Ledger entry added");
+  }
+
+  // Payment management functions
+  function openPaymentModal(customer: {
+    id: string;
+    name: string;
+    balance: number;
+  }) {
+    setSelectedCustomer(customer);
+    setPaymentForm({
+      amount: "",
+      date: new Date().toISOString().split("T")[0],
+      description: `Payment from ${customer.name}`,
+      reference: "",
+    });
+    setPaymentErrors({});
+    setIsPaymentModalOpen(true);
+  }
+
+  function updatePaymentField(
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) {
+    const { name, value } = e.target;
+    setPaymentForm((prev) => ({ ...prev, [name]: value }));
+    // Clear error when user starts typing
+    if (paymentErrors[name]) {
+      setPaymentErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  }
+
+  function validatePayment(): boolean {
+    const errors: Record<string, string> = {};
+    if (!paymentForm.amount) errors.amount = "Amount is required";
+    if (!paymentForm.date) errors.date = "Date is required";
+    if (
+      selectedCustomer &&
+      Number(paymentForm.amount) > selectedCustomer.balance
+    ) {
+      errors.amount = `Amount cannot exceed balance of ₹${selectedCustomer.balance.toLocaleString()}`;
+    }
+    setPaymentErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
+
+  async function submitPayment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!validatePayment() || !selectedCustomer) return;
+
+    try {
+      // Find the first credit sale for this customer to add payment to
+      const customerSale = batchSales?.find(
+        (sale: any) => sale.isCredit && sale.customerId === selectedCustomer.id
+      );
+
+      if (!customerSale) {
+        flash("error", "No credit sale found for this customer");
+        return;
+      }
+
+      // Add payment using the existing addPayment function
+      await addPayment({
+        saleId: customerSale.id,
+        data: {
+          amount: Number(paymentForm.amount),
+          date: paymentForm.date,
+          description: paymentForm.description,
+        },
+      });
+
+      flash("success", "Payment recorded successfully!");
+      setIsPaymentModalOpen(false);
+      setPaymentForm({
+        amount: "",
+        date: new Date().toISOString().split("T")[0],
+        description: "",
+        reference: "",
+      });
+      setSelectedCustomer(null);
+    } catch (error) {
+      console.error("Failed to record payment:", error);
+      flash("error", "Failed to record payment");
+    }
   }
 
   // Loading state
@@ -688,8 +870,8 @@ export default function BatchDetailPage() {
 
   // Calculate totals from real data
   const salesTotal =
-    (batch as any).sales?.reduce(
-      (sum: number, s: any) => sum + Number(s.amount),
+    batchSales?.reduce(
+      (sum: number, sale: any) => sum + Number(sale.amount),
       0
     ) || 0;
   const expensesTotal =
@@ -697,7 +879,7 @@ export default function BatchDetailPage() {
       (sum: number, ex: any) => sum + Number(ex.amount),
       0
     ) || 0;
-  const receivableTotal = ledger.reduce((sum, l) => sum + l.balance, 0);
+
   const profit = salesTotal - expensesTotal;
   const perBirdRevenue = batch.initialChicks
     ? salesTotal / batch.initialChicks
@@ -713,51 +895,57 @@ export default function BatchDetailPage() {
   );
 
   // Column configurations for DataTable
-  const expenseColumns: Column<ExpenseRow>[] = [
+  const expenseColumns: Column<any>[] = [
     createColumn("category", "Category", {
       type: "badge",
       width: "120px",
-      render: (value) => (
+      render: (_, row) => (
         <Badge
           variant="secondary"
           className={
-            value === "Feed"
+            row.category?.name === "Feed"
               ? "bg-blue-100 text-blue-800"
-              : value === "Medicine"
+              : row.category?.name === "Medicine"
                 ? "bg-red-100 text-red-800"
-                : value === "Hatchery"
+                : row.category?.name === "Hatchery"
                   ? "bg-green-100 text-green-800"
                   : "bg-gray-100 text-gray-800"
           }
         >
-          {value}
+          {row.category?.name || "Other"}
         </Badge>
       ),
     }),
     createColumn("details", "Details", {
       render: (_, row) => {
-        if (row.category === "Feed") {
-          return `${row.feedBrand ?? ""} • Qty ${row.feedQuantity ?? 0} • Rate ₹${row.feedRate?.toLocaleString()}`;
-        } else if (row.category === "Hatchery") {
-          return `${row.hatcheryName ?? ""} • Qty ${row.hatcheryQuantity ?? 0} • Rate ₹${row.hatcheryRate?.toLocaleString()}`;
-        } else if (row.category === "Medicine") {
-          return `${row.medicineName ?? ""} • Qty ${row.medicineQuantity ?? 0} • Rate ₹${row.medicineRate?.toLocaleString()}`;
-        } else {
-          return `${row.otherName ?? ""} • Qty ${row.otherQuantity ?? 0} • Rate ₹${row.otherRate?.toLocaleString()}`;
+        const details = [];
+        if (row.quantity) details.push(`Qty: ${row.quantity}`);
+        if (row.unitPrice)
+          details.push(`Rate: ₹${Number(row.unitPrice).toLocaleString()}`);
+        if (row.inventoryUsages && row.inventoryUsages.length > 0) {
+          const items = row.inventoryUsages
+            .map(
+              (usage: any) =>
+                `${usage.item.name} (${usage.quantity}${usage.item.unit})`
+            )
+            .join(", ");
+          details.push(`Items: ${items}`);
         }
+        return details.join(" • ") || row.description || "—";
       },
     }),
     createColumn("amount", "Amount", {
       type: "currency",
       align: "right",
       width: "120px",
+      render: (value) => `₹${Number(value).toLocaleString()}`,
     }),
     createColumn("date", "Date", {
       type: "date",
       width: "100px",
       render: (value) => formatDateYYYYMMDD(value),
     }),
-    createColumn("notes", "Notes", {
+    createColumn("description", "Notes", {
       render: (value) => value || "—",
     }),
     {
@@ -789,30 +977,40 @@ export default function BatchDetailPage() {
     },
   ];
 
-  const salesColumns: Column<SaleRow>[] = [
-    createColumn("item", "Item", {
-      type: "badge",
+  const salesColumns: Column<any>[] = [
+    createColumn("date", "Date", {
+      type: "date",
       width: "100px",
+      render: (value) => formatDateYYYYMMDD(value),
+    }),
+    createColumn("description", "Item", {
+      type: "badge",
+      width: "120px",
       render: (value) => (
         <Badge variant="secondary" className="bg-green-100 text-green-800">
-          {value}
+          {value || "Sale"}
         </Badge>
       ),
-    }),
-    createColumn("rate", "Rate", {
-      type: "currency",
-      align: "right",
-      width: "100px",
     }),
     createColumn("quantity", "Quantity", {
       type: "number",
       align: "right",
       width: "100px",
     }),
-    createColumn("remaining", "Remaining", {
+    createColumn("unitPrice", "Rate", {
+      type: "currency",
+      align: "right",
+      width: "100px",
+    }),
+    createColumn("amount", "Total", {
+      type: "currency",
+      align: "right",
+      width: "120px",
+    }),
+    createColumn("isCredit", "Credit", {
       type: "badge",
       align: "center",
-      width: "100px",
+      width: "80px",
       render: (value) => (
         <Badge
           variant="secondary"
@@ -826,39 +1024,17 @@ export default function BatchDetailPage() {
         </Badge>
       ),
     }),
-    createColumn("customerName", "Customer", {
-      render: (_, row) => row.customer?.name || "—",
-    }),
-    createColumn("customerContact", "Contact", {
-      render: (_, row) => row.customer?.contact || "—",
-    }),
-    createColumn("customerCategory", "Category", {
-      render: (_, row) =>
-        row.customer?.category ? (
-          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-            {row.customer.category}
-          </Badge>
-        ) : (
-          "—"
-        ),
-    }),
-    createColumn("customerBalance", "Balance", {
+    createColumn("paidAmount", "Paid", {
       type: "currency",
       align: "right",
-      width: "120px",
-      render: (_, row) =>
-        row.customer ? `₹${row.customer.balance.toLocaleString()}` : "—",
-    }),
-    createColumn("date", "Date", {
-      type: "date",
       width: "100px",
-      render: (value) => formatDateYYYYMMDD(value),
+      render: (value) => (value ? `₹${Number(value).toLocaleString()}` : "—"),
     }),
-    createColumn("totalAmount", "Amount", {
+    createColumn("dueAmount", "Due", {
       type: "currency",
       align: "right",
-      width: "120px",
-      render: (_, row) => `₹${(row.rate * row.quantity).toLocaleString()}`,
+      width: "100px",
+      render: (value) => (value ? `₹${Number(value).toLocaleString()}` : "—"),
     }),
     {
       key: "actions",
@@ -873,6 +1049,7 @@ export default function BatchDetailPage() {
             size="sm"
             className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-300"
             onClick={() => openEditSale(row)}
+            disabled={isUpdating}
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -880,7 +1057,8 @@ export default function BatchDetailPage() {
             variant="outline"
             size="sm"
             className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
-            onClick={() => deleteSale(row.id)}
+            onClick={() => handleDeleteSale(row.id)}
+            disabled={isDeleting}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -931,9 +1109,26 @@ export default function BatchDetailPage() {
       label: "Actions",
       type: "actions",
       align: "right",
-      width: "120px",
+      width: "160px",
       render: (_, row) => (
         <div className="flex items-center justify-end gap-2">
+          {row.balance > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-3 text-xs hover:bg-green-50 hover:border-green-300 hover:text-green-700"
+              onClick={() =>
+                openPaymentModal({
+                  id: typeof row.id === "string" ? row.id : row.id.toString(),
+                  name: row.name,
+                  balance: row.balance,
+                })
+              }
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Pay
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -946,7 +1141,11 @@ export default function BatchDetailPage() {
             variant="outline"
             size="sm"
             className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
-            onClick={() => deleteLedger(row.id)}
+            onClick={() =>
+              deleteLedger(
+                typeof row.id === "string" ? parseInt(row.id) : row.id
+              )
+            }
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -1141,22 +1340,35 @@ export default function BatchDetailPage() {
             </Button>
           </CardHeader>
           <CardContent className="p-0">
-            <DataTable
-              data={expenses}
-              columns={expenseColumns}
-              showFooter={true}
-              footerContent={
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold text-gray-900">
-                    Total Expenses
-                  </span>
-                  <span className="font-bold text-lg text-gray-900">
-                    ₹{expensesTotal.toLocaleString()}
-                  </span>
-                </div>
-              }
-              emptyMessage="No expenses recorded yet"
-            />
+            {expensesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <span className="ml-2">Loading expenses...</span>
+              </div>
+            ) : expensesError ? (
+              <div className="text-center py-8">
+                <p className="text-red-600">
+                  Failed to load expenses. Please try again.
+                </p>
+              </div>
+            ) : (
+              <DataTable
+                data={expenses}
+                columns={expenseColumns}
+                showFooter={true}
+                footerContent={
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-gray-900">
+                      Total Expenses
+                    </span>
+                    <span className="font-bold text-lg text-gray-900">
+                      ₹{expensesTotal.toLocaleString()}
+                    </span>
+                  </div>
+                }
+                emptyMessage="No expenses recorded yet"
+              />
+            )}
           </CardContent>
         </Card>
       )}
@@ -1177,84 +1389,40 @@ export default function BatchDetailPage() {
             </Button>
           </CardHeader>
           <CardContent className="p-0">
-            {(batch as any).sales && (batch as any).sales.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Description
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Quantity
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Unit Price
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Amount
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Credit
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {(batch as any).sales.map((sale: any) => (
-                      <tr key={sale.id}>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatDateYYYYMMDD(sale.date)}
-                        </td>
-                        <td className="px-4 py-4 text-sm text-gray-900">
-                          {sale.description || "Sale"}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                          {sale.quantity}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                          ₹{Number(sale.unitPrice).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                          ₹{Number(sale.amount).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-center">
-                          <Badge
-                            variant="secondary"
-                            className={
-                              sale.isCredit
-                                ? "bg-orange-100 text-orange-800"
-                                : "bg-gray-100 text-gray-800"
-                            }
-                          >
-                            {sale.isCredit ? "Yes" : "No"}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot className="bg-gray-50">
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="px-4 py-3 text-sm font-semibold text-gray-900 text-right"
-                      >
-                        Total Sales:
-                      </td>
-                      <td className="px-4 py-3 text-sm font-bold text-green-600 text-right">
-                        ₹{salesTotal.toLocaleString()}
-                      </td>
-                      <td></td>
-                    </tr>
-                  </tfoot>
-                </table>
+            {salesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                <span>Loading sales...</span>
+              </div>
+            ) : salesError ? (
+              <div className="text-center py-8">
+                <p className="text-red-600">Failed to load sales data</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetchSales()}
+                  className="mt-2"
+                >
+                  Retry
+                </Button>
               </div>
             ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No sales recorded yet</p>
-              </div>
+              <DataTable
+                data={batchSales || []}
+                columns={salesColumns}
+                showFooter={true}
+                footerContent={
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-gray-900">
+                      Total Sales
+                    </span>
+                    <span className="font-bold text-lg text-green-600">
+                      ₹{salesTotal.toLocaleString()}
+                    </span>
+                  </div>
+                }
+                emptyMessage="No sales recorded yet"
+              />
             )}
           </CardContent>
         </Card>
@@ -1279,7 +1447,7 @@ export default function BatchDetailPage() {
           </CardHeader>
           <CardContent className="p-0">
             <DataTable
-              data={ledger}
+              data={customerBalances}
               columns={ledgerColumns}
               showFooter={true}
               footerContent={
@@ -1446,11 +1614,14 @@ export default function BatchDetailPage() {
                       className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                     >
                       <option value="">Select feed from inventory</option>
-                      {feedInventory.map((feed) => (
-                        <option key={feed.id} value={feed.id}>
-                          {feed.name} ({feed.quantity} {feed.unit} available)
-                        </option>
-                      ))}
+                      {inventoryItems
+                        .filter((item: any) => item.itemType === "FEED")
+                        .map((feed: any) => (
+                          <option key={feed.id} value={feed.id}>
+                            {feed.name} ({feed.quantity} {feed.unit} available)
+                            - ₹{feed.rate}/unit
+                          </option>
+                        ))}
                     </select>
                     {expenseErrors.feedBrand && (
                       <p className="text-xs text-red-600 mt-1">
@@ -1562,12 +1733,14 @@ export default function BatchDetailPage() {
                       className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                     >
                       <option value="">Select medicine from inventory</option>
-                      {medicineInventory.map((medicine) => (
-                        <option key={medicine.id} value={medicine.id}>
-                          {medicine.name} ({medicine.quantity} {medicine.unit}{" "}
-                          available)
-                        </option>
-                      ))}
+                      {inventoryItems
+                        .filter((item: any) => item.itemType === "MEDICINE")
+                        .map((medicine: any) => (
+                          <option key={medicine.id} value={medicine.id}>
+                            {medicine.name} ({medicine.quantity} {medicine.unit}{" "}
+                            available) - ₹{medicine.rate}/unit
+                          </option>
+                        ))}
                     </select>
                     {expenseErrors.medicineName && (
                       <p className="text-xs text-red-600 mt-1">
@@ -1683,8 +1856,23 @@ export default function BatchDetailPage() {
             >
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90">
-              Save
+            <Button
+              type="submit"
+              className="bg-primary hover:bg-primary/90"
+              disabled={
+                createExpenseMutation.isPending ||
+                updateExpenseMutation.isPending
+              }
+            >
+              {createExpenseMutation.isPending ||
+              updateExpenseMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {editingExpenseId ? "Updating..." : "Creating..."}
+                </>
+              ) : (
+                "Save"
+              )}
             </Button>
           </ModalFooter>
         </form>
@@ -1703,16 +1891,32 @@ export default function BatchDetailPage() {
           <ModalContent>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="item">Item</Label>
-                <select
+                <Label htmlFor="item">Item Description</Label>
+                <Input
                   id="item"
                   name="item"
                   value={saleForm.item}
                   onChange={updateSaleField}
+                  placeholder="e.g., Chicken, Eggs, etc."
+                />
+                {saleErrors.item && (
+                  <p className="text-xs text-red-600 mt-1">{saleErrors.item}</p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="category">Category</Label>
+                <select
+                  id="category"
+                  name="categoryId"
+                  value={saleForm.categoryId}
+                  onChange={updateSaleField}
                   className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                 >
-                  <option value="Chicken">Chicken</option>
-                  <option value="Other">Other</option>
+                  {salesCategories.map((category: any) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -1752,6 +1956,9 @@ export default function BatchDetailPage() {
                   value={saleForm.date}
                   onChange={updateSaleField}
                 />
+                {saleErrors.date && (
+                  <p className="text-xs text-red-600 mt-1">{saleErrors.date}</p>
+                )}
               </div>
               <div className="col-span-2">
                 <label className="inline-flex items-center gap-2 text-sm">
@@ -1794,8 +2001,8 @@ export default function BatchDetailPage() {
                     <Label htmlFor="category">Category</Label>
                     <select
                       id="category"
-                      name="category"
-                      value={saleForm.category}
+                      name="customerCategory"
+                      value={saleForm.customerCategory || "Chicken"}
                       onChange={updateSaleField}
                       className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                     >
@@ -1834,8 +2041,19 @@ export default function BatchDetailPage() {
             >
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90">
-              Save
+            <Button
+              type="submit"
+              className="bg-primary hover:bg-primary/90"
+              disabled={isCreating || isUpdating}
+            >
+              {isCreating || isUpdating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {editingSaleId ? "Updating..." : "Creating..."}
+                </>
+              ) : (
+                "Save"
+              )}
             </Button>
           </ModalFooter>
         </form>
@@ -1926,6 +2144,131 @@ export default function BatchDetailPage() {
             </Button>
             <Button type="submit" className="bg-primary hover:bg-primary/90">
               Save
+            </Button>
+          </ModalFooter>
+        </form>
+      </Modal>
+
+      {/* Payment Modal */}
+      <Modal
+        isOpen={isPaymentModalOpen}
+        onClose={() => {
+          setIsPaymentModalOpen(false);
+          setSelectedCustomer(null);
+          setPaymentForm({
+            amount: "",
+            date: new Date().toISOString().split("T")[0],
+            description: "",
+            reference: "",
+          });
+        }}
+        title={`Record Payment - ${selectedCustomer?.name || ""}`}
+      >
+        <form onSubmit={submitPayment}>
+          <ModalContent>
+            <div className="space-y-4">
+              {selectedCustomer && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-orange-800">
+                      Outstanding Balance:
+                    </span>
+                    <span className="text-lg font-bold text-orange-900">
+                      ₹{selectedCustomer.balance.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="amount">Payment Amount</Label>
+                <Input
+                  id="amount"
+                  name="amount"
+                  type="number"
+                  value={paymentForm.amount}
+                  onChange={updatePaymentField}
+                  placeholder="Enter payment amount"
+                  required
+                />
+                {paymentErrors.amount && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {paymentErrors.amount}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="date">Payment Date</Label>
+                <Input
+                  id="date"
+                  name="date"
+                  type="date"
+                  value={paymentForm.date}
+                  onChange={updatePaymentField}
+                  required
+                />
+                {paymentErrors.date && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {paymentErrors.date}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Input
+                  id="description"
+                  name="description"
+                  value={paymentForm.description}
+                  onChange={updatePaymentField}
+                  placeholder="Payment description"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="reference">Reference/Receipt No.</Label>
+                <Input
+                  id="reference"
+                  name="reference"
+                  value={paymentForm.reference}
+                  onChange={updatePaymentField}
+                  placeholder="Receipt number or reference"
+                />
+              </div>
+            </div>
+          </ModalContent>
+
+          <ModalFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsPaymentModalOpen(false);
+                setSelectedCustomer(null);
+                setPaymentForm({
+                  amount: "",
+                  date: new Date().toISOString().split("T")[0],
+                  description: "",
+                  reference: "",
+                });
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={isAddingPayment}
+            >
+              {isAddingPayment ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Recording...
+                </>
+              ) : (
+                "Record Payment"
+              )}
             </Button>
           </ModalFooter>
         </form>

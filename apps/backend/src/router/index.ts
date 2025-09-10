@@ -7,6 +7,8 @@ import dealerRoutes from "./dealerRoutes";
 import medicalSupplierRoutes from "./medicalSupplierRoutes";
 import hatcheryRoutes from "./hatcheryRoutes";
 import inventoryRoutes from "./inventoryRoutes";
+import expenseRoutes from "./expenseRoutes";
+import salesRoutes from "./salesRoutes";
 
 const router = express.Router();
 
@@ -18,5 +20,7 @@ router.use("/dealers", dealerRoutes);
 router.use("/medical-suppliers", medicalSupplierRoutes);
 router.use("/hatcheries", hatcheryRoutes);
 router.use("/inventory", inventoryRoutes);
+router.use("/expenses", expenseRoutes);
+router.use("/sales", salesRoutes);
 
 export default router;

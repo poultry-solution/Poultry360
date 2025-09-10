@@ -16,6 +16,7 @@ export const TransactionTypeSchema = z.enum([
   "RECEIPT",
   "ADJUSTMENT",
   "OPENING_BALANCE",
+  "USAGE",
 ]);
 export type TransactionType = z.infer<typeof TransactionTypeSchema>;
 
@@ -347,20 +348,25 @@ export const ExpenseSchema = BaseSchema.extend({
 export type Expense = z.infer<typeof ExpenseSchema>;
 
 export const CreateExpenseSchema = z.object({
-  date: z.date(),
+  date: z.string().datetime(),
   amount: z.number().positive(),
   description: z.string().optional(),
   quantity: z.number().positive().optional(),
   unitPrice: z.number().positive().optional(),
-  farmId: z.string(),
+  farmId: z.string().optional(),
   batchId: z.string().optional(),
   categoryId: z.string(),
+  inventoryItems: z.array(z.object({
+    itemId: z.string(),
+    quantity: z.number().positive(),
+    notes: z.string().optional(),
+  })).optional(),
 });
 
 export type CreateExpense = z.infer<typeof CreateExpenseSchema>;
 
 export const UpdateExpenseSchema = z.object({
-  date: z.date().optional(),
+  date: z.string().datetime().optional(),
   amount: z.number().positive().optional(),
   description: z.string().nullable().optional(),
   quantity: z.number().positive().nullable().optional(),
@@ -392,15 +398,14 @@ export const SaleSchema = BaseSchema.extend({
 export type Sale = z.infer<typeof SaleSchema>;
 
 export const CreateSaleSchema = z.object({
-  date: z.date(),
+  date: z.string().datetime(),
   amount: z.number().positive(),
   quantity: z.number().positive(),
   unitPrice: z.number().positive(),
   description: z.string().optional(),
   isCredit: z.boolean().optional().default(false),
   paidAmount: z.number().nonnegative().optional().default(0),
-  dueAmount: z.number().nonnegative().optional().default(0),
-  farmId: z.string(),
+  farmId: z.string().optional(),
   batchId: z.string().optional(),
   categoryId: z.string(),
   customerId: z.string().optional(),
@@ -409,14 +414,13 @@ export const CreateSaleSchema = z.object({
 export type CreateSale = z.infer<typeof CreateSaleSchema>;
 
 export const UpdateSaleSchema = z.object({
-  date: z.date().optional(),
+  date: z.string().datetime().optional(),
   amount: z.number().positive().optional(),
   quantity: z.number().positive().optional(),
   unitPrice: z.number().positive().optional(),
   description: z.string().nullable().optional(),
   isCredit: z.boolean().optional(),
   paidAmount: z.number().nonnegative().optional(),
-  dueAmount: z.number().nonnegative().nullable().optional(),
   farmId: z.string().optional(),
   batchId: z.string().nullable().optional(),
   categoryId: z.string().optional(),
