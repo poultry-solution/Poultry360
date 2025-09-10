@@ -433,7 +433,6 @@ export const createBatch = async (
         initialChicks: data.initialChicks,
         initialChickWeight: data.initialChickWeight || 0.045,
         farmId: data.farmId,
-        
       },
       include: {
         farm: {

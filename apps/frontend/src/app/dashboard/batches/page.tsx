@@ -71,15 +71,18 @@ export default function BatchesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const startDate = formData.startDate
+      ? new Date(formData.startDate).toISOString()
+      : new Date().toISOString();
+
     try {
       await createBatchMutation.mutateAsync({
         batchNumber:
           formData.batchNumber ||
           `B-${new Date().getFullYear()}-${String(batches.length + 1).padStart(3, "0")}`,
+
         farmId: formData.farmId,
-        startDate: formData.startDate
-          ? new Date(formData.startDate)
-          : new Date(),
+        startDate: startDate,
         initialChicks: parseInt(formData.initialChicks),
         initialChickWeight: parseFloat(formData.initialChickWeight),
         status: "ACTIVE" as BatchStatus,

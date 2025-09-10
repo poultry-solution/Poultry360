@@ -324,8 +324,8 @@ export declare const BatchResponseSchema: z.ZodObject<{
 export type BatchResponse = z.infer<typeof BatchResponseSchema>;
 export declare const CreateBatchSchema: z.ZodObject<{
     batchNumber: z.ZodString;
-    startDate: z.ZodDate;
-    endDate: z.ZodOptional<z.ZodDate>;
+    startDate: z.ZodString;
+    endDate: z.ZodOptional<z.ZodString>;
     status: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
         ACTIVE: "ACTIVE";
         COMPLETED: "COMPLETED";
@@ -337,8 +337,8 @@ export declare const CreateBatchSchema: z.ZodObject<{
 export type CreateBatch = z.infer<typeof CreateBatchSchema>;
 export declare const UpdateBatchSchema: z.ZodObject<{
     batchNumber: z.ZodOptional<z.ZodString>;
-    startDate: z.ZodOptional<z.ZodDate>;
-    endDate: z.ZodOptional<z.ZodNullable<z.ZodDate>>;
+    startDate: z.ZodOptional<z.ZodString>;
+    endDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     status: z.ZodOptional<z.ZodEnum<{
         ACTIVE: "ACTIVE";
         COMPLETED: "COMPLETED";
@@ -1703,8 +1703,8 @@ export declare const schemas: {
     }, z.core.$strip>;
     readonly CreateBatch: z.ZodObject<{
         batchNumber: z.ZodString;
-        startDate: z.ZodDate;
-        endDate: z.ZodOptional<z.ZodDate>;
+        startDate: z.ZodString;
+        endDate: z.ZodOptional<z.ZodString>;
         status: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
             ACTIVE: "ACTIVE";
             COMPLETED: "COMPLETED";
@@ -1715,8 +1715,8 @@ export declare const schemas: {
     }, z.core.$strip>;
     readonly UpdateBatch: z.ZodObject<{
         batchNumber: z.ZodOptional<z.ZodString>;
-        startDate: z.ZodOptional<z.ZodDate>;
-        endDate: z.ZodOptional<z.ZodNullable<z.ZodDate>>;
+        startDate: z.ZodOptional<z.ZodString>;
+        endDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         status: z.ZodOptional<z.ZodEnum<{
             ACTIVE: "ACTIVE";
             COMPLETED: "COMPLETED";

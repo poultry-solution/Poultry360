@@ -211,8 +211,8 @@ export const BatchResponseSchema = BaseSchema.extend({
 });
 export const CreateBatchSchema = z.object({
     batchNumber: z.string(),
-    startDate: z.date(),
-    endDate: z.date().optional(),
+    startDate: z.string().datetime(),
+    endDate: z.string().datetime().optional(),
     status: BatchStatusSchema.optional().default("ACTIVE"),
     initialChicks: z.number().int().positive(),
     initialChickWeight: z.number().positive().optional().default(0.045),
@@ -220,8 +220,8 @@ export const CreateBatchSchema = z.object({
 });
 export const UpdateBatchSchema = z.object({
     batchNumber: z.string().optional(),
-    startDate: z.date().optional(),
-    endDate: z.date().nullable().optional(),
+    startDate: z.string().datetime().optional(),
+    endDate: z.string().datetime().nullable().optional(),
     status: BatchStatusSchema.optional(),
     initialChicks: z.number().int().positive().optional(),
     initialChickWeight: z.number().positive().optional(),
