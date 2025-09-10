@@ -1,9 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DealerTransactionSchema = exports.UpdateDealerSchema = exports.CreateDealerSchema = exports.DealerSchema = exports.CreateEntityTransactionSchema = exports.EntityTransactionSchema = exports.CreateInventoryUsageSchema = exports.InventoryUsageSchema = exports.CreateInventoryTransactionSchema = exports.InventoryTransactionSchema = exports.UpdateInventoryItemSchema = exports.CreateInventoryItemSchema = exports.InventoryItemSchema = exports.InventoryItemTypeSchema = exports.CreateSalePaymentSchema = exports.SalePaymentSchema = exports.UpdateSaleSchema = exports.CreateSaleSchema = exports.SaleSchema = exports.UpdateExpenseSchema = exports.CreateExpenseSchema = exports.ExpenseSchema = exports.UpdateCategorySchema = exports.CreateCategorySchema = exports.CategorySchema = exports.UpdateBatchSchema = exports.CreateBatchSchema = exports.BatchResponseSchema = exports.BatchCountSchema = exports.BatchFarmSchema = exports.BatchSchema = exports.UpdateFarmSchema = exports.CreateFarmSchema = exports.FarmResponseSchema = exports.FarmCountSchema = exports.FarmManagerSchema = exports.FarmOwnerSchema = exports.FarmSchema = exports.UpdateUserSchema = exports.CreateUserSchema = exports.UserSchema = exports.BaseSchema = exports.CategoryTypeSchema = exports.AuditActionSchema = exports.VaccinationStatusSchema = exports.NotificationStatusSchema = exports.NotificationTypeSchema = exports.TransactionTypeSchema = exports.BatchStatusSchema = exports.UserRoleSchema = void 0;
+exports.PaginatedResponseSchema = exports.ApiResponseSchema = exports.schemas = exports.BatchDetailResponseSchema = exports.BatchListResponseSchema = exports.FarmDetailResponseSchema = exports.FarmListResponseSchema = exports.AuthResponseSchema = exports.UserResponseSchema = exports.FarmAnalyticsSchema = exports.BatchAnalyticsSchema = exports.SignupSchema = exports.LoginSchema = exports.CreateAuditLogSchema = exports.AuditLogSchema = exports.UpdateNotificationSchema = exports.CreateNotificationSchema = exports.NotificationSchema = exports.UpdateBirdWeightSchema = exports.CreateBirdWeightSchema = exports.BirdWeightSchema = exports.UpdateFeedConsumptionSchema = exports.CreateFeedConsumptionSchema = exports.FeedConsumptionSchema = exports.UpdateVaccinationSchema = exports.CreateVaccinationSchema = exports.VaccinationSchema = exports.UpdateMortalitySchema = exports.CreateMortalitySchema = exports.MortalitySchema = exports.CreateCustomerTransactionSchema = exports.CustomerTransactionSchema = exports.UpdateCustomerSchema = exports.CreateCustomerSchema = exports.CustomerSchema = exports.UpdateMedicineSupplierSchema = exports.CreateMedicineSupplierSchema = exports.MedicineSupplierSchema = exports.UpdateHatcherySchema = exports.CreateHatcherySchema = exports.HatcherySchema = exports.DealerDetailResponseSchema = exports.DealerStatisticsSchema = exports.DealerResponseSchema = void 0;
 // packages/shared-types/index.ts
-import { z } from "zod";
+const zod_1 = require("zod");
 // ==================== ENUMS ====================
-export const UserRoleSchema = z.enum(["OWNER", "MANAGER"]);
-export const BatchStatusSchema = z.enum(["ACTIVE", "COMPLETED"]);
-export const TransactionTypeSchema = z.enum([
+exports.UserRoleSchema = zod_1.z.enum(["OWNER", "MANAGER"]);
+exports.BatchStatusSchema = zod_1.z.enum(["ACTIVE", "COMPLETED"]);
+exports.TransactionTypeSchema = zod_1.z.enum([
     "PURCHASE",
     "SALE",
     "PAYMENT",
@@ -11,909 +15,911 @@ export const TransactionTypeSchema = z.enum([
     "ADJUSTMENT",
     "OPENING_BALANCE",
 ]);
-export const NotificationTypeSchema = z.enum([
+exports.NotificationTypeSchema = zod_1.z.enum([
     "LOW_INVENTORY",
     "VACCINATION_DUE",
     "BATCH_COMPLETION",
     "PAYMENT_DUE",
     "MORTALITY_ALERT",
 ]);
-export const NotificationStatusSchema = z.enum([
+exports.NotificationStatusSchema = zod_1.z.enum([
     "PENDING",
     "READ",
     "DISMISSED",
 ]);
-export const VaccinationStatusSchema = z.enum([
+exports.VaccinationStatusSchema = zod_1.z.enum([
     "PENDING",
     "COMPLETED",
     "MISSED",
     "OVERDUE",
 ]);
-export const AuditActionSchema = z.enum([
+exports.AuditActionSchema = zod_1.z.enum([
     "CREATE",
     "UPDATE",
     "DELETE",
     "LOGIN",
     "LOGOUT",
 ]);
-export const CategoryTypeSchema = z.enum(["EXPENSE", "SALES", "INVENTORY"]);
+exports.CategoryTypeSchema = zod_1.z.enum(["EXPENSE", "SALES", "INVENTORY"]);
 // ==================== BASE SCHEMAS ====================
-export const BaseSchema = z.object({
-    id: z.string(),
-    createdAt: z.string().datetime(),
-    updatedAt: z.string().datetime(),
+exports.BaseSchema = zod_1.z.object({
+    id: zod_1.z.string(),
+    createdAt: zod_1.z.string().datetime(),
+    updatedAt: zod_1.z.string().datetime(),
 });
 // ==================== USER SCHEMAS ====================
-export const UserSchema = BaseSchema.extend({
-    email: z.email().optional(),
-    name: z.string(),
-    phone: z.string().optional(),
-    password: z.string(),
-    role: UserRoleSchema,
-    gender: z.enum(["MALE", "FEMALE", "OTHER"]),
-    status: z.enum(["ACTIVE", "INACTIVE", "PENDING_VERIFICATION"]),
-    ownerId: z.string().nullable(),
-    companyName: z.string().nullable(),
-    CompanyFarmLocation: z.string().nullable(),
-    CompanyFarmNumber: z.string().nullable(),
-    CompanyFarmCapacity: z.number().int().nullable(),
+exports.UserSchema = exports.BaseSchema.extend({
+    email: zod_1.z.email().optional(),
+    name: zod_1.z.string(),
+    phone: zod_1.z.string().optional(),
+    password: zod_1.z.string(),
+    role: exports.UserRoleSchema,
+    gender: zod_1.z.enum(["MALE", "FEMALE", "OTHER"]),
+    status: zod_1.z.enum(["ACTIVE", "INACTIVE", "PENDING_VERIFICATION"]),
+    ownerId: zod_1.z.string().nullable(),
+    companyName: zod_1.z.string().nullable(),
+    CompanyFarmLocation: zod_1.z.string().nullable(),
+    CompanyFarmNumber: zod_1.z.string().nullable(),
+    CompanyFarmCapacity: zod_1.z.number().int().nullable(),
 });
-export const CreateUserSchema = z.object({
-    email: z.email().optional(),
-    name: z.string(),
-    phone: z.string().optional(),
-    password: z.string(),
-    role: UserRoleSchema.optional().default("OWNER"),
-    gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional().default("OTHER"),
-    ownerId: z.string().optional(),
-    companyName: z.string().optional(),
-    CompanyFarmLocation: z.string().optional(),
-    CompanyFarmNumber: z.string().optional(),
-    CompanyFarmCapacity: z.number().int().optional(),
+exports.CreateUserSchema = zod_1.z.object({
+    email: zod_1.z.email().optional(),
+    name: zod_1.z.string(),
+    phone: zod_1.z.string().optional(),
+    password: zod_1.z.string(),
+    role: exports.UserRoleSchema.optional().default("OWNER"),
+    gender: zod_1.z.enum(["MALE", "FEMALE", "OTHER"]).optional().default("OTHER"),
+    ownerId: zod_1.z.string().optional(),
+    companyName: zod_1.z.string().optional(),
+    CompanyFarmLocation: zod_1.z.string().optional(),
+    CompanyFarmNumber: zod_1.z.string().optional(),
+    CompanyFarmCapacity: zod_1.z.number().int().optional(),
 });
-export const UpdateUserSchema = z.object({
-    email: z.email().optional(),
-    name: z.string().optional(),
-    phone: z.string().optional(),
-    role: UserRoleSchema.optional(),
-    gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
-    status: z.enum(["ACTIVE", "INACTIVE", "PENDING_VERIFICATION"]).optional(),
-    ownerId: z.string().nullable().optional(),
-    companyName: z.string().nullable().optional(),
-    CompanyFarmLocation: z.string().nullable().optional(),
-    CompanyFarmNumber: z.string().nullable().optional(),
-    CompanyFarmCapacity: z.number().int().nullable().optional(),
+exports.UpdateUserSchema = zod_1.z.object({
+    email: zod_1.z.email().optional(),
+    name: zod_1.z.string().optional(),
+    phone: zod_1.z.string().optional(),
+    role: exports.UserRoleSchema.optional(),
+    gender: zod_1.z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
+    status: zod_1.z.enum(["ACTIVE", "INACTIVE", "PENDING_VERIFICATION"]).optional(),
+    ownerId: zod_1.z.string().nullable().optional(),
+    companyName: zod_1.z.string().nullable().optional(),
+    CompanyFarmLocation: zod_1.z.string().nullable().optional(),
+    CompanyFarmNumber: zod_1.z.string().nullable().optional(),
+    CompanyFarmCapacity: zod_1.z.number().int().nullable().optional(),
 });
 // ==================== FARM SCHEMAS ====================
-export const FarmSchema = BaseSchema.extend({
-    name: z.string(),
-    capacity: z.number().int().positive(),
-    description: z.string().nullable(),
-    ownerId: z.string(), // Farm owner
-    managers: z.array(z.string()).optional(), // Farm managers (array of user IDs)
+exports.FarmSchema = exports.BaseSchema.extend({
+    name: zod_1.z.string(),
+    capacity: zod_1.z.number().int().positive(),
+    description: zod_1.z.string().nullable(),
+    ownerId: zod_1.z.string(), // Farm owner
+    managers: zod_1.z.array(zod_1.z.string()).optional(), // Farm managers (array of user IDs)
 });
 // ==================== FARM RESPONSE SCHEMAS ====================
-export const FarmOwnerSchema = z.object({
-    id: z.string(),
-    name: z.string(),
-    email: z.string().nullable(),
-    role: UserRoleSchema,
+exports.FarmOwnerSchema = zod_1.z.object({
+    id: zod_1.z.string(),
+    name: zod_1.z.string(),
+    email: zod_1.z.string().nullable(),
+    role: exports.UserRoleSchema,
 });
-export const FarmManagerSchema = z.object({
-    id: z.string(),
-    name: z.string(),
-    email: z.string().nullable(),
-    role: UserRoleSchema,
+exports.FarmManagerSchema = zod_1.z.object({
+    id: zod_1.z.string(),
+    name: zod_1.z.string(),
+    email: zod_1.z.string().nullable(),
+    role: exports.UserRoleSchema,
 });
-export const FarmCountSchema = z.object({
-    batches: z.number().int().nonnegative(),
-    expenses: z.number().int().nonnegative(),
-    sales: z.number().int().nonnegative(),
+exports.FarmCountSchema = zod_1.z.object({
+    batches: zod_1.z.number().int().nonnegative(),
+    expenses: zod_1.z.number().int().nonnegative(),
+    sales: zod_1.z.number().int().nonnegative(),
 });
-export const FarmResponseSchema = BaseSchema.extend({
-    name: z.string(),
-    capacity: z.number().int().positive(),
-    description: z.string().nullable(),
-    ownerId: z.string(),
-    owner: FarmOwnerSchema,
-    managers: z.array(FarmManagerSchema),
-    _count: FarmCountSchema,
+exports.FarmResponseSchema = exports.BaseSchema.extend({
+    name: zod_1.z.string(),
+    capacity: zod_1.z.number().int().positive(),
+    description: zod_1.z.string().nullable(),
+    ownerId: zod_1.z.string(),
+    owner: exports.FarmOwnerSchema,
+    managers: zod_1.z.array(exports.FarmManagerSchema),
+    _count: exports.FarmCountSchema,
 });
-export const CreateFarmSchema = z.object({
-    name: z.string(),
-    capacity: z.number().int().positive(),
-    description: z.string().optional(),
-    ownerId: z.string().optional(), // Will be set by backend from auth
-    managers: z.array(z.string()).optional(),
+exports.CreateFarmSchema = zod_1.z.object({
+    name: zod_1.z.string(),
+    capacity: zod_1.z.number().int().positive(),
+    description: zod_1.z.string().optional(),
+    ownerId: zod_1.z.string().optional(), // Will be set by backend from auth
+    managers: zod_1.z.array(zod_1.z.string()).optional(),
 });
-export const UpdateFarmSchema = z.object({
-    name: z.string().optional(),
-    capacity: z.number().int().positive().optional(),
-    description: z.string().optional(),
-    ownerId: z.string().optional(),
-    managers: z.array(z.string()).optional(),
+exports.UpdateFarmSchema = zod_1.z.object({
+    name: zod_1.z.string().optional(),
+    capacity: zod_1.z.number().int().positive().optional(),
+    description: zod_1.z.string().optional(),
+    ownerId: zod_1.z.string().optional(),
+    managers: zod_1.z.array(zod_1.z.string()).optional(),
 });
 // ==================== BATCH SCHEMAS ====================
-export const BatchSchema = BaseSchema.extend({
-    batchNumber: z.string(),
-    startDate: z.date(),
-    endDate: z.date().nullable(),
-    status: BatchStatusSchema,
-    initialChicks: z.number().int().positive(),
-    initialChickWeight: z.number().positive(),
-    farmId: z.string(),
-    notes: z.string().nullable(),
+exports.BatchSchema = exports.BaseSchema.extend({
+    batchNumber: zod_1.z.string(),
+    startDate: zod_1.z.date(),
+    endDate: zod_1.z.date().nullable(),
+    status: exports.BatchStatusSchema,
+    initialChicks: zod_1.z.number().int().positive(),
+    initialChickWeight: zod_1.z.number().positive(),
+    farmId: zod_1.z.string(),
+    notes: zod_1.z.string().nullable(),
 });
 // ==================== BATCH RESPONSE SCHEMAS ====================
-export const BatchFarmSchema = z.object({
-    id: z.string(),
-    name: z.string(),
-    capacity: z.number().int().positive(),
-    owner: z.object({
-        id: z.string(),
-        name: z.string(),
-        email: z.string().nullable(),
+exports.BatchFarmSchema = zod_1.z.object({
+    id: zod_1.z.string(),
+    name: zod_1.z.string(),
+    capacity: zod_1.z.number().int().positive(),
+    owner: zod_1.z.object({
+        id: zod_1.z.string(),
+        name: zod_1.z.string(),
+        email: zod_1.z.string().nullable(),
     }),
 });
-export const BatchCountSchema = z.object({
-    expenses: z.number().int().nonnegative(),
-    sales: z.number().int().nonnegative(),
-    mortalities: z.number().int().nonnegative(),
-    vaccinations: z.number().int().nonnegative(),
-    feedConsumptions: z.number().int().nonnegative(),
-    birdWeights: z.number().int().nonnegative(),
-    notes: z.string().nullable(),
+exports.BatchCountSchema = zod_1.z.object({
+    expenses: zod_1.z.number().int().nonnegative(),
+    sales: zod_1.z.number().int().nonnegative(),
+    mortalities: zod_1.z.number().int().nonnegative(),
+    vaccinations: zod_1.z.number().int().nonnegative(),
+    feedConsumptions: zod_1.z.number().int().nonnegative(),
+    birdWeights: zod_1.z.number().int().nonnegative(),
+    notes: zod_1.z.string().nullable(),
 });
-export const BatchResponseSchema = BaseSchema.extend({
-    batchNumber: z.string(),
-    startDate: z.date(),
-    endDate: z.date().nullable(),
-    status: BatchStatusSchema,
-    initialChicks: z.number().int().positive(),
-    initialChickWeight: z.number().positive(),
-    farmId: z.string(),
-    currentChicks: z.number().int().nonnegative(), // Computed field
-    farm: BatchFarmSchema,
-    expenses: z
-        .array(z.object({
-        id: z.string(),
-        date: z.date(),
-        amount: z.number(),
-        description: z.string().nullable(),
-        quantity: z.number().nullable(),
-        unitPrice: z.number().nullable(),
-        category: z.object({
-            id: z.string(),
-            name: z.string(),
-            type: z.string(),
+exports.BatchResponseSchema = exports.BaseSchema.extend({
+    batchNumber: zod_1.z.string(),
+    startDate: zod_1.z.date(),
+    endDate: zod_1.z.date().nullable(),
+    status: exports.BatchStatusSchema,
+    initialChicks: zod_1.z.number().int().positive(),
+    initialChickWeight: zod_1.z.number().positive(),
+    farmId: zod_1.z.string(),
+    currentChicks: zod_1.z.number().int().nonnegative(), // Computed field
+    farm: exports.BatchFarmSchema,
+    expenses: zod_1.z
+        .array(zod_1.z.object({
+        id: zod_1.z.string(),
+        date: zod_1.z.date(),
+        amount: zod_1.z.number(),
+        description: zod_1.z.string().nullable(),
+        quantity: zod_1.z.number().nullable(),
+        unitPrice: zod_1.z.number().nullable(),
+        category: zod_1.z.object({
+            id: zod_1.z.string(),
+            name: zod_1.z.string(),
+            type: zod_1.z.string(),
         }),
     }))
         .optional(),
-    sales: z
-        .array(z.object({
-        id: z.string(),
-        date: z.date(),
-        amount: z.number(),
-        quantity: z.number(),
-        unitPrice: z.number(),
-        description: z.string().nullable(),
-        isCredit: z.boolean(),
-        paidAmount: z.number(),
-        dueAmount: z.number().nullable(),
-        category: z.object({
-            id: z.string(),
-            name: z.string(),
-            type: z.string(),
+    sales: zod_1.z
+        .array(zod_1.z.object({
+        id: zod_1.z.string(),
+        date: zod_1.z.date(),
+        amount: zod_1.z.number(),
+        quantity: zod_1.z.number(),
+        unitPrice: zod_1.z.number(),
+        description: zod_1.z.string().nullable(),
+        isCredit: zod_1.z.boolean(),
+        paidAmount: zod_1.z.number(),
+        dueAmount: zod_1.z.number().nullable(),
+        category: zod_1.z.object({
+            id: zod_1.z.string(),
+            name: zod_1.z.string(),
+            type: zod_1.z.string(),
         }),
     }))
         .optional(),
-    _count: BatchCountSchema,
+    _count: exports.BatchCountSchema,
 });
-export const CreateBatchSchema = z.object({
-    batchNumber: z.string(),
-    startDate: z.string().datetime(),
-    endDate: z.string().datetime().optional(),
-    status: BatchStatusSchema.optional().default("ACTIVE"),
-    initialChicks: z.number().int().positive(),
-    initialChickWeight: z.number().positive().optional().default(0.045),
-    farmId: z.string(),
+exports.CreateBatchSchema = zod_1.z.object({
+    batchNumber: zod_1.z.string(),
+    startDate: zod_1.z.string().datetime(),
+    endDate: zod_1.z.string().datetime().optional(),
+    status: exports.BatchStatusSchema.optional().default("ACTIVE"),
+    initialChicks: zod_1.z.number().int().positive(),
+    initialChickWeight: zod_1.z.number().positive().optional().default(0.045),
+    farmId: zod_1.z.string(),
 });
-export const UpdateBatchSchema = z.object({
-    batchNumber: z.string().optional(),
-    startDate: z.string().datetime().optional(),
-    endDate: z.string().datetime().nullable().optional(),
-    status: BatchStatusSchema.optional(),
-    initialChicks: z.number().int().positive().optional(),
-    initialChickWeight: z.number().positive().optional(),
-    farmId: z.string().optional(),
+exports.UpdateBatchSchema = zod_1.z.object({
+    batchNumber: zod_1.z.string().optional(),
+    startDate: zod_1.z.string().datetime().optional(),
+    endDate: zod_1.z.string().datetime().nullable().optional(),
+    status: exports.BatchStatusSchema.optional(),
+    initialChicks: zod_1.z.number().int().positive().optional(),
+    initialChickWeight: zod_1.z.number().positive().optional(),
+    farmId: zod_1.z.string().optional(),
 });
 // ==================== CATEGORY SCHEMAS ====================
-export const CategorySchema = BaseSchema.extend({
-    name: z.string(),
-    type: CategoryTypeSchema,
-    description: z.string().nullable(),
-    userId: z.string(),
+exports.CategorySchema = exports.BaseSchema.extend({
+    name: zod_1.z.string(),
+    type: exports.CategoryTypeSchema,
+    description: zod_1.z.string().nullable(),
+    userId: zod_1.z.string(),
 });
-export const CreateCategorySchema = z.object({
-    name: z.string(),
-    type: CategoryTypeSchema,
-    description: z.string().optional(),
+exports.CreateCategorySchema = zod_1.z.object({
+    name: zod_1.z.string(),
+    type: exports.CategoryTypeSchema,
+    description: zod_1.z.string().optional(),
 });
-export const UpdateCategorySchema = z.object({
-    name: z.string().optional(),
-    type: CategoryTypeSchema.optional(),
-    description: z.string().nullable().optional(),
+exports.UpdateCategorySchema = zod_1.z.object({
+    name: zod_1.z.string().optional(),
+    type: exports.CategoryTypeSchema.optional(),
+    description: zod_1.z.string().nullable().optional(),
 });
 // ==================== EXPENSE SCHEMAS ====================
-export const ExpenseSchema = BaseSchema.extend({
-    date: z.date(),
-    amount: z.number().positive(),
-    description: z.string().nullable(),
-    quantity: z.number().positive().nullable(),
-    unitPrice: z.number().positive().nullable(),
-    farmId: z.string(),
-    batchId: z.string().nullable(),
-    categoryId: z.string(),
+exports.ExpenseSchema = exports.BaseSchema.extend({
+    date: zod_1.z.date(),
+    amount: zod_1.z.number().positive(),
+    description: zod_1.z.string().nullable(),
+    quantity: zod_1.z.number().positive().nullable(),
+    unitPrice: zod_1.z.number().positive().nullable(),
+    farmId: zod_1.z.string(),
+    batchId: zod_1.z.string().nullable(),
+    categoryId: zod_1.z.string(),
 });
-export const CreateExpenseSchema = z.object({
-    date: z.date(),
-    amount: z.number().positive(),
-    description: z.string().optional(),
-    quantity: z.number().positive().optional(),
-    unitPrice: z.number().positive().optional(),
-    farmId: z.string(),
-    batchId: z.string().optional(),
-    categoryId: z.string(),
+exports.CreateExpenseSchema = zod_1.z.object({
+    date: zod_1.z.date(),
+    amount: zod_1.z.number().positive(),
+    description: zod_1.z.string().optional(),
+    quantity: zod_1.z.number().positive().optional(),
+    unitPrice: zod_1.z.number().positive().optional(),
+    farmId: zod_1.z.string(),
+    batchId: zod_1.z.string().optional(),
+    categoryId: zod_1.z.string(),
 });
-export const UpdateExpenseSchema = z.object({
-    date: z.date().optional(),
-    amount: z.number().positive().optional(),
-    description: z.string().nullable().optional(),
-    quantity: z.number().positive().nullable().optional(),
-    unitPrice: z.number().positive().nullable().optional(),
-    farmId: z.string().optional(),
-    batchId: z.string().nullable().optional(),
-    categoryId: z.string().optional(),
+exports.UpdateExpenseSchema = zod_1.z.object({
+    date: zod_1.z.date().optional(),
+    amount: zod_1.z.number().positive().optional(),
+    description: zod_1.z.string().nullable().optional(),
+    quantity: zod_1.z.number().positive().nullable().optional(),
+    unitPrice: zod_1.z.number().positive().nullable().optional(),
+    farmId: zod_1.z.string().optional(),
+    batchId: zod_1.z.string().nullable().optional(),
+    categoryId: zod_1.z.string().optional(),
 });
 // ==================== SALE SCHEMAS ====================
-export const SaleSchema = BaseSchema.extend({
-    date: z.date(),
-    amount: z.number().positive(),
-    quantity: z.number().positive(),
-    unitPrice: z.number().positive(),
-    description: z.string().nullable(),
-    isCredit: z.boolean(),
-    paidAmount: z.number().nonnegative(),
-    dueAmount: z.number().nonnegative().nullable(),
-    farmId: z.string(),
-    batchId: z.string().nullable(),
-    categoryId: z.string(),
-    customerId: z.string().nullable(),
+exports.SaleSchema = exports.BaseSchema.extend({
+    date: zod_1.z.date(),
+    amount: zod_1.z.number().positive(),
+    quantity: zod_1.z.number().positive(),
+    unitPrice: zod_1.z.number().positive(),
+    description: zod_1.z.string().nullable(),
+    isCredit: zod_1.z.boolean(),
+    paidAmount: zod_1.z.number().nonnegative(),
+    dueAmount: zod_1.z.number().nonnegative().nullable(),
+    farmId: zod_1.z.string(),
+    batchId: zod_1.z.string().nullable(),
+    categoryId: zod_1.z.string(),
+    customerId: zod_1.z.string().nullable(),
 });
-export const CreateSaleSchema = z.object({
-    date: z.date(),
-    amount: z.number().positive(),
-    quantity: z.number().positive(),
-    unitPrice: z.number().positive(),
-    description: z.string().optional(),
-    isCredit: z.boolean().optional().default(false),
-    paidAmount: z.number().nonnegative().optional().default(0),
-    dueAmount: z.number().nonnegative().optional().default(0),
-    farmId: z.string(),
-    batchId: z.string().optional(),
-    categoryId: z.string(),
-    customerId: z.string().optional(),
+exports.CreateSaleSchema = zod_1.z.object({
+    date: zod_1.z.date(),
+    amount: zod_1.z.number().positive(),
+    quantity: zod_1.z.number().positive(),
+    unitPrice: zod_1.z.number().positive(),
+    description: zod_1.z.string().optional(),
+    isCredit: zod_1.z.boolean().optional().default(false),
+    paidAmount: zod_1.z.number().nonnegative().optional().default(0),
+    dueAmount: zod_1.z.number().nonnegative().optional().default(0),
+    farmId: zod_1.z.string(),
+    batchId: zod_1.z.string().optional(),
+    categoryId: zod_1.z.string(),
+    customerId: zod_1.z.string().optional(),
 });
-export const UpdateSaleSchema = z.object({
-    date: z.date().optional(),
-    amount: z.number().positive().optional(),
-    quantity: z.number().positive().optional(),
-    unitPrice: z.number().positive().optional(),
-    description: z.string().nullable().optional(),
-    isCredit: z.boolean().optional(),
-    paidAmount: z.number().nonnegative().optional(),
-    dueAmount: z.number().nonnegative().nullable().optional(),
-    farmId: z.string().optional(),
-    batchId: z.string().nullable().optional(),
-    categoryId: z.string().optional(),
-    customerId: z.string().nullable().optional(),
+exports.UpdateSaleSchema = zod_1.z.object({
+    date: zod_1.z.date().optional(),
+    amount: zod_1.z.number().positive().optional(),
+    quantity: zod_1.z.number().positive().optional(),
+    unitPrice: zod_1.z.number().positive().optional(),
+    description: zod_1.z.string().nullable().optional(),
+    isCredit: zod_1.z.boolean().optional(),
+    paidAmount: zod_1.z.number().nonnegative().optional(),
+    dueAmount: zod_1.z.number().nonnegative().nullable().optional(),
+    farmId: zod_1.z.string().optional(),
+    batchId: zod_1.z.string().nullable().optional(),
+    categoryId: zod_1.z.string().optional(),
+    customerId: zod_1.z.string().nullable().optional(),
 });
 // ==================== SALE PAYMENT SCHEMAS ====================
-export const SalePaymentSchema = BaseSchema.extend({
-    amount: z.number().positive(),
-    date: z.date(),
-    description: z.string().nullable(),
-    saleId: z.string(),
+exports.SalePaymentSchema = exports.BaseSchema.extend({
+    amount: zod_1.z.number().positive(),
+    date: zod_1.z.date(),
+    description: zod_1.z.string().nullable(),
+    saleId: zod_1.z.string(),
 });
-export const CreateSalePaymentSchema = z.object({
-    amount: z.number().positive(),
-    date: z
+exports.CreateSalePaymentSchema = zod_1.z.object({
+    amount: zod_1.z.number().positive(),
+    date: zod_1.z
         .date()
         .optional()
         .default(() => new Date()),
-    description: z.string().optional(),
-    saleId: z.string(),
+    description: zod_1.z.string().optional(),
+    saleId: zod_1.z.string(),
 });
 // ==================== INVENTORY SCHEMAS ====================
-export const InventoryItemTypeSchema = z.enum([
+exports.InventoryItemTypeSchema = zod_1.z.enum([
     "FEED",
     "CHICKS",
     "MEDICINE",
     "EQUIPMENT",
     "OTHER",
 ]);
-export const InventoryItemSchema = BaseSchema.extend({
-    name: z.string(),
-    description: z.string().nullable(),
-    currentStock: z.number().nonnegative(),
-    unit: z.string(),
-    minStock: z.number().nonnegative().nullable(),
-    userId: z.string(),
-    categoryId: z.string(),
-    itemType: InventoryItemTypeSchema.optional(),
+exports.InventoryItemSchema = exports.BaseSchema.extend({
+    name: zod_1.z.string(),
+    description: zod_1.z.string().nullable(),
+    currentStock: zod_1.z.number().nonnegative(),
+    unit: zod_1.z.string(),
+    minStock: zod_1.z.number().nonnegative().nullable(),
+    userId: zod_1.z.string(),
+    categoryId: zod_1.z.string(),
+    itemType: exports.InventoryItemTypeSchema.optional(),
 });
-export const CreateInventoryItemSchema = z.object({
-    name: z.string(),
-    description: z.string().optional(),
-    currentStock: z.number().nonnegative().optional().default(0),
-    unit: z.string(),
-    minStock: z.number().nonnegative().optional(),
-    categoryId: z.string().optional(), // Made optional - backend will create category automatically
-    itemType: InventoryItemTypeSchema.optional(),
-    rate: z.number().nonnegative().optional(), // For manual additions with price
+exports.CreateInventoryItemSchema = zod_1.z.object({
+    name: zod_1.z.string(),
+    description: zod_1.z.string().optional(),
+    currentStock: zod_1.z.number().nonnegative().optional().default(0),
+    unit: zod_1.z.string(),
+    minStock: zod_1.z.number().nonnegative().optional(),
+    categoryId: zod_1.z.string().optional(), // Made optional - backend will create category automatically
+    itemType: exports.InventoryItemTypeSchema.optional(),
+    rate: zod_1.z.number().nonnegative().optional(), // For manual additions with price
 });
-export const UpdateInventoryItemSchema = z.object({
-    name: z.string().optional(),
-    description: z.string().nullable().optional(),
-    currentStock: z.number().nonnegative().optional(),
-    unit: z.string().optional(),
-    minStock: z.number().nonnegative().nullable().optional(),
-    categoryId: z.string().optional(),
-    itemType: InventoryItemTypeSchema.optional(),
+exports.UpdateInventoryItemSchema = zod_1.z.object({
+    name: zod_1.z.string().optional(),
+    description: zod_1.z.string().nullable().optional(),
+    currentStock: zod_1.z.number().nonnegative().optional(),
+    unit: zod_1.z.string().optional(),
+    minStock: zod_1.z.number().nonnegative().nullable().optional(),
+    categoryId: zod_1.z.string().optional(),
+    itemType: exports.InventoryItemTypeSchema.optional(),
 });
-export const InventoryTransactionSchema = BaseSchema.extend({
-    type: TransactionTypeSchema,
-    quantity: z.number().positive(),
-    unitPrice: z.number().positive(),
-    totalAmount: z.number().positive(),
-    date: z.date(),
-    description: z.string().nullable(),
-    itemId: z.string(),
+exports.InventoryTransactionSchema = exports.BaseSchema.extend({
+    type: exports.TransactionTypeSchema,
+    quantity: zod_1.z.number().positive(),
+    unitPrice: zod_1.z.number().positive(),
+    totalAmount: zod_1.z.number().positive(),
+    date: zod_1.z.date(),
+    description: zod_1.z.string().nullable(),
+    itemId: zod_1.z.string(),
 });
-export const CreateInventoryTransactionSchema = z.object({
-    type: TransactionTypeSchema,
-    quantity: z.number().positive(),
-    unitPrice: z.number().positive(),
-    totalAmount: z.number().positive(),
-    date: z.date(),
-    description: z.string().optional(),
-    itemId: z.string(),
+exports.CreateInventoryTransactionSchema = zod_1.z.object({
+    type: exports.TransactionTypeSchema,
+    quantity: zod_1.z.number().positive(),
+    unitPrice: zod_1.z.number().positive(),
+    totalAmount: zod_1.z.number().positive(),
+    date: zod_1.z.date(),
+    description: zod_1.z.string().optional(),
+    itemId: zod_1.z.string(),
 });
-export const InventoryUsageSchema = BaseSchema.extend({
-    date: z.date(),
-    quantity: z.number().positive(),
-    unitPrice: z.number().positive().nullable(),
-    totalAmount: z.number().positive().nullable(),
-    notes: z.string().nullable(),
-    itemId: z.string(),
-    expenseId: z.string().nullable(),
-    batchId: z.string().nullable(),
-    farmId: z.string(),
+exports.InventoryUsageSchema = exports.BaseSchema.extend({
+    date: zod_1.z.date(),
+    quantity: zod_1.z.number().positive(),
+    unitPrice: zod_1.z.number().positive().nullable(),
+    totalAmount: zod_1.z.number().positive().nullable(),
+    notes: zod_1.z.string().nullable(),
+    itemId: zod_1.z.string(),
+    expenseId: zod_1.z.string().nullable(),
+    batchId: zod_1.z.string().nullable(),
+    farmId: zod_1.z.string(),
 });
-export const CreateInventoryUsageSchema = z.object({
-    date: z.date(),
-    quantity: z.number().positive(),
-    unitPrice: z.number().positive().optional(),
-    totalAmount: z.number().positive().optional(),
-    notes: z.string().optional(),
-    itemId: z.string(),
-    expenseId: z.string().optional(),
-    batchId: z.string().optional(),
-    farmId: z.string(),
+exports.CreateInventoryUsageSchema = zod_1.z.object({
+    date: zod_1.z.date(),
+    quantity: zod_1.z.number().positive(),
+    unitPrice: zod_1.z.number().positive().optional(),
+    totalAmount: zod_1.z.number().positive().optional(),
+    notes: zod_1.z.string().optional(),
+    itemId: zod_1.z.string(),
+    expenseId: zod_1.z.string().optional(),
+    batchId: zod_1.z.string().optional(),
+    farmId: zod_1.z.string(),
 });
 // ==================== ENTITY TRANSACTION SCHEMAS ====================
-export const EntityTransactionSchema = BaseSchema.extend({
-    type: TransactionTypeSchema,
-    amount: z.number(),
-    quantity: z.number().int().nullable(),
-    itemName: z.string().nullable(),
-    date: z.date(),
-    description: z.string().nullable(),
-    reference: z.string().nullable(),
-    entityType: z.string(),
-    entityId: z.string(),
+exports.EntityTransactionSchema = exports.BaseSchema.extend({
+    type: exports.TransactionTypeSchema,
+    amount: zod_1.z.number(),
+    quantity: zod_1.z.number().int().nullable(),
+    itemName: zod_1.z.string().nullable(),
+    date: zod_1.z.date(),
+    description: zod_1.z.string().nullable(),
+    reference: zod_1.z.string().nullable(),
+    entityType: zod_1.z.string(),
+    entityId: zod_1.z.string(),
 });
-export const CreateEntityTransactionSchema = z.object({
-    type: TransactionTypeSchema,
-    amount: z.number(),
-    quantity: z.number().int().optional(),
-    itemName: z.string().optional(),
-    date: z.date(),
-    description: z.string().optional(),
-    reference: z.string().optional(),
-    entityType: z.string(),
-    entityId: z.string(),
+exports.CreateEntityTransactionSchema = zod_1.z.object({
+    type: exports.TransactionTypeSchema,
+    amount: zod_1.z.number(),
+    quantity: zod_1.z.number().int().optional(),
+    itemName: zod_1.z.string().optional(),
+    date: zod_1.z.date(),
+    description: zod_1.z.string().optional(),
+    reference: zod_1.z.string().optional(),
+    entityType: zod_1.z.string(),
+    entityId: zod_1.z.string(),
 });
 // ==================== SUPPLIER SCHEMAS ====================
-export const DealerSchema = BaseSchema.extend({
-    name: z.string(),
-    contact: z.string(),
-    address: z.string().nullable(),
-    userId: z.string(),
+exports.DealerSchema = exports.BaseSchema.extend({
+    name: zod_1.z.string(),
+    contact: zod_1.z.string(),
+    address: zod_1.z.string().nullable(),
+    userId: zod_1.z.string(),
 });
-export const CreateDealerSchema = z.object({
-    name: z.string(),
-    contact: z.string(),
-    address: z.string().optional(),
+exports.CreateDealerSchema = zod_1.z.object({
+    name: zod_1.z.string(),
+    contact: zod_1.z.string(),
+    address: zod_1.z.string().optional(),
 });
-export const UpdateDealerSchema = z.object({
-    name: z.string().optional(),
-    contact: z.string().optional(),
-    address: z.string().nullable().optional(),
+exports.UpdateDealerSchema = zod_1.z.object({
+    name: zod_1.z.string().optional(),
+    contact: zod_1.z.string().optional(),
+    address: zod_1.z.string().nullable().optional(),
 });
 // ==================== DEALER RESPONSE SCHEMAS ====================
-export const DealerTransactionSchema = z.object({
-    id: z.string(),
-    type: TransactionTypeSchema,
-    amount: z.number(),
-    quantity: z.number().int().nullable(),
-    itemName: z.string().nullable(),
-    date: z.date(),
-    description: z.string().nullable(),
-    reference: z.string().nullable(),
-    entityType: z.string(),
-    entityId: z.string(),
-    createdAt: z.date(),
-    updatedAt: z.date(),
+exports.DealerTransactionSchema = zod_1.z.object({
+    id: zod_1.z.string(),
+    type: exports.TransactionTypeSchema,
+    amount: zod_1.z.number(),
+    quantity: zod_1.z.number().int().nullable(),
+    itemName: zod_1.z.string().nullable(),
+    date: zod_1.z.date(),
+    description: zod_1.z.string().nullable(),
+    reference: zod_1.z.string().nullable(),
+    entityType: zod_1.z.string(),
+    entityId: zod_1.z.string(),
+    createdAt: zod_1.z.date(),
+    updatedAt: zod_1.z.date(),
 });
-export const DealerResponseSchema = BaseSchema.extend({
-    name: z.string(),
-    contact: z.string(),
-    address: z.string().nullable(),
-    userId: z.string(),
-    balance: z.number().nonnegative(), // Computed field
-    thisMonthAmount: z.number().nonnegative(), // Computed field
-    totalTransactions: z.number().int().nonnegative(), // Computed field
-    recentTransactions: z.array(DealerTransactionSchema), // Computed field
+exports.DealerResponseSchema = exports.BaseSchema.extend({
+    name: zod_1.z.string(),
+    contact: zod_1.z.string(),
+    address: zod_1.z.string().nullable(),
+    userId: zod_1.z.string(),
+    balance: zod_1.z.number().nonnegative(), // Computed field
+    thisMonthAmount: zod_1.z.number().nonnegative(), // Computed field
+    totalTransactions: zod_1.z.number().int().nonnegative(), // Computed field
+    recentTransactions: zod_1.z.array(exports.DealerTransactionSchema), // Computed field
 });
-export const DealerStatisticsSchema = z.object({
-    totalDealers: z.number().int().nonnegative(),
-    activeDealers: z.number().int().nonnegative(),
-    outstandingAmount: z.number().nonnegative(),
-    thisMonthAmount: z.number().nonnegative(),
+exports.DealerStatisticsSchema = zod_1.z.object({
+    totalDealers: zod_1.z.number().int().nonnegative(),
+    activeDealers: zod_1.z.number().int().nonnegative(),
+    outstandingAmount: zod_1.z.number().nonnegative(),
+    thisMonthAmount: zod_1.z.number().nonnegative(),
 });
-export const DealerDetailResponseSchema = BaseSchema.extend({
-    name: z.string(),
-    contact: z.string(),
-    address: z.string().nullable(),
-    userId: z.string(),
-    balance: z.number().nonnegative(),
-    thisMonthAmount: z.number().nonnegative(),
-    totalTransactions: z.number().int().nonnegative(),
-    transactionTable: z.array(z.object({
-        itemName: z.string(),
-        rate: z.number(),
-        quantity: z.number(),
-        totalAmount: z.number(),
-        amountPaid: z.number(),
-        amountDue: z.number(),
-        date: z.date(),
-        dueDate: z.date(),
-        payments: z.array(z.object({
-            amount: z.number(),
-            date: z.date(),
-            reference: z.string().nullable(),
+exports.DealerDetailResponseSchema = exports.BaseSchema.extend({
+    name: zod_1.z.string(),
+    contact: zod_1.z.string(),
+    address: zod_1.z.string().nullable(),
+    userId: zod_1.z.string(),
+    balance: zod_1.z.number().nonnegative(),
+    thisMonthAmount: zod_1.z.number().nonnegative(),
+    totalTransactions: zod_1.z.number().int().nonnegative(),
+    transactionTable: zod_1.z.array(zod_1.z.object({
+        itemName: zod_1.z.string(),
+        rate: zod_1.z.number(),
+        quantity: zod_1.z.number(),
+        totalAmount: zod_1.z.number(),
+        amountPaid: zod_1.z.number(),
+        amountDue: zod_1.z.number(),
+        date: zod_1.z.date(),
+        dueDate: zod_1.z.date(),
+        payments: zod_1.z.array(zod_1.z.object({
+            amount: zod_1.z.number(),
+            date: zod_1.z.date(),
+            reference: zod_1.z.string().nullable(),
         })),
     })),
-    summary: z.object({
-        totalPurchases: z.number().int().nonnegative(),
-        totalPayments: z.number().int().nonnegative(),
-        outstandingAmount: z.number().nonnegative(),
-        thisMonthPurchases: z.number().int().nonnegative(),
+    summary: zod_1.z.object({
+        totalPurchases: zod_1.z.number().int().nonnegative(),
+        totalPayments: zod_1.z.number().int().nonnegative(),
+        outstandingAmount: zod_1.z.number().nonnegative(),
+        thisMonthPurchases: zod_1.z.number().int().nonnegative(),
     }),
 });
-export const HatcherySchema = BaseSchema.extend({
-    name: z.string(),
-    contact: z.string(),
-    address: z.string().nullable(),
-    userId: z.string(),
+exports.HatcherySchema = exports.BaseSchema.extend({
+    name: zod_1.z.string(),
+    contact: zod_1.z.string(),
+    address: zod_1.z.string().nullable(),
+    userId: zod_1.z.string(),
 });
-export const CreateHatcherySchema = z.object({
-    name: z.string(),
-    contact: z.string(),
-    address: z.string().optional(),
+exports.CreateHatcherySchema = zod_1.z.object({
+    name: zod_1.z.string(),
+    contact: zod_1.z.string(),
+    address: zod_1.z.string().optional(),
 });
-export const UpdateHatcherySchema = z.object({
-    name: z.string().optional(),
-    contact: z.string().optional(),
-    address: z.string().nullable().optional(),
+exports.UpdateHatcherySchema = zod_1.z.object({
+    name: zod_1.z.string().optional(),
+    contact: zod_1.z.string().optional(),
+    address: zod_1.z.string().nullable().optional(),
 });
-export const MedicineSupplierSchema = BaseSchema.extend({
-    name: z.string(),
-    contact: z.string(),
-    address: z.string().nullable(),
-    userId: z.string(),
+exports.MedicineSupplierSchema = exports.BaseSchema.extend({
+    name: zod_1.z.string(),
+    contact: zod_1.z.string(),
+    address: zod_1.z.string().nullable(),
+    userId: zod_1.z.string(),
 });
-export const CreateMedicineSupplierSchema = z.object({
-    name: z.string(),
-    contact: z.string(),
-    address: z.string().optional(),
+exports.CreateMedicineSupplierSchema = zod_1.z.object({
+    name: zod_1.z.string(),
+    contact: zod_1.z.string(),
+    address: zod_1.z.string().optional(),
 });
-export const UpdateMedicineSupplierSchema = z.object({
-    name: z.string().optional(),
-    contact: z.string().optional(),
-    address: z.string().nullable().optional(),
+exports.UpdateMedicineSupplierSchema = zod_1.z.object({
+    name: zod_1.z.string().optional(),
+    contact: zod_1.z.string().optional(),
+    address: zod_1.z.string().nullable().optional(),
 });
 // ==================== CUSTOMER SCHEMAS ====================
-export const CustomerSchema = BaseSchema.extend({
-    name: z.string(),
-    phone: z.string(),
-    category: z.string().nullable(),
-    address: z.string().nullable(),
-    balance: z.number(),
-    userId: z.string(),
+exports.CustomerSchema = exports.BaseSchema.extend({
+    name: zod_1.z.string(),
+    phone: zod_1.z.string(),
+    category: zod_1.z.string().nullable(),
+    address: zod_1.z.string().nullable(),
+    balance: zod_1.z.number(),
+    userId: zod_1.z.string(),
 });
-export const CreateCustomerSchema = z.object({
-    name: z.string(),
-    phone: z.string(),
-    category: z.string().optional(),
-    address: z.string().optional(),
-    balance: z.number().optional().default(0),
+exports.CreateCustomerSchema = zod_1.z.object({
+    name: zod_1.z.string(),
+    phone: zod_1.z.string(),
+    category: zod_1.z.string().optional(),
+    address: zod_1.z.string().optional(),
+    balance: zod_1.z.number().optional().default(0),
 });
-export const UpdateCustomerSchema = z.object({
-    name: z.string().optional(),
-    phone: z.string().optional(),
-    category: z.string().nullable().optional(),
-    address: z.string().nullable().optional(),
-    balance: z.number().optional(),
+exports.UpdateCustomerSchema = zod_1.z.object({
+    name: zod_1.z.string().optional(),
+    phone: zod_1.z.string().optional(),
+    category: zod_1.z.string().nullable().optional(),
+    address: zod_1.z.string().nullable().optional(),
+    balance: zod_1.z.number().optional(),
 });
-export const CustomerTransactionSchema = BaseSchema.extend({
-    type: TransactionTypeSchema,
-    amount: z.number(),
-    date: z.date(),
-    description: z.string().nullable(),
-    reference: z.string().nullable(),
-    customerId: z.string(),
+exports.CustomerTransactionSchema = exports.BaseSchema.extend({
+    type: exports.TransactionTypeSchema,
+    amount: zod_1.z.number(),
+    date: zod_1.z.date(),
+    description: zod_1.z.string().nullable(),
+    reference: zod_1.z.string().nullable(),
+    customerId: zod_1.z.string(),
 });
-export const CreateCustomerTransactionSchema = z.object({
-    type: TransactionTypeSchema,
-    amount: z.number(),
-    date: z.date(),
-    description: z.string().optional(),
-    reference: z.string().optional(),
-    customerId: z.string(),
+exports.CreateCustomerTransactionSchema = zod_1.z.object({
+    type: exports.TransactionTypeSchema,
+    amount: zod_1.z.number(),
+    date: zod_1.z.date(),
+    description: zod_1.z.string().optional(),
+    reference: zod_1.z.string().optional(),
+    customerId: zod_1.z.string(),
 });
 // ==================== BATCH TRACKING SCHEMAS ====================
-export const MortalitySchema = BaseSchema.extend({
-    date: z.date(),
-    count: z.number().int().positive(),
-    reason: z.string().nullable(),
-    batchId: z.string(),
+exports.MortalitySchema = exports.BaseSchema.extend({
+    date: zod_1.z.date(),
+    count: zod_1.z.number().int().positive(),
+    reason: zod_1.z.string().nullable(),
+    batchId: zod_1.z.string(),
 });
-export const CreateMortalitySchema = z.object({
-    date: z.date(),
-    count: z.number().int().positive(),
-    reason: z.string().optional(),
-    batchId: z.string(),
+exports.CreateMortalitySchema = zod_1.z.object({
+    date: zod_1.z.date(),
+    count: zod_1.z.number().int().positive(),
+    reason: zod_1.z.string().optional(),
+    batchId: zod_1.z.string(),
 });
-export const UpdateMortalitySchema = z.object({
-    date: z.date().optional(),
-    count: z.number().int().positive().optional(),
-    reason: z.string().nullable().optional(),
+exports.UpdateMortalitySchema = zod_1.z.object({
+    date: zod_1.z.date().optional(),
+    count: zod_1.z.number().int().positive().optional(),
+    reason: zod_1.z.string().nullable().optional(),
 });
-export const VaccinationSchema = BaseSchema.extend({
-    vaccineName: z.string(),
-    scheduledDate: z.date(),
-    completedDate: z.date().nullable(),
-    status: VaccinationStatusSchema,
-    notes: z.string().nullable(),
-    batchId: z.string(),
+exports.VaccinationSchema = exports.BaseSchema.extend({
+    vaccineName: zod_1.z.string(),
+    scheduledDate: zod_1.z.date(),
+    completedDate: zod_1.z.date().nullable(),
+    status: exports.VaccinationStatusSchema,
+    notes: zod_1.z.string().nullable(),
+    batchId: zod_1.z.string(),
 });
-export const CreateVaccinationSchema = z.object({
-    vaccineName: z.string(),
-    scheduledDate: z.date(),
-    completedDate: z.date().optional(),
-    status: VaccinationStatusSchema.optional().default("PENDING"),
-    notes: z.string().optional(),
-    batchId: z.string(),
+exports.CreateVaccinationSchema = zod_1.z.object({
+    vaccineName: zod_1.z.string(),
+    scheduledDate: zod_1.z.date(),
+    completedDate: zod_1.z.date().optional(),
+    status: exports.VaccinationStatusSchema.optional().default("PENDING"),
+    notes: zod_1.z.string().optional(),
+    batchId: zod_1.z.string(),
 });
-export const UpdateVaccinationSchema = z.object({
-    vaccineName: z.string().optional(),
-    scheduledDate: z.date().optional(),
-    completedDate: z.date().nullable().optional(),
-    status: VaccinationStatusSchema.optional(),
-    notes: z.string().nullable().optional(),
+exports.UpdateVaccinationSchema = zod_1.z.object({
+    vaccineName: zod_1.z.string().optional(),
+    scheduledDate: zod_1.z.date().optional(),
+    completedDate: zod_1.z.date().nullable().optional(),
+    status: exports.VaccinationStatusSchema.optional(),
+    notes: zod_1.z.string().nullable().optional(),
 });
-export const FeedConsumptionSchema = BaseSchema.extend({
-    date: z.date(),
-    quantity: z.number().positive(),
-    feedType: z.string(),
-    batchId: z.string(),
+exports.FeedConsumptionSchema = exports.BaseSchema.extend({
+    date: zod_1.z.date(),
+    quantity: zod_1.z.number().positive(),
+    feedType: zod_1.z.string(),
+    batchId: zod_1.z.string(),
 });
-export const CreateFeedConsumptionSchema = z.object({
-    date: z.date(),
-    quantity: z.number().positive(),
-    feedType: z.string(),
-    batchId: z.string(),
+exports.CreateFeedConsumptionSchema = zod_1.z.object({
+    date: zod_1.z.date(),
+    quantity: zod_1.z.number().positive(),
+    feedType: zod_1.z.string(),
+    batchId: zod_1.z.string(),
 });
-export const UpdateFeedConsumptionSchema = z.object({
-    date: z.date().optional(),
-    quantity: z.number().positive().optional(),
-    feedType: z.string().optional(),
+exports.UpdateFeedConsumptionSchema = zod_1.z.object({
+    date: zod_1.z.date().optional(),
+    quantity: zod_1.z.number().positive().optional(),
+    feedType: zod_1.z.string().optional(),
 });
-export const BirdWeightSchema = BaseSchema.extend({
-    date: z.date(),
-    avgWeight: z.number().positive(),
-    sampleCount: z.number().int().positive(),
-    batchId: z.string(),
+exports.BirdWeightSchema = exports.BaseSchema.extend({
+    date: zod_1.z.date(),
+    avgWeight: zod_1.z.number().positive(),
+    sampleCount: zod_1.z.number().int().positive(),
+    batchId: zod_1.z.string(),
 });
-export const CreateBirdWeightSchema = z.object({
-    date: z.date(),
-    avgWeight: z.number().positive(),
-    sampleCount: z.number().int().positive(),
-    batchId: z.string(),
+exports.CreateBirdWeightSchema = zod_1.z.object({
+    date: zod_1.z.date(),
+    avgWeight: zod_1.z.number().positive(),
+    sampleCount: zod_1.z.number().int().positive(),
+    batchId: zod_1.z.string(),
 });
-export const UpdateBirdWeightSchema = z.object({
-    date: z.date().optional(),
-    avgWeight: z.number().positive().optional(),
-    sampleCount: z.number().int().positive().optional(),
+exports.UpdateBirdWeightSchema = zod_1.z.object({
+    date: zod_1.z.date().optional(),
+    avgWeight: zod_1.z.number().positive().optional(),
+    sampleCount: zod_1.z.number().int().positive().optional(),
 });
 // ==================== NOTIFICATION SCHEMAS ====================
-export const NotificationSchema = BaseSchema.extend({
-    type: NotificationTypeSchema,
-    title: z.string(),
-    message: z.string(),
-    status: NotificationStatusSchema,
-    data: z.any().nullable(),
-    userId: z.string(),
+exports.NotificationSchema = exports.BaseSchema.extend({
+    type: exports.NotificationTypeSchema,
+    title: zod_1.z.string(),
+    message: zod_1.z.string(),
+    status: exports.NotificationStatusSchema,
+    data: zod_1.z.any().nullable(),
+    userId: zod_1.z.string(),
 });
-export const CreateNotificationSchema = z.object({
-    type: NotificationTypeSchema,
-    title: z.string(),
-    message: z.string(),
-    status: NotificationStatusSchema.optional().default("PENDING"),
-    data: z.any().optional(),
-    userId: z.string(),
+exports.CreateNotificationSchema = zod_1.z.object({
+    type: exports.NotificationTypeSchema,
+    title: zod_1.z.string(),
+    message: zod_1.z.string(),
+    status: exports.NotificationStatusSchema.optional().default("PENDING"),
+    data: zod_1.z.any().optional(),
+    userId: zod_1.z.string(),
 });
-export const UpdateNotificationSchema = z.object({
-    type: NotificationTypeSchema.optional(),
-    title: z.string().optional(),
-    message: z.string().optional(),
-    status: NotificationStatusSchema.optional(),
-    data: z.any().nullable().optional(),
+exports.UpdateNotificationSchema = zod_1.z.object({
+    type: exports.NotificationTypeSchema.optional(),
+    title: zod_1.z.string().optional(),
+    message: zod_1.z.string().optional(),
+    status: exports.NotificationStatusSchema.optional(),
+    data: zod_1.z.any().nullable().optional(),
 });
 // ==================== AUDIT LOG SCHEMAS ====================
-export const AuditLogSchema = BaseSchema.extend({
-    action: AuditActionSchema,
-    tableName: z.string(),
-    recordId: z.string(),
-    oldValues: z.any().nullable(),
-    newValues: z.any().nullable(),
-    ipAddress: z.string().nullable(),
-    userAgent: z.string().nullable(),
-    userId: z.string(),
+exports.AuditLogSchema = exports.BaseSchema.extend({
+    action: exports.AuditActionSchema,
+    tableName: zod_1.z.string(),
+    recordId: zod_1.z.string(),
+    oldValues: zod_1.z.any().nullable(),
+    newValues: zod_1.z.any().nullable(),
+    ipAddress: zod_1.z.string().nullable(),
+    userAgent: zod_1.z.string().nullable(),
+    userId: zod_1.z.string(),
 });
-export const CreateAuditLogSchema = z.object({
-    action: AuditActionSchema,
-    tableName: z.string(),
-    recordId: z.string(),
-    oldValues: z.any().optional(),
-    newValues: z.any().optional(),
-    ipAddress: z.string().optional(),
-    userAgent: z.string().optional(),
-    userId: z.string(),
+exports.CreateAuditLogSchema = zod_1.z.object({
+    action: exports.AuditActionSchema,
+    tableName: zod_1.z.string(),
+    recordId: zod_1.z.string(),
+    oldValues: zod_1.z.any().optional(),
+    newValues: zod_1.z.any().optional(),
+    ipAddress: zod_1.z.string().optional(),
+    userAgent: zod_1.z.string().optional(),
+    userId: zod_1.z.string(),
 });
 // ==================== AUTHENTICATION SCHEMAS ====================
-export const LoginSchema = z.object({
-    emailOrPhone: z.string(), // Can be email or phone
-    password: z.string(),
+exports.LoginSchema = zod_1.z.object({
+    emailOrPhone: zod_1.z.string(), // Can be email or phone
+    password: zod_1.z.string(),
 });
-export const SignupSchema = z.object({
-    name: z.string(),
-    email: z.email().optional(),
-    phone: z.string().optional(),
-    password: z.string(),
-    gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional().default("OTHER"),
-    role: UserRoleSchema.optional().default("OWNER"),
-    companyName: z.string().optional(),
-    companyFarmLocation: z.string().optional(),
-    companyFarmNumber: z.string().optional(),
-    companyFarmCapacity: z.number().int().optional(),
+exports.SignupSchema = zod_1.z.object({
+    name: zod_1.z.string(),
+    email: zod_1.z.email().optional(),
+    phone: zod_1.z.string().optional(),
+    password: zod_1.z.string(),
+    gender: zod_1.z.enum(["MALE", "FEMALE", "OTHER"]).optional().default("OTHER"),
+    role: exports.UserRoleSchema.optional().default("OWNER"),
+    companyName: zod_1.z.string().optional(),
+    companyFarmLocation: zod_1.z.string().optional(),
+    companyFarmNumber: zod_1.z.string().optional(),
+    companyFarmCapacity: zod_1.z.number().int().optional(),
 });
 // ==================== COMPUTED TYPES ====================
-export const BatchAnalyticsSchema = z.object({
-    batchId: z.string(),
-    currentChicks: z.number().int().nonnegative(),
-    totalMortality: z.number().int().nonnegative(),
-    totalExpenses: z.number().nonnegative(),
-    totalSales: z.number().nonnegative(),
-    fcr: z.number().positive().nullable(),
-    avgWeight: z.number().positive().nullable(),
-    daysActive: z.number().int().nonnegative(),
+exports.BatchAnalyticsSchema = zod_1.z.object({
+    batchId: zod_1.z.string(),
+    currentChicks: zod_1.z.number().int().nonnegative(),
+    totalMortality: zod_1.z.number().int().nonnegative(),
+    totalExpenses: zod_1.z.number().nonnegative(),
+    totalSales: zod_1.z.number().nonnegative(),
+    fcr: zod_1.z.number().positive().nullable(),
+    avgWeight: zod_1.z.number().positive().nullable(),
+    daysActive: zod_1.z.number().int().nonnegative(),
 });
-export const FarmAnalyticsSchema = z.object({
-    farmId: z.string(),
-    totalBatches: z.number().int().nonnegative(),
-    activeBatches: z.number().int().nonnegative(),
-    totalExpenses: z.number().nonnegative(),
-    totalSales: z.number().nonnegative(),
-    profit: z.number(),
-    profitMargin: z.number(),
+exports.FarmAnalyticsSchema = zod_1.z.object({
+    farmId: zod_1.z.string(),
+    totalBatches: zod_1.z.number().int().nonnegative(),
+    activeBatches: zod_1.z.number().int().nonnegative(),
+    totalExpenses: zod_1.z.number().nonnegative(),
+    totalSales: zod_1.z.number().nonnegative(),
+    profit: zod_1.z.number(),
+    profitMargin: zod_1.z.number(),
 });
-export const UserResponseSchema = z.object({
-    id: z.string(),
-    name: z.string(),
-    email: z.string(),
-    phone: z.string(),
-    role: UserRoleSchema,
-    gender: z.enum(["MALE", "FEMALE", "OTHER"]),
-    status: z.enum(["ACTIVE", "INACTIVE", "PENDING_VERIFICATION"]),
-    managedFarms: z.array(z.string()).optional(), // For managers
-    companyName: z.string().optional(),
-    companyFarmLocation: z.string().optional(),
-    companyFarmNumber: z.string().optional(),
-    companyFarmCapacity: z.number().int().optional(),
+exports.UserResponseSchema = zod_1.z.object({
+    id: zod_1.z.string(),
+    name: zod_1.z.string(),
+    email: zod_1.z.string(),
+    phone: zod_1.z.string(),
+    role: exports.UserRoleSchema,
+    gender: zod_1.z.enum(["MALE", "FEMALE", "OTHER"]),
+    status: zod_1.z.enum(["ACTIVE", "INACTIVE", "PENDING_VERIFICATION"]),
+    managedFarms: zod_1.z.array(zod_1.z.string()).optional(), // For managers
+    companyName: zod_1.z.string().optional(),
+    companyFarmLocation: zod_1.z.string().optional(),
+    companyFarmNumber: zod_1.z.string().optional(),
+    companyFarmCapacity: zod_1.z.number().int().optional(),
 });
-export const AuthResponseSchema = z.object({
-    accessToken: z.string(),
-    user: UserResponseSchema,
+exports.AuthResponseSchema = zod_1.z.object({
+    accessToken: zod_1.z.string(),
+    user: exports.UserResponseSchema,
 });
-export const FarmListResponseSchema = z.object({
-    success: z.boolean(),
-    data: z.array(FarmResponseSchema),
-    message: z.string().optional(),
+exports.FarmListResponseSchema = zod_1.z.object({
+    success: zod_1.z.boolean(),
+    data: zod_1.z.array(exports.FarmResponseSchema),
+    message: zod_1.z.string().optional(),
 });
-export const FarmDetailResponseSchema = z.object({
-    success: z.boolean(),
-    data: FarmResponseSchema,
-    message: z.string().optional(),
+exports.FarmDetailResponseSchema = zod_1.z.object({
+    success: zod_1.z.boolean(),
+    data: exports.FarmResponseSchema,
+    message: zod_1.z.string().optional(),
 });
 // ==================== BATCH API RESPONSE SCHEMAS ====================
-export const BatchListResponseSchema = z.object({
-    success: z.boolean(),
-    data: z.array(BatchResponseSchema),
-    pagination: z.object({
-        page: z.number().int().positive(),
-        limit: z.number().int().positive(),
-        total: z.number().int().nonnegative(),
-        totalPages: z.number().int().nonnegative(),
+exports.BatchListResponseSchema = zod_1.z.object({
+    success: zod_1.z.boolean(),
+    data: zod_1.z.array(exports.BatchResponseSchema),
+    pagination: zod_1.z.object({
+        page: zod_1.z.number().int().positive(),
+        limit: zod_1.z.number().int().positive(),
+        total: zod_1.z.number().int().nonnegative(),
+        totalPages: zod_1.z.number().int().nonnegative(),
     }),
-    message: z.string().optional(),
+    message: zod_1.z.string().optional(),
 });
-export const BatchDetailResponseSchema = z.object({
-    success: z.boolean(),
-    data: BatchResponseSchema,
-    message: z.string().optional(),
+exports.BatchDetailResponseSchema = zod_1.z.object({
+    success: zod_1.z.boolean(),
+    data: exports.BatchResponseSchema,
+    message: zod_1.z.string().optional(),
 });
 // ==================== EXPORT ALL SCHEMAS ====================
-export const schemas = {
+exports.schemas = {
     // Enums
-    UserRole: UserRoleSchema,
-    BatchStatus: BatchStatusSchema,
-    TransactionType: TransactionTypeSchema,
-    NotificationType: NotificationTypeSchema,
-    NotificationStatus: NotificationStatusSchema,
-    VaccinationStatus: VaccinationStatusSchema,
-    AuditAction: AuditActionSchema,
-    CategoryType: CategoryTypeSchema,
-    InventoryItemType: InventoryItemTypeSchema,
+    UserRole: exports.UserRoleSchema,
+    BatchStatus: exports.BatchStatusSchema,
+    TransactionType: exports.TransactionTypeSchema,
+    NotificationType: exports.NotificationTypeSchema,
+    NotificationStatus: exports.NotificationStatusSchema,
+    VaccinationStatus: exports.VaccinationStatusSchema,
+    AuditAction: exports.AuditActionSchema,
+    CategoryType: exports.CategoryTypeSchema,
+    InventoryItemType: exports.InventoryItemTypeSchema,
     // Base
-    Base: BaseSchema,
+    Base: exports.BaseSchema,
     // Core Models
-    User: UserSchema,
-    CreateUser: CreateUserSchema,
-    UpdateUser: UpdateUserSchema,
-    Farm: FarmSchema,
-    CreateFarm: CreateFarmSchema,
-    UpdateFarm: UpdateFarmSchema,
+    User: exports.UserSchema,
+    CreateUser: exports.CreateUserSchema,
+    UpdateUser: exports.UpdateUserSchema,
+    Farm: exports.FarmSchema,
+    CreateFarm: exports.CreateFarmSchema,
+    UpdateFarm: exports.UpdateFarmSchema,
     // Farm Response Types
-    FarmResponse: FarmResponseSchema,
-    FarmOwner: FarmOwnerSchema,
-    FarmManager: FarmManagerSchema,
-    FarmCount: FarmCountSchema,
-    FarmDetailResponse: FarmDetailResponseSchema,
-    FarmListResponse: FarmListResponseSchema,
-    Batch: BatchSchema,
-    CreateBatch: CreateBatchSchema,
-    UpdateBatch: UpdateBatchSchema,
+    FarmResponse: exports.FarmResponseSchema,
+    FarmOwner: exports.FarmOwnerSchema,
+    FarmManager: exports.FarmManagerSchema,
+    FarmCount: exports.FarmCountSchema,
+    FarmDetailResponse: exports.FarmDetailResponseSchema,
+    FarmListResponse: exports.FarmListResponseSchema,
+    Batch: exports.BatchSchema,
+    CreateBatch: exports.CreateBatchSchema,
+    UpdateBatch: exports.UpdateBatchSchema,
     // Batch Response Types
-    BatchResponse: BatchResponseSchema,
-    BatchFarm: BatchFarmSchema,
-    BatchCount: BatchCountSchema,
-    BatchListResponse: BatchListResponseSchema,
-    BatchDetailResponse: BatchDetailResponseSchema,
-    Category: CategorySchema,
-    CreateCategory: CreateCategorySchema,
-    UpdateCategory: UpdateCategorySchema,
+    BatchResponse: exports.BatchResponseSchema,
+    BatchFarm: exports.BatchFarmSchema,
+    BatchCount: exports.BatchCountSchema,
+    BatchListResponse: exports.BatchListResponseSchema,
+    BatchDetailResponse: exports.BatchDetailResponseSchema,
+    Category: exports.CategorySchema,
+    CreateCategory: exports.CreateCategorySchema,
+    UpdateCategory: exports.UpdateCategorySchema,
     // Financial
-    Expense: ExpenseSchema,
-    CreateExpense: CreateExpenseSchema,
-    UpdateExpense: UpdateExpenseSchema,
-    Sale: SaleSchema,
-    CreateSale: CreateSaleSchema,
-    UpdateSale: UpdateSaleSchema,
-    SalePayment: SalePaymentSchema,
-    CreateSalePayment: CreateSalePaymentSchema,
+    Expense: exports.ExpenseSchema,
+    CreateExpense: exports.CreateExpenseSchema,
+    UpdateExpense: exports.UpdateExpenseSchema,
+    Sale: exports.SaleSchema,
+    CreateSale: exports.CreateSaleSchema,
+    UpdateSale: exports.UpdateSaleSchema,
+    SalePayment: exports.SalePaymentSchema,
+    CreateSalePayment: exports.CreateSalePaymentSchema,
     // Inventory
-    InventoryItem: InventoryItemSchema,
-    CreateInventoryItem: CreateInventoryItemSchema,
-    UpdateInventoryItem: UpdateInventoryItemSchema,
-    InventoryTransaction: InventoryTransactionSchema,
-    CreateInventoryTransaction: CreateInventoryTransactionSchema,
-    InventoryUsage: InventoryUsageSchema,
-    CreateInventoryUsage: CreateInventoryUsageSchema,
+    InventoryItem: exports.InventoryItemSchema,
+    CreateInventoryItem: exports.CreateInventoryItemSchema,
+    UpdateInventoryItem: exports.UpdateInventoryItemSchema,
+    InventoryTransaction: exports.InventoryTransactionSchema,
+    CreateInventoryTransaction: exports.CreateInventoryTransactionSchema,
+    InventoryUsage: exports.InventoryUsageSchema,
+    CreateInventoryUsage: exports.CreateInventoryUsageSchema,
     // Transactions
-    EntityTransaction: EntityTransactionSchema,
-    CreateEntityTransaction: CreateEntityTransactionSchema,
+    EntityTransaction: exports.EntityTransactionSchema,
+    CreateEntityTransaction: exports.CreateEntityTransactionSchema,
     // Suppliers
-    Dealer: DealerSchema,
-    CreateDealer: CreateDealerSchema,
-    UpdateDealer: UpdateDealerSchema,
+    Dealer: exports.DealerSchema,
+    CreateDealer: exports.CreateDealerSchema,
+    UpdateDealer: exports.UpdateDealerSchema,
     // Dealer Response Types
-    DealerResponse: DealerResponseSchema,
-    DealerTransaction: DealerTransactionSchema,
-    DealerStatistics: DealerStatisticsSchema,
-    DealerDetailResponse: DealerDetailResponseSchema,
-    Hatchery: HatcherySchema,
-    CreateHatchery: CreateHatcherySchema,
-    UpdateHatchery: UpdateHatcherySchema,
-    MedicineSupplier: MedicineSupplierSchema,
-    CreateMedicineSupplier: CreateMedicineSupplierSchema,
-    UpdateMedicineSupplier: UpdateMedicineSupplierSchema,
+    DealerResponse: exports.DealerResponseSchema,
+    DealerTransaction: exports.DealerTransactionSchema,
+    DealerStatistics: exports.DealerStatisticsSchema,
+    DealerDetailResponse: exports.DealerDetailResponseSchema,
+    Hatchery: exports.HatcherySchema,
+    CreateHatchery: exports.CreateHatcherySchema,
+    UpdateHatchery: exports.UpdateHatcherySchema,
+    MedicineSupplier: exports.MedicineSupplierSchema,
+    CreateMedicineSupplier: exports.CreateMedicineSupplierSchema,
+    UpdateMedicineSupplier: exports.UpdateMedicineSupplierSchema,
     // Customers
-    Customer: CustomerSchema,
-    CreateCustomer: CreateCustomerSchema,
-    UpdateCustomer: UpdateCustomerSchema,
-    CustomerTransaction: CustomerTransactionSchema,
-    CreateCustomerTransaction: CreateCustomerTransactionSchema,
+    Customer: exports.CustomerSchema,
+    CreateCustomer: exports.CreateCustomerSchema,
+    UpdateCustomer: exports.UpdateCustomerSchema,
+    CustomerTransaction: exports.CustomerTransactionSchema,
+    CreateCustomerTransaction: exports.CreateCustomerTransactionSchema,
     // Batch Tracking
-    Mortality: MortalitySchema,
-    CreateMortality: CreateMortalitySchema,
-    UpdateMortality: UpdateMortalitySchema,
-    Vaccination: VaccinationSchema,
-    CreateVaccination: CreateVaccinationSchema,
-    UpdateVaccination: UpdateVaccinationSchema,
-    FeedConsumption: FeedConsumptionSchema,
-    CreateFeedConsumption: CreateFeedConsumptionSchema,
-    UpdateFeedConsumption: UpdateFeedConsumptionSchema,
-    BirdWeight: BirdWeightSchema,
-    CreateBirdWeight: CreateBirdWeightSchema,
-    UpdateBirdWeight: UpdateBirdWeightSchema,
+    Mortality: exports.MortalitySchema,
+    CreateMortality: exports.CreateMortalitySchema,
+    UpdateMortality: exports.UpdateMortalitySchema,
+    Vaccination: exports.VaccinationSchema,
+    CreateVaccination: exports.CreateVaccinationSchema,
+    UpdateVaccination: exports.UpdateVaccinationSchema,
+    FeedConsumption: exports.FeedConsumptionSchema,
+    CreateFeedConsumption: exports.CreateFeedConsumptionSchema,
+    UpdateFeedConsumption: exports.UpdateFeedConsumptionSchema,
+    BirdWeight: exports.BirdWeightSchema,
+    CreateBirdWeight: exports.CreateBirdWeightSchema,
+    UpdateBirdWeight: exports.UpdateBirdWeightSchema,
     // Notifications
-    Notification: NotificationSchema,
-    CreateNotification: CreateNotificationSchema,
-    UpdateNotification: UpdateNotificationSchema,
+    Notification: exports.NotificationSchema,
+    CreateNotification: exports.CreateNotificationSchema,
+    UpdateNotification: exports.UpdateNotificationSchema,
     // Audit
-    AuditLog: AuditLogSchema,
-    CreateAuditLog: CreateAuditLogSchema,
+    AuditLog: exports.AuditLogSchema,
+    CreateAuditLog: exports.CreateAuditLogSchema,
     // Auth
-    Login: LoginSchema,
-    Signup: SignupSchema,
+    Login: exports.LoginSchema,
+    Signup: exports.SignupSchema,
     // Analytics
-    BatchAnalytics: BatchAnalyticsSchema,
-    FarmAnalytics: FarmAnalyticsSchema,
+    BatchAnalytics: exports.BatchAnalyticsSchema,
+    FarmAnalytics: exports.FarmAnalyticsSchema,
     // User Response
-    UserResponse: UserResponseSchema,
-    AuthResponse: AuthResponseSchema,
+    UserResponse: exports.UserResponseSchema,
+    AuthResponse: exports.AuthResponseSchema,
     // ==================== API RESPONSE SCHEMAS ====================
 };
 // ==================== API RESPONSE SCHEMAS ====================
-export const ApiResponseSchema = (dataSchema) => z.object({
-    success: z.boolean(),
+const ApiResponseSchema = (dataSchema) => zod_1.z.object({
+    success: zod_1.z.boolean(),
     data: dataSchema.optional(),
-    message: z.string().optional(),
-    error: z.string().optional(),
+    message: zod_1.z.string().optional(),
+    error: zod_1.z.string().optional(),
 });
-export const PaginatedResponseSchema = (itemSchema) => z.object({
-    success: z.boolean(),
-    data: z.array(itemSchema),
-    pagination: z.object({
-        page: z.number().int().positive(),
-        limit: z.number().int().positive(),
-        total: z.number().int().nonnegative(),
-        totalPages: z.number().int().nonnegative(),
+exports.ApiResponseSchema = ApiResponseSchema;
+const PaginatedResponseSchema = (itemSchema) => zod_1.z.object({
+    success: zod_1.z.boolean(),
+    data: zod_1.z.array(itemSchema),
+    pagination: zod_1.z.object({
+        page: zod_1.z.number().int().positive(),
+        limit: zod_1.z.number().int().positive(),
+        total: zod_1.z.number().int().nonnegative(),
+        totalPages: zod_1.z.number().int().nonnegative(),
     }),
-    message: z.string().optional(),
+    message: zod_1.z.string().optional(),
 });
+exports.PaginatedResponseSchema = PaginatedResponseSchema;
 // ==================== FARM API RESPONSE SCHEMAS ====================
 // ==================== USER RESPONSE SCHEMAS ====================
