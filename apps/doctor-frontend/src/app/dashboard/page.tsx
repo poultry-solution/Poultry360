@@ -19,6 +19,7 @@ import {
   User,
   LogOut,
   Edit,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -265,14 +266,17 @@ export default function DoctorDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="py-2">
+          <Card 
+            className="cursor-pointer hover:bg-muted/50 transition-colors py-2"
+            onClick={() => router.push('/ledger')}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-              <CardTitle className="text-xs font-medium">Completed</CardTitle>
-              <CheckCircle className="h-3 w-3 text-muted-foreground" />
+              <CardTitle className="text-xs font-medium">Ledger</CardTitle>
+              <BookOpen className="h-3 w-3 text-muted-foreground" />
             </CardHeader>
             <CardContent className="pb-2">
-              <div className="text-lg font-bold">{todayStats.completedConsultations}</div>
-              <p className="text-xs text-muted-foreground">Consultations done</p>
+              <div className="text-lg font-bold">₹15,240</div>
+              <p className="text-xs text-muted-foreground">Total transactions</p>
             </CardContent>
           </Card>
 
