@@ -74,7 +74,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           variant="ghost"
           size="icon"
           onClick={onToggle}
-          className="h-8 w-8 flex-shrink-0"
+          className="cursor-pointer h-8 w-8 flex-shrink-0 hover:bg-gray-100 hover:shadow-sm transition-all duration-200"
           title="Collapse sidebar"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -98,10 +98,10 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
               key={item.name}
               href={item.href}
               className={cn(
-                "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                "cursor-pointer group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-all duration-200",
                 isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted hover:shadow-sm hover:scale-[1.02]"
               )}
             >
               <item.icon

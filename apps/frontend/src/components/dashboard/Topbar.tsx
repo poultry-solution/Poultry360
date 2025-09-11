@@ -7,7 +7,6 @@ import {
   Menu,
   Settings,
   LogOut,
-  ChevronDown,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -58,7 +57,7 @@ export default function Topbar({ isCollapsed, onToggle }: TopbarProps) {
             variant="ghost"
             size="icon"
             onClick={onToggle}
-            className="h-9 w-9"
+            className="cursor-pointer h-9 w-9 hover:bg-gray-100 hover:shadow-sm transition-all duration-200"
             title="Expand sidebar"
           >
             <Menu className="h-5 w-5" />
@@ -80,7 +79,7 @@ export default function Topbar({ isCollapsed, onToggle }: TopbarProps) {
       {/* Right Side Actions */}
       <div className="flex items-center gap-3">
         {/* Notification Button */}
-        <Button variant="ghost" size="icon" className="h-9 w-9 relative">
+        <Button variant="ghost" size="icon" className="cursor-pointer h-9 w-9 relative hover:bg-gray-100 hover:shadow-sm transition-all duration-200">
           <Bell className="h-5 w-5" />
           <Badge
             variant="destructive"
@@ -91,21 +90,15 @@ export default function Topbar({ isCollapsed, onToggle }: TopbarProps) {
         </Button>
 
         {/* Settings Button */}
-        <Button variant="ghost" size="icon" className="h-9 w-9">
+        <Button variant="ghost" size="icon" className="cursor-pointer h-9 w-9 hover:bg-gray-100 hover:shadow-sm transition-all duration-200">
           <Settings className="h-5 w-5" />
         </Button>
 
         {/* User Profile Section */}
         <DropdownMenu>
           <DropdownMenuTrigger>
-            <Button variant="ghost" className="h-9 px-3 gap-2 hover:bg-muted">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">
-                  A
-                </span>
-              </div>
-              <span className="font-medium text-foreground">{user?.name}</span>
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            <Button variant="ghost" size="icon" className="cursor-pointer h-9 w-9 hover:bg-gray-100 hover:shadow-sm transition-all duration-200">
+              <User className="h-5 w-5 text-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 bg-white border shadow-lg">

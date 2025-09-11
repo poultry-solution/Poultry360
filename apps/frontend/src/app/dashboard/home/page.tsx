@@ -48,7 +48,6 @@ export default function DashboardPage() {
   // Shortcut modals
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
   const [isQuickSaleOpen, setIsQuickSaleOpen] = useState(false);
-  const [isQuickLedgerOpen, setIsQuickLedgerOpen] = useState(false);
   const [reminderForm, setReminderForm] = useState({
     title: '',
     date: '',
@@ -93,15 +92,6 @@ export default function DashboardPage() {
     category: "Chicken",
     balance: "",
     date: "",
-  });
-
-  const [quickLedgerForm, setQuickLedgerForm] = useState({
-    batchId: "",
-    name: "",
-    contact: "",
-    category: "Chicken",
-    sales: "",
-    received: "",
   });
 
   const [quickFormErrors, setQuickFormErrors] = useState<Record<string, string>>({});
@@ -158,10 +148,6 @@ export default function DashboardPage() {
     }));
   };
 
-  const updateQuickLedgerField = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setQuickLedgerForm((p) => ({ ...p, [name]: value }));
-  };
 
   // Handle feed selection from inventory
   const handleQuickFeedSelection = (feedId: string) => {
@@ -246,35 +232,31 @@ export default function DashboardPage() {
     setQuickFormErrors({});
   };
 
-  const submitQuickLedger = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quickLedgerForm.batchId) {
-      setQuickFormErrors({ batchId: "Please select a batch" });
-      return;
-    }
-    // Simulate success
-    alert(`Ledger entry added to batch ${quickLedgerForm.batchId} successfully!`);
-    setIsQuickLedgerOpen(false);
-    setQuickLedgerForm({
-      batchId: "",
-      name: "",
-      contact: "",
-      category: "Chicken",
-      sales: "",
-      received: "",
-    });
-    setQuickFormErrors({});
-  };
   return (
     <div className="space-y-6">
       {/* Welcome Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">
-          Welcome back, {user?.name}!
-        </h1>
-        <p className="text-muted-foreground">
-          Here&apos;s what&apos;s happening with your farms today.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">
+            Welcome , {user?.name}!
+          </h1>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2 sm:flex-wrap sm:justify-end">
+          <Button
+            onClick={() => setIsQuickExpenseOpen(true)}
+            className="cursor-pointer bg-red-500 hover:bg-red-600 hover:shadow-md transition-all duration-200 text-white px-2 sm:px-3 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center justify-center min-w-0"
+          >
+            <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+            <span className="truncate">Add Expense</span>
+          </Button>
+          <Button
+            onClick={() => setIsQuickSaleOpen(true)}
+            className="cursor-pointer bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200 text-primary-foreground px-2 sm:px-3 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center justify-center min-w-0"
+          >
+            <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+            <span className="truncate">Add Sales</span>
+          </Button>
+        </div>
       </div>
 
       {/* Modals */}
@@ -293,7 +275,7 @@ export default function DashboardPage() {
           </div>
         </ModalContent>
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsFarmsOpen(false)}>Close</Button>
+          <Button variant="outline" onClick={() => setIsFarmsOpen(false)} className="cursor-pointer hover:bg-gray-50 transition-colors duration-200">Close</Button>
         </ModalFooter>
       </Modal>
 
@@ -312,7 +294,7 @@ export default function DashboardPage() {
           </div>
         </ModalContent>
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsBatchesOpen(false)}>Close</Button>
+          <Button variant="outline" onClick={() => setIsBatchesOpen(false)} className="cursor-pointer hover:bg-gray-50 transition-colors duration-200">Close</Button>
         </ModalFooter>
       </Modal>
 
@@ -331,7 +313,7 @@ export default function DashboardPage() {
           </div>
         </ModalContent>
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsReceiveOpen(false)}>Close</Button>
+          <Button variant="outline" onClick={() => setIsReceiveOpen(false)} className="cursor-pointer hover:bg-gray-50 transition-colors duration-200">Close</Button>
         </ModalFooter>
       </Modal>
 
@@ -350,7 +332,7 @@ export default function DashboardPage() {
           </div>
         </ModalContent>
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsGiveOpen(false)}>Close</Button>
+          <Button variant="outline" onClick={() => setIsGiveOpen(false)} className="cursor-pointer hover:bg-gray-50 transition-colors duration-200">Close</Button>
         </ModalFooter>
       </Modal>
 
@@ -408,8 +390,8 @@ export default function DashboardPage() {
           </div>
         </ModalContent>
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsReminderModalOpen(false)}>Cancel</Button>
-          <Button onClick={handleAddReminder} className="bg-primary hover:bg-primary/90">Add Reminder</Button>
+          <Button variant="outline" onClick={() => setIsReminderModalOpen(false)} className="cursor-pointer hover:bg-gray-50 transition-colors duration-200">Cancel</Button>
+          <Button onClick={handleAddReminder} className="cursor-pointer bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200">Add Reminder</Button>
         </ModalFooter>
       </Modal>
 
@@ -652,10 +634,11 @@ export default function DashboardPage() {
                 setIsQuickExpenseOpen(false);
                 setQuickFormErrors({});
               }}
+              className="cursor-pointer hover:bg-gray-50 transition-colors duration-200"
             >
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90">
+            <Button type="submit" className="cursor-pointer bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200">
               Add Expense
             </Button>
           </ModalFooter>
@@ -819,127 +802,12 @@ export default function DashboardPage() {
                 setIsQuickSaleOpen(false);
                 setQuickFormErrors({});
               }}
+              className="cursor-pointer hover:bg-gray-50 transition-colors duration-200"
             >
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90">
-              Add Sale
-            </Button>
-          </ModalFooter>
-        </form>
-      </Modal>
-
-      {/* Quick Ledger Modal */}
-      <Modal
-        isOpen={isQuickLedgerOpen}
-        onClose={() => {
-          setIsQuickLedgerOpen(false);
-          setQuickFormErrors({});
-        }}
-        title="Quick Add Sales Balance"
-      >
-        <form onSubmit={submitQuickLedger}>
-          <ModalContent>
-            <div className="space-y-4">
-              {/* Batch Selection */}
-              <div>
-                <Label htmlFor="ledgerBatchId">Select Batch *</Label>
-                <select
-                  id="ledgerBatchId"
-                  name="batchId"
-                  value={quickLedgerForm.batchId}
-                  onChange={updateQuickLedgerField}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                  required
-                >
-                  <option value="">Choose a batch</option>
-                  {activeBatches.filter(batch => batch.status === "ACTIVE").map((batch) => (
-                    <option key={batch.id} value={batch.id}>
-                      {batch.batchNumber} - {batch.farm.name}
-                    </option>
-                  ))}
-                </select>
-                {quickFormErrors.batchId && (
-                  <p className="text-xs text-red-600 mt-1">{quickFormErrors.batchId}</p>
-                )}
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="name">Customer Name</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={quickLedgerForm.name}
-                    onChange={updateQuickLedgerField}
-                    placeholder="Customer name"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="ledgerContact">Contact</Label>
-                  <Input
-                    id="ledgerContact"
-                    name="contact"
-                    value={quickLedgerForm.contact}
-                    onChange={updateQuickLedgerField}
-                    placeholder="Phone number"
-                  />
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="ledgerCategory">Category</Label>
-                  <select
-                    id="ledgerCategory"
-                    name="category"
-                    value={quickLedgerForm.category}
-                    onChange={updateQuickLedgerField}
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                  >
-                    <option value="Chicken">Chicken</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="sales">Sales Amount</Label>
-                  <Input
-                    id="sales"
-                    name="sales"
-                    type="number"
-                    value={quickLedgerForm.sales}
-                    onChange={updateQuickLedgerField}
-                    placeholder="Total sales"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="received">Received Amount</Label>
-                  <Input
-                    id="received"
-                    name="received"
-                    type="number"
-                    value={quickLedgerForm.received}
-                    onChange={updateQuickLedgerField}
-                    placeholder="Amount received"
-                  />
-                </div>
-              </div>
-            </div>
-          </ModalContent>
-          <ModalFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsQuickLedgerOpen(false);
-                setQuickFormErrors({});
-              }}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90">
-              Add Entry
+            <Button type="submit" className="cursor-pointer bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200">
+              Add Income
             </Button>
           </ModalFooter>
         </form>
@@ -998,34 +866,6 @@ export default function DashboardPage() {
             </p>
           </CardContent>
         </Card>
-      </div>
-
-      {/* Quick Actions Section */}
-      <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-6">
-        <h2 className="text-xl font-semibold mb-4 text-gray-800">Quick Actions</h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          <Button
-            onClick={() => setIsQuickExpenseOpen(true)}
-            className="h-16 bg-red-500 hover:bg-red-600 text-white flex flex-col items-center justify-center space-y-2"
-          >
-            <Receipt className="h-6 w-6" />
-            <span className="text-sm font-medium">Add Expense</span>
-          </Button>
-          <Button
-            onClick={() => setIsQuickSaleOpen(true)}
-            className="h-16 bg-green-500 hover:bg-green-600 text-white flex flex-col items-center justify-center space-y-2"
-          >
-            <TrendingUp className="h-6 w-6" />
-            <span className="text-sm font-medium">Add Sale</span>
-          </Button>
-          <Button
-            onClick={() => setIsQuickLedgerOpen(true)}
-            className="h-16 bg-blue-500 hover:bg-blue-600 text-white flex flex-col items-center justify-center space-y-2"
-          >
-            <CreditCard className="h-6 w-6" />
-            <span className="text-sm font-medium">Sales Balance</span>
-          </Button>
-        </div>
       </div>
 
       {/* Money Stats Cards */}
@@ -1128,7 +968,7 @@ export default function DashboardPage() {
               <Button 
                 size="sm" 
                 onClick={() => setIsReminderModalOpen(true)}
-                className="bg-primary hover:bg-primary/90"
+                className="cursor-pointer bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200"
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Add
@@ -1157,7 +997,7 @@ export default function DashboardPage() {
                   <Button 
                     size="sm" 
                     onClick={() => setIsReminderModalOpen(true)}
-                    className="mt-4 bg-primary hover:bg-primary/90"
+                    className="cursor-pointer mt-4 bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200"
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     Add First Reminder
