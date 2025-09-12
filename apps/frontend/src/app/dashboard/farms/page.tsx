@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Building2, Plus, Loader2 } from "lucide-react";
+import { Building2, Plus, Loader2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -148,13 +148,15 @@ export default function FarmsPage() {
             </div>
           ) : (
             farms.map((farm: FarmResponse) => (
-              <Card key={farm.id} className="hover:shadow-md transition-shadow">
+              <Card key={farm.id} className="hover:shadow-lg hover:scale-[1.02] transition-all duration-200">
+                <Link href={`/dashboard/farms/${farm.id}`} className="block cursor-pointer">
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between gap-2">
                     <span className="flex items-center gap-2">
                       <Building2 className="h-5 w-5 text-primary" />
                       {farm.name}
                     </span>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
                   </CardTitle>
                   <CardDescription>Farm ID: {farm.id}</CardDescription>
                 </CardHeader>
@@ -181,24 +183,27 @@ export default function FarmsPage() {
                       <Button
                         variant="outline"
                         className="h-8 px-3 cursor-pointer w-full sm:w-auto transition-colors hover:bg-[#10841E] hover:text-white hover:border-[#10841E]"
-                        onClick={() =>
-                          openBatchesModal(farm.id, farm.name, "active")
-                        }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openBatchesModal(farm.id, farm.name, "active");
+                        }}
                       >
                         Active Batches ({farm._count.batches})
                       </Button>
                       <Button
                         variant="outline"
                         className="h-8 px-3 cursor-pointer w-full sm:w-auto transition-colors hover:bg-[#10841E] hover:text-white hover:border-[#10841E]"
-                        onClick={() =>
-                          openBatchesModal(farm.id, farm.name, "closed")
-                        }
+                        asChild
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        View Details
+                        <Link href={`/dashboard/farms/${farm.id}`}>
+                          View Details
+                        </Link>
                       </Button>
                     </div>
                   </div>
                 </CardContent>
+                </Link>
               </Card>
             ))
           )}

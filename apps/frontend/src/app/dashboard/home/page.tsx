@@ -16,6 +16,7 @@ import {
   Receipt,
   Plus,
   Clock,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "@/store/store";
 import { useState } from "react";
@@ -26,6 +27,20 @@ import { Label } from "@/components/ui/label";
 import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
 import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
 import { useInventory } from "@/contexts/InventoryContext";
+import {
+  useCreateExpense,
+  useGetExpenseCategories,
+} from "@/fetchers/expenses/expenseQueries";
+import {
+  useCreateSale,
+  useGetSalesCategories,
+  useGetCustomersForSales,
+} from "@/fetchers/sale/saleQueries";
+import { 
+  useDashboardStats,
+  useGetMoneyToReceiveDetails,
+  useGetMoneyToPayDetails,
+} from "@/fetchers/dashboard/dashboardQueries";
 
 import {
   useGetReminderDashboard,
@@ -51,6 +66,16 @@ export default function DashboardPage() {
   const activeBatches = batchesResponse?.data || [];
   const farms = farmsResponse?.data || [];
 
+  // Fetch categories and customers for quick forms
+  const { data: expenseCategoriesResponse } =
+    useGetExpenseCategories("EXPENSE");
+  const { data: salesCategoriesResponse } = useGetSalesCategories();
+  const { data: customersResponse } = useGetCustomersForSales();
+
+  const expenseCategories = expenseCategoriesResponse?.data || [];
+  const salesCategories = salesCategoriesResponse?.data || [];
+  const customers = customersResponse || [];
+
   // Farm selection state for filtering batches
   const [selectedFarmId, setSelectedFarmId] = useState<string>("");
 
@@ -67,9 +92,9 @@ export default function DashboardPage() {
 
   const [isFarmsOpen, setIsFarmsOpen] = useState(false);
   const [isBatchesOpen, setIsBatchesOpen] = useState(false);
-  const [isReceiveOpen, setIsReceiveOpen] = useState(false);
-  const [isGiveOpen, setIsGiveOpen] = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+  const [isMoneyToReceiveOpen, setIsMoneyToReceiveOpen] = useState(false);
+  const [isMoneyToPayOpen, setIsMoneyToPayOpen] = useState(false);
 
   // Shortcut modals
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
@@ -100,6 +125,27 @@ export default function DashboardPage() {
   const markCompletedMutation = useMarkReminderCompleted();
 
   const deleteReminderMutation = useDeleteReminder();
+
+  // Quick form mutations
+  const createExpenseMutation = useCreateExpense();
+  const createSaleMutation = useCreateSale();
+
+  // Dashboard statistics
+  const {
+    lifetimeProfit,
+    monthlyRevenue,
+    monthlyRevenueGrowth,
+    moneyToReceive,
+    moneyToGive,
+    totalExpenses,
+    recentActivity,
+    isLoading: statsLoading,
+    error: statsError,
+  } = useDashboardStats();
+
+  // Money details queries
+  const { data: moneyToReceiveData, isLoading: moneyToReceiveLoading } = useGetMoneyToReceiveDetails();
+  const { data: moneyToPayData, isLoading: moneyToPayLoading } = useGetMoneyToPayDetails();
 
   // Quick form states
   const [quickExpenseForm, setQuickExpenseForm] = useState({
@@ -141,40 +187,6 @@ export default function DashboardPage() {
   const [quickFormErrors, setQuickFormErrors] = useState<
     Record<string, string>
   >({});
-
-  const receivables = [
-    {
-      id: 1,
-      party: "Dealer A",
-      reference: "Batch B-2024-001",
-      amount: 450000,
-      dueDate: "2025-09-10",
-    },
-    {
-      id: 2,
-      party: "Dealer B",
-      reference: "Batch B-2024-002",
-      amount: 275000,
-      dueDate: "2025-09-12",
-    },
-  ];
-
-  const payables = [
-    {
-      id: 1,
-      party: "Medico Pharma",
-      reference: "Invoice MP-1021",
-      amount: 35000,
-      dueDate: "2025-09-08",
-    },
-    {
-      id: 2,
-      party: "VetCare",
-      reference: "Invoice VC-332",
-      amount: 18000,
-      dueDate: "2025-09-15",
-    },
-  ];
 
   const handleAddReminder = async () => {
     if (!reminderForm.title.trim() || !reminderForm.date || !reminderForm.time)
@@ -235,7 +247,7 @@ export default function DashboardPage() {
   ) => {
     const { name, value } = e.target;
     setQuickExpenseForm((p) => ({ ...p, [name]: value }));
-    
+
     // If farm is changed, reset batch selection
     if (name === "farmId") {
       setQuickExpenseForm((p) => ({ ...p, batchId: "" }));
@@ -251,7 +263,7 @@ export default function DashboardPage() {
       [name]:
         type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
     }));
-    
+
     // If farm is changed, reset batch selection
     if (name === "farmId") {
       setQuickSaleForm((p) => ({ ...p, batchId: "" }));
@@ -287,62 +299,233 @@ export default function DashboardPage() {
   };
 
   // Quick form submissions (for now just show success message - no backend integration)
-  const submitQuickExpense = (e: React.FormEvent) => {
+  const submitQuickExpense = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickExpenseForm.batchId) {
-      setQuickFormErrors({ batchId: "Please select a batch" });
+
+    // Validation
+    const errors: Record<string, string> = {};
+    if (!quickExpenseForm.farmId) errors.farmId = "Please select a farm";
+    if (!quickExpenseForm.batchId) errors.batchId = "Please select a batch";
+    if (!quickExpenseForm.category)
+      errors.category = "Please select a category";
+    if (!quickExpenseForm.date) errors.date = "Please select a date";
+
+    // Category-specific validation
+    if (quickExpenseForm.category === "Feed") {
+      if (!quickExpenseForm.feedQuantity)
+        errors.feedQuantity = "Please enter quantity";
+      if (!quickExpenseForm.feedRate) errors.feedRate = "Please enter rate";
+    } else if (quickExpenseForm.category === "Medicine") {
+      if (!quickExpenseForm.medicineQuantity)
+        errors.medicineQuantity = "Please enter quantity";
+      if (!quickExpenseForm.medicineRate)
+        errors.medicineRate = "Please enter rate";
+    } else if (quickExpenseForm.category === "Hatchery") {
+      if (!quickExpenseForm.hatcheryQuantity)
+        errors.hatcheryQuantity = "Please enter quantity";
+      if (!quickExpenseForm.hatcheryRate)
+        errors.hatcheryRate = "Please enter rate";
+    } else if (quickExpenseForm.category === "Other") {
+      if (!quickExpenseForm.otherQuantity)
+        errors.otherQuantity = "Please enter quantity";
+      if (!quickExpenseForm.otherRate) errors.otherRate = "Please enter rate";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setQuickFormErrors(errors);
       return;
     }
-    // Simulate success
-    alert(`Expense added to batch ${quickExpenseForm.batchId} successfully!`);
-    setIsQuickExpenseOpen(false);
-    setQuickExpenseForm({
-      farmId: "",
-      batchId: "",
-      category: "Feed",
-      date: "",
-      notes: "",
-      feedBrand: "",
-      feedQuantity: "",
-      feedRate: "",
-      selectedFeedId: "",
-      hatcheryName: "",
-      hatcheryRate: "",
-      hatcheryQuantity: "",
-      medicineName: "",
-      medicineRate: "",
-      medicineQuantity: "",
-      selectedMedicineId: "",
-      otherName: "",
-      otherRate: "",
-      otherQuantity: "",
-    });
-    setQuickFormErrors({});
+
+    try {
+      // Find the category ID
+      const selectedCategory = expenseCategories.find(
+        (cat: any) =>
+          cat.name.toLowerCase() === quickExpenseForm.category.toLowerCase()
+      );
+
+      if (!selectedCategory) {
+        setQuickFormErrors({ category: "Category not found" });
+        return;
+      }
+
+      // Calculate amount based on category
+      let amount = 0;
+      let description = "";
+      let quantity = 0;
+      let unitPrice = 0;
+
+      if (quickExpenseForm.category === "Feed") {
+        quantity = parseFloat(quickExpenseForm.feedQuantity);
+        unitPrice = parseFloat(quickExpenseForm.feedRate);
+        amount = quantity * unitPrice;
+        description = `Feed: ${quickExpenseForm.feedBrand || "Unknown"} - Qty: ${quantity} • Rate: ₹${unitPrice}`;
+      } else if (quickExpenseForm.category === "Medicine") {
+        quantity = parseFloat(quickExpenseForm.medicineQuantity);
+        unitPrice = parseFloat(quickExpenseForm.medicineRate);
+        amount = quantity * unitPrice;
+        description = `Medicine: ${quickExpenseForm.medicineName || "Unknown"} - Qty: ${quantity} • Rate: ₹${unitPrice}`;
+      } else if (quickExpenseForm.category === "Hatchery") {
+        quantity = parseFloat(quickExpenseForm.hatcheryQuantity);
+        unitPrice = parseFloat(quickExpenseForm.hatcheryRate);
+        amount = quantity * unitPrice;
+        description = `Hatchery: ${quickExpenseForm.hatcheryName || "Unknown"} - Qty: ${quantity} • Rate: ₹${unitPrice}`;
+      } else if (quickExpenseForm.category === "Other") {
+        quantity = parseFloat(quickExpenseForm.otherQuantity);
+        unitPrice = parseFloat(quickExpenseForm.otherRate);
+        amount = quantity * unitPrice;
+        description = `Other: ${quickExpenseForm.otherName || "Unknown"} - Qty: ${quantity} • Rate: ₹${unitPrice}`;
+      }
+
+      // Create expense data
+      const expenseData = {
+        date: new Date(quickExpenseForm.date).toISOString(),
+        amount,
+        description:
+          description +
+          (quickExpenseForm.notes ? ` • Notes: ${quickExpenseForm.notes}` : ""),
+        quantity,
+        unitPrice,
+        farmId: quickExpenseForm.farmId,
+        batchId: quickExpenseForm.batchId,
+        categoryId: selectedCategory.id,
+        inventoryItems: quickExpenseForm.selectedFeedId
+          ? [
+              {
+                itemId: quickExpenseForm.selectedFeedId,
+                quantity,
+                notes: quickExpenseForm.notes,
+              },
+            ]
+          : quickExpenseForm.selectedMedicineId
+            ? [
+                {
+                  itemId: quickExpenseForm.selectedMedicineId,
+                  quantity,
+                  notes: quickExpenseForm.notes,
+                },
+              ]
+            : undefined,
+      };
+
+      await createExpenseMutation.mutateAsync(expenseData);
+
+      // Reset form
+      setQuickExpenseForm({
+        farmId: "",
+        batchId: "",
+        category: "Feed",
+        date: "",
+        notes: "",
+        feedBrand: "",
+        feedQuantity: "",
+        feedRate: "",
+        selectedFeedId: "",
+        hatcheryName: "",
+        hatcheryRate: "",
+        hatcheryQuantity: "",
+        medicineName: "",
+        medicineRate: "",
+        medicineQuantity: "",
+        selectedMedicineId: "",
+        otherName: "",
+        otherRate: "",
+        otherQuantity: "",
+      });
+      setQuickFormErrors({});
+      setIsQuickExpenseOpen(false);
+    } catch (error) {
+      console.error("Failed to create expense:", error);
+      setQuickFormErrors({
+        general: "Failed to create expense. Please try again.",
+      });
+    }
   };
 
-  const submitQuickSale = (e: React.FormEvent) => {
+  const submitQuickSale = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickSaleForm.batchId) {
-      setQuickFormErrors({ batchId: "Please select a batch" });
+
+    // Validation
+    const errors: Record<string, string> = {};
+    if (!quickSaleForm.farmId) errors.farmId = "Please select a farm";
+    if (!quickSaleForm.batchId) errors.batchId = "Please select a batch";
+    if (!quickSaleForm.item) errors.item = "Please enter item";
+    if (!quickSaleForm.rate) errors.rate = "Please enter rate";
+    if (!quickSaleForm.quantity) errors.quantity = "Please enter quantity";
+    if (!quickSaleForm.customerName)
+      errors.customerName = "Please enter customer name";
+    if (!quickSaleForm.contact) errors.contact = "Please enter contact";
+    if (!quickSaleForm.date) errors.date = "Please select a date";
+
+    if (Object.keys(errors).length > 0) {
+      setQuickFormErrors(errors);
       return;
     }
-    // Simulate success
-    alert(`Sale added to batch ${quickSaleForm.batchId} successfully!`);
-    setIsQuickSaleOpen(false);
-    setQuickSaleForm({
-      farmId: "",
-      batchId: "",
-      item: "Chicken",
-      rate: "",
-      quantity: "",
-      remaining: false,
-      customerName: "",
-      contact: "",
-      category: "Chicken",
-      balance: "",
-      date: "",
-    });
-    setQuickFormErrors({});
+
+    try {
+      // Find the category ID
+      const selectedCategory = salesCategories.find(
+        (cat: any) =>
+          cat.name.toLowerCase() === quickSaleForm.category.toLowerCase()
+      );
+
+      if (!selectedCategory) {
+        setQuickFormErrors({ category: "Category not found" });
+        return;
+      }
+
+      // Calculate amount
+      const quantity = parseFloat(quickSaleForm.quantity);
+      const unitPrice = parseFloat(quickSaleForm.rate);
+      const amount = quantity * unitPrice;
+      const paidAmount = quickSaleForm.balance
+        ? parseFloat(quickSaleForm.balance)
+        : 0;
+      const isCredit = paidAmount < amount;
+
+      // Create sale data
+      const saleData = {
+        date: new Date(quickSaleForm.date).toISOString(),
+        amount,
+        quantity,
+        unitPrice,
+        description: `${quickSaleForm.item} sale - Qty: ${quantity} • Rate: ₹${unitPrice}`,
+        isCredit,
+        paidAmount,
+        farmId: quickSaleForm.farmId,
+        batchId: quickSaleForm.batchId,
+        categoryId: selectedCategory.id,
+        customerData: {
+          name: quickSaleForm.customerName,
+          phone: quickSaleForm.contact,
+          category: quickSaleForm.category,
+          address: "",
+        },
+      };
+
+      await createSaleMutation.mutateAsync(saleData);
+
+      // Reset form
+      setQuickSaleForm({
+        farmId: "",
+        batchId: "",
+        item: "Chicken",
+        rate: "",
+        quantity: "",
+        remaining: false,
+        customerName: "",
+        contact: "",
+        category: "Chicken",
+        balance: "",
+        date: "",
+      });
+      setQuickFormErrors({});
+      setIsQuickSaleOpen(false);
+    } catch (error) {
+      console.error("Failed to create sale:", error);
+      setQuickFormErrors({
+        general: "Failed to create sale. Please try again.",
+      });
+    }
   };
 
   return (
@@ -437,8 +620,14 @@ export default function DashboardPage() {
                   <div>
                     <div className="font-medium">{batch.batchNumber}</div>
                     <div className="text-xs text-muted-foreground">
-                      {batch.farm.name} • Birds {batch.initialChicks.toLocaleString()} • Age{" "}
-                      {Math.floor((new Date().getTime() - new Date(batch.startDate).getTime()) / (1000 * 60 * 60 * 24))} days
+                      {batch.farm.name} • Birds{" "}
+                      {batch.initialChicks.toLocaleString()} • Age{" "}
+                      {Math.floor(
+                        (new Date().getTime() -
+                          new Date(batch.startDate).getTime()) /
+                          (1000 * 60 * 60 * 24)
+                      )}{" "}
+                      days
                     </div>
                   </div>
                   <div
@@ -466,77 +655,6 @@ export default function DashboardPage() {
         </ModalFooter>
       </Modal>
 
-      <Modal
-        isOpen={isReceiveOpen}
-        onClose={() => setIsReceiveOpen(false)}
-        title="Money to Receive"
-      >
-        <ModalContent>
-          <div className="space-y-3">
-            {receivables.map((r) => (
-              <div
-                key={r.id}
-                className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60"
-              >
-                <div>
-                  <div className="font-medium">{r.party}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {r.reference} • Due {r.dueDate}
-                  </div>
-                </div>
-                <div className="text-right font-medium">
-                  ₹{r.amount.toLocaleString()}
-                </div>
-              </div>
-            ))}
-          </div>
-        </ModalContent>
-        <ModalFooter>
-          <Button
-            variant="outline"
-            onClick={() => setIsReceiveOpen(false)}
-            className="cursor-pointer hover:bg-gray-50 transition-colors duration-200"
-          >
-            Close
-          </Button>
-        </ModalFooter>
-      </Modal>
-
-      <Modal
-        isOpen={isGiveOpen}
-        onClose={() => setIsGiveOpen(false)}
-        title="Money to Give"
-      >
-        <ModalContent>
-          <div className="space-y-3">
-            {payables.map((p) => (
-              <div
-                key={p.id}
-                className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60"
-              >
-                <div>
-                  <div className="font-medium">{p.party}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {p.reference} • Due {p.dueDate}
-                  </div>
-                </div>
-                <div className="text-right font-medium">
-                  ₹{p.amount.toLocaleString()}
-                </div>
-              </div>
-            ))}
-          </div>
-        </ModalContent>
-        <ModalFooter>
-          <Button
-            variant="outline"
-            onClick={() => setIsGiveOpen(false)}
-            className="cursor-pointer hover:bg-gray-50 transition-colors duration-200"
-          >
-            Close
-          </Button>
-        </ModalFooter>
-      </Modal>
 
       <Modal
         isOpen={isReminderModalOpen}
@@ -712,6 +830,13 @@ export default function DashboardPage() {
         <form onSubmit={submitQuickExpense}>
           <ModalContent>
             <div className="space-y-4">
+              {quickFormErrors.general && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-600">
+                    {quickFormErrors.general}
+                  </p>
+                </div>
+              )}
               {/* Farm Selection */}
               <div>
                 <Label htmlFor="farmId">Select Farm *</Label>
@@ -751,9 +876,11 @@ export default function DashboardPage() {
                 >
                   <option value="">Choose a batch</option>
                   {activeBatches
-                    .filter((batch) => 
-                      batch.status === "ACTIVE" && 
-                      (!quickExpenseForm.farmId || batch.farmId === quickExpenseForm.farmId)
+                    .filter(
+                      (batch) =>
+                        batch.status === "ACTIVE" &&
+                        (!quickExpenseForm.farmId ||
+                          batch.farmId === quickExpenseForm.farmId)
                     )
                     .map((batch) => (
                       <option key={batch.id} value={batch.id}>
@@ -778,11 +905,18 @@ export default function DashboardPage() {
                     onChange={updateQuickExpenseField}
                     className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                   >
-                    <option value="Feed">Feed</option>
-                    <option value="Medicine">Medicine</option>
-                    <option value="Hatchery">Hatchery</option>
-                    <option value="Other">Other</option>
+                    <option value="">Select category</option>
+                    {expenseCategories.map((category: any) => (
+                      <option key={category.id} value={category.name}>
+                        {category.name}
+                      </option>
+                    ))}
                   </select>
+                  {quickFormErrors.category && (
+                    <p className="text-xs text-red-600 mt-1">
+                      {quickFormErrors.category}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="date">Date</Label>
@@ -986,8 +1120,16 @@ export default function DashboardPage() {
             <Button
               type="submit"
               className="cursor-pointer bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200"
+              disabled={createExpenseMutation.isPending}
             >
-              Add Expense
+              {createExpenseMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                "Add Expense"
+              )}
             </Button>
           </ModalFooter>
         </form>
@@ -1005,6 +1147,13 @@ export default function DashboardPage() {
         <form onSubmit={submitQuickSale}>
           <ModalContent>
             <div className="space-y-4">
+              {quickFormErrors.general && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-600">
+                    {quickFormErrors.general}
+                  </p>
+                </div>
+              )}
               {/* Farm Selection */}
               <div>
                 <Label htmlFor="saleFarmId">Select Farm *</Label>
@@ -1044,9 +1193,11 @@ export default function DashboardPage() {
                 >
                   <option value="">Choose a batch</option>
                   {activeBatches
-                    .filter((batch) => 
-                      batch.status === "ACTIVE" && 
-                      (!quickSaleForm.farmId || batch.farmId === quickSaleForm.farmId)
+                    .filter(
+                      (batch) =>
+                        batch.status === "ACTIVE" &&
+                        (!quickSaleForm.farmId ||
+                          batch.farmId === quickSaleForm.farmId)
                     )
                     .map((batch) => (
                       <option key={batch.id} value={batch.id}>
@@ -1071,9 +1222,18 @@ export default function DashboardPage() {
                     onChange={updateQuickSaleField}
                     className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                   >
-                    <option value="Chicken">Chicken</option>
-                    <option value="Other">Other</option>
+                    <option value="">Select item</option>
+                    {salesCategories.map((category: any) => (
+                      <option key={category.id} value={category.name}>
+                        {category.name}
+                      </option>
+                    ))}
                   </select>
+                  {quickFormErrors.item && (
+                    <p className="text-xs text-red-600 mt-1">
+                      {quickFormErrors.item}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="saleDate">Date</Label>
@@ -1125,54 +1285,64 @@ export default function DashboardPage() {
                 </label>
               </div>
 
-              {quickSaleForm.remaining && (
-                <div className="grid md:grid-cols-2 gap-4 border rounded-md p-4">
-                  <div>
-                    <Label htmlFor="customerName">Customer Name</Label>
-                    <Input
-                      id="customerName"
-                      name="customerName"
-                      value={quickSaleForm.customerName}
-                      onChange={updateQuickSaleField}
-                      placeholder="Customer name"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="contact">Contact</Label>
-                    <Input
-                      id="contact"
-                      name="contact"
-                      value={quickSaleForm.contact}
-                      onChange={updateQuickSaleField}
-                      placeholder="Phone number"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="saleCategory">Category</Label>
-                    <select
-                      id="saleCategory"
-                      name="category"
-                      value={quickSaleForm.category}
-                      onChange={updateQuickSaleField}
-                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                    >
-                      <option value="Chicken">Chicken</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="balance">Balance Amount</Label>
-                    <Input
-                      id="balance"
-                      name="balance"
-                      type="number"
-                      value={quickSaleForm.balance}
-                      onChange={updateQuickSaleField}
-                      placeholder="Remaining balance"
-                    />
-                  </div>
+              <div className="grid md:grid-cols-2 gap-4 border rounded-md p-4">
+                <div>
+                  <Label htmlFor="customerName">Customer Name *</Label>
+                  <Input
+                    id="customerName"
+                    name="customerName"
+                    value={quickSaleForm.customerName}
+                    onChange={updateQuickSaleField}
+                    placeholder="Customer name"
+                    required
+                  />
+                  {quickFormErrors.customerName && (
+                    <p className="text-xs text-red-600 mt-1">
+                      {quickFormErrors.customerName}
+                    </p>
+                  )}
                 </div>
-              )}
+                <div>
+                  <Label htmlFor="contact">Contact *</Label>
+                  <Input
+                    id="contact"
+                    name="contact"
+                    value={quickSaleForm.contact}
+                    onChange={updateQuickSaleField}
+                    placeholder="Phone number"
+                    required
+                  />
+                  {quickFormErrors.contact && (
+                    <p className="text-xs text-red-600 mt-1">
+                      {quickFormErrors.contact}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="saleCategory">Category</Label>
+                  <select
+                    id="saleCategory"
+                    name="category"
+                    value={quickSaleForm.category}
+                    onChange={updateQuickSaleField}
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                  >
+                    <option value="Chicken">Chicken</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="balance">Amount Paid (Optional)</Label>
+                  <Input
+                    id="balance"
+                    name="balance"
+                    type="number"
+                    value={quickSaleForm.balance}
+                    onChange={updateQuickSaleField}
+                    placeholder="Amount paid (leave empty for full credit)"
+                  />
+                </div>
+              </div>
             </div>
           </ModalContent>
           <ModalFooter>
@@ -1190,8 +1360,16 @@ export default function DashboardPage() {
             <Button
               type="submit"
               className="cursor-pointer bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200"
+              disabled={createSaleMutation.isPending}
             >
-              Add Income
+              {createSaleMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                "Add Sale"
+              )}
             </Button>
           </ModalFooter>
         </form>
@@ -1209,7 +1387,9 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{farms.length}</div>
-            <p className="text-xs text-muted-foreground">Total farm locations</p>
+            <p className="text-xs text-muted-foreground">
+              Total farm locations
+            </p>
           </CardContent>
         </Card>
 
@@ -1225,9 +1405,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{activeBatches.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Currently running
-            </p>
+            <p className="text-xs text-muted-foreground">Currently running</p>
           </CardContent>
         </Card>
 
@@ -1239,7 +1417,13 @@ export default function DashboardPage() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹3.2M</div>
+            <div className="text-2xl font-bold">
+              {statsLoading ? (
+                <div className="h-8 w-20 bg-gray-200 animate-pulse rounded"></div>
+              ) : (
+                `₹${Number(lifetimeProfit).toLocaleString()}`
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">All-time</p>
           </CardContent>
         </Card>
@@ -1252,9 +1436,16 @@ export default function DashboardPage() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹2.4M</div>
+            <div className="text-2xl font-bold">
+              {statsLoading ? (
+                <div className="h-8 w-20 bg-gray-200 animate-pulse rounded"></div>
+              ) : (
+                `₹${Number(monthlyRevenue).toLocaleString()}`
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
-              +12% from last month
+              {monthlyRevenueGrowth > 0 ? "+" : ""}
+              {monthlyRevenueGrowth.toFixed(1)}% from last month
             </p>
           </CardContent>
         </Card>
@@ -1263,7 +1454,7 @@ export default function DashboardPage() {
       {/* Money Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card
-          onClick={() => setIsReceiveOpen(true)}
+          onClick={() => setIsMoneyToReceiveOpen(true)}
           className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white"
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -1273,15 +1464,19 @@ export default function DashboardPage() {
             <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">₹1.8M</div>
-            <p className="text-xs text-muted-foreground">
-              From completed batches
-            </p>
+            <div className="text-2xl font-bold text-green-600">
+              {statsLoading ? (
+                <div className="h-8 w-20 bg-gray-200 animate-pulse rounded"></div>
+              ) : (
+                `₹${Number(moneyToReceive).toLocaleString()}`
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">From credit sales</p>
           </CardContent>
         </Card>
 
         <Card
-          onClick={() => setIsGiveOpen(true)}
+          onClick={() => setIsMoneyToPayOpen(true)}
           className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white"
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -1289,7 +1484,13 @@ export default function DashboardPage() {
             <CreditCard className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">₹235,000</div>
+            <div className="text-2xl font-bold text-red-600">
+              {statsLoading ? (
+                <div className="h-8 w-20 bg-gray-200 animate-pulse rounded"></div>
+              ) : (
+                `₹${Number(moneyToGive).toLocaleString()}`
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               To suppliers & dealers
             </p>
@@ -1304,7 +1505,13 @@ export default function DashboardPage() {
             <Receipt className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">₹450,000</div>
+            <div className="text-2xl font-bold text-orange-600">
+              {statsLoading ? (
+                <div className="h-8 w-20 bg-gray-200 animate-pulse rounded"></div>
+              ) : (
+                `₹${Number(totalExpenses).toLocaleString()}`
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">This month</p>
           </CardContent>
         </Card>
@@ -1320,37 +1527,45 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center space-x-4">
-                <div className="w-2 h-2 bg-primary rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">
-                    Batch #B-2024-001 completed
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Farm A - 2 hours ago
-                  </p>
-                </div>
+            {statsLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center space-x-4">
+                    <div className="w-2 h-2 bg-gray-200 rounded-full animate-pulse"></div>
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded animate-pulse w-3/4"></div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="w-2 h-2 bg-primary rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">New expense recorded</p>
-                  <p className="text-xs text-muted-foreground">
-                    Feed purchase - ₹45,000 - 4 hours ago
-                  </p>
-                </div>
+            ) : statsError ? (
+              <div className="text-center py-8 text-red-600">
+                <p>Failed to load recent activity</p>
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="w-2 h-2 bg-primary rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Low inventory alert</p>
-                  <p className="text-xs text-muted-foreground">
-                    Medicine stock below threshold - 6 hours ago
-                  </p>
-                </div>
+            ) : recentActivity.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No recent activity</p>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-4">
+                {recentActivity.slice(0, 5).map((activity) => (
+                  <div
+                    key={activity.id}
+                    className="flex items-center space-x-4"
+                  >
+                    <div className="w-2 h-2 bg-primary rounded-full"></div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{activity.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {activity.description} - {activity.farmName} -{" "}
+                        {new Date(activity.timestamp).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -1522,6 +1737,185 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Money to Receive Details Modal */}
+      <Modal
+        isOpen={isMoneyToReceiveOpen}
+        onClose={() => setIsMoneyToReceiveOpen(false)}
+        title="Money to Receive - Customer Details"
+      >
+        <ModalContent>
+          {moneyToReceiveLoading ? (
+            <div className="text-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p>Loading customer details...</p>
+            </div>
+          ) : moneyToReceiveData?.data ? (
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-semibold text-green-800">
+                      Total Outstanding: ₹{Number(moneyToReceiveData.data.totalAmount).toLocaleString()}
+                    </h3>
+                    <p className="text-sm text-green-600">
+                      From {moneyToReceiveData.data.totalCustomers} customers
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {moneyToReceiveData.data.customers.map((customer) => (
+                  <div key={customer.customerId} className="border rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h4 className="font-medium">{customer.customerName}</h4>
+                        <p className="text-sm text-muted-foreground">{customer.customerPhone}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-green-600">
+                          ₹{Number(customer.totalDueAmount).toLocaleString()}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {customer.salesCount} sales
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {customer.sales.slice(0, 3).map((sale) => (
+                        <div key={sale.saleId} className="flex justify-between text-sm bg-gray-50 p-2 rounded">
+                          <div>
+                            <span className="font-medium">{sale.categoryName}</span>
+                            <span className="text-muted-foreground ml-2">• {sale.farmName}</span>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">₹{Number(sale.dueAmount).toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(sale.date).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      {customer.sales.length > 3 && (
+                        <p className="text-xs text-muted-foreground text-center">
+                          +{customer.sales.length - 3} more sales
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No outstanding amounts to receive</p>
+            </div>
+          )}
+        </ModalContent>
+        <ModalFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsMoneyToReceiveOpen(false)}
+            className="cursor-pointer hover:bg-gray-50 transition-colors duration-200"
+          >
+            Close
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Money to Pay Details Modal */}
+      <Modal
+        isOpen={isMoneyToPayOpen}
+        onClose={() => setIsMoneyToPayOpen(false)}
+        title="Money to Pay - Dealer Details"
+      >
+        <ModalContent>
+          {moneyToPayLoading ? (
+            <div className="text-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p>Loading dealer details...</p>
+            </div>
+          ) : moneyToPayData?.data ? (
+            <div className="space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-semibold text-red-800">
+                      Total Outstanding: ₹{Number(moneyToPayData.data.totalAmount).toLocaleString()}
+                    </h3>
+                    <p className="text-sm text-red-600">
+                      To {moneyToPayData.data.totalDealers} dealers
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {moneyToPayData.data.dealers.map((dealer) => (
+                  <div key={dealer.dealerId} className="border rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h4 className="font-medium">{dealer.dealerName}</h4>
+                        <p className="text-sm text-muted-foreground">{dealer.dealerContact}</p>
+                        {dealer.dealerAddress && (
+                          <p className="text-xs text-muted-foreground">{dealer.dealerAddress}</p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-red-600">
+                          ₹{Number(dealer.outstandingAmount).toLocaleString()}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {dealer.totalTransactions} transactions
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {dealer.recentTransactions.slice(0, 3).map((transaction) => (
+                        <div key={transaction.transactionId} className="flex justify-between text-sm bg-gray-50 p-2 rounded">
+                          <div>
+                            <span className="font-medium">{transaction.type}</span>
+                            {transaction.itemName && (
+                              <span className="text-muted-foreground ml-2">• {transaction.itemName}</span>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">₹{Number(transaction.amount).toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(transaction.date).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      {dealer.recentTransactions.length > 3 && (
+                        <p className="text-xs text-muted-foreground text-center">
+                          +{dealer.recentTransactions.length - 3} more transactions
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No outstanding amounts to pay</p>
+            </div>
+          )}
+        </ModalContent>
+        <ModalFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsMoneyToPayOpen(false)}
+            className="cursor-pointer hover:bg-gray-50 transition-colors duration-200"
+          >
+            Close
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }

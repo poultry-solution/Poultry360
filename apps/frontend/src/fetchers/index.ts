@@ -9,6 +9,7 @@ export * from "./batches/batchQueries";
 
 // ==================== REMINDER QUERIES ====================
 export * from "./remainder/remainderQueries";
+export * from "./dashboard/dashboardQueries";
 
 // ==================== AUTH QUERIES ====================
 // These would typically be in a separate auth file, but including here for completeness

@@ -10,6 +10,7 @@ import inventoryRoutes from "./inventoryRoutes";
 import expenseRoutes from "./expenseRoutes";
 import salesRoutes from "./salesRoutes";
 import remainderRoutes from "./remainderRoutes";
+import dashboardRoutes from "./dashboardRoutes";
 
 const router = express.Router();
 
@@ -24,5 +25,6 @@ router.use("/inventory", inventoryRoutes);
 router.use("/expenses", expenseRoutes);
 router.use("/sales", salesRoutes);
 router.use("/reminders", remainderRoutes);
+router.use("/dashboard", dashboardRoutes);
 
 export default router;
