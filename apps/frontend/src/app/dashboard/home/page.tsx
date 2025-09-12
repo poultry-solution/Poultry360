@@ -1878,78 +1878,76 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Money to Receive Details Modal */}
+      {/* Money to Receive Details Modal - Enhanced */}
       <Modal
         isOpen={isMoneyToReceiveOpen}
         onClose={() => setIsMoneyToReceiveOpen(false)}
-        title="Money to Receive - Customer Details"
+        title="💰 Money to Receive"
+        className="max-w-4xl"
       >
-        <ModalContent>
+        <ModalContent className="max-h-[80vh] overflow-hidden flex flex-col">
           {moneyToReceiveLoading ? (
             <div className="text-center py-8">
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
               <p>Loading customer details...</p>
             </div>
-          ) : moneyToReceiveData?.data ? (
-            <div className="space-y-4">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-lg font-semibold text-green-800">
-                      Total Outstanding: ₹{Number(moneyToReceiveData.data.totalAmount).toLocaleString()}
-                    </h3>
-                    <p className="text-sm text-green-600">
-                      From {moneyToReceiveData.data.totalCustomers} customers
-                    </p>
-                  </div>
+          ) : moneyToReceiveData?.data && moneyToReceiveData.data.customers.length > 0 ? (
+            <>
+              {/* Table Container with Fixed Header */}
+              <div className="flex-1 overflow-auto">
+                <div className="min-w-full">
+                  <table className="w-full border-collapse border border-gray-300">
+                    {/* Sticky Header */}
+                    <thead className="sticky top-0 z-10">
+                      <tr className="bg-gray-100">
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">Customer Name</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">Phone</th>
+                        <th className="border border-gray-300 px-3 py-2 text-right font-semibold text-sm">Due Amount</th>
+                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold text-sm">Sales</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">Recent Sales</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {moneyToReceiveData.data.customers.map((customer, index) => (
+                        <tr key={customer.customerId} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                          <td className="border border-gray-300 px-3 py-2 font-medium text-sm">{customer.customerName}</td>
+                          <td className="border border-gray-300 px-3 py-2 text-gray-600 text-sm">{customer.customerPhone}</td>
+                          <td className="border border-gray-300 px-3 py-2 text-right font-bold text-green-600 text-sm">
+                            ₹{Number(customer.totalDueAmount).toLocaleString()}
+                          </td>
+                          <td className="border border-gray-300 px-3 py-2 text-center text-sm">{customer.salesCount}</td>
+                          <td className="border border-gray-300 px-3 py-2 text-sm">
+                            <div className="space-y-1 max-w-xs">
+                              {customer.sales.slice(0, 2).map((sale) => (
+                                <div key={sale.saleId} className="text-xs">
+                                  <div className="flex justify-between items-center">
+                                    <span className="font-medium truncate">{sale.categoryName}</span>
+                                    <span className="font-semibold text-green-600">₹{Number(sale.dueAmount).toLocaleString()}</span>
+                                  </div>
+                                  <div className="text-gray-500 truncate">{sale.farmName} • {new Date(sale.date).toLocaleDateString('en-IN')}</div>
+                                </div>
+                              ))}
+                              {customer.sales.length > 2 && (
+                                <div className="text-xs text-gray-500 text-center py-1 bg-gray-100 rounded">
+                                  +{customer.sales.length - 2} more
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-
-              <div className="space-y-3">
-                {moneyToReceiveData.data.customers.map((customer) => (
-                  <div key={customer.customerId} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h4 className="font-medium">{customer.customerName}</h4>
-                        <p className="text-sm text-muted-foreground">{customer.customerPhone}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-green-600">
-                          ₹{Number(customer.totalDueAmount).toLocaleString()}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {customer.salesCount} sales
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      {customer.sales.slice(0, 3).map((sale) => (
-                        <div key={sale.saleId} className="flex justify-between text-sm bg-gray-50 p-2 rounded">
-                          <div>
-                            <span className="font-medium">{sale.categoryName}</span>
-                            <span className="text-muted-foreground ml-2">• {sale.farmName}</span>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium">₹{Number(sale.dueAmount).toLocaleString()}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(sale.date).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                      {customer.sales.length > 3 && (
-                        <p className="text-xs text-muted-foreground text-center">
-                          +{customer.sales.length - 3} more sales
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              
+              {/* Footer with Total Count */}
+              <div className="border-t border-gray-200 px-4 py-2 bg-gray-50 text-sm text-gray-600">
+                Showing {moneyToReceiveData.data.customers.length} customers with outstanding payments
               </div>
-            </div>
+            </>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-gray-500">
               <p>No outstanding amounts to receive</p>
             </div>
           )}
@@ -1965,83 +1963,85 @@ export default function DashboardPage() {
         </ModalFooter>
       </Modal>
 
-      {/* Money to Pay Details Modal */}
+      {/* Money to Pay Details Modal - Enhanced */}
       <Modal
         isOpen={isMoneyToPayOpen}
         onClose={() => setIsMoneyToPayOpen(false)}
-        title="Money to Pay - Dealer Details"
+        title="💳 Money to Pay"
+        className="max-w-4xl"
       >
-        <ModalContent>
+        <ModalContent className="max-h-[80vh] overflow-hidden flex flex-col">
           {moneyToPayLoading ? (
             <div className="text-center py-8">
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
               <p>Loading dealer details...</p>
             </div>
-          ) : moneyToPayData?.data ? (
-            <div className="space-y-4">
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-lg font-semibold text-red-800">
-                      Total Outstanding: ₹{Number(moneyToPayData.data.totalAmount).toLocaleString()}
-                    </h3>
-                    <p className="text-sm text-red-600">
-                      To {moneyToPayData.data.totalDealers} dealers
-                    </p>
-                  </div>
+          ) : moneyToPayData?.data && moneyToPayData.data.dealers.length > 0 ? (
+            <>
+              {/* Table Container with Fixed Header */}
+              <div className="flex-1 overflow-auto">
+                <div className="min-w-full">
+                  <table className="w-full border-collapse border border-gray-300">
+                    {/* Sticky Header */}
+                    <thead className="sticky top-0 z-10">
+                      <tr className="bg-gray-100">
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">Dealer Name</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">Contact</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">Address</th>
+                        <th className="border border-gray-300 px-3 py-2 text-right font-semibold text-sm">Outstanding</th>
+                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold text-sm">Trans.</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">Recent Transactions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {moneyToPayData.data.dealers.map((dealer, index) => (
+                        <tr key={dealer.dealerId} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                          <td className="border border-gray-300 px-3 py-2 font-medium text-sm">{dealer.dealerName}</td>
+                          <td className="border border-gray-300 px-3 py-2 text-gray-600 text-sm">{dealer.dealerContact}</td>
+                          <td className="border border-gray-300 px-3 py-2 text-gray-600 text-xs max-w-32 truncate">
+                            {dealer.dealerAddress || "-"}
+                          </td>
+                          <td className="border border-gray-300 px-3 py-2 text-right font-bold text-red-600 text-sm">
+                            ₹{Number(dealer.outstandingAmount).toLocaleString()}
+                          </td>
+                          <td className="border border-gray-300 px-3 py-2 text-center text-sm">{dealer.totalTransactions}</td>
+                          <td className="border border-gray-300 px-3 py-2 text-sm">
+                            <div className="space-y-1 max-w-xs">
+                              {dealer.recentTransactions.slice(0, 2).map((transaction) => (
+                                <div key={transaction.transactionId} className="text-xs">
+                                  <div className="flex justify-between items-center">
+                                    <span className="font-medium truncate">
+                                      {transaction.type}
+                                      {transaction.itemName && <span className="text-gray-500"> - {transaction.itemName}</span>}
+                                    </span>
+                                    <span className="font-semibold text-red-600">₹{Number(transaction.amount).toLocaleString()}</span>
+                                  </div>
+                                  <div className="text-gray-500 truncate">
+                                    {new Date(transaction.date).toLocaleDateString('en-IN')}
+                                  </div>
+                                </div>
+                              ))}
+                              {dealer.recentTransactions.length > 2 && (
+                                <div className="text-xs text-gray-500 text-center py-1 bg-gray-100 rounded">
+                                  +{dealer.recentTransactions.length - 2} more
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-
-              <div className="space-y-3">
-                {moneyToPayData.data.dealers.map((dealer) => (
-                  <div key={dealer.dealerId} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h4 className="font-medium">{dealer.dealerName}</h4>
-                        <p className="text-sm text-muted-foreground">{dealer.dealerContact}</p>
-                        {dealer.dealerAddress && (
-                          <p className="text-xs text-muted-foreground">{dealer.dealerAddress}</p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-red-600">
-                          ₹{Number(dealer.outstandingAmount).toLocaleString()}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {dealer.totalTransactions} transactions
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      {dealer.recentTransactions.slice(0, 3).map((transaction) => (
-                        <div key={transaction.transactionId} className="flex justify-between text-sm bg-gray-50 p-2 rounded">
-                          <div>
-                            <span className="font-medium">{transaction.type}</span>
-                            {transaction.itemName && (
-                              <span className="text-muted-foreground ml-2">• {transaction.itemName}</span>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium">₹{Number(transaction.amount).toLocaleString()}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(transaction.date).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                      {dealer.recentTransactions.length > 3 && (
-                        <p className="text-xs text-muted-foreground text-center">
-                          +{dealer.recentTransactions.length - 3} more transactions
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              
+              {/* Footer with Total Count */}
+              <div className="border-t border-gray-200 px-4 py-2 bg-gray-50 text-sm text-gray-600">
+                Showing {moneyToPayData.data.dealers.length} dealers with outstanding payments
               </div>
-            </div>
+            </>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-gray-500">
               <p>No outstanding amounts to pay</p>
             </div>
           )}
