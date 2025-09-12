@@ -260,30 +260,30 @@ exports.ExpenseSchema = exports.BaseSchema.extend({
     batchId: zod_1.z.string().nullable(),
     categoryId: zod_1.z.string(),
 });
-export const CreateExpenseSchema = z.object({
-    date: z.string().datetime(),
-    amount: z.number().positive(),
-    description: z.string().optional(),
-    quantity: z.number().positive().optional(),
-    unitPrice: z.number().positive().optional(),
-    farmId: z.string().optional(),
-    batchId: z.string().optional(),
-    categoryId: z.string(),
-    inventoryItems: z.array(z.object({
-        itemId: z.string(),
-        quantity: z.number().positive(),
-        notes: z.string().optional(),
+exports.CreateExpenseSchema = zod_1.z.object({
+    date: zod_1.z.string().datetime(),
+    amount: zod_1.z.number().positive(),
+    description: zod_1.z.string().optional(),
+    quantity: zod_1.z.number().positive().optional(),
+    unitPrice: zod_1.z.number().positive().optional(),
+    farmId: zod_1.z.string().optional(),
+    batchId: zod_1.z.string().optional(),
+    categoryId: zod_1.z.string(),
+    inventoryItems: zod_1.z.array(zod_1.z.object({
+        itemId: zod_1.z.string(),
+        quantity: zod_1.z.number().positive(),
+        notes: zod_1.z.string().optional(),
     })).optional(),
 });
-export const UpdateExpenseSchema = z.object({
-    date: z.string().datetime().optional(),
-    amount: z.number().positive().optional(),
-    description: z.string().nullable().optional(),
-    quantity: z.number().positive().nullable().optional(),
-    unitPrice: z.number().positive().nullable().optional(),
-    farmId: z.string().optional(),
-    batchId: z.string().nullable().optional(),
-    categoryId: z.string().optional(),
+exports.UpdateExpenseSchema = zod_1.z.object({
+    date: zod_1.z.string().datetime().optional(),
+    amount: zod_1.z.number().positive().optional(),
+    description: zod_1.z.string().nullable().optional(),
+    quantity: zod_1.z.number().positive().nullable().optional(),
+    unitPrice: zod_1.z.number().positive().nullable().optional(),
+    farmId: zod_1.z.string().optional(),
+    batchId: zod_1.z.string().nullable().optional(),
+    categoryId: zod_1.z.string().optional(),
 });
 // ==================== SALE SCHEMAS ====================
 exports.SaleSchema = exports.BaseSchema.extend({
@@ -300,37 +300,37 @@ exports.SaleSchema = exports.BaseSchema.extend({
     categoryId: zod_1.z.string(),
     customerId: zod_1.z.string().nullable(),
 });
-export const CreateSaleSchema = z.object({
-    date: z.string().datetime(),
-    amount: z.number().positive(),
-    quantity: z.number().positive(),
-    unitPrice: z.number().positive(),
-    description: z.string().optional(),
-    isCredit: z.boolean().optional().default(false),
-    paidAmount: z.number().nonnegative().optional().default(0),
-    farmId: z.string().optional(),
-    batchId: z.string().optional(),
-    categoryId: z.string(),
-    customerId: z.string().optional(),
-    customerData: z.object({
-        name: z.string(),
-        phone: z.string(),
-        category: z.string().optional(),
-        address: z.string().optional(),
+exports.CreateSaleSchema = zod_1.z.object({
+    date: zod_1.z.string().datetime(),
+    amount: zod_1.z.number().positive(),
+    quantity: zod_1.z.number().positive(),
+    unitPrice: zod_1.z.number().positive(),
+    description: zod_1.z.string().optional(),
+    isCredit: zod_1.z.boolean().optional().default(false),
+    paidAmount: zod_1.z.number().nonnegative().optional().default(0),
+    farmId: zod_1.z.string().optional(),
+    batchId: zod_1.z.string().optional(),
+    categoryId: zod_1.z.string(),
+    customerId: zod_1.z.string().optional(),
+    customerData: zod_1.z.object({
+        name: zod_1.z.string(),
+        phone: zod_1.z.string(),
+        category: zod_1.z.string().optional(),
+        address: zod_1.z.string().optional(),
     }).optional(),
 });
-export const UpdateSaleSchema = z.object({
-    date: z.string().datetime().optional(),
-    amount: z.number().positive().optional(),
-    quantity: z.number().positive().optional(),
-    unitPrice: z.number().positive().optional(),
-    description: z.string().nullable().optional(),
-    isCredit: z.boolean().optional(),
-    paidAmount: z.number().nonnegative().optional(),
-    farmId: z.string().optional(),
-    batchId: z.string().nullable().optional(),
-    categoryId: z.string().optional(),
-    customerId: z.string().nullable().optional(),
+exports.UpdateSaleSchema = zod_1.z.object({
+    date: zod_1.z.string().datetime().optional(),
+    amount: zod_1.z.number().positive().optional(),
+    quantity: zod_1.z.number().positive().optional(),
+    unitPrice: zod_1.z.number().positive().optional(),
+    description: zod_1.z.string().nullable().optional(),
+    isCredit: zod_1.z.boolean().optional(),
+    paidAmount: zod_1.z.number().nonnegative().optional(),
+    farmId: zod_1.z.string().optional(),
+    batchId: zod_1.z.string().nullable().optional(),
+    categoryId: zod_1.z.string().optional(),
+    customerId: zod_1.z.string().nullable().optional(),
 });
 // ==================== SALE PAYMENT SCHEMAS ====================
 exports.SalePaymentSchema = exports.BaseSchema.extend({
