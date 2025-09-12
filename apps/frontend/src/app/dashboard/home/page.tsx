@@ -31,6 +31,7 @@ import {
   useCreateExpense,
   useGetExpenseCategories,
 } from "@/fetchers/expenses/expenseQueries";
+import { useGetInventoryTableData } from "@/fetchers/inventory/inventoryQueries";
 import {
   useCreateSale,
   useGetSalesCategories,
@@ -84,11 +85,21 @@ export default function DashboardPage() {
     ? activeBatches.filter((batch) => batch.farmId === selectedFarmId)
     : activeBatches;
 
-  // Inventory integration
+  // Inventory integration - using table data for better structure (same as batch detail page)
+  const { data: inventoryResponse } = useGetInventoryTableData();
+  const inventoryItems = inventoryResponse?.data || [];
+  
+  // Filter inventory items by type (same as batch detail page)
+  const feedInventory = inventoryItems.filter(
+    (item: any) => item.itemType === "FEED"
+  );
+  const medicineInventory = inventoryItems.filter(
+    (item: any) => item.itemType === "MEDICINE"
+  );
+
+  // Keep the old inventory context for other uses if needed
   const { inventory, updateInventoryItem, getInventoryByCategory } =
     useInventory();
-  const feedInventory = getInventoryByCategory("feed");
-  const medicineInventory = getInventoryByCategory("medicine");
 
   const [isFarmsOpen, setIsFarmsOpen] = useState(false);
   const [isBatchesOpen, setIsBatchesOpen] = useState(false);
@@ -177,12 +188,17 @@ export default function DashboardPage() {
     rate: "",
     quantity: "",
     remaining: false,
+    customerId: "",
     customerName: "",
     contact: "",
     category: "Chicken",
+    customerCategory: "Chicken",
     balance: "",
     date: "",
   });
+
+  // Customer search for sales (same as batch detail page)
+  const [customerSearch, setCustomerSearch] = useState("");
 
   const [quickFormErrors, setQuickFormErrors] = useState<
     Record<string, string>
@@ -270,30 +286,30 @@ export default function DashboardPage() {
     }
   };
 
-  // Handle feed selection from inventory
+  // Handle feed selection from inventory (updated to match batch detail page structure)
   const handleQuickFeedSelection = (feedId: string) => {
-    const selectedFeed = feedInventory.find((feed) => feed.id === feedId);
+    const selectedFeed = feedInventory.find((feed: any) => feed.id === feedId);
     if (selectedFeed) {
       setQuickExpenseForm((prev) => ({
         ...prev,
         selectedFeedId: feedId,
         feedBrand: selectedFeed.name,
-        feedRate: selectedFeed.rate.toString(),
+        feedRate: selectedFeed.rate?.toString() || "0",
       }));
     }
   };
 
-  // Handle medicine selection from inventory
+  // Handle medicine selection from inventory (updated to match batch detail page structure)
   const handleQuickMedicineSelection = (medicineId: string) => {
     const selectedMedicine = medicineInventory.find(
-      (medicine) => medicine.id === medicineId
+      (medicine: any) => medicine.id === medicineId
     );
     if (selectedMedicine) {
       setQuickExpenseForm((prev) => ({
         ...prev,
         selectedMedicineId: medicineId,
         medicineName: selectedMedicine.name,
-        medicineRate: selectedMedicine.rate.toString(),
+        medicineRate: selectedMedicine.rate?.toString() || "0",
       }));
     }
   };
@@ -312,14 +328,40 @@ export default function DashboardPage() {
 
     // Category-specific validation
     if (quickExpenseForm.category === "Feed") {
+      if (!quickExpenseForm.selectedFeedId)
+        errors.feedBrand = "Please select a feed from inventory";
       if (!quickExpenseForm.feedQuantity)
         errors.feedQuantity = "Please enter quantity";
       if (!quickExpenseForm.feedRate) errors.feedRate = "Please enter rate";
+
+      // Check if quantity exceeds available inventory
+      if (quickExpenseForm.selectedFeedId && quickExpenseForm.feedQuantity) {
+        const selectedFeed = feedInventory.find(
+          (feed: any) => feed.id === quickExpenseForm.selectedFeedId
+        );
+        const requestedQty = Number(quickExpenseForm.feedQuantity);
+        if (selectedFeed && requestedQty > selectedFeed.quantity) {
+          errors.feedQuantity = `Only ${selectedFeed.quantity} ${selectedFeed.unit} available`;
+        }
+      }
     } else if (quickExpenseForm.category === "Medicine") {
+      if (!quickExpenseForm.selectedMedicineId)
+        errors.medicineName = "Please select a medicine from inventory";
       if (!quickExpenseForm.medicineQuantity)
         errors.medicineQuantity = "Please enter quantity";
       if (!quickExpenseForm.medicineRate)
         errors.medicineRate = "Please enter rate";
+
+      // Check if quantity exceeds available inventory
+      if (quickExpenseForm.selectedMedicineId && quickExpenseForm.medicineQuantity) {
+        const selectedMedicine = medicineInventory.find(
+          (medicine: any) => medicine.id === quickExpenseForm.selectedMedicineId
+        );
+        const requestedQty = Number(quickExpenseForm.medicineQuantity);
+        if (selectedMedicine && requestedQty > selectedMedicine.quantity) {
+          errors.medicineQuantity = `Only ${selectedMedicine.quantity} ${selectedMedicine.unit} available`;
+        }
+      }
     } else if (quickExpenseForm.category === "Hatchery") {
       if (!quickExpenseForm.hatcheryQuantity)
         errors.hatcheryQuantity = "Please enter quantity";
@@ -443,6 +485,7 @@ export default function DashboardPage() {
 
   const submitQuickSale = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("🚀 Sales form submitted", quickSaleForm);
 
     // Validation
     const errors: Record<string, string> = {};
@@ -451,10 +494,23 @@ export default function DashboardPage() {
     if (!quickSaleForm.item) errors.item = "Please enter item";
     if (!quickSaleForm.rate) errors.rate = "Please enter rate";
     if (!quickSaleForm.quantity) errors.quantity = "Please enter quantity";
-    if (!quickSaleForm.customerName)
-      errors.customerName = "Please enter customer name";
-    if (!quickSaleForm.contact) errors.contact = "Please enter contact";
     if (!quickSaleForm.date) errors.date = "Please select a date";
+    
+    // Customer validation for credit sales (same as batch detail page)
+    if (quickSaleForm.remaining) {
+      if (!quickSaleForm.customerId && !quickSaleForm.customerName) {
+        errors.customerName = "Please select existing customer or enter new customer name";
+      }
+      if (!quickSaleForm.customerId && !quickSaleForm.contact) {
+        errors.contact = "Contact number required for new customer";
+      }
+      // Validate that paid amount doesn't exceed total amount
+      const totalAmount = Number(quickSaleForm.rate || 0) * Number(quickSaleForm.quantity || 0);
+      const paidAmount = Number(quickSaleForm.balance || 0);
+      if (paidAmount > totalAmount) {
+        errors.balance = `Paid amount cannot exceed total amount of ₹${totalAmount.toLocaleString()}`;
+      }
+    }
 
     if (Object.keys(errors).length > 0) {
       setQuickFormErrors(errors);
@@ -462,16 +518,20 @@ export default function DashboardPage() {
     }
 
     try {
-      // Find the category ID
+      // Find the category ID (look for item, not category)
       const selectedCategory = salesCategories.find(
         (cat: any) =>
-          cat.name.toLowerCase() === quickSaleForm.category.toLowerCase()
+          cat.name.toLowerCase() === quickSaleForm.item.toLowerCase()
       );
 
       if (!selectedCategory) {
-        setQuickFormErrors({ category: "Category not found" });
+        console.error("❌ Category not found for item:", quickSaleForm.item);
+        console.log("📋 Available categories:", salesCategories);
+        setQuickFormErrors({ item: "Category not found for selected item" });
         return;
       }
+
+      console.log("✅ Found category:", selectedCategory);
 
       // Calculate amount
       const quantity = parseFloat(quickSaleForm.quantity);
@@ -482,27 +542,39 @@ export default function DashboardPage() {
         : 0;
       const isCredit = paidAmount < amount;
 
-      // Create sale data
-      const saleData = {
-        date: new Date(quickSaleForm.date).toISOString(),
+      // Create sale data (same structure as batch detail page)
+      const saleData: any = {
+        date: quickSaleForm.date
+          ? `${quickSaleForm.date}T00:00:00.000Z`
+          : new Date().toISOString(),
         amount,
         quantity,
         unitPrice,
-        description: `${quickSaleForm.item} sale - Qty: ${quantity} • Rate: ₹${unitPrice}`,
+        description: quickSaleForm.item,
         isCredit,
         paidAmount,
         farmId: quickSaleForm.farmId,
         batchId: quickSaleForm.batchId,
         categoryId: selectedCategory.id,
-        customerData: {
-          name: quickSaleForm.customerName,
-          phone: quickSaleForm.contact,
-          category: quickSaleForm.category,
-          address: "",
-        },
       };
 
+      // Handle customer data (same as batch detail page)
+      if (quickSaleForm.customerId) {
+        // Use existing customer
+        saleData.customerId = quickSaleForm.customerId;
+      } else if (quickSaleForm.remaining && quickSaleForm.customerName && quickSaleForm.contact) {
+        // Create new customer
+        saleData.customerData = {
+          name: quickSaleForm.customerName,
+          phone: quickSaleForm.contact,
+          category: quickSaleForm.customerCategory,
+          address: "", // Could add address field later
+        };
+      }
+
+      console.log("🚀 Sending sale data to API:", saleData);
       await createSaleMutation.mutateAsync(saleData);
+      console.log("✅ Sale created successfully!");
 
       // Reset form
       setQuickSaleForm({
@@ -512,12 +584,15 @@ export default function DashboardPage() {
         rate: "",
         quantity: "",
         remaining: false,
+        customerId: "",
         customerName: "",
         contact: "",
         category: "Chicken",
+        customerCategory: "Chicken",
         balance: "",
         date: "",
       });
+      setCustomerSearch("");
       setQuickFormErrors({});
       setIsQuickSaleOpen(false);
     } catch (error) {
@@ -942,9 +1017,10 @@ export default function DashboardPage() {
                       className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                     >
                       <option value="">Select feed from inventory</option>
-                      {feedInventory.map((feed) => (
+                      {feedInventory.map((feed: any) => (
                         <option key={feed.id} value={feed.id}>
                           {feed.name} ({feed.quantity} {feed.unit} available)
+                          - ₹{feed.rate}/unit
                         </option>
                       ))}
                     </select>
@@ -968,10 +1044,18 @@ export default function DashboardPage() {
                       value={quickExpenseForm.feedRate}
                       onChange={updateQuickExpenseField}
                       readOnly={!!quickExpenseForm.selectedFeedId}
-                      className={
-                        quickExpenseForm.selectedFeedId ? "bg-gray-50" : ""
+                      className={quickExpenseForm.selectedFeedId ? "bg-gray-50" : ""}
+                      placeholder={
+                        quickExpenseForm.selectedFeedId
+                          ? "Auto-filled from inventory"
+                          : "Enter rate"
                       }
                     />
+                    {quickExpenseForm.selectedFeedId && (
+                      <p className="text-xs text-green-600 mt-1">
+                        Rate auto-filled from inventory
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -990,10 +1074,10 @@ export default function DashboardPage() {
                       className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                     >
                       <option value="">Select medicine from inventory</option>
-                      {medicineInventory.map((medicine) => (
+                      {medicineInventory.map((medicine: any) => (
                         <option key={medicine.id} value={medicine.id}>
                           {medicine.name} ({medicine.quantity} {medicine.unit}{" "}
-                          available)
+                          available) - ₹{medicine.rate}/unit
                         </option>
                       ))}
                     </select>
@@ -1020,7 +1104,17 @@ export default function DashboardPage() {
                       className={
                         quickExpenseForm.selectedMedicineId ? "bg-gray-50" : ""
                       }
+                      placeholder={
+                        quickExpenseForm.selectedMedicineId
+                          ? "Auto-filled from inventory"
+                          : "Enter rate"
+                      }
                     />
+                    {quickExpenseForm.selectedMedicineId && (
+                      <p className="text-xs text-green-600 mt-1">
+                        Rate auto-filled from inventory
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -1285,7 +1379,53 @@ export default function DashboardPage() {
                 </label>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4 border rounded-md p-4">
+              {quickSaleForm.remaining && (
+                <div className="grid md:grid-cols-2 gap-4 border rounded-md p-4">
+                <div>
+                  <Label htmlFor="customerSearch">Search Customer</Label>
+                  <div className="relative">
+                    <Input
+                      id="customerSearch"
+                      name="customerSearch"
+                      value={customerSearch}
+                      onChange={(e) => setCustomerSearch(e.target.value)}
+                      placeholder="Search existing customers..."
+                      className="pr-8"
+                    />
+                    {customerSearch && (
+                      <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
+                        {customers.length > 0 ? (
+                          customers.map((customer: any) => (
+                            <div
+                              key={customer.id}
+                              className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                              onClick={() => {
+                                setQuickSaleForm(prev => ({
+                                  ...prev,
+                                  customerId: customer.id,
+                                  customerName: customer.name,
+                                  contact: customer.phone,
+                                  customerCategory: customer.category || "Chicken"
+                                }));
+                                setCustomerSearch("");
+                              }}
+                            >
+                              <div className="font-medium">{customer.name}</div>
+                              <div className="text-sm text-gray-500">{customer.phone}</div>
+                              {customer.category && (
+                                <div className="text-xs text-blue-600">{customer.category}</div>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="px-3 py-2 text-gray-500 text-sm">
+                            No customers found
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
                 <div>
                   <Label htmlFor="customerName">Customer Name *</Label>
                   <Input
@@ -1293,8 +1433,7 @@ export default function DashboardPage() {
                     name="customerName"
                     value={quickSaleForm.customerName}
                     onChange={updateQuickSaleField}
-                    placeholder="Customer name"
-                    required
+                    placeholder="Enter new customer name"
                   />
                   {quickFormErrors.customerName && (
                     <p className="text-xs text-red-600 mt-1">
@@ -1319,11 +1458,11 @@ export default function DashboardPage() {
                   )}
                 </div>
                 <div>
-                  <Label htmlFor="saleCategory">Category</Label>
+                  <Label htmlFor="customerCategory">Customer Category</Label>
                   <select
-                    id="saleCategory"
-                    name="category"
-                    value={quickSaleForm.category}
+                    id="customerCategory"
+                    name="customerCategory"
+                    value={quickSaleForm.customerCategory || "Chicken"}
                     onChange={updateQuickSaleField}
                     className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                   >
@@ -1342,7 +1481,8 @@ export default function DashboardPage() {
                     placeholder="Amount paid (leave empty for full credit)"
                   />
                 </div>
-              </div>
+                </div>
+              )}
             </div>
           </ModalContent>
           <ModalFooter>
