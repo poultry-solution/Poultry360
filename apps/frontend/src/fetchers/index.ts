@@ -7,6 +7,9 @@ export * from "./farms/farmQueries";
 // ==================== BATCH QUERIES ====================
 export * from "./batches/batchQueries";
 
+// ==================== REMINDER QUERIES ====================
+export * from "./remainder/remainderQueries";
+
 // ==================== AUTH QUERIES ====================
 // These would typically be in a separate auth file, but including here for completeness
 export const authKeys = {

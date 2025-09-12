@@ -54,6 +54,32 @@ export declare const CategoryTypeSchema: z.ZodEnum<{
     INVENTORY: "INVENTORY";
 }>;
 export type CategoryType = z.infer<typeof CategoryTypeSchema>;
+export declare const ReminderTypeSchema: z.ZodEnum<{
+    VACCINATION: "VACCINATION";
+    FEEDING: "FEEDING";
+    MEDICATION: "MEDICATION";
+    CLEANING: "CLEANING";
+    WEIGHING: "WEIGHING";
+    SUPPLIER_PAYMENT: "SUPPLIER_PAYMENT";
+    CUSTOMER_PAYMENT: "CUSTOMER_PAYMENT";
+    GENERAL: "GENERAL";
+}>;
+export type ReminderType = z.infer<typeof ReminderTypeSchema>;
+export declare const ReminderStatusSchema: z.ZodEnum<{
+    COMPLETED: "COMPLETED";
+    PENDING: "PENDING";
+    OVERDUE: "OVERDUE";
+    CANCELLED: "CANCELLED";
+}>;
+export type ReminderStatus = z.infer<typeof ReminderStatusSchema>;
+export declare const RecurrencePatternSchema: z.ZodEnum<{
+    NONE: "NONE";
+    DAILY: "DAILY";
+    WEEKLY: "WEEKLY";
+    MONTHLY: "MONTHLY";
+    CUSTOM: "CUSTOM";
+}>;
+export type RecurrencePattern = z.infer<typeof RecurrencePatternSchema>;
 export declare const BaseSchema: z.ZodObject<{
     id: z.ZodString;
     createdAt: z.ZodString;
@@ -1065,6 +1091,115 @@ export declare const UpdateNotificationSchema: z.ZodObject<{
     data: z.ZodOptional<z.ZodNullable<z.ZodAny>>;
 }, z.core.$strip>;
 export type UpdateNotification = z.infer<typeof UpdateNotificationSchema>;
+export declare const ReminderSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    title: z.ZodString;
+    description: z.ZodNullable<z.ZodString>;
+    type: z.ZodEnum<{
+        VACCINATION: "VACCINATION";
+        FEEDING: "FEEDING";
+        MEDICATION: "MEDICATION";
+        CLEANING: "CLEANING";
+        WEIGHING: "WEIGHING";
+        SUPPLIER_PAYMENT: "SUPPLIER_PAYMENT";
+        CUSTOMER_PAYMENT: "CUSTOMER_PAYMENT";
+        GENERAL: "GENERAL";
+    }>;
+    status: z.ZodEnum<{
+        COMPLETED: "COMPLETED";
+        PENDING: "PENDING";
+        OVERDUE: "OVERDUE";
+        CANCELLED: "CANCELLED";
+    }>;
+    dueDate: z.ZodDate;
+    isRecurring: z.ZodBoolean;
+    recurrencePattern: z.ZodEnum<{
+        NONE: "NONE";
+        DAILY: "DAILY";
+        WEEKLY: "WEEKLY";
+        MONTHLY: "MONTHLY";
+        CUSTOM: "CUSTOM";
+    }>;
+    recurrenceInterval: z.ZodNullable<z.ZodNumber>;
+    lastTriggered: z.ZodNullable<z.ZodDate>;
+    farmId: z.ZodNullable<z.ZodString>;
+    farm: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+        id: z.ZodString;
+        name: z.ZodString;
+    }, z.core.$strip>>>;
+    batchId: z.ZodNullable<z.ZodString>;
+    batch: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+        id: z.ZodString;
+        batchNumber: z.ZodString;
+    }, z.core.$strip>>>;
+    data: z.ZodNullable<z.ZodAny>;
+    userId: z.ZodString;
+}, z.core.$strip>;
+export type Reminder = z.infer<typeof ReminderSchema>;
+export declare const CreateReminderSchema: z.ZodObject<{
+    title: z.ZodString;
+    description: z.ZodOptional<z.ZodString>;
+    type: z.ZodEnum<{
+        VACCINATION: "VACCINATION";
+        FEEDING: "FEEDING";
+        MEDICATION: "MEDICATION";
+        CLEANING: "CLEANING";
+        WEIGHING: "WEIGHING";
+        SUPPLIER_PAYMENT: "SUPPLIER_PAYMENT";
+        CUSTOMER_PAYMENT: "CUSTOMER_PAYMENT";
+        GENERAL: "GENERAL";
+    }>;
+    dueDate: z.ZodString;
+    isRecurring: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
+    recurrencePattern: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+        NONE: "NONE";
+        DAILY: "DAILY";
+        WEEKLY: "WEEKLY";
+        MONTHLY: "MONTHLY";
+        CUSTOM: "CUSTOM";
+    }>>>;
+    recurrenceInterval: z.ZodOptional<z.ZodNumber>;
+    farmId: z.ZodOptional<z.ZodString>;
+    batchId: z.ZodOptional<z.ZodString>;
+    data: z.ZodOptional<z.ZodAny>;
+}, z.core.$strip>;
+export type CreateReminder = z.infer<typeof CreateReminderSchema>;
+export declare const UpdateReminderSchema: z.ZodObject<{
+    title: z.ZodOptional<z.ZodString>;
+    description: z.ZodOptional<z.ZodString>;
+    type: z.ZodOptional<z.ZodEnum<{
+        VACCINATION: "VACCINATION";
+        FEEDING: "FEEDING";
+        MEDICATION: "MEDICATION";
+        CLEANING: "CLEANING";
+        WEIGHING: "WEIGHING";
+        SUPPLIER_PAYMENT: "SUPPLIER_PAYMENT";
+        CUSTOMER_PAYMENT: "CUSTOMER_PAYMENT";
+        GENERAL: "GENERAL";
+    }>>;
+    dueDate: z.ZodOptional<z.ZodString>;
+    isRecurring: z.ZodOptional<z.ZodBoolean>;
+    recurrencePattern: z.ZodOptional<z.ZodEnum<{
+        NONE: "NONE";
+        DAILY: "DAILY";
+        WEEKLY: "WEEKLY";
+        MONTHLY: "MONTHLY";
+        CUSTOM: "CUSTOM";
+    }>>;
+    recurrenceInterval: z.ZodOptional<z.ZodNumber>;
+    status: z.ZodOptional<z.ZodEnum<{
+        COMPLETED: "COMPLETED";
+        PENDING: "PENDING";
+        OVERDUE: "OVERDUE";
+        CANCELLED: "CANCELLED";
+    }>>;
+    farmId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    batchId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    data: z.ZodOptional<z.ZodAny>;
+}, z.core.$strip>;
+export type UpdateReminder = z.infer<typeof UpdateReminderSchema>;
 export declare const AuditLogSchema: z.ZodObject<{
     id: z.ZodString;
     createdAt: z.ZodString;
@@ -1475,6 +1610,29 @@ export declare const schemas: {
         CHICKS: "CHICKS";
         MEDICINE: "MEDICINE";
         EQUIPMENT: "EQUIPMENT";
+    }>;
+    readonly ReminderType: z.ZodEnum<{
+        VACCINATION: "VACCINATION";
+        FEEDING: "FEEDING";
+        MEDICATION: "MEDICATION";
+        CLEANING: "CLEANING";
+        WEIGHING: "WEIGHING";
+        SUPPLIER_PAYMENT: "SUPPLIER_PAYMENT";
+        CUSTOMER_PAYMENT: "CUSTOMER_PAYMENT";
+        GENERAL: "GENERAL";
+    }>;
+    readonly ReminderStatus: z.ZodEnum<{
+        COMPLETED: "COMPLETED";
+        PENDING: "PENDING";
+        OVERDUE: "OVERDUE";
+        CANCELLED: "CANCELLED";
+    }>;
+    readonly RecurrencePattern: z.ZodEnum<{
+        NONE: "NONE";
+        DAILY: "DAILY";
+        WEEKLY: "WEEKLY";
+        MONTHLY: "MONTHLY";
+        CUSTOM: "CUSTOM";
     }>;
     readonly Base: z.ZodObject<{
         id: z.ZodString;
@@ -2623,6 +2781,112 @@ export declare const schemas: {
             DISMISSED: "DISMISSED";
         }>>;
         data: z.ZodOptional<z.ZodNullable<z.ZodAny>>;
+    }, z.core.$strip>;
+    readonly Reminder: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        title: z.ZodString;
+        description: z.ZodNullable<z.ZodString>;
+        type: z.ZodEnum<{
+            VACCINATION: "VACCINATION";
+            FEEDING: "FEEDING";
+            MEDICATION: "MEDICATION";
+            CLEANING: "CLEANING";
+            WEIGHING: "WEIGHING";
+            SUPPLIER_PAYMENT: "SUPPLIER_PAYMENT";
+            CUSTOMER_PAYMENT: "CUSTOMER_PAYMENT";
+            GENERAL: "GENERAL";
+        }>;
+        status: z.ZodEnum<{
+            COMPLETED: "COMPLETED";
+            PENDING: "PENDING";
+            OVERDUE: "OVERDUE";
+            CANCELLED: "CANCELLED";
+        }>;
+        dueDate: z.ZodDate;
+        isRecurring: z.ZodBoolean;
+        recurrencePattern: z.ZodEnum<{
+            NONE: "NONE";
+            DAILY: "DAILY";
+            WEEKLY: "WEEKLY";
+            MONTHLY: "MONTHLY";
+            CUSTOM: "CUSTOM";
+        }>;
+        recurrenceInterval: z.ZodNullable<z.ZodNumber>;
+        lastTriggered: z.ZodNullable<z.ZodDate>;
+        farmId: z.ZodNullable<z.ZodString>;
+        farm: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+            id: z.ZodString;
+            name: z.ZodString;
+        }, z.core.$strip>>>;
+        batchId: z.ZodNullable<z.ZodString>;
+        batch: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+            id: z.ZodString;
+            batchNumber: z.ZodString;
+        }, z.core.$strip>>>;
+        data: z.ZodNullable<z.ZodAny>;
+        userId: z.ZodString;
+    }, z.core.$strip>;
+    readonly CreateReminder: z.ZodObject<{
+        title: z.ZodString;
+        description: z.ZodOptional<z.ZodString>;
+        type: z.ZodEnum<{
+            VACCINATION: "VACCINATION";
+            FEEDING: "FEEDING";
+            MEDICATION: "MEDICATION";
+            CLEANING: "CLEANING";
+            WEIGHING: "WEIGHING";
+            SUPPLIER_PAYMENT: "SUPPLIER_PAYMENT";
+            CUSTOMER_PAYMENT: "CUSTOMER_PAYMENT";
+            GENERAL: "GENERAL";
+        }>;
+        dueDate: z.ZodString;
+        isRecurring: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
+        recurrencePattern: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+            NONE: "NONE";
+            DAILY: "DAILY";
+            WEEKLY: "WEEKLY";
+            MONTHLY: "MONTHLY";
+            CUSTOM: "CUSTOM";
+        }>>>;
+        recurrenceInterval: z.ZodOptional<z.ZodNumber>;
+        farmId: z.ZodOptional<z.ZodString>;
+        batchId: z.ZodOptional<z.ZodString>;
+        data: z.ZodOptional<z.ZodAny>;
+    }, z.core.$strip>;
+    readonly UpdateReminder: z.ZodObject<{
+        title: z.ZodOptional<z.ZodString>;
+        description: z.ZodOptional<z.ZodString>;
+        type: z.ZodOptional<z.ZodEnum<{
+            VACCINATION: "VACCINATION";
+            FEEDING: "FEEDING";
+            MEDICATION: "MEDICATION";
+            CLEANING: "CLEANING";
+            WEIGHING: "WEIGHING";
+            SUPPLIER_PAYMENT: "SUPPLIER_PAYMENT";
+            CUSTOMER_PAYMENT: "CUSTOMER_PAYMENT";
+            GENERAL: "GENERAL";
+        }>>;
+        dueDate: z.ZodOptional<z.ZodString>;
+        isRecurring: z.ZodOptional<z.ZodBoolean>;
+        recurrencePattern: z.ZodOptional<z.ZodEnum<{
+            NONE: "NONE";
+            DAILY: "DAILY";
+            WEEKLY: "WEEKLY";
+            MONTHLY: "MONTHLY";
+            CUSTOM: "CUSTOM";
+        }>>;
+        recurrenceInterval: z.ZodOptional<z.ZodNumber>;
+        status: z.ZodOptional<z.ZodEnum<{
+            COMPLETED: "COMPLETED";
+            PENDING: "PENDING";
+            OVERDUE: "OVERDUE";
+            CANCELLED: "CANCELLED";
+        }>>;
+        farmId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        batchId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        data: z.ZodOptional<z.ZodAny>;
     }, z.core.$strip>;
     readonly AuditLog: z.ZodObject<{
         id: z.ZodString;

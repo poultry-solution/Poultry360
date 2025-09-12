@@ -41,6 +41,14 @@ enum NotificationType {
   BATCH_COMPLETION
   PAYMENT_DUE
   MORTALITY_ALERT
+  // Reminder types
+  FEED_REMINDER
+  MEDICATION_REMINDER
+  CLEANING_REMINDER
+  WEIGHING_REMINDER
+  SUPPLIER_PAYMENT_REMINDER
+  CUSTOMER_PAYMENT_REMINDER
+  GENERAL_REMINDER
 }
 
 enum NotificationStatus {
@@ -106,6 +114,7 @@ model User {
 
   customers Customer[]
   notifications Notification[]
+  reminders Reminder[]
   auditLogs AuditLog[]
 
   
@@ -143,6 +152,8 @@ model Farm {
   expenses    Expense[]
   sales       Sale[]
   inventoryUsages InventoryUsage[]
+  notifications Notification[]
+  reminders   Reminder[]
 
 
   createdAt   DateTime @default(now())
@@ -171,6 +182,8 @@ model Batch {
   feedConsumptions FeedConsumption[]
   birdWeights BirdWeight[]
   inventoryUsages InventoryUsage[]
+  notifications Notification[]
+  reminders   Reminder[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -582,6 +595,70 @@ model BirdWeight {
   @@index([batchId, date])
 }
 
+// ==================== REMINDERS ====================
+
+enum ReminderType {
+  VACCINATION
+  FEEDING
+  MEDICATION
+  CLEANING
+  WEIGHING
+  SUPPLIER_PAYMENT
+  CUSTOMER_PAYMENT
+  GENERAL
+}
+
+enum ReminderStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+  OVERDUE
+}
+
+enum RecurrencePattern {
+  NONE
+  DAILY
+  WEEKLY
+  MONTHLY
+  CUSTOM
+}
+
+model Reminder {
+  id          String            @id @default(cuid())
+  title       String
+  description String?
+  type        ReminderType
+  status      ReminderStatus    @default(PENDING)
+  
+  // Scheduling
+  dueDate     DateTime
+  isRecurring Boolean           @default(false)
+  recurrencePattern RecurrencePattern @default(NONE)
+  recurrenceInterval Int?       // Every X days/weeks/months
+  lastTriggered DateTime?       // Last time this reminder was triggered
+  
+  // Optional context relationships
+  farmId      String?
+  farm        Farm?             @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  batchId     String?
+  batch       Batch?            @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  
+  // Additional data for specific reminder types
+  data        Json?             // Store specific data like supplier ID, customer ID, etc.
+  
+  userId      String
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([userId, dueDate])
+  @@index([userId, status])
+  @@index([farmId, dueDate])
+  @@index([batchId, dueDate])
+  @@index([type, dueDate])
+}
+
 // ==================== NOTIFICATIONS ====================
 
 model Notification {
@@ -591,6 +668,12 @@ model Notification {
   message     String
   status      NotificationStatus @default(PENDING)
   data        Json?             // Additional data for the notification
+  
+  // Optional context relationships
+  farmId      String?
+  farm        Farm?             @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  batchId     String?
+  batch       Batch?            @relation(fields: [batchId], references: [id], onDelete: Cascade)
   
   userId      String
   user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)

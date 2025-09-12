@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DealerTransactionSchema = exports.UpdateDealerSchema = exports.CreateDealerSchema = exports.DealerSchema = exports.CreateEntityTransactionSchema = exports.EntityTransactionSchema = exports.CreateInventoryUsageSchema = exports.InventoryUsageSchema = exports.CreateInventoryTransactionSchema = exports.InventoryTransactionSchema = exports.UpdateInventoryItemSchema = exports.CreateInventoryItemSchema = exports.InventoryItemSchema = exports.InventoryItemTypeSchema = exports.CreateSalePaymentSchema = exports.SalePaymentSchema = exports.UpdateSaleSchema = exports.CreateSaleSchema = exports.SaleSchema = exports.UpdateExpenseSchema = exports.CreateExpenseSchema = exports.ExpenseSchema = exports.UpdateCategorySchema = exports.CreateCategorySchema = exports.CategorySchema = exports.UpdateBatchSchema = exports.CreateBatchSchema = exports.BatchResponseSchema = exports.BatchCountSchema = exports.BatchFarmSchema = exports.BatchSchema = exports.UpdateFarmSchema = exports.CreateFarmSchema = exports.FarmResponseSchema = exports.FarmCountSchema = exports.FarmManagerSchema = exports.FarmOwnerSchema = exports.FarmSchema = exports.UpdateUserSchema = exports.CreateUserSchema = exports.UserSchema = exports.BaseSchema = exports.CategoryTypeSchema = exports.AuditActionSchema = exports.VaccinationStatusSchema = exports.NotificationStatusSchema = exports.NotificationTypeSchema = exports.TransactionTypeSchema = exports.BatchStatusSchema = exports.UserRoleSchema = void 0;
-exports.PaginatedResponseSchema = exports.ApiResponseSchema = exports.schemas = exports.BatchDetailResponseSchema = exports.BatchListResponseSchema = exports.FarmDetailResponseSchema = exports.FarmListResponseSchema = exports.AuthResponseSchema = exports.UserResponseSchema = exports.FarmAnalyticsSchema = exports.BatchAnalyticsSchema = exports.SignupSchema = exports.LoginSchema = exports.CreateAuditLogSchema = exports.AuditLogSchema = exports.UpdateNotificationSchema = exports.CreateNotificationSchema = exports.NotificationSchema = exports.UpdateBirdWeightSchema = exports.CreateBirdWeightSchema = exports.BirdWeightSchema = exports.UpdateFeedConsumptionSchema = exports.CreateFeedConsumptionSchema = exports.FeedConsumptionSchema = exports.UpdateVaccinationSchema = exports.CreateVaccinationSchema = exports.VaccinationSchema = exports.UpdateMortalitySchema = exports.CreateMortalitySchema = exports.MortalitySchema = exports.CreateCustomerTransactionSchema = exports.CustomerTransactionSchema = exports.UpdateCustomerSchema = exports.CreateCustomerSchema = exports.CustomerSchema = exports.UpdateMedicineSupplierSchema = exports.CreateMedicineSupplierSchema = exports.MedicineSupplierSchema = exports.UpdateHatcherySchema = exports.CreateHatcherySchema = exports.HatcherySchema = exports.DealerDetailResponseSchema = exports.DealerStatisticsSchema = exports.DealerResponseSchema = void 0;
+exports.DealerSchema = exports.CreateEntityTransactionSchema = exports.EntityTransactionSchema = exports.CreateInventoryUsageSchema = exports.InventoryUsageSchema = exports.CreateInventoryTransactionSchema = exports.InventoryTransactionSchema = exports.UpdateInventoryItemSchema = exports.CreateInventoryItemSchema = exports.InventoryItemSchema = exports.InventoryItemTypeSchema = exports.CreateSalePaymentSchema = exports.SalePaymentSchema = exports.UpdateSaleSchema = exports.CreateSaleSchema = exports.SaleSchema = exports.UpdateExpenseSchema = exports.CreateExpenseSchema = exports.ExpenseSchema = exports.UpdateCategorySchema = exports.CreateCategorySchema = exports.CategorySchema = exports.UpdateBatchSchema = exports.CreateBatchSchema = exports.BatchResponseSchema = exports.BatchCountSchema = exports.BatchFarmSchema = exports.BatchSchema = exports.UpdateFarmSchema = exports.CreateFarmSchema = exports.FarmResponseSchema = exports.FarmCountSchema = exports.FarmManagerSchema = exports.FarmOwnerSchema = exports.FarmSchema = exports.UpdateUserSchema = exports.CreateUserSchema = exports.UserSchema = exports.BaseSchema = exports.RecurrencePatternSchema = exports.ReminderStatusSchema = exports.ReminderTypeSchema = exports.CategoryTypeSchema = exports.AuditActionSchema = exports.VaccinationStatusSchema = exports.NotificationStatusSchema = exports.NotificationTypeSchema = exports.TransactionTypeSchema = exports.BatchStatusSchema = exports.UserRoleSchema = void 0;
+exports.PaginatedResponseSchema = exports.ApiResponseSchema = exports.schemas = exports.BatchDetailResponseSchema = exports.BatchListResponseSchema = exports.FarmDetailResponseSchema = exports.FarmListResponseSchema = exports.AuthResponseSchema = exports.UserResponseSchema = exports.FarmAnalyticsSchema = exports.BatchAnalyticsSchema = exports.SignupSchema = exports.LoginSchema = exports.CreateAuditLogSchema = exports.AuditLogSchema = exports.UpdateReminderSchema = exports.CreateReminderSchema = exports.ReminderSchema = exports.UpdateNotificationSchema = exports.CreateNotificationSchema = exports.NotificationSchema = exports.UpdateBirdWeightSchema = exports.CreateBirdWeightSchema = exports.BirdWeightSchema = exports.UpdateFeedConsumptionSchema = exports.CreateFeedConsumptionSchema = exports.FeedConsumptionSchema = exports.UpdateVaccinationSchema = exports.CreateVaccinationSchema = exports.VaccinationSchema = exports.UpdateMortalitySchema = exports.CreateMortalitySchema = exports.MortalitySchema = exports.CreateCustomerTransactionSchema = exports.CustomerTransactionSchema = exports.UpdateCustomerSchema = exports.CreateCustomerSchema = exports.CustomerSchema = exports.UpdateMedicineSupplierSchema = exports.CreateMedicineSupplierSchema = exports.MedicineSupplierSchema = exports.UpdateHatcherySchema = exports.CreateHatcherySchema = exports.HatcherySchema = exports.DealerDetailResponseSchema = exports.DealerStatisticsSchema = exports.DealerResponseSchema = exports.DealerTransactionSchema = exports.UpdateDealerSchema = exports.CreateDealerSchema = void 0;
 // packages/shared-types/index.ts
 const zod_1 = require("zod");
 // ==================== ENUMS ====================
@@ -42,6 +42,30 @@ exports.AuditActionSchema = zod_1.z.enum([
     "LOGOUT",
 ]);
 exports.CategoryTypeSchema = zod_1.z.enum(["EXPENSE", "SALES", "INVENTORY"]);
+// ==================== REMINDER SCHEMAS ====================
+exports.ReminderTypeSchema = zod_1.z.enum([
+    "VACCINATION",
+    "FEEDING",
+    "MEDICATION",
+    "CLEANING",
+    "WEIGHING",
+    "SUPPLIER_PAYMENT",
+    "CUSTOMER_PAYMENT",
+    "GENERAL",
+]);
+exports.ReminderStatusSchema = zod_1.z.enum([
+    "PENDING",
+    "COMPLETED",
+    "CANCELLED",
+    "OVERDUE",
+]);
+exports.RecurrencePatternSchema = zod_1.z.enum([
+    "NONE",
+    "DAILY",
+    "WEEKLY",
+    "MONTHLY",
+    "CUSTOM",
+]);
 // ==================== BASE SCHEMAS ====================
 exports.BaseSchema = zod_1.z.object({
     id: zod_1.z.string(),
@@ -696,6 +720,55 @@ exports.UpdateNotificationSchema = zod_1.z.object({
     status: exports.NotificationStatusSchema.optional(),
     data: zod_1.z.any().nullable().optional(),
 });
+// ==================== REMINDER SCHEMAS ====================
+exports.ReminderSchema = exports.BaseSchema.extend({
+    title: zod_1.z.string(),
+    description: zod_1.z.string().nullable(),
+    type: exports.ReminderTypeSchema,
+    status: exports.ReminderStatusSchema,
+    dueDate: zod_1.z.date(),
+    isRecurring: zod_1.z.boolean(),
+    recurrencePattern: exports.RecurrencePatternSchema,
+    recurrenceInterval: zod_1.z.number().int().nullable(),
+    lastTriggered: zod_1.z.date().nullable(),
+    farmId: zod_1.z.string().nullable(),
+    farm: zod_1.z.object({
+        id: zod_1.z.string(),
+        name: zod_1.z.string(),
+    }).nullable().optional(),
+    batchId: zod_1.z.string().nullable(),
+    batch: zod_1.z.object({
+        id: zod_1.z.string(),
+        batchNumber: zod_1.z.string(),
+    }).nullable().optional(),
+    data: zod_1.z.any().nullable(),
+    userId: zod_1.z.string(),
+});
+exports.CreateReminderSchema = zod_1.z.object({
+    title: zod_1.z.string().min(1, "Title is required"),
+    description: zod_1.z.string().optional(),
+    type: exports.ReminderTypeSchema,
+    dueDate: zod_1.z.string().datetime(),
+    isRecurring: zod_1.z.boolean().optional().default(false),
+    recurrencePattern: exports.RecurrencePatternSchema.optional().default("NONE"),
+    recurrenceInterval: zod_1.z.number().int().positive().optional(),
+    farmId: zod_1.z.string().optional(),
+    batchId: zod_1.z.string().optional(),
+    data: zod_1.z.any().optional(),
+});
+exports.UpdateReminderSchema = zod_1.z.object({
+    title: zod_1.z.string().min(1).optional(),
+    description: zod_1.z.string().optional(),
+    type: exports.ReminderTypeSchema.optional(),
+    dueDate: zod_1.z.string().datetime().optional(),
+    isRecurring: zod_1.z.boolean().optional(),
+    recurrencePattern: exports.RecurrencePatternSchema.optional(),
+    recurrenceInterval: zod_1.z.number().int().positive().optional(),
+    status: exports.ReminderStatusSchema.optional(),
+    farmId: zod_1.z.string().nullable().optional(),
+    batchId: zod_1.z.string().nullable().optional(),
+    data: zod_1.z.any().optional(),
+});
 // ==================== AUDIT LOG SCHEMAS ====================
 exports.AuditLogSchema = exports.BaseSchema.extend({
     action: exports.AuditActionSchema,
@@ -811,6 +884,10 @@ exports.schemas = {
     AuditAction: exports.AuditActionSchema,
     CategoryType: exports.CategoryTypeSchema,
     InventoryItemType: exports.InventoryItemTypeSchema,
+    // Reminder Enums
+    ReminderType: exports.ReminderTypeSchema,
+    ReminderStatus: exports.ReminderStatusSchema,
+    RecurrencePattern: exports.RecurrencePatternSchema,
     // Base
     Base: exports.BaseSchema,
     // Core Models
@@ -897,6 +974,10 @@ exports.schemas = {
     Notification: exports.NotificationSchema,
     CreateNotification: exports.CreateNotificationSchema,
     UpdateNotification: exports.UpdateNotificationSchema,
+    // Reminders
+    Reminder: exports.ReminderSchema,
+    CreateReminder: exports.CreateReminderSchema,
+    UpdateReminder: exports.UpdateReminderSchema,
     // Audit
     AuditLog: exports.AuditLogSchema,
     CreateAuditLog: exports.CreateAuditLogSchema,

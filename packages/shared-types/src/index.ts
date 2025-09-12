@@ -56,6 +56,37 @@ export type AuditAction = z.infer<typeof AuditActionSchema>;
 export const CategoryTypeSchema = z.enum(["EXPENSE", "SALES", "INVENTORY"]);
 export type CategoryType = z.infer<typeof CategoryTypeSchema>;
 
+// ==================== REMINDER SCHEMAS ====================
+
+export const ReminderTypeSchema = z.enum([
+  "VACCINATION",
+  "FEEDING",
+  "MEDICATION",
+  "CLEANING",
+  "WEIGHING",
+  "SUPPLIER_PAYMENT",
+  "CUSTOMER_PAYMENT",
+  "GENERAL",
+]);
+export type ReminderType = z.infer<typeof ReminderTypeSchema>;
+
+export const ReminderStatusSchema = z.enum([
+  "PENDING",
+  "COMPLETED",
+  "CANCELLED",
+  "OVERDUE",
+]);
+export type ReminderStatus = z.infer<typeof ReminderStatusSchema>;
+
+export const RecurrencePatternSchema = z.enum([
+  "NONE",
+  "DAILY",
+  "WEEKLY",
+  "MONTHLY",
+  "CUSTOM",
+]);
+export type RecurrencePattern = z.infer<typeof RecurrencePatternSchema>;
+
 // ==================== BASE SCHEMAS ====================
 
 export const BaseSchema = z.object({
@@ -954,6 +985,65 @@ export const UpdateNotificationSchema = z.object({
 
 export type UpdateNotification = z.infer<typeof UpdateNotificationSchema>;
 
+// ==================== REMINDER SCHEMAS ====================
+
+export const ReminderSchema = BaseSchema.extend({
+  title: z.string(),
+  description: z.string().nullable(),
+  type: ReminderTypeSchema,
+  status: ReminderStatusSchema,
+  dueDate: z.date(),
+  isRecurring: z.boolean(),
+  recurrencePattern: RecurrencePatternSchema,
+  recurrenceInterval: z.number().int().nullable(),
+  lastTriggered: z.date().nullable(),
+  farmId: z.string().nullable(),
+  farm: z.object({
+    id: z.string(),
+    name: z.string(),
+  }).nullable().optional(),
+  batchId: z.string().nullable(),
+  batch: z.object({
+    id: z.string(),
+    batchNumber: z.string(),
+  }).nullable().optional(),
+  data: z.any().nullable(),
+  userId: z.string(),
+});
+
+export type Reminder = z.infer<typeof ReminderSchema>;
+
+export const CreateReminderSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  type: ReminderTypeSchema,
+  dueDate: z.string().datetime(),
+  isRecurring: z.boolean().optional().default(false),
+  recurrencePattern: RecurrencePatternSchema.optional().default("NONE"),
+  recurrenceInterval: z.number().int().positive().optional(),
+  farmId: z.string().optional(),
+  batchId: z.string().optional(),
+  data: z.any().optional(),
+});
+
+export type CreateReminder = z.infer<typeof CreateReminderSchema>;
+
+export const UpdateReminderSchema = z.object({
+  title: z.string().min(1).optional(),
+  description: z.string().optional(),
+  type: ReminderTypeSchema.optional(),
+  dueDate: z.string().datetime().optional(),
+  isRecurring: z.boolean().optional(),
+  recurrencePattern: RecurrencePatternSchema.optional(),
+  recurrenceInterval: z.number().int().positive().optional(),
+  status: ReminderStatusSchema.optional(),
+  farmId: z.string().nullable().optional(),
+  batchId: z.string().nullable().optional(),
+  data: z.any().optional(),
+});
+
+export type UpdateReminder = z.infer<typeof UpdateReminderSchema>;
+
 // ==================== AUDIT LOG SCHEMAS ====================
 
 export const AuditLogSchema = BaseSchema.extend({
@@ -1111,6 +1201,11 @@ export const schemas = {
   CategoryType: CategoryTypeSchema,
   InventoryItemType: InventoryItemTypeSchema,
 
+  // Reminder Enums
+  ReminderType: ReminderTypeSchema,
+  ReminderStatus: ReminderStatusSchema,
+  RecurrencePattern: RecurrencePatternSchema,
+
   // Base
   Base: BaseSchema,
 
@@ -1221,6 +1316,11 @@ export const schemas = {
   Notification: NotificationSchema,
   CreateNotification: CreateNotificationSchema,
   UpdateNotification: UpdateNotificationSchema,
+
+  // Reminders
+  Reminder: ReminderSchema,
+  CreateReminder: CreateReminderSchema,
+  UpdateReminder: UpdateReminderSchema,
 
   // Audit
   AuditLog: AuditLogSchema,

@@ -10,7 +10,6 @@ import {
 import {
   Building2,
   Layers,
-
   TrendingUp,
   DollarSign,
   CreditCard,
@@ -25,42 +24,86 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
+import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
 import { useInventory } from "@/contexts/InventoryContext";
+
+import {
+  useGetReminderDashboard,
+  useCreateReminder,
+  useMarkReminderCompleted,
+  useDeleteReminder,
+  getReminderTypeDisplayName,
+  getReminderStatusDisplayName,
+  getReminderTypeColor,
+  getReminderStatusColor,
+  formatReminderDueDate,
+  isReminderDueSoon,
+  isReminderOverdue,
+} from "@/fetchers/remainder/remainderQueries";
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  
-  // Fetch batches for shortcuts
+
+  // Fetch real data from APIs
   const { data: batchesResponse } = useGetAllBatches();
+  const { data: farmsResponse } = useGetUserFarms("all");
+
   const activeBatches = batchesResponse?.data || [];
-  
+  const farms = farmsResponse?.data || [];
+
+  // Farm selection state for filtering batches
+  const [selectedFarmId, setSelectedFarmId] = useState<string>("");
+
+  // Filter batches based on selected farm
+  const filteredBatches = selectedFarmId
+    ? activeBatches.filter((batch) => batch.farmId === selectedFarmId)
+    : activeBatches;
+
   // Inventory integration
-  const { inventory, updateInventoryItem, getInventoryByCategory } = useInventory();
+  const { inventory, updateInventoryItem, getInventoryByCategory } =
+    useInventory();
   const feedInventory = getInventoryByCategory("feed");
   const medicineInventory = getInventoryByCategory("medicine");
-  
+
   const [isFarmsOpen, setIsFarmsOpen] = useState(false);
   const [isBatchesOpen, setIsBatchesOpen] = useState(false);
   const [isReceiveOpen, setIsReceiveOpen] = useState(false);
   const [isGiveOpen, setIsGiveOpen] = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
-  
+
   // Shortcut modals
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
   const [isQuickSaleOpen, setIsQuickSaleOpen] = useState(false);
+
+  // Reminder form state
   const [reminderForm, setReminderForm] = useState({
-    title: '',
-    date: '',
-    time: '',
-    type: 'Task Reminder'
+    title: "",
+    description: "",
+    date: "",
+    time: "",
+    type: "GENERAL" as const,
+    farmId: "",
+    batchId: "",
   });
-  const [reminders, setReminders] = useState([
-    { id: 1, title: 'Collect payment from Ram', date: '2025-09-10', time: '11:36 PM', type: 'Task Reminder' },
-    { id: 2, title: 'Vaccination for Batch B-2024-001', date: '2025-09-12', time: '09:00 AM', type: 'Medical Reminder' }
-  ]);
+
+  // Reminder API integration
+  const {
+    upcoming,
+    overdue,
+    statistics,
+    isLoading: remindersLoading,
+    error: remindersError,
+  } = useGetReminderDashboard();
+
+  const createReminderMutation = useCreateReminder();
+
+  const markCompletedMutation = useMarkReminderCompleted();
+
+  const deleteReminderMutation = useDeleteReminder();
 
   // Quick form states
   const [quickExpenseForm, setQuickExpenseForm] = useState({
+    farmId: "",
     batchId: "",
     category: "Feed",
     date: "",
@@ -82,6 +125,7 @@ export default function DashboardPage() {
   });
 
   const [quickSaleForm, setQuickSaleForm] = useState({
+    farmId: "",
     batchId: "",
     item: "Chicken",
     rate: "",
@@ -94,60 +138,125 @@ export default function DashboardPage() {
     date: "",
   });
 
-  const [quickFormErrors, setQuickFormErrors] = useState<Record<string, string>>({});
-
-  const farms = [
-    { id: 1, name: "Farm A", location: "Bharatpur, Chitwan", capacity: 5000, activeBatches: 2, closedBatches: 5 },
-    { id: 2, name: "Farm B", location: "Pokhara, Kaski", capacity: 3500, activeBatches: 1, closedBatches: 3 },
-    { id: 3, name: "Farm C", location: "Butwal, Rupandehi", capacity: 4000, activeBatches: 2, closedBatches: 4 },
-  ];
-
-  const sampleBatches = [
-    { id: 1, code: "B-2024-001", farm: "Farm A", birds: 2500, ageDays: 32, status: "Active" },
-    { id: 2, code: "B-2024-002", farm: "Farm B", birds: 2000, ageDays: 27, status: "Active" },
-    { id: 3, code: "B-2023-019", farm: "Farm C", birds: 2300, ageDays: 45, status: "Closed" },
-  ];
+  const [quickFormErrors, setQuickFormErrors] = useState<
+    Record<string, string>
+  >({});
 
   const receivables = [
-    { id: 1, party: "Dealer A", reference: "Batch B-2024-001", amount: 450000, dueDate: "2025-09-10" },
-    { id: 2, party: "Dealer B", reference: "Batch B-2024-002", amount: 275000, dueDate: "2025-09-12" },
+    {
+      id: 1,
+      party: "Dealer A",
+      reference: "Batch B-2024-001",
+      amount: 450000,
+      dueDate: "2025-09-10",
+    },
+    {
+      id: 2,
+      party: "Dealer B",
+      reference: "Batch B-2024-002",
+      amount: 275000,
+      dueDate: "2025-09-12",
+    },
   ];
 
   const payables = [
-    { id: 1, party: "Medico Pharma", reference: "Invoice MP-1021", amount: 35000, dueDate: "2025-09-08" },
-    { id: 2, party: "VetCare", reference: "Invoice VC-332", amount: 18000, dueDate: "2025-09-15" },
+    {
+      id: 1,
+      party: "Medico Pharma",
+      reference: "Invoice MP-1021",
+      amount: 35000,
+      dueDate: "2025-09-08",
+    },
+    {
+      id: 2,
+      party: "VetCare",
+      reference: "Invoice VC-332",
+      amount: 18000,
+      dueDate: "2025-09-15",
+    },
   ];
 
-  const handleAddReminder = () => {
-    if (!reminderForm.title.trim() || !reminderForm.date || !reminderForm.time) return;
+  const handleAddReminder = async () => {
+    if (!reminderForm.title.trim() || !reminderForm.date || !reminderForm.time)
+      return;
 
-    const newReminder = {
-      id: Date.now(),
-      title: reminderForm.title,
-      date: reminderForm.date,
-      time: reminderForm.time,
-      type: reminderForm.type
-    };
+    try {
+      // Combine date and time into ISO datetime string
+      const dueDate = new Date(
+        `${reminderForm.date}T${reminderForm.time}:00.000Z`
+      ).toISOString();
 
-    setReminders([...reminders, newReminder]);
-    setReminderForm({ title: '', date: '', time: '', type: 'Task Reminder' });
-    setIsReminderModalOpen(false);
+      await createReminderMutation.mutateAsync({
+        title: reminderForm.title,
+        description: reminderForm.description || undefined,
+        type: reminderForm.type,
+        dueDate,
+        isRecurring: false,
+        recurrencePattern: "NONE",
+        farmId: reminderForm.farmId || undefined,
+        batchId: reminderForm.batchId || undefined,
+      });
+
+      // Reset form and close modal
+      setReminderForm({
+        title: "",
+        description: "",
+        date: "",
+        time: "",
+        type: "GENERAL",
+        farmId: "",
+        batchId: "",
+      });
+      setIsReminderModalOpen(false);
+    } catch (error) {
+      console.error("Failed to create reminder:", error);
+    }
+  };
+
+  const handleMarkCompleted = async (reminderId: string) => {
+    try {
+      await markCompletedMutation.mutateAsync(reminderId);
+    } catch (error) {
+      console.error("Failed to mark reminder as completed:", error);
+    }
+  };
+
+  const handleDeleteReminder = async (reminderId: string) => {
+    try {
+      await deleteReminderMutation.mutateAsync(reminderId);
+    } catch (error) {
+      console.error("Failed to delete reminder:", error);
+    }
   };
 
   // Quick form handlers
-  const updateQuickExpenseField = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const updateQuickExpenseField = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
     setQuickExpenseForm((p) => ({ ...p, [name]: value }));
+    
+    // If farm is changed, reset batch selection
+    if (name === "farmId") {
+      setQuickExpenseForm((p) => ({ ...p, batchId: "" }));
+    }
   };
 
-  const updateQuickSaleField = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const updateQuickSaleField = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value, type } = e.target as HTMLInputElement;
     setQuickSaleForm((p) => ({
       ...p,
-      [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
+      [name]:
+        type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
     }));
+    
+    // If farm is changed, reset batch selection
+    if (name === "farmId") {
+      setQuickSaleForm((p) => ({ ...p, batchId: "" }));
+    }
   };
-
 
   // Handle feed selection from inventory
   const handleQuickFeedSelection = (feedId: string) => {
@@ -164,7 +273,9 @@ export default function DashboardPage() {
 
   // Handle medicine selection from inventory
   const handleQuickMedicineSelection = (medicineId: string) => {
-    const selectedMedicine = medicineInventory.find((medicine) => medicine.id === medicineId);
+    const selectedMedicine = medicineInventory.find(
+      (medicine) => medicine.id === medicineId
+    );
     if (selectedMedicine) {
       setQuickExpenseForm((prev) => ({
         ...prev,
@@ -186,6 +297,7 @@ export default function DashboardPage() {
     alert(`Expense added to batch ${quickExpenseForm.batchId} successfully!`);
     setIsQuickExpenseOpen(false);
     setQuickExpenseForm({
+      farmId: "",
       batchId: "",
       category: "Feed",
       date: "",
@@ -218,6 +330,7 @@ export default function DashboardPage() {
     alert(`Sale added to batch ${quickSaleForm.batchId} successfully!`);
     setIsQuickSaleOpen(false);
     setQuickSaleForm({
+      farmId: "",
       batchId: "",
       item: "Chicken",
       rate: "",
@@ -260,83 +373,176 @@ export default function DashboardPage() {
       </div>
 
       {/* Modals */}
-      <Modal isOpen={isFarmsOpen} onClose={() => setIsFarmsOpen(false)} title="All Farms">
+      <Modal
+        isOpen={isFarmsOpen}
+        onClose={() => setIsFarmsOpen(false)}
+        title="All Farms"
+      >
         <ModalContent>
           <div className="space-y-3">
-            {farms.map(f => (
-              <div key={f.id} className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60">
-                <div>
-                  <div className="font-medium">{f.name}</div>
-                  <div className="text-xs text-muted-foreground">{f.location} • Capacity {f.capacity.toLocaleString()} birds</div>
-                </div>
-                <div className="text-right text-sm">Active {f.activeBatches} • Closed {f.closedBatches}</div>
+            {farms.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No farms found</p>
               </div>
-            ))}
+            ) : (
+              farms.map((farm) => (
+                <div
+                  key={farm.id}
+                  className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60"
+                >
+                  <div>
+                    <div className="font-medium">{farm.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Capacity {farm.capacity.toLocaleString()} birds
+                    </div>
+                  </div>
+                  <div className="text-right text-sm">
+                    Batches: {farm._count?.batches || 0}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </ModalContent>
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsFarmsOpen(false)} className="cursor-pointer hover:bg-gray-50 transition-colors duration-200">Close</Button>
+          <Button
+            variant="outline"
+            onClick={() => setIsFarmsOpen(false)}
+            className="cursor-pointer hover:bg-gray-50 transition-colors duration-200"
+          >
+            Close
+          </Button>
         </ModalFooter>
       </Modal>
 
-      <Modal isOpen={isBatchesOpen} onClose={() => setIsBatchesOpen(false)} title="All Batches">
+      <Modal
+        isOpen={isBatchesOpen}
+        onClose={() => setIsBatchesOpen(false)}
+        title="All Batches"
+      >
         <ModalContent>
           <div className="space-y-3">
-            {sampleBatches.map(b => (
-              <div key={b.id} className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60">
-                <div>
-                  <div className="font-medium">{b.code}</div>
-                  <div className="text-xs text-muted-foreground">{b.farm} • Birds {b.birds.toLocaleString()} • Age {b.ageDays} days</div>
-                </div>
-                <div className={b.status === 'Active' ? 'text-green-600 text-sm font-medium' : 'text-muted-foreground text-sm font-medium'}>{b.status}</div>
+            {activeBatches.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Layers className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No batches found</p>
               </div>
-            ))}
+            ) : (
+              activeBatches.map((batch) => (
+                <div
+                  key={batch.id}
+                  className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60"
+                >
+                  <div>
+                    <div className="font-medium">{batch.batchNumber}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {batch.farm.name} • Birds {batch.initialChicks.toLocaleString()} • Age{" "}
+                      {Math.floor((new Date().getTime() - new Date(batch.startDate).getTime()) / (1000 * 60 * 60 * 24))} days
+                    </div>
+                  </div>
+                  <div
+                    className={
+                      batch.status === "ACTIVE"
+                        ? "text-green-600 text-sm font-medium"
+                        : "text-muted-foreground text-sm font-medium"
+                    }
+                  >
+                    {batch.status}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </ModalContent>
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsBatchesOpen(false)} className="cursor-pointer hover:bg-gray-50 transition-colors duration-200">Close</Button>
+          <Button
+            variant="outline"
+            onClick={() => setIsBatchesOpen(false)}
+            className="cursor-pointer hover:bg-gray-50 transition-colors duration-200"
+          >
+            Close
+          </Button>
         </ModalFooter>
       </Modal>
 
-      <Modal isOpen={isReceiveOpen} onClose={() => setIsReceiveOpen(false)} title="Money to Receive">
+      <Modal
+        isOpen={isReceiveOpen}
+        onClose={() => setIsReceiveOpen(false)}
+        title="Money to Receive"
+      >
         <ModalContent>
           <div className="space-y-3">
-            {receivables.map(r => (
-              <div key={r.id} className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60">
+            {receivables.map((r) => (
+              <div
+                key={r.id}
+                className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60"
+              >
                 <div>
                   <div className="font-medium">{r.party}</div>
-                  <div className="text-xs text-muted-foreground">{r.reference} • Due {r.dueDate}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {r.reference} • Due {r.dueDate}
+                  </div>
                 </div>
-                <div className="text-right font-medium">₹{r.amount.toLocaleString()}</div>
+                <div className="text-right font-medium">
+                  ₹{r.amount.toLocaleString()}
+                </div>
               </div>
             ))}
           </div>
         </ModalContent>
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsReceiveOpen(false)} className="cursor-pointer hover:bg-gray-50 transition-colors duration-200">Close</Button>
+          <Button
+            variant="outline"
+            onClick={() => setIsReceiveOpen(false)}
+            className="cursor-pointer hover:bg-gray-50 transition-colors duration-200"
+          >
+            Close
+          </Button>
         </ModalFooter>
       </Modal>
 
-      <Modal isOpen={isGiveOpen} onClose={() => setIsGiveOpen(false)} title="Money to Give">
+      <Modal
+        isOpen={isGiveOpen}
+        onClose={() => setIsGiveOpen(false)}
+        title="Money to Give"
+      >
         <ModalContent>
           <div className="space-y-3">
-            {payables.map(p => (
-              <div key={p.id} className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60">
+            {payables.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60"
+              >
                 <div>
                   <div className="font-medium">{p.party}</div>
-                  <div className="text-xs text-muted-foreground">{p.reference} • Due {p.dueDate}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {p.reference} • Due {p.dueDate}
+                  </div>
                 </div>
-                <div className="text-right font-medium">₹{p.amount.toLocaleString()}</div>
+                <div className="text-right font-medium">
+                  ₹{p.amount.toLocaleString()}
+                </div>
               </div>
             ))}
           </div>
         </ModalContent>
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsGiveOpen(false)} className="cursor-pointer hover:bg-gray-50 transition-colors duration-200">Close</Button>
+          <Button
+            variant="outline"
+            onClick={() => setIsGiveOpen(false)}
+            className="cursor-pointer hover:bg-gray-50 transition-colors duration-200"
+          >
+            Close
+          </Button>
         </ModalFooter>
       </Modal>
 
-      <Modal isOpen={isReminderModalOpen} onClose={() => setIsReminderModalOpen(false)} title="Add New Reminder">
+      <Modal
+        isOpen={isReminderModalOpen}
+        onClose={() => setIsReminderModalOpen(false)}
+        title="Add New Reminder"
+      >
         <ModalContent>
           <div className="space-y-4">
             <div>
@@ -344,8 +550,31 @@ export default function DashboardPage() {
               <Input
                 id="reminderTitle"
                 value={reminderForm.title}
-                onChange={(e) => setReminderForm(prev => ({ ...prev, title: e.target.value }))}
+                onChange={(e) =>
+                  setReminderForm((prev) => ({
+                    ...prev,
+                    title: e.target.value,
+                  }))
+                }
                 placeholder="e.g. Collect payment from Ram"
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="reminderDescription">
+                Description (Optional)
+              </Label>
+              <Input
+                id="reminderDescription"
+                value={reminderForm.description}
+                onChange={(e) =>
+                  setReminderForm((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                placeholder="Additional details..."
                 className="mt-1"
               />
             </div>
@@ -357,7 +586,12 @@ export default function DashboardPage() {
                   id="reminderDate"
                   type="date"
                   value={reminderForm.date}
-                  onChange={(e) => setReminderForm(prev => ({ ...prev, date: e.target.value }))}
+                  onChange={(e) =>
+                    setReminderForm((prev) => ({
+                      ...prev,
+                      date: e.target.value,
+                    }))
+                  }
                   className="mt-1"
                 />
               </div>
@@ -367,7 +601,12 @@ export default function DashboardPage() {
                   id="reminderTime"
                   type="time"
                   value={reminderForm.time}
-                  onChange={(e) => setReminderForm(prev => ({ ...prev, time: e.target.value }))}
+                  onChange={(e) =>
+                    setReminderForm((prev) => ({
+                      ...prev,
+                      time: e.target.value,
+                    }))
+                  }
                   className="mt-1"
                 />
               </div>
@@ -378,20 +617,86 @@ export default function DashboardPage() {
               <select
                 id="reminderType"
                 value={reminderForm.type}
-                onChange={(e) => setReminderForm(prev => ({ ...prev, type: e.target.value }))}
+                onChange={(e) =>
+                  setReminderForm((prev) => ({
+                    ...prev,
+                    type: e.target.value as any,
+                  }))
+                }
                 className="mt-1 w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
               >
-                <option value="Task Reminder">Task Reminder</option>
-                <option value="Medical Reminder">Medical Reminder</option>
-                <option value="Payment Reminder">Payment Reminder</option>
-                <option value="Maintenance Reminder">Maintenance Reminder</option>
+                <option value="GENERAL">General</option>
+                <option value="VACCINATION">Vaccination</option>
+                <option value="FEEDING">Feeding</option>
+                <option value="MEDICATION">Medication</option>
+                <option value="CLEANING">Cleaning</option>
+                <option value="WEIGHING">Weighing</option>
+                <option value="SUPPLIER_PAYMENT">Supplier Payment</option>
+                <option value="CUSTOMER_PAYMENT">Customer Payment</option>
               </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="reminderFarm">Farm (Optional)</Label>
+                <select
+                  id="reminderFarm"
+                  value={reminderForm.farmId}
+                  onChange={(e) =>
+                    setReminderForm((prev) => ({
+                      ...prev,
+                      farmId: e.target.value,
+                    }))
+                  }
+                  className="mt-1 w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                >
+                  <option value="">Select farm</option>
+                  {farms.map((farm) => (
+                    <option key={farm.id} value={farm.id}>
+                      {farm.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="reminderBatch">Batch (Optional)</Label>
+                <select
+                  id="reminderBatch"
+                  value={reminderForm.batchId}
+                  onChange={(e) =>
+                    setReminderForm((prev) => ({
+                      ...prev,
+                      batchId: e.target.value,
+                    }))
+                  }
+                  className="mt-1 w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                >
+                  <option value="">Select batch</option>
+                  {activeBatches.map((batch) => (
+                    <option key={batch.id} value={batch.id}>
+                      {batch.batchNumber} - {batch.farm.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </ModalContent>
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsReminderModalOpen(false)} className="cursor-pointer hover:bg-gray-50 transition-colors duration-200">Cancel</Button>
-          <Button onClick={handleAddReminder} className="cursor-pointer bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200">Add Reminder</Button>
+          <Button
+            variant="outline"
+            onClick={() => setIsReminderModalOpen(false)}
+            className="cursor-pointer hover:bg-gray-50 transition-colors duration-200"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleAddReminder}
+            disabled={createReminderMutation.isPending}
+            className="cursor-pointer bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200"
+          >
+            {createReminderMutation.isPending ? "Adding..." : "Add Reminder"}
+          </Button>
         </ModalFooter>
       </Modal>
 
@@ -407,6 +712,31 @@ export default function DashboardPage() {
         <form onSubmit={submitQuickExpense}>
           <ModalContent>
             <div className="space-y-4">
+              {/* Farm Selection */}
+              <div>
+                <Label htmlFor="farmId">Select Farm *</Label>
+                <select
+                  id="farmId"
+                  name="farmId"
+                  value={quickExpenseForm.farmId}
+                  onChange={updateQuickExpenseField}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                  required
+                >
+                  <option value="">Choose a farm</option>
+                  {farms.map((farm) => (
+                    <option key={farm.id} value={farm.id}>
+                      {farm.name}
+                    </option>
+                  ))}
+                </select>
+                {quickFormErrors.farmId && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {quickFormErrors.farmId}
+                  </p>
+                )}
+              </div>
+
               {/* Batch Selection */}
               <div>
                 <Label htmlFor="batchId">Select Batch *</Label>
@@ -415,18 +745,26 @@ export default function DashboardPage() {
                   name="batchId"
                   value={quickExpenseForm.batchId}
                   onChange={updateQuickExpenseField}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                  disabled={!quickExpenseForm.farmId}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   required
                 >
                   <option value="">Choose a batch</option>
-                  {activeBatches.filter(batch => batch.status === "ACTIVE").map((batch) => (
-                    <option key={batch.id} value={batch.id}>
-                      {batch.batchNumber} - {batch.farm.name}
-                    </option>
-                  ))}
+                  {activeBatches
+                    .filter((batch) => 
+                      batch.status === "ACTIVE" && 
+                      (!quickExpenseForm.farmId || batch.farmId === quickExpenseForm.farmId)
+                    )
+                    .map((batch) => (
+                      <option key={batch.id} value={batch.id}>
+                        {batch.batchNumber} - {batch.farm.name}
+                      </option>
+                    ))}
                 </select>
                 {quickFormErrors.batchId && (
-                  <p className="text-xs text-red-600 mt-1">{quickFormErrors.batchId}</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    {quickFormErrors.batchId}
+                  </p>
                 )}
               </div>
 
@@ -496,7 +834,9 @@ export default function DashboardPage() {
                       value={quickExpenseForm.feedRate}
                       onChange={updateQuickExpenseField}
                       readOnly={!!quickExpenseForm.selectedFeedId}
-                      className={quickExpenseForm.selectedFeedId ? "bg-gray-50" : ""}
+                      className={
+                        quickExpenseForm.selectedFeedId ? "bg-gray-50" : ""
+                      }
                     />
                   </div>
                 </div>
@@ -510,13 +850,16 @@ export default function DashboardPage() {
                       id="selectedMedicineId"
                       name="selectedMedicineId"
                       value={quickExpenseForm.selectedMedicineId}
-                      onChange={(e) => handleQuickMedicineSelection(e.target.value)}
+                      onChange={(e) =>
+                        handleQuickMedicineSelection(e.target.value)
+                      }
                       className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                     >
                       <option value="">Select medicine from inventory</option>
                       {medicineInventory.map((medicine) => (
                         <option key={medicine.id} value={medicine.id}>
-                          {medicine.name} ({medicine.quantity} {medicine.unit} available)
+                          {medicine.name} ({medicine.quantity} {medicine.unit}{" "}
+                          available)
                         </option>
                       ))}
                     </select>
@@ -540,7 +883,9 @@ export default function DashboardPage() {
                       value={quickExpenseForm.medicineRate}
                       onChange={updateQuickExpenseField}
                       readOnly={!!quickExpenseForm.selectedMedicineId}
-                      className={quickExpenseForm.selectedMedicineId ? "bg-gray-50" : ""}
+                      className={
+                        quickExpenseForm.selectedMedicineId ? "bg-gray-50" : ""
+                      }
                     />
                   </div>
                 </div>
@@ -638,7 +983,10 @@ export default function DashboardPage() {
             >
               Cancel
             </Button>
-            <Button type="submit" className="cursor-pointer bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200">
+            <Button
+              type="submit"
+              className="cursor-pointer bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200"
+            >
               Add Expense
             </Button>
           </ModalFooter>
@@ -657,6 +1005,31 @@ export default function DashboardPage() {
         <form onSubmit={submitQuickSale}>
           <ModalContent>
             <div className="space-y-4">
+              {/* Farm Selection */}
+              <div>
+                <Label htmlFor="saleFarmId">Select Farm *</Label>
+                <select
+                  id="saleFarmId"
+                  name="farmId"
+                  value={quickSaleForm.farmId}
+                  onChange={updateQuickSaleField}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                  required
+                >
+                  <option value="">Choose a farm</option>
+                  {farms.map((farm) => (
+                    <option key={farm.id} value={farm.id}>
+                      {farm.name}
+                    </option>
+                  ))}
+                </select>
+                {quickFormErrors.farmId && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {quickFormErrors.farmId}
+                  </p>
+                )}
+              </div>
+
               {/* Batch Selection */}
               <div>
                 <Label htmlFor="saleBatchId">Select Batch *</Label>
@@ -665,18 +1038,26 @@ export default function DashboardPage() {
                   name="batchId"
                   value={quickSaleForm.batchId}
                   onChange={updateQuickSaleField}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                  disabled={!quickSaleForm.farmId}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   required
                 >
                   <option value="">Choose a batch</option>
-                  {activeBatches.filter(batch => batch.status === "ACTIVE").map((batch) => (
-                    <option key={batch.id} value={batch.id}>
-                      {batch.batchNumber} - {batch.farm.name}
-                    </option>
-                  ))}
+                  {activeBatches
+                    .filter((batch) => 
+                      batch.status === "ACTIVE" && 
+                      (!quickSaleForm.farmId || batch.farmId === quickSaleForm.farmId)
+                    )
+                    .map((batch) => (
+                      <option key={batch.id} value={batch.id}>
+                        {batch.batchNumber} - {batch.farm.name}
+                      </option>
+                    ))}
                 </select>
                 {quickFormErrors.batchId && (
-                  <p className="text-xs text-red-600 mt-1">{quickFormErrors.batchId}</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    {quickFormErrors.batchId}
+                  </p>
                 )}
               </div>
 
@@ -806,7 +1187,10 @@ export default function DashboardPage() {
             >
               Cancel
             </Button>
-            <Button type="submit" className="cursor-pointer bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200">
+            <Button
+              type="submit"
+              className="cursor-pointer bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200"
+            >
               Add Income
             </Button>
           </ModalFooter>
@@ -815,18 +1199,24 @@ export default function DashboardPage() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card onClick={() => setIsFarmsOpen(true)} className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white">
+        <Card
+          onClick={() => setIsFarmsOpen(true)}
+          className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white"
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Farms</CardTitle>
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3</div>
-            <p className="text-xs text-muted-foreground">+1 from last month</p>
+            <div className="text-2xl font-bold">{farms.length}</div>
+            <p className="text-xs text-muted-foreground">Total farm locations</p>
           </CardContent>
         </Card>
 
-        <Card onClick={() => setIsBatchesOpen(true)} className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white">
+        <Card
+          onClick={() => setIsBatchesOpen(true)}
+          className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white"
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Active Batches
@@ -834,16 +1224,18 @@ export default function DashboardPage() {
             <Layers className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">5</div>
+            <div className="text-2xl font-bold">{activeBatches.length}</div>
             <p className="text-xs text-muted-foreground">
-              2 completing this week
+              Currently running
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Lifetime Profit</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Lifetime Profit
+            </CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -870,7 +1262,10 @@ export default function DashboardPage() {
 
       {/* Money Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card onClick={() => setIsReceiveOpen(true)} className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white">
+        <Card
+          onClick={() => setIsReceiveOpen(true)}
+          className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white"
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Money to Receive
@@ -885,7 +1280,10 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card onClick={() => setIsGiveOpen(true)} className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white">
+        <Card
+          onClick={() => setIsGiveOpen(true)}
+          className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white"
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Money to Give</CardTitle>
             <CreditCard className="h-4 w-4 text-red-600" />
@@ -963,10 +1361,16 @@ export default function DashboardPage() {
                 <CardTitle>Reminders</CardTitle>
                 <CardDescription>
                   Your upcoming tasks and reminders.
+                  {statistics.totalReminders > 0 && (
+                    <span className="ml-2 text-xs">
+                      ({statistics.pendingReminders} pending,{" "}
+                      {statistics.overdueReminders} overdue)
+                    </span>
+                  )}
                 </CardDescription>
               </div>
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 onClick={() => setIsReminderModalOpen(true)}
                 className="cursor-pointer bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200"
               >
@@ -976,35 +1380,145 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {reminders.map((reminder) => (
-                <div key={reminder.id} className="flex items-center space-x-4 p-3 border rounded-lg hover:bg-muted/50">
-                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                    <Clock className="h-4 w-4 text-primary" />
+            {remindersLoading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Clock className="h-12 w-12 mx-auto mb-4 opacity-50 animate-pulse" />
+                <p>Loading reminders...</p>
+              </div>
+            ) : remindersError ? (
+              <div className="text-center py-8 text-red-600">
+                <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Failed to load reminders</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Overdue Reminders */}
+                {overdue.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-red-600 mb-2">
+                      Overdue ({overdue.length})
+                    </h4>
+                    {overdue.slice(0, 3).map((reminder) => (
+                      <div
+                        key={reminder.id}
+                        className="flex items-center space-x-4 p-3 border border-red-200 rounded-lg bg-red-50/50 mb-2"
+                      >
+                        <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                          <Clock className="h-4 w-4 text-red-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">
+                            {reminder.title}
+                          </p>
+                          <p className="text-xs text-red-600">
+                            {formatReminderDueDate(reminder.dueDate)} •{" "}
+                            {getReminderTypeDisplayName(reminder.type)}
+                          </p>
+                        </div>
+                        <div className="flex space-x-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleMarkCompleted(reminder.id)}
+                            disabled={markCompletedMutation.isPending}
+                            className="h-8 px-2 text-xs"
+                          >
+                            ✓
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeleteReminder(reminder.id)}
+                            disabled={deleteReminderMutation.isPending}
+                            className="h-8 px-2 text-xs text-red-600 hover:text-red-700"
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{reminder.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {reminder.date} • {reminder.time} • {reminder.type}
-                    </p>
+                )}
+
+                {/* Upcoming Reminders */}
+                {upcoming.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-primary mb-2">
+                      Upcoming ({upcoming.length})
+                    </h4>
+                    {upcoming.slice(0, 5).map((reminder) => (
+                      <div
+                        key={reminder.id}
+                        className="flex items-center space-x-4 p-3 border rounded-lg hover:bg-muted/50 mb-2"
+                      >
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            isReminderDueSoon(reminder.dueDate)
+                              ? "bg-yellow-100"
+                              : "bg-primary/10"
+                          }`}
+                        >
+                          <Clock
+                            className={`h-4 w-4 ${
+                              isReminderDueSoon(reminder.dueDate)
+                                ? "text-yellow-600"
+                                : "text-primary"
+                            }`}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">
+                            {reminder.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatReminderDueDate(reminder.dueDate)} •{" "}
+                            {getReminderTypeDisplayName(reminder.type)}
+                            {reminder.farm && ` • ${reminder.farm.name}`}
+                            {reminder.batch &&
+                              ` • ${reminder.batch.batchNumber}`}
+                          </p>
+                        </div>
+                        <div className="flex space-x-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleMarkCompleted(reminder.id)}
+                            disabled={markCompletedMutation.isPending}
+                            className="h-8 px-2 text-xs"
+                          >
+                            ✓
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeleteReminder(reminder.id)}
+                            disabled={deleteReminderMutation.isPending}
+                            className="h-8 px-2 text-xs text-red-600 hover:text-red-700"
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              ))}
-              {reminders.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No reminders yet</p>
-                  <Button 
-                    size="sm" 
-                    onClick={() => setIsReminderModalOpen(true)}
-                    className="cursor-pointer mt-4 bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add First Reminder
-                  </Button>
-                </div>
-              )}
-            </div>
+                )}
+
+                {upcoming.length === 0 && overdue.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No reminders yet</p>
+                    <Button
+                      size="sm"
+                      onClick={() => setIsReminderModalOpen(true)}
+                      className="cursor-pointer mt-4 bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add First Reminder
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

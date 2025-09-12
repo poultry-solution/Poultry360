@@ -9,6 +9,7 @@ import hatcheryRoutes from "./hatcheryRoutes";
 import inventoryRoutes from "./inventoryRoutes";
 import expenseRoutes from "./expenseRoutes";
 import salesRoutes from "./salesRoutes";
+import remainderRoutes from "./remainderRoutes";
 
 const router = express.Router();
 
@@ -22,5 +23,6 @@ router.use("/hatcheries", hatcheryRoutes);
 router.use("/inventory", inventoryRoutes);
 router.use("/expenses", expenseRoutes);
 router.use("/sales", salesRoutes);
+router.use("/reminders", remainderRoutes);
 
 export default router;

@@ -18,7 +18,6 @@ const router = express.Router();
 router.use(authMiddleware);
 
 // ==================== EXPENSE ROUTES ====================
-
 // GET /api/expenses - Get all expenses with filtering
 router.get("/", getAllExpenses);
 
