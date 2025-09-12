@@ -31,7 +31,10 @@ import {
   useGetExpenseCategories,
 } from "@/fetchers/expenses/expenseQueries";
 import { useGetInventoryTableData } from "@/fetchers/inventory/inventoryQueries";
-import { useBatchSalesManagement } from "@/fetchers/sale/saleQueries";
+import { 
+  useBatchSalesManagement,
+  useGetCustomersForSales,
+} from "@/fetchers/sale/saleQueries";
 
 type ExpenseCategory = "Feed" | "Medicine" | "Hatchery" | "Other";
 
@@ -63,7 +66,7 @@ type SaleRow = {
   remaining: boolean;
   customer?: {
     name: string;
-    contact: string;
+    phone: string;
     category: "Chicken" | "Other";
     balance: number;
   } | null;
@@ -73,7 +76,7 @@ type SaleRow = {
 type LedgerRow = {
   id: string | number;
   name: string;
-  contact: string;
+  phone: string;
   category: "Chicken" | "Other";
   sales: number;
   received: number;
@@ -169,6 +172,10 @@ export default function BatchDetailPage() {
     refetch: refetchSales,
   } = useBatchSalesManagement(batchId || "");
 
+  // Customer search for sales
+  const [customerSearch, setCustomerSearch] = useState("");
+  const { data: customers = [] } = useGetCustomersForSales(customerSearch);
+
   // Inventory integration - using the new data structure
   const feedInventory = inventoryItems.filter(
     (item: any) => item.itemType === "FEED"
@@ -181,35 +188,35 @@ export default function BatchDetailPage() {
   const customerBalances = useMemo(() => {
     if (!batchSales) return [];
 
-    const customerMap = new Map<
-      string,
-      {
-        id: string;
-        name: string;
-        contact: string;
-        category: "Chicken" | "Other";
-        sales: number;
-        received: number;
-        balance: number;
-      }
-    >();
+     const customerMap = new Map<
+       string,
+       {
+         id: string;
+         name: string;
+         phone: string;
+         category: "Chicken" | "Other";
+         sales: number;
+         received: number;
+         balance: number;
+       }
+     >();
 
     batchSales.forEach((sale: any) => {
       if (sale.isCredit && sale.customerId) {
         const customerId = sale.customerId;
         const existing = customerMap.get(customerId) || {
           id: customerId,
-          name: `Customer ${customerId.slice(-4)}`, // Fallback name
-          contact: "—",
-          category: "Chicken" as "Chicken" | "Other",
+          name: sale.customer?.name || `Customer ${customerId.slice(-4)}`,
+          phone: sale.customer?.phone || "—",
+          category: (sale.customer?.category as "Chicken" | "Other") || "Chicken",
           sales: 0,
           received: 0,
           balance: 0,
         };
 
-        existing.sales += sale.amount;
-        existing.received += sale.paidAmount;
-        existing.balance += sale.dueAmount || 0;
+        existing.sales += Number(sale.amount);
+        existing.received += Number(sale.paidAmount);
+        existing.balance += Number(sale.dueAmount || 0);
 
         customerMap.set(customerId, existing);
       }
@@ -566,6 +573,7 @@ export default function BatchDetailPage() {
     rate: "",
     quantity: "",
     remaining: false,
+    customerId: "",
     customerName: "",
     contact: "",
     categoryId: "",
@@ -590,6 +598,7 @@ export default function BatchDetailPage() {
       rate: "",
       quantity: "",
       remaining: false,
+      customerId: "",
       customerName: "",
       contact: "",
       categoryId: salesCategories[0]?.id || "",
@@ -597,6 +606,7 @@ export default function BatchDetailPage() {
       balance: "",
       date: new Date().toISOString().split("T")[0], // Set today's date in YYYY-MM-DD format
     });
+    setCustomerSearch("");
     setIsSaleModalOpen(true);
   }
   function openEditSale(row: SaleRow) {
@@ -606,13 +616,15 @@ export default function BatchDetailPage() {
       rate: String(row.rate),
       quantity: String(row.quantity),
       remaining: row.remaining,
+      customerId: "", // TODO: Get customer ID from sale data
       customerName: row.customer?.name || "",
-      contact: row.customer?.contact || "",
+      contact: row.customer?.phone || "",
       categoryId: "", // TODO: Get category ID from sale data
       customerCategory: row.customer?.category || "Chicken",
       balance: String(row.customer?.balance ?? ""),
       date: row.date,
     });
+    setCustomerSearch("");
     setIsSaleModalOpen(true);
   }
   async function handleDeleteSale(id: string) {
@@ -633,8 +645,18 @@ export default function BatchDetailPage() {
     if (!saleForm.quantity) errs.quantity = "Quantity required";
     if (!saleForm.date) errs.date = "Date required";
     if (saleForm.remaining) {
-      if (!saleForm.customerName) errs.customerName = "Customer name required";
-      if (!saleForm.balance) errs.balance = "Balance required";
+      if (!saleForm.customerId && !saleForm.customerName) {
+        errs.customerName = "Please select existing customer or enter new customer name";
+      }
+      if (!saleForm.customerId && !saleForm.contact) {
+        errs.contact = "Contact number required for new customer";
+      }
+      // Validate that paid amount doesn't exceed total amount
+      const totalAmount = Number(saleForm.rate || 0) * Number(saleForm.quantity || 0);
+      const paidAmount = Number(saleForm.balance || 0);
+      if (paidAmount > totalAmount) {
+        errs.balance = `Paid amount cannot exceed total amount of ₹${totalAmount.toLocaleString()}`;
+      }
     }
     setSaleErrors(errs);
     return Object.keys(errs).length === 0;
@@ -645,7 +667,7 @@ export default function BatchDetailPage() {
     if (!validateSale()) return;
 
     try {
-      const saleData = {
+      const saleData: any = {
         date: saleForm.date
           ? `${saleForm.date}T00:00:00.000Z`
           : new Date().toISOString(),
@@ -655,13 +677,26 @@ export default function BatchDetailPage() {
         description: saleForm.item,
         isCredit: saleForm.remaining,
         paidAmount: saleForm.remaining
-          ? 0
+          ? Number(saleForm.balance || 0)
           : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0),
         farmId: batch?.farmId,
         batchId: batchId,
         categoryId: saleForm.categoryId || salesCategories[0]?.id || "", // Use selected or first available category
-        customerId: saleForm.remaining ? undefined : undefined, // TODO: Create customer if needed
       };
+
+      // Handle customer data
+      if (saleForm.customerId) {
+        // Use existing customer
+        saleData.customerId = saleForm.customerId;
+      } else if (saleForm.remaining && saleForm.customerName && saleForm.contact) {
+        // Create new customer
+        saleData.customerData = {
+          name: saleForm.customerName,
+          phone: saleForm.contact,
+          category: saleForm.customerCategory,
+          address: "", // Could add address field later
+        };
+      }
 
       if (editingSaleId) {
         await updateSale({ id: String(editingSaleId), data: saleData });
@@ -698,6 +733,14 @@ export default function BatchDetailPage() {
     name: string;
     balance: number;
   } | null>(null);
+
+  // Transactions modal state
+  const [isTransactionsModalOpen, setIsTransactionsModalOpen] = useState(false);
+  const [selectedSale, setSelectedSale] = useState<any>(null);
+
+  // Customer transactions modal state
+  const [isCustomerTransactionsModalOpen, setIsCustomerTransactionsModalOpen] = useState(false);
+  const [selectedCustomerForTransactions, setSelectedCustomerForTransactions] = useState<any>(null);
   const [paymentForm, setPaymentForm] = useState({
     amount: "",
     date: new Date().toISOString().split("T")[0],
@@ -721,7 +764,7 @@ export default function BatchDetailPage() {
     setEditingLedgerId(typeof row.id === "string" ? parseInt(row.id) : row.id);
     setLedgerForm({
       name: row.name,
-      contact: row.contact,
+      contact: row.phone,
       category: row.category,
       sales: String(row.sales),
       received: String(row.received),
@@ -754,7 +797,7 @@ export default function BatchDetailPage() {
             ) + 1
           : 1),
       name: ledgerForm.name,
-      contact: ledgerForm.contact,
+      phone: ledgerForm.contact,
       category: ledgerForm.category,
       sales: s,
       received: r,
@@ -769,6 +812,18 @@ export default function BatchDetailPage() {
     setEditingLedgerId(null);
     setLedgerErrors({});
     flash("success", editingLedgerId ? "Ledger updated" : "Ledger entry added");
+  }
+
+  // Transactions modal function
+  function openTransactionsModal(sale: any) {
+    setSelectedSale(sale);
+    setIsTransactionsModalOpen(true);
+  }
+
+  // Customer transactions modal function
+  function openCustomerTransactionsModal(customer: any) {
+    setSelectedCustomerForTransactions(customer);
+    setIsCustomerTransactionsModalOpen(true);
   }
 
   // Payment management functions
@@ -1037,6 +1092,23 @@ export default function BatchDetailPage() {
       render: (value) => (value ? `₹${Number(value).toLocaleString()}` : "—"),
     }),
     {
+      key: "transactions",
+      label: "Transactions",
+      type: "actions",
+      align: "center",
+      width: "120px",
+      render: (_, row) => (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 px-3 text-xs hover:bg-blue-50 hover:border-blue-300"
+          onClick={() => openTransactionsModal(row)}
+        >
+          View ({row.payments?.length || 0})
+        </Button>
+      ),
+    },
+    {
       key: "actions",
       label: "Actions",
       type: "actions",
@@ -1071,7 +1143,7 @@ export default function BatchDetailPage() {
     createColumn("name", "Name", {
       render: (value) => <span className="font-medium">{value}</span>,
     }),
-    createColumn("contact", "Contact"),
+    createColumn("phone", "Phone"),
     createColumn("category", "Category", {
       type: "badge",
       render: (value) => (
@@ -1083,27 +1155,61 @@ export default function BatchDetailPage() {
     createColumn("sales", "Sales", {
       type: "currency",
       align: "right",
+      render: (value) => (
+        <span className="font-medium">₹{Number(value).toLocaleString()}</span>
+      ),
     }),
     createColumn("received", "Received", {
       type: "currency",
       align: "right",
       render: (value) => (
-        <span className="text-green-600">₹{value.toLocaleString()}</span>
+        <span className="text-green-600">₹{Number(value).toLocaleString()}</span>
       ),
     }),
     createColumn("balance", "Balance", {
       type: "currency",
       align: "right",
-      render: (value) => (
-        <span
-          className={
-            value > 0 ? "text-orange-600 font-bold" : "text-green-600 font-bold"
-          }
-        >
-          ₹{value.toLocaleString()}
-        </span>
-      ),
+      render: (value) => {
+        const numValue = Number(value);
+        return (
+          <span
+            className={
+              numValue > 0 ? "text-orange-600 font-bold" : "text-green-600 font-bold"
+            }
+          >
+            ₹{numValue.toLocaleString()}
+          </span>
+        );
+      },
     }),
+    {
+      key: "transactions",
+      label: "Transactions",
+      type: "actions",
+      align: "center",
+      width: "120px",
+      render: (_, row) => {
+        // Count total transactions for this customer
+        const customerTransactions = batchSales?.filter((sale: any) => 
+          sale.isCredit && sale.customerId === row.id
+        ) || [];
+        
+        const totalPayments = customerTransactions.reduce((sum: number, sale: any) => 
+          sum + (sale.payments?.length || 0), 0
+        );
+
+        return (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 px-3 text-xs hover:bg-blue-50 hover:border-blue-300"
+            onClick={() => openCustomerTransactionsModal(row)}
+          >
+            View ({totalPayments})
+          </Button>
+        );
+      },
+    },
     {
       key: "actions",
       label: "Actions",
@@ -1975,12 +2081,58 @@ export default function BatchDetailPage() {
               {saleForm.remaining && (
                 <div className="col-span-2 grid md:grid-cols-2 gap-4 border rounded-md p-4">
                   <div>
+                    <Label htmlFor="customerSearch">Search Customer</Label>
+                    <div className="relative">
+                      <Input
+                        id="customerSearch"
+                        name="customerSearch"
+                        value={customerSearch}
+                        onChange={(e) => setCustomerSearch(e.target.value)}
+                        placeholder="Search existing customers..."
+                        className="pr-8"
+                      />
+                      {customerSearch && (
+                        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
+                          {customers.length > 0 ? (
+                            customers.map((customer: any) => (
+                              <div
+                                key={customer.id}
+                                className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                onClick={() => {
+                                  setSaleForm(prev => ({
+                                    ...prev,
+                                    customerId: customer.id,
+                                    customerName: customer.name,
+                                    contact: customer.phone,
+                                    customerCategory: customer.category || "Chicken"
+                                  }));
+                                  setCustomerSearch("");
+                                }}
+                              >
+                                <div className="font-medium">{customer.name}</div>
+                                <div className="text-sm text-gray-500">{customer.phone}</div>
+                                {customer.category && (
+                                  <div className="text-xs text-blue-600">{customer.category}</div>
+                                )}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="px-3 py-2 text-gray-500 text-sm">
+                              No customers found
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
                     <Label htmlFor="customerName">Customer Name</Label>
                     <Input
                       id="customerName"
                       name="customerName"
                       value={saleForm.customerName}
                       onChange={updateSaleField}
+                      placeholder="Enter new customer name"
                     />
                     {saleErrors.customerName && (
                       <p className="text-xs text-red-600 mt-1">
@@ -1995,6 +2147,7 @@ export default function BatchDetailPage() {
                       name="contact"
                       value={saleForm.contact}
                       onChange={updateSaleField}
+                      placeholder="Enter phone number"
                     />
                   </div>
                   <div>
@@ -2011,13 +2164,14 @@ export default function BatchDetailPage() {
                     </select>
                   </div>
                   <div>
-                    <Label htmlFor="balance">Balance Amount</Label>
+                    <Label htmlFor="balance">Amount Paid (Optional)</Label>
                     <Input
                       id="balance"
                       name="balance"
                       type="number"
                       value={saleForm.balance}
                       onChange={updateSaleField}
+                      placeholder="Enter amount paid now (leave 0 for full credit)"
                     />
                     {saleErrors.balance && (
                       <p className="text-xs text-red-600 mt-1">
@@ -2272,6 +2426,257 @@ export default function BatchDetailPage() {
             </Button>
           </ModalFooter>
         </form>
+      </Modal>
+
+      {/* Transactions Modal */}
+      <Modal
+        isOpen={isTransactionsModalOpen}
+        onClose={() => {
+          setIsTransactionsModalOpen(false);
+          setSelectedSale(null);
+        }}
+        title={`Payment History - ${selectedSale?.description || "Sale"}`}
+      >
+        <ModalContent>
+          {selectedSale && (
+            <div className="space-y-4">
+              {/* Sale Summary */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-900 mb-2">Sale Details</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-600">Date:</span>
+                    <span className="ml-2 font-medium">
+                      {formatDateYYYYMMDD(selectedSale.date)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Amount:</span>
+                    <span className="ml-2 font-medium">
+                      ₹{Number(selectedSale.amount).toLocaleString()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Paid:</span>
+                    <span className="ml-2 font-medium text-green-600">
+                      ₹{Number(selectedSale.paidAmount).toLocaleString()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Due:</span>
+                    <span className="ml-2 font-medium text-orange-600">
+                      ₹{Number(selectedSale.dueAmount || 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment History */}
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3">Payment History</h4>
+                {selectedSale.payments && selectedSale.payments.length > 0 ? (
+                  <div className="space-y-3">
+                    {selectedSale.payments.map((payment: any, index: number) => (
+                      <div
+                        key={payment.id}
+                        className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                            <span className="text-green-600 font-semibold text-sm">
+                              {index + 1}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              ₹{Number(payment.amount).toLocaleString()}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {formatDateYYYYMMDD(payment.date)}
+                            </div>
+                            {payment.description && (
+                              <div className="text-xs text-gray-500">
+                                {payment.description}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs text-gray-500">
+                            {new Date(payment.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>No payments recorded yet</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </ModalContent>
+        <ModalFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setIsTransactionsModalOpen(false);
+              setSelectedSale(null);
+            }}
+          >
+            Close
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Customer Transactions Modal */}
+      <Modal
+        isOpen={isCustomerTransactionsModalOpen}
+        onClose={() => {
+          setIsCustomerTransactionsModalOpen(false);
+          setSelectedCustomerForTransactions(null);
+        }}
+        title={`All Transactions - ${selectedCustomerForTransactions?.name || "Customer"}`}
+      >
+        <ModalContent>
+          {selectedCustomerForTransactions && (
+            <div className="space-y-4">
+              {/* Customer Summary */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-900 mb-2">Customer Summary</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-600">Name:</span>
+                    <span className="ml-2 font-medium">{selectedCustomerForTransactions.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Phone:</span>
+                    <span className="ml-2 font-medium">{selectedCustomerForTransactions.phone}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Total Sales:</span>
+                    <span className="ml-2 font-medium">
+                      ₹{Number(selectedCustomerForTransactions.sales).toLocaleString()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Total Received:</span>
+                    <span className="ml-2 font-medium text-green-600">
+                      ₹{Number(selectedCustomerForTransactions.received).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-gray-600">Outstanding Balance:</span>
+                    <span className={`ml-2 font-bold ${
+                      Number(selectedCustomerForTransactions.balance) > 0 
+                        ? "text-orange-600" 
+                        : "text-green-600"
+                    }`}>
+                      ₹{Number(selectedCustomerForTransactions.balance).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* All Sales and Payments */}
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3">Sales & Payment History</h4>
+                {(() => {
+                  const customerSales = batchSales?.filter((sale: any) => 
+                    sale.isCredit && sale.customerId === selectedCustomerForTransactions.id
+                  ) || [];
+
+                  if (customerSales.length === 0) {
+                    return (
+                      <div className="text-center py-8 text-gray-500">
+                        <p>No sales found for this customer</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-4">
+                      {customerSales.map((sale: any, saleIndex: number) => (
+                        <div key={sale.id} className="border border-gray-200 rounded-lg p-4">
+                          {/* Sale Header */}
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                <span className="text-blue-600 font-semibold text-sm">
+                                  {saleIndex + 1}
+                                </span>
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-900">
+                                  {sale.description} - {formatDateYYYYMMDD(sale.date)}
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  Total: ₹{Number(sale.amount).toLocaleString()} | 
+                                  Paid: ₹{Number(sale.paidAmount).toLocaleString()} | 
+                                  Due: ₹{Number(sale.dueAmount || 0).toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Payments for this sale */}
+                          {sale.payments && sale.payments.length > 0 ? (
+                            <div className="ml-11 space-y-2">
+                              <div className="text-sm font-medium text-gray-700 mb-2">Payments:</div>
+                              {sale.payments.map((payment: any, paymentIndex: number) => (
+                                <div
+                                  key={payment.id}
+                                  className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded"
+                                >
+                                  <div className="flex items-center space-x-2">
+                                    <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                                      <span className="text-green-600 font-semibold text-xs">
+                                        {paymentIndex + 1}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <div className="font-medium text-gray-900">
+                                        ₹{Number(payment.amount).toLocaleString()}
+                                      </div>
+                                      <div className="text-xs text-gray-600">
+                                        {formatDateYYYYMMDD(payment.date)}
+                                        {payment.description && ` - ${payment.description}`}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {new Date(payment.createdAt).toLocaleDateString()}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="ml-11 text-sm text-gray-500">
+                              No payments recorded for this sale
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+        </ModalContent>
+        <ModalFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setIsCustomerTransactionsModalOpen(false);
+              setSelectedCustomerForTransactions(null);
+            }}
+          >
+            Close
+          </Button>
+        </ModalFooter>
       </Modal>
     </div>
   );

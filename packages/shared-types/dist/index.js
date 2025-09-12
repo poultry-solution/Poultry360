@@ -312,6 +312,12 @@ export const CreateSaleSchema = z.object({
     batchId: z.string().optional(),
     categoryId: z.string(),
     customerId: z.string().optional(),
+    customerData: z.object({
+        name: z.string(),
+        phone: z.string(),
+        category: z.string().optional(),
+        address: z.string().optional(),
+    }).optional(),
 });
 export const UpdateSaleSchema = z.object({
     date: z.string().datetime().optional(),

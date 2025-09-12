@@ -454,6 +454,12 @@ export declare const CreateSaleSchema: z.ZodObject<{
     batchId: z.ZodOptional<z.ZodString>;
     categoryId: z.ZodString;
     customerId: z.ZodOptional<z.ZodString>;
+    customerData: z.ZodOptional<z.ZodObject<{
+        name: z.ZodString;
+        phone: z.ZodString;
+        category: z.ZodOptional<z.ZodString>;
+        address: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>;
 }, z.core.$strip>;
 export type CreateSale = z.infer<typeof CreateSaleSchema>;
 export declare const UpdateSaleSchema: z.ZodObject<{
@@ -2061,6 +2067,12 @@ export declare const schemas: {
         batchId: z.ZodOptional<z.ZodString>;
         categoryId: z.ZodString;
         customerId: z.ZodOptional<z.ZodString>;
+        customerData: z.ZodOptional<z.ZodObject<{
+            name: z.ZodString;
+            phone: z.ZodString;
+            category: z.ZodOptional<z.ZodString>;
+            address: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>>;
     }, z.core.$strip>;
     readonly UpdateSale: z.ZodObject<{
         date: z.ZodOptional<z.ZodString>;

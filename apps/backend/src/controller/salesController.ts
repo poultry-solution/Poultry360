@@ -411,9 +411,12 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       return res.status(404).json({ message: "Sales category not found" });
     }
 
-    // Validate customer if provided
+    // Handle customer creation/validation
     let customer = null;
+    let finalCustomerId = customerId;
+
     if (customerId) {
+      // If customerId is provided, find existing customer
       customer = await prisma.customer.findFirst({
         where: {
           id: customerId,
@@ -424,34 +427,92 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       if (!customer) {
         return res.status(404).json({ message: "Customer not found" });
       }
+    } else if (data.customerData) {
+      // If customerData is provided, create or find existing customer
+      const { name, phone, category, address } = data.customerData;
+      
+      if (!name || !phone) {
+        return res.status(400).json({ 
+          message: "Customer name and phone are required when creating new customer" 
+        });
+      }
+
+      // Check if customer already exists
+      customer = await prisma.customer.findFirst({
+        where: {
+          userId: currentUserId,
+          OR: [
+            { name: name },
+            { phone: phone }
+          ]
+        },
+      });
+
+      if (customer) {
+        // Use existing customer
+        finalCustomerId = customer.id;
+      } else {
+        // Create new customer
+        customer = await prisma.customer.create({
+          data: {
+            name,
+            phone,
+            category: category || null,
+            address: address || null,
+            balance: 0, // Will be updated when sale is created
+            userId: currentUserId as string,
+          },
+        });
+        finalCustomerId = customer.id;
+      }
+    }
+
+    // Validate and convert numeric values
+    const numericAmount = Number(amount);
+    const numericPaidAmount = Number(paidAmount);
+    const numericQuantity = Number(quantity);
+    const numericUnitPrice = Number(unitPrice);
+
+    // Validate numeric values
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({ message: "Invalid amount" });
+    }
+    if (isNaN(numericQuantity) || numericQuantity <= 0) {
+      return res.status(400).json({ message: "Invalid quantity" });
+    }
+    if (isNaN(numericUnitPrice) || numericUnitPrice <= 0) {
+      return res.status(400).json({ message: "Invalid unit price" });
+    }
+    if (isNaN(numericPaidAmount) || numericPaidAmount < 0) {
+      return res.status(400).json({ message: "Invalid paid amount" });
     }
 
     // Calculate due amount for credit sales
-    const dueAmount = isCredit ? Number(amount) - Number(paidAmount) : 0;
+    const dueAmount = isCredit ? numericAmount - numericPaidAmount : 0;
 
     return await prisma.$transaction(async (tx) => {
       // 1. Create the sale
       const sale = await tx.sale.create({
         data: {
           date: new Date(date),
-          amount: Number(amount),
-          quantity: Number(quantity),
-          unitPrice: Number(unitPrice),
+          amount: numericAmount,
+          quantity: numericQuantity,
+          unitPrice: numericUnitPrice,
           description: description || null,
           isCredit,
-          paidAmount: Number(paidAmount),
+          paidAmount: numericPaidAmount,
           dueAmount: dueAmount > 0 ? dueAmount : null,
           farmId: farmId || null,
           batchId: batchId || null,
           categoryId,
-          customerId: customerId || null,
+          customerId: finalCustomerId || null,
         },
       });
 
       // 2. Update customer balance if it's a credit sale
-      if (isCredit && customerId && dueAmount > 0) {
+      if (isCredit && finalCustomerId && dueAmount > 0) {
         await tx.customer.update({
-          where: { id: customerId },
+          where: { id: finalCustomerId },
           data: {
             balance: {
               increment: dueAmount,
@@ -467,7 +528,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
             date: new Date(date),
             description: `Credit sale: ${description || "Sale"}`,
             reference: sale.id,
-            customerId,
+            customerId: finalCustomerId,
           },
         });
       }
@@ -1148,6 +1209,50 @@ export const getSalesCategories = async (
     });
   } catch (error) {
     console.error("Get sales categories error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== GET CUSTOMERS FOR SALES ====================
+export const getCustomersForSales = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const currentUserId = req.userId;
+    const { search } = req.query;
+
+    const where: any = {
+      userId: currentUserId,
+    };
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search as string, mode: "insensitive" } },
+        { phone: { contains: search as string, mode: "insensitive" } },
+      ];
+    }
+
+    const customers = await prisma.customer.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        category: true,
+        address: true,
+        balance: true,
+      },
+      orderBy: { name: "asc" },
+      take: 50, // Limit results for performance
+    });
+
+    return res.json({
+      success: true,
+      data: customers,
+    });
+  } catch (error) {
+    console.error("Get customers for sales error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

@@ -398,3 +398,14 @@ export const useSalesAnalytics = (params?: {
     },
   };
 };
+
+// ==================== CUSTOMER QUERIES ====================
+
+export const useGetCustomersForSales = (search?: string) => {
+  return useQuery({
+    queryKey: ["customers", "sales", search],
+    queryFn: () => axiosInstance.get(`/sales/customers${search ? `?search=${encodeURIComponent(search)}` : ""}`),
+    select: (response) => response.data.data,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+};

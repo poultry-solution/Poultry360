@@ -10,6 +10,7 @@ import {
   getSaleStatistics,
   getSalesCategories,
   createSalesCategory,
+  getCustomersForSales,
 } from "../controller/salesController";
 import { authMiddleware } from "../middelware/middelware";
 
@@ -28,6 +29,9 @@ router.get("/categories", getSalesCategories);
 
 // POST /api/sales/categories - Create sales category
 router.post("/categories", createSalesCategory);
+
+// GET /api/sales/customers - Get customers for sales dropdown
+router.get("/customers", getCustomersForSales);
 
 // GET /api/sales/statistics - Get sales statistics
 router.get("/statistics", getSaleStatistics);
