@@ -13,7 +13,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   children,
   fallback = <div>Loading...</div>,
 }) => {
-  const { initialize, isInitialized, isLoading, isAuthenticated } = useAuthStore();
+  const { initialize, isInitialized, isLoading } = useAuthStore();
   const pathname = usePathname();
 
   // Check if we're on auth pages (login/signup)
@@ -30,9 +30,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     return <>{children}</>;
   }
 
-  // Only show loading fallback during initialization AND when not authenticated
-  // This prevents showing fallback when user just completed login/register
-  if (!isInitialized && !isAuthenticated && isLoading) {
+  // Show loading fallback during initialization
+  if (!isInitialized || isLoading) {
     return <>{fallback}</>;
   }
 

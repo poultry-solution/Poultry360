@@ -194,12 +194,13 @@ export interface MoneyToReceiveDetails {
 
 export interface MoneyToPayDetails {
   totalAmount: number;
-  totalDealers: number;
-  dealers: Array<{
-    dealerId: string;
-    dealerName: string;
-    dealerContact: string;
-    dealerAddress: string | null;
+  totalSuppliers: number;
+  suppliers: Array<{
+    supplierId: string;
+    supplierName: string;
+    supplierContact: string;
+    supplierAddress: string | null;
+    supplierType: "DEALER" | "HATCHERY" | "MEDICAL_SUPPLIER";
     outstandingAmount: number;
     thisMonthAmount: number;
     totalTransactions: number;
@@ -213,6 +214,11 @@ export interface MoneyToPayDetails {
       itemName: string | null;
     }>;
   }>;
+  summary: {
+    totalDealers: number;
+    totalHatcheries: number;
+    totalMedicalSuppliers: number;
+  };
   pagination: {
     page: number;
     limit: number;
@@ -231,6 +237,7 @@ export const useGetMoneyToReceiveDetails = (page = 1, limit = 10) => {
       const response = await axiosInstance.get("/dashboard/money-to-receive", {
         params: { page, limit },
       });
+      console.log("🔄 Money to receive details response:", response.data);
       return response.data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -245,6 +252,7 @@ export const useGetMoneyToPayDetails = (page = 1, limit = 10) => {
       const response = await axiosInstance.get("/dashboard/money-to-pay", {
         params: { page, limit },
       });
+      console.log("🔄 Money to pay details response:", response.data);
       return response.data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes

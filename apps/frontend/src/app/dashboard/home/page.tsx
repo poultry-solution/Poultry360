@@ -1974,9 +1974,9 @@ export default function DashboardPage() {
           {moneyToPayLoading ? (
             <div className="text-center py-8">
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-              <p>Loading dealer details...</p>
+              <p>Loading supplier details...</p>
             </div>
-          ) : moneyToPayData?.data && moneyToPayData.data.dealers.length > 0 ? (
+          ) : moneyToPayData?.data && moneyToPayData.data.suppliers.length > 0 ? (
             <>
               {/* Table Container with Fixed Header */}
               <div className="flex-1 overflow-auto">
@@ -1985,7 +1985,7 @@ export default function DashboardPage() {
                     {/* Sticky Header */}
                     <thead className="sticky top-0 z-10">
                       <tr className="bg-gray-100">
-                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">Dealer Name</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">Supplier Name</th>
                         <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">Contact</th>
                         <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">Address</th>
                         <th className="border border-gray-300 px-3 py-2 text-right font-semibold text-sm">Outstanding</th>
@@ -1994,20 +1994,27 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {moneyToPayData.data.dealers.map((dealer, index) => (
-                        <tr key={dealer.dealerId} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                          <td className="border border-gray-300 px-3 py-2 font-medium text-sm">{dealer.dealerName}</td>
-                          <td className="border border-gray-300 px-3 py-2 text-gray-600 text-sm">{dealer.dealerContact}</td>
+                      {moneyToPayData.data.suppliers.map((supplier, index) => (
+                        <tr key={supplier.supplierId} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                          <td className="border border-gray-300 px-3 py-2 font-medium text-sm">
+                            <div className="flex items-center gap-2">
+                              <span>{supplier.supplierName}</span>
+                              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                {supplier.supplierType}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="border border-gray-300 px-3 py-2 text-gray-600 text-sm">{supplier.supplierContact}</td>
                           <td className="border border-gray-300 px-3 py-2 text-gray-600 text-xs max-w-32 truncate">
-                            {dealer.dealerAddress || "-"}
+                            {supplier.supplierAddress || "-"}
                           </td>
                           <td className="border border-gray-300 px-3 py-2 text-right font-bold text-red-600 text-sm">
-                            ₹{Number(dealer.outstandingAmount).toLocaleString()}
+                            ₹{Number(supplier.outstandingAmount).toLocaleString()}
                           </td>
-                          <td className="border border-gray-300 px-3 py-2 text-center text-sm">{dealer.totalTransactions}</td>
+                          <td className="border border-gray-300 px-3 py-2 text-center text-sm">{supplier.totalTransactions}</td>
                           <td className="border border-gray-300 px-3 py-2 text-sm">
                             <div className="space-y-1 max-w-xs">
-                              {dealer.recentTransactions.slice(0, 2).map((transaction) => (
+                              {supplier.recentTransactions.slice(0, 2).map((transaction) => (
                                 <div key={transaction.transactionId} className="text-xs">
                                   <div className="flex justify-between items-center">
                                     <span className="font-medium truncate">
@@ -2021,9 +2028,9 @@ export default function DashboardPage() {
                                   </div>
                                 </div>
                               ))}
-                              {dealer.recentTransactions.length > 2 && (
+                              {supplier.recentTransactions.length > 2 && (
                                 <div className="text-xs text-gray-500 text-center py-1 bg-gray-100 rounded">
-                                  +{dealer.recentTransactions.length - 2} more
+                                  +{supplier.recentTransactions.length - 2} more
                                 </div>
                               )}
                             </div>
@@ -2037,7 +2044,7 @@ export default function DashboardPage() {
               
               {/* Footer with Total Count */}
               <div className="border-t border-gray-200 px-4 py-2 bg-gray-50 text-sm text-gray-600">
-                Showing {moneyToPayData.data.dealers.length} dealers with outstanding payments
+                Showing {moneyToPayData.data.suppliers.length} suppliers with outstanding payments
               </div>
             </>
           ) : (

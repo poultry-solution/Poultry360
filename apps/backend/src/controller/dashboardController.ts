@@ -145,13 +145,27 @@ export const getDashboardOverview = async (
         _sum: { dueAmount: true },
       }),
 
-      // Dealer outstanding (money to give) - we'll calculate this manually
-      prisma.dealer.findMany({
-        where: { userId: currentUserId },
-        include: {
-          transactions: true,
-        },
-      }),
+      // All suppliers outstanding (money to give) - we'll calculate this manually
+      Promise.all([
+        prisma.dealer.findMany({
+          where: { userId: currentUserId },
+          include: {
+            transactions: true,
+          },
+        }),
+        prisma.hatchery.findMany({
+          where: { userId: currentUserId },
+          include: {
+            transactions: true,
+          },
+        }),
+        prisma.medicineSupplier.findMany({
+          where: { userId: currentUserId },
+          include: {
+            transactions: true,
+          },
+        }),
+      ]),
 
       // Recent expenses (last 5)
       prisma.expense.findMany({
@@ -220,10 +234,13 @@ export const getDashboardOverview = async (
         : 0;
 
     const moneyToReceive = Number(creditSales._sum.dueAmount || 0);
-    
-    // Calculate money to give (outstanding dealer balances)
-    const moneyToGive = dealerOutstanding.reduce((total, dealer) => {
-      const balance = dealer.transactions.reduce((sum, transaction) => {
+
+    // Calculate money to give (outstanding supplier balances)
+    const [dealers, hatcheries, medicalSuppliers] = dealerOutstanding;
+    const allSuppliers = [...dealers, ...hatcheries, ...medicalSuppliers];
+
+    const moneyToGive = allSuppliers.reduce((total, supplier) => {
+      const balance = supplier.transactions.reduce((sum, transaction) => {
         if (
           transaction.type === "PURCHASE" ||
           transaction.type === "ADJUSTMENT"
@@ -239,7 +256,7 @@ export const getDashboardOverview = async (
       }, 0);
       return total + Math.max(0, balance); // Only count positive balances (amounts due)
     }, 0);
-    
+
     const totalExpenses = Number(currentMonthExpenses._sum.amount || 0);
 
     // Build recent activity
@@ -766,10 +783,10 @@ export const getMoneyToReceiveDetails = async (
 
     // Group by customer and calculate totals
     const customerMap = new Map();
-    
+
     creditSales.forEach((sale) => {
       if (!sale.customer) return;
-      
+
       const customerId = sale.customer.id;
       if (!customerMap.has(customerId)) {
         customerMap.set(customerId, {
@@ -783,7 +800,7 @@ export const getMoneyToReceiveDetails = async (
           sales: [],
         });
       }
-      
+
       const customer = customerMap.get(customerId);
       customer.totalDueAmount += Number(sale.dueAmount || 0);
       customer.salesCount += 1;
@@ -795,7 +812,7 @@ export const getMoneyToReceiveDetails = async (
         farmName: sale.farm?.name,
         categoryName: sale.category.name,
       });
-      
+
       if (sale.date > customer.lastSaleDate) {
         customer.lastSaleDate = sale.date;
       }
@@ -805,7 +822,10 @@ export const getMoneyToReceiveDetails = async (
       (a, b) => b.totalDueAmount - a.totalDueAmount
     );
 
-    const totalAmount = customers.reduce((sum, customer) => sum + customer.totalDueAmount, 0);
+    const totalAmount = customers.reduce(
+      (sum, customer) => sum + customer.totalDueAmount,
+      0
+    );
 
     return res.json({
       success: true,
@@ -838,8 +858,15 @@ export const getMoneyToPayDetails = async (
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    // Get all dealers with outstanding balances
-    const [dealers, totalDealers] = await Promise.all([
+    // Get all suppliers (dealers, hatcheries, medical suppliers) with outstanding balances
+    const [
+      dealers,
+      hatcheries,
+      medicalSuppliers,
+      totalDealers,
+      totalHatcheries,
+      totalMedicalSuppliers,
+    ] = await Promise.all([
       prisma.dealer.findMany({
         where: { userId: currentUserId },
         include: {
@@ -850,45 +877,74 @@ export const getMoneyToPayDetails = async (
         skip,
         take: Number(limit),
       }),
+      prisma.hatchery.findMany({
+        where: { userId: currentUserId },
+        include: {
+          transactions: {
+            orderBy: { date: "desc" },
+          },
+        },
+        skip,
+        take: Number(limit),
+      }),
+      prisma.medicineSupplier.findMany({
+        where: { userId: currentUserId },
+        include: {
+          transactions: {
+            orderBy: { date: "desc" },
+          },
+        },
+        skip,
+        take: Number(limit),
+      }),
       prisma.dealer.count({ where: { userId: currentUserId } }),
+      prisma.hatchery.count({ where: { userId: currentUserId } }),
+      prisma.medicineSupplier.count({ where: { userId: currentUserId } }),
     ]);
 
-    // Calculate outstanding amounts for each dealer
+    // Helper function to calculate outstanding amount for any supplier
+    const calculateOutstanding = (transactions: any[]) => {
+      return transactions.reduce((sum, transaction) => {
+        if (
+          transaction.type === "PURCHASE" ||
+          transaction.type === "ADJUSTMENT"
+        ) {
+          return sum + Number(transaction.amount);
+        } else if (
+          transaction.type === "PAYMENT" ||
+          transaction.type === "RECEIPT"
+        ) {
+          return sum - Number(transaction.amount);
+        }
+        return sum;
+      }, 0);
+    };
+
+    // Helper function to get this month's amount
+    const getThisMonthAmount = (transactions: any[]) => {
+      const currentMonth = new Date();
+      currentMonth.setDate(1);
+      currentMonth.setHours(0, 0, 0, 0);
+
+      return transactions
+        .filter(
+          (t) => new Date(t.date) >= currentMonth && t.type === "PURCHASE"
+        )
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+    };
+
+    // Process dealers
     const dealersWithOutstanding = dealers
       .map((dealer) => {
-        const balance = dealer.transactions.reduce((sum, transaction) => {
-          if (
-            transaction.type === "PURCHASE" ||
-            transaction.type === "ADJUSTMENT"
-          ) {
-            return sum + Number(transaction.amount);
-          } else if (
-            transaction.type === "PAYMENT" ||
-            transaction.type === "RECEIPT"
-          ) {
-            return sum - Number(transaction.amount);
-          }
-          return sum;
-        }, 0);
-
-        // Get recent transactions for this month
-        const currentMonth = new Date();
-        currentMonth.setDate(1);
-        currentMonth.setHours(0, 0, 0, 0);
-
-        const thisMonthTransactions = dealer.transactions.filter(
-          (t) => new Date(t.date) >= currentMonth
-        );
-
-        const thisMonthAmount = thisMonthTransactions
-          .filter((t) => t.type === "PURCHASE")
-          .reduce((sum, t) => sum + Number(t.amount), 0);
+        const balance = calculateOutstanding(dealer.transactions);
+        const thisMonthAmount = getThisMonthAmount(dealer.transactions);
 
         return {
-          dealerId: dealer.id,
-          dealerName: dealer.name,
-          dealerContact: dealer.contact,
-          dealerAddress: dealer.address,
+          supplierId: dealer.id,
+          supplierName: dealer.name,
+          supplierContact: dealer.contact,
+          supplierAddress: dealer.address,
+          supplierType: "DEALER",
           outstandingAmount: Math.max(0, balance),
           thisMonthAmount,
           totalTransactions: dealer.transactions.length,
@@ -903,25 +959,95 @@ export const getMoneyToPayDetails = async (
           })),
         };
       })
-      .filter((dealer) => dealer.outstandingAmount > 0)
-      .sort((a, b) => b.outstandingAmount - a.outstandingAmount);
+      .filter((dealer) => dealer.outstandingAmount > 0);
 
-    const totalAmount = dealersWithOutstanding.reduce(
-      (sum, dealer) => sum + dealer.outstandingAmount,
+    // Process hatcheries
+    const hatcheriesWithOutstanding = hatcheries
+      .map((hatchery) => {
+        const balance = calculateOutstanding(hatchery.transactions);
+        const thisMonthAmount = getThisMonthAmount(hatchery.transactions);
+
+        return {
+          supplierId: hatchery.id,
+          supplierName: hatchery.name,
+          supplierContact: hatchery.contact,
+          supplierAddress: hatchery.address,
+          supplierType: "HATCHERY",
+          outstandingAmount: Math.max(0, balance),
+          thisMonthAmount,
+          totalTransactions: hatchery.transactions.length,
+          lastTransactionDate: hatchery.transactions[0]?.date || null,
+          recentTransactions: hatchery.transactions.slice(0, 5).map((t) => ({
+            transactionId: t.id,
+            type: t.type,
+            amount: Number(t.amount),
+            date: t.date,
+            description: t.description,
+            itemName: t.itemName,
+          })),
+        };
+      })
+      .filter((hatchery) => hatchery.outstandingAmount > 0);
+
+    // Process medical suppliers
+    const medicalSuppliersWithOutstanding = medicalSuppliers
+      .map((supplier) => {
+        const balance = calculateOutstanding(supplier.transactions);
+        const thisMonthAmount = getThisMonthAmount(supplier.transactions);
+
+        return {
+          supplierId: supplier.id,
+          supplierName: supplier.name,
+          supplierContact: supplier.contact,
+          supplierAddress: supplier.address,
+          supplierType: "MEDICAL_SUPPLIER",
+          outstandingAmount: Math.max(0, balance),
+          thisMonthAmount,
+          totalTransactions: supplier.transactions.length,
+          lastTransactionDate: supplier.transactions[0]?.date || null,
+          recentTransactions: supplier.transactions.slice(0, 5).map((t) => ({
+            transactionId: t.id,
+            type: t.type,
+            amount: Number(t.amount),
+            date: t.date,
+            description: t.description,
+            itemName: t.itemName,
+          })),
+        };
+      })
+      .filter((supplier) => supplier.outstandingAmount > 0);
+
+    // Combine all suppliers and sort by outstanding amount
+    const allSuppliersWithOutstanding = [
+      ...dealersWithOutstanding,
+      ...hatcheriesWithOutstanding,
+      ...medicalSuppliersWithOutstanding,
+    ].sort((a, b) => b.outstandingAmount - a.outstandingAmount);
+
+    const totalAmount = allSuppliersWithOutstanding.reduce(
+      (sum, supplier) => sum + supplier.outstandingAmount,
       0
     );
+
+    const totalSuppliers =
+      totalDealers + totalHatcheries + totalMedicalSuppliers;
 
     return res.json({
       success: true,
       data: {
         totalAmount,
-        totalDealers: dealersWithOutstanding.length,
-        dealers: dealersWithOutstanding,
+        totalSuppliers: allSuppliersWithOutstanding.length,
+        suppliers: allSuppliersWithOutstanding,
+        summary: {
+          totalDealers: dealersWithOutstanding.length,
+          totalHatcheries: hatcheriesWithOutstanding.length,
+          totalMedicalSuppliers: medicalSuppliersWithOutstanding.length,
+        },
         pagination: {
           page: Number(page),
           limit: Number(limit),
-          total: totalDealers,
-          totalPages: Math.ceil(totalDealers / Number(limit)),
+          total: totalSuppliers,
+          totalPages: Math.ceil(totalSuppliers / Number(limit)),
         },
       },
     });

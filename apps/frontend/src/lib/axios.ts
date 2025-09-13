@@ -48,11 +48,16 @@ axiosInstance.interceptors.response.use(
           console.log("✅ Token refreshed successfully");
           originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
           return axiosInstance(originalRequest);
+        } else {
+          throw new Error("No access token received from refresh");
         }
       } catch (refreshError) {
-        console.log("❌ Token refresh failed, logging out...");
+        console.log("❌ Token refresh failed, logging out...", refreshError);
         useAuthStore.getState().logout();
-        window.location.href = "/auth/login";
+        // Only redirect if we're not already on the login page
+        if (typeof window !== "undefined" && !window.location.pathname.startsWith("/auth/")) {
+          window.location.href = "/auth/login";
+        }
         return Promise.reject(refreshError);
       }
     }

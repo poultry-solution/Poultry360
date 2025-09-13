@@ -18,33 +18,25 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
   const { isAuthenticated, user, isInitialized, isLoading } = useAuthStore();
   const pathname = usePathname();
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (!isInitialized) {
-    return <div>Not initialized</div>;
-  }
-
   // if path name starts with /dashboard then requireAuth should be true
   const needsAuth = requireAuth || pathname.startsWith("/dashboard");
 
-  // Show loading while initializing
-  // if unauthencated user is visiting landing page then it shouldnot matter so allow them to visit landing page use require auth value as false
+  // Show loading while initializing or during auth operations
   if (!isInitialized || isLoading) {
     return <>{fallback}</>;
   }
 
   // If auth is required but user is not authenticated
   if (needsAuth && !isAuthenticated) {
-    // Redirect to login page or show login form
+    // Redirect to login page
     if (typeof window !== "undefined") {
       window.location.href = "/auth/login";
     }
     return <>{fallback}</>;
   }
-  // Check role permissions
-  if (needsAuth && allowedRoles.length > 0 && user) {
+
+  // Check role permissions for authenticated users
+  if (needsAuth && isAuthenticated && allowedRoles.length > 0 && user) {
     if (!allowedRoles.includes(user.role as "MANAGER" | "OWNER" | "ADMIN")) {
       return <div>Access denied. Insufficient permissions.</div>;
     }

@@ -368,40 +368,40 @@ export const useAuthStore = create<AuthState>()(
         initialize: async () => {
           if (get().isInitialized) return;
 
-          // Only set loading if we're not already authenticated
-          // This prevents showing loading during login/register operations
-          const { isAuthenticated, accessToken } = get();
-          if (!isAuthenticated) {
-            set({ isLoading: true });
-          }
+          // Set loading during initialization
+          set({ isLoading: true });
 
           try {
-            // Only try to refresh/validate if we don't already have a valid session
-            if (!isAuthenticated || !accessToken) {
-              console.log("🔄 Initializing auth - trying to refresh token...");
-              
-              // First try to refresh the token (uses httpOnly cookie)
-              await get().refreshToken();
-
-              // If refresh successful, validate the token
+            console.log("🔄 Initializing auth - attempting token refresh...");
+            
+            // Always try to refresh the token first (uses httpOnly cookie)
+            // This handles cases where access token is expired but refresh token is valid
+            const newAccessToken = await get().refreshToken();
+            
+            if (newAccessToken) {
+              // If refresh successful, validate the new token
               const isValid = await get().validateToken();
-
-              if (!isValid) {
-                throw new Error("Token validation failed");
-              }
               
-              console.log("✅ Auth initialized successfully");
+              if (isValid) {
+                console.log("✅ Auth initialized successfully with valid token");
+              } else {
+                throw new Error("Token validation failed after refresh");
+              }
             } else {
-              console.log("✅ Auth already initialized");
+              throw new Error("Token refresh failed");
             }
           } catch (error) {
             console.log("❌ Auth initialization failed:", error);
-            // If refresh fails, clear any stored data
+            // If refresh fails, clear any stored data and mark as unauthenticated
             set({
               user: null,
               accessToken: null,
               isAuthenticated: false,
+              error: null,
             });
+            
+            // Clear localStorage
+            localStorage.removeItem("auth-storage");
           } finally {
             set({
               isLoading: false,
