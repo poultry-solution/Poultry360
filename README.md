@@ -1,5 +1,5 @@
-<!-- should be like this  -->
-poultry360/
+```
+Poultry360/
 │
 ├─ apps/
 │   ├─ farmer-frontend/    # nextjs app → app.com
@@ -16,3 +16,4 @@ poultry360/
 │
 ├─ pnpm-workspace.yaml
 └─ package.json
+```
