@@ -2,12 +2,15 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import { createServer } from "http";
 import routes from "./router/index";
+import { getSocketService } from "./services/socketService";
 // import { UserSchema } from "@myapp/shared-types";
 dotenv.config();
 
 const PORT = process.env.PORT || 8081;
 const app = express();
+const server = createServer(app);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -51,6 +54,11 @@ app.get("/health", (req, res) => {
   res.send("OK");
 });
 
-app.listen(PORT, () => {
+// Initialize Socket.IO service
+const socketService = getSocketService(server);
+
+// Start server
+server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  console.log(`Socket.IO server initialized`);
 });

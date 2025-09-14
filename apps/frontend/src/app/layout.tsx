@@ -6,7 +6,7 @@ import { AuthGuard } from "@/components/AuthGuard";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { InventoryProvider } from "@/contexts/InventoryContext";
 import { ToastProvider } from "@/providers/ToastProvider";
-
+import { ChatProvider } from "@/contexts/ChatContext";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -36,12 +36,11 @@ export default function RootLayout({
         <AuthProvider>
           <QueryProvider>
             <InventoryProvider>
-              <ToastProvider>
-                <AuthGuard>
-                {children}
-
-                </AuthGuard>
-              </ToastProvider>
+              <ChatProvider>
+                <ToastProvider>
+                  <AuthGuard>{children}</AuthGuard>
+                </ToastProvider>
+              </ChatProvider>
             </InventoryProvider>
           </QueryProvider>
         </AuthProvider>

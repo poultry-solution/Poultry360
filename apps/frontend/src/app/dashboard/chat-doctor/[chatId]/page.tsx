@@ -7,25 +7,8 @@ import { ArrowLeft, Send, Image, Paperclip, MoreVertical } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-
-interface Message {
-  id: string;
-  text: string;
-  sender: 'user' | 'doctor';
-  timestamp: string;
-  type: 'text' | 'image';
-  imageUrl?: string;
-}
-
-interface ChatData {
-  chatId: string;
-  doctorId: string;
-  doctorName: string;
-  doctorSpecialty: string;
-  reason: string;
-  startTime: string;
-  messages: Message[];
-}
+import { useCurrentConversation, useMessageInput, useChatConnection } from "@/hooks/useChat";
+import { toast } from "sonner";
 
 export default function ChatPage() {
   const router = useRouter();
@@ -33,107 +16,61 @@ export default function ChatPage() {
   const chatId = params.chatId as string;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const [chatData, setChatData] = useState<ChatData | null>(null);
-  const [newMessage, setNewMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  // Real chat hooks
+  const { isConnected, error: connectionError } = useChatConnection();
+  const { 
+    conversation, 
+    messages, 
+    isLoading, 
+    error, 
+    typingUsers, 
+    onlineUsers,
+    sendMessage,
+    handleTyping,
+    markAsRead
+  } = useCurrentConversation(chatId);
+  
+  const { 
+    text, 
+    setText, 
+    sendMessage: sendMessageHandler, 
+    handleKeyPress, 
+    canSend 
+  } = useMessageInput(chatId);
 
-  // Load chat data from localStorage
+  // Mark messages as read when conversation loads
   useEffect(() => {
-    const savedChat = localStorage.getItem(`chat_${chatId}`);
-    if (savedChat) {
-      const parsedChat = JSON.parse(savedChat);
-      setChatData(parsedChat);
-      
-      // Add initial system message if no messages exist
-      if (parsedChat.messages.length === 0) {
-        const systemMessage: Message = {
-          id: 'system_1',
-          text: `Hello! I'm ${parsedChat.doctorName}, ${parsedChat.doctorSpecialty}. I understand you'd like to discuss: "${parsedChat.reason}". How can I help you today?`,
-          sender: 'doctor',
-          timestamp: new Date().toISOString(),
-          type: 'text'
-        };
-        
-        const updatedChat = {
-          ...parsedChat,
-          messages: [systemMessage]
-        };
-        
-        setChatData(updatedChat);
-        localStorage.setItem(`chat_${chatId}`, JSON.stringify(updatedChat));
-      }
-    } else {
-      // Chat not found, redirect back
-      router.push('/dashboard/chat-doctor');
+    if (conversation && messages.length > 0) {
+      markAsRead();
     }
-    setIsLoading(false);
-  }, [chatId, router]);
+  }, [conversation, messages, markAsRead]);
+
+  // Handle connection errors
+  useEffect(() => {
+    if (connectionError) {
+      toast.error(`Connection Error: ${connectionError}`);
+    }
+  }, [connectionError]);
+
+  // Handle conversation errors
+  useEffect(() => {
+    if (error) {
+      toast.error('Failed to load conversation');
+      console.error('Conversation error:', error);
+    }
+  }, [error]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatData?.messages]);
-
-  const sendMessage = () => {
-    if (!newMessage.trim() || !chatData) return;
-
-    const userMessage: Message = {
-      id: `user_${Date.now()}`,
-      text: newMessage,
-      sender: 'user',
-      timestamp: new Date().toISOString(),
-      type: 'text'
-    };
-
-    const updatedMessages = [...chatData.messages, userMessage];
-    const updatedChat = { ...chatData, messages: updatedMessages };
-    
-    setChatData(updatedChat);
-    localStorage.setItem(`chat_${chatId}`, JSON.stringify(updatedChat));
-    setNewMessage('');
-
-    // Simulate doctor typing and response
-    setIsTyping(true);
-    setTimeout(() => {
-      const doctorResponse: Message = {
-        id: `doctor_${Date.now()}`,
-        text: "Thank you for sharing that information. Let me provide you with some guidance on this matter. Could you please provide more details about the specific symptoms or situation you're experiencing?",
-        sender: 'doctor',
-        timestamp: new Date().toISOString(),
-        type: 'text'
-      };
-
-      const finalMessages = [...updatedMessages, doctorResponse];
-      const finalChat = { ...chatData, messages: finalMessages };
-      
-      setChatData(finalChat);
-      localStorage.setItem(`chat_${chatId}`, JSON.stringify(finalChat));
-      setIsTyping(false);
-    }, 2000);
-  };
+  }, [messages]);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !chatData) return;
+    if (!file) return;
 
-    // Create a mock image URL (in real app, upload to server)
-    const imageUrl = URL.createObjectURL(file);
-    
-    const imageMessage: Message = {
-      id: `user_${Date.now()}`,
-      text: `[Image: ${file.name}]`,
-      sender: 'user',
-      timestamp: new Date().toISOString(),
-      type: 'image',
-      imageUrl
-    };
-
-    const updatedMessages = [...chatData.messages, imageMessage];
-    const updatedChat = { ...chatData, messages: updatedMessages };
-    
-    setChatData(updatedChat);
-    localStorage.setItem(`chat_${chatId}`, JSON.stringify(updatedChat));
+    // TODO: Implement image upload to server
+    toast.info('Image upload feature coming soon!');
   };
 
   const formatTime = (timestamp: string) => {
@@ -146,16 +83,18 @@ export default function ChatPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Loading chat...</div>
+        <div className="text-muted-foreground">Loading conversation...</div>
       </div>
     );
   }
 
-  if (!chatData) {
+  if (error || !conversation) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <p className="text-muted-foreground mb-4">Chat not found</p>
+          <p className="text-muted-foreground mb-4">
+            {error ? 'Failed to load conversation' : 'Conversation not found'}
+          </p>
           <Button onClick={() => router.push('/dashboard/chat-doctor')}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Doctors
@@ -182,17 +121,24 @@ export default function ChatPage() {
               </Button>
               <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
                 <span className="text-primary-foreground font-bold text-sm">
-                  {chatData.doctorName.split(' ').map(n => n[0]).join('')}
+                  {conversation.doctor.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                 </span>
               </div>
               <div>
-                <CardTitle className="text-lg">{chatData.doctorName}</CardTitle>
-                <p className="text-sm text-muted-foreground">{chatData.doctorSpecialty}</p>
+                <CardTitle className="text-lg">{conversation.doctor.name}</CardTitle>
+                <p className="text-sm text-muted-foreground">Veterinary Doctor</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                Online
+              <Badge 
+                variant="secondary" 
+                className={`${
+                  conversation.doctor.isOnline 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-gray-100 text-gray-800'
+                }`}
+              >
+                {conversation.doctor.isOnline ? 'Online' : 'Offline'}
               </Badge>
               <Button variant="ghost" size="sm" className="p-2">
                 <MoreVertical className="h-4 w-4" />
@@ -208,41 +154,40 @@ export default function ChatPage() {
           <div className="h-full flex flex-col">
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {chatData.messages.map((message) => (
+              {messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                  className={`flex ${message.sender.role === 'FARMER' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
                     className={`max-w-[80%] sm:max-w-[70%] ${
-                      message.sender === 'user'
+                      message.sender.role === 'FARMER'
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted'
                     } rounded-lg p-3`}
                   >
-                    {message.type === 'image' && message.imageUrl && (
+                    {message.messageType === 'IMAGE' && (
                       <div className="mb-2">
-                        <img
-                          src={message.imageUrl}
-                          alt="Shared image"
-                          className="max-w-full h-auto rounded-lg"
-                        />
+                        <div className="bg-gray-200 rounded-lg p-4 text-center">
+                          <Image className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm text-gray-600">Image message</p>
+                        </div>
                       </div>
                     )}
                     <p className="text-sm">{message.text}</p>
                     <p className={`text-xs mt-1 ${
-                      message.sender === 'user' 
+                      message.sender.role === 'FARMER' 
                         ? 'text-primary-foreground/70' 
                         : 'text-muted-foreground'
                     }`}>
-                      {formatTime(message.timestamp)}
+                      {formatTime(message.createdAt)}
                     </p>
                   </div>
                 </div>
               ))}
               
               {/* Typing Indicator */}
-              {isTyping && (
+              {typingUsers.length > 0 && (
                 <div className="flex justify-start">
                   <div className="bg-muted rounded-lg p-3">
                     <div className="flex space-x-1">
@@ -250,6 +195,9 @@ export default function ChatPage() {
                       <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
                       <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                     </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {typingUsers.length} user{typingUsers.length > 1 ? 's' : ''} typing...
+                    </p>
                   </div>
                 </div>
               )}
@@ -262,11 +210,14 @@ export default function ChatPage() {
               <div className="flex items-center space-x-2">
                 <div className="flex-1 relative">
                   <Input
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
                     placeholder="Type your message..."
                     className="pr-20"
-                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                    onKeyPress={handleKeyPress}
+                    onFocus={() => handleTyping(true)}
+                    onBlur={() => handleTyping(false)}
+                    disabled={!isConnected}
                   />
                   <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
                     <input
@@ -281,6 +232,7 @@ export default function ChatPage() {
                       size="sm"
                       className="p-1 h-6 w-6"
                       onClick={() => document.getElementById('image-upload')?.click()}
+                      disabled={!isConnected}
                     >
                       <Image className="h-4 w-4" />
                     </Button>
@@ -288,19 +240,25 @@ export default function ChatPage() {
                       variant="ghost"
                       size="sm"
                       className="p-1 h-6 w-6"
+                      disabled={!isConnected}
                     >
                       <Paperclip className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
                 <Button
-                  onClick={sendMessage}
-                  disabled={!newMessage.trim()}
+                  onClick={() => sendMessageHandler()}
+                  disabled={!canSend || !isConnected}
                   className="bg-primary hover:bg-primary/90"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
+              {!isConnected && (
+                <p className="text-xs text-red-500 mt-2">
+                  Disconnected from chat server. Messages may not be delivered.
+                </p>
+              )}
             </div>
           </div>
         </CardContent>

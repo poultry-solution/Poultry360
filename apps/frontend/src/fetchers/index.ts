@@ -11,6 +11,9 @@ export * from "./batches/batchQueries";
 export * from "./remainder/remainderQueries";
 export * from "./dashboard/dashboardQueries";
 
+// ==================== CHAT QUERIES ====================
+export * from "../services/chatservices";
+
 // ==================== AUTH QUERIES ====================
 // These would typically be in a separate auth file, but including here for completeness
 export const authKeys = {

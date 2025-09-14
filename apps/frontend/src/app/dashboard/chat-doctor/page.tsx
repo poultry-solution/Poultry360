@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageCircle,  } from "lucide-react";
+import { MessageCircle, Clock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
@@ -9,56 +9,26 @@ import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
-
-interface Doctor {
-  id: string;
-  name: string;
-  specialty: string;
-  isOnline: boolean;
-  avatar: string;
-}
+import { useConversationsList, useDoctors, useCreateConversation, useUnreadCounts } from "@/hooks/useChat";
+import { useChatConnection } from "@/hooks/useChat";
+import { toast } from "sonner";
 
 export default function ChatDoctorPage() {
   const router = useRouter();
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
-  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [selectedDoctor, setSelectedDoctor] = useState<any>(null);
   const [chatReason, setChatReason] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const doctors: Doctor[] = [
-    {
-      id: '1',
-      name: 'Dr. Sharma',
-      specialty: 'Poultry Specialist',
-      isOnline: true,
-      avatar: 'DR'
-    },
-    {
-      id: '2',
-      name: 'Dr. Patel',
-      specialty: 'Disease Expert',
-      isOnline: true,
-      avatar: 'DP'
-    },
-    {
-      id: '3',
-      name: 'Dr. Kumar',
-      specialty: 'Nutrition Expert',
-      isOnline: false,
-      avatar: 'DK'
-    },
-    {
-      id: '4',
-      name: 'Dr. Singh',
-      specialty: 'General Veterinary',
-      isOnline: true,
-      avatar: 'DS'
-    }
-  ];
+  // Real chat hooks
+  const { isConnected, isLoading: connectionLoading, error: connectionError } = useChatConnection();
+  const { conversations, isLoading: conversationsLoading, selectConversation } = useConversationsList();
+  const { doctors, onlineDoctors, offlineDoctors, isLoading: doctorsLoading } = useDoctors();
+  const { totalUnread, getUnreadForConversation } = useUnreadCounts();
+  const createConversationMutation = useCreateConversation();
 
-  const onlineDoctors = doctors.filter(doctor => doctor.isOnline);
-  const activeChats = 2; // Mock data
-  const monthlyConsultations = 8; // Mock data
+  const activeChats = conversations?.filter((conv: any) => conv.status === 'ACTIVE').length || 0;
+  const monthlyConsultations = conversations?.length || 0;
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -71,34 +41,49 @@ export default function ChatDoctorPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleStartChat = () => {
+  const handleStartChat = async () => {
     if (!validateForm() || !selectedDoctor) return;
 
-    // Generate a unique chat ID
-    const chatId = `chat_${selectedDoctor.id}_${Date.now()}`;
-    
-    // Store chat initiation data in localStorage
-    const chatData = {
-      chatId,
-      doctorId: selectedDoctor.id,
-      doctorName: selectedDoctor.name,
-      doctorSpecialty: selectedDoctor.specialty,
-      reason: chatReason,
-      startTime: new Date().toISOString(),
-      messages: []
-    };
-    
-    localStorage.setItem(`chat_${chatId}`, JSON.stringify(chatData));
-    
-    // Navigate to chat page
-    router.push(`/dashboard/chat-doctor/${chatId}`);
+    try {
+      const result = await createConversationMutation.createAndJoin({
+        doctorId: selectedDoctor.id,
+        subject: chatReason
+      });
+      
+      if (result.conversation) {
+        toast.success('Conversation started successfully!');
+        setIsChatModalOpen(false);
+        setChatReason('');
+        setSelectedDoctor(null);
+        
+        // Navigate to the conversation
+        router.push(`/dashboard/chat-doctor/${result.conversation.id}`);
+      }
+    } catch (error: any) {
+      console.error('Failed to start conversation:', error);
+      toast.error(error?.response?.data?.error || 'Failed to start conversation');
+    }
   };
 
-  const openChatModal = (doctor: Doctor) => {
+  const openChatModal = (doctor: any) => {
     setSelectedDoctor(doctor);
     setChatReason('');
     setErrors({});
     setIsChatModalOpen(true);
+  };
+
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    
+    if (diffInHours < 1) {
+      return 'Just now';
+    } else if (diffInHours < 24) {
+      return `${Math.floor(diffInHours)} hours ago`;
+    } else {
+      return `${Math.floor(diffInHours / 24)} days ago`;
+    }
   };
 
   return (
@@ -115,6 +100,18 @@ export default function ChatDoctorPage() {
         </Button>
       </div>
 
+      {/* Connection Status */}
+      {connectionError && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center space-x-2 text-red-600">
+              <MessageCircle className="h-4 w-4" />
+              <span className="text-sm">Connection Error: {connectionError}</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         <Card>
@@ -123,7 +120,9 @@ export default function ChatDoctorPage() {
             <MessageCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">{onlineDoctors.length}</div>
+            <div className="text-xl sm:text-2xl font-bold">
+              {doctorsLoading ? '...' : onlineDoctors.length}
+            </div>
             <p className="text-xs text-muted-foreground">Online now</p>
           </CardContent>
         </Card>
@@ -134,19 +133,23 @@ export default function ChatDoctorPage() {
             <MessageCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">{activeChats}</div>
+            <div className="text-xl sm:text-2xl font-bold">
+              {conversationsLoading ? '...' : activeChats}
+            </div>
             <p className="text-xs text-muted-foreground">Ongoing consultations</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Month</CardTitle>
+            <CardTitle className="text-sm font-medium">Unread Messages</CardTitle>
             <MessageCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">{monthlyConsultations}</div>
-            <p className="text-xs text-muted-foreground">Consultations</p>
+            <div className="text-xl sm:text-2xl font-bold">
+              {totalUnread}
+            </div>
+            <p className="text-xs text-muted-foreground">New messages</p>
           </CardContent>
         </Card>
       </div>
@@ -159,51 +162,71 @@ export default function ChatDoctorPage() {
             <CardDescription>Veterinarians ready for consultation.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {doctors.map((doctor) => (
-                <div 
-                  key={doctor.id} 
-                  className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
-                    doctor.isOnline ? 'bg-green-50 hover:bg-green-100' : 'bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      doctor.isOnline ? 'bg-primary' : 'bg-gray-400'
-                    }`}>
-                      <span className={`font-bold text-sm ${
-                        doctor.isOnline ? 'text-primary-foreground' : 'text-white'
-                      }`}>
-                        {doctor.avatar}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="font-medium">{doctor.name}</p>
-                      <p className="text-sm text-muted-foreground">{doctor.specialty}</p>
-                      <div className="flex items-center space-x-1 mt-1">
-                        <div className={`w-2 h-2 rounded-full ${
-                          doctor.isOnline ? 'bg-green-500' : 'bg-gray-400'
-                        }`}></div>
-                        <span className="text-xs text-muted-foreground">
-                          {doctor.isOnline ? 'Online' : 'Offline'}
-                        </span>
-                      </div>
+            {doctorsLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center space-x-3 p-3 rounded-lg bg-gray-50 animate-pulse">
+                    <div className="w-10 h-10 bg-gray-300 rounded-full"></div>
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-300 rounded w-24 mb-2"></div>
+                      <div className="h-3 bg-gray-300 rounded w-32"></div>
                     </div>
                   </div>
-                  <Button 
-                    size="sm" 
-                    className={`bg-primary hover:bg-primary/90 ${
-                      !doctor.isOnline ? 'opacity-50 cursor-not-allowed' : ''
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {doctors.map((doctor) => (
+                  <div 
+                    key={doctor.id} 
+                    className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                      doctor.isOnline ? 'bg-green-50 hover:bg-green-100' : 'bg-gray-50'
                     }`}
-                    disabled={!doctor.isOnline}
-                    onClick={() => doctor.isOnline && openChatModal(doctor)}
                   >
-                    <MessageCircle className="h-4 w-4 mr-1" />
-                    Chat
-                  </Button>
-                </div>
-              ))}
-            </div>
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        doctor.isOnline ? 'bg-primary' : 'bg-gray-400'
+                      }`}>
+                        <span className={`font-bold text-sm ${
+                          doctor.isOnline ? 'text-primary-foreground' : 'text-white'
+                        }`}>
+                          {doctor.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-medium">{doctor.name}</p>
+                        <p className="text-sm text-muted-foreground">{doctor.companyName || 'Veterinary Doctor'}</p>
+                        <div className="flex items-center space-x-1 mt-1">
+                          <div className={`w-2 h-2 rounded-full ${
+                            doctor.isOnline ? 'bg-green-500' : 'bg-gray-400'
+                          }`}></div>
+                          <span className="text-xs text-muted-foreground">
+                            {doctor.isOnline ? 'Online' : 'Offline'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      className={`bg-primary hover:bg-primary/90 ${
+                        !doctor.isOnline ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                      disabled={!doctor.isOnline}
+                      onClick={() => doctor.isOnline && openChatModal(doctor)}
+                    >
+                      <MessageCircle className="h-4 w-4 mr-1" />
+                      Chat
+                    </Button>
+                  </div>
+                ))}
+                {doctors.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No doctors available at the moment</p>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -214,31 +237,74 @@ export default function ChatDoctorPage() {
             <CardDescription>Your latest veterinary consultations.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors">
-                <div>
-                  <p className="font-medium">Batch #B-2024-001 Health Check</p>
-                  <p className="text-sm text-muted-foreground">Dr. Sharma • 2 hours ago</p>
-                </div>
-                <Badge variant="default" className="bg-green-100 text-green-800">Completed</Badge>
+            {conversationsLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center justify-between p-3 border rounded-lg animate-pulse">
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-300 rounded w-32 mb-2"></div>
+                      <div className="h-3 bg-gray-300 rounded w-24"></div>
+                    </div>
+                    <div className="h-6 bg-gray-300 rounded w-16"></div>
+                  </div>
+                ))}
               </div>
-
-              <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors">
-                <div>
-                  <p className="font-medium">Vaccination Schedule</p>
-                  <p className="text-sm text-muted-foreground">Dr. Patel • Yesterday</p>
-                </div>
-                <Badge variant="default" className="bg-blue-100 text-blue-800">Scheduled</Badge>
+            ) : (
+              <div className="space-y-4">
+                {conversations?.slice(0, 5).map((conversation: any) => {
+                  const unreadCount = getUnreadForConversation(conversation.id);
+                  return (
+                    <div 
+                      key={conversation.id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => {
+                        selectConversation(conversation.id);
+                        router.push(`/dashboard/chat-doctor/${conversation.id}`);
+                      }}
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <p className="font-medium">{conversation.doctor.name}</p>
+                          {unreadCount > 0 && (
+                            <Badge variant="destructive" className="text-xs">
+                              {unreadCount}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {conversation.lastMessage?.text || conversation.subject || 'No messages yet'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {conversation.lastMessage?.createdAt 
+                            ? formatTime(conversation.lastMessage.createdAt)
+                            : formatTime(conversation.createdAt)
+                          }
+                        </p>
+                      </div>
+                      <Badge 
+                        variant="default" 
+                        className={`${
+                          conversation.status === 'ACTIVE' 
+                            ? 'bg-green-100 text-green-800' 
+                            : conversation.status === 'CLOSED'
+                            ? 'bg-gray-100 text-gray-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}
+                      >
+                        {conversation.status}
+                      </Badge>
+                    </div>
+                  );
+                })}
+                {(!conversations || conversations.length === 0) && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No conversations yet</p>
+                    <p className="text-sm">Start a chat with a doctor to begin</p>
+                  </div>
+                )}
               </div>
-
-              <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors">
-                <div>
-                  <p className="font-medium">Disease Prevention</p>
-                  <p className="text-sm text-muted-foreground">Dr. Kumar • 3 days ago</p>
-                </div>
-                <Badge variant="default" className="bg-green-100 text-green-800">Completed</Badge>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -282,12 +348,20 @@ export default function ChatDoctorPage() {
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">
-            <Button variant="outline" onClick={() => setIsChatModalOpen(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsChatModalOpen(false)}
+              disabled={createConversationMutation.isPending}
+            >
               Cancel
             </Button>
-            <Button onClick={handleStartChat} className="bg-primary hover:bg-primary/90">
+            <Button 
+              onClick={handleStartChat} 
+              className="bg-primary hover:bg-primary/90"
+              disabled={createConversationMutation.isPending}
+            >
               <MessageCircle className="mr-2 h-4 w-4" />
-              Start Chat
+              {createConversationMutation.isPending ? 'Starting...' : 'Start Chat'}
             </Button>
           </div>
         </div>

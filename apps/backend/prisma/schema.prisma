@@ -17,6 +17,8 @@ datasource db {
 enum UserRole {
   OWNER
   MANAGER
+  DOCTOR
+  SUPER_ADMIN
 }
 
 enum BatchStatus {
@@ -49,6 +51,18 @@ enum NotificationType {
   SUPPLIER_PAYMENT_REMINDER
   CUSTOMER_PAYMENT_REMINDER
   GENERAL_REMINDER
+}
+
+enum ConversationStatus {
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
 }
 
 enum NotificationStatus {
@@ -128,6 +142,11 @@ model User {
   
   // Inventory
   inventoryItems InventoryItem[]
+
+  // Chat relationships
+  farmerConversations Conversation[] @relation("FarmerConversations")
+  doctorConversations Conversation[] @relation("DoctorConversations")
+  sentMessages Message[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -728,3 +747,37 @@ COMPUTED VALUES TO CALCULATE IN APPLICATION:
 6. Farm/Batch Analytics:
    Compute from related expenses, sales, mortalities, etc.
 */
+
+// ==================== CHAT MODELS ====================
+
+model Conversation {
+  id         String              @id @default(cuid())
+  farmerId   String
+  doctorId   String
+  status     ConversationStatus  @default(ACTIVE)
+  subject    String?             // Optional subject/topic
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  messages   Message[]
+  farmer     User                @relation("FarmerConversations", fields: [farmerId], references: [id])
+  doctor     User                @relation("DoctorConversations", fields: [doctorId], references: [id])
+
+  @@unique([farmerId, doctorId]) // Prevent duplicate conversations
+}
+
+model Message {
+  id              String      @id @default(cuid())
+  conversationId  String
+  senderId        String
+  text            String
+  messageType     MessageType @default(TEXT)
+  createdAt       DateTime    @default(now())
+  read            Boolean     @default(false)
+  edited          Boolean     @default(false)
+
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender          User         @relation(fields: [senderId], references: [id])
+
+  @@index([conversationId, createdAt]) // Optimize message queries
+}
