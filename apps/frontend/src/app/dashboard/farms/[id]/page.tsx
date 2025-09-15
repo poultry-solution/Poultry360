@@ -36,7 +36,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useGetFarmById, useGetFarmAnalytics, useDeleteFarm } from "@/fetchers/farms/farmQueries";
-import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
+import { useGetAllBatches, useCreateBatch } from "@/fetchers/batches/batchQueries";
 import { toast } from "sonner";
 import { FarmResponse, BatchResponse } from "@myapp/shared-types";
 
@@ -73,6 +73,7 @@ export default function FarmDetailPage() {
 
   // Delete farm mutation
   const deleteFarmMutation = useDeleteFarm();
+  const createBatchMutation = useCreateBatch();
 
   const farm = farmResponse?.data;
   const analytics = analyticsResponse?.data;
@@ -117,6 +118,56 @@ export default function FarmDetailPage() {
     const diffTime = Math.abs(now.getTime() - start.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
+  };
+
+  // --- Create Batch (local modal) ---
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [batchForm, setBatchForm] = useState({
+    batchNumber: "",
+    startDate: "",
+    initialChicks: "",
+    initialChickWeight: "0.045",
+    notes: "",
+  });
+
+  function handleBatchChange(
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) {
+    const { name, value } = e.target;
+    setBatchForm((p) => ({ ...p, [name]: value }));
+  }
+
+  const submitCreateBatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const startDateIso = batchForm.startDate
+      ? new Date(batchForm.startDate).toISOString()
+      : new Date().toISOString();
+
+    try {
+      await createBatchMutation.mutateAsync({
+        batchNumber:
+          batchForm.batchNumber ||
+          `B-${new Date().getFullYear()}-${String(batches.length + 1).padStart(3, "0")}`,
+        farmId,
+        startDate: startDateIso,
+        initialChicks: parseInt(batchForm.initialChicks),
+        initialChickWeight: parseFloat(batchForm.initialChickWeight),
+        status: "ACTIVE",
+      });
+
+      toast.success("Batch created successfully!");
+      setIsBatchModalOpen(false);
+      setBatchForm({
+        batchNumber: "",
+        startDate: "",
+        initialChicks: "",
+        initialChickWeight: "0.045",
+        notes: "",
+      });
+    } catch (error) {
+      console.error("Failed to create batch:", error);
+    }
   };
 
   if (farmLoading) {
@@ -333,7 +384,7 @@ export default function FarmDetailPage() {
                 Manage and monitor all batches in this farm
               </CardDescription>
             </div>
-            <Button>
+            <Button onClick={() => setIsBatchModalOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Add Batch
             </Button>
@@ -509,6 +560,97 @@ export default function FarmDetailPage() {
             )}
           </Button>
         </ModalFooter>
+      </Modal>
+
+      {/* Create Batch Modal */}
+      <Modal
+        isOpen={isBatchModalOpen}
+        onClose={() => setIsBatchModalOpen(false)}
+        title="Create New Batch"
+      >
+        <form onSubmit={submitCreateBatch}>
+          <ModalContent>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="batchNumber">Batch Number</Label>
+                <Input
+                  id="batchNumber"
+                  name="batchNumber"
+                  value={batchForm.batchNumber}
+                  onChange={handleBatchChange}
+                  placeholder="e.g., B-2024-003"
+                />
+              </div>
+              <div>
+                <Label htmlFor="startDate">Start Date</Label>
+                <Input
+                  id="startDate"
+                  name="startDate"
+                  type="date"
+                  value={batchForm.startDate}
+                  onChange={handleBatchChange}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="initialChicks">Initial Chicks</Label>
+                <Input
+                  id="initialChicks"
+                  name="initialChicks"
+                  type="number"
+                  value={batchForm.initialChicks}
+                  onChange={handleBatchChange}
+                  placeholder="e.g., 2500"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="initialChickWeight">Initial Chick Weight (kg)</Label>
+                <Input
+                  id="initialChickWeight"
+                  name="initialChickWeight"
+                  type="number"
+                  step="0.001"
+                  value={batchForm.initialChickWeight}
+                  onChange={handleBatchChange}
+                  placeholder="e.g., 0.045"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="notes">Notes (optional)</Label>
+                <textarea
+                  id="notes"
+                  name="notes"
+                  value={batchForm.notes}
+                  onChange={handleBatchChange}
+                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  rows={3}
+                  placeholder="Any remarks"
+                />
+              </div>
+            </div>
+          </ModalContent>
+          <ModalFooter>
+            <Button type="button" variant="outline" onClick={() => setIsBatchModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="bg-primary hover:bg-primary/90"
+              disabled={createBatchMutation.isPending}
+            >
+              {createBatchMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Batch"
+              )}
+            </Button>
+          </ModalFooter>
+        </form>
       </Modal>
     </div>
   );
