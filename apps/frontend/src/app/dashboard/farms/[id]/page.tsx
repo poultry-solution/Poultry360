@@ -124,7 +124,7 @@ export default function FarmDetailPage() {
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [batchForm, setBatchForm] = useState({
     batchNumber: "",
-    startDate: "",
+    startDate: new Date().toISOString().split("T")[0],
     initialChicks: "",
     initialChickWeight: "0.045",
     notes: "",
@@ -174,7 +174,7 @@ export default function FarmDetailPage() {
       setIsBatchModalOpen(false);
       setBatchForm({
         batchNumber: "",
-        startDate: "",
+        startDate: new Date().toISOString().split("T")[0],
         initialChicks: "",
         initialChickWeight: "0.045",
         notes: "",

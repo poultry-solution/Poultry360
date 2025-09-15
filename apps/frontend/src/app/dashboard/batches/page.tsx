@@ -44,7 +44,7 @@ export default function BatchesPage() {
   const [formData, setFormData] = useState({
     batchNumber: "",
     farmId: "",
-    startDate: "",
+    startDate: new Date().toISOString().split("T")[0],
     initialChicks: "",
     initialChickWeight: "0.045",
     notes: "",
@@ -130,7 +130,7 @@ export default function BatchesPage() {
     setFormData({
       batchNumber: "",
       farmId: "",
-      startDate: "",
+      startDate: new Date().toISOString().split("T")[0],
       initialChicks: "",
       initialChickWeight: "0.045",
       notes: "",
