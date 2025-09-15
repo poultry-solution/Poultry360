@@ -59,13 +59,34 @@ export default function BatchesPage() {
     setIsCountModalOpen(true);
   }
 
+  function computeBatchName(startDateStr: string, farmId: string) {
+    if (!startDateStr || !farmId) return "";
+    const farm = farms.find((f: any) => f.id === farmId);
+    if (!farm) return "";
+    const d = new Date(startDateStr);
+    if (isNaN(d.getTime())) return "";
+    const month = d.toLocaleString("en-US", { month: "long" });
+    const day = d.getDate();
+    return `${month}-${day}-${farm.name}`;
+  }
+
   function handleChange(
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >
   ) {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value } as typeof prev;
+      if (name === "startDate" || name === "farmId") {
+        const suggested = computeBatchName(
+          name === "startDate" ? value : next.startDate,
+          name === "farmId" ? value : next.farmId
+        );
+        if (suggested) next.batchNumber = suggested;
+      }
+      return next;
+    });
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -337,14 +358,24 @@ export default function BatchesPage() {
           <ModalContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="batchNumber">Batch Number</Label>
-                <Input
-                  id="batchNumber"
-                  name="batchNumber"
-                  value={formData.batchNumber}
-                  onChange={handleChange}
-                  placeholder="e.g., B-2024-003"
-                />
+                <Label htmlFor="batchNumber">Batch Name</Label>
+                <div className="relative">
+                  <Input
+                    id="batchNumber"
+                    name="batchNumber"
+                    value={formData.batchNumber}
+                    readOnly
+                    aria-readonly
+                    title="Auto-generated from Start Date and Farm"
+                    className="bg-muted cursor-not-allowed"
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
+                    Auto
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Auto-generated from Start Date and Farm
+                </p>
               </div>
               <div>
                 <Label htmlFor="farmId">Farm</Label>

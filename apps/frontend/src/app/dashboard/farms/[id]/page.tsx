@@ -134,7 +134,21 @@ export default function FarmDetailPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) {
     const { name, value } = e.target;
-    setBatchForm((p) => ({ ...p, [name]: value }));
+    setBatchForm((p) => {
+      const next = { ...p, [name]: value };
+      if (name === "startDate") {
+        // Suggest: MonthName-Day-Farm Name
+        if (value && farm?.name) {
+          const d = new Date(value);
+          if (!isNaN(d.getTime())) {
+            const month = d.toLocaleString("en-US", { month: "long" });
+            const day = d.getDate();
+            next.batchNumber = `${month}-${day}-${farm.name}`;
+          }
+        }
+      }
+      return next;
+    });
   }
 
   const submitCreateBatch = async (e: React.FormEvent) => {
@@ -442,12 +456,8 @@ export default function FarmDetailPage() {
               <p className="text-muted-foreground mb-4">
                 {searchQuery || batchFilter !== "all"
                   ? "No batches match your current filters."
-                  : "Get started by creating your first batch for this farm."}
+                  : "Get started by creating your first batch for this farm from the Add Batch button above."}
               </p>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Batch
-              </Button>
             </div>
           ) : (
             <div className="space-y-4">
@@ -572,14 +582,24 @@ export default function FarmDetailPage() {
           <ModalContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="batchNumber">Batch Number</Label>
-                <Input
-                  id="batchNumber"
-                  name="batchNumber"
-                  value={batchForm.batchNumber}
-                  onChange={handleBatchChange}
-                  placeholder="e.g., B-2024-003"
-                />
+                <Label htmlFor="batchNumber">Batch Name</Label>
+                <div className="relative">
+                  <Input
+                    id="batchNumber"
+                    name="batchNumber"
+                    value={batchForm.batchNumber}
+                    readOnly
+                    aria-readonly
+                    title="Auto-generated from Start Date"
+                    className="bg-muted cursor-not-allowed"
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
+                    Auto
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Auto-generated from Start Date and Farm
+                </p>
               </div>
               <div>
                 <Label htmlFor="startDate">Start Date</Label>
