@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -26,6 +26,14 @@ import { BatchResponse, BatchStatus } from "@myapp/shared-types";
 export default function BatchesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const getTodayLocalDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Fetch batches data
   const {
     data: batchesResponse,
@@ -44,7 +52,7 @@ export default function BatchesPage() {
   const [formData, setFormData] = useState({
     batchNumber: "",
     farmId: "",
-    startDate: new Date().toISOString().split("T")[0],
+    startDate: getTodayLocalDate(),
     initialChicks: "",
     initialChickWeight: "0.045",
     notes: "",
@@ -89,6 +97,26 @@ export default function BatchesPage() {
     });
   }
 
+  // Reset to current date when modal opens
+  useEffect(() => {
+    if (isModalOpen) {
+      const today = getTodayLocalDate();
+      setFormData(prev => ({
+        ...prev,
+        startDate: today,
+      }));
+    }
+  }, [isModalOpen]);
+
+  // Ensure batch name is precomputed when startDate or farmId changes
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const suggested = computeBatchName(formData.startDate, formData.farmId);
+    if (suggested && formData.batchNumber !== suggested) {
+      setFormData((p) => ({ ...p, batchNumber: suggested }));
+    }
+  }, [isModalOpen, formData.startDate, formData.farmId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -130,7 +158,7 @@ export default function BatchesPage() {
     setFormData({
       batchNumber: "",
       farmId: "",
-      startDate: new Date().toISOString().split("T")[0],
+      startDate: getTodayLocalDate(),
       initialChicks: "",
       initialChickWeight: "0.045",
       notes: "",

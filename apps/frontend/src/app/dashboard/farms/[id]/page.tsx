@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -44,6 +44,14 @@ export default function FarmDetailPage() {
   const params = useParams();
   const router = useRouter();
   const farmId = params.id as string;
+
+  const getTodayLocalDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   // State for modals and filters
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -124,11 +132,37 @@ export default function FarmDetailPage() {
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [batchForm, setBatchForm] = useState({
     batchNumber: "",
-    startDate: new Date().toISOString().split("T")[0],
+    startDate: getTodayLocalDate(),
     initialChicks: "",
     initialChickWeight: "0.045",
     notes: "",
   });
+
+  // Reset to current date when modal opens and precompute batch name
+  useEffect(() => {
+    if (isBatchModalOpen) {
+      const today = getTodayLocalDate();
+      setBatchForm(prev => ({
+        ...prev,
+        startDate: today,
+      }));
+    }
+  }, [isBatchModalOpen]);
+
+  // Precompute batch name when startDate or farm changes
+  useEffect(() => {
+    if (!isBatchModalOpen) return;
+    if (!farm?.name) return;
+    if (!batchForm.startDate) return;
+    const d = new Date(batchForm.startDate);
+    if (isNaN(d.getTime())) return;
+    const month = d.toLocaleString("en-US", { month: "long" });
+    const day = d.getDate();
+    const suggested = `${month}-${day}-${farm.name}`;
+    if (batchForm.batchNumber !== suggested) {
+      setBatchForm((p) => ({ ...p, batchNumber: suggested }));
+    }
+  }, [isBatchModalOpen, batchForm.startDate, farm?.name]);
 
   function handleBatchChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
