@@ -19,10 +19,15 @@ const axiosInstance = axios.create({
 
 // ==================== REQUEST INTERCEPTOR ====================
 axiosInstance.interceptors.request.use((config: any) => {
-  const { accessToken } = useAuthStore.getState();
+  const { accessToken, isAuthenticated, user } = useAuthStore.getState();
+
+  console.log("🔍 Auth state:", { accessToken: !!accessToken, isAuthenticated, user: user?.name });
 
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
+    console.log("✅ Token added to request");
+  } else {
+    console.log("❌ No access token available");
   }
 
   console.log("🚀 Request:", config.method?.toUpperCase(), config.url);

@@ -341,17 +341,16 @@ export const useDoctorStatus = () => {
       const response = await axiosInstance.put('/doctors/online-status', { isOnline });
       return response.data;
     },
+    onSuccess: (data) => {
+      console.log('✅ Online status updated successfully:', data);
+    },
+    onError: (error) => {
+      console.error('❌ Failed to update online status:', error);
+    },
   });
-
-  const toggleOnlineStatus = useCallback(async () => {
-    // This would need to be implemented based on your current online status
-    // For now, we'll assume we need to toggle it
-    await updateOnlineStatus.mutateAsync(true); // or false based on current state
-  }, [updateOnlineStatus]);
 
   return {
     updateOnlineStatus: updateOnlineStatus.mutateAsync,
-    toggleOnlineStatus,
     isUpdating: updateOnlineStatus.isPending,
   };
 };

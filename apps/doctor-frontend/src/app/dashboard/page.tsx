@@ -50,7 +50,7 @@ interface ChatRequest {
 
 export default function DoctorDashboard() {
   const router = useRouter();
-  const { user, logout, isAuthenticated, isLoading: authLoading } = useAuthStore();
+  const { user, logout, isAuthenticated, isLoading: authLoading, initialize } = useAuthStore();
   const [isOnline, setIsOnline] = useState(true);
   const [showActiveChats, setShowActiveChats] = useState(false);
   const [showPendingRequests, setShowPendingRequests] = useState(false);
@@ -75,6 +75,13 @@ export default function DoctorDashboard() {
 
   // Online status management
   const { updateOnlineStatus, isUpdating } = useDoctorStatus();
+
+  // Initialize auth store
+  useEffect(() => {
+    if (!isAuthenticated && !authLoading) {
+      initialize();
+    }
+  }, [initialize, isAuthenticated, authLoading]);
 
   // Filter conversations
   const activeConversations = conversations?.filter(conv => conv.status === 'ACTIVE') || [];

@@ -12,6 +12,7 @@ import salesRoutes from "./salesRoutes";
 import remainderRoutes from "./remainderRoutes";
 import dashboardRoutes from "./dashboardRoutes";
 import conversationRoutes from "./conversationRoutes";
+import doctorRoutes from "./doctorRoutes";
 
 const router = express.Router();
 
@@ -28,5 +29,6 @@ router.use("/sales", salesRoutes);
 router.use("/reminders", remainderRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/conversations", conversationRoutes);
+router.use("/doctors", doctorRoutes);
 
 export default router;
