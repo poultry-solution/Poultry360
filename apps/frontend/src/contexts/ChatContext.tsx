@@ -111,10 +111,25 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       };
 
       setMessages((prev) => {
-        // Avoid duplicates
+        // Check if this is a real message replacing an optimistic one
+        const existingOptimisticIndex = prev.findIndex((m) => 
+          m.id.startsWith('temp-') && 
+          m.text === message.text && 
+          m.sender.id === message.sender.id
+        );
+        
+        if (existingOptimisticIndex !== -1) {
+          // Replace optimistic message with real one
+          const newMessages = [...prev];
+          newMessages[existingOptimisticIndex] = message;
+          return newMessages;
+        }
+        
+        // Avoid duplicates for real messages
         if (prev.some((m) => m.id === message.id)) {
           return prev;
         }
+        
         return [...prev, message];
       });
 
@@ -227,6 +242,11 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     console.error("Chat error:", data.message);
   }, []);
 
+  const handleMessageSent = useCallback((data: SocketEvents["message_sent"]) => {
+    // Message was successfully sent to server
+    console.log("Message sent successfully:", data.messageId);
+  }, []);
+
   // ==================== SOCKET SETUP ====================
 
   useEffect(() => {
@@ -256,6 +276,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
           "conversation_history",
           handleConversationHistory
         );
+        socketService.current.on("message_sent", handleMessageSent);
         socketService.current.on("error", handleError);
       } catch (error) {
         console.error("Failed to connect to chat:", error);
@@ -283,6 +304,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     handleUserLeft,
     handleUserTyping,
     handleConversationHistory,
+    handleMessageSent,
     handleError,
   ]);
 
@@ -311,13 +333,50 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     (text: string, messageType: "TEXT" | "IMAGE" | "FILE" = "TEXT") => {
       if (!currentConversationId || !isConnected || !text.trim()) return;
 
+      // Create optimistic message
+      const optimisticMessage: Message = {
+        id: `temp-${Date.now()}-${Math.random()}`,
+        conversationId: currentConversationId,
+        text: text.trim(),
+        messageType,
+        createdAt: new Date().toISOString(),
+        read: false,
+        edited: false,
+        sender: {
+          id: user?.id || '',
+          name: user?.name || '',
+          role: user?.role || 'OWNER'
+        }
+      };
+
+      // Add optimistic message to local state immediately
+      setMessages((prev) => [...prev, optimisticMessage]);
+
+      // Send message via socket
       socketService.current.sendMessage(
         currentConversationId,
         text.trim(),
         messageType
       );
+
+      // Set timeout to remove optimistic message if no confirmation received
+      setTimeout(() => {
+        setMessages((prev) => {
+          const messageIndex = prev.findIndex(m => m.id === optimisticMessage.id);
+          if (messageIndex !== -1) {
+            // Message still exists (no confirmation received), mark as failed
+            const newMessages = [...prev];
+            newMessages[messageIndex] = {
+              ...newMessages[messageIndex],
+              text: `${newMessages[messageIndex].text} (Failed to send)`
+            };
+            return newMessages;
+          }
+          return prev;
+        });
+      }, 10000); // 10 second timeout
     },
-    [currentConversationId, isConnected]
+    [currentConversationId, isConnected, user]
   );
 
   const startTyping = useCallback(() => {

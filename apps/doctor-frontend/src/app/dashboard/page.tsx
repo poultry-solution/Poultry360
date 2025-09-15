@@ -84,7 +84,21 @@ export default function DoctorDashboard() {
 
   // Filter conversations
   const activeConversations = conversations?.filter(conv => conv.status === 'ACTIVE') || [];
-  const pendingConversations = conversations?.filter(conv => conv.status === 'ACTIVE' && conv.unreadCount > 0) || [];
+  
+  // Pending consultations: conversations where last message is from farmer (doctor hasn't replied to latest)
+  const pendingConversations = conversations?.filter(conv => 
+    conv.status === 'ACTIVE' && 
+    conv.lastMessage && 
+    conv.lastMessage.senderId !== conv.doctor.id
+  ) || [];
+  
+  // New messages: conversations where last message is from doctor (ongoing conversation) and has unread messages
+  const newMessageConversations = conversations?.filter(conv => 
+    conv.status === 'ACTIVE' && 
+    conv.unreadCount > 0 &&
+    conv.lastMessage && 
+    conv.lastMessage.senderId === conv.doctor.id
+  ) || [];
 
   const todayStats = {
     totalConsultations: activeConversations.length,
@@ -445,13 +459,13 @@ export default function DoctorDashboard() {
                     </CardDescription>
                   </div>
                   <Badge className="bg-primary text-primary-foreground text-xs">
-                    {totalUnread}
+                    {newMessageConversations.reduce((sum, conv) => sum + conv.unreadCount, 0)}
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent className="pt-0 flex-1 overflow-hidden">
                 <div className="h-full overflow-y-auto space-y-3">
-                  {pendingConversations.slice(0, 3).map((conversation) => (
+                  {newMessageConversations.slice(0, 3).map((conversation) => (
                     <div 
                       key={conversation.id}
                       className="flex items-start space-x-3 p-2 border rounded-lg hover:bg-muted/50 cursor-pointer"
@@ -476,7 +490,7 @@ export default function DoctorDashboard() {
                       )}
                     </div>
                   ))}
-                  {pendingConversations.length === 0 && (
+                  {newMessageConversations.length === 0 && (
                     <div className="text-center py-4 text-muted-foreground">
                       <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
                       <p className="text-xs">No new messages</p>

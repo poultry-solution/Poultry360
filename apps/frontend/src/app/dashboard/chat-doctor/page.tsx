@@ -219,11 +219,8 @@ export default function ChatDoctorPage() {
                     </div>
                     <Button 
                       size="sm" 
-                      className={`bg-primary hover:bg-primary/90 ${
-                        !doctor.isOnline ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
-                      disabled={!doctor.isOnline}
-                      onClick={() => doctor.isOnline && openChatModal(doctor)}
+                      className="bg-primary hover:bg-primary/90"
+                      onClick={() => openChatModal(doctor)}
                     >
                       <MessageCircle className="h-4 w-4 mr-1" />
                       Chat
@@ -357,6 +354,15 @@ export default function ChatDoctorPage() {
               This helps the doctor understand your situation better and provide more accurate advice.
             </p>
           </div>
+
+          {!selectedDoctor?.isOnline && (
+            <div className="bg-yellow-50 p-3 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                <strong>Doctor is currently offline.</strong> Your message will be delivered when they come back online. 
+                You can still start the conversation and send your initial message.
+              </p>
+            </div>
+          )}
 
           <div className="flex justify-end space-x-2 pt-4">
             <Button 
