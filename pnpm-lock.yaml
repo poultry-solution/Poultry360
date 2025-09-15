@@ -184,6 +184,9 @@ importers:
 
   apps/doctor-frontend:
     dependencies:
+      '@myapp/shared-auth':
+        specifier: workspace:*
+        version: link:../../packages/shared-auth
       '@myapp/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
@@ -260,6 +263,9 @@ importers:
 
   apps/frontend:
     dependencies:
+      '@myapp/shared-auth':
+        specifier: workspace:*
+        version: link:../../packages/shared-auth
       '@myapp/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
@@ -336,6 +342,15 @@ importers:
       typescript:
         specifier: ^5
         version: 5.9.2
+
+  packages/shared-auth:
+    dependencies:
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
+      zod:
+        specifier: ^4.1.5
+        version: 4.1.5
 
   packages/shared-types:
     dependencies:

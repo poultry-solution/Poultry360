@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@myapp/shared-types": "workspace:*",
+    "@myapp/shared-auth": "workspace:*",
+
     "@radix-ui/react-slot": "^1.2.3",
     "@tanstack/react-query": "^5.86.0",
     "autoprefixer": "^10.4.21",

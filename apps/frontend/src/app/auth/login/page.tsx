@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/store/store";
+import { useAuth, useAuthStore } from "@/store/store";
+import { crossPortAuth } from "@myapp/shared-auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,7 +30,31 @@ export default function LoginPage() {
         emailOrPhone: formData.emailOrPhone.trim(),
         password: formData.password,
       });
-      router.push("/dashboard/home");
+      
+      // Check user role and redirect accordingly
+      const { user, accessToken } = useAuthStore.getState();
+      if (user?.role === "DOCTOR") {
+        // Store auth data and navigate to doctor app using shared-auth
+        console.log('🔍 Main app - storing auth data for doctor navigation');
+        crossPortAuth.setAuthData({
+          accessToken: accessToken!,
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            role: user.role,
+            companyName: user.companyName,
+          },
+        });
+        
+        // Navigate to doctor app
+        console.log('🔍 Main app - navigating to doctor app');
+        await crossPortAuth.navigateToDoctorApp();
+      } else {
+        // Redirect farmers/managers to farmer dashboard
+        router.push("/dashboard/home");
+      }
     } catch (err) {
       console.error("Login failed:", err);
     }

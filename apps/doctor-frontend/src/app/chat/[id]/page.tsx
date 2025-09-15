@@ -7,126 +7,61 @@ import { ArrowLeft, Send, Image, Paperclip, MoreVertical } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-
-interface Message {
-  id: string;
-  text: string;
-  sender: 'farmer' | 'doctor';
-  timestamp: string;
-  type: 'text' | 'image';
-  imageUrl?: string;
-}
-
-interface ChatData {
-  chatId: string;
-  farmerId: string;
-  farmerName: string;
-  farmName: string;
-  reason: string;
-  startTime: string;
-  messages: Message[];
-  status: 'pending' | 'active' | 'completed';
-}
+import { useCurrentConversation, useMessageInput, useTypingIndicator } from "@/hooks/useChat";
+import { useAuthStore } from "@/store/authStore";
 
 export default function DoctorChatPage() {
   const router = useRouter();
   const params = useParams();
-  const chatId = params.id as string;
+  const conversationId = params.id as string;
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuthStore();
   
-  const [chatData, setChatData] = useState<ChatData | null>(null);
-  const [newMessage, setNewMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Load or create chat data
-  useEffect(() => {
-    // In a real app, this would fetch from API
-    // For now, create mock data based on the chatId
-    const mockChatData: ChatData = {
-      chatId: chatId,
-      farmerId: "farmer_123",
-      farmerName: "Rajesh Patel",
-      farmName: "Green Valley Farm",
-      reason: "Chickens showing respiratory symptoms, need immediate advice",
-      startTime: new Date().toISOString(),
-      messages: [
-        {
-          id: 'farmer_1',
-          text: "Hello Doctor, I need urgent help. My chickens are showing respiratory symptoms.",
-          sender: 'farmer',
-          timestamp: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
-          type: 'text'
-        }
-      ],
-      status: 'active'
-    };
-
-    setChatData(mockChatData);
-    setIsLoading(false);
-  }, [chatId]);
+  // Real-time chat hooks
+  const { 
+    conversation, 
+    messages, 
+    isLoading, 
+    error, 
+    isConnected,
+    sendMessage,
+    markAsRead
+  } = useCurrentConversation(conversationId);
+  
+  const { 
+    text, 
+    setText, 
+    sendMessage: handleSend, 
+    handleKeyPress, 
+    isTyping 
+  } = useMessageInput(conversationId);
+  
+  const { 
+    typingUsers, 
+    isAnyoneTyping, 
+    typingText 
+  } = useTypingIndicator(conversationId);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatData?.messages]);
+  }, [messages]);
 
-  const sendMessage = () => {
-    if (!newMessage.trim() || !chatData) return;
-
-    const doctorMessage: Message = {
-      id: `doctor_${Date.now()}`,
-      text: newMessage,
-      sender: 'doctor',
-      timestamp: new Date().toISOString(),
-      type: 'text'
-    };
-
-    const updatedMessages = [...chatData.messages, doctorMessage];
-    const updatedChat = { ...chatData, messages: updatedMessages };
-    
-    setChatData(updatedChat);
-    setNewMessage('');
-
-    // Simulate farmer typing and response (in real app, this would be real-time)
-    setIsTyping(true);
-    setTimeout(() => {
-      const farmerResponse: Message = {
-        id: `farmer_${Date.now()}`,
-        text: "Thank you doctor! That's very helpful. I'll implement your suggestions right away.",
-        sender: 'farmer',
-        timestamp: new Date().toISOString(),
-        type: 'text'
-      };
-
-      const finalMessages = [...updatedMessages, farmerResponse];
-      const finalChat = { ...chatData, messages: finalMessages };
-      
-      setChatData(finalChat);
-      setIsTyping(false);
-    }, 2000);
-  };
+  // Mark messages as read when component mounts
+  useEffect(() => {
+    if (conversationId && isConnected) {
+      markAsRead();
+    }
+  }, [conversationId, isConnected, markAsRead]);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !chatData) return;
+    if (!file) return;
 
-    // Create a mock image URL (in real app, upload to server)
-    const imageUrl = URL.createObjectURL(file);
-    
-    const imageMessage: Message = {
-      id: `doctor_${Date.now()}`,
-      text: `[Image: ${file.name}]`,
-      sender: 'doctor',
-      timestamp: new Date().toISOString(),
-      type: 'image',
-      imageUrl
-    };
-
-    const updatedMessages = [...chatData.messages, imageMessage];
-    const updatedChat = { ...chatData, messages: updatedMessages };
-    
-    setChatData(updatedChat);
+    // TODO: Implement image upload to server
+    // For now, just send a text message about the image
+    const imageMessage = `[Image: ${file.name}]`;
+    sendMessage(imageMessage, 'IMAGE');
   };
 
   const formatTime = (timestamp: string) => {
@@ -139,16 +74,30 @@ export default function DoctorChatPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Loading chat...</div>
+        <div className="text-muted-foreground">Loading conversation...</div>
       </div>
     );
   }
 
-  if (!chatData) {
+  if (error) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <p className="text-muted-foreground mb-4">Chat not found</p>
+          <p className="text-red-500 mb-4">Error loading conversation: {error.message}</p>
+          <Button onClick={() => router.push('/dashboard')}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!conversation) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-muted-foreground mb-4">Conversation not found</p>
           <Button onClick={() => router.push('/dashboard')}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Dashboard
@@ -175,28 +124,33 @@ export default function DoctorChatPage() {
               </Button>
               <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
                 <span className="text-primary-foreground font-bold text-sm">
-                  {chatData.farmerName.split(' ').map(n => n[0]).join('')}
+                  {conversation.farmer.name.split(' ').map(n => n[0]).join('')}
                 </span>
               </div>
               <div>
-                <CardTitle className="text-lg">{chatData.farmerName}</CardTitle>
-                <p className="text-sm text-muted-foreground">{chatData.farmName}</p>
+                <CardTitle className="text-lg">{conversation.farmer.name}</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {conversation.subject || 'Veterinary Consultation'}
+                </p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
               <Badge variant="secondary" className="bg-green-100 text-green-800">
-                Active
+                {conversation.status}
               </Badge>
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
               <Button variant="ghost" size="sm" className="p-2">
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </div>
           </div>
           
-          {/* Consultation Reason */}
+          {/* Connection Status */}
           <div className="mt-3 p-3 bg-blue-50 rounded-lg">
             <p className="text-sm text-blue-800">
-              <strong>Consultation Reason:</strong> {chatData.reason}
+              <strong>Status:</strong> {isConnected ? 'Connected' : 'Disconnected'} • 
+              <strong> Messages:</strong> {messages.length} • 
+              <strong> Started:</strong> {formatTime(conversation.createdAt)}
             </p>
           </div>
         </CardHeader>
@@ -208,41 +162,44 @@ export default function DoctorChatPage() {
           <div className="h-full flex flex-col">
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {chatData.messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.sender === 'doctor' ? 'justify-end' : 'justify-start'}`}
-                >
+              {messages.map((message) => {
+                const isDoctor = message.sender.role === 'DOCTOR';
+                return (
                   <div
-                    className={`max-w-[80%] sm:max-w-[70%] ${
-                      message.sender === 'doctor'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted'
-                    } rounded-lg p-3`}
+                    key={message.id}
+                    className={`flex ${isDoctor ? 'justify-end' : 'justify-start'}`}
                   >
-                    {message.type === 'image' && message.imageUrl && (
-                      <div className="mb-2">
-                        <img
-                          src={message.imageUrl}
-                          alt="Shared image"
-                          className="max-w-full h-auto rounded-lg"
-                        />
-                      </div>
-                    )}
-                    <p className="text-sm">{message.text}</p>
-                    <p className={`text-xs mt-1 ${
-                      message.sender === 'doctor' 
-                        ? 'text-primary-foreground/70' 
-                        : 'text-muted-foreground'
-                    }`}>
-                      {formatTime(message.timestamp)}
-                    </p>
+                    <div
+                      className={`max-w-[80%] sm:max-w-[70%] ${
+                        isDoctor
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted'
+                      } rounded-lg p-3`}
+                    >
+                      {message.messageType === 'IMAGE' && (
+                        <div className="mb-2">
+                          <div className="text-sm italic">
+                            [Image: {message.text}]
+                          </div>
+                        </div>
+                      )}
+                      {message.messageType === 'TEXT' && (
+                        <p className="text-sm">{message.text}</p>
+                      )}
+                      <p className={`text-xs mt-1 ${
+                        isDoctor 
+                          ? 'text-primary-foreground/70' 
+                          : 'text-muted-foreground'
+                      }`}>
+                        {formatTime(message.createdAt)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               
               {/* Typing Indicator */}
-              {isTyping && (
+              {isAnyoneTyping && (
                 <div className="flex justify-start">
                   <div className="bg-muted rounded-lg p-3">
                     <div className="flex space-x-1">
@@ -250,6 +207,7 @@ export default function DoctorChatPage() {
                       <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
                       <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                     </div>
+                    <p className="text-xs text-muted-foreground mt-1">{typingText}</p>
                   </div>
                 </div>
               )}
@@ -262,11 +220,12 @@ export default function DoctorChatPage() {
               <div className="flex items-center space-x-2">
                 <div className="flex-1 relative">
                   <Input
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
                     placeholder="Type your response..."
                     className="pr-20"
-                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                    onKeyPress={handleKeyPress}
+                    disabled={!isConnected}
                   />
                   <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
                     <input
@@ -281,6 +240,7 @@ export default function DoctorChatPage() {
                       size="sm"
                       className="p-1 h-6 w-6"
                       onClick={() => document.getElementById('image-upload')?.click()}
+                      disabled={!isConnected}
                     >
                       <Image className="h-4 w-4" />
                     </Button>
@@ -288,19 +248,25 @@ export default function DoctorChatPage() {
                       variant="ghost"
                       size="sm"
                       className="p-1 h-6 w-6"
+                      disabled={!isConnected}
                     >
                       <Paperclip className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
                 <Button
-                  onClick={sendMessage}
-                  disabled={!newMessage.trim()}
+                  onClick={() => handleSend()}
+                  disabled={!text.trim() || !isConnected}
                   className="bg-primary hover:bg-primary/90"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
+              {!isConnected && (
+                <p className="text-xs text-red-500 mt-2">
+                  Disconnected from chat server. Please check your connection.
+                </p>
+              )}
             </div>
           </div>
         </CardContent>

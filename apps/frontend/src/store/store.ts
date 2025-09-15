@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { devtools } from "zustand/middleware";
+import { crossPortAuth } from "@myapp/shared-auth";
 
 // Types based on your backend
 export interface User {
@@ -13,7 +14,7 @@ export interface User {
   companyFarmLocation?: string;
   companyFarmNumber?: string;
   companyFarmCapacity?: number;
-  role: "OWNER" | "MANAGER";
+  role: "OWNER" | "MANAGER" | "DOCTOR" | "SUPER_ADMIN";
   gender: "MALE" | "FEMALE" | "OTHER";
   status: "ACTIVE" | "INACTIVE" | "PENDING_VERIFICATION";
   managedFarms?: string[]; // Array of farm IDs for managers
@@ -30,7 +31,7 @@ export interface RegisterData {
   password: string;
   phone?: string;
   gender: "MALE" | "FEMALE" | "OTHER";
-  role: "OWNER" | "MANAGER";
+  role: "OWNER" | "MANAGER" | "DOCTOR" | "SUPER_ADMIN";
   companyName?: string;
   companyFarmLocation?: string;
   companyFarmNumber?: string;
@@ -58,6 +59,7 @@ interface AuthState {
   setUser: (user: User) => void;
   setAccessToken: (token: string) => void;
   testRefreshToken: () => Promise<any>;
+  navigateToDoctorApp: () => void;
 }
 
 // API base URL - adjust according to your setup
@@ -431,6 +433,31 @@ export const useAuthStore = create<AuthState>()(
             console.error("🧪 Refresh token test failed:", error);
             throw error;
           }
+        },
+
+        // Navigate to doctor app with auth data
+        navigateToDoctorApp: () => {
+          const { user, accessToken } = get();
+          if (!user || !accessToken) {
+            console.error("No auth data available for navigation");
+            return;
+          }
+
+          // Store auth data in shared storage
+          crossPortAuth.setAuthData({
+            accessToken,
+            user: {
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              phone: user.phone,
+              role: user.role,
+              companyName: user.companyName,
+            },
+          });
+
+          // Navigate to doctor app
+          crossPortAuth.navigateToDoctorApp();
         },
       }),
       {

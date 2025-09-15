@@ -64,6 +64,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: "/",
+      domain: process.env.NODE_ENV === "production" ? ".myapp.com" : undefined, // Allow subdomains in production
     });
 
     let userWithFarms: any = {
@@ -171,6 +172,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: "/",
+      domain: process.env.NODE_ENV === "production" ? ".myapp.com" : undefined, // Allow subdomains in production
     });
 
     // Return access token and user data
@@ -239,6 +241,7 @@ export const refreshToken = async (
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: "/",
+      domain: process.env.NODE_ENV === "production" ? ".myapp.com" : undefined, // Allow subdomains in production
     });
 
     // Return new access token
@@ -255,6 +258,7 @@ export const logout = (req: Request, res: Response): any => {
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     path: "/",
+    domain: process.env.NODE_ENV === "production" ? ".myapp.com" : undefined, // Allow subdomains in production
   });
 
   return res.json({ message: "Logged out successfully" });
@@ -414,6 +418,102 @@ export const validateToken = async (
     return res.status(401).json({
       isValid: false,
       error: "Invalid token",
+    });
+  }
+};
+
+// In-memory storage for cross-port auth data (in production, use Redis or database)
+const crossPortAuthStorage = new Map<string, any>();
+
+export const storeCrossPortAuth = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { authData, timestamp, source } = req.body;
+
+    if (!authData || !authData.accessToken || !authData.user) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid auth data",
+      });
+    }
+
+    // Generate a unique session ID
+    const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Store the auth data with expiration (5 minutes)
+    crossPortAuthStorage.set(sessionId, {
+      authData,
+      timestamp,
+      source,
+      expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
+    });
+
+    // Clean up expired sessions
+    for (const [key, value] of crossPortAuthStorage.entries()) {
+      if (value.expiresAt < Date.now()) {
+        crossPortAuthStorage.delete(key);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      sessionId,
+    });
+  } catch (error) {
+    console.error("Error storing cross-port auth:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+};
+
+export const getCrossPortAuth = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { session } = req.query;
+
+    if (!session) {
+      return res.status(400).json({
+        success: false,
+        error: "Session ID required",
+      });
+    }
+
+    const sessionData = crossPortAuthStorage.get(session as string);
+
+    if (!sessionData) {
+      return res.status(404).json({
+        success: false,
+        error: "Session not found or expired",
+      });
+    }
+
+    // Check if session is expired
+    if (sessionData.expiresAt < Date.now()) {
+      crossPortAuthStorage.delete(session as string);
+      return res.status(404).json({
+        success: false,
+        error: "Session expired",
+      });
+    }
+
+    // Return the auth data and clean up the session
+    crossPortAuthStorage.delete(session as string);
+
+    return res.status(200).json({
+      success: true,
+      authData: sessionData.authData,
+    });
+  } catch (error) {
+    console.error("Error getting cross-port auth:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error",
     });
   }
 };
