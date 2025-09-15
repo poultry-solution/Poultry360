@@ -1266,7 +1266,7 @@ export default function BatchDetailPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
-            href="/batches"
+            href="/dashboard/batches"
             className="inline-flex items-center text-sm text-muted-foreground hover:text-primary"
           >
             <ArrowLeft className="h-4 w-4 mr-1" /> Back

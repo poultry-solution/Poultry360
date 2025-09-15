@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   Card,
@@ -15,11 +16,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { useGetUserFarms, useCreateFarm } from "@/fetchers/farms/farmQueries";
+import { useGetFarmBatches } from "@/fetchers/batches/batchQueries";
 import { toast } from "sonner";
 import { useAuth } from "@/store/store";
-import { FarmResponse } from "@myapp/shared-types";
+import { FarmResponse, BatchResponse } from "@myapp/shared-types";
 
 export default function FarmsPage() {
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -56,6 +59,31 @@ export default function FarmsPage() {
     setBatchFilter(filter);
     setIsBatchesModalOpen(true);
   };
+
+  // Fetch batches for selected farm when modal opens
+  const { data: modalBatchesResponse, isLoading: modalBatchesLoading, error: modalBatchesError } =
+    useGetFarmBatches(selectedFarm?.id || "", {
+      status: batchFilter === "active" ? "ACTIVE" : "COMPLETED",
+      page: 1,
+      limit: 10,
+    });
+  const modalBatches: BatchResponse[] = modalBatchesResponse?.data || [];
+
+  function formatDate(date: string | Date) {
+    return new Date(date).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  }
+
+  function calculateBatchAge(startDate: string | Date) {
+    const start = new Date(startDate);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  }
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -148,8 +176,10 @@ export default function FarmsPage() {
             </div>
           ) : (
             farms.map((farm: FarmResponse) => (
-              <Card key={farm.id} className="hover:shadow-lg hover:scale-[1.02] transition-all duration-200">
-                <Link href={`/dashboard/farms/${farm.id}`} className="block cursor-pointer">
+              <Card
+                key={farm.id}
+                className="hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
+              >
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between gap-2">
                     <span className="flex items-center gap-2">
@@ -203,7 +233,6 @@ export default function FarmsPage() {
                     </div>
                   </div>
                 </CardContent>
-                </Link>
               </Card>
             ))
           )}
@@ -285,15 +314,39 @@ export default function FarmsPage() {
       >
         <ModalContent>
           <div className="space-y-3">
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">
-                Batch management will be available soon.
-                {batchFilter === "active"
-                  ? " Active batches"
-                  : " Closed batches"}{" "}
-                for this farm will be displayed here.
-              </p>
-            </div>
+            {modalBatchesLoading ? (
+              <div className="text-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+                <p>Loading {batchFilter} batches...</p>
+              </div>
+            ) : modalBatchesError ? (
+              <div className="text-center py-8">
+                <p className="text-red-600">Failed to load batches. Please try again.</p>
+              </div>
+            ) : modalBatches.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No {batchFilter} batches found for this farm.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {modalBatches.map((batch) => (
+                  <div key={batch.id} className="flex items-center justify-between rounded-md border p-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{batch.batchNumber}</p>
+                        <span className={`text-xs px-2 py-0.5 rounded ${batch.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}>
+                          {batch.status}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">Started {formatDate(batch.startDate)} • Age {calculateBatchAge(batch.startDate)} days • Current {batch.currentChicks?.toLocaleString?.() || "N/A"}</p>
+                    </div>
+                    <Button variant="outline" asChild onClick={(e) => e.stopPropagation()}>
+                      <Link href={`/dashboard/batches/${batch.id}`}>View</Link>
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </ModalContent>
         <ModalFooter>
