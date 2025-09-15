@@ -11,27 +11,24 @@ export default function AuthSyncPage() {
 
   useEffect(() => {
     const syncAuth = async () => {
-      // Handle auth data from URL parameter
-      const authData = await crossPortAuth.handleAuthFromUrl();
+      // Initialize auth store first
+      await initialize();
       
-      if (authData) {
-        console.log("Auth data received from main app:", authData);
-        // Initialize auth store with the received data
-        await initialize();
-        
-        // Wait for authentication to be set up
-        if (isAuthenticated) {
-          router.push("/dashboard");
-        }
+      // Get the current auth state after initialization
+      const authState = useAuthStore.getState();
+      
+      if (authState.isAuthenticated) {
+        console.log("Authentication successful, redirecting to dashboard");
+        router.push("/dashboard");
       } else {
-        console.log("No auth data, redirecting to main app login");
+        console.log("No authentication found, redirecting to main app login");
         // No auth data, redirect to main app login
-        // window.location.href = "http://localhost:3000/auth/login";
+        window.location.href = "http://localhost:3000/auth/login";
       }
     };
 
     syncAuth();
-  }, [router, initialize, isAuthenticated]);
+  }, [router, initialize]);
 
   if (isLoading) {
     return (
