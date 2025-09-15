@@ -3,9 +3,11 @@ import {
   User, 
   CreateUser, 
   UpdateUser, 
-  UserRole,
-  UserStatus 
+  UserRole
 } from "@myapp/shared-types";
+
+// Local fallback until shared-types exports UserStatus
+export type UserStatus = "ACTIVE" | "INACTIVE" | "PENDING_VERIFICATION";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
 

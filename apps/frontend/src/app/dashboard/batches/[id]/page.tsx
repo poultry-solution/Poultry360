@@ -3,7 +3,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, notFound } from "next/navigation";
 import {
   Card,
@@ -136,7 +136,10 @@ export default function BatchDetailPage() {
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>("Overview");
 
   // --- State (with localStorage persistence) ---
-  const storageKey = (suffix: string) => `p360:batch:${batchId}:${suffix}`;
+  const storageKey = useCallback(
+    (suffix: string) => `p360:batch:${batchId}:${suffix}`,
+    [batchId]
+  );
 
   // Fetch real expense data
   const {
@@ -466,7 +469,7 @@ export default function BatchDetailPage() {
       let quantity = 0;
       let unitPrice = 0;
       let description = expenseForm.notes || "";
-      let inventoryItems: any[] = [];
+      const inventoryItems: any[] = [];
 
       const ec = expenseForm.category;
 

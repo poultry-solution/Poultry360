@@ -136,7 +136,7 @@ export default function FarmDetailPage() {
         <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
         <h3 className="text-lg font-semibold mb-2">Farm not found</h3>
         <p className="text-muted-foreground mb-4">
-          The farm you're looking for doesn't exist or you don't have access to it.
+          The farm you&#39;re looking for doesn&#39;t exist or you don&#39;t have access to it.
         </p>
         <Button onClick={() => router.push("/dashboard/farms")}>
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -472,7 +472,7 @@ export default function FarmDetailPage() {
                 <h3 className="text-lg font-semibold">Are you sure?</h3>
                 <p className="text-muted-foreground">
                   This action cannot be undone. This will permanently delete the farm
-                  "{farm.name}" and all associated data.
+                  &quot;{farm.name}&quot; and all associated data.
                 </p>
               </div>
             </div>

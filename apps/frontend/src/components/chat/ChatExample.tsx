@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat, useMessageInput, useConversationsList, useCurrentConversation } from '@/hooks/useChat';
-import { useCreateConversation, useDoctors } from '@/services/chatservices/chatQueries';
+import { useCreateConversation, useAvailableDoctors } from '@/services/chatservices/chatQueries';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -28,7 +28,8 @@ export const ChatExample: React.FC = () => {
   } = useCurrentConversation(selectedConversationId || undefined);
   
   const { text, setText, sendMessage: sendMessageHandler, handleKeyPress, canSend } = useMessageInput(selectedConversationId || undefined);
-  const { doctors } = useDoctors();
+  const { data: doctorsResponse } = useAvailableDoctors();
+  const doctors = doctorsResponse?.doctors || [];
   const createConversationMutation = useCreateConversation();
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -100,7 +101,7 @@ export const ChatExample: React.FC = () => {
         </div>
         
         <div className="overflow-y-auto">
-          {conversations?.conversations?.map((conv) => (
+          {conversations?.map((conv: any) => (
             <div
               key={conv.id}
               onClick={() => {

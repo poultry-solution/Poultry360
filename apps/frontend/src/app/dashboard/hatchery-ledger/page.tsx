@@ -118,7 +118,7 @@ export default function HatcheryLedgerPage() {
     const rate = Number(newEntry.rate);
     const quantity = Number(newEntry.quantity);
     const paid = Number(newEntry.paid);
-    const date = newEntry.date || new Date().toISOString();
+    const date: Date = newEntry.date ? new Date(newEntry.date) : new Date();
     if (!newEntry.item || !rate || !quantity || !activeHatcheryId) return;
 
     try {
@@ -173,7 +173,7 @@ export default function HatcheryLedgerPage() {
     if (!selectedEntry || !paymentForm.amount || !activeHatcheryId) return;
     
     const paymentAmount = Number(paymentForm.amount);
-    const paymentDate = paymentForm.date || new Date().toISOString();
+    const paymentDate: Date = paymentForm.date ? new Date(paymentForm.date) : new Date();
 
     try {
       await addTransactionMutation.mutateAsync({

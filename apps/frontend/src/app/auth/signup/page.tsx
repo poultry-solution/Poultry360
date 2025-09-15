@@ -450,7 +450,7 @@ export default function SignupPage() {
                   Verify your account
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                  We've sent a verification code to
+                  We&#39;ve sent a verification code to
                 </p>
                 <p className="text-sm font-medium text-foreground">
                   {getVerificationTarget()}
@@ -461,7 +461,7 @@ export default function SignupPage() {
               {formData.email && formData.phone && (
                 <div className="mb-6 p-3 bg-gray-50 rounded-md">
                   <p className="text-xs text-gray-600 mb-2">
-                    Didn't receive the code?
+                    Didn&#39;t receive the code?
                   </p>
                   <div className="flex gap-2">
                     <button
