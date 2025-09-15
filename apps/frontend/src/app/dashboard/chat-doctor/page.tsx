@@ -47,31 +47,23 @@ export default function ChatDoctorPage() {
     try {
       const result = await createConversationMutation.createAndJoin({
         doctorId: selectedDoctor.id,
-        subject: chatReason
+        subject: chatReason,
+        initialMessage: chatReason
       });
       
       if (result.conversation) {
         toast.success('Conversation started successfully!');
         setIsChatModalOpen(false);
+        
+        // Clean up modal state
         setChatReason('');
         setSelectedDoctor(null);
         
-        // Navigate to the conversation
+        // Navigate to the conversation (initial message is already sent by backend)
         router.push(`/dashboard/chat-doctor/${result.conversation.id}`);
       }
     } catch (error: any) {
       console.error('Failed to start conversation:', error);
-      
-      // Handle 409 conflict - conversation already exists
-      if (error?.response?.status === 409) {
-        const existingConversationId = error?.response?.data?.conversationId;
-        if (existingConversationId) {
-          toast.info('Conversation already exists. Redirecting...');
-          router.push(`/dashboard/chat-doctor/${existingConversationId}`);
-          return;
-        }
-      }
-      
       toast.error(error?.response?.data?.error || 'Failed to start conversation');
     }
   };
@@ -352,6 +344,13 @@ export default function ChatDoctorPage() {
             <p className="text-sm text-blue-800">
               <strong>Note:</strong> Please provide a clear description of your concern. 
               This helps the doctor understand your situation better and provide more accurate advice.
+            </p>
+          </div>
+
+          <div className="bg-green-50 p-3 rounded-lg">
+            <p className="text-sm text-green-800">
+              <strong>Tip:</strong> If you already have an ongoing conversation with this doctor, 
+              you'll be redirected to that chat and your message will be sent there automatically.
             </p>
           </div>
 

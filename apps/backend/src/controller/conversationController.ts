@@ -209,7 +209,7 @@ export const conversationController = {
   async createConversation(req: Request, res: Response) {
     try {
       const userId = req.userId;
-      const { doctorId, subject } = req.body;
+      const { doctorId, subject, initialMessage } = req.body;
 
       if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -247,23 +247,6 @@ export const conversationController = {
           farmerId: userId,
           doctorId,
           status: 'ACTIVE'
-        }
-      });
-
-      if (existingConversation) {
-        return res.status(409).json({ 
-          error: 'Conversation already exists',
-          conversationId: existingConversation.id
-        });
-      }
-
-      // Create conversation
-      const conversation = await prisma.conversation.create({
-        data: {
-          farmerId: userId,
-          doctorId,
-          subject: subject || null,
-          status: 'ACTIVE'
         },
         include: {
           farmer: {
@@ -283,6 +266,112 @@ export const conversationController = {
         }
       });
 
+      let conversation;
+      let initialMessageData = null;
+
+      if (existingConversation) {
+        // Use existing conversation
+        conversation = existingConversation;
+        
+        // If there's an initial message, add it to the existing conversation
+        if (initialMessage && initialMessage.trim()) {
+          const message = await prisma.message.create({
+            data: {
+              conversationId: existingConversation.id,
+              senderId: userId,
+              text: initialMessage.trim(),
+              messageType: 'TEXT',
+              read: false
+            },
+            include: {
+              sender: {
+                select: {
+                  id: true,
+                  name: true,
+                  role: true
+                }
+              }
+            }
+          });
+
+          initialMessageData = {
+            id: message.id,
+            text: message.text,
+            messageType: message.messageType,
+            createdAt: message.createdAt,
+            read: message.read,
+            sender: message.sender
+          };
+        }
+      } else {
+        // Create new conversation and optionally initial message in a transaction
+        const result = await prisma.$transaction(async (tx) => {
+          // Create conversation
+          const newConversation = await tx.conversation.create({
+            data: {
+              farmerId: userId,
+              doctorId,
+              subject: subject || null,
+              status: 'ACTIVE'
+            },
+            include: {
+              farmer: {
+                select: {
+                  id: true,
+                  name: true,
+                  role: true
+                }
+              },
+              doctor: {
+                select: {
+                  id: true,
+                  name: true,
+                  role: true
+                }
+              }
+            }
+          });
+
+          let messageData = null;
+
+          // Create initial message if provided
+          if (initialMessage && initialMessage.trim()) {
+            const message = await tx.message.create({
+              data: {
+                conversationId: newConversation.id,
+                senderId: userId,
+                text: initialMessage.trim(),
+                messageType: 'TEXT',
+                read: false
+              },
+              include: {
+                sender: {
+                  select: {
+                    id: true,
+                    name: true,
+                    role: true
+                  }
+                }
+              }
+            });
+
+            messageData = {
+              id: message.id,
+              text: message.text,
+              messageType: message.messageType,
+              createdAt: message.createdAt,
+              read: message.read,
+              sender: message.sender
+            };
+          }
+
+          return { conversation: newConversation, message: messageData };
+        });
+
+        conversation = result.conversation;
+        initialMessageData = result.message;
+      }
+
       res.status(201).json({
         conversation: {
           id: conversation.id,
@@ -292,7 +381,8 @@ export const conversationController = {
           subject: conversation.subject,
           createdAt: conversation.createdAt,
           updatedAt: conversation.updatedAt
-        }
+        },
+        initialMessage: initialMessageData
       });
     } catch (error) {
       console.error('Error creating conversation:', error);

@@ -46,6 +46,7 @@ export interface Conversation {
 export interface CreateConversationData {
   doctorId: string;
   subject?: string;
+  initialMessage?: string;
 }
 
 export interface SendMessageData {
