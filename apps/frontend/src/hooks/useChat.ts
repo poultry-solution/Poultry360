@@ -85,11 +85,18 @@ export const useCurrentConversation = (conversationId?: string) => {
   // Auto-join conversation when conversationId changes
   useEffect(() => {
     if (activeConversationId && isConnected) {
-      joinConversation(activeConversationId);
+      // Add a small delay to ensure connection is stable
+      const timeoutId = setTimeout(() => {
+        if (isConnected) {
+          joinConversation(activeConversationId);
+        }
+      }, 200);
+      
+      return () => clearTimeout(timeoutId);
     }
     
     return () => {
-      if (activeConversationId) {
+      if (activeConversationId && isConnected) {
         leaveConversation();
       }
     };
@@ -115,9 +122,10 @@ export const useCurrentConversation = (conversationId?: string) => {
     }
   }, [activeConversationId, markMessagesAsRead]);
 
+  console.log(query.data?.messages);
   return {
-    conversation: query.data,
-    messages: contextMessages.length > 0 ? contextMessages : (query.data?.messages || []),
+    conversation: (query.data as any)?.conversation,
+    messages: contextMessages.length > 0 ? contextMessages : ((query.data as any)?.messages || []),
     isLoading: query.isLoading,
     error: query.error,
     isConnected,
@@ -277,6 +285,7 @@ export const useDoctors = () => {
     return query.data?.doctors.filter(doctor => !doctor.isOnline) || [];
   }, [query.data]);
 
+  console.log(query.data?.doctors);
   return {
     ...query,
     doctors: query.data?.doctors || [],

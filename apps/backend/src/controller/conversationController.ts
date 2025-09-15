@@ -398,9 +398,9 @@ export const conversationController = {
 
       // Get room service to check online status
       const roomService = getRoomService();
-      const onlineUserIds = new Set();
+      const onlineUserIds = roomService.getOnlineUserIds();
 
-      // Check which doctors are online (simplified - in real app you'd track this better)
+      // Check which doctors are online
       const doctorsWithStatus = doctors.map(doctor => ({
         ...doctor,
         isOnline: onlineUserIds.has(doctor.id)

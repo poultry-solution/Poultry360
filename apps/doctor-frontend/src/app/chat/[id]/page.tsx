@@ -124,19 +124,26 @@ export default function DoctorChatPage() {
               </Button>
               <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
                 <span className="text-primary-foreground font-bold text-sm">
-                  {conversation.farmer.name.split(' ').map(n => n[0]).join('')}
+                  {(() => {
+                    const name = conversation?.farmer?.name || '';
+                    const trimmed = name.trim();
+                    if (!trimmed) return '?';
+                    const parts = trimmed.split(/\s+/);
+                    const initials = parts.slice(0, 2).map((p: string) => p[0]).join('').toUpperCase();
+                    return initials || '?';
+                  })()}
                 </span>
               </div>
               <div>
-                <CardTitle className="text-lg">{conversation.farmer.name}</CardTitle>
+                <CardTitle className="text-lg">{conversation?.farmer?.name || 'Unknown Farmer'}</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  {conversation.subject || 'Veterinary Consultation'}
+                  {conversation?.subject || 'Veterinary Consultation'}
                 </p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
               <Badge variant="secondary" className="bg-green-100 text-green-800">
-                {conversation.status}
+                {conversation?.status || 'UNKNOWN'}
               </Badge>
               <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
               <Button variant="ghost" size="sm" className="p-2">
@@ -150,7 +157,7 @@ export default function DoctorChatPage() {
             <p className="text-sm text-blue-800">
               <strong>Status:</strong> {isConnected ? 'Connected' : 'Disconnected'} • 
               <strong> Messages:</strong> {messages.length} • 
-              <strong> Started:</strong> {formatTime(conversation.createdAt)}
+              <strong> Started:</strong> {conversation?.createdAt ? formatTime(conversation.createdAt) : 'Unknown'}
             </p>
           </div>
         </CardHeader>
@@ -162,8 +169,11 @@ export default function DoctorChatPage() {
           <div className="h-full flex flex-col">
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.map((message) => {
-                const isDoctor = message.sender.role === 'DOCTOR';
+              {messages.map((message: any) => {
+                const senderRole = message?.sender?.role;
+                const isDoctor = senderRole === 'DOCTOR';
+                const isOwner = senderRole === 'OWNER';
+                
                 return (
                   <div
                     key={message.id}
@@ -176,23 +186,32 @@ export default function DoctorChatPage() {
                           : 'bg-muted'
                       } rounded-lg p-3`}
                     >
-                      {message.messageType === 'IMAGE' && (
+                      {message?.messageType === 'IMAGE' && (
                         <div className="mb-2">
                           <div className="text-sm italic">
-                            [Image: {message.text}]
+                            [Image: {message?.text || ''}]
                           </div>
                         </div>
                       )}
-                      {message.messageType === 'TEXT' && (
-                        <p className="text-sm">{message.text}</p>
+                      {message?.messageType === 'TEXT' && (
+                        <p className="text-sm">{message?.text || ''}</p>
                       )}
-                      <p className={`text-xs mt-1 ${
-                        isDoctor 
-                          ? 'text-primary-foreground/70' 
-                          : 'text-muted-foreground'
-                      }`}>
-                        {formatTime(message.createdAt)}
-                      </p>
+                      <div className="flex justify-between items-center mt-1">
+                        <p className={`text-xs ${
+                          isDoctor 
+                            ? 'text-primary-foreground/70' 
+                            : 'text-muted-foreground'
+                        }`}>
+                          {message?.createdAt ? formatTime(message.createdAt) : ''}
+                        </p>
+                        <p className={`text-xs ${
+                          isDoctor 
+                            ? 'text-primary-foreground/70' 
+                            : 'text-muted-foreground'
+                        }`}>
+                          {isDoctor ? 'You' : message?.sender?.name || 'Owner'}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 );

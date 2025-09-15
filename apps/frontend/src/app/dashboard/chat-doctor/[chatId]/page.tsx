@@ -121,11 +121,18 @@ export default function ChatPage() {
               </Button>
               <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
                 <span className="text-primary-foreground font-bold text-sm">
-                  {conversation.doctor.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                  {(() => {
+                    const name = conversation?.doctor?.name || '';
+                    const trimmed = name.trim();
+                    if (!trimmed) return '?';
+                    const parts = trimmed.split(/\s+/);
+                    const initials = parts.slice(0, 2).map((p: string) => p[0]).join('').toUpperCase();
+                    return initials || '?';
+                  })()}
                 </span>
               </div>
               <div>
-                <CardTitle className="text-lg">{conversation.doctor.name}</CardTitle>
+                <CardTitle className="text-lg">{conversation?.doctor?.name || 'Unknown Doctor'}</CardTitle>
                 <p className="text-sm text-muted-foreground">Veterinary Doctor</p>
               </div>
             </div>
@@ -133,12 +140,12 @@ export default function ChatPage() {
               <Badge 
                 variant="secondary" 
                 className={`${
-                  conversation.doctor.isOnline 
+                  conversation?.doctor?.isOnline 
                     ? 'bg-green-100 text-green-800' 
                     : 'bg-gray-100 text-gray-800'
                 }`}
               >
-                {conversation.doctor.isOnline ? 'Online' : 'Offline'}
+                {conversation?.doctor?.isOnline ? 'Online' : 'Offline'}
               </Badge>
               <Button variant="ghost" size="sm" className="p-2">
                 <MoreVertical className="h-4 w-4" />
@@ -154,19 +161,21 @@ export default function ChatPage() {
           <div className="h-full flex flex-col">
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.sender.role === 'FARMER' ? 'justify-end' : 'justify-start'}`}
-                >
+              {messages.map((message: any) => {
+                const isOwner = message?.sender?.role === 'OWNER';
+                return (
                   <div
-                    className={`max-w-[80%] sm:max-w-[70%] ${
-                      message.sender.role === 'FARMER'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted'
-                    } rounded-lg p-3`}
+                    key={message.id}
+                    className={`flex ${isOwner ? 'justify-end' : 'justify-start'}`}
                   >
-                    {message.messageType === 'IMAGE' && (
+                    <div
+                      className={`max-w-[80%] sm:max-w-[70%] ${
+                        isOwner
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted'
+                      } rounded-lg p-3`}
+                    >
+                    {message?.messageType === 'IMAGE' && (
                       <div className="mb-2">
                         <div className="bg-gray-200 rounded-lg p-4 text-center">
                           <Image className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -174,17 +183,18 @@ export default function ChatPage() {
                         </div>
                       </div>
                     )}
-                    <p className="text-sm">{message.text}</p>
+                    <p className="text-sm">{message?.text || ''}</p>
                     <p className={`text-xs mt-1 ${
-                      message.sender.role === 'FARMER' 
+                      isOwner 
                         ? 'text-primary-foreground/70' 
                         : 'text-muted-foreground'
                     }`}>
-                      {formatTime(message.createdAt)}
+                      {message?.createdAt ? formatTime(message.createdAt) : ''}
                     </p>
                   </div>
                 </div>
-              ))}
+                );
+              })}
               
               {/* Typing Indicator */}
               {typingUsers.length > 0 && (

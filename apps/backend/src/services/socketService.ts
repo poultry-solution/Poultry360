@@ -70,6 +70,11 @@ export class SocketService {
     this.io.on('connection', (socket: AuthenticatedSocket) => {
       console.log(`User ${socket.userId} (${socket.userName}) connected with socket ${socket.id}`);
 
+      // Mark presence on connect
+      if (socket.userId) {
+        this.roomService.markUserOnline(socket.userId);
+      }
+
       // Join conversation room
       socket.on('join_conversation', async (data: { conversationId: string }) => {
         try {
@@ -154,6 +159,7 @@ export class SocketService {
             text: message.text,
             senderId: message.sender.id,
             senderName: message.sender.name,
+            senderRole: message.sender.role,
             messageType: message.messageType,
             createdAt: message.createdAt
           });
@@ -209,6 +215,7 @@ export class SocketService {
       socket.on('disconnect', () => {
         console.log(`User ${socket.userId} (${socket.userName}) disconnected`);
         this.roomService.leaveRoom(socket.id);
+        this.roomService.markUserOffline(socket.userId);
       });
 
       // Handle errors

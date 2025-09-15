@@ -22,6 +22,7 @@ export class RoomService {
   private rooms: Map<string, RoomData> = new Map();
   private userSockets: Map<string, string> = new Map(); // userId -> socketId
   private socketUsers: Map<string, string> = new Map(); // socketId -> userId
+  private onlineUserIds: Set<string> = new Set(); // presence by connection, independent of rooms
 
   constructor(private io: SocketIOServer) {}
 
@@ -190,6 +191,34 @@ export class RoomService {
   }
 
   /**
+   * Explicitly mark a user online on socket connect
+   */
+  markUserOnline(userId: string): void {
+    this.onlineUserIds.add(userId);
+  }
+
+  /**
+   * Explicitly mark a user offline on socket disconnect
+   */
+  markUserOffline(userId: string | undefined): void {
+    if (!userId) return;
+    this.onlineUserIds.delete(userId);
+  }
+
+  /**
+   * Get set of online user IDs (presence union: global presence OR present in any room)
+   */
+  getOnlineUserIds(): Set<string> {
+    const online = new Set<string>(this.onlineUserIds);
+    for (const room of this.rooms.values()) {
+      for (const user of room.users.values()) {
+        online.add(user.userId);
+      }
+    }
+    return online;
+  }
+
+  /**
    * Get room data
    */
   getRoom(conversationId: string): RoomData | undefined {
@@ -241,6 +270,7 @@ export class RoomService {
       text: string;
       senderId: string;
       senderName: string;
+      senderRole: string;
       messageType: 'TEXT' | 'IMAGE' | 'FILE';
       createdAt: Date;
     }

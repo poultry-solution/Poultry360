@@ -61,6 +61,17 @@ export default function ChatDoctorPage() {
       }
     } catch (error: any) {
       console.error('Failed to start conversation:', error);
+      
+      // Handle 409 conflict - conversation already exists
+      if (error?.response?.status === 409) {
+        const existingConversationId = error?.response?.data?.conversationId;
+        if (existingConversationId) {
+          toast.info('Conversation already exists. Redirecting...');
+          router.push(`/dashboard/chat-doctor/${existingConversationId}`);
+          return;
+        }
+      }
+      
       toast.error(error?.response?.data?.error || 'Failed to start conversation');
     }
   };

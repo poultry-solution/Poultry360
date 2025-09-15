@@ -10,9 +10,7 @@ import {
   useUnreadCount,
   chatKeys
 } from '@/services/chatservices/chatQueries';
-import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { useAuthStore } from '@/store/authStore';
-import axiosInstance from '@/lib/axios';
+import { useQueryClient } from '@tanstack/react-query';
 import type { 
   Conversation, 
   Message, 
@@ -87,11 +85,18 @@ export const useCurrentConversation = (conversationId?: string) => {
   // Auto-join conversation when conversationId changes
   useEffect(() => {
     if (activeConversationId && isConnected) {
-      joinConversation(activeConversationId);
+      // Add a small delay to ensure connection is stable
+      const timeoutId = setTimeout(() => {
+        if (isConnected) {
+          joinConversation(activeConversationId);
+        }
+      }, 200);
+      
+      return () => clearTimeout(timeoutId);
     }
     
     return () => {
-      if (activeConversationId) {
+      if (activeConversationId && isConnected) {
         leaveConversation();
       }
     };
@@ -117,9 +122,10 @@ export const useCurrentConversation = (conversationId?: string) => {
     }
   }, [activeConversationId, markMessagesAsRead]);
 
+  console.log(query.data?.messages);
   return {
-    conversation: query.data,
-    messages: contextMessages.length > 0 ? contextMessages : (query.data?.messages || []),
+    conversation: (query.data as any)?.conversation,
+    messages: contextMessages.length > 0 ? contextMessages : ((query.data as any)?.messages || []),
     isLoading: query.isLoading,
     error: query.error,
     isConnected,
@@ -279,6 +285,7 @@ export const useDoctors = () => {
     return query.data?.doctors.filter(doctor => !doctor.isOnline) || [];
   }, [query.data]);
 
+  console.log(query.data?.doctors);
   return {
     ...query,
     doctors: query.data?.doctors || [],
@@ -289,9 +296,9 @@ export const useDoctors = () => {
 
 // ==================== UNREAD COUNT HOOK ====================
 
-export const useUnreadCounts = (enabled: boolean = true) => {
+export const useUnreadCounts = () => {
   const { unreadCounts: contextUnreadCounts } = useChatContext();
-  const query = useUnreadCount(enabled);
+  const query = useUnreadCount();
 
   return {
     ...query,
@@ -328,29 +335,5 @@ export const useTypingIndicator = (conversationId: string) => {
     typingText: currentTypingUsers.length > 0 
       ? `${currentTypingUsers.length} user${currentTypingUsers.length > 1 ? 's' : ''} typing...`
       : '',
-  };
-};
-
-// ==================== DOCTOR STATUS HOOK ====================
-
-export const useDoctorStatus = () => {
-  const { user } = useAuthStore();
-  
-  const updateOnlineStatus = useMutation({
-    mutationFn: async (isOnline: boolean) => {
-      const response = await axiosInstance.put('/doctors/online-status', { isOnline });
-      return response.data;
-    },
-    onSuccess: (data) => {
-      console.log('✅ Online status updated successfully:', data);
-    },
-    onError: (error) => {
-      console.error('❌ Failed to update online status:', error);
-    },
-  });
-
-  return {
-    updateOnlineStatus: updateOnlineStatus.mutateAsync,
-    isUpdating: updateOnlineStatus.isPending,
   };
 };
