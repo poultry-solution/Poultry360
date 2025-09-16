@@ -24,6 +24,7 @@ import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import Link from "next/link";
 import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
 import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
 import { useInventory } from "@/contexts/InventoryContext";
@@ -645,9 +646,10 @@ export default function DashboardPage() {
               </div>
             ) : (
               farms.map((farm) => (
-                <div
+                <Link
                   key={farm.id}
-                  className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60"
+                  href={`/dashboard/farms/${farm.id}`}
+                  className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60 hover:bg-muted cursor-pointer"
                 >
                   <div>
                     <div className="font-medium">{farm.name}</div>
@@ -658,7 +660,7 @@ export default function DashboardPage() {
                   <div className="text-right text-sm">
                     Batches: {farm._count?.batches || 0}
                   </div>
-                </div>
+                </Link>
               ))
             )}
           </div>
@@ -688,21 +690,17 @@ export default function DashboardPage() {
               </div>
             ) : (
               activeBatches.map((batch) => (
-                <div
+                <Link
                   key={batch.id}
-                  className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60"
+                  href={`/dashboard/batches/${batch.id}`}
+                  className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60 hover:bg-muted cursor-pointer"
                 >
                   <div>
                     <div className="font-medium">{batch.batchNumber}</div>
                     <div className="text-xs text-muted-foreground">
-                      {batch.farm.name} • Birds{" "}
-                      {batch.initialChicks.toLocaleString()} • Age{" "}
-                      {Math.floor(
-                        (new Date().getTime() -
-                          new Date(batch.startDate).getTime()) /
-                          (1000 * 60 * 60 * 24)
-                      )}{" "}
-                      days
+                      {batch.farm.name} • Birds {batch.initialChicks.toLocaleString()} • Age {Math.floor(
+                        (new Date().getTime() - new Date(batch.startDate).getTime()) / (1000 * 60 * 60 * 24)
+                      )} days
                     </div>
                   </div>
                   <div
@@ -714,7 +712,7 @@ export default function DashboardPage() {
                   >
                     {batch.status}
                   </div>
-                </div>
+                </Link>
               ))
             )}
           </div>

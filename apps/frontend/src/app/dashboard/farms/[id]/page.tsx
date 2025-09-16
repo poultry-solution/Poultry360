@@ -36,7 +36,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useGetFarmById, useGetFarmAnalytics, useDeleteFarm } from "@/fetchers/farms/farmQueries";
-import { useGetAllBatches, useCreateBatch } from "@/fetchers/batches/batchQueries";
+import { useGetAllBatches, useCreateBatch, useDeleteBatch } from "@/fetchers/batches/batchQueries";
 import { toast } from "sonner";
 import { FarmResponse, BatchResponse } from "@myapp/shared-types";
 
@@ -82,6 +82,7 @@ export default function FarmDetailPage() {
   // Delete farm mutation
   const deleteFarmMutation = useDeleteFarm();
   const createBatchMutation = useCreateBatch();
+  const deleteBatchMutation = useDeleteBatch();
 
   const farm = farmResponse?.data;
   const analytics = analyticsResponse?.data;
@@ -130,6 +131,8 @@ export default function FarmDetailPage() {
 
   // --- Create Batch (local modal) ---
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [isDeleteBatchModalOpen, setIsDeleteBatchModalOpen] = useState(false);
+  const [batchToDelete, setBatchToDelete] = useState<{ id: string; name: string } | null>(null);
   const [batchForm, setBatchForm] = useState({
     batchNumber: "",
     startDate: getTodayLocalDate(),
@@ -543,6 +546,18 @@ export default function FarmDetailPage() {
                           <Edit className="mr-2 h-4 w-4" />
                           Edit
                         </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => {
+                            setBatchToDelete({ id: batch.id, name: batch.batchNumber });
+                            setIsDeleteBatchModalOpen(true);
+                          }}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -591,6 +606,7 @@ export default function FarmDetailPage() {
           </Button>
           <Button
             variant="destructive"
+              className="bg-red-600 hover:bg-red-700 text-white"
             onClick={handleDeleteFarm}
             disabled={deleteFarmMutation.isPending}
           >
@@ -601,6 +617,63 @@ export default function FarmDetailPage() {
               </>
             ) : (
               "Delete Farm"
+            )}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Delete Batch Modal */}
+      <Modal
+        isOpen={isDeleteBatchModalOpen}
+        onClose={() => setIsDeleteBatchModalOpen(false)}
+        title="Delete Batch"
+      >
+        <ModalContent>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-3">
+              <AlertCircle className="h-6 w-6 text-red-500" />
+              <div>
+                <h3 className="text-lg font-semibold">Are you sure?</h3>
+                <p className="text-muted-foreground">
+                  This action cannot be undone. This will permanently delete batch
+                  {" "}
+                  <span className="font-medium">&quot;{batchToDelete?.name}&quot;</span>.
+                </p>
+              </div>
+            </div>
+          </div>
+        </ModalContent>
+        <ModalFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsDeleteBatchModalOpen(false)}
+            disabled={deleteBatchMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="default"
+            className="bg-red-600 hover:bg-red-700 text-white"
+            onClick={async () => {
+              if (!batchToDelete) return;
+              try {
+                await deleteBatchMutation.mutateAsync(batchToDelete.id);
+                toast.success("Batch deleted successfully!");
+                setIsDeleteBatchModalOpen(false);
+                setBatchToDelete(null);
+              } catch (error) {
+                console.error("Failed to delete batch:", error);
+              }
+            }}
+            disabled={deleteBatchMutation.isPending}
+          >
+            {deleteBatchMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              "Delete Batch"
             )}
           </Button>
         </ModalFooter>
