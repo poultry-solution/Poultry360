@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Pill, Plus, TrendingUp, Loader2 } from "lucide-react";
+import { Pill, Plus, TrendingUp, Loader2, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { getNowLocalDateTime } from "@/lib/utils";
@@ -23,6 +23,7 @@ import {
   useGetMedicalSupplierById,
   useCreateMedicalSupplier,
   useAddMedicalSupplierTransaction,
+  useDeleteMedicalSupplierTransaction,
 } from "@/fetchers/medicalSuppliers/medicalSupplierQueries";
 import { TransactionType } from "@myapp/shared-types";
 
@@ -32,6 +33,9 @@ export default function MedicalSupplierLedgerPage() {
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
   const [isAddEntryOpen, setIsAddEntryOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<{
     supplierId: string;
@@ -79,6 +83,7 @@ export default function MedicalSupplierLedgerPage() {
   // Mutations
   const createSupplierMutation = useCreateMedicalSupplier();
   const addTransactionMutation = useAddMedicalSupplierTransaction();
+  const deleteTxn = useDeleteMedicalSupplierTransaction();
 
   // Extract data from responses
   const suppliers = suppliersResponse?.data || [];
@@ -104,6 +109,48 @@ export default function MedicalSupplierLedgerPage() {
     const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
     const yyyy = d.getUTCFullYear();
     return `${dd}/${mm}/${yyyy}`;
+  }
+
+  function toggleAll() {
+    if (!activeSupplier?.transactionTable) return;
+    if (selectedIds.size === activeSupplier.transactionTable.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(activeSupplier.transactionTable.map((r: any) => r.itemName)));
+    }
+  }
+
+  function toggleOne(row: any) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const key = row.itemName;
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  function exitDeleteMode() {
+    setIsDeleteMode(false);
+    setSelectedIds(new Set());
+  }
+
+  async function confirmDeleteSelected() {
+    if (!activeSupplierId || selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    let failed = 0;
+    await Promise.all(
+      ids.map(async (entryId) => {
+        try {
+          await deleteTxn.mutateAsync({ supplierId: activeSupplierId, entryId });
+        } catch (e) {
+          failed += 1;
+        }
+      })
+    );
+    exitDeleteMode();
+    setIsConfirmDeleteOpen(false);
+    if (failed === 0) toast.success("Selected entries deleted");
+    else toast.error(`Failed to delete ${failed} entr${failed === 1 ? 'y' : 'ies'}`);
   }
 
   // Column configuration for DataTable
@@ -423,6 +470,37 @@ export default function MedicalSupplierLedgerPage() {
         </ModalFooter>
       </Modal>
 
+      {/* Confirm Delete Modal */}
+      <Modal
+        isOpen={isConfirmDeleteOpen}
+        onClose={() => setIsConfirmDeleteOpen(false)}
+        title={`Delete ${selectedIds.size} entr${selectedIds.size === 1 ? 'y' : 'ies'}?`}
+      >
+        <ModalContent>
+          <p className="text-sm text-muted-foreground">
+            This action cannot be undone. The selected entries will be permanently removed.
+          </p>
+        </ModalContent>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setIsConfirmDeleteOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            className="bg-red-600 hover:bg-red-700 text-white"
+            onClick={confirmDeleteSelected}
+            disabled={deleteTxn.isPending}
+          >
+            {deleteTxn.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+              </>
+            ) : (
+              "Delete"
+            )}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
       {/* Add Supplier Modal */}
       <Modal
         isOpen={isAddSupplierOpen}
@@ -514,7 +592,7 @@ export default function MedicalSupplierLedgerPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="rate">Rate (per unit)</Label>
+                  <Label htmlFor="rate">Rate (per liter/Kg)</Label>
                   <Input
                     id="rate"
                     type="number"
@@ -526,7 +604,7 @@ export default function MedicalSupplierLedgerPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="quantity">Quantity</Label>
+                  <Label htmlFor="quantity">Quantity (Liter/Kg) </Label>
                   <Input
                     id="quantity"
                     type="number"
@@ -831,13 +909,42 @@ export default function MedicalSupplierLedgerPage() {
                 <CardTitle>
                   {activeSupplier?.name || "Select a supplier"}
                 </CardTitle>
-                <Button
-                  className="bg-primary hover:bg-primary/90"
-                  onClick={() => setIsAddEntryOpen(true)}
-                  disabled={!activeSupplierId}
-                >
-                  <Plus className="mr-2 h-4 w-4" /> Add Entry
-                </Button>
+                <div className="flex gap-2">
+                  {isDeleteMode ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={exitDeleteMode}
+                      >
+                        <X className="mr-2 h-4 w-4" /> Cancel
+                      </Button>
+                      <Button
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                        disabled={selectedIds.size === 0 || deleteTxn.isPending}
+                        onClick={() => setIsConfirmDeleteOpen(true)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete ({selectedIds.size})
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsDeleteMode(true)}
+                        disabled={!activeSupplierId}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete Entries
+                      </Button>
+                      <Button
+                        className="bg-primary hover:bg-primary/90"
+                        onClick={() => setIsAddEntryOpen(true)}
+                        disabled={!activeSupplierId}
+                      >
+                        <Plus className="mr-2 h-4 w-4" /> Add Entry
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
               <CardDescription>
                 {activeSupplier
@@ -855,6 +962,16 @@ export default function MedicalSupplierLedgerPage() {
                 <DataTable
                   data={activeSupplier?.transactionTable || []}
                   columns={ledgerColumns}
+                  selectable={isDeleteMode}
+                  isAllSelected={
+                    !!activeSupplier?.transactionTable &&
+                    selectedIds.size > 0 &&
+                    selectedIds.size === activeSupplier.transactionTable.length
+                  }
+                  onToggleAll={toggleAll}
+                  isRowSelected={(row: any) => selectedIds.has(row.itemName)}
+                  onToggleRow={toggleOne}
+                  getRowKey={(row: any) => row.itemName}
                   showFooter={true}
                   footerContent={
                     <div className="grid grid-cols-9 gap-4 text-sm">

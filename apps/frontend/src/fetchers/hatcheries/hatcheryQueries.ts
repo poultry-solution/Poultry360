@@ -191,3 +191,27 @@ export const useAddHatcheryTransaction = () => {
     },
   });
 };
+
+export const useDeleteHatcheryTransaction = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      hatcheryId,
+      entryId,
+    }: {
+      hatcheryId: string;
+      entryId: string;
+    }) => {
+      const response = await axiosInstance.delete(
+        `${API_BASE}/hatcheries/${hatcheryId}/transactions/${encodeURIComponent(entryId)}`
+      );
+      return response.data;
+    },
+    onSuccess: (_, { hatcheryId }) => {
+      queryClient.invalidateQueries({ queryKey: hatcheryKeys.detail(hatcheryId) });
+      queryClient.invalidateQueries({ queryKey: hatcheryKeys.transactions(hatcheryId) });
+      queryClient.invalidateQueries({ queryKey: hatcheryKeys.statistics() });
+    },
+  });
+};

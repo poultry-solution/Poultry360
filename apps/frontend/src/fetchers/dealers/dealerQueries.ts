@@ -205,3 +205,28 @@ export const useAddDealerTransaction = () => {
     },
   });
 };
+
+// Delete dealer transaction
+export const useDeleteDealerTransaction = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      dealerId,
+      entryId,
+    }: {
+      dealerId: string;
+      entryId: string;
+    }) => {
+      const response = await axiosInstance.delete(
+        `/dealers/${dealerId}/transactions/${encodeURIComponent(entryId)}`
+      );
+      return response.data;
+    },
+    onSuccess: (_, { dealerId }) => {
+      queryClient.invalidateQueries({ queryKey: dealerKeys.detail(dealerId) });
+      queryClient.invalidateQueries({ queryKey: dealerKeys.transactions(dealerId) });
+      queryClient.invalidateQueries({ queryKey: dealerKeys.statistics() });
+    },
+  });
+};

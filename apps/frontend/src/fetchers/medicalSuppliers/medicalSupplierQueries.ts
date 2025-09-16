@@ -211,3 +211,28 @@ export const useAddMedicalSupplierTransaction = () => {
     },
   });
 };
+
+// Delete medical supplier transaction
+export const useDeleteMedicalSupplierTransaction = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      supplierId,
+      entryId,
+    }: {
+      supplierId: string;
+      entryId: string;
+    }) => {
+      const response = await axiosInstance.delete(
+        `/medical-suppliers/${supplierId}/transactions/${encodeURIComponent(entryId)}`
+      );
+      return response.data;
+    },
+    onSuccess: (_, { supplierId }) => {
+      queryClient.invalidateQueries({ queryKey: medicalSupplierKeys.detail(supplierId) });
+      queryClient.invalidateQueries({ queryKey: medicalSupplierKeys.transactions(supplierId) });
+      queryClient.invalidateQueries({ queryKey: medicalSupplierKeys.statistics() });
+    },
+  });
+};

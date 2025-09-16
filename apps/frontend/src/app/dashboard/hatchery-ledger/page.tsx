@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Egg, Plus, TrendingUp, Loader2 } from "lucide-react";
+import { Egg, Plus, TrendingUp, Loader2, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { getTodayLocalDate } from "@/lib/utils";
@@ -16,12 +16,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DataTable, Column, createColumn } from "@/components/ui/data-table";
 import { toast } from "sonner";
-import {
+import { 
   useGetAllHatcheries,
   useGetHatcheryStatistics,
   useGetHatcheryById,
   useCreateHatchery,
   useAddHatcheryTransaction,
+  useDeleteHatcheryTransaction,
 } from "@/fetchers/hatcheries/hatcheryQueries";
 import { TransactionType } from "@myapp/shared-types";
 
@@ -32,6 +33,9 @@ export default function HatcheryLedgerPage() {
   const [isAddEntryOpen, setIsAddEntryOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<{
     hatcheryId: string;
     entryId: string;
@@ -76,6 +80,7 @@ export default function HatcheryLedgerPage() {
   // Mutations
   const createHatcheryMutation = useCreateHatchery();
   const addTransactionMutation = useAddHatcheryTransaction();
+  const deleteTxn = useDeleteHatcheryTransaction();
 
   // Extract data from responses
   const hatcheries = hatcheriesResponse?.data || [];
@@ -419,6 +424,51 @@ export default function HatcheryLedgerPage() {
         <ModalFooter>
           <Button variant="outline" onClick={() => setIsModalOpen(false)}>
             Close
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Confirm Delete Modal */}
+      <Modal
+        isOpen={isConfirmDeleteOpen}
+        onClose={() => setIsConfirmDeleteOpen(false)}
+        title={`Delete ${selectedIds.size} entr${selectedIds.size === 1 ? 'y' : 'ies'}?`}
+      >
+        <ModalContent>
+          <p className="text-sm text-muted-foreground">
+            This action cannot be undone. The selected entries will be permanently removed.
+          </p>
+        </ModalContent>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setIsConfirmDeleteOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            className="bg-red-600 hover:bg-red-700 text-white"
+            onClick={async () => {
+              if (!activeHatcheryId || selectedIds.size === 0) return;
+              const ids = Array.from(selectedIds);
+              let failed = 0;
+              await Promise.all(ids.map(async (entryId) => {
+                try {
+                  await deleteTxn.mutateAsync({ hatcheryId: activeHatcheryId, entryId });
+                } catch (e) { failed += 1; }
+              }));
+              setIsConfirmDeleteOpen(false);
+              setIsDeleteMode(false);
+              setSelectedIds(new Set());
+              if (failed === 0) toast.success("Selected entries deleted");
+              else toast.error(`Failed to delete ${failed} entr${failed === 1 ? 'y' : 'ies'}`);
+            }}
+            disabled={deleteTxn.isPending}
+          >
+            {deleteTxn.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+              </>
+            ) : (
+              "Delete"
+            )}
           </Button>
         </ModalFooter>
       </Modal>
@@ -838,13 +888,39 @@ export default function HatcheryLedgerPage() {
                   activeHatchery?.name || "Select a hatchery"
                 )}
               </CardTitle>
-              <Button
-                className="bg-primary hover:bg-primary/90"
-                onClick={() => setIsAddEntryOpen(true)}
-                disabled={!activeHatcheryId}
-              >
-                <Plus className="mr-2 h-4 w-4" /> Add Entry
-              </Button>
+              <div className="flex gap-2">
+                {isDeleteMode ? (
+                  <>
+                    <Button variant="outline" onClick={() => { setIsDeleteMode(false); setSelectedIds(new Set()); }}>
+                      <X className="mr-2 h-4 w-4" /> Cancel
+                    </Button>
+                    <Button
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                      disabled={selectedIds.size === 0 || deleteTxn.isPending}
+                      onClick={() => setIsConfirmDeleteOpen(true)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete ({selectedIds.size})
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsDeleteMode(true)}
+                      disabled={!activeHatcheryId}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete Entries
+                    </Button>
+                    <Button
+                      className="bg-primary hover:bg-primary/90"
+                      onClick={() => setIsAddEntryOpen(true)}
+                      disabled={!activeHatcheryId}
+                    >
+                      <Plus className="mr-2 h-4 w-4" /> Add Entry
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
             <CardDescription>Itemized ledger for this hatchery</CardDescription>
           </CardHeader>
@@ -858,6 +934,27 @@ export default function HatcheryLedgerPage() {
             <DataTable
                 data={activeHatchery?.transactionTable || []}
               columns={ledgerColumns}
+              selectable={isDeleteMode}
+              isAllSelected={
+                !!activeHatchery?.transactionTable &&
+                selectedIds.size > 0 &&
+                selectedIds.size === activeHatchery.transactionTable.length
+              }
+              onToggleAll={() => {
+                if (!activeHatchery?.transactionTable) return;
+                if (selectedIds.size === activeHatchery.transactionTable.length) setSelectedIds(new Set());
+                else setSelectedIds(new Set(activeHatchery.transactionTable.map((r: any) => r.itemName)));
+              }}
+              isRowSelected={(row: any) => selectedIds.has(row.itemName)}
+              onToggleRow={(row: any) => {
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  const key = row.itemName;
+                  if (next.has(key)) next.delete(key); else next.add(key);
+                  return next;
+                });
+              }}
+              getRowKey={(row: any) => row.itemName}
               showFooter={true}
               footerContent={
                 <div className="grid grid-cols-9 gap-4 text-sm">

@@ -39,6 +39,13 @@ export interface DataTableProps<T = any> {
   showHeader?: boolean;
   showFooter?: boolean;
   footerContent?: React.ReactNode;
+  // Selection (optional)
+  selectable?: boolean;
+  isAllSelected?: boolean;
+  onToggleAll?: () => void;
+  isRowSelected?: (row: T) => boolean;
+  onToggleRow?: (row: T) => void;
+  getRowKey?: (row: T, index: number) => string;
 }
 
 export function DataTable<T = any>({
@@ -53,12 +60,18 @@ export function DataTable<T = any>({
   className,
   showHeader = true,
   showFooter = false,
-  footerContent
+  footerContent,
+  selectable = false,
+  isAllSelected,
+  onToggleAll,
+  isRowSelected,
+  onToggleRow,
+  getRowKey
 }: DataTableProps<T>) {
-  const gridTemplate = React.useMemo(
-    () => columns.map((c) => `minmax(${c.width ?? '140px'}, 1fr)`).join(' '),
-    [columns]
-  );
+  const gridTemplate = React.useMemo(() => {
+    const base = columns.map((c) => `minmax(${c.width ?? '140px'}, 1fr)`);
+    return [selectable ? '48px' : '', ...base].filter(Boolean).join(' ');
+  }, [columns, selectable]);
   const handleSort = (key: string) => {
     if (!onSort) return;
     
@@ -147,6 +160,17 @@ export function DataTable<T = any>({
           {showHeader && (
             <div className="bg-gray-50 border-b border-gray-200">
               <div className="grid" style={{ gridTemplateColumns: gridTemplate }}>
+              {selectable && (
+                <div className={cn("px-4 py-3 text-sm font-semibold text-gray-900 border-r border-gray-200 flex items-center justify-center")}> 
+                  <input
+                    type="checkbox"
+                    aria-label="Select all rows"
+                    className="h-4 w-4 cursor-pointer"
+                    checked={!!isAllSelected}
+                    onChange={onToggleAll}
+                  />
+                </div>
+              )}
               {columns.map((column) => (
                 <div
                   key={column.key}
@@ -196,13 +220,24 @@ export function DataTable<T = any>({
             ) : (
               data.map((row, index) => (
                 <div
-                  key={index}
+                  key={getRowKey ? getRowKey(row, index) : index}
                   className={cn(
                     "grid hover:bg-gray-50 transition-colors duration-150",
                     index % 2 === 0 ? "bg-white" : "bg-gray-50/30"
                   )}
                   style={{ gridTemplateColumns: gridTemplate }}
                 >
+                  {selectable && (
+                    <div className={cn("px-4 py-3 text-sm border-r border-gray-200 flex items-center justify-center")}>
+                      <input
+                        type="checkbox"
+                        aria-label="Select row"
+                        className="h-4 w-4 cursor-pointer"
+                        checked={isRowSelected ? !!isRowSelected(row) : false}
+                        onChange={() => onToggleRow && onToggleRow(row)}
+                      />
+                    </div>
+                  )}
                   {columns.map((column) => (
                     <div
                       key={column.key}

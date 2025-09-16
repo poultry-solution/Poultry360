@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Users, Plus, TrendingUp, Loader2 } from "lucide-react";
+import { Users, Plus, TrendingUp, Loader2, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { getNowLocalDateTime } from "@/lib/utils";
@@ -17,12 +17,13 @@ import { Label } from "@/components/ui/label";
 import { DataTable, Column, createColumn } from "@/components/ui/data-table";
 import { useInventory } from "@/contexts/InventoryContext";
 import { toast } from "sonner";
-import {
+import { 
   useGetAllDealers,
   useGetDealerStatistics,
   useGetDealerById,
   useCreateDealer,
   useAddDealerTransaction,
+  useDeleteDealerTransaction,
 } from "@/fetchers/dealers/dealerQueries";
 import { TransactionType } from "@myapp/shared-types";
 
@@ -33,6 +34,9 @@ export default function DealerLedgerPage() {
   const [isAddEntryOpen, setIsAddEntryOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<{
     dealerId: string;
     entryId: string;
@@ -79,6 +83,7 @@ export default function DealerLedgerPage() {
   // Mutations
   const createDealerMutation = useCreateDealer();
   const addTransactionMutation = useAddDealerTransaction();
+  const deleteTxn = useDeleteDealerTransaction();
 
   // Extract data
   const dealers = dealersResponse?.data || [];
@@ -178,6 +183,48 @@ export default function DealerLedgerPage() {
       },
     }),
   ];
+
+  function toggleAll() {
+    if (!activeDealer?.transactionTable) return;
+    if (selectedIds.size === activeDealer.transactionTable.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(activeDealer.transactionTable.map((r: any) => r.itemName)));
+    }
+  }
+
+  function toggleOne(row: any) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const key = row.itemName;
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  function exitDeleteMode() {
+    setIsDeleteMode(false);
+    setSelectedIds(new Set());
+  }
+
+  async function confirmDeleteSelected() {
+    if (!activeDealerId || selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    let failed = 0;
+    await Promise.all(
+      ids.map(async (entryId) => {
+        try {
+          await deleteTxn.mutateAsync({ dealerId: activeDealerId, entryId });
+        } catch (e) {
+          failed += 1;
+        }
+      })
+    );
+    exitDeleteMode();
+    setIsConfirmDeleteOpen(false);
+    if (failed === 0) toast.success("Selected entries deleted");
+    else toast.error(`Failed to delete ${failed} entr${failed === 1 ? 'y' : 'ies'}`);
+  }
 
   async function handleAddDealer(e: React.FormEvent) {
     e.preventDefault();
@@ -413,6 +460,37 @@ export default function DealerLedgerPage() {
         <ModalFooter>
           <Button variant="outline" onClick={() => setIsSummaryOpen(false)}>
             Close
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Confirm Delete Modal */}
+      <Modal
+        isOpen={isConfirmDeleteOpen}
+        onClose={() => setIsConfirmDeleteOpen(false)}
+        title={`Delete ${selectedIds.size} entr${selectedIds.size === 1 ? 'y' : 'ies'}?`}
+      >
+        <ModalContent>
+          <p className="text-sm text-muted-foreground">
+            This action cannot be undone. The selected entries will be permanently removed.
+          </p>
+        </ModalContent>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setIsConfirmDeleteOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            className="bg-red-600 hover:bg-red-700 text-white"
+            onClick={confirmDeleteSelected}
+            disabled={deleteTxn.isPending}
+          >
+            {deleteTxn.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+              </>
+            ) : (
+              "Delete"
+            )}
           </Button>
         </ModalFooter>
       </Modal>
@@ -837,13 +915,39 @@ export default function DealerLedgerPage() {
                   <CardTitle>
                     {activeDealer?.name || "Select a dealer"}
                   </CardTitle>
-                  <Button
-                    className="bg-primary hover:bg-primary/90"
-                    onClick={() => setIsAddEntryOpen(true)}
-                    disabled={!activeDealerId}
-                  >
-                    <Plus className="mr-2 h-4 w-4" /> Add Entry
-                  </Button>
+                  <div className="flex gap-2">
+                    {isDeleteMode ? (
+                      <>
+                        <Button variant="outline" onClick={exitDeleteMode}>
+                          <X className="mr-2 h-4 w-4" /> Cancel
+                        </Button>
+                        <Button
+                          className="bg-red-600 hover:bg-red-700 text-white"
+                          disabled={selectedIds.size === 0 || deleteTxn.isPending}
+                          onClick={() => setIsConfirmDeleteOpen(true)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete ({selectedIds.size})
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsDeleteMode(true)}
+                          disabled={!activeDealerId}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete Entries
+                        </Button>
+                        <Button
+                          className="bg-primary hover:bg-primary/90"
+                          onClick={() => setIsAddEntryOpen(true)}
+                          disabled={!activeDealerId}
+                        >
+                          <Plus className="mr-2 h-4 w-4" /> Add Entry
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <CardDescription>
                   {activeDealer
@@ -861,6 +965,16 @@ export default function DealerLedgerPage() {
                   <DataTable
                     data={activeDealer?.transactionTable || []}
                     columns={ledgerColumns}
+                    selectable={isDeleteMode}
+                    isAllSelected={
+                      !!activeDealer?.transactionTable &&
+                      selectedIds.size > 0 &&
+                      selectedIds.size === activeDealer.transactionTable.length
+                    }
+                    onToggleAll={toggleAll}
+                    isRowSelected={(row: any) => selectedIds.has(row.itemName)}
+                    onToggleRow={toggleOne}
+                    getRowKey={(row: any) => row.itemName}
                     showFooter={true}
                     footerContent={
                       <div className="grid grid-cols-9 gap-4 text-sm">
