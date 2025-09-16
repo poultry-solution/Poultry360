@@ -9,7 +9,8 @@ import type {
   SendMessageData,
   Doctor,
   UnreadCounts,
-  SearchMessagesResponse
+  SearchMessagesResponse,
+  Message
 } from '@/types/chat';
 
 // ==================== QUERY KEYS ====================
@@ -102,13 +103,18 @@ export const useCreateConversation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: CreateConversationData): Promise<{ conversation: Conversation }> => {
+    mutationFn: async (data: CreateConversationData): Promise<{ conversation: Conversation; initialMessage?: Message }> => {
       const response = await axiosInstance.post('/conversations', data);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
       queryClient.invalidateQueries({ queryKey: chatKeys.doctors() });
+      
+      // If there's an initial message, invalidate the conversation messages
+      if (data.initialMessage && data.conversation) {
+        queryClient.invalidateQueries({ queryKey: chatKeys.conversation(data.conversation.id) });
+      }
     },
   });
 };
