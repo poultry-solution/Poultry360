@@ -36,6 +36,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useGetFarmById, useGetFarmAnalytics, useDeleteFarm } from "@/fetchers/farms/farmQueries";
+import { getTodayLocalDate } from "@/lib/utils";
 import { useGetAllBatches, useCreateBatch, useDeleteBatch } from "@/fetchers/batches/batchQueries";
 import { toast } from "sonner";
 import { FarmResponse, BatchResponse } from "@myapp/shared-types";
@@ -45,13 +46,7 @@ export default function FarmDetailPage() {
   const router = useRouter();
   const farmId = params.id as string;
 
-  const getTodayLocalDate = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+  
 
   // State for modals and filters
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -267,7 +262,7 @@ export default function FarmDetailPage() {
               {farm.name}
             </h1>
             <p className="text-muted-foreground">
-              Farm ID: {farm.id} • Capacity: {farm.capacity.toLocaleString()} birds
+              Capacity: {farm.capacity.toLocaleString()} birds
             </p>
           </div>
         </div>

@@ -21,7 +21,7 @@ const navigation = [
   { name: "Home", href: "/dashboard/home", icon: Home },
   { name: "Farms", href: "/dashboard/farms", icon: Building2 },
   { name: "Batches", href: "/dashboard/batches", icon: Layers },
-  { name: "Dealer Ledger", href: "/dashboard/dealer-ledger", icon: Users },
+  { name: "Feed Ledger", href: "/dashboard/dealer-ledger", icon: Users },
   {
     name: "Medical Supplier Ledger",
     href: "/dashboard/medical-supplier-ledger",

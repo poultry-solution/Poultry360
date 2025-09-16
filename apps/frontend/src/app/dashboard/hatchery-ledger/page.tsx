@@ -10,6 +10,7 @@ import {
 import { Egg, Plus, TrendingUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
+import { getTodayLocalDate } from "@/lib/utils";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -168,6 +169,13 @@ export default function HatcheryLedgerPage() {
     }
   }
 
+  // When Add Entry modal opens, default the Date field to today's local date (editable)
+  useEffect(() => {
+    if (isAddEntryOpen) {
+      setNewEntry((prev) => ({ ...prev, date: getTodayLocalDate() }));
+    }
+  }, [isAddEntryOpen]);
+
   async function handleAddPayment(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedEntry || !paymentForm.amount || !activeHatcheryId) return;
@@ -310,7 +318,7 @@ export default function HatcheryLedgerPage() {
           onClick={() => setIsAddHatcheryOpen(true)}
         >
           <Plus className="mr-2 h-4 w-4" />
-          Add Hatchery
+          Add Chicks Dealer
         </Button>
       </div>
 
@@ -419,7 +427,7 @@ export default function HatcheryLedgerPage() {
       <Modal
         isOpen={isAddHatcheryOpen}
         onClose={() => setIsAddHatcheryOpen(false)}
-        title="Add Hatchery"
+        title="Add Chicks Dealer"
       >
         <form onSubmit={handleAddHatchery}>
           <ModalContent>
@@ -822,7 +830,7 @@ export default function HatcheryLedgerPage() {
             ))
           )}
           <Button variant="outline" onClick={() => setIsAddHatcheryOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" /> Add Hatchery
+            <Plus className="mr-2 h-4 w-4" /> Add Chicks Dealer
           </Button>
         </div>
 

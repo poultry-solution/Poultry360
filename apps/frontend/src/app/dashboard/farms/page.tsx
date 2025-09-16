@@ -188,7 +188,6 @@ export default function FarmsPage() {
                     </span>
                     <ArrowRight className="h-4 w-4 text-muted-foreground" />
                   </CardTitle>
-                  <CardDescription>Farm ID: {farm.id}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">

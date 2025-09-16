@@ -10,6 +10,7 @@ import {
 import { Users, Plus, TrendingUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
+import { getNowLocalDateTime } from "@/lib/utils";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -251,6 +252,13 @@ export default function DealerLedgerPage() {
     }
   }
 
+  // Default Add Entry date to user's local now when modal opens (editable)
+  useEffect(() => {
+    if (isAddEntryOpen) {
+      setNewEntry((prev) => ({ ...prev, date: getNowLocalDateTime() }));
+    }
+  }, [isAddEntryOpen]);
+
   async function handleAddPayment(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedEntry || !paymentForm.amount || !activeDealerId) return;
@@ -305,7 +313,7 @@ export default function DealerLedgerPage() {
           onClick={() => setIsAddDealerOpen(true)}
         >
           <Plus className="mr-2 h-4 w-4" />
-          Add Dealer
+          Add Feed Dealer
         </Button>
       </div>
 
@@ -812,7 +820,7 @@ export default function DealerLedgerPage() {
               </Button>
             ))}
             <Button variant="outline" onClick={() => setIsAddDealerOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" /> Add Dealer
+              <Plus className="mr-2 h-4 w-4" /> Add Feed Dealer
             </Button>
           </div>
 

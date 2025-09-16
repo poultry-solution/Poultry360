@@ -10,6 +10,7 @@ import {
 import { Pill, Plus, TrendingUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
+import { getNowLocalDateTime } from "@/lib/utils";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -252,6 +253,13 @@ export default function MedicalSupplierLedgerPage() {
       // Error toast is handled by axios interceptor
     }
   }
+
+  // Default Add Entry date to user's local now when modal opens (editable)
+  useEffect(() => {
+    if (isAddEntryOpen) {
+      setNewEntry((prev) => ({ ...prev, date: getNowLocalDateTime() }));
+    }
+  }, [isAddEntryOpen]);
 
   async function handleAddPayment(e: React.FormEvent) {
     e.preventDefault();

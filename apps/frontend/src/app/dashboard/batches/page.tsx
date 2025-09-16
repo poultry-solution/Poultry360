@@ -21,18 +21,12 @@ import {
 } from "@/fetchers/batches/batchQueries";
 import { useGetUserFarms as useGetFarms } from "@/fetchers/farms/farmQueries";
 import { toast } from "sonner";
+import { getTodayLocalDate } from "@/lib/utils";
 import { BatchResponse, BatchStatus } from "@myapp/shared-types";
 
 export default function BatchesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const getTodayLocalDate = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
 
   // Fetch batches data
   const {
