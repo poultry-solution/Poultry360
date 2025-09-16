@@ -250,7 +250,6 @@ export default function FarmsPage() {
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  placeholder="Enter farm name"
                   required
                 />
               </div>
@@ -263,7 +262,6 @@ export default function FarmsPage() {
                   type="number"
                   value={formData.capacity}
                   onChange={handleInputChange}
-                  placeholder="Enter maximum capacity"
                   required
                 />
               </div>
@@ -275,7 +273,6 @@ export default function FarmsPage() {
                   name="description"
                   value={formData.description}
                   onChange={handleInputChange}
-                  placeholder="Enter farm description"
                   className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   rows={3}
                 />

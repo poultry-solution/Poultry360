@@ -722,7 +722,6 @@ export default function FarmDetailPage() {
                   type="number"
                   value={batchForm.initialChicks}
                   onChange={handleBatchChange}
-                  placeholder="e.g., 2500"
                   required
                 />
               </div>
@@ -735,7 +734,6 @@ export default function FarmDetailPage() {
                   step="0.001"
                   value={batchForm.initialChickWeight}
                   onChange={handleBatchChange}
-                  placeholder="e.g., 0.045"
                   required
                 />
               </div>
@@ -748,7 +746,6 @@ export default function FarmDetailPage() {
                   onChange={handleBatchChange}
                   className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   rows={3}
-                  placeholder="Any remarks"
                 />
               </div>
             </div>

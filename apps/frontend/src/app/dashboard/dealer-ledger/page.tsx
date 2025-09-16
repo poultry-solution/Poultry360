@@ -434,7 +434,6 @@ export default function DealerLedgerPage() {
                   onChange={(e) =>
                     setNewDealer({ ...newDealer, name: e.target.value })
                   }
-                  placeholder="e.g., ABC Feed Suppliers"
                   required
                 />
               </div>
@@ -446,7 +445,6 @@ export default function DealerLedgerPage() {
                   onChange={(e) =>
                     setNewDealer({ ...newDealer, contact: e.target.value })
                   }
-                  placeholder="Phone number or email"
                   required
                 />
               </div>
@@ -458,7 +456,6 @@ export default function DealerLedgerPage() {
                   onChange={(e) =>
                     setNewDealer({ ...newDealer, address: e.target.value })
                   }
-                  placeholder="Dealer address"
                 />
               </div>
             </div>
@@ -512,7 +509,7 @@ export default function DealerLedgerPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="rate">Rate (per unit)</Label>
+                  <Label htmlFor="rate">Rate (per kg)</Label>
                   <Input
                     id="rate"
                     type="number"
@@ -520,12 +517,11 @@ export default function DealerLedgerPage() {
                     onChange={(e) =>
                       setNewEntry({ ...newEntry, rate: e.target.value })
                     }
-                    placeholder="28"
                     required
                   />
                 </div>
                 <div>
-                  <Label htmlFor="quantity">Quantity</Label>
+                  <Label htmlFor="quantity">Quantity (kg)</Label>
                   <Input
                     id="quantity"
                     type="number"
@@ -533,7 +529,6 @@ export default function DealerLedgerPage() {
                     onChange={(e) =>
                       setNewEntry({ ...newEntry, quantity: e.target.value })
                     }
-                    placeholder="100"
                     required
                   />
                 </div>
@@ -546,7 +541,6 @@ export default function DealerLedgerPage() {
                     onChange={(e) =>
                       setNewEntry({ ...newEntry, paid: e.target.value })
                     }
-                    placeholder="2000"
                   />
                 </div>
               </div>
@@ -621,7 +615,6 @@ export default function DealerLedgerPage() {
                   onChange={(e) =>
                     setPaymentForm({ ...paymentForm, amount: e.target.value })
                   }
-                  placeholder="Enter amount"
                   required
                 />
               </div>
@@ -644,7 +637,6 @@ export default function DealerLedgerPage() {
                   onChange={(e) =>
                     setPaymentForm({ ...paymentForm, note: e.target.value })
                   }
-                  placeholder="Payment reference or note"
                 />
               </div>
             </div>

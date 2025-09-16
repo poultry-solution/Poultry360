@@ -436,7 +436,6 @@ export default function BatchesPage() {
                   type="number"
                   value={formData.initialChicks}
                   onChange={handleChange}
-                  placeholder="e.g., 2500"
                   required
                 />
               </div>
@@ -451,7 +450,6 @@ export default function BatchesPage() {
                   step="0.001"
                   value={formData.initialChickWeight}
                   onChange={handleChange}
-                  placeholder="e.g., 0.045"
                   required
                 />
               </div>
@@ -464,7 +462,6 @@ export default function BatchesPage() {
                   onChange={handleChange}
                   className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   rows={3}
-                  placeholder="Any remarks"
                 />
               </div>
             </div>

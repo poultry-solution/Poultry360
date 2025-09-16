@@ -440,7 +440,6 @@ export default function MedicalSupplierLedgerPage() {
                   onChange={(e) =>
                     setNewSupplier({ ...newSupplier, name: e.target.value })
                   }
-                  placeholder="e.g., Medico Pharma"
                   required
                 />
               </div>
@@ -452,7 +451,6 @@ export default function MedicalSupplierLedgerPage() {
                   onChange={(e) =>
                     setNewSupplier({ ...newSupplier, contact: e.target.value })
                   }
-                  placeholder="Phone number or email"
                   required
                 />
               </div>
@@ -464,7 +462,6 @@ export default function MedicalSupplierLedgerPage() {
                   onChange={(e) =>
                     setNewSupplier({ ...newSupplier, address: e.target.value })
                   }
-                  placeholder="Supplier address"
                 />
               </div>
             </div>
@@ -512,7 +509,6 @@ export default function MedicalSupplierLedgerPage() {
                   onChange={(e) =>
                     setNewEntry({ ...newEntry, item: e.target.value })
                   }
-                  placeholder="Medicine name"
                   required
                 />
               </div>
@@ -526,7 +522,6 @@ export default function MedicalSupplierLedgerPage() {
                     onChange={(e) =>
                       setNewEntry({ ...newEntry, rate: e.target.value })
                     }
-                    placeholder="12"
                     required
                   />
                 </div>
@@ -539,7 +534,6 @@ export default function MedicalSupplierLedgerPage() {
                     onChange={(e) =>
                       setNewEntry({ ...newEntry, quantity: e.target.value })
                     }
-                    placeholder="100"
                     required
                   />
                 </div>
@@ -552,7 +546,6 @@ export default function MedicalSupplierLedgerPage() {
                     onChange={(e) =>
                       setNewEntry({ ...newEntry, paid: e.target.value })
                     }
-                    placeholder="1000"
                   />
                 </div>
               </div>

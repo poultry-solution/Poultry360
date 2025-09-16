@@ -440,7 +440,6 @@ export default function HatcheryLedgerPage() {
                   onChange={(e) =>
                     setNewHatchery({ ...newHatchery, name: e.target.value })
                   }
-                  placeholder="e.g., Sunrise Hatchery"
                   required
                 />
               </div>
@@ -452,7 +451,6 @@ export default function HatcheryLedgerPage() {
                   onChange={(e) =>
                     setNewHatchery({ ...newHatchery, contact: e.target.value })
                   }
-                  placeholder="Phone number or email"
                   required
                 />
               </div>
@@ -464,7 +462,6 @@ export default function HatcheryLedgerPage() {
                   onChange={(e) =>
                     setNewHatchery({ ...newHatchery, address: e.target.value })
                   }
-                  placeholder="Hatchery address"
                 />
               </div>
             </div>
@@ -512,7 +509,6 @@ export default function HatcheryLedgerPage() {
                   onChange={(e) =>
                     setNewEntry({ ...newEntry, item: e.target.value })
                   }
-                  placeholder="Broiler Chicks"
                   required
                 />
               </div>
@@ -526,7 +522,6 @@ export default function HatcheryLedgerPage() {
                     onChange={(e) =>
                       setNewEntry({ ...newEntry, rate: e.target.value })
                     }
-                    placeholder="45"
                     required
                   />
                 </div>
@@ -539,7 +534,6 @@ export default function HatcheryLedgerPage() {
                     onChange={(e) =>
                       setNewEntry({ ...newEntry, quantity: e.target.value })
                     }
-                    placeholder="1000"
                     required
                   />
                 </div>
@@ -552,7 +546,6 @@ export default function HatcheryLedgerPage() {
                     onChange={(e) =>
                       setNewEntry({ ...newEntry, paid: e.target.value })
                     }
-                    placeholder="20000"
                   />
                 </div>
               </div>
@@ -642,7 +635,6 @@ export default function HatcheryLedgerPage() {
                   onChange={(e) =>
                     setPaymentForm({ ...paymentForm, amount: e.target.value })
                   }
-                  placeholder="Enter amount" 
                   required 
                 />
               </div>
@@ -665,7 +657,6 @@ export default function HatcheryLedgerPage() {
                   onChange={(e) =>
                     setPaymentForm({ ...paymentForm, note: e.target.value })
                   }
-                  placeholder="Payment reference or note" 
                 />
               </div>
             </div>
