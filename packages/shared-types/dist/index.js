@@ -243,9 +243,16 @@ exports.CreateBatchSchema = zod_1.z.object({
     startDate: zod_1.z.string().datetime(),
     endDate: zod_1.z.string().datetime().optional(),
     status: exports.BatchStatusSchema.optional().default("ACTIVE"),
-    initialChicks: zod_1.z.number().int().positive(),
+    // initialChicks will be derived from chicksInventory.quantity
+    initialChicks: zod_1.z.number().int().positive().optional(),
     initialChickWeight: zod_1.z.number().positive().optional().default(0.045),
     farmId: zod_1.z.string(),
+    // Required: allocate chicks from one or more inventory items when creating a batch
+    chicksInventory: zod_1.z.array(zod_1.z.object({
+        itemId: zod_1.z.string(),
+        quantity: zod_1.z.number().int().positive(),
+        notes: zod_1.z.string().optional(),
+    })).min(1),
 });
 exports.UpdateBatchSchema = zod_1.z.object({
     batchNumber: zod_1.z.string().optional(),

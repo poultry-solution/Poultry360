@@ -89,9 +89,9 @@ export const useCreateBatch = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: CreateBatch) => {
+    mutationFn: async (data: CreateBatch): Promise<BatchDetailResponse> => {
       const response = await axiosInstance.post("/batches", data);
-      return response.data;
+      return response.data as BatchDetailResponse;
     },
     onSuccess: (data) => {
       // Invalidate batch queries

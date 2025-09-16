@@ -23,7 +23,10 @@ export const getAllBatches = async (
     const where: any = {};
 
     // Role-based filtering
-    if (currentUserRole === UserRole.MANAGER || currentUserRole === UserRole.OWNER) {
+    if (
+      currentUserRole === UserRole.MANAGER ||
+      currentUserRole === UserRole.OWNER
+    ) {
       // Managers can only see batches from farms they manage or own
       where.farm = {
         OR: [
@@ -423,37 +426,135 @@ export const createBatch = async (
       });
     }
 
-    // Create batch
-    const batch = await prisma.batch.create({
-      data: {
-        batchNumber: data.batchNumber,
-        startDate: new Date(data.startDate),
-        endDate: data.endDate ? new Date(data.endDate) : null,
-        status: data.status || BatchStatus.ACTIVE,
-        initialChicks: data.initialChicks,
-        initialChickWeight: data.initialChickWeight || 0.045,
-        farmId: data.farmId,
-      },
-      include: {
-        farm: {
-          select: {
-            id: true,
-            name: true,
-            owner: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
+    // Create batch and deduct chicks from inventory in a transaction (supports multiple allocations)
+    const result = await prisma.$transaction(async (tx) => {
+      const { chicksInventory } = data as any;
+
+      if (!Array.isArray(chicksInventory) || chicksInventory.length === 0) {
+        throw new Error(
+          "chicksInventory array with at least one allocation is required"
+        );
+      }
+
+      // Validate each allocation, ensure sufficient stock per item, and compute pricing
+      const allocations = await Promise.all(
+        chicksInventory.map(async (alloc: any) => {
+          const item = await tx.inventoryItem.findUnique({
+            where: { id: alloc.itemId },
+          });
+          if (!item) {
+            throw new Error(`Chicks inventory item not found: ${alloc.itemId}`);
+          }
+          const available = Number(item.currentStock);
+          const requested = Number(alloc.quantity);
+          if (available < requested) {
+            throw new Error(
+              `Insufficient chicks stock for item ${alloc.itemId}. Available: ${available}, Required: ${requested}`
+            );
+          }
+          const latestPurchase = await tx.inventoryTransaction.findFirst({
+            where: { itemId: alloc.itemId, type: "PURCHASE" },
+            orderBy: { date: "desc" },
+          });
+          const unitPrice = latestPurchase
+            ? Number(latestPurchase.unitPrice)
+            : 0;
+          const totalAmount = unitPrice * requested;
+          return {
+            itemId: alloc.itemId,
+            requested,
+            unitPrice,
+            totalAmount,
+            notes: alloc.notes,
+            item,
+          };
+        })
+      );
+
+      const totalChicks = allocations.reduce((sum, a) => sum + a.requested, 0);
+
+      // 1) Create batch using total requested chicks
+      const batch = await tx.batch.create({
+        data: {
+          batchNumber: data.batchNumber,
+          startDate: new Date(data.startDate),
+          endDate: data.endDate ? new Date(data.endDate) : null,
+          status: data.status || BatchStatus.ACTIVE,
+          initialChicks: totalChicks,
+          initialChickWeight: data.initialChickWeight || 0.045,
+          farmId: data.farmId,
+        },
+        include: {
+          farm: {
+            select: {
+              id: true,
+              name: true,
+              owner: {
+                select: { id: true, name: true, email: true },
               },
             },
           },
         },
-      },
+      });
+
+      // 2) For each allocation: record usage, decrement stock, and create transaction
+      const usages = [] as any[];
+      for (const alloc of allocations) {
+        const usage = await tx.inventoryUsage.create({
+          data: {
+            date: new Date(),
+            quantity: alloc.requested,
+            unitPrice: alloc.unitPrice,
+            totalAmount: alloc.totalAmount,
+            notes: alloc.notes || `Allocated to batch ${batch.batchNumber}`,
+            itemId: alloc.itemId,
+            farmId: data.farmId,
+            batchId: batch.id,
+          },
+        });
+
+        const expense = await tx.expense.create({
+          data: {
+            date: new Date(),
+            amount: alloc.totalAmount * alloc.unitPrice,
+            description: `Purchase of ${alloc.item.name} for batch creation ${batch.batchNumber}`,
+            quantity: alloc.requested,
+            unitPrice: alloc.unitPrice,
+            farmId: data.farmId, // No specific farm - this is general inventory
+            batchId: batch.id, // No specific batch - this is general inventory
+            categoryId: alloc.item.categoryId,
+          },
+        });
+
+        await tx.inventoryItem.update({
+          where: { id: alloc.itemId },
+          data: { currentStock: { decrement: alloc.requested } },
+        });
+
+        await tx.inventoryTransaction.create({
+          data: {
+            type: "USAGE",
+            quantity: alloc.requested,
+            unitPrice: alloc.unitPrice,
+            totalAmount: alloc.totalAmount,
+            date: new Date(),
+            description: `Chicks allocated to batch ${batch.batchNumber}`,
+            itemId: alloc.itemId,
+          },
+        });
+
+        usages.push(usage);
+      }
+
+      return { batch, usages };
     });
 
     return res.status(201).json({
       success: true,
-      data: batch,
+      data: {
+        ...result.batch,
+        inventoryUsages: result.usages,
+      },
       message: "Batch created successfully",
     });
   } catch (error) {

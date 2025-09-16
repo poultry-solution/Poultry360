@@ -357,9 +357,14 @@ export declare const CreateBatchSchema: z.ZodObject<{
         ACTIVE: "ACTIVE";
         COMPLETED: "COMPLETED";
     }>>>;
-    initialChicks: z.ZodNumber;
+    initialChicks: z.ZodOptional<z.ZodNumber>;
     initialChickWeight: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
     farmId: z.ZodString;
+    chicksInventory: z.ZodArray<z.ZodObject<{
+        itemId: z.ZodString;
+        quantity: z.ZodNumber;
+        notes: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>;
 }, z.core.$strip>;
 export type CreateBatch = z.infer<typeof CreateBatchSchema>;
 export declare const UpdateBatchSchema: z.ZodObject<{
@@ -1886,9 +1891,14 @@ export declare const schemas: {
             ACTIVE: "ACTIVE";
             COMPLETED: "COMPLETED";
         }>>>;
-        initialChicks: z.ZodNumber;
+        initialChicks: z.ZodOptional<z.ZodNumber>;
         initialChickWeight: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
         farmId: z.ZodString;
+        chicksInventory: z.ZodArray<z.ZodObject<{
+            itemId: z.ZodString;
+            quantity: z.ZodNumber;
+            notes: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>>;
     }, z.core.$strip>;
     readonly UpdateBatch: z.ZodObject<{
         batchNumber: z.ZodOptional<z.ZodString>;

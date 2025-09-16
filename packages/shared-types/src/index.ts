@@ -317,9 +317,16 @@ export const CreateBatchSchema = z.object({
   startDate: z.string().datetime(),
   endDate: z.string().datetime().optional(),
   status: BatchStatusSchema.optional().default("ACTIVE"),
-  initialChicks: z.number().int().positive(),
+  // initialChicks will be derived from chicksInventory.quantity
+  initialChicks: z.number().int().positive().optional(),
   initialChickWeight: z.number().positive().optional().default(0.045),
   farmId: z.string(),
+  // Required: allocate chicks from one or more inventory items when creating a batch
+  chicksInventory: z.array(z.object({
+    itemId: z.string(),
+    quantity: z.number().int().positive(),
+    notes: z.string().optional(),
+  })).min(1),
 });
 
 export type CreateBatch = z.infer<typeof CreateBatchSchema>;
