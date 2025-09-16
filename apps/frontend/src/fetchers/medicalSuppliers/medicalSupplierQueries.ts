@@ -219,13 +219,16 @@ export const useDeleteMedicalSupplierTransaction = () => {
   return useMutation({
     mutationFn: async ({
       supplierId,
-      entryId,
+      transactionId,
+      password,
     }: {
       supplierId: string;
-      entryId: string;
+      transactionId: string;
+      password: string;
     }) => {
       const response = await axiosInstance.delete(
-        `/medical-suppliers/${supplierId}/transactions/${encodeURIComponent(entryId)}`
+        `/medical-suppliers/${supplierId}/transactions/${transactionId}`,
+        { data: { password } }
       );
       return response.data;
     },

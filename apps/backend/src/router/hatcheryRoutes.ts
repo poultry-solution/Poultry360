@@ -8,6 +8,7 @@ import {
   addHatcheryTransaction,
   getHatcheryStatistics,
   getHatcheryTransactions,
+  deleteHatcheryTransaction,
 } from "../controller/hatcherController";
 import { authMiddleware } from "../middelware/middelware";
 
@@ -41,5 +42,8 @@ router.delete("/:id", deleteHatchery);
 
 // POST /api/v1/hatcheries/:id/transactions - Add transaction to hatchery
 router.post("/:id/transactions", addHatcheryTransaction);
+
+// DELETE /api/v1/hatcheries/:id/transactions/:transactionId - Delete hatchery transaction
+router.delete("/:id/transactions/:transactionId", deleteHatcheryTransaction);
 
 export default router;

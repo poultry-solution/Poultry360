@@ -517,3 +517,61 @@ export const getCrossPortAuth = async (
     });
   }
 };
+
+// ==================== VERIFY PASSWORD ====================
+export const verifyPassword = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { password } = req.body;
+    const currentUserId = req.userId;
+
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: "Password is required",
+      });
+    }
+
+    if (!currentUserId) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated",
+      });
+    }
+
+    // Get user from database
+    const user = await prisma.user.findUnique({
+      where: { id: currentUserId },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    
+    if (!isValidPassword) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid password",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Password verified successfully",
+    });
+  } catch (error) {
+    console.error("Password verification error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};

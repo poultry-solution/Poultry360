@@ -213,13 +213,16 @@ export const useDeleteDealerTransaction = () => {
   return useMutation({
     mutationFn: async ({
       dealerId,
-      entryId,
+      transactionId,
+      password,
     }: {
       dealerId: string;
-      entryId: string;
+      transactionId: string;
+      password: string;
     }) => {
       const response = await axiosInstance.delete(
-        `/dealers/${dealerId}/transactions/${encodeURIComponent(entryId)}`
+        `/dealers/${dealerId}/transactions/${transactionId}`,
+        { data: { password } }
       );
       return response.data;
     },

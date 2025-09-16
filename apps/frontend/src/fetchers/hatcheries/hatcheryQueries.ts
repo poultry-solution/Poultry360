@@ -198,13 +198,16 @@ export const useDeleteHatcheryTransaction = () => {
   return useMutation({
     mutationFn: async ({
       hatcheryId,
-      entryId,
+      transactionId,
+      password,
     }: {
       hatcheryId: string;
-      entryId: string;
+      transactionId: string;
+      password: string;
     }) => {
       const response = await axiosInstance.delete(
-        `${API_BASE}/hatcheries/${hatcheryId}/transactions/${encodeURIComponent(entryId)}`
+        `${API_BASE}/hatcheries/${hatcheryId}/transactions/${transactionId}`,
+        { data: { password } }
       );
       return response.data;
     },

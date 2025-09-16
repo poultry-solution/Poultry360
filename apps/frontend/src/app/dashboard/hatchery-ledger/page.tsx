@@ -36,6 +36,8 @@ export default function HatcheryLedgerPage() {
   const [isDeleteMode, setIsDeleteMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ password: "" });
   const [selectedEntry, setSelectedEntry] = useState<{
     hatcheryId: string;
     entryId: string;
@@ -221,6 +223,44 @@ export default function HatcheryLedgerPage() {
     if (!hatcheryId) return;
     setSelectedHistoryEntry({ hatcheryId, entryId });
     setIsHistoryModalOpen(true);
+  }
+
+  async function handlePasswordConfirm() {
+    if (!activeHatcheryId || selectedIds.size === 0 || !passwordForm.password) return;
+    
+    const ids = Array.from(selectedIds);
+    let failed = 0;
+    
+    try {
+      await Promise.all(
+        ids.map(async (entryId) => {
+          try {
+            await deleteTxn.mutateAsync({ 
+              hatcheryId: activeHatcheryId, 
+              transactionId: entryId,
+              password: passwordForm.password 
+            });
+          } catch (e) {
+            failed += 1;
+          }
+        })
+      );
+      
+      setIsDeleteMode(false);
+      setSelectedIds(new Set());
+      setIsPasswordModalOpen(false);
+      setPasswordForm({ password: "" });
+      
+      if (failed === 0) {
+        toast.success("Selected entries deleted successfully");
+      } else {
+        toast.error(`Failed to delete ${failed} entr${failed === 1 ? 'y' : 'ies'}`);
+      }
+    } catch (error) {
+      toast.error("Password verification failed. Deletion cancelled.");
+      setIsPasswordModalOpen(false);
+      setPasswordForm({ password: "" });
+    }
   }
 
   function getRowDueDate(date: string) {
@@ -445,20 +485,9 @@ export default function HatcheryLedgerPage() {
           </Button>
           <Button
             className="bg-red-600 hover:bg-red-700 text-white"
-            onClick={async () => {
-              if (!activeHatcheryId || selectedIds.size === 0) return;
-              const ids = Array.from(selectedIds);
-              let failed = 0;
-              await Promise.all(ids.map(async (entryId) => {
-                try {
-                  await deleteTxn.mutateAsync({ hatcheryId: activeHatcheryId, entryId });
-                } catch (e) { failed += 1; }
-              }));
+            onClick={() => {
               setIsConfirmDeleteOpen(false);
-              setIsDeleteMode(false);
-              setSelectedIds(new Set());
-              if (failed === 0) toast.success("Selected entries deleted");
-              else toast.error(`Failed to delete ${failed} entr${failed === 1 ? 'y' : 'ies'}`);
+              setIsPasswordModalOpen(true);
             }}
             disabled={deleteTxn.isPending}
           >
@@ -468,6 +497,62 @@ export default function HatcheryLedgerPage() {
               </>
             ) : (
               "Delete"
+            )}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Password Confirmation Modal */}
+      <Modal
+        isOpen={isPasswordModalOpen}
+        onClose={() => {
+          setIsPasswordModalOpen(false);
+          setPasswordForm({ password: "" });
+        }}
+        title="Confirm Deletion"
+      >
+        <ModalContent>
+          <div className="space-y-4">
+            <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+              <p className="text-sm text-red-800">
+                <strong>Warning:</strong> This action cannot be undone. You are about to delete {selectedIds.size} transaction{selectedIds.size !== 1 ? 's' : ''}.
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="password">Enter your password to confirm deletion</Label>
+              <Input
+                id="password"
+                type="password"
+                value={passwordForm.password}
+                onChange={(e) => setPasswordForm({ password: e.target.value })}
+                placeholder="Enter your password"
+                required
+                className="mt-1"
+              />
+            </div>
+          </div>
+        </ModalContent>
+        <ModalFooter>
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setIsPasswordModalOpen(false);
+              setPasswordForm({ password: "" });
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="bg-red-600 hover:bg-red-700 text-white"
+            onClick={handlePasswordConfirm}
+            disabled={!passwordForm.password || deleteTxn.isPending}
+          >
+            {deleteTxn.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+              </>
+            ) : (
+              "Confirm Deletion"
             )}
           </Button>
         </ModalFooter>
@@ -943,18 +1028,18 @@ export default function HatcheryLedgerPage() {
               onToggleAll={() => {
                 if (!activeHatchery?.transactionTable) return;
                 if (selectedIds.size === activeHatchery.transactionTable.length) setSelectedIds(new Set());
-                else setSelectedIds(new Set(activeHatchery.transactionTable.map((r: any) => r.itemName)));
+                else setSelectedIds(new Set(activeHatchery.transactionTable.map((r: any) => r.id)));
               }}
-              isRowSelected={(row: any) => selectedIds.has(row.itemName)}
+              isRowSelected={(row: any) => selectedIds.has(row.id)}
               onToggleRow={(row: any) => {
                 setSelectedIds((prev) => {
                   const next = new Set(prev);
-                  const key = row.itemName;
+                  const key = row.id;
                   if (next.has(key)) next.delete(key); else next.add(key);
                   return next;
                 });
               }}
-              getRowKey={(row: any) => row.itemName}
+              getRowKey={(row: any) => row.id}
               showFooter={true}
               footerContent={
                 <div className="grid grid-cols-9 gap-4 text-sm">

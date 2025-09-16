@@ -36,6 +36,8 @@ export default function MedicalSupplierLedgerPage() {
   const [isDeleteMode, setIsDeleteMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ password: "" });
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<{
     supplierId: string;
@@ -116,14 +118,14 @@ export default function MedicalSupplierLedgerPage() {
     if (selectedIds.size === activeSupplier.transactionTable.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(activeSupplier.transactionTable.map((r: any) => r.itemName)));
+      setSelectedIds(new Set(activeSupplier.transactionTable.map((r: any) => r.id)));
     }
   }
 
   function toggleOne(row: any) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      const key = row.itemName;
+      const key = row.id;
       if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
@@ -136,21 +138,45 @@ export default function MedicalSupplierLedgerPage() {
 
   async function confirmDeleteSelected() {
     if (!activeSupplierId || selectedIds.size === 0) return;
+    setIsConfirmDeleteOpen(false);
+    setIsPasswordModalOpen(true);
+  }
+
+  async function handlePasswordConfirm() {
+    if (!activeSupplierId || selectedIds.size === 0 || !passwordForm.password) return;
+    
     const ids = Array.from(selectedIds);
     let failed = 0;
-    await Promise.all(
-      ids.map(async (entryId) => {
-        try {
-          await deleteTxn.mutateAsync({ supplierId: activeSupplierId, entryId });
-        } catch (e) {
-          failed += 1;
-        }
-      })
-    );
-    exitDeleteMode();
-    setIsConfirmDeleteOpen(false);
-    if (failed === 0) toast.success("Selected entries deleted");
-    else toast.error(`Failed to delete ${failed} entr${failed === 1 ? 'y' : 'ies'}`);
+    
+    try {
+      await Promise.all(
+        ids.map(async (entryId) => {
+          try {
+            await deleteTxn.mutateAsync({ 
+              supplierId: activeSupplierId, 
+              transactionId: entryId,
+              password: passwordForm.password 
+            });
+          } catch (e) {
+            failed += 1;
+          }
+        })
+      );
+      
+      exitDeleteMode();
+      setIsPasswordModalOpen(false);
+      setPasswordForm({ password: "" });
+      
+      if (failed === 0) {
+        toast.success("Selected entries deleted successfully");
+      } else {
+        toast.error(`Failed to delete ${failed} entr${failed === 1 ? 'y' : 'ies'}`);
+      }
+    } catch (error) {
+      toast.error("Password verification failed. Deletion cancelled.");
+      setIsPasswordModalOpen(false);
+      setPasswordForm({ password: "" });
+    }
   }
 
   // Column configuration for DataTable
@@ -496,6 +522,62 @@ export default function MedicalSupplierLedgerPage() {
               </>
             ) : (
               "Delete"
+            )}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Password Confirmation Modal */}
+      <Modal
+        isOpen={isPasswordModalOpen}
+        onClose={() => {
+          setIsPasswordModalOpen(false);
+          setPasswordForm({ password: "" });
+        }}
+        title="Confirm Deletion"
+      >
+        <ModalContent>
+          <div className="space-y-4">
+            <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+              <p className="text-sm text-red-800">
+                <strong>Warning:</strong> This action cannot be undone. You are about to delete {selectedIds.size} transaction{selectedIds.size !== 1 ? 's' : ''}.
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="password">Enter your password to confirm deletion</Label>
+              <Input
+                id="password"
+                type="password"
+                value={passwordForm.password}
+                onChange={(e) => setPasswordForm({ password: e.target.value })}
+                placeholder="Enter your password"
+                required
+                className="mt-1"
+              />
+            </div>
+          </div>
+        </ModalContent>
+        <ModalFooter>
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setIsPasswordModalOpen(false);
+              setPasswordForm({ password: "" });
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="bg-red-600 hover:bg-red-700 text-white"
+            onClick={handlePasswordConfirm}
+            disabled={!passwordForm.password || deleteTxn.isPending}
+          >
+            {deleteTxn.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+              </>
+            ) : (
+              "Confirm Deletion"
             )}
           </Button>
         </ModalFooter>
@@ -969,9 +1051,9 @@ export default function MedicalSupplierLedgerPage() {
                     selectedIds.size === activeSupplier.transactionTable.length
                   }
                   onToggleAll={toggleAll}
-                  isRowSelected={(row: any) => selectedIds.has(row.itemName)}
+                  isRowSelected={(row: any) => selectedIds.has(row.id)}
                   onToggleRow={toggleOne}
-                  getRowKey={(row: any) => row.itemName}
+                  getRowKey={(row: any) => row.id}
                   showFooter={true}
                   footerContent={
                     <div className="grid grid-cols-9 gap-4 text-sm">

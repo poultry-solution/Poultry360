@@ -174,6 +174,7 @@ export const getDealerById = async (
         const key = `${transaction.itemName || "Unknown Item"}_${transaction.id}`;
         if (!groups[key]) {
           groups[key] = {
+            transactionId: transaction.id,
             itemName: transaction.itemName || "Unknown Item",
             rate:
               Number(transaction.amount) / Number(transaction.quantity || 1),
@@ -508,6 +509,68 @@ export const addDealerTransaction = async (
     });
   } catch (error) {
     console.error("Add dealer transaction error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== DELETE DEALER TRANSACTION ====================
+export const deleteDealerTransaction = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id, transactionId } = req.params;
+    const { password } = req.body;
+    const currentUserId = req.userId;
+
+    // Verify password is provided
+    if (!password) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Password confirmation is required for deletion" 
+      });
+    }
+
+    // Verify user's password
+    const user = await prisma.user.findUnique({
+      where: { id: currentUserId },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const bcrypt = require('bcrypt');
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    
+    if (!isValidPassword) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Invalid password. Deletion cancelled." 
+      });
+    }
+
+    // Verify dealer belongs to user
+    const dealer = await prisma.dealer.findFirst({
+      where: { id, userId: currentUserId },
+    });
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    // Verify transaction exists and belongs to dealer
+    const txn = await prisma.entityTransaction.findFirst({
+      where: { id: transactionId, dealerId: id },
+    });
+    if (!txn) {
+      return res.status(404).json({ message: "Transaction not found" });
+    }
+
+    await prisma.entityTransaction.delete({ where: { id: transactionId } });
+
+    return res.json({ success: true, message: "Transaction deleted successfully" });
+  } catch (error) {
+    console.error("Delete dealer transaction error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

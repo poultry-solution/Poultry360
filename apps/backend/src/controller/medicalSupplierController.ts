@@ -174,6 +174,7 @@ export const getMedicalSupplierById = async (
         const key = `${transaction.itemName || "Unknown Item"}_${transaction.id}`;
         if (!groups[key]) {
           groups[key] = {
+            id: transaction.id,
             itemName: transaction.itemName || "Unknown Item",
             rate:
               Number(transaction.amount) / Number(transaction.quantity || 1),
@@ -589,6 +590,68 @@ export const getMedicalSupplierStatistics = async (
     });
   } catch (error) {
     console.error("Get medical supplier statistics error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== DELETE MEDICAL SUPPLIER TRANSACTION ====================
+export const deleteMedicalSupplierTransaction = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id, transactionId } = req.params;
+    const { password } = req.body;
+    const currentUserId = req.userId;
+
+    // Verify password is provided
+    if (!password) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Password confirmation is required for deletion" 
+      });
+    }
+
+    // Verify user's password
+    const user = await prisma.user.findUnique({
+      where: { id: currentUserId },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const bcrypt = require('bcrypt');
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    
+    if (!isValidPassword) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Invalid password. Deletion cancelled." 
+      });
+    }
+
+    // Verify supplier belongs to user
+    const supplier = await prisma.medicineSupplier.findFirst({
+      where: { id, userId: currentUserId },
+    });
+    if (!supplier) {
+      return res.status(404).json({ message: "Medical supplier not found" });
+    }
+
+    // Verify transaction exists and belongs to supplier
+    const txn = await prisma.entityTransaction.findFirst({
+      where: { id: transactionId, medicineSupplierId: id },
+    });
+    if (!txn) {
+      return res.status(404).json({ message: "Transaction not found" });
+    }
+
+    await prisma.entityTransaction.delete({ where: { id: transactionId } });
+
+    return res.json({ success: true, message: "Transaction deleted successfully" });
+  } catch (error) {
+    console.error("Delete medical supplier transaction error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

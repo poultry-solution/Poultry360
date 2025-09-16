@@ -8,6 +8,7 @@ import {
   validateToken,
   storeCrossPortAuth,
   getCrossPortAuth,
+  verifyPassword,
 } from "../controller/auth";
 
 const authRouter = Router();
@@ -20,5 +21,6 @@ authRouter.get("/@me", getUserInfo);
 authRouter.get("/validate", validateToken);
 authRouter.post("/store-cross-port", storeCrossPortAuth);
 authRouter.get("/get-cross-port", getCrossPortAuth);
+authRouter.post("/verify-password", verifyPassword);
 
 export default authRouter;

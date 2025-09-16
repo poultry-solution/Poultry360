@@ -8,6 +8,7 @@ import {
   addMedicalSupplierTransaction,
   getMedicalSupplierStatistics,
   getMedicalSupplierTransactions,
+  deleteMedicalSupplierTransaction,
 } from "../controller/medicalSupplierController";
 import { authMiddleware } from "../middelware/middelware";
 
@@ -43,5 +44,8 @@ router.post("/:id/transactions", addMedicalSupplierTransaction);
 
 // GET /medical-suppliers/:id/transactions - Get transactions for medical supplier
 router.get("/:id/transactions", getMedicalSupplierTransactions);
+
+// DELETE /medical-suppliers/:id/transactions/:transactionId - Delete medical supplier transaction
+router.delete("/:id/transactions/:transactionId", deleteMedicalSupplierTransaction);
 
 export default router;

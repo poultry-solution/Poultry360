@@ -8,6 +8,7 @@ import {
   addDealerTransaction,
   getDealerStatistics,
   getDealerTransactions,
+  deleteDealerTransaction,
 } from "../controller/dealerController";
 import { authMiddleware } from "../middelware/middelware";
 
@@ -18,8 +19,8 @@ router.use((req, res, next) => {
   authMiddleware(req, res, next, ["OWNER"]); // Allow all authenticated users
 });
 
-// ==================== DEALER ROUTES ====================
 
+// ==================== DEALER ROUTES ====================
 // Get all dealers for the authenticated user
 router.get("/", getAllDealers);
 
@@ -37,6 +38,9 @@ router.post("/", createDealer);
 
 // Add transaction to dealer
 router.post("/:id/transactions", addDealerTransaction);
+
+// Delete a dealer transaction by transaction id
+router.delete("/:id/transactions/:transactionId", deleteDealerTransaction);
 
 // Update dealer
 router.put("/:id", updateDealer);
