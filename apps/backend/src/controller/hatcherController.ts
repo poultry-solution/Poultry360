@@ -632,12 +632,87 @@ export const deleteHatcheryTransaction = async (
     // Verify transaction exists and belongs to hatchery
     const txn = await prisma.entityTransaction.findFirst({
       where: { id: transactionId, hatcheryId: id },
+      select: {
+        id: true,
+        type: true,
+        amount: true,
+        quantity: true,
+        date: true,
+        description: true,
+        inventoryItemId: true,
+        expenseId: true,
+      },
     });
     if (!txn) {
       return res.status(404).json({ message: "Transaction not found" });
     }
 
-    await prisma.entityTransaction.delete({ where: { id: transactionId } });
+    // If this is a PURCHASE, ensure stock was not consumed and reverse inventory safely
+    if (txn.type === 'PURCHASE') {
+      if (!txn.inventoryItemId || !txn.quantity) {
+        return res.status(400).json({ message: 'Purchase transaction missing inventory linkage; cannot safely delete.' });
+      }
+
+      const item = await prisma.inventoryItem.findUnique({ where: { id: txn.inventoryItemId } });
+      if (!item) {
+        return res.status(404).json({ message: 'Linked inventory item not found' });
+      }
+
+      const currentStock = Number(item.currentStock || 0);
+      const qty = Number(txn.quantity || 0);
+      if (currentStock < qty) {
+        return res.status(400).json({
+          message: `Cannot delete: ${qty} units from purchase have been partially consumed. Available stock: ${currentStock}. Remove usages first.`,
+        });
+      }
+
+      await prisma.$transaction(async (tx) => {
+        // 1) Reduce inventory stock by the purchased quantity (reverse stock-in)
+        await tx.inventoryItem.update({
+          where: { id: txn.inventoryItemId as string },
+          data: { currentStock: { decrement: qty } },
+        });
+
+        // 2) Remove a matching inventoryTransaction (PURCHASE) if present
+        const invTxn = await tx.inventoryTransaction.findFirst({
+          where: {
+            itemId: txn.inventoryItemId as string,
+            type: 'PURCHASE',
+            quantity: qty,
+          },
+          orderBy: { date: 'desc' },
+        });
+        if (invTxn) {
+          await tx.inventoryTransaction.delete({ where: { id: invTxn.id } });
+        }
+
+        // 3) Remove the linked expense if it exists
+        if (txn.expenseId) {
+          await tx.expense.delete({ where: { id: txn.expenseId } });
+        }
+
+        // 4) Finally, delete the entity transaction
+        await tx.entityTransaction.delete({ where: { id: transactionId } });
+
+        // 5) Optional cleanup: remove empty inventory item if fully orphaned
+        const refreshedItem = await tx.inventoryItem.findUnique({
+          where: { id: txn.inventoryItemId as string },
+          select: { id: true, currentStock: true },
+        });
+        if (refreshedItem && Number(refreshedItem.currentStock || 0) === 0) {
+          const [remainingInvTxns, remainingUsages] = await Promise.all([
+            tx.inventoryTransaction.count({ where: { itemId: refreshedItem.id } }),
+            tx.inventoryUsage.count({ where: { itemId: refreshedItem.id } }),
+          ]);
+          if (remainingInvTxns === 0 && remainingUsages === 0) {
+            await tx.inventoryItem.delete({ where: { id: refreshedItem.id } });
+          }
+        }
+      });
+    } else {
+      // Non-purchase: no inventory side effects
+      await prisma.entityTransaction.delete({ where: { id: transactionId } });
+    }
 
     return res.json({ success: true, message: "Transaction deleted successfully" });
   } catch (error) {

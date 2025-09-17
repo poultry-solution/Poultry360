@@ -284,6 +284,7 @@ export const useRecordInventoryUsage = () => {
 export const useInventoryByType = (itemType: InventoryItemType) => {
   const query = useGetInventoryByType(itemType);
 
+  console.log(query.data)
   return {
     ...query,
     items: query.data?.data || [],

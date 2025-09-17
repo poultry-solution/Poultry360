@@ -31,9 +31,9 @@ import { InventoryItemType } from "@myapp/shared-types";
 import { toast } from "sonner";
 
 export default function InventoryPage() {
-  const [activeTab, setActiveTab] = useState<"feed" | "chicks" | "medicine" | "other">(
-    "feed"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "feed" | "chicks" | "medicine" | "other"
+  >("feed");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Use TanStack Query hooks
@@ -107,9 +107,13 @@ export default function InventoryPage() {
         currentStock: parseFloat(formData.quantity),
         unit: formData.unit,
         minStock: 0,
-        itemType: (activeTab === "feed" ? "FEED" : 
-                   activeTab === "chicks" ? "CHICKS" : 
-                   activeTab === "medicine" ? "MEDICINE" : "OTHER") as InventoryItemType,
+        itemType: (activeTab === "feed"
+          ? "FEED"
+          : activeTab === "chicks"
+            ? "CHICKS"
+            : activeTab === "medicine"
+              ? "MEDICINE"
+              : "OTHER") as InventoryItemType,
         // categoryId will be automatically created by the backend
         rate: parseFloat(formData.rate), // Pass rate for initial transaction
       });
@@ -152,7 +156,9 @@ export default function InventoryPage() {
   };
 
   // Column configurations for different categories
-  const getInventoryColumns = (category: "feed" | "medicine" | "chicks" | "other") => {
+  const getInventoryColumns = (
+    category: "feed" | "medicine" | "chicks" | "other"
+  ) => {
     const baseColumns = [
       createColumn("name", "Item", {
         render: (_, item: any) => (
@@ -338,7 +344,11 @@ export default function InventoryPage() {
         <nav className="flex space-x-8 overflow-x-auto">
           {[
             { key: "feed", label: "Feed", icon: <Wheat className="h-4 w-4" /> },
-            { key: "chicks", label: "Chicks", icon: <Package className="h-4 w-4" /> },
+            {
+              key: "chicks",
+              label: "Chicks",
+              icon: <Package className="h-4 w-4" />,
+            },
             {
               key: "medicine",
               label: "Medicine",
@@ -492,10 +502,13 @@ export default function InventoryPage() {
                     setFormData((prev) => ({ ...prev, unit: e.target.value }))
                   }
                   placeholder={
-                    activeTab === "feed" ? "kg, bags" :
-                    activeTab === "chicks" ? "birds, pieces" :
-                    activeTab === "medicine" ? "bottles, vials, tablets" :
-                    "pieces, kg, bottles"
+                    activeTab === "feed"
+                      ? "kg, bags"
+                      : activeTab === "chicks"
+                        ? "birds, pieces"
+                        : activeTab === "medicine"
+                          ? "bottles, vials, tablets"
+                          : "pieces, kg, bottles"
                   }
                 />
                 {errors.unit && (
