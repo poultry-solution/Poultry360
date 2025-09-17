@@ -10,6 +10,7 @@ import {
   getCrossPortAuth,
   verifyPassword,
 } from "../controller/auth";
+import { authMiddleware } from "../middelware/middelware";
 
 const authRouter = Router();
 
@@ -21,6 +22,6 @@ authRouter.get("/@me", getUserInfo);
 authRouter.get("/validate", validateToken);
 authRouter.post("/store-cross-port", storeCrossPortAuth);
 authRouter.get("/get-cross-port", getCrossPortAuth);
-authRouter.post("/verify-password", verifyPassword);
+authRouter.post("/verify-password", authMiddleware, verifyPassword);
 
 export default authRouter;

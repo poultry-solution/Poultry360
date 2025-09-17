@@ -69,6 +69,7 @@ export const useGetDealerById = (id: string) => {
     queryKey: dealerKeys.detail(id),
     queryFn: async () => {
       const response = await axiosInstance.get(`/dealers/${id}`);
+      console.log("Active dealer Response:", response.data);
       return response.data;
     },
     enabled: !!id,

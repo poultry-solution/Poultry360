@@ -17,13 +17,14 @@ import { Label } from "@/components/ui/label";
 import { DataTable, Column, createColumn } from "@/components/ui/data-table";
 import { useInventory } from "@/contexts/InventoryContext";
 import { toast } from "sonner";
-import { 
+import {
   useGetAllDealers,
   useGetDealerStatistics,
   useGetDealerById,
   useCreateDealer,
   useAddDealerTransaction,
   useDeleteDealerTransaction,
+  useDeleteDealer,
 } from "@/fetchers/dealers/dealerQueries";
 import { TransactionType } from "@myapp/shared-types";
 
@@ -39,6 +40,7 @@ export default function DealerLedgerPage() {
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ password: "" });
+  const [isDeleteDealerOpen, setIsDeleteDealerOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<{
     dealerId: string;
     entryId: string;
@@ -86,6 +88,7 @@ export default function DealerLedgerPage() {
   const createDealerMutation = useCreateDealer();
   const addTransactionMutation = useAddDealerTransaction();
   const deleteTxn = useDeleteDealerTransaction();
+  const deleteDealerMutation = useDeleteDealer();
 
   // Extract data
   const dealers = dealersResponse?.data || [];
@@ -191,7 +194,9 @@ export default function DealerLedgerPage() {
     if (selectedIds.size === activeDealer.transactionTable.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(activeDealer.transactionTable.map((r: any) => r.transactionId)));
+      setSelectedIds(
+        new Set(activeDealer.transactionTable.map((r: any) => r.transactionId))
+      );
     }
   }
 
@@ -199,7 +204,8 @@ export default function DealerLedgerPage() {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       const key = row.transactionId;
-      if (next.has(key)) next.delete(key); else next.add(key);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }
@@ -216,34 +222,37 @@ export default function DealerLedgerPage() {
   }
 
   async function handlePasswordConfirm() {
-    if (!activeDealerId || selectedIds.size === 0 || !passwordForm.password) return;
-    
+    if (!activeDealerId || selectedIds.size === 0 || !passwordForm.password)
+      return;
+
     const ids = Array.from(selectedIds);
     let failed = 0;
-    
+
     try {
       await Promise.all(
         ids.map(async (entryId) => {
           try {
-            await deleteTxn.mutateAsync({ 
-              dealerId: activeDealerId, 
+            await deleteTxn.mutateAsync({
+              dealerId: activeDealerId,
               transactionId: entryId,
-              password: passwordForm.password 
+              password: passwordForm.password,
             });
           } catch (e) {
             failed += 1;
           }
         })
       );
-      
+
       exitDeleteMode();
       setIsPasswordModalOpen(false);
       setPasswordForm({ password: "" });
-      
+
       if (failed === 0) {
         toast.success("Selected entries deleted successfully");
       } else {
-        toast.error(`Failed to delete ${failed} entr${failed === 1 ? 'y' : 'ies'}`);
+        toast.error(
+          `Failed to delete ${failed} entr${failed === 1 ? "y" : "ies"}`
+        );
       }
     } catch (error) {
       toast.error("Password verification failed. Deletion cancelled.");
@@ -381,13 +390,16 @@ export default function DealerLedgerPage() {
             Manage dealer purchases and balances.
           </p>
         </div>
-        <Button
-          className="bg-primary hover:bg-primary/90"
-          onClick={() => setIsAddDealerOpen(true)}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add Feed Dealer
-        </Button>
+        <div className="flex gap-2">
+     
+          <Button
+            className="bg-primary hover:bg-primary/90"
+            onClick={() => setIsAddDealerOpen(true)}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Feed Dealer
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -490,19 +502,93 @@ export default function DealerLedgerPage() {
         </ModalFooter>
       </Modal>
 
+      {/* Delete Dealer Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteDealerOpen}
+        onClose={() => setIsDeleteDealerOpen(false)}
+        title="Delete Dealer"
+      >
+        <ModalContent>
+          <div className="space-y-4">
+            <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+              <p className="text-sm text-red-800">
+                <strong>Warning:</strong> This will permanently delete dealer{" "}
+                <strong>
+                  {activeDealer?.name ? ` ${activeDealer.name}` : ""}
+                </strong>
+                .
+              </p>
+              {activeDealer?.transactions?.length > 0 && (
+                <p className="text-sm text-red-700 mt-2">
+                  This dealer has {activeDealer.transactions.length}{" "}
+                  transaction(s). You must delete all transactions first.
+                </p>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to proceed?
+            </p>
+          </div>
+        </ModalContent>
+        <ModalFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsDeleteDealerOpen(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="bg-red-600 hover:bg-red-700 text-white"
+            onClick={async () => {
+              if (!activeDealerId) return;
+              try {
+                await deleteDealerMutation.mutateAsync(activeDealerId);
+                toast.success("Dealer deleted successfully");
+                setIsDeleteDealerOpen(false);
+                setSelectedIds(new Set());
+                // Switch to another dealer if available to avoid fetching deleted dealer
+                const remaining = (dealers || []).filter(
+                  (d: any) => d.id !== activeDealerId
+                );
+                setActiveDealerId(remaining.length > 0 ? remaining[0].id : "");
+              } catch (e) {
+                // Error toast likely handled by interceptor
+              }
+            }}
+            disabled={
+              !activeDealerId ||
+              deleteDealerMutation.isPending ||
+              (activeDealer?.transactions?.length || 0) > 0
+            }
+          >
+            {deleteDealerMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+              </>
+            ) : (
+              "Delete Dealer"
+            )}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
       {/* Confirm Delete Modal */}
       <Modal
         isOpen={isConfirmDeleteOpen}
         onClose={() => setIsConfirmDeleteOpen(false)}
-        title={`Delete ${selectedIds.size} entr${selectedIds.size === 1 ? 'y' : 'ies'}?`}
+        title={`Delete ${selectedIds.size} entr${selectedIds.size === 1 ? "y" : "ies"}?`}
       >
         <ModalContent>
           <p className="text-sm text-muted-foreground">
-            This action cannot be undone. The selected entries will be permanently removed.
+            This action cannot be undone. The selected entries will be
+            permanently removed.
           </p>
         </ModalContent>
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsConfirmDeleteOpen(false)}>
+          <Button
+            variant="outline"
+            onClick={() => setIsConfirmDeleteOpen(false)}
+          >
             Cancel
           </Button>
           <Button
@@ -534,11 +620,15 @@ export default function DealerLedgerPage() {
           <div className="space-y-4">
             <div className="p-4 bg-red-50 rounded-lg border border-red-200">
               <p className="text-sm text-red-800">
-                <strong>Warning:</strong> This action cannot be undone. You are about to delete {selectedIds.size} transaction{selectedIds.size !== 1 ? 's' : ''}.
+                <strong>Warning:</strong> This action cannot be undone. You are
+                about to delete {selectedIds.size} transaction
+                {selectedIds.size !== 1 ? "s" : ""}.
               </p>
             </div>
             <div>
-              <Label htmlFor="password">Enter your password to confirm deletion</Label>
+              <Label htmlFor="password">
+                Enter your password to confirm deletion
+              </Label>
               <Input
                 id="password"
                 type="password"
@@ -552,8 +642,8 @@ export default function DealerLedgerPage() {
           </div>
         </ModalContent>
         <ModalFooter>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => {
               setIsPasswordModalOpen(false);
               setPasswordForm({ password: "" });
@@ -998,6 +1088,16 @@ export default function DealerLedgerPage() {
                     {activeDealer?.name || "Select a dealer"}
                   </CardTitle>
                   <div className="flex gap-2">
+                    {activeDealerId && !isDeleteMode && (
+                      <Button
+                        variant="outline"
+                        className="text-red-600 border-red-200 hover:bg-red-50"
+                        onClick={() => setIsDeleteDealerOpen(true)}
+                        disabled={!activeDealerId}
+                      >
+                        Delete Dealer
+                      </Button>
+                    )}
                     {isDeleteMode ? (
                       <>
                         <Button variant="outline" onClick={exitDeleteMode}>
@@ -1005,10 +1105,13 @@ export default function DealerLedgerPage() {
                         </Button>
                         <Button
                           className="bg-red-600 hover:bg-red-700 text-white"
-                          disabled={selectedIds.size === 0 || deleteTxn.isPending}
+                          disabled={
+                            selectedIds.size === 0 || deleteTxn.isPending
+                          }
                           onClick={() => setIsConfirmDeleteOpen(true)}
                         >
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete ({selectedIds.size})
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete (
+                          {selectedIds.size})
                         </Button>
                       </>
                     ) : (
@@ -1054,7 +1157,9 @@ export default function DealerLedgerPage() {
                       selectedIds.size === activeDealer.transactionTable.length
                     }
                     onToggleAll={toggleAll}
-                    isRowSelected={(row: any) => selectedIds.has(row.transactionId)}
+                    isRowSelected={(row: any) =>
+                      selectedIds.has(row.transactionId)
+                    }
                     onToggleRow={toggleOne}
                     getRowKey={(row: any) => row.transactionId}
                     showFooter={true}

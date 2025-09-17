@@ -24,6 +24,7 @@ import {
   useCreateMedicalSupplier,
   useAddMedicalSupplierTransaction,
   useDeleteMedicalSupplierTransaction,
+  useDeleteMedicalSupplier,
 } from "@/fetchers/medicalSuppliers/medicalSupplierQueries";
 import { TransactionType } from "@myapp/shared-types";
 
@@ -39,6 +40,7 @@ export default function MedicalSupplierLedgerPage() {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ password: "" });
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isDeleteSupplierOpen, setIsDeleteSupplierOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<{
     supplierId: string;
     entryId: string;
@@ -86,6 +88,7 @@ export default function MedicalSupplierLedgerPage() {
   const createSupplierMutation = useCreateMedicalSupplier();
   const addTransactionMutation = useAddMedicalSupplierTransaction();
   const deleteTxn = useDeleteMedicalSupplierTransaction();
+  const deleteSupplierMutation = useDeleteMedicalSupplier();
 
   // Extract data from responses
   const suppliers = suppliersResponse?.data || [];
@@ -385,13 +388,16 @@ export default function MedicalSupplierLedgerPage() {
             Track medicine purchases and supplier balances.
           </p>
         </div>
-        <Button
-          className="bg-primary hover:bg-primary/90"
-          onClick={() => setIsAddSupplierOpen(true)}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add Supplier
-        </Button>
+        <div className="flex gap-2">
+      
+          <Button
+            className="bg-primary hover:bg-primary/90"
+            onClick={() => setIsAddSupplierOpen(true)}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Supplier
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -492,6 +498,60 @@ export default function MedicalSupplierLedgerPage() {
         <ModalFooter>
           <Button variant="outline" onClick={() => setIsSummaryOpen(false)}>
             Close
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Delete Supplier Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteSupplierOpen}
+        onClose={() => setIsDeleteSupplierOpen(false)}
+        title="Delete Supplier"
+      >
+        <ModalContent>
+          <div className="space-y-4">
+            <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+              <p className="text-sm text-red-800">
+                <strong>Warning:</strong> This will permanently delete supplier{" "}
+                <strong>{activeSupplier?.name ? ` ${activeSupplier.name}` : ""}</strong>.
+              </p>
+              {activeSupplier?.transactionTable?.length > 0 && (
+                <p className="text-sm text-red-700 mt-2">
+                  This supplier has {activeSupplier.transactionTable.length} transaction(s). You must delete all transactions first.
+                </p>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">Are you sure you want to proceed?</p>
+          </div>
+        </ModalContent>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setIsDeleteSupplierOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            className="bg-red-600 hover:bg-red-700 text-white"
+            onClick={async () => {
+              if (!activeSupplierId) return;
+              try {
+                await deleteSupplierMutation.mutateAsync(activeSupplierId);
+                toast.success("Supplier deleted successfully");
+                setIsDeleteSupplierOpen(false);
+                setSelectedIds(new Set());
+                const remaining = (suppliers || []).filter((s: any) => s.id !== activeSupplierId);
+                setActiveSupplierId(remaining.length > 0 ? remaining[0].id : null);
+              } catch (e) {
+                // handled globally
+              }
+            }}
+            disabled={!activeSupplierId || deleteSupplierMutation.isPending || (activeSupplier?.transactionTable?.length || 0) > 0}
+          >
+            {deleteSupplierMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+              </>
+            ) : (
+              "Delete Supplier"
+            )}
           </Button>
         </ModalFooter>
       </Modal>
@@ -992,6 +1052,16 @@ export default function MedicalSupplierLedgerPage() {
                   {activeSupplier?.name || "Select a supplier"}
                 </CardTitle>
                 <div className="flex gap-2">
+                  {activeSupplierId && !isDeleteMode && (
+                    <Button
+                      variant="outline"
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                      onClick={() => setIsDeleteSupplierOpen(true)}
+                      disabled={!activeSupplierId}
+                    >
+                      Delete Supplier
+                    </Button>
+                  )}
                   {isDeleteMode ? (
                     <>
                       <Button

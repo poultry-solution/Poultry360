@@ -22,6 +22,8 @@ import { DataTable, Column, createColumn } from "@/components/ui/data-table";
 import {
   useGetBatchById,
   useGetBatchAnalytics,
+  useDeleteBatch,
+  useVerifyPasswordForBatchDelete,
 } from "@/fetchers/batches/batchQueries";
 import {
   useGetBatchExpenses,
@@ -134,6 +136,12 @@ export default function BatchDetailPage() {
   const analytics = analyticsResponse?.data;
 
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>("Overview");
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [isBatchDeleting, setIsBatchDeleting] = useState(false);
+
+  const deleteBatchMutation = useDeleteBatch();
+  const verifyPasswordMutation = useVerifyPasswordForBatchDelete();
 
   // --- State (with localStorage persistence) ---
   const storageKey = useCallback(
@@ -1295,6 +1303,17 @@ export default function BatchDetailPage() {
         </div>
       </div>
 
+      <div className="flex items-center justify-between">
+        <div></div>
+        <Button
+          variant="outline"
+          className="text-red-600 border-red-200 hover:bg-red-50"
+          onClick={() => setIsDeleteModalOpen(true)}
+        >
+          <Trash2 className="h-4 w-4 mr-2" /> Delete Batch
+        </Button>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
@@ -1667,6 +1686,78 @@ export default function BatchDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Delete Batch Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setDeletePassword("");
+        }}
+        title="Delete Batch"
+      >
+        <ModalContent>
+          <div className="space-y-4">
+            <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+              <p className="text-sm text-red-800">
+                <strong>Warning:</strong> This will attempt to roll back initial chick usage and permanently delete this batch. This action cannot be undone.
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="delpass">Confirm with your password</Label>
+              <Input
+                id="delpass"
+                type="password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                placeholder="Enter your password"
+                className="mt-1"
+              />
+            </div>
+          </div>
+        </ModalContent>
+        <ModalFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setIsDeleteModalOpen(false);
+              setDeletePassword("");
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="bg-red-600 hover:bg-red-700 text-white"
+            disabled={isBatchDeleting || !deletePassword}
+            onClick={async () => {
+              if (!batchId) return;
+              setIsBatchDeleting(true);
+              try {
+                const v = await verifyPasswordMutation.mutateAsync(deletePassword);
+                if (!v?.success) {
+                  throw new Error(v?.message || "Password verification failed");
+                }
+                await deleteBatchMutation.mutateAsync(batchId);
+                setIsDeleteModalOpen(false);
+                setDeletePassword("");
+                window.location.href = "/dashboard/batches";
+              } catch (e: any) {
+                alert(e?.response?.data?.message || e?.message || "Failed to delete batch");
+              } finally {
+                setIsBatchDeleting(false);
+              }
+            }}
+          >
+            {isBatchDeleting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+              </>
+            ) : (
+              "Confirm Delete"
+            )}
+          </Button>
+        </ModalFooter>
+      </Modal>
 
       {/* Expense Modal */}
       <Modal

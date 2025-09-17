@@ -23,6 +23,7 @@ import {
   useCreateHatchery,
   useAddHatcheryTransaction,
   useDeleteHatcheryTransaction,
+  useDeleteHatchery,
 } from "@/fetchers/hatcheries/hatcheryQueries";
 import { TransactionType } from "@myapp/shared-types";
 
@@ -38,6 +39,7 @@ export default function HatcheryLedgerPage() {
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ password: "" });
+  const [isDeleteHatcheryOpen, setIsDeleteHatcheryOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<{
     hatcheryId: string;
     entryId: string;
@@ -83,6 +85,7 @@ export default function HatcheryLedgerPage() {
   const createHatcheryMutation = useCreateHatchery();
   const addTransactionMutation = useAddHatcheryTransaction();
   const deleteTxn = useDeleteHatcheryTransaction();
+  const deleteHatcheryMutation = useDeleteHatchery();
 
   // Extract data from responses
   const hatcheries = hatcheriesResponse?.data || [];
@@ -358,13 +361,16 @@ export default function HatcheryLedgerPage() {
             Manage chick purchases and hatchery balances.
           </p>
         </div>
-        <Button
-          className="bg-primary hover:bg-primary/90"
-          onClick={() => setIsAddHatcheryOpen(true)}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add Chicks Dealer
-        </Button>
+        <div className="flex gap-2">
+        
+          <Button
+            className="bg-primary hover:bg-primary/90"
+            onClick={() => setIsAddHatcheryOpen(true)}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Chicks Dealer
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -464,6 +470,60 @@ export default function HatcheryLedgerPage() {
         <ModalFooter>
           <Button variant="outline" onClick={() => setIsModalOpen(false)}>
             Close
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Delete Hatchery Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteHatcheryOpen}
+        onClose={() => setIsDeleteHatcheryOpen(false)}
+        title="Delete Hatchery"
+      >
+        <ModalContent>
+          <div className="space-y-4">
+            <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+              <p className="text-sm text-red-800">
+                <strong>Warning:</strong> This will permanently delete hatchery{" "}
+                <strong>{activeHatchery?.name ? ` ${activeHatchery.name}` : ""}</strong>.
+              </p>
+              {activeHatchery?.transactionTable?.length > 0 && (
+                <p className="text-sm text-red-700 mt-2">
+                  This hatchery has {activeHatchery.transactionTable.length} transaction(s). You must delete all transactions first.
+                </p>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">Are you sure you want to proceed?</p>
+          </div>
+        </ModalContent>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setIsDeleteHatcheryOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            className="bg-red-600 hover:bg-red-700 text-white"
+            onClick={async () => {
+              if (!activeHatcheryId) return;
+              try {
+                await deleteHatcheryMutation.mutateAsync(activeHatcheryId);
+                toast.success("Hatchery deleted successfully");
+                setIsDeleteHatcheryOpen(false);
+                setSelectedIds(new Set());
+                const remaining = (hatcheries || []).filter((h: any) => h.id !== activeHatcheryId);
+                setActiveHatcheryId(remaining.length > 0 ? remaining[0].id : null);
+              } catch (e) {
+                // error handled globally
+              }
+            }}
+            disabled={!activeHatcheryId || deleteHatcheryMutation.isPending || (activeHatchery?.transactionTable?.length || 0) > 0}
+          >
+            {deleteHatcheryMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+              </>
+            ) : (
+              "Delete Hatchery"
+            )}
           </Button>
         </ModalFooter>
       </Modal>
@@ -974,6 +1034,16 @@ export default function HatcheryLedgerPage() {
                 )}
               </CardTitle>
               <div className="flex gap-2">
+                {activeHatcheryId && !isDeleteMode && (
+                  <Button
+                    variant="outline"
+                    className="text-red-600 border-red-200 hover:bg-red-50"
+                    onClick={() => setIsDeleteHatcheryOpen(true)}
+                    disabled={!activeHatcheryId}
+                  >
+                    Delete Hatchery
+                  </Button>
+                )}
                 {isDeleteMode ? (
                   <>
                     <Button variant="outline" onClick={() => { setIsDeleteMode(false); setSelectedIds(new Set()); }}>

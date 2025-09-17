@@ -711,31 +711,89 @@ export const deleteBatch = async (
       }
     }
 
-    // Check if batch has any data
-    const hasData =
-      existingBatch._count.expenses > 0 ||
+    // Identify initial, system-generated records to allow safe rollback
+    const initialUsageNotes = `Allocated to batch ${existingBatch.batchNumber}`;
+    const initialUsageDescContains = `batch ${existingBatch.batchNumber}`;
+    const initialExpenseDescContains = `batch creation ${existingBatch.batchNumber}`;
+
+    // Fetch all expenses linked to batch
+    const expenses = await prisma.expense.findMany({
+      where: { batchId: id },
+      select: { id: true, description: true },
+    });
+    const initialExpenseIds = expenses
+      .filter((e) => (e.description || "").includes(initialExpenseDescContains))
+      .map((e) => e.id);
+    const nonInitialExpenseExists = expenses.length > initialExpenseIds.length;
+
+    // Count usages for batch and fetch initial usages
+    const [usageCount, initialUsages] = await Promise.all([
+      prisma.inventoryUsage.count({ where: { batchId: id } }),
+      prisma.inventoryUsage.findMany({
+        where: {
+          batchId: id,
+          OR: [
+            { notes: { contains: initialUsageNotes } },
+            // Fallback: usages created without the exact note, but still tied to batch
+            { notes: { equals: null } },
+          ],
+        },
+        select: { id: true, itemId: true, quantity: true },
+      }),
+    ]);
+
+    const onlyInitialUsagesPresent = initialUsages.length === usageCount;
+
+    // Block deletion if there is any non-initial data present
+    if (
       existingBatch._count.sales > 0 ||
       existingBatch._count.mortalities > 0 ||
       existingBatch._count.vaccinations > 0 ||
       existingBatch._count.feedConsumptions > 0 ||
-      existingBatch._count.birdWeights > 0;
-
-    if (hasData) {
+      existingBatch._count.birdWeights > 0 ||
+      nonInitialExpenseExists ||
+      (!onlyInitialUsagesPresent && usageCount > 0)
+    ) {
       return res.status(400).json({
         message:
-          "Cannot delete batch with existing data. Please remove all related data first.",
+          "Cannot delete batch: non-initial records exist. Remove related data first.",
       });
     }
 
-    // Delete batch
-    await prisma.batch.delete({
-      where: { id },
+    // Rollback initial allocations and delete batch atomically
+    await prisma.$transaction(async (tx) => {
+      // 1) Restore inventory for initial usages
+      for (const usage of initialUsages) {
+        await tx.inventoryItem.update({
+          where: { id: usage.itemId },
+          data: { currentStock: { increment: Number(usage.quantity || 0) } },
+        });
+      }
+
+      if (initialUsages.length > 0) {
+        await tx.inventoryUsage.deleteMany({
+          where: { id: { in: initialUsages.map((u) => u.id) } },
+        });
+      }
+
+      // 2) Remove related inventory transactions created for initial allocation
+      await tx.inventoryTransaction.deleteMany({
+        where: {
+          type: "USAGE",
+          description: { contains: initialUsageDescContains },
+        },
+      });
+
+      // 3) Remove initial expenses created during batch creation
+      if (initialExpenseIds.length > 0) {
+        await tx.expense.deleteMany({ where: { id: { in: initialExpenseIds } } });
+      }
+
+      // 4) Finally, delete the batch
+      await tx.batch.delete({ where: { id } });
     });
 
-    return res.json({
-      success: true,
-      message: "Batch deleted successfully",
-    });
+    return res.json({ success: true, message: "Batch deleted successfully" });
   } catch (error) {
     console.error("Delete batch error:", error);
     return res.status(500).json({ message: "Internal server error" });

@@ -170,3 +170,13 @@ export const useDeleteBatch = () => {
     },
   });
 };
+
+// Verify password before sensitive actions (e.g., delete batch)
+export const useVerifyPasswordForBatchDelete = () => {
+  return useMutation({
+    mutationFn: async (password: string) => {
+      const response = await axiosInstance.post("/auth/verify-password", { password });
+      return response.data as { success: boolean; message?: string };
+    },
+  });
+};
