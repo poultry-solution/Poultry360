@@ -568,7 +568,7 @@ export default function HatcheryLedgerPage() {
           <ModalContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="hname">Hatchery Name</Label>
+                <Label htmlFor="hname">Dealer Name</Label>
                 <Input
                   id="hname"
                   value={newHatchery.name}
@@ -637,7 +637,7 @@ export default function HatcheryLedgerPage() {
           <ModalContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="item">Item</Label>
+                <Label htmlFor="item">Hatchery Name</Label>
                 <Input
                   id="item"
                   value={newEntry.item}
