@@ -96,7 +96,6 @@ export default function LoginPage() {
             <Input
               id="emailOrPhone"
               name="emailOrPhone"
-              placeholder=" +9779876543210"
               value={formData.emailOrPhone}
               onChange={handleInputChange}
               required
@@ -108,7 +107,6 @@ export default function LoginPage() {
               id="password"
               name="password"
               type="password"
-              placeholder="••••••••"
               value={formData.password}
               onChange={handleInputChange}
               required

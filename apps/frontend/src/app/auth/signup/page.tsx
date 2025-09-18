@@ -231,7 +231,6 @@ export default function SignupPage() {
                     name="companyName"
                     value={formData.companyName}
                     onChange={handleInputChange}
-                    placeholder="Poultry360 Farms Pvt. Ltd."
                     required
                   />
                 </div>
@@ -243,7 +242,6 @@ export default function SignupPage() {
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    placeholder="Ram Shrestha"
                     required
                   />
                 </div>
@@ -277,7 +275,6 @@ export default function SignupPage() {
                       name="location"
                       value={formData.location}
                       onChange={handleInputChange}
-                      placeholder="Bharatpur, Chitwan"
                       required
                     />
                   </div>
@@ -291,7 +288,6 @@ export default function SignupPage() {
                     type="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    placeholder="company@example.com"
                   />
                 </div>
 
@@ -317,7 +313,6 @@ export default function SignupPage() {
                       type="tel"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      placeholder="98765 43210"
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -351,7 +346,6 @@ export default function SignupPage() {
                       min={1}
                       value={formData.farmsCount}
                       onChange={handleInputChange}
-                      placeholder="1"
                       required
                     />
                   </div>
@@ -368,7 +362,6 @@ export default function SignupPage() {
                     min={1}
                     value={formData.totalCapacity}
                     onChange={handleInputChange}
-                    placeholder="1000"
                     required
                   />
                 </div>
@@ -382,7 +375,6 @@ export default function SignupPage() {
                       type={showPassword ? "text" : "password"}
                       value={formData.password}
                       onChange={handleInputChange}
-                      placeholder="••••••••"
                       required
                       minLength={6}
                       className="pr-10"
@@ -410,7 +402,6 @@ export default function SignupPage() {
                       type={showConfirmPassword ? "text" : "password"}
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
-                      placeholder="••••••••"
                       required
                       minLength={6}
                       className="pr-10"
@@ -498,7 +489,6 @@ export default function SignupPage() {
                     name="otp"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value)}
-                    placeholder="Enter 6-digit code"
                     required
                     maxLength={6}
                     className="text-center text-lg tracking-widest"
