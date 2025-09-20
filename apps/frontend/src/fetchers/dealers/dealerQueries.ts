@@ -61,18 +61,23 @@ export const useGetDealerStatistics = () => {
 };
 
 // Get dealer by ID
-export const useGetDealerById = (id: string) => {
+export const useGetDealerById = (id: string, options?: { enabled?: boolean }) => {
+  const isEnabled = !!id && (options?.enabled !== false);
+  
+  console.log("🔍 useGetDealerById called with:", { id, enabled: isEnabled, options });
+  
   return useQuery<{
     success: boolean;
     data: any;
   }>({
     queryKey: dealerKeys.detail(id),
     queryFn: async () => {
+      console.log("🚀 Fetching dealer data for ID:", id);
       const response = await axiosInstance.get(`/dealers/${id}`);
       console.log("Active dealer Response:", response.data);
       return response.data;
     },
-    enabled: !!id,
+    enabled: isEnabled,
   });
 };
 

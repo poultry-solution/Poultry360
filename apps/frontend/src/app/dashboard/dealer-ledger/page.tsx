@@ -26,6 +26,7 @@ import {
   useDeleteDealerTransaction,
   useDeleteDealer,
 } from "@/fetchers/dealers/dealerQueries";
+import { useQueryClient } from "@tanstack/react-query";
 import { TransactionType } from "@myapp/shared-types";
 
 export default function DealerLedgerPage() {
@@ -82,7 +83,14 @@ export default function DealerLedgerPage() {
     useGetDealerStatistics();
 
   const { data: activeDealerResponse, isLoading: activeDealerLoading } =
-    useGetDealerById(activeDealerId);
+    useGetDealerById(activeDealerId, {
+      enabled: !!activeDealerId && activeDealerId.trim() !== "",
+    });
+
+  // Debug log to track activeDealerId changes
+  useEffect(() => {
+    console.log("🔍 Active Dealer ID changed:", activeDealerId);
+  }, [activeDealerId]);
 
   // Mutations
   const createDealerMutation = useCreateDealer();
@@ -90,15 +98,35 @@ export default function DealerLedgerPage() {
   const deleteTxn = useDeleteDealerTransaction();
   const deleteDealerMutation = useDeleteDealer();
 
+  // Query client for cache invalidation
+  const queryClient = useQueryClient();
+
   // Extract data
   const dealers = dealersResponse?.data || [];
   const statistics = statisticsResponse?.data || {};
   const activeDealer = activeDealerResponse?.data;
 
-  // Set first dealer as active when dealers load
+  // Set first dealer as active when dealers load or when current active dealer is not found
   useEffect(() => {
-    if (dealers.length > 0 && !activeDealerId) {
-      setActiveDealerId(dealers[0].id);
+    console.log("🔍 Dealers useEffect triggered:", {
+      dealersCount: dealers.length,
+      activeDealerId,
+      dealerIds: dealers.map((d: any) => d.id),
+    });
+
+    if (dealers.length > 0) {
+      // If no active dealer or current active dealer is not in the list (deleted)
+      if (
+        !activeDealerId ||
+        !dealers.find((d: any) => d.id === activeDealerId)
+      ) {
+        console.log("🔄 Setting new active dealer:", dealers[0].id);
+        setActiveDealerId(dealers[0].id);
+      }
+    } else if (dealers.length === 0 && activeDealerId) {
+      // If no dealers left, clear the active dealer
+      console.log("🔄 Clearing active dealer - no dealers left");
+      setActiveDealerId("");
     }
   }, [dealers, activeDealerId]);
 
@@ -249,6 +277,15 @@ export default function DealerLedgerPage() {
 
       if (failed === 0) {
         toast.success("Selected entries deleted successfully");
+
+        // Check if all transactions were deleted and clear selection if needed
+        if (
+          activeDealer?.transactionTable &&
+          selectedIds.size === activeDealer.transactionTable.length
+        ) {
+          // All transactions were deleted, the dealer should now be deletable
+          // No need to change activeDealerId, just let the data refresh
+        }
       } else {
         toast.error(
           `Failed to delete ${failed} entr${failed === 1 ? "y" : "ies"}`
@@ -391,7 +428,6 @@ export default function DealerLedgerPage() {
           </p>
         </div>
         <div className="flex gap-2">
-     
           <Button
             className="bg-primary hover:bg-primary/90"
             onClick={() => setIsAddDealerOpen(true)}
@@ -541,17 +577,34 @@ export default function DealerLedgerPage() {
             className="bg-red-600 hover:bg-red-700 text-white"
             onClick={async () => {
               if (!activeDealerId) return;
+              const dealerIdToDelete = activeDealerId;
+
               try {
-                await deleteDealerMutation.mutateAsync(activeDealerId);
+                // Clear active dealer ID immediately to prevent further queries
+                setActiveDealerId("");
+
+                await deleteDealerMutation.mutateAsync(dealerIdToDelete);
+
+                // Invalidate the specific dealer query to remove it from cache
+                queryClient.removeQueries({
+                  queryKey: ["dealers", "detail", dealerIdToDelete],
+                });
+
+                // Invalidate the dealers list to get fresh data
+                queryClient.invalidateQueries({
+                  queryKey: ["dealers", "list"],
+                });
+
                 toast.success("Dealer deleted successfully");
                 setIsDeleteDealerOpen(false);
                 setSelectedIds(new Set());
-                // Switch to another dealer if available to avoid fetching deleted dealer
-                const remaining = (dealers || []).filter(
-                  (d: any) => d.id !== activeDealerId
-                );
-                setActiveDealerId(remaining.length > 0 ? remaining[0].id : "");
+                setIsDeleteMode(false);
+
+                // Don't set activeDealerId here - let the useEffect handle it
+                // when the fresh dealers data comes in
               } catch (e) {
+                // Restore the activeDealerId if deletion failed
+                setActiveDealerId(dealerIdToDelete);
                 // Error toast likely handled by interceptor
               }
             }}
@@ -1080,7 +1133,7 @@ export default function DealerLedgerPage() {
                 </Button>
               </CardContent>
             </Card>
-          ) : (
+          ) : activeDealerId ? (
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -1203,6 +1256,23 @@ export default function DealerLedgerPage() {
                     emptyMessage="No transactions for this dealer"
                   />
                 )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="text-center py-8">
+                <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">
+                  No dealer selected
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  All dealers have been deleted. Create a new dealer to get
+                  started.
+                </p>
+                <Button onClick={() => setIsAddDealerOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Dealer
+                </Button>
               </CardContent>
             </Card>
           )}
