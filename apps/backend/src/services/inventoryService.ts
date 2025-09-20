@@ -172,6 +172,7 @@ export class InventoryService {
         inventoryItem,
         expense,
         entityTransaction,
+        purchaseTransactionId: entityTransaction.id, // 🔗 NEW: Return purchase transaction ID for payment linking
       };
     });
   }

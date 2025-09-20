@@ -435,6 +435,11 @@ model EntityTransaction {
   expenseId String?
   expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
   
+  // 🔗 NEW: Payment-to-Purchase relationship
+  paymentToPurchaseId String?
+  paymentToPurchase   EntityTransaction? @relation("PaymentToPurchase", fields: [paymentToPurchaseId], references: [id], onDelete: SetNull)
+  paymentsForPurchase EntityTransaction[] @relation("PaymentToPurchase")
+  
   // Keep generic fields for backward compatibility and flexibility
   entityType  String?         // "DEALER", "HATCHERY", "MEDICINE_SUPPLIER", "CUSTOMER"
   entityId    String?         // The actual entity ID (for custom entities)
@@ -448,6 +453,7 @@ model EntityTransaction {
   @@index([customerId, date])
   @@index([entityType, entityId, date])
   @@index([inventoryItemId, date])
+  @@index([paymentToPurchaseId, date])
 }
 
 // ==================== SUPPLIERS (SIMPLIFIED) ====================

@@ -192,33 +192,56 @@ export const getHatcheryById = async (
       return groups;
     }, {} as any);
 
-    // Apply payments to purchases (FIFO - First In, First Out)
+    // 🔗 NEW: Apply payments to purchases using direct relationship
     const purchaseGroups = Object.values(transactionGroups) as any[];
-    let remainingPayments = transactions
-      .filter((t) => t.type === "PAYMENT")
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const payments = transactions.filter((t) => t.type === "PAYMENT");
 
-    for (const payment of remainingPayments) {
+    for (const payment of payments) {
       const paymentAmount = Number(payment.amount);
-      let remainingPayment = paymentAmount;
 
-      // Apply payment to purchases in chronological order
-      for (const group of purchaseGroups.sort(
-        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-      )) {
-        if (remainingPayment <= 0) break;
+      // 🔗 NEW: If payment has direct relationship to purchase, apply it directly
+      if (payment.paymentToPurchaseId) {
+        const targetGroup = purchaseGroups.find(
+          (group) => group.id === payment.paymentToPurchaseId
+        );
 
-        const currentDue = group.totalAmount - group.amountPaid;
-        if (currentDue > 0) {
-          const paymentToApply = Math.min(remainingPayment, currentDue);
-          group.amountPaid += paymentToApply;
-          group.amountDue = Math.max(0, group.totalAmount - group.amountPaid);
-          group.payments.push({
-            amount: paymentToApply,
-            date: payment.date,
-            reference: payment.reference,
-          });
-          remainingPayment -= paymentToApply;
+        if (targetGroup) {
+          const currentDue = targetGroup.totalAmount - targetGroup.amountPaid;
+          if (currentDue > 0) {
+            const paymentToApply = Math.min(paymentAmount, currentDue);
+            targetGroup.amountPaid += paymentToApply;
+            targetGroup.amountDue = Math.max(
+              0,
+              targetGroup.totalAmount - targetGroup.amountPaid
+            );
+            targetGroup.payments.push({
+              amount: paymentToApply,
+              date: payment.date,
+              reference: payment.reference,
+            });
+          }
+        }
+      } else {
+        // 🔗 FALLBACK: Apply payment using FIFO for payments without direct relationship
+        let remainingPayment = paymentAmount;
+
+        for (const group of purchaseGroups.sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        )) {
+          if (remainingPayment <= 0) break;
+
+          const currentDue = group.totalAmount - group.amountPaid;
+          if (currentDue > 0) {
+            const paymentToApply = Math.min(remainingPayment, currentDue);
+            group.amountPaid += paymentToApply;
+            group.amountDue = Math.max(0, group.totalAmount - group.amountPaid);
+            group.payments.push({
+              amount: paymentToApply,
+              date: payment.date,
+              reference: payment.reference,
+            });
+            remainingPayment -= paymentToApply;
+          }
         }
       }
     }
@@ -403,7 +426,7 @@ export const deleteHatchery = async (
         amount: true,
         itemName: true,
         date: true,
-      }
+      },
     });
     console.log("Actual transactions found:", actualTransactions);
 
@@ -454,6 +477,9 @@ export const addHatcheryTransaction = async (
       description,
       reference,
       unitPrice,
+      // 🔗 NEW: Payment data for single request
+      paymentAmount,
+      paymentDescription,
     } = req.body;
 
     console.log("Hatchery ID:", id);
@@ -491,26 +517,53 @@ export const addHatcheryTransaction = async (
       return res.status(404).json({ message: "Hatchery not found" });
     }
 
-    let transaction;
+    let transactions = [];
 
-        if (type === TransactionType.PURCHASE && itemName && quantity) {
-          // 🔗 NEW: Use inventory service for purchases
-          const result = await InventoryService.processSupplierPurchase({
-            hatcheryId: id,
-            itemName,
-            quantity: Number(quantity),
-            unitPrice: Number(unitPrice || amount / quantity),
-            totalAmount: Number(amount),
-            date: new Date(date),
-            description,
-            reference,
-            userId: currentUserId,
-          });
+    if (type === TransactionType.PURCHASE && itemName && quantity) {
+      // 🔗 NEW: Use inventory service for purchases
+      const result = await InventoryService.processSupplierPurchase({
+        hatcheryId: id,
+        itemName,
+        quantity: Number(quantity),
+        unitPrice: Number(unitPrice || amount / quantity),
+        totalAmount: Number(amount),
+        date: new Date(date),
+        description,
+        reference,
+        userId: currentUserId,
+      });
+
       
-      transaction = result.entityTransaction;
+
+      
+
+      const purchaseTransaction = result.entityTransaction;
+      transactions.push(purchaseTransaction);
+
+      // 🔗 NEW: Create payment transaction if paymentAmount is provided
+      if (paymentAmount && Number(paymentAmount) > 0) {
+        const paymentTransaction = await prisma.entityTransaction.create({
+          data: {
+            type: TransactionType.PAYMENT,
+            amount: Number(paymentAmount),
+            quantity: null,
+            itemName: null,
+            date: new Date(date),
+            description:
+              paymentDescription || `Initial payment for ${itemName}`,
+            reference: null,
+            hatcheryId: id,
+            entityType: "HATCHERY",
+            entityId: id,
+            // 🔗 NEW: Link payment to purchase
+            paymentToPurchaseId: result.purchaseTransactionId,
+          },
+        });
+        transactions.push(paymentTransaction);
+      }
     } else {
       // Simple transaction (payments, adjustments, etc.)
-      transaction = await prisma.entityTransaction.create({
+      const transaction = await prisma.entityTransaction.create({
         data: {
           type,
           amount: Number(amount),
@@ -524,12 +577,16 @@ export const addHatcheryTransaction = async (
           entityId: id,
         },
       });
+      transactions.push(transaction);
     }
 
     return res.status(201).json({
       success: true,
-      data: transaction,
-      message: "Transaction added successfully",
+      data: transactions.length === 1 ? transactions[0] : transactions,
+      message:
+        transactions.length === 1
+          ? "Transaction added successfully"
+          : `${transactions.length} transactions added successfully`,
     });
   } catch (error) {
     console.error("Add hatchery transaction error:", error);
@@ -625,9 +682,9 @@ export const deleteHatcheryTransaction = async (
 
     // Verify password is provided
     if (!password) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Password confirmation is required for deletion" 
+        message: "Password confirmation is required for deletion",
       });
     }
 
@@ -640,13 +697,13 @@ export const deleteHatcheryTransaction = async (
       return res.status(404).json({ message: "User not found" });
     }
 
-    const bcrypt = require('bcrypt');
+    const bcrypt = require("bcrypt");
     const isValidPassword = await bcrypt.compare(password, user.password);
-    
+
     if (!isValidPassword) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Invalid password. Deletion cancelled." 
+        message: "Invalid password. Deletion cancelled.",
       });
     }
 
@@ -670,8 +727,10 @@ export const deleteHatcheryTransaction = async (
         description: true,
         inventoryItemId: true,
         expenseId: true,
+        paymentToPurchaseId: true,
       },
     });
+
     if (!txn) {
       return res.status(404).json({ message: "Transaction not found" });
     }
@@ -680,14 +739,23 @@ export const deleteHatcheryTransaction = async (
     console.log("🔍 Transaction type:", txn.type);
 
     // If this is a PURCHASE, ensure stock was not consumed and reverse inventory safely
-    if (txn.type === 'PURCHASE') {
+    if (txn.type === "PURCHASE") {
       if (!txn.inventoryItemId || !txn.quantity) {
-        return res.status(400).json({ message: 'Purchase transaction missing inventory linkage; cannot safely delete.' });
+        return res
+          .status(400)
+          .json({
+            message:
+              "Purchase transaction missing inventory linkage; cannot safely delete.",
+          });
       }
 
-      const item = await prisma.inventoryItem.findUnique({ where: { id: txn.inventoryItemId } });
+      const item = await prisma.inventoryItem.findUnique({
+        where: { id: txn.inventoryItemId },
+      });
       if (!item) {
-        return res.status(404).json({ message: 'Linked inventory item not found' });
+        return res
+          .status(404)
+          .json({ message: "Linked inventory item not found" });
       }
 
       const currentStock = Number(item.currentStock || 0);
@@ -699,26 +767,26 @@ export const deleteHatcheryTransaction = async (
       }
 
       await prisma.$transaction(async (tx) => {
-        // 1) Find and delete related PAYMENT transaction (if exists)
-        // Look for PAYMENT transactions with same date and similar amount for the same item
+        // 🔗 NEW: Find and delete related PAYMENT transactions using direct relationship
         const relatedPaymentTxns = await tx.entityTransaction.findMany({
           where: {
             hatcheryId: id,
-            type: 'PAYMENT',
-            date: txn.date,
-            // Look for payments that might be related to this purchase
-            OR: [
-              { description: { contains: 'Initial payment' } },
-              { description: { contains: 'payment' } },
-            ]
-          }
+            type: "PAYMENT",
+            paymentToPurchaseId: transactionId, // Direct relationship
+          },
         });
 
-        console.log("🔍 Found related payment transactions:", relatedPaymentTxns);
-        
+        console.log(
+          "🔍 Found related payment transactions:",
+          relatedPaymentTxns
+        );
+
         // Delete related payment transactions
         for (const paymentTxn of relatedPaymentTxns) {
-          console.log("🗑️ Deleting related payment transaction:", paymentTxn.id);
+          console.log(
+            "🗑️ Deleting related payment transaction:",
+            paymentTxn.id
+          );
           await tx.entityTransaction.delete({ where: { id: paymentTxn.id } });
         }
 
@@ -732,10 +800,10 @@ export const deleteHatcheryTransaction = async (
         const invTxn = await tx.inventoryTransaction.findFirst({
           where: {
             itemId: txn.inventoryItemId as string,
-            type: 'PURCHASE',
+            type: "PURCHASE",
             quantity: qty,
           },
-          orderBy: { date: 'desc' },
+          orderBy: { date: "desc" },
         });
         if (invTxn) {
           await tx.inventoryTransaction.delete({ where: { id: invTxn.id } });
@@ -748,7 +816,9 @@ export const deleteHatcheryTransaction = async (
 
         // 5) Finally, delete the entity transaction
         console.log("🔍 About to delete entity transaction:", transactionId);
-        const deletedEntityTxn = await tx.entityTransaction.delete({ where: { id: transactionId } });
+        const deletedEntityTxn = await tx.entityTransaction.delete({
+          where: { id: transactionId },
+        });
         console.log("✅ Deleted entity transaction:", deletedEntityTxn);
 
         // 6) Optional cleanup: remove empty inventory item if fully orphaned
@@ -758,7 +828,9 @@ export const deleteHatcheryTransaction = async (
         });
         if (refreshedItem && Number(refreshedItem.currentStock || 0) === 0) {
           const [remainingInvTxns, remainingUsages] = await Promise.all([
-            tx.inventoryTransaction.count({ where: { itemId: refreshedItem.id } }),
+            tx.inventoryTransaction.count({
+              where: { itemId: refreshedItem.id },
+            }),
             tx.inventoryUsage.count({ where: { itemId: refreshedItem.id } }),
           ]);
           if (remainingInvTxns === 0 && remainingUsages === 0) {
@@ -770,7 +842,17 @@ export const deleteHatcheryTransaction = async (
       // Non-purchase: no inventory side effects, but still wrap in transaction for consistency
       console.log("🔍 Deleting non-purchase transaction:", transactionId);
       await prisma.$transaction(async (tx) => {
-        const deletedTxn = await tx.entityTransaction.delete({ where: { id: transactionId } });
+        // 🔗 NEW: If deleting a payment, check if it has a relationship to a purchase
+        if (txn.type === "PAYMENT" && txn.paymentToPurchaseId) {
+          console.log(
+            "🔍 Deleting payment with relationship to purchase:",
+            txn.paymentToPurchaseId
+          );
+        }
+
+        const deletedTxn = await tx.entityTransaction.delete({
+          where: { id: transactionId },
+        });
         console.log("✅ Successfully deleted transaction:", deletedTxn);
       });
     }
@@ -779,9 +861,12 @@ export const deleteHatcheryTransaction = async (
     const verifyDeleted = await prisma.entityTransaction.findFirst({
       where: { id: transactionId },
     });
-    
+
     if (verifyDeleted) {
-      console.error("❌ Transaction still exists after deletion attempt:", verifyDeleted);
+      console.error(
+        "❌ Transaction still exists after deletion attempt:",
+        verifyDeleted
+      );
       return res.status(500).json({ message: "Transaction deletion failed" });
     } else {
       console.log("✅ Transaction successfully deleted and verified");
@@ -791,9 +876,15 @@ export const deleteHatcheryTransaction = async (
     const remainingTransactions = await prisma.entityTransaction.findMany({
       where: { hatcheryId: id },
     });
-    console.log("🔍 Remaining transactions for hatchery after deletion:", remainingTransactions);
+    console.log(
+      "🔍 Remaining transactions for hatchery after deletion:",
+      remainingTransactions
+    );
 
-    return res.json({ success: true, message: "Transaction deleted successfully" });
+    return res.json({
+      success: true,
+      message: "Transaction deleted successfully",
+    });
   } catch (error) {
     console.error("Delete hatchery transaction error:", error);
     return res.status(500).json({ message: "Internal server error" });
@@ -849,6 +940,24 @@ export const getHatcheryTransactions = async (
         skip,
         take: Number(limit),
         orderBy: { date: "desc" },
+        select: {
+          id: true,
+          type: true,
+          amount: true,
+          quantity: true,
+          itemName: true,
+          date: true,
+          description: true,
+          reference: true,
+          hatcheryId: true,
+          entityType: true,
+          entityId: true,
+          inventoryItemId: true,
+          expenseId: true,
+          paymentToPurchaseId: true, // 🔗 NEW: Include payment relationship
+          createdAt: true,
+          updatedAt: true,
+        },
       }),
       prisma.entityTransaction.count({ where }),
     ]);

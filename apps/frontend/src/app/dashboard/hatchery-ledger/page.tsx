@@ -133,38 +133,26 @@ export default function HatcheryLedgerPage() {
     if (!newEntry.item || !rate || !quantity || !activeHatcheryId) return;
 
     try {
-      // Add purchase transaction
+      // 🔗 NEW: Single request with both purchase and payment data
       await addTransactionMutation.mutateAsync({
         hatcheryId: activeHatcheryId,
         data: {
           type: "PURCHASE" as TransactionType,
           amount: rate * quantity,
-            quantity, 
+          quantity, 
           itemName: newEntry.item,
           date,
           description: `Purchase of ${newEntry.item}`,
           entityType: "HATCHERY",
           entityId: activeHatcheryId,
+          // 🔗 NEW: Include payment data in the same request
+          paymentAmount: paid > 0 ? paid : undefined,
+          paymentDescription: paid > 0 ? `Initial payment for ${newEntry.item}` : undefined,
         },
       });
 
-      // Add payment transaction if paid amount > 0
-      if (paid > 0) {
-        await addTransactionMutation.mutateAsync({
-          hatcheryId: activeHatcheryId,
-          data: {
-            type: "PAYMENT" as TransactionType,
-            amount: paid,
-            date, 
-            description: `Initial payment for ${newEntry.item}`,
-            entityType: "HATCHERY",
-            entityId: activeHatcheryId,
-          },
-    });
-      }
-
       toast.success("Transaction added successfully!");
-    setIsAddEntryOpen(false);
+      setIsAddEntryOpen(false);
       setNewEntry({
         item: "",
         rate: "",
@@ -194,6 +182,8 @@ export default function HatcheryLedgerPage() {
     const paymentDate: Date = paymentForm.date ? new Date(paymentForm.date) : new Date();
 
     try {
+      // 🔗 NEW: For standalone payments, we still use the single request format
+      // but without paymentAmount/paymentDescription (those are for purchase+payment combos)
       await addTransactionMutation.mutateAsync({
         hatcheryId: activeHatcheryId,
         data: {
@@ -203,13 +193,15 @@ export default function HatcheryLedgerPage() {
           description: paymentForm.note || "Payment",
           entityType: "HATCHERY",
           entityId: activeHatcheryId,
+          // Note: For standalone payments, we don't include paymentAmount/paymentDescription
+          // The backend will create a regular PAYMENT transaction without paymentToPurchaseId
         },
       });
 
       toast.success("Payment recorded successfully!");
-    setIsPaymentModalOpen(false);
-    setSelectedEntry(null);
-    setPaymentForm({ amount: "", date: "", note: "" });
+      setIsPaymentModalOpen(false);
+      setSelectedEntry(null);
+      setPaymentForm({ amount: "", date: "", note: "" });
     } catch (error) {
       console.error("Failed to record payment:", error);
       // Error toast is handled by axios interceptor

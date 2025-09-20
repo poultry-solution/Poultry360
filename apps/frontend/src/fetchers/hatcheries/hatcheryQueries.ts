@@ -168,7 +168,11 @@ export const useAddHatcheryTransaction = () => {
       data,
     }: {
       hatcheryId: string;
-      data: CreateEntityTransaction;
+      data: CreateEntityTransaction & {
+        // 🔗 NEW: Optional payment data for single request
+        paymentAmount?: number;
+        paymentDescription?: string;
+      };
     }) => {
       const response = await axiosInstance.post(
         `${API_BASE}/hatcheries/${hatcheryId}/transactions`,
