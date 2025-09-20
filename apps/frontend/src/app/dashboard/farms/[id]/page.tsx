@@ -38,8 +38,9 @@ import {
 import { useGetFarmById, useGetFarmAnalytics, useDeleteFarm } from "@/fetchers/farms/farmQueries";
 import { getTodayLocalDate } from "@/lib/utils";
 import { useGetAllBatches, useCreateBatch, useDeleteBatch } from "@/fetchers/batches/batchQueries";
+import { useInventoryByType } from "@/fetchers/inventory/inventoryQueries";
 import { toast } from "sonner";
-import { FarmResponse, BatchResponse } from "@myapp/shared-types";
+import { FarmResponse, BatchResponse, BatchStatus } from "@myapp/shared-types";
 
 export default function FarmDetailPage() {
   const params = useParams();
@@ -52,27 +53,28 @@ export default function FarmDetailPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [batchFilter, setBatchFilter] = useState<"all" | "active" | "completed">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isFarmDeleted, setIsFarmDeleted] = useState(false);
 
   // Fetch farm data
   const {
     data: farmResponse,
     isLoading: farmLoading,
     error: farmError,
-  } = useGetFarmById(farmId);
+  } = useGetFarmById(farmId, { enabled: !isFarmDeleted });
 
   // Fetch farm analytics
   const {
     data: analyticsResponse,
     isLoading: analyticsLoading,
     error: analyticsError,
-  } = useGetFarmAnalytics(farmId);
+  } = useGetFarmAnalytics(farmId, { enabled: !isFarmDeleted });
 
   // Fetch batches for this farm
   const {
     data: batchesResponse,
     isLoading: batchesLoading,
     error: batchesError,
-  } = useGetAllBatches({ farmId });
+  } = useGetAllBatches({ farmId }, { enabled: !isFarmDeleted });
 
   // Delete farm mutation
   const deleteFarmMutation = useDeleteFarm();
@@ -99,11 +101,18 @@ export default function FarmDetailPage() {
 
   const handleDeleteFarm = async () => {
     try {
+      // Set deleted state to disable queries immediately
+      setIsFarmDeleted(true);
+      
       await deleteFarmMutation.mutateAsync(farmId);
       toast.success("Farm deleted successfully!");
-      router.push("/dashboard/farms");
+      
+      // Navigate immediately to prevent further queries
+      router.replace("/dashboard/farms");
     } catch (error) {
       console.error("Failed to delete farm:", error);
+      // Reset deleted state on error
+      setIsFarmDeleted(false);
       // Error toast is handled by axios interceptor
     }
   };
@@ -128,13 +137,27 @@ export default function FarmDetailPage() {
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [isDeleteBatchModalOpen, setIsDeleteBatchModalOpen] = useState(false);
   const [batchToDelete, setBatchToDelete] = useState<{ id: string; name: string } | null>(null);
+  
+  // Batch form data
   const [batchForm, setBatchForm] = useState({
     batchNumber: "",
     startDate: getTodayLocalDate(),
-    initialChicks: "",
     initialChickWeight: "0.045",
     notes: "",
   });
+
+  // Chicks inventory selections
+  const [multiSource, setMultiSource] = useState(false);
+  const [singleAlloc, setSingleAlloc] = useState<{ itemId: string; quantity: string; notes?: string }>({
+    itemId: "",
+    quantity: "",
+  });
+  const [allocations, setAllocations] = useState<Array<{ itemId: string; quantity: string; notes?: string }>>([
+    { itemId: "", quantity: "" },
+  ]);
+
+  // Fetch chicks inventory items
+  const chicksInventory = useInventoryByType("CHICKS" as any);
 
   // Reset to current date when modal opens and precompute batch name
   useEffect(() => {
@@ -190,6 +213,20 @@ export default function FarmDetailPage() {
       ? new Date(batchForm.startDate).toISOString()
       : new Date().toISOString();
 
+    // Build chicksInventory payload
+    const builtAllocations = multiSource
+      ? allocations
+          .filter((a) => a.itemId && Number(a.quantity) > 0)
+          .map((a) => ({ itemId: a.itemId, quantity: parseInt(a.quantity, 10), notes: a.notes }))
+      : singleAlloc.itemId && Number(singleAlloc.quantity) > 0
+      ? [{ itemId: singleAlloc.itemId, quantity: parseInt(singleAlloc.quantity, 10), notes: singleAlloc.notes }]
+      : [];
+
+    if (builtAllocations.length === 0) {
+      toast.error("Please select chicks inventory and quantity");
+      return;
+    }
+
     try {
       await createBatchMutation.mutateAsync({
         batchNumber:
@@ -197,31 +234,33 @@ export default function FarmDetailPage() {
           `B-${new Date().getFullYear()}-${String(batches.length + 1).padStart(3, "0")}`,
         farmId,
         startDate: startDateIso,
-        initialChicks: parseInt(batchForm.initialChicks),
         initialChickWeight: parseFloat(batchForm.initialChickWeight),
-        status: "ACTIVE",
+        status: "ACTIVE" as BatchStatus,
+        chicksInventory: builtAllocations,
       });
 
       toast.success("Batch created successfully!");
       setIsBatchModalOpen(false);
       setBatchForm({
         batchNumber: "",
-        startDate: new Date().toISOString().split("T")[0],
-        initialChicks: "",
+        startDate: getTodayLocalDate(),
         initialChickWeight: "0.045",
         notes: "",
       });
+      setSingleAlloc({ itemId: "", quantity: "" });
+      setAllocations([{ itemId: "", quantity: "" }]);
+      setMultiSource(false);
     } catch (error) {
       console.error("Failed to create batch:", error);
     }
   };
 
-  if (farmLoading) {
+  if (farmLoading || isFarmDeleted) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p>Loading farm details...</p>
+          <p>{isFarmDeleted ? "Deleting farm..." : "Loading farm details..."}</p>
         </div>
       </div>
     );
@@ -714,15 +753,135 @@ export default function FarmDetailPage() {
                   required
                 />
               </div>
+              
+              {/* Chicks Inventory Selection */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Chicks Inventory</Label>
+                  <label className="flex items-center space-x-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={multiSource}
+                      onChange={(e) => setMultiSource(e.target.checked)}
+                    />
+                    <span>Allocate from multiple items</span>
+                  </label>
+                </div>
+
+                {/* Single source allocation */}
+                {!multiSource && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="singleItem">Select Chicks Item</Label>
+                      <select
+                        id="singleItem"
+                        className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                        value={singleAlloc.itemId}
+                        onChange={(e) => setSingleAlloc((p) => ({ ...p, itemId: e.target.value }))}
+                      >
+                        <option value="">Select an item</option>
+                        {(chicksInventory.items || []).map((it: any) => (
+                          <option key={it.id} value={it.id}>
+                            {it.name} (Stock: {Number(it.currentStock)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <Label htmlFor="singleQty">Quantity</Label>
+                      <Input
+                        id="singleQty"
+                        type="number"
+                        min={1}
+                        value={singleAlloc.quantity}
+                        onChange={(e) => setSingleAlloc((p) => ({ ...p, quantity: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Multiple allocations */}
+                {multiSource && (
+                  <div className="space-y-2">
+                    {allocations.map((row, idx) => (
+                      <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                        <div className="md:col-span-6">
+                          <Label>Select Chicks Item</Label>
+                          <select
+                            className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                            value={row.itemId}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setAllocations((prev) => prev.map((r, i) => (i === idx ? { ...r, itemId: v } : r)));
+                            }}
+                          >
+                            <option value="">Select an item</option>
+                            {(chicksInventory.items || []).map((it: any) => (
+                              <option key={it.id} value={it.id}>
+                                {it.name} (Stock: {Number(it.currentStock)})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="md:col-span-3">
+                          <Label>Quantity</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={row.quantity}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setAllocations((prev) => prev.map((r, i) => (i === idx ? { ...r, quantity: v } : r)));
+                            }}
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <Label>Notes</Label>
+                          <Input
+                            placeholder="Optional"
+                            value={row.notes || ""}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setAllocations((prev) => prev.map((r, i) => (i === idx ? { ...r, notes: v } : r)));
+                            }}
+                          />
+                        </div>
+                        <div className="md:col-span-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setAllocations((prev) => prev.filter((_, i) => i !== idx))}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    <div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setAllocations((prev) => [...prev, { itemId: "", quantity: "" }])}
+                      >
+                        Add Item
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Computed total chicks */}
               <div>
-                <Label htmlFor="initialChicks">Initial Chicks</Label>
+                <Label>Total Chicks</Label>
                 <Input
-                  id="initialChicks"
-                  name="initialChicks"
-                  type="number"
-                  value={batchForm.initialChicks}
-                  onChange={handleBatchChange}
-                  required
+                  readOnly
+                  value={(() => {
+                    const total = multiSource
+                      ? allocations.reduce((sum, a) => sum + (Number(a.quantity) || 0), 0)
+                      : Number(singleAlloc.quantity) || 0;
+                    return String(total || 0);
+                  })()}
+                  className="bg-muted cursor-not-allowed"
                 />
               </div>
               <div>

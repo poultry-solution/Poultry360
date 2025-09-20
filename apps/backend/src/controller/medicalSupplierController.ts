@@ -38,16 +38,6 @@ export const getAllMedicalSuppliers = async (
         where,
         skip,
         take: Number(limit),
-        include: {
-          transactions: {
-            orderBy: { date: "desc" },
-          },
-          _count: {
-            select: {
-              transactions: true,
-            },
-          },
-        },
         orderBy: { createdAt: "desc" },
       }),
       prisma.medicineSupplier.count({ where }),
@@ -56,7 +46,13 @@ export const getAllMedicalSuppliers = async (
     // Calculate balance for each supplier
     const suppliersWithBalance = await Promise.all(
       suppliers.map(async (supplier) => {
-        const transactions = supplier.transactions;
+        // Get transactions directly from entityTransaction table
+        const transactions = await prisma.entityTransaction.findMany({
+          where: {
+            medicineSupplierId: supplier.id,
+          },
+          orderBy: { date: "desc" },
+        });
 
         // Calculate balance: PURCHASE/ADJUSTMENT (positive) - PAYMENT/RECEIPT (negative)
         const balance = transactions.reduce((sum, transaction) => {
@@ -127,19 +123,19 @@ export const getMedicalSupplierById = async (
         id,
         userId: currentUserId,
       },
-      include: {
-        transactions: {
-          orderBy: { date: "desc" },
-        },
-      },
     });
 
     if (!supplier) {
       return res.status(404).json({ message: "Medical supplier not found" });
     }
 
-    // Calculate balance and transaction summary
-    const transactions = supplier.transactions;
+    // Get transactions directly from entityTransaction table
+    const transactions = await prisma.entityTransaction.findMany({
+      where: {
+        medicineSupplierId: id,
+      },
+      orderBy: { date: "desc" },
+    });
     const balance = transactions.reduce((sum, transaction) => {
       if (
         transaction.type === "PURCHASE" ||
@@ -384,21 +380,39 @@ export const deleteMedicalSupplier = async (
         id,
         userId: currentUserId,
       },
-      include: {
-        _count: {
-          select: {
-            transactions: true,
-          },
-        },
-      },
     });
 
     if (!existingSupplier) {
       return res.status(404).json({ message: "Medical supplier not found" });
     }
 
+    // Check if supplier has transactions by directly querying entityTransaction table
+    const transactionCount = await prisma.entityTransaction.count({
+      where: {
+        medicineSupplierId: id,
+      },
+    });
+
+    console.log("Existing supplier:", existingSupplier);
+    console.log("Transaction count for supplier:", transactionCount);
+
+    // Let's also check what transactions actually exist
+    const actualTransactions = await prisma.entityTransaction.findMany({
+      where: {
+        medicineSupplierId: id,
+      },
+      select: {
+        id: true,
+        type: true,
+        amount: true,
+        itemName: true,
+        date: true,
+      }
+    });
+    console.log("Actual transactions found:", actualTransactions);
+
     // Check if supplier has transactions
-    if (existingSupplier._count.transactions > 0) {
+    if (transactionCount > 0) {
       return res.status(400).json({
         message:
           "Cannot delete medical supplier with existing transactions. Please remove all transactions first.",
@@ -533,9 +547,6 @@ export const getMedicalSupplierStatistics = async (
     // Get all suppliers for the user
     const suppliers = await prisma.medicineSupplier.findMany({
       where: { userId: currentUserId },
-      include: {
-        transactions: true,
-      },
     });
 
     // Calculate statistics
@@ -548,8 +559,15 @@ export const getMedicalSupplierStatistics = async (
     currentMonth.setDate(1);
     currentMonth.setHours(0, 0, 0, 0);
 
-    suppliers.forEach((supplier) => {
-      const balance = supplier.transactions.reduce((sum, transaction) => {
+    for (const supplier of suppliers) {
+      // Get transactions directly from entityTransaction table
+      const transactions = await prisma.entityTransaction.findMany({
+        where: {
+          medicineSupplierId: supplier.id,
+        },
+      });
+
+      const balance = transactions.reduce((sum, transaction) => {
         if (
           transaction.type === "PURCHASE" ||
           transaction.type === "ADJUSTMENT"
@@ -570,14 +588,14 @@ export const getMedicalSupplierStatistics = async (
       }
 
       // This month's purchases
-      const thisMonthPurchases = supplier.transactions
+      const thisMonthPurchases = transactions
         .filter(
           (t) => t.type === "PURCHASE" && new Date(t.date) >= currentMonth
         )
         .reduce((sum, t) => sum + Number(t.amount), 0);
 
       thisMonthAmount += thisMonthPurchases;
-    });
+    }
 
     return res.json({
       success: true,
@@ -657,14 +675,18 @@ export const deleteMedicalSupplierTransaction = async (
       return res.status(404).json({ message: "Transaction not found" });
     }
 
-    if (txn.type === "PURCHASE") {
+    console.log("🔍 Deleting transaction:", txn);
+    console.log("🔍 Transaction type:", txn.type);
+
+    // If this is a PURCHASE, ensure stock was not consumed and reverse inventory safely
+    if (txn.type === 'PURCHASE') {
       if (!txn.inventoryItemId || !txn.quantity) {
-        return res.status(400).json({ message: "Purchase transaction missing inventory linkage; cannot safely delete." });
+        return res.status(400).json({ message: 'Purchase transaction missing inventory linkage; cannot safely delete.' });
       }
 
       const item = await prisma.inventoryItem.findUnique({ where: { id: txn.inventoryItemId } });
       if (!item) {
-        return res.status(404).json({ message: "Linked inventory item not found" });
+        return res.status(404).json({ message: 'Linked inventory item not found' });
       }
 
       const currentStock = Number(item.currentStock || 0);
@@ -676,34 +698,59 @@ export const deleteMedicalSupplierTransaction = async (
       }
 
       await prisma.$transaction(async (tx) => {
-        // Reverse stock-in
+        // 1) Find and delete related PAYMENT transaction (if exists)
+        // Look for PAYMENT transactions with same date and similar amount for the same item
+        const relatedPaymentTxns = await tx.entityTransaction.findMany({
+          where: {
+            medicineSupplierId: id,
+            type: 'PAYMENT',
+            date: txn.date,
+            // Look for payments that might be related to this purchase
+            OR: [
+              { description: { contains: 'Initial payment' } },
+              { description: { contains: 'payment' } },
+            ]
+          }
+        });
+
+        console.log("🔍 Found related payment transactions:", relatedPaymentTxns);
+        
+        // Delete related payment transactions
+        for (const paymentTxn of relatedPaymentTxns) {
+          console.log("🗑️ Deleting related payment transaction:", paymentTxn.id);
+          await tx.entityTransaction.delete({ where: { id: paymentTxn.id } });
+        }
+
+        // 2) Reduce inventory stock by the purchased quantity (reverse stock-in)
         await tx.inventoryItem.update({
           where: { id: txn.inventoryItemId as string },
           data: { currentStock: { decrement: qty } },
         });
 
-        // Remove matching inventory transaction (PURCHASE)
+        // 3) Remove a matching inventoryTransaction (PURCHASE) if present
         const invTxn = await tx.inventoryTransaction.findFirst({
           where: {
             itemId: txn.inventoryItemId as string,
-            type: "PURCHASE",
+            type: 'PURCHASE',
             quantity: qty,
           },
-          orderBy: { date: "desc" },
+          orderBy: { date: 'desc' },
         });
         if (invTxn) {
           await tx.inventoryTransaction.delete({ where: { id: invTxn.id } });
         }
 
-        // Remove linked expense if exists
+        // 4) Remove the linked expense if it exists
         if (txn.expenseId) {
           await tx.expense.delete({ where: { id: txn.expenseId } });
         }
 
-        // Delete ledger transaction
-        await tx.entityTransaction.delete({ where: { id: transactionId } });
+        // 5) Finally, delete the entity transaction
+        console.log("🔍 About to delete entity transaction:", transactionId);
+        const deletedEntityTxn = await tx.entityTransaction.delete({ where: { id: transactionId } });
+        console.log("✅ Deleted entity transaction:", deletedEntityTxn);
 
-        // Cleanup orphan inventory item if zero stock and no history
+        // 6) Optional cleanup: remove empty inventory item if fully orphaned
         const refreshedItem = await tx.inventoryItem.findUnique({
           where: { id: txn.inventoryItemId as string },
           select: { id: true, currentStock: true },
@@ -719,9 +766,31 @@ export const deleteMedicalSupplierTransaction = async (
         }
       });
     } else {
-      // Non-purchase delete has no inventory effect
-      await prisma.entityTransaction.delete({ where: { id: transactionId } });
+      // Non-purchase: no inventory side effects, but still wrap in transaction for consistency
+      console.log("🔍 Deleting non-purchase transaction:", transactionId);
+      await prisma.$transaction(async (tx) => {
+        const deletedTxn = await tx.entityTransaction.delete({ where: { id: transactionId } });
+        console.log("✅ Successfully deleted transaction:", deletedTxn);
+      });
     }
+
+    // Verify transaction was actually deleted
+    const verifyDeleted = await prisma.entityTransaction.findFirst({
+      where: { id: transactionId },
+    });
+    
+    if (verifyDeleted) {
+      console.error("❌ Transaction still exists after deletion attempt:", verifyDeleted);
+      return res.status(500).json({ message: "Transaction deletion failed" });
+    } else {
+      console.log("✅ Transaction successfully deleted and verified");
+    }
+
+    // Also check if there are any remaining transactions for this supplier
+    const remainingTransactions = await prisma.entityTransaction.findMany({
+      where: { medicineSupplierId: id },
+    });
+    console.log("🔍 Remaining transactions for supplier after deletion:", remainingTransactions);
 
     return res.json({ success: true, message: "Transaction deleted successfully" });
   } catch (error) {

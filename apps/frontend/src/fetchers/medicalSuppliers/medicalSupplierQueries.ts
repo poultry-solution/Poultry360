@@ -5,6 +5,7 @@ import {
   TransactionType,
 } from "@myapp/shared-types";
 import axiosInstance from "@/lib/axios";
+import { inventoryKeys } from "../inventory/inventoryQueries";
 
 // ==================== QUERY KEYS ====================
 
@@ -116,6 +117,8 @@ export const useCreateMedicalSupplier = () => {
       queryClient.invalidateQueries({
         queryKey: medicalSupplierKeys.statistics(),
       });
+      // also invalidate the inventory queries
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.lists() });
     },
   });
 };
@@ -147,6 +150,8 @@ export const useUpdateMedicalSupplier = () => {
       queryClient.invalidateQueries({
         queryKey: medicalSupplierKeys.statistics(),
       });
+      // also invalidate the inventory queries
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.lists() });
     },
   });
 };
@@ -166,6 +171,8 @@ export const useDeleteMedicalSupplier = () => {
       queryClient.invalidateQueries({
         queryKey: medicalSupplierKeys.statistics(),
       });
+      // also invalidate the inventory queries
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.lists() });
     },
   });
 };
@@ -208,6 +215,8 @@ export const useAddMedicalSupplierTransaction = () => {
       queryClient.invalidateQueries({
         queryKey: medicalSupplierKeys.statistics(),
       });
+      // also invalidate the inventory queries
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.lists() });
     },
   });
 };
@@ -236,6 +245,8 @@ export const useDeleteMedicalSupplierTransaction = () => {
       queryClient.invalidateQueries({ queryKey: medicalSupplierKeys.detail(supplierId) });
       queryClient.invalidateQueries({ queryKey: medicalSupplierKeys.transactions(supplierId) });
       queryClient.invalidateQueries({ queryKey: medicalSupplierKeys.statistics() });
+      // also invalidate the inventory queries
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.lists() });
     },
   });
 };

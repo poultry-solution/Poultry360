@@ -30,7 +30,7 @@ export const useGetAllBatches = (params?: {
   farmId?: string;
   status?: BatchStatus;
   search?: string;
-}) => {
+}, options?: { enabled?: boolean }) => {
   return useQuery<BatchListResponse>({
     queryKey: batchKeys.list(params || {}),
     queryFn: async () => {
@@ -38,6 +38,7 @@ export const useGetAllBatches = (params?: {
       console.log("Get All Batches", response.data);
       return response.data;
     },
+    enabled: options?.enabled !== false,
   });
 };
 

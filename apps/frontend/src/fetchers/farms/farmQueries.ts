@@ -54,26 +54,26 @@ export const useGetUserFarms = (type?: "owned" | "managed" | "all") => {
 };
 
 // Get farm by ID
-export const useGetFarmById = (id: string) => {
+export const useGetFarmById = (id: string, options?: { enabled?: boolean }) => {
   return useQuery<FarmDetailResponse>({
     queryKey: farmKeys.detail(id),
     queryFn: async () => {
       const response = await axiosInstance.get(`/farms/${id}`);
       return response.data;
     },
-    enabled: !!id,
+    enabled: !!id && (options?.enabled !== false),
   });
 };
 
 // Get farm analytics
-export const useGetFarmAnalytics = (id: string) => {
+export const useGetFarmAnalytics = (id: string, options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: farmKeys.analytics(id),
     queryFn: async () => {
       const response = await axiosInstance.get(`/farms/${id}/analytics`);
       return response.data;
     },
-    enabled: !!id,
+    enabled: !!id && (options?.enabled !== false),
   });
 };
 
