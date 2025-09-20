@@ -34,8 +34,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useConversationsList, useUnreadCounts, useChatConnection } from "@/hooks/useChat";
+import {
+  useConversationsList,
+  useUnreadCounts,
+  useChatConnection,
+} from "@/hooks/useChat";
 import { useAuthStore } from "@/store/authStore";
+import { AppLoadingScreen } from "@/components/loading-screen";
 
 interface ChatRequest {
   id: string;
@@ -50,25 +55,42 @@ interface ChatRequest {
 
 export default function DoctorDashboard() {
   const router = useRouter();
-  const { user, logout, isAuthenticated, isLoading: authLoading, initialize } = useAuthStore();
+  const {
+    user,
+    logout,
+    isAuthenticated,
+    isLoading: authLoading,
+    initialize,
+  } = useAuthStore();
   const [showActiveChats, setShowActiveChats] = useState(false);
   const [showPendingRequests, setShowPendingRequests] = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [reminderForm, setReminderForm] = useState({
-    title: '',
-    date: '',
-    time: '',
-    type: 'Consultation Reminder'
+    title: "",
+    date: "",
+    time: "",
+    type: "Consultation Reminder",
   });
   const [reminders, setReminders] = useState([
-    { id: 1, title: 'Follow-up with Rajesh Patel', date: '2025-09-12', time: '10:00 AM', type: 'Consultation Reminder' },
-    { id: 2, title: 'Review vaccination schedule', date: '2025-09-13', time: '02:00 PM', type: 'Medical Reminder' }
+    {
+      id: 1,
+      title: "Follow-up with Rajesh Patel",
+      date: "2025-09-12",
+      time: "10:00 AM",
+      type: "Consultation Reminder",
+    },
+    {
+      id: 2,
+      title: "Review vaccination schedule",
+      date: "2025-09-13",
+      time: "02:00 PM",
+      type: "Medical Reminder",
+    },
   ]);
 
   // Only fetch chat data if authenticated
-  const { conversations, isLoading: conversationsLoading } = useConversationsList(
-    isAuthenticated ? { status: 'ACTIVE' } : undefined
-  );
+  const { conversations, isLoading: conversationsLoading } =
+    useConversationsList(isAuthenticated ? { status: "ACTIVE" } : undefined);
   const { unreadCounts, totalUnread } = useUnreadCounts();
   const { isConnected } = useChatConnection();
 
@@ -83,26 +105,32 @@ export default function DoctorDashboard() {
   }, [initialize, isAuthenticated, authLoading]);
 
   // Filter conversations
-  const activeConversations = conversations?.filter(conv => conv.status === 'ACTIVE') || [];
-  
+  const activeConversations =
+    conversations?.filter((conv) => conv.status === "ACTIVE") || [];
+
   // Pending consultations: conversations where last message is from farmer (doctor hasn't replied to latest)
-  const pendingConversations = conversations?.filter(conv => 
-    conv.status === 'ACTIVE' && 
-    conv.lastMessage && 
-    conv.lastMessage.senderId !== conv.doctor.id
-  ) || [];
-  
+  const pendingConversations =
+    conversations?.filter(
+      (conv) =>
+        conv.status === "ACTIVE" &&
+        conv.lastMessage &&
+        conv.lastMessage.senderId !== conv.doctor.id
+    ) || [];
+
   // New messages: conversations where last message is from doctor (ongoing conversation) and has unread messages
-  const newMessageConversations = conversations?.filter(conv => 
-    conv.status === 'ACTIVE' && 
-    conv.unreadCount > 0 &&
-    conv.lastMessage && 
-    conv.lastMessage.senderId === conv.doctor.id
-  ) || [];
+  const newMessageConversations =
+    conversations?.filter(
+      (conv) =>
+        conv.status === "ACTIVE" &&
+        conv.unreadCount > 0 &&
+        conv.lastMessage &&
+        conv.lastMessage.senderId === conv.doctor.id
+    ) || [];
 
   const todayStats = {
     totalConsultations: activeConversations.length,
-    completedConsultations: conversations?.filter(conv => conv.status === 'CLOSED').length || 0,
+    completedConsultations:
+      conversations?.filter((conv) => conv.status === "CLOSED").length || 0,
     activeChats: activeConversations.length,
     pendingRequests: pendingConversations.length,
   };
@@ -110,71 +138,15 @@ export default function DoctorDashboard() {
   // Show loading while auth is initializing
   if (authLoading || !isAuthenticated) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-primary-foreground font-bold text-2xl">
-              P360
-            </span>
-          </div>
-          <h1 className="text-2xl font-semibold mb-2">Poultry360 Doctor</h1>
-          <p className="text-muted-foreground mb-4">
-            {authLoading ? "Initializing authentication..." : "Redirecting to login..."}
-          </p>
-          {!authLoading && !isAuthenticated && (
-            <div className="space-y-2">
-              <button
-                onClick={() => {
-                  window.location.href = "http://localhost:3000/auth/login";
-                }}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors mr-2"
-              >
-                Go to Login
-              </button>
-              <button
-                onClick={() => {
-                  // Debug: Check localStorage
-                  console.log('🔍 All localStorage keys:', Object.keys(localStorage));
-                  console.log('🔍 Current URL:', window.location.href);
-                  console.log('🔍 Auth store state:', useAuthStore.getState());
-                  
-                  // Check specific keys
-                  const urlParams = new URLSearchParams(window.location.search);
-                  const authParam = urlParams.get('auth');
-                  console.log('🔍 Auth param from URL:', authParam);
-                  
-                  if (authParam) {
-                    const tempData = localStorage.getItem(authParam);
-                    console.log('🔍 Temp data for key', authParam, ':', tempData);
-                  }
-                  
-                  const authStorage = localStorage.getItem('auth-storage');
-                  console.log('🔍 auth-storage data:', authStorage);
-                  
-                  // Try to manually set auth data if we have a token
-                  const authState = useAuthStore.getState();
-                  if (authState.accessToken && !authState.user) {
-                    console.log('🔍 We have a token but no user, trying to validate...');
-                    // Try to decode the JWT to get user info
-                    try {
-                      const payload = JSON.parse(atob(authState.accessToken.split('.')[1]));
-                      console.log('🔍 JWT payload:', payload);
-                    } catch (e) {
-                      console.log('❌ Error decoding JWT:', e);
-                    }
-                  }
-                }}
-                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors"
-              >
-                Debug Info
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+      <AppLoadingScreen
+        message={
+          authLoading
+            ? "Initializing authentication..."
+            : "Redirecting to login..."
+        }
+      />
     );
   }
-
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
@@ -205,29 +177,35 @@ export default function DoctorDashboard() {
     setIsUpdating(true);
     try {
       // Simulate status update - in reality, this is handled by socket connection
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       // Note: Actual online status is managed by socket connection
-      console.log('Online status toggle requested');
+      console.log("Online status toggle requested");
     } catch (error) {
-      console.error('Failed to update online status:', error);
+      console.error("Failed to update online status:", error);
     } finally {
       setIsUpdating(false);
     }
   };
 
   const handleAddReminder = () => {
-    if (!reminderForm.title.trim() || !reminderForm.date || !reminderForm.time) return;
+    if (!reminderForm.title.trim() || !reminderForm.date || !reminderForm.time)
+      return;
 
     const newReminder = {
       id: Date.now(),
       title: reminderForm.title,
       date: reminderForm.date,
       time: reminderForm.time,
-      type: reminderForm.type
+      type: reminderForm.type,
     };
 
     setReminders([...reminders, newReminder]);
-    setReminderForm({ title: '', date: '', time: '', type: 'Consultation Reminder' });
+    setReminderForm({
+      title: "",
+      date: "",
+      time: "",
+      type: "Consultation Reminder",
+    });
     setIsReminderModalOpen(false);
   };
 
@@ -251,12 +229,11 @@ export default function DoctorDashboard() {
               <div className="flex items-center space-x-2">
                 <div className="w-10 h-8 bg-primary rounded-full flex items-center justify-center">
                   <span className="text-primary-foreground font-bold text-lg">
-               P
+                    P
                   </span>
                 </div>
                 <div>
                   <h1 className="text-xl font-semibold">Poultry360</h1>
-
                 </div>
               </div>
             </div>
@@ -272,15 +249,18 @@ export default function DoctorDashboard() {
                       <User className="h-5 w-5" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48 bg-white border shadow-lg z-50">
-                    <DropdownMenuItem 
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-48 bg-white border shadow-lg z-50"
+                  >
+                    <DropdownMenuItem
                       onClick={handleEditProfile}
                       className="cursor-pointer"
                     >
                       <Edit className="mr-2 h-4 w-4" />
                       Edit Profile
                     </DropdownMenuItem>
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       onClick={handleLogout}
                       className="cursor-pointer text-red-600 focus:text-red-600"
                     >
@@ -296,7 +276,11 @@ export default function DoctorDashboard() {
                   disabled={isUpdating}
                   className="bg-primary hover:bg-primary/90"
                 >
-                  {isUpdating ? 'Updating...' : (isConnected ? 'Go Offline' : 'Go Online')}
+                  {isUpdating
+                    ? "Updating..."
+                    : isConnected
+                      ? "Go Offline"
+                      : "Go Online"}
                 </Button>
               </div>
             </div>
@@ -309,13 +293,17 @@ export default function DoctorDashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold">Welcome Dr. {user?.name}</h2>
-            <p className="text-muted-foreground">Manage your consultations and help farmers</p>
+            <p className="text-muted-foreground">
+              Manage your consultations and help farmers
+            </p>
           </div>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <div
+                className={`w-3 h-3 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`}
+              ></div>
               <span className="text-sm font-medium">
-                {isConnected ? 'Online' : 'Offline'}
+                {isConnected ? "Online" : "Offline"}
               </span>
             </div>
           </div>
@@ -325,18 +313,22 @@ export default function DoctorDashboard() {
         <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="py-2">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-              <CardTitle className="text-xs font-medium">Total Consultations</CardTitle>
+              <CardTitle className="text-xs font-medium">
+                Total Consultations
+              </CardTitle>
               <Calendar className="h-3 w-3 text-muted-foreground" />
             </CardHeader>
             <CardContent className="pb-2">
-              <div className="text-lg font-bold">{todayStats.totalConsultations}</div>
+              <div className="text-lg font-bold">
+                {todayStats.totalConsultations}
+              </div>
               <p className="text-xs text-muted-foreground">Today</p>
             </CardContent>
           </Card>
 
-          <Card 
+          <Card
             className="cursor-pointer hover:bg-muted/50 transition-colors py-2"
-            onClick={() => router.push('/ledger')}
+            onClick={() => router.push("/ledger")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
               <CardTitle className="text-xs font-medium">Ledger</CardTitle>
@@ -344,35 +336,47 @@ export default function DoctorDashboard() {
             </CardHeader>
             <CardContent className="pb-2">
               <div className="text-lg font-bold">₹15,240</div>
-              <p className="text-xs text-muted-foreground">Total transactions</p>
+              <p className="text-xs text-muted-foreground">
+                Total transactions
+              </p>
             </CardContent>
           </Card>
 
-          <Card 
+          <Card
             className="cursor-pointer hover:bg-muted/50 transition-colors py-2"
             onClick={() => setShowActiveChats(true)}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-              <CardTitle className="text-xs font-medium">Active Chats</CardTitle>
+              <CardTitle className="text-xs font-medium">
+                Active Chats
+              </CardTitle>
               <MessageCircle className="h-3 w-3 text-muted-foreground" />
             </CardHeader>
             <CardContent className="pb-2">
               <div className="text-lg font-bold">{todayStats.activeChats}</div>
-              <p className="text-xs text-muted-foreground">Click to view chats</p>
+              <p className="text-xs text-muted-foreground">
+                Click to view chats
+              </p>
             </CardContent>
           </Card>
 
-          <Card 
+          <Card
             className="cursor-pointer hover:bg-muted/50 transition-colors py-2"
             onClick={() => setShowPendingRequests(true)}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-              <CardTitle className="text-xs font-medium">Pending Requests</CardTitle>
+              <CardTitle className="text-xs font-medium">
+                Pending Requests
+              </CardTitle>
               <AlertCircle className="h-3 w-3 text-muted-foreground" />
             </CardHeader>
             <CardContent className="pb-2">
-              <div className="text-lg font-bold">{todayStats.pendingRequests}</div>
-              <p className="text-xs text-muted-foreground">Click to view requests</p>
+              <div className="text-lg font-bold">
+                {todayStats.pendingRequests}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Click to view requests
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -394,7 +398,9 @@ export default function DoctorDashboard() {
               <CardContent>
                 {conversationsLoading ? (
                   <div className="flex items-center justify-center py-8">
-                    <div className="text-muted-foreground">Loading conversations...</div>
+                    <div className="text-muted-foreground">
+                      Loading conversations...
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -406,8 +412,12 @@ export default function DoctorDashboard() {
                         <div className="flex-1 space-y-2">
                           <div className="flex items-center justify-between">
                             <div>
-                              <h4 className="font-medium">{conversation.farmer.name}</h4>
-                              <p className="text-sm text-muted-foreground">{conversation.subject || 'Consultation Request'}</p>
+                              <h4 className="font-medium">
+                                {conversation.farmer.name}
+                              </h4>
+                              <p className="text-sm text-muted-foreground">
+                                {conversation.subject || "Consultation Request"}
+                              </p>
                             </div>
                             <div className="flex items-center space-x-2">
                               <Badge className="bg-orange-100 text-orange-800">
@@ -419,13 +429,16 @@ export default function DoctorDashboard() {
                             </div>
                           </div>
                           <p className="text-sm text-muted-foreground line-clamp-2">
-                            {conversation.lastMessage?.text || 'No messages yet'}
+                            {conversation.lastMessage?.text ||
+                              "No messages yet"}
                           </p>
                           <div className="flex space-x-2">
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               className="bg-primary hover:bg-primary/90"
-                              onClick={() => handleAcceptRequest(conversation.id)}
+                              onClick={() =>
+                                handleAcceptRequest(conversation.id)
+                              }
                             >
                               <MessageCircle className="h-4 w-4 mr-1" />
                               Accept
@@ -459,27 +472,35 @@ export default function DoctorDashboard() {
                     </CardDescription>
                   </div>
                   <Badge className="bg-primary text-primary-foreground text-xs">
-                    {newMessageConversations.reduce((sum, conv) => sum + conv.unreadCount, 0)}
+                    {newMessageConversations.reduce(
+                      (sum, conv) => sum + conv.unreadCount,
+                      0
+                    )}
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent className="pt-0 flex-1 overflow-hidden">
                 <div className="h-full overflow-y-auto space-y-3">
                   {newMessageConversations.slice(0, 3).map((conversation) => (
-                    <div 
+                    <div
                       key={conversation.id}
                       className="flex items-start space-x-3 p-2 border rounded-lg hover:bg-muted/50 cursor-pointer"
                       onClick={() => handleAcceptRequest(conversation.id)}
                     >
                       <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                         <span className="text-primary-foreground font-bold text-xs">
-                          {conversation.farmer.name.split(' ').map(n => n[0]).join('')}
+                          {conversation.farmer.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{conversation.farmer.name}</p>
+                        <p className="text-xs font-medium truncate">
+                          {conversation.farmer.name}
+                        </p>
                         <p className="text-xs text-muted-foreground truncate">
-                          {conversation.lastMessage?.text || 'No messages yet'}
+                          {conversation.lastMessage?.text || "No messages yet"}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {formatTime(conversation.updatedAt)}
@@ -510,8 +531,8 @@ export default function DoctorDashboard() {
                       Upcoming tasks
                     </CardDescription>
                   </div>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={() => setIsReminderModalOpen(true)}
                     className="bg-primary hover:bg-primary/90 text-xs px-2 py-1"
                   >
@@ -523,12 +544,17 @@ export default function DoctorDashboard() {
               <CardContent className="pt-0 flex-1 overflow-hidden">
                 <div className="h-full overflow-y-auto space-y-3">
                   {reminders.map((reminder) => (
-                    <div key={reminder.id} className="flex items-start space-x-3 p-2 border rounded-lg hover:bg-muted/50">
+                    <div
+                      key={reminder.id}
+                      className="flex items-start space-x-3 p-2 border rounded-lg hover:bg-muted/50"
+                    >
                       <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                         <Clock className="h-3 w-3 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{reminder.title}</p>
+                        <p className="text-xs font-medium truncate">
+                          {reminder.title}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {reminder.date}
                         </p>
@@ -542,8 +568,8 @@ export default function DoctorDashboard() {
                     <div className="text-center py-4 text-muted-foreground">
                       <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
                       <p className="text-xs">No reminders</p>
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         onClick={() => setIsReminderModalOpen(true)}
                         className="mt-2 bg-primary hover:bg-primary/90 text-xs px-2 py-1"
                       >
@@ -559,8 +585,8 @@ export default function DoctorDashboard() {
         </div>
 
         {/* Active Chats Modal */}
-        <Modal 
-          isOpen={showActiveChats} 
+        <Modal
+          isOpen={showActiveChats}
           onClose={() => setShowActiveChats(false)}
           title="Active Chats"
         >
@@ -573,16 +599,22 @@ export default function DoctorDashboard() {
                 <div className="flex items-center space-x-3 flex-1 min-w-0">
                   <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
                     <span className="text-primary-foreground font-bold text-xs">
-                      {conversation.farmer.name.split(' ').map(n => n[0]).join('')}
+                      {conversation.farmer.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-sm truncate">{conversation.farmer.name}</h4>
+                    <h4 className="font-medium text-sm truncate">
+                      {conversation.farmer.name}
+                    </h4>
                     <p className="text-xs text-muted-foreground truncate">
-                      {conversation.lastMessage?.text ? 
-                        (conversation.lastMessage.text.length > 30 ? `${conversation.lastMessage.text.substring(0, 30)}...` : conversation.lastMessage.text) :
-                        'No messages yet'
-                      }
+                      {conversation.lastMessage?.text
+                        ? conversation.lastMessage.text.length > 30
+                          ? `${conversation.lastMessage.text.substring(0, 30)}...`
+                          : conversation.lastMessage.text
+                        : "No messages yet"}
                     </p>
                   </div>
                 </div>
@@ -616,8 +648,8 @@ export default function DoctorDashboard() {
         </Modal>
 
         {/* Pending Requests Modal */}
-        <Modal 
-          isOpen={showPendingRequests} 
+        <Modal
+          isOpen={showPendingRequests}
           onClose={() => setShowPendingRequests(false)}
           title="Pending Consultation Requests"
         >
@@ -630,16 +662,22 @@ export default function DoctorDashboard() {
                 <div className="flex items-center space-x-3 flex-1 min-w-0">
                   <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
                     <span className="text-primary-foreground font-bold text-xs">
-                      {conversation.farmer.name.split(' ').map(n => n[0]).join('')}
+                      {conversation.farmer.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-sm truncate">{conversation.farmer.name}</h4>
+                    <h4 className="font-medium text-sm truncate">
+                      {conversation.farmer.name}
+                    </h4>
                     <p className="text-xs text-muted-foreground truncate">
-                      {conversation.lastMessage?.text ? 
-                        (conversation.lastMessage.text.length > 30 ? `${conversation.lastMessage.text.substring(0, 30)}...` : conversation.lastMessage.text) :
-                        'No messages yet'
-                      }
+                      {conversation.lastMessage?.text
+                        ? conversation.lastMessage.text.length > 30
+                          ? `${conversation.lastMessage.text.substring(0, 30)}...`
+                          : conversation.lastMessage.text
+                        : "No messages yet"}
                     </p>
                   </div>
                 </div>
@@ -647,8 +685,8 @@ export default function DoctorDashboard() {
                   <Badge className="bg-orange-100 text-orange-800 text-xs">
                     {conversation.unreadCount} unread
                   </Badge>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     className="bg-primary hover:bg-primary/90 text-xs px-2 py-1"
                     onClick={() => {
                       setShowPendingRequests(false);
@@ -671,8 +709,8 @@ export default function DoctorDashboard() {
         </Modal>
 
         {/* Add Reminder Modal */}
-        <Modal 
-          isOpen={isReminderModalOpen} 
+        <Modal
+          isOpen={isReminderModalOpen}
           onClose={() => setIsReminderModalOpen(false)}
           title="Add Reminder"
         >
@@ -682,7 +720,12 @@ export default function DoctorDashboard() {
               <Input
                 id="reminderTitle"
                 value={reminderForm.title}
-                onChange={(e) => setReminderForm(prev => ({ ...prev, title: e.target.value }))}
+                onChange={(e) =>
+                  setReminderForm((prev) => ({
+                    ...prev,
+                    title: e.target.value,
+                  }))
+                }
                 placeholder="Enter reminder title"
                 className="mt-1"
               />
@@ -695,7 +738,12 @@ export default function DoctorDashboard() {
                   id="reminderDate"
                   type="date"
                   value={reminderForm.date}
-                  onChange={(e) => setReminderForm(prev => ({ ...prev, date: e.target.value }))}
+                  onChange={(e) =>
+                    setReminderForm((prev) => ({
+                      ...prev,
+                      date: e.target.value,
+                    }))
+                  }
                   className="mt-1"
                 />
               </div>
@@ -705,7 +753,12 @@ export default function DoctorDashboard() {
                   id="reminderTime"
                   type="time"
                   value={reminderForm.time}
-                  onChange={(e) => setReminderForm(prev => ({ ...prev, time: e.target.value }))}
+                  onChange={(e) =>
+                    setReminderForm((prev) => ({
+                      ...prev,
+                      time: e.target.value,
+                    }))
+                  }
                   className="mt-1"
                 />
               </div>
@@ -716,21 +769,33 @@ export default function DoctorDashboard() {
               <select
                 id="reminderType"
                 value={reminderForm.type}
-                onChange={(e) => setReminderForm(prev => ({ ...prev, type: e.target.value }))}
+                onChange={(e) =>
+                  setReminderForm((prev) => ({ ...prev, type: e.target.value }))
+                }
                 className="mt-1 w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
               >
-                <option value="Consultation Reminder">Consultation Reminder</option>
+                <option value="Consultation Reminder">
+                  Consultation Reminder
+                </option>
                 <option value="Follow-up Reminder">Follow-up Reminder</option>
                 <option value="Medical Reminder">Medical Reminder</option>
-                <option value="Appointment Reminder">Appointment Reminder</option>
+                <option value="Appointment Reminder">
+                  Appointment Reminder
+                </option>
               </select>
             </div>
-            
+
             <div className="flex justify-end space-x-2 pt-4">
-              <Button variant="outline" onClick={() => setIsReminderModalOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsReminderModalOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button onClick={handleAddReminder} className="bg-primary hover:bg-primary/90">
+              <Button
+                onClick={handleAddReminder}
+                className="bg-primary hover:bg-primary/90"
+              >
                 Add Reminder
               </Button>
             </div>

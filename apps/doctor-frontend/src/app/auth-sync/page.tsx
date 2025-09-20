@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { crossPortAuth } from "@myapp/shared-auth";
 import { useAuthStore } from "@/store/authStore";
+import { AppLoadingScreen } from "@/components/loading-screen";
 
 export default function AuthSyncPage() {
   const router = useRouter();
@@ -13,10 +14,10 @@ export default function AuthSyncPage() {
     const syncAuth = async () => {
       // Initialize auth store first
       await initialize();
-      
+
       // Get the current auth state after initialization
       const authState = useAuthStore.getState();
-      
+
       if (authState.isAuthenticated) {
         console.log("Authentication successful, redirecting to dashboard");
         router.push("/dashboard");
@@ -31,22 +32,8 @@ export default function AuthSyncPage() {
   }, [router, initialize]);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Syncing authentication...</p>
-        </div>
-      </div>
-    );
+    return <AppLoadingScreen message="Syncing authentication..." />;
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-        <p className="text-muted-foreground">Processing authentication...</p>
-      </div>
-    </div>
-  );
+  return <AppLoadingScreen message="Processing authentication..." />;
 }

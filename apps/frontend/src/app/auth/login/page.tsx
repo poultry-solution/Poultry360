@@ -7,10 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth, useAuthStore } from "@/store/store";
 import { crossPortAuth } from "@myapp/shared-auth";
+import { useLoginRedirect } from "@/hooks/useRoleBasedRouting";
+import { AppLoadingScreen } from "@/components/ui/loading-screen";
 
 export default function LoginPage() {
   const router = useRouter();
   const { login, isLoading, error, clearError } = useAuth();
+  const { isRedirecting, handleLoginRedirect } = useLoginRedirect();
 
   const [formData, setFormData] = useState({
     emailOrPhone: "",
@@ -31,10 +34,11 @@ export default function LoginPage() {
         password: formData.password,
       });
       
-      // Check user role and redirect accordingly
+      // Get user data after successful login
       const { user, accessToken } = useAuthStore.getState();
+      
       if (user?.role === "DOCTOR") {
-        // Store auth data and navigate to doctor app using shared-auth
+        // Store auth data for cross-port navigation
         console.log('🔍 Main app - storing auth data for doctor navigation');
         crossPortAuth.setAuthData({
           accessToken: accessToken!,
@@ -47,18 +51,24 @@ export default function LoginPage() {
             companyName: user.companyName,
           },
         });
-        
-        // Navigate to doctor app
-        console.log('🔍 Main app - navigating to doctor app');
-        await crossPortAuth.navigateToDoctorApp();
-      } else {
-        // Redirect farmers/managers to farmer dashboard
-        router.push("/dashboard/home");
       }
+      
+      // Use the new role-based redirection system
+      await handleLoginRedirect(user?.role || "OWNER");
+      
     } catch (err) {
       console.error("Login failed:", err);
     }
   };
+
+  // Show loading screen during redirection
+  if (isRedirecting) {
+    return (
+      <AppLoadingScreen 
+        message="Redirecting to your dashboard..."
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

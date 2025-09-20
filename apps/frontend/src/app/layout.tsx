@@ -7,6 +7,8 @@ import { AuthProvider } from "@/providers/AuthProvider";
 import { InventoryProvider } from "@/contexts/InventoryContext";
 import { ToastProvider } from "@/providers/ToastProvider";
 import { ChatProvider } from "@/contexts/ChatContext";
+import { LoadingProvider } from "@/providers/LoadingProvider";
+import { RoleBasedMiddleware } from "@/components/RoleBasedMiddleware";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -38,7 +40,11 @@ export default function RootLayout({
             <InventoryProvider>
               <ChatProvider>
                 <ToastProvider>
-                  <AuthGuard>{children}</AuthGuard>
+                  <LoadingProvider>
+                    <RoleBasedMiddleware>
+                      <AuthGuard>{children}</AuthGuard>
+                    </RoleBasedMiddleware>
+                  </LoadingProvider>
                 </ToastProvider>
               </ChatProvider>
             </InventoryProvider>

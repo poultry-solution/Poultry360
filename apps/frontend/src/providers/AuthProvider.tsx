@@ -3,6 +3,7 @@
 import { ReactNode, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/store";
+import { AuthLoadingScreen, AppLoadingScreen } from "@/components/ui/loading-screen";
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -11,7 +12,7 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({
   children,
-  fallback = <div>Loading...</div>,
+  fallback,
 }) => {
   const { initialize, isInitialized, isLoading } = useAuthStore();
   const pathname = usePathname();
@@ -32,7 +33,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
 
   // Show loading fallback during initialization
   if (!isInitialized || isLoading) {
-    return <>{fallback}</>;
+    // Use custom fallback if provided, otherwise use appropriate loading screen
+    if (fallback) {
+      return <>{fallback}</>;
+    }
+    
+    return <AppLoadingScreen message="Initializing authentication..." />;
   }
 
   return <>{children}</>;
