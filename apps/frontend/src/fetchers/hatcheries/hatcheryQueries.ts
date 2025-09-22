@@ -172,6 +172,8 @@ export const useAddHatcheryTransaction = () => {
         // 🔗 NEW: Optional payment data for single request
         paymentAmount?: number;
         paymentDescription?: string;
+        // 🔗 NEW: Link standalone PAYMENT to a specific purchase
+        paymentToPurchaseId?: string;
       };
     }) => {
       const response = await axiosInstance.post(

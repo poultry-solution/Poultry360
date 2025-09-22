@@ -192,58 +192,35 @@ export const getHatcheryById = async (
       return groups;
     }, {} as any);
 
-    // 🔗 NEW: Apply payments to purchases using direct relationship
+    // 🔗 Apply payments to purchases using direct relationship only (no FIFO fallback)
     const purchaseGroups = Object.values(transactionGroups) as any[];
     const payments = transactions.filter((t) => t.type === "PAYMENT");
 
     for (const payment of payments) {
       const paymentAmount = Number(payment.amount);
 
-      // 🔗 NEW: If payment has direct relationship to purchase, apply it directly
-      if (payment.paymentToPurchaseId) {
-        const targetGroup = purchaseGroups.find(
-          (group) => group.id === payment.paymentToPurchaseId
-        );
+      if (!payment.paymentToPurchaseId) continue; // Ignore unlinked payments
 
-        if (targetGroup) {
-          const currentDue = targetGroup.totalAmount - targetGroup.amountPaid;
-          if (currentDue > 0) {
-            const paymentToApply = Math.min(paymentAmount, currentDue);
-            targetGroup.amountPaid += paymentToApply;
-            targetGroup.amountDue = Math.max(
-              0,
-              targetGroup.totalAmount - targetGroup.amountPaid
-            );
-            targetGroup.payments.push({
-              amount: paymentToApply,
-              date: payment.date,
-              reference: payment.reference,
-            });
-          }
-        }
-      } else {
-        // 🔗 FALLBACK: Apply payment using FIFO for payments without direct relationship
-        let remainingPayment = paymentAmount;
+      const targetGroup = purchaseGroups.find(
+        (group) => group.id === payment.paymentToPurchaseId
+      );
 
-        for (const group of purchaseGroups.sort(
-          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-        )) {
-          if (remainingPayment <= 0) break;
+      if (!targetGroup) continue; // Linked to non-existent/filtered purchase
 
-          const currentDue = group.totalAmount - group.amountPaid;
-          if (currentDue > 0) {
-            const paymentToApply = Math.min(remainingPayment, currentDue);
-            group.amountPaid += paymentToApply;
-            group.amountDue = Math.max(0, group.totalAmount - group.amountPaid);
-            group.payments.push({
-              amount: paymentToApply,
-              date: payment.date,
-              reference: payment.reference,
-            });
-            remainingPayment -= paymentToApply;
-          }
-        }
-      }
+      const currentDue = targetGroup.totalAmount - targetGroup.amountPaid;
+      if (currentDue <= 0) continue;
+
+      const paymentToApply = Math.min(paymentAmount, currentDue);
+      targetGroup.amountPaid += paymentToApply;
+      targetGroup.amountDue = Math.max(
+        0,
+        targetGroup.totalAmount - targetGroup.amountPaid
+      );
+      targetGroup.payments.push({
+        amount: paymentToApply,
+        date: payment.date,
+        reference: payment.reference,
+      });
     }
 
     const transactionTable = Object.values(transactionGroups);
@@ -480,6 +457,8 @@ export const addHatcheryTransaction = async (
       // 🔗 NEW: Payment data for single request
       paymentAmount,
       paymentDescription,
+      // 🔗 NEW: Link standalone PAYMENT to a purchase
+      paymentToPurchaseId,
     } = req.body;
 
     console.log("Hatchery ID:", id);
@@ -505,6 +484,22 @@ export const addHatcheryTransaction = async (
       return res.status(400).json({ message: "Invalid transaction type" });
     }
 
+    // Normalize numbers
+    const numericAmount = Number(amount);
+    const numericQuantity =
+      quantity !== undefined && quantity !== null ? Number(quantity) : null;
+    const numericPaymentAmount =
+      paymentAmount !== undefined && paymentAmount !== null
+        ? Number(paymentAmount)
+        : null;
+
+    // Enforce positive amount
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      return res
+        .status(400)
+        .json({ message: "Amount must be a positive number" });
+    }
+
     // Check if hatchery exists and belongs to user
     const hatchery = await prisma.hatchery.findFirst({
       where: {
@@ -520,6 +515,22 @@ export const addHatcheryTransaction = async (
     let transactions = [];
 
     if (type === TransactionType.PURCHASE && itemName && quantity) {
+      // Enforce positive integer quantity
+      if (!Number.isInteger(Number(quantity)) || Number(quantity) <= 0) {
+        return res
+          .status(400)
+          .json({ message: "Quantity must be a positive integer" });
+      }
+      // Validate paymentAmount if provided
+      if (
+        numericPaymentAmount !== null &&
+        (!Number.isFinite(numericPaymentAmount) || numericPaymentAmount <= 0)
+      ) {
+        return res
+          .status(400)
+          .json({ message: "Initial payment must be a positive number" });
+      }
+
       // 🔗 NEW: Use inventory service for purchases
       const result = await InventoryService.processSupplierPurchase({
         hatcheryId: id,
@@ -533,15 +544,17 @@ export const addHatcheryTransaction = async (
         userId: currentUserId,
       });
 
-      
-
-      
-
       const purchaseTransaction = result.entityTransaction;
       transactions.push(purchaseTransaction);
 
       // 🔗 NEW: Create payment transaction if paymentAmount is provided
       if (paymentAmount && Number(paymentAmount) > 0) {
+        // Prevent overpayment at creation
+        if (Number(paymentAmount) > Number(amount)) {
+          return res
+            .status(400)
+            .json({ message: "Initial payment cannot exceed purchase amount" });
+        }
         const paymentTransaction = await prisma.entityTransaction.create({
           data: {
             type: TransactionType.PAYMENT,
@@ -563,6 +576,52 @@ export const addHatcheryTransaction = async (
       }
     } else {
       // Simple transaction (payments, adjustments, etc.)
+      // 🔗 If this is a PAYMENT and paymentToPurchaseId is provided, validate and link it
+      if (type === TransactionType.PAYMENT) {
+        // Disallow unlinked payments
+        if (!paymentToPurchaseId) {
+          return res
+            .status(400)
+            .json({
+              message:
+                "paymentToPurchaseId is required for PAYMENT transactions",
+            });
+        }
+
+        const purchaseTxn = await prisma.entityTransaction.findFirst({
+          where: {
+            id: paymentToPurchaseId,
+            hatcheryId: id,
+            type: TransactionType.PURCHASE,
+          },
+          select: { id: true, amount: true },
+        });
+
+        if (!purchaseTxn) {
+          return res.status(400).json({
+            message: "Invalid paymentToPurchaseId: target purchase not found",
+          });
+        }
+
+        // Prevent overpayment: compute remaining due
+        const alreadyPaidAgg = await prisma.entityTransaction.aggregate({
+          _sum: { amount: true },
+          where: {
+            type: TransactionType.PAYMENT,
+            paymentToPurchaseId: paymentToPurchaseId,
+            hatcheryId: id,
+          },
+        });
+        const alreadyPaid = Number(alreadyPaidAgg._sum.amount || 0);
+        const purchaseTotal = Number(purchaseTxn.amount);
+        const remainingDue = Math.max(0, purchaseTotal - alreadyPaid);
+        if (Number(amount) > remainingDue) {
+          return res.status(400).json({
+            message: `Payment exceeds remaining due. Remaining: ${remainingDue}`,
+          });
+        }
+      }
+
       const transaction = await prisma.entityTransaction.create({
         data: {
           type,
@@ -575,6 +634,10 @@ export const addHatcheryTransaction = async (
           hatcheryId: id,
           entityType: "HATCHERY",
           entityId: id,
+          paymentToPurchaseId:
+            type === TransactionType.PAYMENT
+              ? paymentToPurchaseId || null
+              : null,
         },
       });
       transactions.push(transaction);
@@ -741,12 +804,10 @@ export const deleteHatcheryTransaction = async (
     // If this is a PURCHASE, ensure stock was not consumed and reverse inventory safely
     if (txn.type === "PURCHASE") {
       if (!txn.inventoryItemId || !txn.quantity) {
-        return res
-          .status(400)
-          .json({
-            message:
-              "Purchase transaction missing inventory linkage; cannot safely delete.",
-          });
+        return res.status(400).json({
+          message:
+            "Purchase transaction missing inventory linkage; cannot safely delete.",
+        });
       }
 
       const item = await prisma.inventoryItem.findUnique({

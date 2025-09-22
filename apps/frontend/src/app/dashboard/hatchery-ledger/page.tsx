@@ -193,6 +193,8 @@ export default function HatcheryLedgerPage() {
           description: paymentForm.note || "Payment",
           entityType: "HATCHERY",
           entityId: activeHatcheryId,
+          // 🔗 Link follow-up payment to specific purchase row
+          paymentToPurchaseId: selectedEntry.entryId,
           // Note: For standalone payments, we don't include paymentAmount/paymentDescription
           // The backend will create a regular PAYMENT transaction without paymentToPurchaseId
         },
@@ -307,7 +309,7 @@ export default function HatcheryLedgerPage() {
                 size="sm"
                 variant="outline"
                 className="ml-2 h-6 px-2 text-xs bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
-                onClick={() => openPaymentModal(activeHatcheryId, row.itemName)}
+                onClick={() => openPaymentModal(activeHatcheryId, row.id)}
               >
                 Pay
               </Button>
@@ -334,7 +336,7 @@ export default function HatcheryLedgerPage() {
         return (
           <div 
             className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline"
-            onClick={() => openHistoryModal(activeHatcheryId, row.itemName)}
+            onClick={() => openHistoryModal(activeHatcheryId, row.id)}
           >
             {totalPayments} payment{totalPayments !== 1 ? "s" : ""} (₹
             {totalPaid.toLocaleString()})
@@ -806,7 +808,7 @@ export default function HatcheryLedgerPage() {
                     <strong>Amount Due:</strong> ₹
                     {(() => {
                       const entry = activeHatchery?.transactionTable?.find(
-                        (e: any) => e.itemName === selectedEntry.entryId
+                        (e: any) => e.id === selectedEntry.entryId
                       );
                       return entry ? entry.amountDue.toLocaleString() : "0";
                     })()}
@@ -885,7 +887,7 @@ export default function HatcheryLedgerPage() {
             {selectedHistoryEntry &&
               (() => {
                 const entry = activeHatchery?.transactionTable?.find(
-                  (e: any) => e.itemName === selectedHistoryEntry.entryId
+                  (e: any) => e.id === selectedHistoryEntry.entryId
                 );
                 const history = entry?.payments || [];
                 const totalAmount = entry ? entry.totalAmount : 0;
