@@ -102,7 +102,7 @@ export const useCreateSale = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: CreateSale) => {
+    mutationFn: async (data: CreateSale & { birdsCount?: number }) => {
       const response = await axiosInstance.post("/sales", data);
       return response.data;
     },
@@ -118,6 +118,9 @@ export const useCreateSale = () => {
         queryClient.invalidateQueries({ 
           queryKey: saleQueryKeys.batchSales(variables.batchId) 
         });
+        // Also refresh batch detail and analytics to reflect current birds
+        queryClient.invalidateQueries({ queryKey: ["batches", "detail", variables.batchId] });
+        queryClient.invalidateQueries({ queryKey: ["batches", "analytics", variables.batchId] });
       }
       
       // If farmId is provided, invalidate farm-related queries

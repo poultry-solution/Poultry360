@@ -709,6 +709,14 @@ export default function BatchDetailPage() {
         };
       }
 
+      // birdsCount: subtract birds sold from batch current birds via mortality
+      if (saleData.batchId) {
+        const birdsCount = Number(saleForm.quantity || 0);
+        if (Number.isFinite(birdsCount) && birdsCount > 0) {
+          saleData.birdsCount = birdsCount;
+        }
+      }
+
       if (editingSaleId) {
         await updateSale({ id: String(editingSaleId), data: saleData });
         flash("success", "Sale updated successfully");

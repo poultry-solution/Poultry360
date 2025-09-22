@@ -516,7 +516,7 @@ export const createBatch = async (
         const expense = await tx.expense.create({
           data: {
             date: new Date(),
-            amount: alloc.totalAmount * alloc.unitPrice,
+            amount: alloc.totalAmount,
             description: `Purchase of ${alloc.item.name} for batch creation ${batch.batchNumber}`,
             quantity: alloc.requested,
             unitPrice: alloc.unitPrice,

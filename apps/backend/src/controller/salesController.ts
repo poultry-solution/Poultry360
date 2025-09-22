@@ -343,6 +343,8 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       categoryId,
       customerId,
     } = data;
+    // Optional: number of birds slaughtered for this sale (not yet in typed schema)
+    const birdsCount = (data as any).birdsCount;
 
     // Validate farm access if provided
     if (farmId) {
@@ -472,6 +474,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
     const numericPaidAmount = Number(paidAmount);
     const numericQuantity = Number(quantity);
     const numericUnitPrice = Number(unitPrice);
+    const numericBirdsCount = birdsCount !== undefined && birdsCount !== null ? Number(birdsCount) : null;
 
     // Validate numeric values
     if (isNaN(numericAmount) || numericAmount <= 0) {
@@ -545,7 +548,19 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
         });
       }
 
-      // 4. Fetch the complete sale with relationships
+      // 4. If linked to a batch and birdsCount provided, record as mortality to reduce current birds
+      if (batchId && numericBirdsCount !== null && Number.isInteger(numericBirdsCount) && numericBirdsCount > 0) {
+        await tx.mortality.create({
+          data: {
+            date: new Date(date),
+            count: Number(numericBirdsCount),
+            reason: "SLAUGHTERED_FOR_SALE",
+            batchId: batchId,
+          },
+        });
+      }
+
+      // 5. Fetch the complete sale with relationships
       const completeSale = await tx.sale.findUnique({
         where: { id: sale.id },
         include: {
