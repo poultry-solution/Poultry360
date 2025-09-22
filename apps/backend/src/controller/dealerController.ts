@@ -170,7 +170,7 @@ export const getDealerById = async (
         const key = `${transaction.itemName || "Unknown Item"}_${transaction.id}`;
         if (!groups[key]) {
           groups[key] = {
-            transactionId: transaction.id,
+            id: transaction.id,
             itemName: transaction.itemName || "Unknown Item",
             rate:
               Number(transaction.amount) / Number(transaction.quantity || 1),
@@ -192,35 +192,30 @@ export const getDealerById = async (
       return groups;
     }, {} as any);
 
-    // Apply payments to purchases (FIFO - First In, First Out)
+    // 🔗 Apply payments to purchases using direct relationship only (no FIFO fallback)
     const purchaseGroups = Object.values(transactionGroups) as any[];
-    let remainingPayments = transactions
-      .filter((t) => t.type === "PAYMENT")
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const payments = transactions.filter((t) => t.type === "PAYMENT");
 
-    for (const payment of remainingPayments) {
+    for (const payment of payments) {
       const paymentAmount = Number(payment.amount);
-      let remainingPayment = paymentAmount;
+      if (!payment.paymentToPurchaseId) continue;
 
-      // Apply payment to purchases in chronological order
-      for (const group of purchaseGroups.sort(
-        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-      )) {
-        if (remainingPayment <= 0) break;
+      const targetGroup = purchaseGroups.find(
+        (group) => group.id === payment.paymentToPurchaseId
+      );
+      if (!targetGroup) continue;
 
-        const currentDue = group.totalAmount - group.amountPaid;
-        if (currentDue > 0) {
-          const paymentToApply = Math.min(remainingPayment, currentDue);
-          group.amountPaid += paymentToApply;
-          group.amountDue = Math.max(0, group.totalAmount - group.amountPaid);
-          group.payments.push({
-            amount: paymentToApply,
-            date: payment.date,
-            reference: payment.reference,
-          });
-          remainingPayment -= paymentToApply;
-        }
-      }
+      const currentDue = targetGroup.totalAmount - targetGroup.amountPaid;
+      if (currentDue <= 0) continue;
+
+      const paymentToApply = Math.min(paymentAmount, currentDue);
+      targetGroup.amountPaid += paymentToApply;
+      targetGroup.amountDue = Math.max(0, targetGroup.totalAmount - targetGroup.amountPaid);
+      targetGroup.payments.push({
+        amount: paymentToApply,
+        date: payment.date,
+        reference: payment.reference,
+      });
     }
 
     const transactionTable = Object.values(transactionGroups);
@@ -445,7 +440,7 @@ export const addDealerTransaction = async (
         message: "No User found in COntrooler",
       });
     }
-    
+  
     const {
       type,
       amount,
@@ -455,10 +450,15 @@ export const addDealerTransaction = async (
       description,
       reference,
       unitPrice,
+      // 🔗 NEW: single-request optional initial payment
+      paymentAmount,
+      paymentDescription,
+      // 🔗 NEW: link standalone PAYMENT to a purchase
+      paymentToPurchaseId,
     } = req.body;
 
     // Validate required fields
-    if (!type || !amount || !date) {
+    if (!type || amount === undefined || amount === null || !date) {
       return res
         .status(400)
         .json({ message: "Type, amount, and date are required" });
@@ -467,6 +467,14 @@ export const addDealerTransaction = async (
     // Validate transaction type
     if (!Object.values(TransactionType).includes(type)) {
       return res.status(400).json({ message: "Invalid transaction type" });
+    }
+
+    // Normalize numbers and validate positive amount
+    const numericAmount = Number(amount);
+    const numericQuantity = quantity !== undefined && quantity !== null ? Number(quantity) : null;
+    const numericPaymentAmount = paymentAmount !== undefined && paymentAmount !== null ? Number(paymentAmount) : null;
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({ message: "Amount must be a positive number" });
     }
 
     // Check if dealer exists and belongs to user
@@ -481,30 +489,85 @@ export const addDealerTransaction = async (
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    let transaction;
+    let transactions: any[] = [];
 
-    if (type === TransactionType.PURCHASE && itemName && quantity) {
-      // 🔗 NEW: Use inventory service for purchases
+    if (type === TransactionType.PURCHASE && itemName && numericQuantity !== null) {
+      // Enforce positive integer quantity
+      if (!Number.isInteger(numericQuantity) || numericQuantity <= 0) {
+        return res.status(400).json({ message: "Quantity must be a positive integer" });
+      }
+      // Validate initial payment if provided
+      if (numericPaymentAmount !== null && (!Number.isFinite(numericPaymentAmount) || numericPaymentAmount <= 0)) {
+        return res.status(400).json({ message: "Initial payment must be a positive number" });
+      }
+
+      // 🔗 Use inventory service for purchases
       const result = await InventoryService.processSupplierPurchase({
         dealerId: id,
         itemName,
-        quantity: Number(quantity),
-        unitPrice: Number(unitPrice || amount / quantity),
-        totalAmount: Number(amount),
+        quantity: Number(numericQuantity),
+        unitPrice: Number(unitPrice || numericAmount / Number(numericQuantity)),
+        totalAmount: Number(numericAmount),
         date: new Date(date),
         description,
         reference,
         userId: currentUserId,
       });
 
-      transaction = result.entityTransaction;
+      const purchaseTransaction = result.entityTransaction;
+      transactions.push(purchaseTransaction);
+
+      if (numericPaymentAmount && numericPaymentAmount > 0) {
+        if (numericPaymentAmount > numericAmount) {
+          return res.status(400).json({ message: "Initial payment cannot exceed purchase amount" });
+        }
+        const paymentTransaction = await prisma.entityTransaction.create({
+          data: {
+            type: TransactionType.PAYMENT,
+            amount: Number(numericPaymentAmount),
+            quantity: null,
+            itemName: null,
+            date: new Date(date),
+            description: paymentDescription || `Initial payment for ${itemName}`,
+            reference: null,
+            dealerId: id,
+            entityType: "DEALER",
+            entityId: id,
+            paymentToPurchaseId: result.purchaseTransactionId,
+          },
+        });
+        transactions.push(paymentTransaction);
+      }
     } else {
-      // Simple transaction (payments, adjustments, etc.)
-      transaction = await prisma.entityTransaction.create({
+      // PAYMENT validation and overpayment prevention
+      if (type === TransactionType.PAYMENT) {
+        if (!paymentToPurchaseId) {
+          return res.status(400).json({ message: "paymentToPurchaseId is required for PAYMENT transactions" });
+        }
+        const purchaseTxn = await prisma.entityTransaction.findFirst({
+          where: { id: paymentToPurchaseId, dealerId: id, type: TransactionType.PURCHASE },
+          select: { id: true, amount: true },
+        });
+        if (!purchaseTxn) {
+          return res.status(400).json({ message: "Invalid paymentToPurchaseId: target purchase not found" });
+        }
+        const alreadyPaidAgg = await prisma.entityTransaction.aggregate({
+          _sum: { amount: true },
+          where: { type: TransactionType.PAYMENT, paymentToPurchaseId, dealerId: id },
+        });
+        const alreadyPaid = Number(alreadyPaidAgg._sum.amount || 0);
+        const purchaseTotal = Number(purchaseTxn.amount);
+        const remainingDue = Math.max(0, purchaseTotal - alreadyPaid);
+        if (numericAmount > remainingDue) {
+          return res.status(400).json({ message: `Payment exceeds remaining due. Remaining: ${remainingDue}` });
+        }
+      }
+
+      const transaction = await prisma.entityTransaction.create({
         data: {
           type,
-          amount: Number(amount),
-          quantity: quantity ? Number(quantity) : null,
+          amount: Number(numericAmount),
+          quantity: numericQuantity ? Number(numericQuantity) : null,
           itemName: itemName || null,
           date: new Date(date),
           description: description || null,
@@ -512,14 +575,16 @@ export const addDealerTransaction = async (
           dealerId: id,
           entityType: "DEALER",
           entityId: id,
+          paymentToPurchaseId: type === TransactionType.PAYMENT ? paymentToPurchaseId || null : null,
         },
       });
+      transactions.push(transaction);
     }
 
     return res.status(201).json({
       success: true,
-      data: transaction,
-      message: "Transaction added successfully",
+      data: transactions.length === 1 ? transactions[0] : transactions,
+      message: transactions.length === 1 ? "Transaction added successfully" : `${transactions.length} transactions added successfully`,
     });
   } catch (error) {
     console.error("Add dealer transaction error:", error);
@@ -613,18 +678,12 @@ export const deleteDealerTransaction = async (
       }
 
       await prisma.$transaction(async (tx) => {
-        // 1) Find and delete related PAYMENT transaction (if exists)
-        // Look for PAYMENT transactions with same date and similar amount for the same item
+        // 🔗 Find and delete related PAYMENT transactions using direct relationship
         const relatedPaymentTxns = await tx.entityTransaction.findMany({
           where: {
             dealerId: id,
             type: 'PAYMENT',
-            date: txn.date,
-            // Look for payments that might be related to this purchase
-            OR: [
-              { description: { contains: 'Initial payment' } },
-              { description: { contains: 'payment' } },
-            ]
+            paymentToPurchaseId: transactionId,
           }
         });
 

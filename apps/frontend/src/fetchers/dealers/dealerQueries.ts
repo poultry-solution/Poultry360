@@ -190,6 +190,11 @@ export const useAddDealerTransaction = () => {
         description?: string;
         reference?: string;
         unitPrice?: number;
+        // 🔗 NEW: Optional payment data for single request (initial payment)
+        paymentAmount?: number;
+        paymentDescription?: string;
+        // 🔗 NEW: Link standalone PAYMENT to a specific purchase
+        paymentToPurchaseId?: string;
       };
     }) => {
       const response = await axiosInstance.post(

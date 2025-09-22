@@ -222,7 +222,7 @@ export default function MedicalSupplierLedgerPage() {
                 size="sm"
                 variant="outline"
                 className="ml-2 h-6 px-2 text-xs bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
-                onClick={() => openPaymentModal(activeSupplierId, row.itemName)}
+                onClick={() => openPaymentModal(activeSupplierId, row.id)}
               >
                 Pay
               </Button>
@@ -249,7 +249,7 @@ export default function MedicalSupplierLedgerPage() {
         return (
           <div
             className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline"
-            onClick={() => openHistoryModal(activeSupplierId, row.itemName)}
+            onClick={() => openHistoryModal(activeSupplierId, row.id)}
           >
             {totalPayments} payment{totalPayments !== 1 ? "s" : ""} (₹
             {totalPaid.toLocaleString()})
@@ -298,21 +298,11 @@ export default function MedicalSupplierLedgerPage() {
           itemName: newEntry.item,
           date,
           description: `Purchase of ${newEntry.item}`,
+          // 🔗 Include initial payment in the same request
+          paymentAmount: paid > 0 ? paid : undefined,
+          paymentDescription: paid > 0 ? `Initial payment for ${newEntry.item}` : undefined,
         },
       });
-
-      // Add payment transaction if paid amount > 0
-      if (paid > 0) {
-        await addTransactionMutation.mutateAsync({
-          supplierId: activeSupplierId,
-          data: {
-            type: "PAYMENT" as TransactionType,
-            amount: paid,
-            date,
-            description: `Initial payment for ${newEntry.item}`,
-          },
-        });
-      }
 
       toast.success("Transaction added successfully!");
       setIsAddEntryOpen(false);
@@ -352,6 +342,8 @@ export default function MedicalSupplierLedgerPage() {
           amount: paymentAmount,
           date: paymentDate,
           description: paymentForm.note || "Payment",
+          // 🔗 Link follow-up payment to purchase row id
+          paymentToPurchaseId: selectedEntry.entryId,
         },
       });
 
@@ -902,8 +894,8 @@ export default function MedicalSupplierLedgerPage() {
             {selectedHistoryEntry &&
               activeSupplier &&
               (() => {
-                const entry = activeSupplier.transactionTable?.find(
-                  (e: any) => e.itemName === selectedHistoryEntry.entryId
+    const entry = activeSupplier.transactionTable?.find(
+                  (e: any) => e.id === selectedHistoryEntry.entryId
                 );
                 const history = entry?.payments || [];
                 const totalAmount = entry?.totalAmount || 0;

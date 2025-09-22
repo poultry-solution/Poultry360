@@ -180,7 +180,7 @@ export default function DealerLedgerPage() {
                 size="sm"
                 variant="outline"
                 className="ml-2 h-6 px-2 text-xs bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
-                onClick={() => openPaymentModal(activeDealerId, row.itemName)}
+                onClick={() => openPaymentModal(activeDealerId, row.id)}
               >
                 Pay
               </Button>
@@ -207,7 +207,7 @@ export default function DealerLedgerPage() {
         return (
           <div
             className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline"
-            onClick={() => openHistoryModal(activeDealerId, row.itemName)}
+            onClick={() => openHistoryModal(activeDealerId, row.id)}
           >
             {totalPayments} payment{totalPayments !== 1 ? "s" : ""} (₹
             {totalPaid.toLocaleString()})
@@ -223,7 +223,7 @@ export default function DealerLedgerPage() {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(
-        new Set(activeDealer.transactionTable.map((r: any) => r.transactionId))
+        new Set(activeDealer.transactionTable.map((r: any) => r.id))
       );
     }
   }
@@ -231,7 +231,7 @@ export default function DealerLedgerPage() {
   function toggleOne(row: any) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      const key = row.transactionId;
+      const key = row.id;
       if (next.has(key)) next.delete(key);
       else next.add(key);
       return next;
@@ -339,21 +339,13 @@ export default function DealerLedgerPage() {
           itemName: newEntry.item,
           date,
           description: `Purchase of ${newEntry.item}`,
+          // 🔗 NEW: include initial payment in the same request
+          paymentAmount: paid > 0 ? paid : undefined,
+          paymentDescription: paid > 0 ? `Initial payment for ${newEntry.item}` : undefined,
         },
       });
 
-      // Add payment transaction if paid amount > 0
-      if (paid > 0) {
-        await addTransactionMutation.mutateAsync({
-          dealerId: activeDealerId,
-          data: {
-            type: "PAYMENT" as TransactionType,
-            amount: paid,
-            date,
-            description: `Initial payment for ${newEntry.item}`,
-          },
-        });
-      }
+      // (Removed) separate PAYMENT call for initial payment; now included in purchase request
 
       toast.success("Transaction added successfully!");
       setIsAddEntryOpen(false);
@@ -393,6 +385,8 @@ export default function DealerLedgerPage() {
           amount: paymentAmount,
           date: paymentDate,
           description: paymentForm.note || "Payment",
+          // 🔗 Link follow-up payment to the purchase row
+          paymentToPurchaseId: selectedEntry.entryId,
         },
       });
 
@@ -982,7 +976,7 @@ export default function DealerLedgerPage() {
               activeDealer &&
               (() => {
                 const entry = activeDealer.transactionTable?.find(
-                  (e: any) => e.itemName === selectedHistoryEntry.entryId
+                  (e: any) => e.id === selectedHistoryEntry.entryId
                 );
                 const history = entry?.payments || [];
                 const totalAmount = entry?.totalAmount || 0;
@@ -1211,10 +1205,10 @@ export default function DealerLedgerPage() {
                     }
                     onToggleAll={toggleAll}
                     isRowSelected={(row: any) =>
-                      selectedIds.has(row.transactionId)
+                      selectedIds.has(row.id)
                     }
                     onToggleRow={toggleOne}
-                    getRowKey={(row: any) => row.transactionId}
+                    getRowKey={(row: any) => row.id}
                     showFooter={true}
                     footerContent={
                       <div className="grid grid-cols-9 gap-4 text-sm">
