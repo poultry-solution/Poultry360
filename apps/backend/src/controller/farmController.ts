@@ -86,9 +86,42 @@ export const getAllFarms = async (
       prisma.farm.count({ where }),
     ]);
 
+    const batches = await prisma.batch.groupBy({
+      where: {
+        farmId: { in: farms.map((farm) => farm.id) },
+      },
+      by: ["farmId", "status"],
+      _count: {
+        status: true,
+      },
+    });
+    
+    const farmsWithBatches = farms.map((farm) => {
+      const activeBatches = batches
+        .filter((b) => b.farmId === farm.id && b.status === "ACTIVE")
+        .reduce((acc, b) => acc + b._count.status, 0);
+    
+      const closedBatches = batches
+        .filter((b) => b.farmId === farm.id && b.status === "COMPLETED")
+        .reduce((acc, b) => acc + b._count.status, 0);
+    
+      return {
+        ...farm,
+        _count: {
+          ...farm._count,
+          activeBatches,
+          closedBatches,
+        },
+      };
+    });
+
+    console.log(farmsWithBatches);
+    
+
+
     return res.json({
       success: true,
-      data: farms,
+      data: farmsWithBatches,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -273,9 +306,40 @@ export const getUserFarms = async (
       orderBy: { createdAt: "desc" },
     });
 
+    const batches = await prisma.batch.groupBy({
+      where: {
+        farmId: { in: farms.map((farm) => farm.id) },
+      },
+      by: ["farmId", "status"],
+      _count: {
+        status: true,
+      },
+    });
+
+    const farmsWithBatches = farms.map((farm) => {
+      const activeBatches = batches
+        .filter((b) => b.farmId === farm.id && b.status === "ACTIVE")
+        .reduce((acc, b) => acc + b._count.status, 0);
+        
+      const closedBatches = batches
+        .filter((b) => b.farmId === farm.id && b.status === "COMPLETED")
+        .reduce((acc, b) => acc + b._count.status, 0);
+        
+      return {
+        ...farm,
+        _count: {
+          ...farm._count,
+          activeBatches,
+          closedBatches,
+        },
+      };
+    });
+
+    console.log(farmsWithBatches);
+
     return res.json({
       success: true,
-      data: farms,
+      data: farmsWithBatches,
     });
   } catch (error) {
     console.error("Get user farms error:", error);

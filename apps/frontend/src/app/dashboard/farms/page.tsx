@@ -199,7 +199,8 @@ export default function FarmsPage() {
                             openBatchesModal(farm.id, farm.name, "active");
                           }}
                         >
-                          Active Batches ({farm._count.batches})
+                          {/* batches can be active or closed */}
+                          Active Batches ({farm._count.activeBatches || 0} )
                         </Button>
                         <ArrowRight className="h-4 w-4 text-muted-foreground" />
                       </div>
@@ -224,7 +225,7 @@ export default function FarmsPage() {
                       </div>
                       <div>
                         <span className="text-muted-foreground">Total Batches:</span>
-                        <p className="font-medium">{farm._count.batches}</p>
+                        <p className="font-medium">{farm._count.batches || 0}</p>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Created:</span>

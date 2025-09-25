@@ -137,6 +137,8 @@ exports.FarmManagerSchema = zod_1.z.object({
 });
 exports.FarmCountSchema = zod_1.z.object({
     batches: zod_1.z.number().int().nonnegative(),
+    activeBatches: zod_1.z.number().int().nonnegative().optional(),
+    closedBatches: zod_1.z.number().int().nonnegative().optional(),
     expenses: zod_1.z.number().int().nonnegative(),
     sales: zod_1.z.number().int().nonnegative(),
 });

@@ -180,6 +180,8 @@ export type FarmManager = z.infer<typeof FarmManagerSchema>;
 
 export const FarmCountSchema = z.object({
   batches: z.number().int().nonnegative(),
+  activeBatches: z.number().int().nonnegative().optional(),
+  closedBatches: z.number().int().nonnegative().optional(),
   expenses: z.number().int().nonnegative(),
   sales: z.number().int().nonnegative(),
 });

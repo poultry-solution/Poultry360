@@ -193,6 +193,8 @@ export declare const FarmManagerSchema: z.ZodObject<{
 export type FarmManager = z.infer<typeof FarmManagerSchema>;
 export declare const FarmCountSchema: z.ZodObject<{
     batches: z.ZodNumber;
+    activeBatches: z.ZodOptional<z.ZodNumber>;
+    closedBatches: z.ZodOptional<z.ZodNumber>;
     expenses: z.ZodNumber;
     sales: z.ZodNumber;
 }, z.core.$strip>;
@@ -225,6 +227,8 @@ export declare const FarmResponseSchema: z.ZodObject<{
     }, z.core.$strip>>;
     _count: z.ZodObject<{
         batches: z.ZodNumber;
+        activeBatches: z.ZodOptional<z.ZodNumber>;
+        closedBatches: z.ZodOptional<z.ZodNumber>;
         expenses: z.ZodNumber;
         sales: z.ZodNumber;
     }, z.core.$strip>;
@@ -1397,6 +1401,8 @@ export declare const FarmListResponseSchema: z.ZodObject<{
         }, z.core.$strip>>;
         _count: z.ZodObject<{
             batches: z.ZodNumber;
+            activeBatches: z.ZodOptional<z.ZodNumber>;
+            closedBatches: z.ZodOptional<z.ZodNumber>;
             expenses: z.ZodNumber;
             sales: z.ZodNumber;
         }, z.core.$strip>;
@@ -1434,6 +1440,8 @@ export declare const FarmDetailResponseSchema: z.ZodObject<{
         }, z.core.$strip>>;
         _count: z.ZodObject<{
             batches: z.ZodNumber;
+            activeBatches: z.ZodOptional<z.ZodNumber>;
+            closedBatches: z.ZodOptional<z.ZodNumber>;
             expenses: z.ZodNumber;
             sales: z.ZodNumber;
         }, z.core.$strip>;
@@ -1794,6 +1802,8 @@ export declare const schemas: {
         }, z.core.$strip>>;
         _count: z.ZodObject<{
             batches: z.ZodNumber;
+            activeBatches: z.ZodOptional<z.ZodNumber>;
+            closedBatches: z.ZodOptional<z.ZodNumber>;
             expenses: z.ZodNumber;
             sales: z.ZodNumber;
         }, z.core.$strip>;
@@ -1818,6 +1828,8 @@ export declare const schemas: {
     }, z.core.$strip>;
     readonly FarmCount: z.ZodObject<{
         batches: z.ZodNumber;
+        activeBatches: z.ZodOptional<z.ZodNumber>;
+        closedBatches: z.ZodOptional<z.ZodNumber>;
         expenses: z.ZodNumber;
         sales: z.ZodNumber;
     }, z.core.$strip>;
@@ -1851,6 +1863,8 @@ export declare const schemas: {
             }, z.core.$strip>>;
             _count: z.ZodObject<{
                 batches: z.ZodNumber;
+                activeBatches: z.ZodOptional<z.ZodNumber>;
+                closedBatches: z.ZodOptional<z.ZodNumber>;
                 expenses: z.ZodNumber;
                 sales: z.ZodNumber;
             }, z.core.$strip>;
@@ -1887,6 +1901,8 @@ export declare const schemas: {
             }, z.core.$strip>>;
             _count: z.ZodObject<{
                 batches: z.ZodNumber;
+                activeBatches: z.ZodOptional<z.ZodNumber>;
+                closedBatches: z.ZodOptional<z.ZodNumber>;
                 expenses: z.ZodNumber;
                 sales: z.ZodNumber;
             }, z.core.$strip>;
