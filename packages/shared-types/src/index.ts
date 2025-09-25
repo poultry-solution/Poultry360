@@ -294,6 +294,7 @@ export const BatchResponseSchema = BaseSchema.extend({
         date: z.date(),
         amount: z.number(),
         quantity: z.number(),
+        weight: z.number(),
         unitPrice: z.number(),
         description: z.string().nullable(),
         isCredit: z.boolean(),
@@ -342,6 +343,30 @@ export const UpdateBatchSchema = z.object({
 });
 
 export type UpdateBatch = z.infer<typeof UpdateBatchSchema>;
+
+export const CloseBatchSchema = z.object({
+  endDate: z.string().datetime().optional(),
+  finalNotes: z.string().optional(),
+});
+
+export type CloseBatch = z.infer<typeof CloseBatchSchema>;
+
+export const BatchSummarySchema = z.object({
+  initialChicks: z.number(),
+  finalChicks: z.number(),
+  soldChicks: z.number(),
+  naturalMortality: z.number(),
+  remainingAtClosure: z.number(),
+  totalMortality: z.number(),
+  totalSales: z.number(),
+  totalExpenses: z.number(),
+  profit: z.number(),
+  totalSalesQuantity: z.number(),
+  totalSalesWeight: z.number(),
+  daysActive: z.number(),
+});
+
+export type BatchSummary = z.infer<typeof BatchSummarySchema>;
 
 // ==================== CATEGORY SCHEMAS ====================
 
@@ -422,6 +447,7 @@ export const SaleSchema = BaseSchema.extend({
   date: z.date(),
   amount: z.number().positive(),
   quantity: z.number().positive(),
+  weight: z.number().positive(),
   unitPrice: z.number().positive(),
   description: z.string().nullable(),
   isCredit: z.boolean(),
@@ -439,6 +465,7 @@ export const CreateSaleSchema = z.object({
   date: z.string().datetime(),
   amount: z.number().positive(),
   quantity: z.number().positive(),
+  weight: z.number().positive(),
   unitPrice: z.number().positive(),
   description: z.string().optional(),
   isCredit: z.boolean().optional().default(false),
@@ -461,6 +488,7 @@ export const UpdateSaleSchema = z.object({
   date: z.string().datetime().optional(),
   amount: z.number().positive().optional(),
   quantity: z.number().positive().optional(),
+  weight: z.number().positive().optional(),
   unitPrice: z.number().positive().optional(),
   description: z.string().nullable().optional(),
   isCredit: z.boolean().optional(),

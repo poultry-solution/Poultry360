@@ -159,11 +159,11 @@ export default function FarmsPage() {
         </div>
       )}
 
-      {/* Farms Grid */}
+      {/* Farms List */}
       {!farmsLoading && !farmsError && (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4">
           {farms.length === 0 ? (
-            <div className="col-span-full text-center py-8">
+            <div className="text-center py-8">
               <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No farms found</h3>
               <p className="text-muted-foreground mb-4">
@@ -176,63 +176,66 @@ export default function FarmsPage() {
             </div>
           ) : (
             farms.map((farm: FarmResponse) => (
-              <Card
+              <Link
                 key={farm.id}
-                className="hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
+                href={`/dashboard/farms/${farm.id}`}
+                className="block"
               >
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-2">
-                      <Building2 className="h-5 w-5 text-primary" />
-                      {farm.name}
-                    </span>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Capacity:</span>
-                      <span className="font-medium">
-                        {farm.capacity.toLocaleString()} birds
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Owner:</span>
-                      <span className="font-medium">{farm.owner.name}</span>
+                <Card className="hover:border-primary cursor-pointer transition-colors">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <Building2 className="h-5 w-5 text-primary" />
+                        {farm.name}
+                      </CardTitle>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-3 transition-colors hover:bg-primary hover:text-primary-foreground"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            openBatchesModal(farm.id, farm.name, "active");
+                          }}
+                        >
+                          Active Batches ({farm._count.batches})
+                        </Button>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
                     </div>
                     {farm.description && (
-                      <div className="text-sm text-muted-foreground">
+                      <CardDescription className="mt-1">
                         {farm.description}
-                      </div>
+                      </CardDescription>
                     )}
-
-                    {/* Batches Actions */}
-                    <div className="flex flex-wrap items-center gap-2 pt-2">
-                      <Button
-                        variant="outline"
-                        className="h-8 px-3 cursor-pointer w-full sm:w-auto transition-colors hover:bg-[#10841E] hover:text-white hover:border-[#10841E]"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openBatchesModal(farm.id, farm.name, "active");
-                        }}
-                      >
-                        Active Batches ({farm._count.batches})
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="h-8 px-3 cursor-pointer w-full sm:w-auto transition-colors hover:bg-[#10841E] hover:text-white hover:border-[#10841E]"
-                        asChild
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Link href={`/dashboard/farms/${farm.id}`}>
-                          View Details
-                        </Link>
-                      </Button>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Capacity:</span>
+                        <p className="font-medium">
+                          {farm.capacity.toLocaleString()} birds
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Owner:</span>
+                        <p className="font-medium">{farm.owner.name}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Total Batches:</span>
+                        <p className="font-medium">{farm._count.batches}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Created:</span>
+                        <p className="font-medium">
+                          {formatDate(farm.createdAt)}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </Link>
             ))
           )}
         </div>

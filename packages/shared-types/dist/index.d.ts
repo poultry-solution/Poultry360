@@ -327,6 +327,7 @@ export declare const BatchResponseSchema: z.ZodObject<{
         date: z.ZodDate;
         amount: z.ZodNumber;
         quantity: z.ZodNumber;
+        weight: z.ZodNumber;
         unitPrice: z.ZodNumber;
         description: z.ZodNullable<z.ZodString>;
         isCredit: z.ZodBoolean;
@@ -380,6 +381,26 @@ export declare const UpdateBatchSchema: z.ZodObject<{
     farmId: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type UpdateBatch = z.infer<typeof UpdateBatchSchema>;
+export declare const CloseBatchSchema: z.ZodObject<{
+    endDate: z.ZodOptional<z.ZodString>;
+    finalNotes: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export type CloseBatch = z.infer<typeof CloseBatchSchema>;
+export declare const BatchSummarySchema: z.ZodObject<{
+    initialChicks: z.ZodNumber;
+    finalChicks: z.ZodNumber;
+    soldChicks: z.ZodNumber;
+    naturalMortality: z.ZodNumber;
+    remainingAtClosure: z.ZodNumber;
+    totalMortality: z.ZodNumber;
+    totalSales: z.ZodNumber;
+    totalExpenses: z.ZodNumber;
+    profit: z.ZodNumber;
+    totalSalesQuantity: z.ZodNumber;
+    totalSalesWeight: z.ZodNumber;
+    daysActive: z.ZodNumber;
+}, z.core.$strip>;
+export type BatchSummary = z.infer<typeof BatchSummarySchema>;
 export declare const CategorySchema: z.ZodObject<{
     id: z.ZodString;
     createdAt: z.ZodString;
@@ -462,6 +483,7 @@ export declare const SaleSchema: z.ZodObject<{
     date: z.ZodDate;
     amount: z.ZodNumber;
     quantity: z.ZodNumber;
+    weight: z.ZodNumber;
     unitPrice: z.ZodNumber;
     description: z.ZodNullable<z.ZodString>;
     isCredit: z.ZodBoolean;
@@ -477,6 +499,7 @@ export declare const CreateSaleSchema: z.ZodObject<{
     date: z.ZodString;
     amount: z.ZodNumber;
     quantity: z.ZodNumber;
+    weight: z.ZodNumber;
     unitPrice: z.ZodNumber;
     description: z.ZodOptional<z.ZodString>;
     isCredit: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
@@ -497,6 +520,7 @@ export declare const UpdateSaleSchema: z.ZodObject<{
     date: z.ZodOptional<z.ZodString>;
     amount: z.ZodOptional<z.ZodNumber>;
     quantity: z.ZodOptional<z.ZodNumber>;
+    weight: z.ZodOptional<z.ZodNumber>;
     unitPrice: z.ZodOptional<z.ZodNumber>;
     description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     isCredit: z.ZodOptional<z.ZodBoolean>;
@@ -1462,6 +1486,7 @@ export declare const BatchListResponseSchema: z.ZodObject<{
             date: z.ZodDate;
             amount: z.ZodNumber;
             quantity: z.ZodNumber;
+            weight: z.ZodNumber;
             unitPrice: z.ZodNumber;
             description: z.ZodNullable<z.ZodString>;
             isCredit: z.ZodBoolean;
@@ -1537,6 +1562,7 @@ export declare const BatchDetailResponseSchema: z.ZodObject<{
             date: z.ZodDate;
             amount: z.ZodNumber;
             quantity: z.ZodNumber;
+            weight: z.ZodNumber;
             unitPrice: z.ZodNumber;
             description: z.ZodNullable<z.ZodString>;
             isCredit: z.ZodBoolean;
@@ -1955,6 +1981,7 @@ export declare const schemas: {
             date: z.ZodDate;
             amount: z.ZodNumber;
             quantity: z.ZodNumber;
+            weight: z.ZodNumber;
             unitPrice: z.ZodNumber;
             description: z.ZodNullable<z.ZodString>;
             isCredit: z.ZodBoolean;
@@ -2040,6 +2067,7 @@ export declare const schemas: {
                 date: z.ZodDate;
                 amount: z.ZodNumber;
                 quantity: z.ZodNumber;
+                weight: z.ZodNumber;
                 unitPrice: z.ZodNumber;
                 description: z.ZodNullable<z.ZodString>;
                 isCredit: z.ZodBoolean;
@@ -2114,6 +2142,7 @@ export declare const schemas: {
                 date: z.ZodDate;
                 amount: z.ZodNumber;
                 quantity: z.ZodNumber;
+                weight: z.ZodNumber;
                 unitPrice: z.ZodNumber;
                 description: z.ZodNullable<z.ZodString>;
                 isCredit: z.ZodBoolean;
@@ -2213,6 +2242,7 @@ export declare const schemas: {
         date: z.ZodDate;
         amount: z.ZodNumber;
         quantity: z.ZodNumber;
+        weight: z.ZodNumber;
         unitPrice: z.ZodNumber;
         description: z.ZodNullable<z.ZodString>;
         isCredit: z.ZodBoolean;
@@ -2227,6 +2257,7 @@ export declare const schemas: {
         date: z.ZodString;
         amount: z.ZodNumber;
         quantity: z.ZodNumber;
+        weight: z.ZodNumber;
         unitPrice: z.ZodNumber;
         description: z.ZodOptional<z.ZodString>;
         isCredit: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
@@ -2246,6 +2277,7 @@ export declare const schemas: {
         date: z.ZodOptional<z.ZodString>;
         amount: z.ZodOptional<z.ZodNumber>;
         quantity: z.ZodOptional<z.ZodNumber>;
+        weight: z.ZodOptional<z.ZodNumber>;
         unitPrice: z.ZodOptional<z.ZodNumber>;
         description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         isCredit: z.ZodOptional<z.ZodBoolean>;

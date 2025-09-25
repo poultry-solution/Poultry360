@@ -53,7 +53,7 @@ export const useGetSale = (id: string) => {
 };
 
 // Get sales for a specific batch
-export const useGetBatchSales = (batchId: string) => {
+export const useGetBatchSales = (batchId: string, options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: saleQueryKeys.batchSales(batchId),
     queryFn: async () => {
@@ -61,7 +61,7 @@ export const useGetBatchSales = (batchId: string) => {
       console.log("batch sales", response.data);
       return response.data;
     },
-    enabled: !!batchId,
+    enabled: (options?.enabled !== false) && !!batchId,
     staleTime: 2 * 60 * 1000,
   });
 };
@@ -270,8 +270,8 @@ export const useSalesDashboard = (params?: {
 };
 
 // Batch sales management hook
-export const useBatchSalesManagement = (batchId: string) => {
-  const batchSalesQuery = useGetBatchSales(batchId);
+export const useBatchSalesManagement = (batchId: string, options?: { enabled?: boolean }) => {
+  const batchSalesQuery = useGetBatchSales(batchId, options);
   const categoriesQuery = useGetSalesCategories();
   const createSaleMutation = useCreateSale();
   const updateSaleMutation = useUpdateSale();

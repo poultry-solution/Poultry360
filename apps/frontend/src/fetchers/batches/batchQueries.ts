@@ -3,6 +3,8 @@ import {
   Batch, 
   CreateBatch, 
   UpdateBatch,
+  CloseBatch,
+  BatchSummary,
   BatchStatus,
   BatchResponse,
   BatchListResponse,
@@ -60,26 +62,26 @@ export const useGetFarmBatches = (farmId: string, params?: {
 };
 
 // Get batch by ID
-export const useGetBatchById = (id: string) => {
+export const useGetBatchById = (id: string, options?: { enabled?: boolean }) => {
   return useQuery<BatchDetailResponse>({
     queryKey: batchKeys.detail(id),
     queryFn: async () => {
       const response = await axiosInstance.get(`/batches/${id}`);
       return response.data;
     },
-    enabled: !!id,
+    enabled: (options?.enabled !== false) && !!id,
   });
 };
 
 // Get batch analytics
-export const useGetBatchAnalytics = (id: string) => {
+export const useGetBatchAnalytics = (id: string, options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: batchKeys.analytics(id),
     queryFn: async () => {
       const response = await axiosInstance.get(`/batches/${id}/analytics`);
       return response.data;
     },
-    enabled: !!id,
+    enabled: (options?.enabled !== false) && !!id,
   });
 };
 
@@ -141,6 +143,34 @@ export const useUpdateBatchStatus = () => {
       queryClient.invalidateQueries({ queryKey: batchKeys.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
       queryClient.invalidateQueries({ queryKey: batchKeys.analytics(variables.id) });
+    },
+  });
+};
+
+// Close batch
+export const useCloseBatch = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: CloseBatch }) => {
+      const response = await axiosInstance.post(`/batches/${id}/close`, data);
+      return response.data as { 
+        success: boolean; 
+        data: BatchResponse; 
+        summary: BatchSummary;
+        message: string;
+      };
+    },
+    onSuccess: (data, variables) => {
+      // Invalidate batch queries
+      queryClient.invalidateQueries({ queryKey: batchKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: batchKeys.analytics(variables.id) });
+      
+      // Invalidate farm batches
+      if (data.data?.farmId) {
+        queryClient.invalidateQueries({ queryKey: batchKeys.farmBatches(data.data.farmId) });
+      }
     },
   });
 };

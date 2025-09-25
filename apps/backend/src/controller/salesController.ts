@@ -334,6 +334,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       date,
       amount,
       quantity,
+      weight,
       unitPrice,
       description,
       isCredit = false,
@@ -432,10 +433,11 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
     } else if (data.customerData) {
       // If customerData is provided, create or find existing customer
       const { name, phone, category, address } = data.customerData;
-      
+
       if (!name || !phone) {
-        return res.status(400).json({ 
-          message: "Customer name and phone are required when creating new customer" 
+        return res.status(400).json({
+          message:
+            "Customer name and phone are required when creating new customer",
         });
       }
 
@@ -443,10 +445,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       customer = await prisma.customer.findFirst({
         where: {
           userId: currentUserId,
-          OR: [
-            { name: name },
-            { phone: phone }
-          ]
+          OR: [{ name: name }, { phone: phone }],
         },
       });
 
@@ -473,8 +472,9 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
     const numericAmount = Number(amount);
     const numericPaidAmount = Number(paidAmount);
     const numericQuantity = Number(quantity);
+    const numericWeight = Number(weight);
     const numericUnitPrice = Number(unitPrice);
-    const numericBirdsCount = birdsCount !== undefined && birdsCount !== null ? Number(birdsCount) : null;
+    const numericBirdsCount = numericQuantity;
 
     // Validate numeric values
     if (isNaN(numericAmount) || numericAmount <= 0) {
@@ -482,6 +482,9 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
     }
     if (isNaN(numericQuantity) || numericQuantity <= 0) {
       return res.status(400).json({ message: "Invalid quantity" });
+    }
+    if (isNaN(numericWeight) || numericWeight <= 0) {
+      return res.status(400).json({ message: "Invalid weight" });
     }
     if (isNaN(numericUnitPrice) || numericUnitPrice <= 0) {
       return res.status(400).json({ message: "Invalid unit price" });
@@ -500,6 +503,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
           date: new Date(date),
           amount: numericAmount,
           quantity: numericQuantity,
+          weight: numericWeight,
           unitPrice: numericUnitPrice,
           description: description || null,
           isCredit,
@@ -549,15 +553,22 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       }
 
       // 4. If linked to a batch and birdsCount provided, record as mortality to reduce current birds
-      if (batchId && numericBirdsCount !== null && Number.isInteger(numericBirdsCount) && numericBirdsCount > 0) {
+      // Note: Both quantity (number of birds) and weight are now stored for comprehensive calculations:
+      // - quantity: Used for mortality tracking, determining when batch is complete
+      // - weight: Used for yield calculations (weight per bird), profit per kg calculations
+      // - Together: Enable FCR calculations, expense allocation per bird/kg, profit analysis
+      if (batchId && numericBirdsCount > 0) {
+        console.log("numericBirdsCount:", numericBirdsCount);
         await tx.mortality.create({
           data: {
             date: new Date(date),
-            count: Number(numericBirdsCount),
+            count: numericBirdsCount,
             reason: "SLAUGHTERED_FOR_SALE",
             batchId: batchId,
+            saleId: sale.id,
           },
         });
+        console.log("mortality created");
       }
 
       // 5. Fetch the complete sale with relationships
@@ -713,6 +724,7 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
           date: data.date ? new Date(data.date) : undefined,
           amount: data.amount ? Number(data.amount) : undefined,
           quantity: data.quantity ? Number(data.quantity) : undefined,
+          weight: data.weight ? Number(data.weight) : undefined,
           unitPrice: data.unitPrice ? Number(data.unitPrice) : undefined,
           paidAmount: data.paidAmount ? Number(data.paidAmount) : undefined,
           dueAmount: newDueAmount > 0 ? newDueAmount : null,
@@ -881,6 +893,15 @@ export const deleteSale = async (req: Request, res: Response): Promise<any> => {
       await tx.sale.delete({
         where: { id },
       });
+
+      // also delete the mortality created
+      await tx.mortality.deleteMany({
+        where: {
+          saleId: existingSale.id,
+        },
+      });
+
+      console.log("mortality deleted");
 
       return res.json({
         success: true,

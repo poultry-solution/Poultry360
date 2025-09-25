@@ -42,12 +42,14 @@ export const useGetExpenseById = (id: string) => {
 
 export const useGetBatchExpenses = (
   batchId: string,
-  params?: {
+  options?: {
+    enabled?: boolean;
     page?: number;
     limit?: number;
     categoryType?: CategoryType;
   }
 ) => {
+  const { enabled, ...params } = options || {};
   return useQuery({
     queryKey: ["expenses", "batch", batchId, params],
     queryFn: async () => {
@@ -57,7 +59,7 @@ export const useGetBatchExpenses = (
       console.log("response.data in useGetBatchExpenses", response.data);
       return response.data;
     },
-    enabled: !!batchId,
+    enabled: (enabled !== false) && !!batchId,
   });
 };
 

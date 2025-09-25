@@ -5,6 +5,7 @@ import {
   CreateBatchSchema,
   UpdateBatchSchema,
   BatchSchema,
+  CloseBatchSchema,
 } from "@myapp/shared-types";
 
 // ==================== GET ALL BATCHES ====================
@@ -786,7 +787,9 @@ export const deleteBatch = async (
 
       // 3) Remove initial expenses created during batch creation
       if (initialExpenseIds.length > 0) {
-        await tx.expense.deleteMany({ where: { id: { in: initialExpenseIds } } });
+        await tx.expense.deleteMany({
+          where: { id: { in: initialExpenseIds } },
+        });
       }
 
       // 4) Finally, delete the batch
@@ -796,6 +799,203 @@ export const deleteBatch = async (
     return res.json({ success: true, message: "Batch deleted successfully" });
   } catch (error) {
     console.error("Delete batch error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== CLOSE BATCH ====================
+export const closeBatch = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // Validate request body
+    const { success, data, error } = CloseBatchSchema.safeParse(req.body);
+    if (!success) {
+      return res.status(400).json({ message: error?.message });
+    }
+
+    const { endDate, finalNotes } = data;
+
+    // Check if batch exists and get current data
+    const existingBatch = await prisma.batch.findUnique({
+      where: { id },
+      include: {
+        farm: {
+          include: { managers: true },
+        },
+      },
+    });
+
+    if (!existingBatch) {
+      return res.status(404).json({ message: "Batch not found" });
+    }
+
+    // Check access permissions
+    if (currentUserRole === UserRole.MANAGER) {
+      const hasAccess =
+        existingBatch.farm.ownerId === currentUserId ||
+        existingBatch.farm.managers.some(
+          (manager) => manager.id === currentUserId
+        );
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+    }
+
+    // Validate that batch is currently active
+    if (existingBatch.status === BatchStatus.COMPLETED) {
+      return res.status(400).json({ message: "Batch is already closed" });
+    }
+
+    // Validate end date
+    const batchEndDate = endDate ? new Date(endDate) : new Date();
+    if (batchEndDate < existingBatch.startDate) {
+      return res.status(400).json({
+        message: "End date cannot be before start date",
+      });
+    }
+
+    // Calculate current statistics for the batch
+    const [
+      totalNonSaleMortality,
+      totalSaleMortality,
+      totalSales,
+      totalExpenses,
+      totalSalesQuantity,
+      totalSalesWeight,
+    ] = await Promise.all([
+      // Non-sale mortality (natural deaths, diseases, etc.)
+      prisma.mortality.aggregate({
+        where: {
+          batchId: id,
+          reason: {
+            not: {
+              equals: "SLAUGHTERED_FOR_SALE",
+            },
+          },
+        },
+        _sum: { count: true },
+      }),
+      // Sale mortality (birds sold/slaughtered)
+      prisma.mortality.aggregate({
+        where: {
+          batchId: id,
+          reason: "SLAUGHTERED_FOR_SALE",
+        },
+        _sum: { count: true },
+      }),
+      prisma.sale.aggregate({
+        where: { batchId: id },
+        _sum: { amount: true, quantity: true, weight: true },
+      }),
+      prisma.expense.aggregate({
+        where: { batchId: id },
+        _sum: { amount: true },
+      }),
+      prisma.sale.count({
+        where: { batchId: id },
+      }),
+      prisma.sale.aggregate({
+        where: { batchId: id },
+        _sum: { weight: true },
+      }),
+    ]);
+
+    const totalDeadChicks = Number(totalNonSaleMortality._sum.count || 0);
+    const totalSoldChicks = Number(totalSaleMortality._sum.count || 0);
+    const remainingChicks = Math.max(
+      0,
+      existingBatch.initialChicks - totalDeadChicks - totalSoldChicks
+    );
+
+    // Perform batch closure in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // If there are remaining chicks, record them as mortality (batch closure)
+      if (remainingChicks > 0) {
+        await tx.mortality.create({
+          data: {
+            date: batchEndDate,
+            count: remainingChicks,
+            reason: "BATCH_CLOSURE",
+            batchId: id,
+          },
+        });
+      }
+
+      // Update batch status and end date
+      const closedBatch = await tx.batch.update({
+        where: { id },
+        data: {
+          status: BatchStatus.COMPLETED,
+          endDate: batchEndDate,
+          notes: finalNotes
+            ? existingBatch.notes
+              ? `${existingBatch.notes}\n\nClosure Notes: ${finalNotes}`
+              : `Closure Notes: ${finalNotes}`
+            : existingBatch.notes,
+        },
+        include: {
+          farm: {
+            select: {
+              id: true,
+              name: true,
+              owner: {
+                select: { id: true, name: true, email: true },
+              },
+            },
+          },
+        },
+      });
+
+      // Create a notification for batch closure
+      await tx.notification.create({
+        data: {
+          type: "BATCH_COMPLETION",
+          title: `Batch ${existingBatch.batchNumber} Closed`,
+          message: `Batch ${existingBatch.batchNumber} has been successfully closed. Initial: ${existingBatch.initialChicks}, Sold: ${totalSoldChicks}, Natural Deaths: ${totalDeadChicks}, Remaining at Closure: ${remainingChicks}, Total Sales: ₹${Number(totalSales._sum.amount || 0).toLocaleString()}`,
+          userId: currentUserId as string,
+          farmId: existingBatch.farmId,
+          batchId: id,
+        },
+      });
+
+      // Calculate final summary after accounting for remaining chicks
+      const finalNaturalMortality = totalDeadChicks + remainingChicks;
+      
+      return {
+        batch: closedBatch,
+        summary: {
+          initialChicks: existingBatch.initialChicks,
+          finalChicks: 0, // All chicks are now accounted for (sold or dead)
+          soldChicks: totalSoldChicks,
+          naturalMortality: totalDeadChicks,
+          remainingAtClosure: remainingChicks,
+          totalMortality: finalNaturalMortality,
+          totalSales: Number(totalSales._sum.amount || 0),
+          totalExpenses: Number(totalExpenses._sum.amount || 0),
+          profit:
+            Number(totalSales._sum.amount || 0) -
+            Number(totalExpenses._sum.amount || 0),
+          totalSalesQuantity: Number(totalSales._sum.quantity || 0),
+          totalSalesWeight: Number(totalSales._sum.weight || 0),
+          daysActive: Math.ceil(
+            (batchEndDate.getTime() - existingBatch.startDate.getTime()) /
+              (1000 * 60 * 60 * 24)
+          ),
+        },
+      };
+    });
+
+    return res.json({
+      success: true,
+      data: result.batch,
+      summary: result.summary,
+      message: "Batch closed successfully",
+    });
+  } catch (error) {
+    console.error("Close batch error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -842,6 +1042,17 @@ export const updateBatchStatus = async (
       }
     }
 
+    // If trying to close batch via status update, recommend using closeBatch endpoint
+    if (
+      status === BatchStatus.COMPLETED &&
+      existingBatch.status === BatchStatus.ACTIVE
+    ) {
+      return res.status(400).json({
+        message:
+          "To close a batch, please use the /close endpoint for proper batch closure process",
+      });
+    }
+
     // Update batch status
     const updatedBatch = await prisma.batch.update({
       where: { id },
@@ -863,6 +1074,193 @@ export const updateBatchStatus = async (
     });
   } catch (error) {
     console.error("Update batch status error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== GET BATCH CLOSURE SUMMARY ====================
+export const getBatchClosureSummary = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // Check if batch exists and user has access
+    const batch = await prisma.batch.findUnique({
+      where: { id },
+      include: {
+        farm: {
+          include: { managers: true },
+        },
+      },
+    });
+
+    if (!batch) {
+      return res.status(404).json({ message: "Batch not found" });
+    }
+
+    // Check access permissions
+    if (currentUserRole === UserRole.MANAGER) {
+      const hasAccess =
+        batch.farm.ownerId === currentUserId ||
+        batch.farm.managers.some((manager) => manager.id === currentUserId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+    }
+
+    // Only provide closure summary for completed batches
+    if (batch.status !== BatchStatus.COMPLETED) {
+      return res.status(400).json({ 
+        message: "Batch closure summary is only available for completed batches" 
+      });
+    }
+
+    // Get comprehensive closure data
+    const [
+      totalNonSaleMortality,
+      totalSaleMortality,
+      closureMortality,
+      totalSales,
+      totalExpenses,
+      expensesByCategory,
+    ] = await Promise.all([
+      // Natural deaths (excluding sales and closure)
+      prisma.mortality.aggregate({
+        where: {
+          batchId: id,
+          reason: {
+            notIn: ["SLAUGHTERED_FOR_SALE", "BATCH_CLOSURE"],
+          },
+        },
+        _sum: { count: true },
+      }),
+      // Birds sold
+      prisma.mortality.aggregate({
+        where: {
+          batchId: id,
+          reason: "SLAUGHTERED_FOR_SALE",
+        },
+        _sum: { count: true },
+      }),
+      // Birds remaining at closure
+      prisma.mortality.aggregate({
+        where: {
+          batchId: id,
+          reason: "BATCH_CLOSURE",
+        },
+        _sum: { count: true },
+      }),
+      // Sales data
+      prisma.sale.aggregate({
+        where: { batchId: id },
+        _sum: { amount: true, quantity: true, weight: true },
+        _count: true,
+      }),
+      // Expenses data
+      prisma.expense.aggregate({
+        where: { batchId: id },
+        _sum: { amount: true },
+        _count: true,
+      }),
+      // Expenses by category
+      prisma.expense.groupBy({
+        by: ["categoryId"],
+        where: { batchId: id },
+        _sum: { amount: true },
+        _count: { categoryId: true },
+      }),
+    ]);
+
+    // Calculate final statistics
+    const naturalDeaths = Number(totalNonSaleMortality._sum.count || 0);
+    const birdsSold = Number(totalSaleMortality._sum.count || 0);
+    const remainingAtClosure = Number(closureMortality._sum.count || 0);
+    const totalMortality = naturalDeaths + remainingAtClosure;
+    
+    const revenue = Number(totalSales._sum.amount || 0);
+    const expenses = Number(totalExpenses._sum.amount || 0);
+    const profit = revenue - expenses;
+    
+    const daysActive = batch.endDate && batch.startDate 
+      ? Math.ceil((batch.endDate.getTime() - batch.startDate.getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
+    // Calculate efficiency metrics
+    const mortalityRate = batch.initialChicks > 0 
+      ? (naturalDeaths / batch.initialChicks) * 100 
+      : 0;
+    
+    const profitMargin = revenue > 0 ? (profit / revenue) * 100 : 0;
+    const roi = expenses > 0 ? (profit / expenses) * 100 : 0;
+    
+    const revenuePerBird = batch.initialChicks > 0 ? revenue / batch.initialChicks : 0;
+    const costPerBird = batch.initialChicks > 0 ? expenses / batch.initialChicks : 0;
+    const profitPerBird = batch.initialChicks > 0 ? profit / batch.initialChicks : 0;
+
+    return res.json({
+      success: true,
+      data: {
+        batchId: id,
+        batchNumber: batch.batchNumber,
+        status: batch.status,
+        
+        // Timeline
+        startDate: batch.startDate,
+        endDate: batch.endDate,
+        daysActive,
+        
+        // Bird tracking
+        initialChicks: batch.initialChicks,
+        birdsSold,
+        naturalDeaths,
+        remainingAtClosure,
+        totalMortality,
+        mortalityRate,
+        
+        // Financial summary
+        totalRevenue: revenue,
+        totalExpenses: expenses,
+        netProfit: profit,
+        profitMargin,
+        roi,
+        
+        // Per-bird metrics
+        revenuePerBird,
+        costPerBird,
+        profitPerBird,
+        
+        // Sales details
+        totalSalesCount: totalSales._count,
+        totalSalesQuantity: Number(totalSales._sum.quantity || 0),
+        totalSalesWeight: Number(totalSales._sum.weight || 0),
+        
+        // Expense breakdown
+        totalExpenseCount: totalExpenses._count,
+        expensesByCategory: await Promise.all(
+          expensesByCategory.map(async (cat: any) => {
+            const category = await prisma.category.findUnique({
+              where: { id: cat.categoryId },
+              select: { name: true, type: true },
+            });
+            return {
+              categoryId: cat.categoryId,
+              categoryName: category?.name || "Unknown",
+              amount: Number(cat._sum.amount || 0),
+              count: cat._count.categoryId,
+            };
+          })
+        ),
+        
+        // Closure notes
+        closureNotes: batch.notes,
+      },
+    });
+  } catch (error) {
+    console.error("Get batch closure summary error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -901,9 +1299,18 @@ export const getBatchAnalytics = async (
       }
     }
 
+    const mortaility = await prisma.mortality.findMany({
+      where: {
+        batchId: id,
+      },
+    });
+
+    console.log(mortaility);
+
     // Get analytics data
     const [
-      totalMortality,
+      saleMortality,
+      normalMortality,
       totalExpenses,
       totalSales,
       totalFeedConsumption,
@@ -911,7 +1318,23 @@ export const getBatchAnalytics = async (
       vaccinationStats,
     ] = await Promise.all([
       prisma.mortality.aggregate({
-        where: { batchId: id },
+        where: {
+          batchId: id,
+          reason: {
+            equals: "SLAUGHTERED_FOR_SALE",
+          },
+        },
+        _sum: { count: true },
+      }),
+      prisma.mortality.aggregate({
+        where: {
+          batchId: id,
+          reason: {
+            not: {
+              equals: "SLAUGHTERED_FOR_SALE",
+            },
+          },
+        },
         _sum: { count: true },
       }),
       prisma.expense.aggregate({
@@ -942,11 +1365,23 @@ export const getBatchAnalytics = async (
       }),
     ]);
 
+    console.log(saleMortality);
+    console.log(normalMortality);
+    console.log(totalExpenses);
+    console.log(totalSales);
+    console.log(totalFeedConsumption);
+    console.log(latestWeight);
+    console.log(vaccinationStats);
+
     const currentChicks =
-      batch.initialChicks - Number(totalMortality._sum.count || 0);
+      batch.initialChicks -
+      (Number(saleMortality._sum.count || 0) +
+        Number(normalMortality._sum.count || 0));
+
+    // donot include sale mortality here
     const mortalityRate =
       batch.initialChicks > 0
-        ? (Number(totalMortality._sum.count || 0) / batch.initialChicks) * 100
+        ? (Number(normalMortality._sum.count || 0) / batch.initialChicks) * 100
         : 0;
 
     const totalExpensesAmount = Number(totalExpenses._sum.amount || 0);
@@ -978,7 +1413,7 @@ export const getBatchAnalytics = async (
         batchNumber: batch.batchNumber,
         currentChicks: Math.max(0, currentChicks),
         initialChicks: batch.initialChicks,
-        totalMortality: Number(totalMortality._sum.count || 0),
+        totalMortality: Number(normalMortality._sum.count || 0),
         mortalityRate,
         totalExpenses: totalExpensesAmount,
         totalSales: totalSalesAmount,

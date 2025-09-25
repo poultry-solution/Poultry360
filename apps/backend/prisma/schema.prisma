@@ -259,6 +259,7 @@ model Expense {
   amount      Decimal  @db.Decimal(10, 2)
   description String?
   quantity    Decimal? @db.Decimal(10, 2)
+  weight      Decimal? @db.Decimal(10, 2)
   unitPrice   Decimal? @db.Decimal(10, 2)
   
   // Relationships
@@ -286,6 +287,7 @@ model Sale {
   date        DateTime
   amount      Decimal  @db.Decimal(10, 2)
   quantity    Decimal  @db.Decimal(10, 2)
+  weight      Decimal  @db.Decimal(10, 2)
   unitPrice   Decimal  @db.Decimal(10, 2)
   description String?
   
@@ -303,13 +305,15 @@ model Sale {
   customerId  String?
   customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   payments    SalePayment[]
-  
+  mortality   Mortality? @relation(fields: [mortalityId], references: [id], onDelete: Cascade)
+  mortalityId String? @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([farmId, date])
   @@index([customerId])
-}
+  @@index([mortalityId])
+  }
 
 // Track partial payments for credit sales
 model SalePayment {
@@ -563,6 +567,9 @@ model Mortality {
   date        DateTime
   count       Int
   reason      String?
+
+  saleId     String?
+  sale       Sale?     @relation
   
   batchId     String
   batch       Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
@@ -571,6 +578,7 @@ model Mortality {
   updatedAt   DateTime @updatedAt
 
   @@index([batchId, date])
+  @@index([saleId, date])
 }
 
 model Vaccination {

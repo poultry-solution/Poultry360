@@ -7,7 +7,9 @@ import {
   updateBatch,
   deleteBatch,
   updateBatchStatus,
+  closeBatch,
   getBatchAnalytics,
+  getBatchClosureSummary,
 } from "../controller/batchController";
 import { authMiddleware } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
@@ -33,6 +35,9 @@ batchRouter.get("/:id", getBatchById);
 // Get batch analytics
 batchRouter.get("/:id/analytics", getBatchAnalytics);
 
+// Get batch closure summary (for completed batches)
+batchRouter.get("/:id/closure-summary", getBatchClosureSummary);
+
 // Create batch
 batchRouter.post("/", createBatch);
 
@@ -41,6 +46,9 @@ batchRouter.put("/:id", updateBatch);
 
 // Update batch status
 batchRouter.patch("/:id/status", updateBatchStatus);
+
+// Close batch (specific endpoint for proper batch closure)
+batchRouter.post("/:id/close", closeBatch);
 
 // Delete batch
 batchRouter.delete("/:id", deleteBatch);

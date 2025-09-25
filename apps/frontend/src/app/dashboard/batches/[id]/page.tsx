@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Layers, ArrowLeft, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Layers, ArrowLeft, Plus, Pencil, Trash2, Loader2, CheckCircle } from "lucide-react";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +23,7 @@ import {
   useGetBatchById,
   useGetBatchAnalytics,
   useDeleteBatch,
+  useCloseBatch,
   useVerifyPasswordForBatchDelete,
 } from "@/fetchers/batches/batchQueries";
 import {
@@ -118,19 +119,23 @@ export default function BatchDetailPage() {
   const params = useParams<{ id: string }>();
   const batchId = params?.id;
 
+  // Always call hooks with consistent parameters to avoid "hooks called conditionally" error
+  // Even if batchId is empty, hooks will be disabled via `enabled: false` option
+  const safeBatchId = batchId || "";
+
   // Fetch batch data
   const {
     data: batchResponse,
     isLoading: batchLoading,
     error: batchError,
-  } = useGetBatchById(batchId || "");
+  } = useGetBatchById(safeBatchId, { enabled: !!batchId });
 
   // Fetch batch analytics
   const {
     data: analyticsResponse,
     isLoading: analyticsLoading,
     error: analyticsError,
-  } = useGetBatchAnalytics(batchId || "");
+  } = useGetBatchAnalytics(safeBatchId, { enabled: !!batchId });
 
   const batch = batchResponse?.data;
   const analytics = analyticsResponse?.data;
@@ -139,8 +144,17 @@ export default function BatchDetailPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
+  
+  // Close batch state
+  const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
+  const [closeBatchForm, setCloseBatchForm] = useState({
+    endDate: "",
+    finalNotes: "",
+  });
+  const [closeErrors, setCloseErrors] = useState<Record<string, string>>({});
 
   const deleteBatchMutation = useDeleteBatch();
+  const closeBatchMutation = useCloseBatch();
   const verifyPasswordMutation = useVerifyPasswordForBatchDelete();
 
   // --- State (with localStorage persistence) ---
@@ -154,7 +168,7 @@ export default function BatchDetailPage() {
     data: expensesResponse,
     isLoading: expensesLoading,
     error: expensesError,
-  } = useGetBatchExpenses(batchId || "");
+  } = useGetBatchExpenses(safeBatchId, { enabled: !!batchId });
 
   const expenses = expensesResponse?.data || [];
 
@@ -181,11 +195,74 @@ export default function BatchDetailPage() {
     isDeleting,
     isAddingPayment,
     refetch: refetchSales,
-  } = useBatchSalesManagement(batchId || "");
+  } = useBatchSalesManagement(safeBatchId, { enabled: !!batchId });
 
   // Customer search for sales
   const [customerSearch, setCustomerSearch] = useState("");
   const { data: customers = [] } = useGetCustomersForSales(customerSearch);
+
+  // ==================== CLOSE BATCH FUNCTIONS ====================
+  
+  function openCloseBatchModal() {
+    setCloseBatchForm({
+      endDate: new Date().toISOString().split('T')[0], // Today's date
+      finalNotes: "",
+    });
+    setCloseErrors({});
+    setIsCloseModalOpen(true);
+  }
+
+  function validateCloseBatch(): boolean {
+    const errors: Record<string, string> = {};
+    
+    if (!closeBatchForm.endDate) {
+      errors.endDate = "End date is required";
+    } else {
+      const endDate = new Date(closeBatchForm.endDate);
+      const startDate = new Date(batch?.startDate || "");
+      if (endDate < startDate) {
+        errors.endDate = "End date cannot be before start date";
+      }
+    }
+
+    setCloseErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
+
+  async function submitCloseBatch(e: React.FormEvent) {
+    e.preventDefault();
+    
+    if (!validateCloseBatch()) return;
+    
+    try {
+      const result = await closeBatchMutation.mutateAsync({
+        id: batchId,
+        data: {
+          endDate: closeBatchForm.endDate ? `${closeBatchForm.endDate}T23:59:59.999Z` : undefined,
+          finalNotes: closeBatchForm.finalNotes || undefined,
+        },
+      });
+
+      // Show success message with summary
+      const summary = result.summary;
+      flash("success", `Batch closed successfully! Sold: ${summary.soldChicks}, Natural Deaths: ${summary.naturalMortality}, Remaining at Closure: ${summary.remainingAtClosure}, Total profit: ₹${summary.profit.toLocaleString()}`);
+      
+      setIsCloseModalOpen(false);
+      setCloseBatchForm({
+        endDate: "",
+        finalNotes: "",
+      });
+      setCloseErrors({});
+    } catch (error: any) {
+      console.error("Close batch error:", error);
+      flash("error", error?.response?.data?.message || "Failed to close batch");
+    }
+  }
+
+  function updateCloseBatchField(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+    const { name, value } = e.target;
+    setCloseBatchForm(prev => ({ ...prev, [name]: value }));
+  }
 
   // Inventory integration - using the new data structure
   const feedInventory = inventoryItems.filter(
@@ -583,6 +660,7 @@ export default function BatchDetailPage() {
     item: "Chicken",
     rate: "",
     quantity: "",
+    weight: "",
     remaining: false,
     customerId: "",
     customerName: "",
@@ -608,6 +686,7 @@ export default function BatchDetailPage() {
       item: "Chicken",
       rate: "",
       quantity: "",
+      weight: "",
       remaining: false,
       customerId: "",
       customerName: "",
@@ -626,6 +705,7 @@ export default function BatchDetailPage() {
       item: row.item,
       rate: String(row.rate),
       quantity: String(row.quantity),
+      weight: String((row as any).weight || ""), // Get weight from sale data
       remaining: row.remaining,
       customerId: "", // TODO: Get customer ID from sale data
       customerName: row.customer?.name || "",
@@ -654,7 +734,19 @@ export default function BatchDetailPage() {
     if (!saleForm.item) errs.item = "Item description required";
     if (!saleForm.rate) errs.rate = "Rate required";
     if (!saleForm.quantity) errs.quantity = "Quantity required";
+    if (!saleForm.weight) errs.weight = "Weight required";
     if (!saleForm.date) errs.date = "Date required";
+    
+    // Validate that weight makes sense for the quantity (basic sanity check)
+    const quantity = Number(saleForm.quantity || 0);
+    const weight = Number(saleForm.weight || 0);
+    if (quantity > 0 && weight > 0) {
+      const avgWeightPerBird = weight / quantity;
+      if (avgWeightPerBird < 0.5 || avgWeightPerBird > 5) {
+        errs.weight = `Average weight per bird (${avgWeightPerBird.toFixed(2)}kg) seems unrealistic. Please check your values.`;
+      }
+    }
+    
     if (saleForm.remaining) {
       if (!saleForm.customerId && !saleForm.customerName) {
         errs.customerName = "Please select existing customer or enter new customer name";
@@ -663,7 +755,7 @@ export default function BatchDetailPage() {
         errs.contact = "Contact number required for new customer";
       }
       // Validate that paid amount doesn't exceed total amount
-      const totalAmount = Number(saleForm.rate || 0) * Number(saleForm.quantity || 0);
+      const totalAmount = Number(saleForm.rate || 0) * Number(saleForm.weight || 0);
       const paidAmount = Number(saleForm.balance || 0);
       if (paidAmount > totalAmount) {
         errs.balance = `Paid amount cannot exceed total amount of ₹${totalAmount.toLocaleString()}`;
@@ -682,14 +774,15 @@ export default function BatchDetailPage() {
         date: saleForm.date
           ? `${saleForm.date}T00:00:00.000Z`
           : new Date().toISOString(),
-        amount: Number(saleForm.rate || 0) * Number(saleForm.quantity || 0),
+        amount: Number(saleForm.rate || 0) * Number(saleForm.weight || 0),
         quantity: Number(saleForm.quantity || 0),
+        weight: Number(saleForm.weight || 0),
         unitPrice: Number(saleForm.rate || 0),
         description: saleForm.item,
         isCredit: saleForm.remaining,
         paidAmount: saleForm.remaining
           ? Number(saleForm.balance || 0)
-          : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0),
+          : Number(saleForm.rate || 0) * Number(saleForm.weight || 0),
         farmId: batch?.farmId,
         batchId: batchId,
         categoryId: saleForm.categoryId || salesCategories[0]?.id || "", // Use selected or first available category
@@ -711,7 +804,7 @@ export default function BatchDetailPage() {
 
       // birdsCount: subtract birds sold from batch current birds via mortality
       if (saleData.batchId) {
-        const birdsCount = Number(saleForm.quantity || 0);
+        const birdsCount = Number(saleForm.weight || 0);
         if (Number.isFinite(birdsCount) && birdsCount > 0) {
           saleData.birdsCount = birdsCount;
         }
@@ -927,6 +1020,11 @@ export default function BatchDetailPage() {
     }
   }
 
+  // Early return if no batchId to prevent hooks execution differences
+  if (!batchId) {
+    return notFound();
+  }
+
   // Loading state
   if (batchLoading) {
     return (
@@ -941,6 +1039,9 @@ export default function BatchDetailPage() {
   if (batchError || !batch) {
     return notFound();
   }
+
+  // Check if batch is closed
+  const isBatchClosed = batch.status === "COMPLETED";
 
   // Calculate totals from real data
   const salesTotal =
@@ -1030,22 +1131,30 @@ export default function BatchDetailPage() {
       width: "120px",
       render: (_, row) => (
         <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-300"
-            onClick={() => openEditExpense(row)}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
-            onClick={() => deleteExpense(row.id)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {!isBatchClosed ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-300"
+                onClick={() => openEditExpense(row)}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
+                onClick={() => deleteExpense(row.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          ) : (
+            <Badge variant="secondary" className="bg-gray-100 text-gray-500 text-xs">
+              Closed
+            </Badge>
+          )}
         </div>
       ),
     },
@@ -1070,6 +1179,12 @@ export default function BatchDetailPage() {
       type: "number",
       align: "right",
       width: "100px",
+    }),
+    createColumn("weight", "Weight (kg)", {
+      type: "number",
+      align: "right",
+      width: "100px",
+      render: (value) => value ? `${Number(value).toFixed(2)} kg` : "—",
     }),
     createColumn("unitPrice", "Rate", {
       type: "currency",
@@ -1135,24 +1250,32 @@ export default function BatchDetailPage() {
       width: "120px",
       render: (_, row) => (
         <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-300"
-            onClick={() => openEditSale(row)}
-            disabled={isUpdating}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
-            onClick={() => handleDeleteSale(row.id)}
-            disabled={isDeleting}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {!isBatchClosed ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-300"
+                onClick={() => openEditSale(row)}
+                disabled={isUpdating}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
+                onClick={() => handleDeleteSale(row.id)}
+                disabled={isDeleting}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          ) : (
+            <Badge variant="secondary" className="bg-gray-100 text-gray-500 text-xs">
+              Closed
+            </Badge>
+          )}
         </div>
       ),
     },
@@ -1237,43 +1360,51 @@ export default function BatchDetailPage() {
       width: "160px",
       render: (_, row) => (
         <div className="flex items-center justify-end gap-2">
-          {row.balance > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 px-3 text-xs hover:bg-green-50 hover:border-green-300 hover:text-green-700"
-              onClick={() =>
-                openPaymentModal({
-                  id: typeof row.id === "string" ? row.id : row.id.toString(),
-                  name: row.name,
-                  balance: row.balance,
-                })
-              }
-            >
-              <Plus className="h-3 w-3 mr-1" />
-              Pay
-            </Button>
+          {!isBatchClosed ? (
+            <>
+              {row.balance > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3 text-xs hover:bg-green-50 hover:border-green-300 hover:text-green-700"
+                  onClick={() =>
+                    openPaymentModal({
+                      id: typeof row.id === "string" ? row.id : row.id.toString(),
+                      name: row.name,
+                      balance: row.balance,
+                    })
+                  }
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Pay
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-300"
+                onClick={() => openEditLedger(row)}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
+                onClick={() =>
+                  deleteLedger(
+                    typeof row.id === "string" ? parseInt(row.id) : row.id
+                  )
+                }
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          ) : (
+            <Badge variant="secondary" className="bg-gray-100 text-gray-500 text-xs">
+              Closed
+            </Badge>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-300"
-            onClick={() => openEditLedger(row)}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
-            onClick={() =>
-              deleteLedger(
-                typeof row.id === "string" ? parseInt(row.id) : row.id
-              )
-            }
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
         </div>
       ),
     },
@@ -1313,16 +1444,38 @@ export default function BatchDetailPage() {
 
       <div className="flex items-center justify-between">
         <div></div>
-        <Button
-          variant="outline"
-          className="text-red-600 border-red-200 hover:bg-red-50"
-          onClick={() => setIsDeleteModalOpen(true)}
-        >
-          <Trash2 className="h-4 w-4 mr-2" /> Delete Batch
-        </Button>
+        <div className="flex items-center gap-2">
+          {batch.status === "ACTIVE" && (
+            <Button
+              variant="outline"
+              className="text-orange-600 border-orange-200 hover:bg-orange-50"
+              onClick={openCloseBatchModal}
+              disabled={closeBatchMutation.isPending}
+            >
+              {closeBatchMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Closing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Close Batch
+                </>
+              )}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            className="text-red-600 border-red-200 hover:bg-red-50"
+            onClick={() => setIsDeleteModalOpen(true)}
+          >
+            <Trash2 className="h-4 w-4 mr-2" /> Delete Batch
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">Start Date</CardTitle>
@@ -1331,6 +1484,16 @@ export default function BatchDetailPage() {
             </CardDescription>
           </CardHeader>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Current Chicks</CardTitle>
+            <CardDescription>
+              {batch.currentChicks.toLocaleString()}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">Initial Birds</CardTitle>
@@ -1365,96 +1528,207 @@ export default function BatchDetailPage() {
       </div>
 
       {activeTab === "Overview" && (
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Key Stats</CardTitle>
-              <CardDescription>Snapshot of current performance</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <div className="text-muted-foreground">Current Birds</div>
-                  <div className="font-medium">
-                    {batch.currentChicks?.toLocaleString() ||
-                      batch.initialChicks.toLocaleString()}
+        <div className="space-y-6">
+          {/* Batch Status Banner */}
+          {isBatchClosed && (
+            <Card className="border-green-200 bg-green-50">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                      <CheckCircle className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-green-900">Batch Completed</h3>
+                      <p className="text-sm text-green-700">
+                        Closed on {batch.endDate ? formatDateYYYYMMDD(batch.endDate) : "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-green-900">
+                      {analytics?.daysActive || currentAge} days
+                    </div>
+                    <div className="text-sm text-green-700">Total Duration</div>
                   </div>
                 </div>
-                <div>
-                  <div className="text-muted-foreground">Mortality Rate</div>
-                  <div className="font-medium">
-                    {analytics?.mortalityRate?.toFixed(2) || 0}%
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {/* Performance Metrics */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Performance Metrics</CardTitle>
+                <CardDescription>
+                  {isBatchClosed ? "Final performance summary" : "Current performance snapshot"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Initial Birds:</span>
+                    <span className="font-medium">{batch.initialChicks.toLocaleString()}</span>
                   </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Total Expenses</div>
-                  <div className="font-medium">
-                    ₹{expensesTotal.toLocaleString()}
+                  {isBatchClosed ? (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Birds Sold:</span>
+                        <span className="font-medium text-green-600">
+                          {analytics?.totalSalesQuantity?.toLocaleString() || 0}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Natural Deaths:</span>
+                        <span className="font-medium text-red-600">
+                          {analytics?.totalMortality?.toLocaleString() || 0}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Final Birds:</span>
+                        <span className="font-medium">0</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Current Birds:</span>
+                      <span className="font-medium">
+                        {batch.currentChicks?.toLocaleString() || batch.initialChicks.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Mortality Rate:</span>
+                    <span className="font-medium">
+                      {analytics?.mortalityRate?.toFixed(2) || 0}%
+                    </span>
                   </div>
+                  {analytics?.fcr && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">FCR:</span>
+                      <span className="font-medium">{analytics.fcr.toFixed(2)}</span>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <div className="text-muted-foreground">Total Revenue</div>
-                  <div className="font-medium">
-                    ₹{salesTotal.toLocaleString()}
+              </CardContent>
+            </Card>
+
+            {/* Financial Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Financial Summary</CardTitle>
+                <CardDescription>Revenue and cost breakdown</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total Revenue:</span>
+                    <span className="font-medium text-green-600">
+                      ₹{salesTotal.toLocaleString()}
+                    </span>
                   </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Expense per Bird</div>
-                  <div className="font-medium">
-                    ₹{perBirdExpense.toFixed(2)}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total Expenses:</span>
+                    <span className="font-medium text-red-600">
+                      ₹{expensesTotal.toLocaleString()}
+                    </span>
                   </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Revenue per Bird</div>
-                  <div className="font-medium">
-                    ₹{perBirdRevenue.toFixed(2)}
+                  <div className="border-t pt-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground font-medium">Net Profit:</span>
+                      <span className={`font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        ₹{profit.toLocaleString()}
+                      </span>
+                    </div>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Revenue per Bird:</span>
+                    <span className="font-medium">₹{perBirdRevenue.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Cost per Bird:</span>
+                    <span className="font-medium">₹{perBirdExpense.toFixed(2)}</span>
+                  </div>
+                  {analytics?.profitMargin && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Profit Margin:</span>
+                      <span className="font-medium">{analytics.profitMargin.toFixed(2)}%</span>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Batch Information</CardTitle>
-              <CardDescription>Details about this batch</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Farm Owner:</span>
-                  <span className="font-medium">{batch.farm.owner.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Initial Weight:</span>
-                  <span className="font-medium">
-                    {batch.initialChickWeight}g
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Days Active:</span>
-                  <span className="font-medium">{currentAge} days</span>
-                </div>
-                {analytics?.currentAvgWeight && (
+              </CardContent>
+            </Card>
+
+            {/* Batch Details */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Batch Information</CardTitle>
+                <CardDescription>Key details and timeline</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Farm Owner:</span>
+                    <span className="font-medium">{batch.farm.owner.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Start Date:</span>
+                    <span className="font-medium">{formatDateYYYYMMDD(batch.startDate)}</span>
+                  </div>
+                  {isBatchClosed && batch.endDate && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">End Date:</span>
+                      <span className="font-medium">{formatDateYYYYMMDD(batch.endDate)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
-                      Current Avg Weight:
+                      {isBatchClosed ? "Total Days:" : "Days Active:"}
                     </span>
-                    <span className="font-medium">
-                      {analytics.currentAvgWeight.toFixed(2)}g
-                    </span>
+                    <span className="font-medium">{analytics?.daysActive || currentAge} days</span>
                   </div>
-                )}
-                {analytics?.fcr && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">FCR:</span>
-                    <span className="font-medium">
-                      {analytics.fcr.toFixed(2)}
-                    </span>
+                    <span className="text-muted-foreground">Initial Weight:</span>
+                    <span className="font-medium">{batch.initialChickWeight}g</span>
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  {analytics?.currentAvgWeight && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {isBatchClosed ? "Final Avg Weight:" : "Current Avg Weight:"}
+                      </span>
+                      <span className="font-medium">
+                        {analytics.currentAvgWeight.toFixed(2)}g
+                      </span>
+                    </div>
+                  )}
+                  {receivableTotal > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Outstanding:</span>
+                      <span className="font-medium text-orange-600">
+                        ₹{receivableTotal.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Closure Notes for Closed Batches */}
+          {isBatchClosed && (batch as any).notes && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Batch Notes</CardTitle>
+                <CardDescription>Additional information and closure notes</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {(batch as any).notes}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
@@ -1467,13 +1741,20 @@ export default function BatchDetailPage() {
                 List of expenses broiler for this batch with all category
               </CardDescription>
             </div>
-            <Button
-              className="bg-primary hover:bg-primary/90"
-              onClick={openNewExpense}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Expense
-            </Button>
+            {!isBatchClosed && (
+              <Button
+                className="bg-primary hover:bg-primary/90"
+                onClick={openNewExpense}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Expense
+              </Button>
+            )}
+            {isBatchClosed && (
+              <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                Batch Closed - No New Entries
+              </Badge>
+            )}
           </CardHeader>
           <CardContent className="p-0">
             {expensesLoading ? (
@@ -1516,13 +1797,20 @@ export default function BatchDetailPage() {
               <CardTitle>Sales</CardTitle>
               <CardDescription>Items sold from this batch</CardDescription>
             </div>
-            <Button
-              className="bg-primary hover:bg-primary/90"
-              onClick={openNewSale}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Sale
-            </Button>
+            {!isBatchClosed && (
+              <Button
+                className="bg-primary hover:bg-primary/90"
+                onClick={openNewSale}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Sale
+              </Button>
+            )}
+            {isBatchClosed && (
+              <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                Batch Closed - No New Entries
+              </Badge>
+            )}
           </CardHeader>
           <CardContent className="p-0">
             {salesLoading ? (
@@ -1573,13 +1861,20 @@ export default function BatchDetailPage() {
                 Balances with customers for this batch
               </CardDescription>
             </div>
-            <Button
-              className="bg-primary hover:bg-primary/90"
-              onClick={openNewLedger}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Entry
-            </Button>
+            {!isBatchClosed && (
+              <Button
+                className="bg-primary hover:bg-primary/90"
+                onClick={openNewLedger}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Entry
+              </Button>
+            )}
+            {isBatchClosed && (
+              <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                Batch Closed - No New Entries
+              </Badge>
+            )}
           </CardHeader>
           <CardContent className="p-0">
             <DataTable
@@ -1603,97 +1898,411 @@ export default function BatchDetailPage() {
       )}
 
       {activeTab === "Profit & Loss" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Profit & Loss</CardTitle>
-            <CardDescription>Computed from Sales and Expenses</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2 text-sm">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Revenue (Sales)</span>
-                  <span className="font-medium">
+        <div className="space-y-6">
+          {/* Summary Cards */}
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card className="border-green-200 bg-green-50">
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-900">
                     ₹{salesTotal.toLocaleString()}
-                  </span>
+                  </div>
+                  <div className="text-sm text-green-700">Total Revenue</div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Expenses</span>
-                  <span className="font-medium">
+              </CardContent>
+            </Card>
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-red-900">
                     ₹{expensesTotal.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    Per-bird Revenue
-                  </span>
-                  <span className="font-medium">
-                    ₹{perBirdRevenue.toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    Per-bird Expense
-                  </span>
-                  <span className="font-medium">
-                    ₹{perBirdExpense.toFixed(2)}
-                  </span>
-                </div>
-                {analytics?.profitMargin && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Profit Margin</span>
-                    <span className="font-medium">
-                      {analytics.profitMargin.toFixed(2)}%
-                    </span>
                   </div>
-                )}
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Net Profit</span>
-                  <span
-                    className={
-                      profit >= 0
-                        ? "font-medium text-green-600"
-                        : "font-medium text-red-600"
-                    }
-                  >
+                  <div className="text-sm text-red-700">Total Expenses</div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className={`border-2 ${profit >= 0 ? 'border-green-300 bg-green-100' : 'border-red-300 bg-red-100'}`}>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <div className={`text-2xl font-bold ${profit >= 0 ? 'text-green-900' : 'text-red-900'}`}>
                     ₹{profit.toLocaleString()}
-                  </span>
+                  </div>
+                  <div className={`text-sm ${profit >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    Net Profit
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    Receivable (from Ledger)
-                  </span>
-                  <span className="font-medium">
-                    ₹{receivableTotal.toLocaleString()}
-                  </span>
+              </CardContent>
+            </Card>
+            <Card className="border-orange-200 bg-orange-50">
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-900">
+                    {analytics?.profitMargin ? `${analytics.profitMargin.toFixed(1)}%` : '0%'}
+                  </div>
+                  <div className="text-sm text-orange-700">Profit Margin</div>
                 </div>
-                {analytics?.totalMortality && (
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Revenue Breakdown */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Revenue Analysis</CardTitle>
+                <CardDescription>Breakdown of income sources</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Total Mortality
+                    <span className="text-muted-foreground">Total Sales Amount:</span>
+                    <span className="font-medium text-green-600">
+                      ₹{salesTotal.toLocaleString()}
                     </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Amount Received:</span>
+                    <span className="font-medium text-green-600">
+                      ₹{(salesTotal - receivableTotal).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Outstanding Amount:</span>
+                    <span className="font-medium text-orange-600">
+                      ₹{receivableTotal.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="border-t pt-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Revenue per Bird:</span>
+                      <span className="font-medium">₹{perBirdRevenue.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  {analytics?.totalSalesQuantity && (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Birds Sold:</span>
+                        <span className="font-medium">{analytics.totalSalesQuantity.toLocaleString()}</span>
+                      </div>
+                      {analytics?.totalSalesWeight && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Total Weight Sold:</span>
+                          <span className="font-medium">{analytics.totalSalesWeight.toFixed(2)} kg</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {salesTotal > 0 && receivableTotal > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Collection Rate:</span>
+                      <span className="font-medium">
+                        {((salesTotal - receivableTotal) / salesTotal * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Expense Breakdown */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Cost Analysis</CardTitle>
+                <CardDescription>Breakdown of expenses</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total Expenses:</span>
                     <span className="font-medium text-red-600">
-                      {analytics.totalMortality} birds
+                      ₹{expensesTotal.toLocaleString()}
                     </span>
                   </div>
-                )}
-                {analytics?.totalFeedConsumption && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Total Feed Consumed
-                    </span>
-                    <span className="font-medium">
-                      {analytics.totalFeedConsumption.toFixed(2)} kg
-                    </span>
+                    <span className="text-muted-foreground">Cost per Bird:</span>
+                    <span className="font-medium">₹{perBirdExpense.toFixed(2)}</span>
                   </div>
+                  {batch.initialChicks > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Cost per Initial Bird:</span>
+                      <span className="font-medium">
+                        ₹{(expensesTotal / batch.initialChicks).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {analytics?.totalSalesQuantity && analytics.totalSalesQuantity > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Cost per Bird Sold:</span>
+                      <span className="font-medium">
+                        ₹{(expensesTotal / analytics.totalSalesQuantity).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {analytics?.totalSalesWeight && analytics.totalSalesWeight > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Cost per Kg:</span>
+                      <span className="font-medium">
+                        ₹{(expensesTotal / analytics.totalSalesWeight).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {analytics?.totalFeedConsumption && analytics.totalFeedConsumption > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Feed Consumed:</span>
+                      <span className="font-medium">
+                        {analytics.totalFeedConsumption.toFixed(2)} kg
+                      </span>
+                    </div>
+                  )}
+                  {analytics?.daysActive && analytics.daysActive > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Daily Average Cost:</span>
+                      <span className="font-medium">
+                        ₹{(expensesTotal / analytics.daysActive).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Performance Metrics */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Performance Indicators</CardTitle>
+                <CardDescription>Key efficiency metrics</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4 text-sm">
+                  {analytics?.mortalityRate && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Mortality Rate:</span>
+                      <span className={`font-medium ${analytics.mortalityRate > 10 ? 'text-red-600' : analytics.mortalityRate > 5 ? 'text-orange-600' : 'text-green-600'}`}>
+                        {analytics.mortalityRate.toFixed(2)}%
+                      </span>
+                    </div>
+                  )}
+                  {analytics?.fcr && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">FCR (Feed Conversion):</span>
+                      <span className={`font-medium ${analytics.fcr > 2.5 ? 'text-red-600' : analytics.fcr > 2.0 ? 'text-orange-600' : 'text-green-600'}`}>
+                        {analytics.fcr.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {analytics?.currentAvgWeight && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {isBatchClosed ? "Final Avg Weight:" : "Current Avg Weight:"}
+                      </span>
+                      <span className="font-medium">
+                        {analytics.currentAvgWeight.toFixed(2)}g
+                      </span>
+                    </div>
+                  )}
+                  {analytics?.daysActive && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {isBatchClosed ? "Total Days:" : "Days Active:"}
+                      </span>
+                      <span className="font-medium">{analytics.daysActive} days</span>
+                    </div>
+                  )}
+                  {profit !== 0 && batch.initialChicks > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Profit per Bird:</span>
+                      <span className={`font-medium ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        ₹{(profit / batch.initialChicks).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {analytics?.totalSalesWeight && analytics.totalSalesWeight > 0 && profit !== 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Profit per Kg:</span>
+                      <span className={`font-medium ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        ₹{(profit / analytics.totalSalesWeight).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* ROI & Efficiency */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Return on Investment</CardTitle>
+                <CardDescription>Investment efficiency analysis</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4 text-sm">
+                  {expensesTotal > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">ROI Percentage:</span>
+                      <span className={`font-medium ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {((profit / expensesTotal) * 100).toFixed(2)}%
+                      </span>
+                    </div>
+                  )}
+                  {analytics?.profitMargin && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Profit Margin:</span>
+                      <span className={`font-medium ${analytics.profitMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {analytics.profitMargin.toFixed(2)}%
+                      </span>
+                    </div>
+                  )}
+                  {analytics?.daysActive && analytics.daysActive > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Daily Profit:</span>
+                      <span className={`font-medium ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        ₹{(profit / analytics.daysActive).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {salesTotal > 0 && expensesTotal > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Revenue Multiple:</span>
+                      <span className="font-medium">
+                        {(salesTotal / expensesTotal).toFixed(2)}x
+                      </span>
+                    </div>
+                  )}
+                  {isBatchClosed && (
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="text-xs text-gray-600 mb-1">Batch Status</div>
+                      <div className="font-medium text-green-700">Completed Successfully</div>
+                      {batch.endDate && (
+                        <div className="text-xs text-gray-600">
+                          Closed: {formatDateYYYYMMDD(batch.endDate)}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Close Batch Modal */}
+      <Modal
+        isOpen={isCloseModalOpen}
+        onClose={() => {
+          setIsCloseModalOpen(false);
+          setCloseBatchForm({
+            endDate: "",
+            finalNotes: "",
+          });
+          setCloseErrors({});
+        }}
+        title="Close Batch"
+      >
+        <form onSubmit={submitCloseBatch}>
+          <ModalContent>
+            <div className="space-y-4">
+              <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                <p className="text-sm text-orange-800">
+                  <strong>Closing this batch will:</strong>
+                </p>
+                <ul className="text-sm text-orange-700 mt-2 space-y-1 list-disc list-inside">
+                  <li>Set the batch status to COMPLETED</li>
+                  <li>Set the end date for the batch</li>
+                  <li>Generate a final summary report</li>
+                  <li>Create a notification with batch completion details</li>
+                </ul>
+              </div>
+              
+              <div>
+                <Label htmlFor="endDate">End Date</Label>
+                <Input
+                  id="endDate"
+                  name="endDate"
+                  type="date"
+                  value={closeBatchForm.endDate}
+                  onChange={updateCloseBatchField}
+                  required
+                />
+                {closeErrors.endDate && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {closeErrors.endDate}
+                  </p>
                 )}
               </div>
+
+              <div>
+                <Label htmlFor="finalNotes">Final Notes (Optional)</Label>
+                <textarea
+                  id="finalNotes"
+                  name="finalNotes"
+                  value={closeBatchForm.finalNotes}
+                  onChange={updateCloseBatchField}
+                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  rows={3}
+                  placeholder="Add any final notes about this batch..."
+                />
+              </div>
+
+              {analytics && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <h4 className="font-medium text-sm mb-2">Current Batch Status</h4>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>Initial Birds: {batch?.initialChicks?.toLocaleString()}</div>
+                    <div>Current Birds: {analytics.currentChicks?.toLocaleString()}</div>
+                    <div>Total Mortality: {(batch?.initialChicks || 0) - (analytics.currentChicks || 0)}</div>
+                    <div>Days Active: {analytics.daysActive}</div>
+                    <div>Total Sales: ₹{analytics.totalSales?.toLocaleString()}</div>
+                    <div>Total Expenses: ₹{analytics.totalExpenses?.toLocaleString()}</div>
+                    <div className={`col-span-2 font-medium ${analytics.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      Net Profit: ₹{analytics.profit?.toLocaleString()}
+                    </div>
+                  </div>
+                  {analytics.currentChicks > 0 && (
+                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                      <strong>Note:</strong> {analytics.currentChicks} remaining birds will be recorded as mortality (batch closure) when you close this batch.
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </ModalContent>
+
+          <ModalFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsCloseModalOpen(false);
+                setCloseBatchForm({
+                  endDate: "",
+                  finalNotes: "",
+                });
+                setCloseErrors({});
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="bg-orange-600 hover:bg-orange-700"
+              disabled={closeBatchMutation.isPending}
+            >
+              {closeBatchMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Closing Batch...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Close Batch
+                </>
+              )}
+            </Button>
+          </ModalFooter>
+        </form>
+      </Modal>
 
       {/* Delete Batch Modal */}
       <Modal
@@ -2141,17 +2750,40 @@ export default function BatchDetailPage() {
                 )}
               </div>
               <div>
-                <Label htmlFor="quantity">Quantity</Label>
+                <Label htmlFor="quantity">Quantity (Birds)</Label>
                 <Input
                   id="quantity"
                   name="quantity"
                   type="number"
                   value={saleForm.quantity}
                   onChange={updateSaleField}
+                  placeholder="Number of birds"
                 />
                 {saleErrors.quantity && (
                   <p className="text-xs text-red-600 mt-1">
                     {saleErrors.quantity}
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="weight">Weight (kg)</Label>
+                <Input
+                  id="weight"
+                  name="weight"
+                  type="number"
+                  step="0.01"
+                  value={saleForm.weight}
+                  onChange={updateSaleField}
+                  placeholder="Total weight in kg"
+                />
+                {saleErrors.weight && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {saleErrors.weight}
+                  </p>
+                )}
+                {saleForm.quantity && saleForm.weight && (
+                  <p className="text-xs text-green-600 mt-1">
+                    Avg weight per bird: {(Number(saleForm.weight) / Number(saleForm.quantity)).toFixed(2)} kg
                   </p>
                 )}
               </div>
