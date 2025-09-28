@@ -77,6 +77,7 @@ export interface Doctor {
   phone?: string;
   companyName?: string;
   isOnline: boolean;
+  lastSeen?: string | null;
 }
 
 // ==================== SOCKET EVENTS ====================
@@ -89,6 +90,7 @@ export interface SocketEvents {
   typing_stop: { conversationId: string };
   mark_messages_read: { conversationId: string; messageIds?: string[] };
   leave_conversation: { conversationId: string };
+  update_online_status: { isOnline: boolean };
 
   // Server to Client
   joined_conversation: { conversationId: string };
@@ -100,6 +102,34 @@ export interface SocketEvents {
   message_sent: { messageId: string };
   left_conversation: { conversationId: string };
   error: { message: string };
+  
+  // Status events
+  doctor_status_changed: {
+    doctorId: string;
+    doctorName: string;
+    isOnline: boolean;
+    lastSeen: string;
+  };
+  doctor_global_status_changed: {
+    doctorId: string;
+    doctorName: string;
+    isOnline: boolean;
+    lastSeen: string;
+  };
+  user_status_changed: {
+    userId: string;
+    userName: string;
+    userRole: string;
+    isOnline: boolean;
+    timestamp: string;
+  };
+  global_user_status_changed: {
+    userId: string;
+    userName: string;
+    userRole: string;
+    isOnline: boolean;
+    timestamp: string;
+  };
 }
 
 // ==================== API RESPONSES ====================

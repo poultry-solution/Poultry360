@@ -475,7 +475,6 @@ export const conversationController = {
       const doctors = await prisma.user.findMany({
         where: {
           role: 'DOCTOR',
-          status: 'ACTIVE'
         },
         select: {
           id: true,

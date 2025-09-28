@@ -184,6 +184,71 @@ class SocketService {
     this.emit('mark_messages_read', { conversationId, messageIds });
   }
 
+  // ==================== STATUS MANAGEMENT ====================
+
+  updateOnlineStatus(isOnline: boolean): void {
+    this.emit('update_online_status', { isOnline });
+  }
+
+  // Listen for doctor status changes
+  onDoctorStatusChanged(callback: (data: {
+    doctorId: string;
+    doctorName: string;
+    isOnline: boolean;
+    lastSeen: string;
+  }) => void): void {
+    this.on('doctor_status_changed', callback);
+  }
+
+  // Listen for global doctor status changes
+  onDoctorGlobalStatusChanged(callback: (data: {
+    doctorId: string;
+    doctorName: string;
+    isOnline: boolean;
+    lastSeen: string;
+  }) => void): void {
+    this.on('doctor_global_status_changed', callback);
+  }
+
+  // Listen for user status changes in conversations
+  onUserStatusChanged(callback: (data: {
+    userId: string;
+    userName: string;
+    userRole: string;
+    isOnline: boolean;
+    timestamp: string;
+  }) => void): void {
+    this.on('user_status_changed', callback);
+  }
+
+  // Listen for global user status changes
+  onGlobalUserStatusChanged(callback: (data: {
+    userId: string;
+    userName: string;
+    userRole: string;
+    isOnline: boolean;
+    timestamp: string;
+  }) => void): void {
+    this.on('global_user_status_changed', callback);
+  }
+
+  // Remove status event listeners
+  offDoctorStatusChanged(callback: (data: { doctorId: string; doctorName: string; isOnline: boolean; lastSeen: string; }) => void): void {
+    this.off('doctor_status_changed', callback);
+  }
+
+  offDoctorGlobalStatusChanged(callback: (data: { doctorId: string; doctorName: string; isOnline: boolean; lastSeen: string; }) => void): void {
+    this.off('doctor_global_status_changed', callback);
+  }
+
+  offUserStatusChanged(callback: (data: { userId: string; userName: string; userRole: string; isOnline: boolean; timestamp: string; }) => void): void {
+    this.off('user_status_changed', callback);
+  }
+
+  offGlobalUserStatusChanged(callback: (data: { userId: string; userName: string; userRole: string; isOnline: boolean; timestamp: string; }) => void): void {
+    this.off('global_user_status_changed', callback);
+  }
+
   // ==================== STATUS ====================
 
   getConnectionStatus(): boolean {

@@ -72,7 +72,10 @@ export class SocketService {
 
       // Mark presence on connect
       if (socket.userId) {
-        this.roomService.markUserOnline(socket.userId);
+        // Use async version for database sync
+        this.roomService.markUserOnline(socket.userId).catch((error: any)=> {
+          console.error('Error marking user online:', error);
+        });
       }
 
       // Join conversation room
@@ -215,7 +218,10 @@ export class SocketService {
       socket.on('disconnect', () => {
         console.log(`User ${socket.userId} (${socket.userName}) disconnected`);
         this.roomService.leaveRoom(socket.id);
-        this.roomService.markUserOffline(socket.userId);
+        // Use async version for database sync
+        this.roomService.markUserOffline(socket.userId).catch((error: any)=> {
+          console.error('Error marking user offline:', error);
+        });
       });
 
       // Handle errors
@@ -252,6 +258,25 @@ export class SocketService {
   // Get online users count
   getOnlineUsersCount(): number {
     return this.io.sockets.sockets.size;
+  }
+
+  // Get online doctors
+  async getOnlineDoctors() {
+    return this.roomService.getOnlineDoctors ? await this.roomService.getOnlineDoctors() : [];
+  }
+
+  // Sync online status
+  async syncOnlineStatus() {
+    if (this.roomService.syncOnlineStatus) {
+      await this.roomService.syncOnlineStatus();
+    }
+  }
+
+  // Broadcast user status change
+  async broadcastUserStatusChange(userId: string, isOnline: boolean) {
+    if (this.roomService.broadcastUserStatusChange) {
+      await this.roomService.broadcastUserStatusChange(userId, isOnline);
+    }
   }
 
   // Get room statistics

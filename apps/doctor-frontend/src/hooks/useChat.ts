@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useChat as useChatContext } from '@/contexts/ChatContext';
 import { 
   useConversations, 
@@ -7,6 +7,8 @@ import {
   useUpdateConversation,
   useMarkMessagesAsRead,
   useAvailableDoctors,
+  useDoctorStatus,
+  useUpdateDoctorStatus,
   useUnreadCount,
   chatKeys
 } from '@/services/chatservices/chatQueries';
@@ -122,10 +124,40 @@ export const useCurrentConversation = (conversationId?: string) => {
     }
   }, [activeConversationId, markMessagesAsRead]);
 
-  console.log(query.data?.messages);
+  // Merge API messages with real-time messages, avoiding duplicates
+  const allMessages = useMemo(() => {
+    const apiMessages = ((query.data as any)?.messages || []);
+    const merged = [...apiMessages];
+    
+    // Add context messages that aren't already in the API response
+    contextMessages.forEach((contextMsg) => {
+      const existsInApi = apiMessages.some((apiMsg: any) => apiMsg.id === contextMsg.id);
+      if (!existsInApi) {
+        merged.push(contextMsg);
+      }
+    });
+    
+    // Sort by creation time to maintain proper order
+    merged.sort((a: any, b: any) => 
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+
+    // Debug logging (can be removed in production)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Doctor] Conversation ${activeConversationId}:`, {
+        apiMessages: apiMessages.length,
+        contextMessages: contextMessages.length,
+        totalMerged: merged.length,
+        isConnected,
+        isLoading: query.isLoading
+      });
+    }
+
+    return merged;
+  }, [query.data, contextMessages, activeConversationId, isConnected, query.isLoading]);
   return {
     conversation: (query.data as any)?.conversation,
-    messages: contextMessages.length > 0 ? contextMessages : ((query.data as any)?.messages || []),
+    messages: allMessages,
     isLoading: query.isLoading,
     error: query.error,
     isConnected,
@@ -293,6 +325,9 @@ export const useDoctors = () => {
     offlineDoctors: getOfflineDoctors(),
   };
 };
+
+// Export doctor status hooks directly
+export { useDoctorStatus, useUpdateDoctorStatus } from '@/services/chatservices/chatQueries';
 
 // ==================== UNREAD COUNT HOOK ====================
 

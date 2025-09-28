@@ -67,6 +67,89 @@ export const useAvailableDoctors = () => {
   });
 };
 
+// Doctor status management
+export const useDoctorStatus = () => {
+  return useQuery({
+    queryKey: [...chatKeys.doctors(), 'status'],
+    queryFn: async (): Promise<{
+      success: boolean;
+      user: {
+        id: string;
+        name: string;
+        email: string;
+        role: string;
+        status: string;
+        isOnline: boolean;
+        lastSeen: string | null;
+      };
+      stats: {
+        activeConversations: number;
+        unreadMessages: number;
+      };
+    }> => {
+      const response = await axiosInstance.get('/doctors/status');
+      return response.data;
+    },
+    staleTime: 30000, // 30 seconds
+    refetchInterval: 60000, // Refetch every minute
+  });
+};
+
+export const useUpdateDoctorStatus = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (isOnline: boolean): Promise<{
+      success: boolean;
+      message: string;
+      user: {
+        id: string;
+        name: string;
+        email: string;
+        role: string;
+        isOnline: boolean;
+        lastSeen: string;
+      };
+    }> => {
+      const response = await axiosInstance.put('/doctors/online-status', { isOnline });
+      return response.data;
+    },
+    onMutate: async (isOnline: boolean) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: [...chatKeys.doctors(), 'status'] });
+
+      // Snapshot the previous value
+      const previousStatus = queryClient.getQueryData([...chatKeys.doctors(), 'status']);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData([...chatKeys.doctors(), 'status'], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          user: {
+            ...old.user,
+            isOnline,
+            lastSeen: new Date().toISOString()
+          }
+        };
+      });
+
+      // Return a context object with the snapshotted value
+      return { previousStatus };
+    },
+    onError: (err, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousStatus) {
+        queryClient.setQueryData([...chatKeys.doctors(), 'status'], context.previousStatus);
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success to ensure we have the latest data
+      queryClient.invalidateQueries({ queryKey: [...chatKeys.doctors(), 'status'] });
+    },
+  });
+};
+
 export const useUnreadCount = (enabled: boolean = true) => {
   return useQuery({
     queryKey: chatKeys.unreadCount(),

@@ -193,16 +193,48 @@ export class RoomService {
   /**
    * Explicitly mark a user online on socket connect
    */
-  markUserOnline(userId: string): void {
+  async markUserOnline(userId: string): Promise<void> {
     this.onlineUserIds.add(userId);
+    
+    // Update database status
+    try {
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          isOnline: true,
+          lastSeen: new Date()
+        }
+      });
+
+      // Emit status change to relevant conversations
+      // await this.broadcastUserStatusChange(userId, true);
+    } catch (error) {
+      console.error('Error updating user online status in database:', error);
+    }
   }
 
   /**
    * Explicitly mark a user offline on socket disconnect
    */
-  markUserOffline(userId: string | undefined): void {
+  async markUserOffline(userId: string | undefined): Promise<void> {
     if (!userId) return;
     this.onlineUserIds.delete(userId);
+    
+    // Update database status
+    try {
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          isOnline: false,
+          lastSeen: new Date()
+        }
+      });
+
+      // Emit status change to relevant conversations
+      // await this.broadcastUserStatusChange(userId, false);
+    } catch (error) {
+      console.error('Error updating user offline status in database:', error);
+    }
   }
 
   /**

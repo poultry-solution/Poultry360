@@ -1,5 +1,5 @@
-import { io, Socket } from 'socket.io-client';
-import type { SocketEvents } from '@/types/chat';
+import { io, Socket } from "socket.io-client";
+import type { SocketEvents } from "@/types/chat";
 
 // ==================== SOCKET SERVICE ====================
 
@@ -26,32 +26,33 @@ class SocketService {
         return;
       }
 
-      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:8081';
-      
+      const socketUrl =
+        process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:8081";
+
       this.socket = io(socketUrl, {
         auth: {
-          token
+          token,
         },
-        transports: ['websocket', 'polling'],
+        transports: ["websocket", "polling"],
         timeout: 20000,
-        forceNew: true
+        forceNew: true,
       });
 
-      this.socket.on('connect', () => {
-        console.log('🔌 Socket connected:', this.socket?.id);
+      this.socket.on("connect", () => {
+        console.log("🔌 Socket connected:", this.socket?.id);
         this.isConnected = true;
         this.reconnectAttempts = 0;
         resolve();
       });
 
-      this.socket.on('connect_error', (error) => {
-        console.error('❌ Socket connection error:', error);
+      this.socket.on("connect_error", (error) => {
+        console.error("❌ Socket connection error:", error);
         this.isConnected = false;
         reject(error);
       });
 
-      this.socket.on('disconnect', (reason) => {
-        console.log('🔌 Socket disconnected:', reason);
+      this.socket.on("disconnect", (reason) => {
+        console.log("🔌 Socket disconnected:", reason);
         this.isConnected = false;
         this.handleDisconnect(reason);
       });
@@ -71,7 +72,7 @@ class SocketService {
   }
 
   private handleDisconnect(reason: string): void {
-    if (reason === 'io server disconnect') {
+    if (reason === "io server disconnect") {
       // Server disconnected, try to reconnect
       this.attemptReconnect();
     }
@@ -79,14 +80,16 @@ class SocketService {
 
   private attemptReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('❌ Max reconnection attempts reached');
+      console.error("❌ Max reconnection attempts reached");
       return;
     }
 
     this.reconnectAttempts++;
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
 
-    console.log(`🔄 Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay}ms`);
+    console.log(
+      `🔄 Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay}ms`
+    );
 
     setTimeout(() => {
       if (this.socket && !this.isConnected) {
@@ -105,7 +108,7 @@ class SocketService {
     if (!this.socket) return;
 
     // Handle all socket events
-    Object.keys(this.eventListeners).forEach(event => {
+    Object.keys(this.eventListeners).forEach((event) => {
       this.socket?.on(event, (data) => {
         this.emitToListeners(event, data);
       });
@@ -115,7 +118,7 @@ class SocketService {
   private emitToListeners(event: string, data: any): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
-      listeners.forEach(listener => {
+      listeners.forEach((listener) => {
         try {
           listener(data);
         } catch (error) {
@@ -127,7 +130,10 @@ class SocketService {
 
   // ==================== PUBLIC API ====================
 
-  on<K extends keyof SocketEvents>(event: K, listener: (data: SocketEvents[K]) => void): void {
+  on<K extends keyof SocketEvents>(
+    event: K,
+    listener: (data: SocketEvents[K]) => void
+  ): void {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, new Set());
     }
@@ -139,7 +145,10 @@ class SocketService {
     }
   }
 
-  off<K extends keyof SocketEvents>(event: K, listener: (data: SocketEvents[K]) => void): void {
+  off<K extends keyof SocketEvents>(
+    event: K,
+    listener: (data: SocketEvents[K]) => void
+  ): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       listeners.delete(listener);
@@ -161,27 +170,134 @@ class SocketService {
   // ==================== CHAT SPECIFIC METHODS ====================
 
   joinConversation(conversationId: string): void {
-    this.emit('join_conversation', { conversationId });
+    this.emit("join_conversation", { conversationId });
   }
 
   leaveConversation(conversationId: string): void {
-    this.emit('leave_conversation', { conversationId });
+    this.emit("leave_conversation", { conversationId });
   }
 
-  sendMessage(conversationId: string, text: string, messageType: 'TEXT' | 'IMAGE' | 'FILE' = 'TEXT'): void {
-    this.emit('send_message', { conversationId, text, messageType });
+  sendMessage(
+    conversationId: string,
+    text: string,
+    messageType: "TEXT" | "IMAGE" | "FILE" = "TEXT"
+  ): void {
+    this.emit("send_message", { conversationId, text, messageType });
   }
 
   startTyping(conversationId: string): void {
-    this.emit('typing_start', { conversationId });
+    this.emit("typing_start", { conversationId });
   }
 
   stopTyping(conversationId: string): void {
-    this.emit('typing_stop', { conversationId });
+    this.emit("typing_stop", { conversationId });
   }
 
   markMessagesAsRead(conversationId: string, messageIds?: string[]): void {
-    this.emit('mark_messages_read', { conversationId, messageIds });
+    this.emit("mark_messages_read", { conversationId, messageIds });
+  }
+
+  // ==================== STATUS MANAGEMENT ====================
+
+  updateOnlineStatus(isOnline: boolean): void {
+    this.emit("update_online_status", { isOnline });
+  }
+
+  // Listen for doctor status changes
+  onDoctorStatusChanged(
+    callback: (data: {
+      doctorId: string;
+      doctorName: string;
+      isOnline: boolean;
+      lastSeen: string;
+    }) => void
+  ): void {
+    this.on("doctor_status_changed", callback);
+  }
+
+  // Listen for global doctor status changes
+  onDoctorGlobalStatusChanged(
+    callback: (data: {
+      doctorId: string;
+      doctorName: string;
+      isOnline: boolean;
+      lastSeen: string;
+    }) => void
+  ): void {
+    this.on("doctor_global_status_changed", callback);
+  }
+
+  // Listen for user status changes in conversations
+  onUserStatusChanged(
+    callback: (data: {
+      userId: string;
+      userName: string;
+      userRole: string;
+      isOnline: boolean;
+      timestamp: string;
+    }) => void
+  ): void {
+    this.on("user_status_changed", callback);
+  }
+
+  // Listen for global user status changes
+  onGlobalUserStatusChanged(
+    callback: (data: {
+      userId: string;
+      userName: string;
+      userRole: string;
+      isOnline: boolean;
+      timestamp: string;
+    }) => void
+  ): void {
+    this.on("global_user_status_changed", callback);
+  }
+
+  // Remove status event listeners
+  offDoctorStatusChanged(
+    callback: (data: {
+      doctorId: string;
+      doctorName: string;
+      isOnline: boolean;
+      lastSeen: string;
+    }) => void
+  ): void {
+    this.off("doctor_status_changed", callback);
+  }
+
+  offDoctorGlobalStatusChanged(
+    callback: (data: {
+      doctorId: string;
+      doctorName: string;
+      isOnline: boolean;
+      lastSeen: string;
+    }) => void
+  ): void {
+    this.off("doctor_global_status_changed", callback);
+  }
+
+  offUserStatusChanged(
+    callback: (data: {
+      userId: string;
+      userName: string;
+      userRole: string;
+      isOnline: boolean;
+      timestamp: string;
+    }) => void
+  ): void {
+    this.off("user_status_changed", callback);
+  }
+
+  offGlobalUserStatusChanged(
+    callback: (data: {
+      userId: string;
+      userName: string;
+      userRole: string;
+      isOnline: boolean;
+      timestamp: string;
+    }) => void
+  ): void {
+    this.off("global_user_status_changed", callback);
   }
 
   // ==================== STATUS ====================

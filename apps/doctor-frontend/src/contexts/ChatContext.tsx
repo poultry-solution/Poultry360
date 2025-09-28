@@ -94,10 +94,21 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
   const handleNewMessage = useCallback(
     (socketMessage: any) => {
+      // Debug logging for development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Doctor] Received new message via socket:', {
+          messageId: socketMessage.id,
+          conversationId: socketMessage.conversationId,
+          currentConversationId,
+          senderRole: socketMessage.senderRole,
+          text: socketMessage.text?.substring(0, 50) + '...'
+        });
+      }
+      
       // Transform socket message to Message format
       const message: Message = {
         id: socketMessage.id,
-        conversationId: currentConversationId || '',
+        conversationId: socketMessage.conversationId,
         text: socketMessage.text,
         messageType: socketMessage.messageType,
         createdAt: socketMessage.createdAt,
@@ -111,9 +122,35 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       };
 
       setMessages((prev) => {
-        // Avoid duplicates
-        if (prev.some((m) => m.id === message.id)) {
+        // Only add messages that belong to the current conversation
+        if (message.conversationId !== currentConversationId) {
           return prev;
+        }
+        
+        // Check if this is a real message replacing an optimistic one
+        const existingOptimisticIndex = prev.findIndex((m) => 
+          m.id.startsWith('temp-') && 
+          m.text === message.text && 
+          m.sender.id === message.sender.id
+        );
+        
+        if (existingOptimisticIndex !== -1) {
+          // Replace optimistic message with real one
+          const newMessages = [...prev];
+          newMessages[existingOptimisticIndex] = message;
+          return newMessages;
+        }
+        
+        // Avoid duplicates for real messages
+        if (prev.some((m) => m.id === message.id)) {
+          if (process.env.NODE_ENV === 'development') {
+          console.log('[Doctor] Duplicate message rejected:', message.id);
+        }
+          return prev;
+        }
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Doctor] Adding message to context:', message.id, 'Total:', prev.length + 1);
         }
         return [...prev, message];
       });
@@ -292,6 +329,8 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     (conversationId: string) => {
       if (!isConnected) return;
 
+      // Clear old messages when switching conversations
+      setMessages([]);
       setCurrentConversationId(conversationId);
       socketService.current.joinConversation(conversationId);
     },

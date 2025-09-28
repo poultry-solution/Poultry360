@@ -61,9 +61,23 @@ export const useAvailableDoctors = () => {
     queryKey: chatKeys.doctors(),
     queryFn: async (): Promise<{ doctors: Doctor[] }> => {
       const response = await axiosInstance.get('/conversations/doctors');
+      
+      console.log(response.data);
       return response.data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+};
+
+export const useOnlineDoctors = () => {
+  return useQuery({
+    queryKey: [...chatKeys.doctors(), 'online'],
+    queryFn: async (): Promise<{ doctors: Doctor[]; total: number }> => {
+      const response = await axiosInstance.get('/doctors/online');
+      return response.data;
+    },
+    staleTime: 30000, // 30 seconds
+    refetchInterval: 60000, // Refetch every minute
   });
 };
 
@@ -221,6 +235,24 @@ export const useSendMessage = () => {
 };
 
 // ==================== UTILITY HOOKS ====================
+
+// Combined doctor hook with online status
+export const useDoctorsWithStatus = () => {
+  const allDoctors = useAvailableDoctors();
+  const onlineDoctors = useOnlineDoctors();
+
+  return {
+    doctors: allDoctors.data?.doctors || [],
+    onlineDoctors: onlineDoctors.data?.doctors || [],
+    totalOnline: onlineDoctors.data?.total || 0,
+    isLoading: allDoctors.isLoading || onlineDoctors.isLoading,
+    error: allDoctors.error || onlineDoctors.error,
+    refetch: () => {
+      allDoctors.refetch();
+      onlineDoctors.refetch();
+    }
+  };
+};
 
 export const useChatData = (conversationId?: string) => {
   const conversations = useConversations();

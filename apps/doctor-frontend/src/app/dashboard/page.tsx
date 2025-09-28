@@ -38,6 +38,8 @@ import {
   useConversationsList,
   useUnreadCounts,
   useChatConnection,
+  useDoctorStatus,
+  useUpdateDoctorStatus,
 } from "@/hooks/useChat";
 import { useAuthStore } from "@/store/authStore";
 import { AppLoadingScreen } from "@/components/loading-screen";
@@ -71,30 +73,17 @@ export default function DoctorDashboard() {
     time: "",
     type: "Consultation Reminder",
   });
-  const [reminders, setReminders] = useState([
-    {
-      id: 1,
-      title: "Follow-up with Rajesh Patel",
-      date: "2025-09-12",
-      time: "10:00 AM",
-      type: "Consultation Reminder",
-    },
-    {
-      id: 2,
-      title: "Review vaccination schedule",
-      date: "2025-09-13",
-      time: "02:00 PM",
-      type: "Medical Reminder",
-    },
-  ]);
+  const [reminders, setReminders] = useState<any[]>([]);
 
   // Only fetch chat data if authenticated
   const { conversations, isLoading: conversationsLoading } =
     useConversationsList(isAuthenticated ? { status: "ACTIVE" } : undefined);
   const { unreadCounts, totalUnread } = useUnreadCounts();
   const { isConnected } = useChatConnection();
-
-  // Online status is managed by socket connection
+  
+  // Doctor status management
+  const { data: doctorStatus, isLoading: statusLoading } = useDoctorStatus();
+  const updateStatusMutation = useUpdateDoctorStatus();
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Initialize auth store
@@ -174,14 +163,19 @@ export default function DoctorDashboard() {
   };
 
   const handleToggleOnlineStatus = async () => {
+    if (!doctorStatus?.user) return;
+    
+    const newStatus = !doctorStatus.user.isOnline;
     setIsUpdating(true);
+    
     try {
-      // Simulate status update - in reality, this is handled by socket connection
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      // Note: Actual online status is managed by socket connection
-      console.log("Online status toggle requested");
+      // Optimistic update - update the UI immediately
+      await updateStatusMutation.mutateAsync(newStatus);
+      
+      console.log(`Doctor status updated to: ${newStatus ? 'online' : 'offline'}`);
     } catch (error) {
       console.error("Failed to update online status:", error);
+      // The error will automatically revert the optimistic update due to the mutation's onError handler
     } finally {
       setIsUpdating(false);
     }
@@ -270,17 +264,19 @@ export default function DoctorDashboard() {
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <Button
-                  variant={isConnected ? "outline" : "default"}
+                  variant={doctorStatus?.user?.isOnline ? "outline" : "default"}
                   size="sm"
                   onClick={handleToggleOnlineStatus}
-                  disabled={isUpdating}
+                  disabled={isUpdating || statusLoading}
                   className="bg-primary hover:bg-primary/90"
                 >
                   {isUpdating
                     ? "Updating..."
-                    : isConnected
-                      ? "Go Offline"
-                      : "Go Online"}
+                    : statusLoading
+                      ? "Loading..."
+                      : doctorStatus?.user?.isOnline
+                        ? "Go Offline"
+                        : "Go Online"}
                 </Button>
               </div>
             </div>
@@ -300,11 +296,23 @@ export default function DoctorDashboard() {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <div
-                className={`w-3 h-3 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`}
+                className={`w-3 h-3 rounded-full ${
+                  doctorStatus?.user?.isOnline ? "bg-green-500" : "bg-red-500"
+                }`}
               ></div>
               <span className="text-sm font-medium">
-                {isConnected ? "Online" : "Offline"}
+                {statusLoading 
+                  ? "Loading..." 
+                  : doctorStatus?.user?.isOnline 
+                    ? "Online" 
+                    : "Offline"
+                }
               </span>
+              {doctorStatus?.user?.lastSeen && !doctorStatus.user.isOnline && (
+                <span className="text-xs text-muted-foreground">
+                  Last seen: {new Date(doctorStatus.user.lastSeen).toLocaleTimeString()}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -320,9 +328,9 @@ export default function DoctorDashboard() {
             </CardHeader>
             <CardContent className="pb-2">
               <div className="text-lg font-bold">
-                {todayStats.totalConsultations}
+                {statusLoading ? '...' : (doctorStatus?.stats?.activeConversations || todayStats.totalConsultations)}
               </div>
-              <p className="text-xs text-muted-foreground">Today</p>
+              <p className="text-xs text-muted-foreground">Active consultations</p>
             </CardContent>
           </Card>
 
@@ -472,9 +480,11 @@ export default function DoctorDashboard() {
                     </CardDescription>
                   </div>
                   <Badge className="bg-primary text-primary-foreground text-xs">
-                    {newMessageConversations.reduce(
-                      (sum, conv) => sum + conv.unreadCount,
-                      0
+                    {statusLoading ? '...' : (doctorStatus?.stats?.unreadMessages || 
+                      newMessageConversations.reduce(
+                        (sum, conv) => sum + conv.unreadCount,
+                        0
+                      )
                     )}
                   </Badge>
                 </div>

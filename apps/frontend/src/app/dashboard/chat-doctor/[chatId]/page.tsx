@@ -47,7 +47,7 @@ export default function ChatPage() {
     if (conversation && messages.length > 0) {
       markAsRead();
     }
-  }, [conversation, messages, markAsRead]);
+  }, [conversation?.id, messages.length, markAsRead]);
 
   // Handle connection errors
   useEffect(() => {

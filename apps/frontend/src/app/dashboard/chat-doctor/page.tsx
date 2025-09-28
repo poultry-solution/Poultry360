@@ -4,13 +4,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { MessageCircle, Clock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
-import { useConversationsList, useDoctors, useCreateConversation, useUnreadCounts } from "@/hooks/useChat";
+import { useConversationsList, useDoctors, useCreateConversation, useUnreadCounts, useDoctorsWithStatus } from "@/hooks/useChat";
 import { useChatConnection } from "@/hooks/useChat";
+import { getSocketService } from "@/services/chatservices/socketService";
+import { useQueryClient } from "@tanstack/react-query";
+import { chatKeys } from "@/services/chatservices/chatQueries";
 import { toast } from "sonner";
 
 export default function ChatDoctorPage() {
@@ -20,15 +23,61 @@ export default function ChatDoctorPage() {
   const [chatReason, setChatReason] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // React Query client for cache invalidation
+  const queryClient = useQueryClient();
+  
   // Real chat hooks
   const { isConnected, isLoading: connectionLoading, error: connectionError } = useChatConnection();
   const { conversations, isLoading: conversationsLoading, selectConversation } = useConversationsList();
-  const { doctors, onlineDoctors, offlineDoctors, isLoading: doctorsLoading } = useDoctors();
+  const { doctors, onlineDoctors, isLoading: doctorsLoading } = useDoctorsWithStatus();
   const { totalUnread, getUnreadForConversation } = useUnreadCounts();
   const createConversationMutation = useCreateConversation();
 
   const activeChats = conversations?.filter((conv: any) => conv.status === 'ACTIVE').length || 0;
   const monthlyConsultations = conversations?.length || 0;
+
+  // Listen for real-time doctor status changes
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const socketService = getSocketService();
+    
+    const handleDoctorStatusChange = (data: {
+      doctorId: string;
+      doctorName: string;
+      isOnline: boolean;
+      lastSeen: string;
+    }) => {
+      console.log('Doctor status changed:', data);
+      
+      // Invalidate and refetch all doctor-related queries
+      queryClient.invalidateQueries({ queryKey: chatKeys.doctors() });
+      queryClient.invalidateQueries({ queryKey: [...chatKeys.doctors(), 'online'] });
+      
+      // Show toast notification
+      toast.info(`Dr. ${data.doctorName} is now ${data.isOnline ? 'online' : 'offline'}`);
+    };
+
+    // Listen for doctor status changes
+    socketService.onDoctorGlobalStatusChanged(handleDoctorStatusChange);
+    
+    // Also listen for general user status changes
+    socketService.onGlobalUserStatusChanged((data) => {
+      if (data.userRole === 'DOCTOR') {
+        handleDoctorStatusChange({
+          doctorId: data.userId,
+          doctorName: data.userName,
+          isOnline: data.isOnline,
+          lastSeen: data.timestamp
+        });
+      }
+    });
+
+    return () => {
+      socketService.offDoctorGlobalStatusChanged(handleDoctorStatusChange);
+      socketService.offGlobalUserStatusChanged(() => {}); // Remove the listener
+    };
+  }, [isConnected, queryClient]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -124,7 +173,7 @@ export default function ChatDoctorPage() {
           </CardHeader>
           <CardContent>
             <div className="text-xl sm:text-2xl font-bold">
-              {doctorsLoading ? '...' : onlineDoctors.length}
+              {doctorsLoading ? '...' : (onlineDoctors?.length || 0)}
             </div>
             <p className="text-xs text-muted-foreground">Online now</p>
           </CardContent>
@@ -179,7 +228,8 @@ export default function ChatDoctorPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {doctors.map((doctor) => (
+                {/* Show all doctors with proper status */}
+                {doctors?.map((doctor) => (
                   <div 
                     key={doctor.id} 
                     className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
@@ -206,12 +256,18 @@ export default function ChatDoctorPage() {
                           <span className="text-xs text-muted-foreground">
                             {doctor.isOnline ? 'Online' : 'Offline'}
                           </span>
+                          {!doctor.isOnline && doctor.lastSeen && (
+                            <span className="text-xs text-muted-foreground">
+                              • Last seen {new Date(doctor.lastSeen).toLocaleTimeString()}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
                     <Button 
                       size="sm" 
-                      className="bg-primary hover:bg-primary/90"
+                      variant={doctor.isOnline ? "default" : "outline"}
+                      className={doctor.isOnline ? "bg-primary hover:bg-primary/90" : "text-gray-600"}
                       onClick={() => openChatModal(doctor)}
                     >
                       <MessageCircle className="h-4 w-4 mr-1" />
@@ -219,7 +275,8 @@ export default function ChatDoctorPage() {
                     </Button>
                   </div>
                 ))}
-                {doctors.length === 0 && (
+                
+                {(doctors?.length || 0) === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
                     <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No doctors available at the moment</p>
