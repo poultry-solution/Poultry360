@@ -14,7 +14,15 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Layers, ArrowLeft, Plus, Pencil, Trash2, Loader2, CheckCircle } from "lucide-react";
+import {
+  Layers,
+  ArrowLeft,
+  Plus,
+  Pencil,
+  Trash2,
+  Loader2,
+  CheckCircle,
+} from "lucide-react";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,10 +42,11 @@ import {
   useGetExpenseCategories,
 } from "@/fetchers/expenses/expenseQueries";
 import { useGetInventoryTableData } from "@/fetchers/inventory/inventoryQueries";
-import { 
+import {
   useBatchSalesManagement,
   useGetCustomersForSales,
 } from "@/fetchers/sale/saleQueries";
+import { BatchSaleModel } from "@/components/ui/batchSaleModel";
 
 type ExpenseCategory = "Feed" | "Medicine" | "Hatchery" | "Other";
 
@@ -74,6 +83,7 @@ type SaleRow = {
     balance: number;
   } | null;
   date: string; // yyyy-mm-dd
+  categoryId: string;
 };
 
 type LedgerRow = {
@@ -144,7 +154,7 @@ export default function BatchDetailPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
-  
+
   // Close batch state
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
   const [closeBatchForm, setCloseBatchForm] = useState({
@@ -202,10 +212,10 @@ export default function BatchDetailPage() {
   const { data: customers = [] } = useGetCustomersForSales(customerSearch);
 
   // ==================== CLOSE BATCH FUNCTIONS ====================
-  
+
   function openCloseBatchModal() {
     setCloseBatchForm({
-      endDate: new Date().toISOString().split('T')[0], // Today's date
+      endDate: new Date().toISOString().split("T")[0], // Today's date
       finalNotes: "",
     });
     setCloseErrors({});
@@ -214,7 +224,7 @@ export default function BatchDetailPage() {
 
   function validateCloseBatch(): boolean {
     const errors: Record<string, string> = {};
-    
+
     if (!closeBatchForm.endDate) {
       errors.endDate = "End date is required";
     } else {
@@ -231,22 +241,27 @@ export default function BatchDetailPage() {
 
   async function submitCloseBatch(e: React.FormEvent) {
     e.preventDefault();
-    
+
     if (!validateCloseBatch()) return;
-    
+
     try {
       const result = await closeBatchMutation.mutateAsync({
         id: batchId,
         data: {
-          endDate: closeBatchForm.endDate ? `${closeBatchForm.endDate}T23:59:59.999Z` : undefined,
+          endDate: closeBatchForm.endDate
+            ? `${closeBatchForm.endDate}T23:59:59.999Z`
+            : undefined,
           finalNotes: closeBatchForm.finalNotes || undefined,
         },
       });
 
       // Show success message with summary
       const summary = result.summary;
-      flash("success", `Batch closed successfully! Sold: ${summary.soldChicks}, Natural Deaths: ${summary.naturalMortality}, Remaining at Closure: ${summary.remainingAtClosure}, Total profit: ₹${summary.profit.toLocaleString()}`);
-      
+      flash(
+        "success",
+        `Batch closed successfully! Sold: ${summary.soldChicks}, Natural Deaths: ${summary.naturalMortality}, Remaining at Closure: ${summary.remainingAtClosure}, Total profit: ₹${summary.profit.toLocaleString()}`
+      );
+
       setIsCloseModalOpen(false);
       setCloseBatchForm({
         endDate: "",
@@ -259,9 +274,11 @@ export default function BatchDetailPage() {
     }
   }
 
-  function updateCloseBatchField(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+  function updateCloseBatchField(
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) {
     const { name, value } = e.target;
-    setCloseBatchForm(prev => ({ ...prev, [name]: value }));
+    setCloseBatchForm((prev) => ({ ...prev, [name]: value }));
   }
 
   // Inventory integration - using the new data structure
@@ -276,18 +293,18 @@ export default function BatchDetailPage() {
   const customerBalances = useMemo(() => {
     if (!batchSales) return [];
 
-     const customerMap = new Map<
-       string,
-       {
-         id: string;
-         name: string;
-         phone: string;
-         category: "Chicken" | "Other";
-         sales: number;
-         received: number;
-         balance: number;
-       }
-     >();
+    const customerMap = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        phone: string;
+        category: "Chicken" | "Other";
+        sales: number;
+        received: number;
+        balance: number;
+      }
+    >();
 
     batchSales.forEach((sale: any) => {
       if (sale.isCredit && sale.customerId) {
@@ -296,7 +313,8 @@ export default function BatchDetailPage() {
           id: customerId,
           name: sale.customer?.name || `Customer ${customerId.slice(-4)}`,
           phone: sale.customer?.phone || "—",
-          category: (sale.customer?.category as "Chicken" | "Other") || "Chicken",
+          category:
+            (sale.customer?.category as "Chicken" | "Other") || "Chicken",
           sales: 0,
           received: 0,
           balance: 0,
@@ -657,18 +675,18 @@ export default function BatchDetailPage() {
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
   const [editingSaleId, setEditingSaleId] = useState<number | null>(null);
   const [saleForm, setSaleForm] = useState({
-    item: "Chicken",
     rate: "",
     quantity: "",
     weight: "",
+    itemType: "Chicken_Meat",
     remaining: false,
     customerId: "",
     customerName: "",
     contact: "",
-    categoryId: "",
     customerCategory: "Chicken",
     balance: "",
     date: "",
+    categoryId: "",
   });
   function updateSaleField(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -683,18 +701,18 @@ export default function BatchDetailPage() {
   function openNewSale() {
     setEditingSaleId(null);
     setSaleForm({
-      item: "Chicken",
       rate: "",
       quantity: "",
       weight: "",
+      itemType: "Chicken_Meat",
       remaining: false,
       customerId: "",
       customerName: "",
       contact: "",
-      categoryId: salesCategories[0]?.id || "",
       customerCategory: "Chicken",
       balance: "",
       date: new Date().toISOString().split("T")[0], // Set today's date in YYYY-MM-DD format
+      categoryId: "",
     });
     setCustomerSearch("");
     setIsSaleModalOpen(true);
@@ -702,20 +720,20 @@ export default function BatchDetailPage() {
   function openEditSale(row: SaleRow) {
     setEditingSaleId(row.id);
     setSaleForm({
-      item: row.item,
       rate: String(row.rate),
       quantity: String(row.quantity),
       weight: String((row as any).weight || ""), // Get weight from sale data
+      itemType: (row as any).itemType || "Chicken_Meat",
       remaining: row.remaining,
       customerId: "", // TODO: Get customer ID from sale data
       customerName: row.customer?.name || "",
       contact: row.customer?.phone || "",
-      categoryId: "", // TODO: Get category ID from sale data
       customerCategory: row.customer?.category || "Chicken",
       balance: String(row.customer?.balance ?? ""),
       date: row.date,
+      categoryId: row.categoryId || "",
     });
-    setCustomerSearch("");
+    setCustomerSearch("");  
     setIsSaleModalOpen(true);
   }
   async function handleDeleteSale(id: string) {
@@ -731,31 +749,36 @@ export default function BatchDetailPage() {
   const [saleErrors, setSaleErrors] = useState<Record<string, string>>({});
   function validateSale(): boolean {
     const errs: Record<string, string> = {};
-    if (!saleForm.item) errs.item = "Item description required";
     if (!saleForm.rate) errs.rate = "Rate required";
     if (!saleForm.quantity) errs.quantity = "Quantity required";
-    if (!saleForm.weight) errs.weight = "Weight required";
+    if (saleForm.itemType === "Chicken_Meat") {
+      if (!saleForm.weight) errs.weight = "Weight required for Chicken_Meat";
+    }
     if (!saleForm.date) errs.date = "Date required";
-    
+
     // Validate that weight makes sense for the quantity (basic sanity check)
-    const quantity = Number(saleForm.quantity || 0);
-    const weight = Number(saleForm.weight || 0);
-    if (quantity > 0 && weight > 0) {
-      const avgWeightPerBird = weight / quantity;
-      if (avgWeightPerBird < 0.5 || avgWeightPerBird > 5) {
-        errs.weight = `Average weight per bird (${avgWeightPerBird.toFixed(2)}kg) seems unrealistic. Please check your values.`;
+    if (saleForm.itemType === "Chicken_Meat") {
+      const quantity = Number(saleForm.quantity || 0);
+      const weight = Number(saleForm.weight || 0);
+      if (quantity > 0 && weight > 0) {
+        const avgWeightPerBird = weight / quantity;
+        if (avgWeightPerBird < 0.5 || avgWeightPerBird > 5) {
+          errs.weight = `Average weight per bird (${avgWeightPerBird.toFixed(2)}kg) seems unrealistic. Please check your values.`;
+        }
       }
     }
-    
+
     if (saleForm.remaining) {
       if (!saleForm.customerId && !saleForm.customerName) {
-        errs.customerName = "Please select existing customer or enter new customer name";
+        errs.customerName =
+          "Please select existing customer or enter new customer name";
       }
       if (!saleForm.customerId && !saleForm.contact) {
         errs.contact = "Contact number required for new customer";
       }
       // Validate that paid amount doesn't exceed total amount
-      const totalAmount = Number(saleForm.rate || 0) * Number(saleForm.weight || 0);
+      const totalAmount =
+        Number(saleForm.rate || 0) * Number(saleForm.weight || 0);
       const paidAmount = Number(saleForm.balance || 0);
       if (paidAmount > totalAmount) {
         errs.balance = `Paid amount cannot exceed total amount of ₹${totalAmount.toLocaleString()}`;
@@ -774,25 +797,38 @@ export default function BatchDetailPage() {
         date: saleForm.date
           ? `${saleForm.date}T00:00:00.000Z`
           : new Date().toISOString(),
-        amount: Number(saleForm.rate || 0) * Number(saleForm.weight || 0),
+        amount:
+          saleForm.itemType === "Chicken_Meat"
+            ? Number(saleForm.rate || 0) * Number(saleForm.weight || 0)
+            : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0),
         quantity: Number(saleForm.quantity || 0),
-        weight: Number(saleForm.weight || 0),
+        weight:
+          saleForm.itemType === "Chicken_Meat"
+            ? Number(saleForm.weight || 0)
+            : null,
         unitPrice: Number(saleForm.rate || 0),
-        description: saleForm.item,
+        description: undefined,
         isCredit: saleForm.remaining,
         paidAmount: saleForm.remaining
           ? Number(saleForm.balance || 0)
-          : Number(saleForm.rate || 0) * Number(saleForm.weight || 0),
+          : saleForm.itemType === "Chicken_Meat"
+            ? Number(saleForm.rate || 0) * Number(saleForm.weight || 0)
+            : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0),
         farmId: batch?.farmId,
         batchId: batchId,
-        categoryId: saleForm.categoryId || salesCategories[0]?.id || "", // Use selected or first available category
+        itemType: saleForm.itemType,
+        categoryId: saleForm.categoryId,
       };
 
       // Handle customer data
       if (saleForm.customerId) {
         // Use existing customer
         saleData.customerId = saleForm.customerId;
-      } else if (saleForm.remaining && saleForm.customerName && saleForm.contact) {
+      } else if (
+        saleForm.remaining &&
+        saleForm.customerName &&
+        saleForm.contact
+      ) {
         // Create new customer
         saleData.customerData = {
           name: saleForm.customerName,
@@ -803,8 +839,8 @@ export default function BatchDetailPage() {
       }
 
       // birdsCount: subtract birds sold from batch current birds via mortality
-      if (saleData.batchId) {
-        const birdsCount = Number(saleForm.weight || 0);
+      if (saleData.batchId && saleForm.itemType === "Chicken_Meat") {
+        const birdsCount = Number(saleForm.quantity || 0);
         if (Number.isFinite(birdsCount) && birdsCount > 0) {
           saleData.birdsCount = birdsCount;
         }
@@ -851,8 +887,10 @@ export default function BatchDetailPage() {
   const [selectedSale, setSelectedSale] = useState<any>(null);
 
   // Customer transactions modal state
-  const [isCustomerTransactionsModalOpen, setIsCustomerTransactionsModalOpen] = useState(false);
-  const [selectedCustomerForTransactions, setSelectedCustomerForTransactions] = useState<any>(null);
+  const [isCustomerTransactionsModalOpen, setIsCustomerTransactionsModalOpen] =
+    useState(false);
+  const [selectedCustomerForTransactions, setSelectedCustomerForTransactions] =
+    useState<any>(null);
   const [paymentForm, setPaymentForm] = useState({
     amount: "",
     date: new Date().toISOString().split("T")[0],
@@ -1151,7 +1189,10 @@ export default function BatchDetailPage() {
               </Button>
             </>
           ) : (
-            <Badge variant="secondary" className="bg-gray-100 text-gray-500 text-xs">
+            <Badge
+              variant="secondary"
+              className="bg-gray-100 text-gray-500 text-xs"
+            >
               Closed
             </Badge>
           )}
@@ -1184,7 +1225,7 @@ export default function BatchDetailPage() {
       type: "number",
       align: "right",
       width: "100px",
-      render: (value) => value ? `${Number(value).toFixed(2)} kg` : "—",
+      render: (value) => (value ? `${Number(value).toFixed(2)} kg` : "—"),
     }),
     createColumn("unitPrice", "Rate", {
       type: "currency",
@@ -1272,7 +1313,10 @@ export default function BatchDetailPage() {
               </Button>
             </>
           ) : (
-            <Badge variant="secondary" className="bg-gray-100 text-gray-500 text-xs">
+            <Badge
+              variant="secondary"
+              className="bg-gray-100 text-gray-500 text-xs"
+            >
               Closed
             </Badge>
           )}
@@ -1305,7 +1349,9 @@ export default function BatchDetailPage() {
       type: "currency",
       align: "right",
       render: (value) => (
-        <span className="text-green-600">₹{Number(value).toLocaleString()}</span>
+        <span className="text-green-600">
+          ₹{Number(value).toLocaleString()}
+        </span>
       ),
     }),
     createColumn("balance", "Balance", {
@@ -1316,7 +1362,9 @@ export default function BatchDetailPage() {
         return (
           <span
             className={
-              numValue > 0 ? "text-orange-600 font-bold" : "text-green-600 font-bold"
+              numValue > 0
+                ? "text-orange-600 font-bold"
+                : "text-green-600 font-bold"
             }
           >
             ₹{numValue.toLocaleString()}
@@ -1332,12 +1380,14 @@ export default function BatchDetailPage() {
       width: "120px",
       render: (_, row) => {
         // Count total transactions for this customer
-        const customerTransactions = batchSales?.filter((sale: any) => 
-          sale.isCredit && sale.customerId === row.id
-        ) || [];
-        
-        const totalPayments = customerTransactions.reduce((sum: number, sale: any) => 
-          sum + (sale.payments?.length || 0), 0
+        const customerTransactions =
+          batchSales?.filter(
+            (sale: any) => sale.isCredit && sale.customerId === row.id
+          ) || [];
+
+        const totalPayments = customerTransactions.reduce(
+          (sum: number, sale: any) => sum + (sale.payments?.length || 0),
+          0
         );
 
         return (
@@ -1369,7 +1419,8 @@ export default function BatchDetailPage() {
                   className="h-8 px-3 text-xs hover:bg-green-50 hover:border-green-300 hover:text-green-700"
                   onClick={() =>
                     openPaymentModal({
-                      id: typeof row.id === "string" ? row.id : row.id.toString(),
+                      id:
+                        typeof row.id === "string" ? row.id : row.id.toString(),
                       name: row.name,
                       balance: row.balance,
                     })
@@ -1401,7 +1452,10 @@ export default function BatchDetailPage() {
               </Button>
             </>
           ) : (
-            <Badge variant="secondary" className="bg-gray-100 text-gray-500 text-xs">
+            <Badge
+              variant="secondary"
+              className="bg-gray-100 text-gray-500 text-xs"
+            >
               Closed
             </Badge>
           )}
@@ -1539,9 +1593,14 @@ export default function BatchDetailPage() {
                       <CheckCircle className="h-6 w-6 text-green-600" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-green-900">Batch Completed</h3>
+                      <h3 className="text-lg font-semibold text-green-900">
+                        Batch Completed
+                      </h3>
                       <p className="text-sm text-green-700">
-                        Closed on {batch.endDate ? formatDateYYYYMMDD(batch.endDate) : "N/A"}
+                        Closed on{" "}
+                        {batch.endDate
+                          ? formatDateYYYYMMDD(batch.endDate)
+                          : "N/A"}
                       </p>
                     </div>
                   </div>
@@ -1562,44 +1621,61 @@ export default function BatchDetailPage() {
               <CardHeader>
                 <CardTitle className="text-base">Performance Metrics</CardTitle>
                 <CardDescription>
-                  {isBatchClosed ? "Final performance summary" : "Current performance snapshot"}
+                  {isBatchClosed
+                    ? "Final performance summary"
+                    : "Current performance snapshot"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Initial Birds:</span>
-                    <span className="font-medium">{batch.initialChicks.toLocaleString()}</span>
+                    <span className="text-muted-foreground">
+                      Initial Birds:
+                    </span>
+                    <span className="font-medium">
+                      {batch.initialChicks.toLocaleString()}
+                    </span>
                   </div>
                   {isBatchClosed ? (
                     <>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Birds Sold:</span>
+                        <span className="text-muted-foreground">
+                          Birds Sold:
+                        </span>
                         <span className="font-medium text-green-600">
                           {analytics?.totalSalesQuantity?.toLocaleString() || 0}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Natural Deaths:</span>
+                        <span className="text-muted-foreground">
+                          Natural Deaths:
+                        </span>
                         <span className="font-medium text-red-600">
                           {analytics?.totalMortality?.toLocaleString() || 0}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Final Birds:</span>
+                        <span className="text-muted-foreground">
+                          Final Birds:
+                        </span>
                         <span className="font-medium">0</span>
                       </div>
                     </>
                   ) : (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Current Birds:</span>
+                      <span className="text-muted-foreground">
+                        Current Birds:
+                      </span>
                       <span className="font-medium">
-                        {batch.currentChicks?.toLocaleString() || batch.initialChicks.toLocaleString()}
+                        {batch.currentChicks?.toLocaleString() ||
+                          batch.initialChicks.toLocaleString()}
                       </span>
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Mortality Rate:</span>
+                    <span className="text-muted-foreground">
+                      Mortality Rate:
+                    </span>
                     <span className="font-medium">
                       {analytics?.mortalityRate?.toFixed(2) || 0}%
                     </span>
@@ -1607,7 +1683,9 @@ export default function BatchDetailPage() {
                   {analytics?.fcr && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">FCR:</span>
-                      <span className="font-medium">{analytics.fcr.toFixed(2)}</span>
+                      <span className="font-medium">
+                        {analytics.fcr.toFixed(2)}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -1623,37 +1701,57 @@ export default function BatchDetailPage() {
               <CardContent>
                 <div className="space-y-4 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Revenue:</span>
+                    <span className="text-muted-foreground">
+                      Total Revenue:
+                    </span>
                     <span className="font-medium text-green-600">
                       ₹{salesTotal.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Expenses:</span>
+                    <span className="text-muted-foreground">
+                      Total Expenses:
+                    </span>
                     <span className="font-medium text-red-600">
                       ₹{expensesTotal.toLocaleString()}
                     </span>
                   </div>
                   <div className="border-t pt-2">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground font-medium">Net Profit:</span>
-                      <span className={`font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <span className="text-muted-foreground font-medium">
+                        Net Profit:
+                      </span>
+                      <span
+                        className={`font-bold ${profit >= 0 ? "text-green-600" : "text-red-600"}`}
+                      >
                         ₹{profit.toLocaleString()}
                       </span>
                     </div>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Revenue per Bird:</span>
-                    <span className="font-medium">₹{perBirdRevenue.toFixed(2)}</span>
+                    <span className="text-muted-foreground">
+                      Revenue per Bird:
+                    </span>
+                    <span className="font-medium">
+                      ₹{perBirdRevenue.toFixed(2)}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Cost per Bird:</span>
-                    <span className="font-medium">₹{perBirdExpense.toFixed(2)}</span>
+                    <span className="text-muted-foreground">
+                      Cost per Bird:
+                    </span>
+                    <span className="font-medium">
+                      ₹{perBirdExpense.toFixed(2)}
+                    </span>
                   </div>
                   {analytics?.profitMargin && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Profit Margin:</span>
-                      <span className="font-medium">{analytics.profitMargin.toFixed(2)}%</span>
+                      <span className="text-muted-foreground">
+                        Profit Margin:
+                      </span>
+                      <span className="font-medium">
+                        {analytics.profitMargin.toFixed(2)}%
+                      </span>
                     </div>
                   )}
                 </div>
@@ -1674,28 +1772,40 @@ export default function BatchDetailPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Start Date:</span>
-                    <span className="font-medium">{formatDateYYYYMMDD(batch.startDate)}</span>
+                    <span className="font-medium">
+                      {formatDateYYYYMMDD(batch.startDate)}
+                    </span>
                   </div>
                   {isBatchClosed && batch.endDate && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">End Date:</span>
-                      <span className="font-medium">{formatDateYYYYMMDD(batch.endDate)}</span>
+                      <span className="font-medium">
+                        {formatDateYYYYMMDD(batch.endDate)}
+                      </span>
                     </div>
                   )}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
                       {isBatchClosed ? "Total Days:" : "Days Active:"}
                     </span>
-                    <span className="font-medium">{analytics?.daysActive || currentAge} days</span>
+                    <span className="font-medium">
+                      {analytics?.daysActive || currentAge} days
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Initial Weight:</span>
-                    <span className="font-medium">{batch.initialChickWeight}g</span>
+                    <span className="text-muted-foreground">
+                      Initial Weight:
+                    </span>
+                    <span className="font-medium">
+                      {batch.initialChickWeight}g
+                    </span>
                   </div>
                   {analytics?.currentAvgWeight && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
-                        {isBatchClosed ? "Final Avg Weight:" : "Current Avg Weight:"}
+                        {isBatchClosed
+                          ? "Final Avg Weight:"
+                          : "Current Avg Weight:"}
                       </span>
                       <span className="font-medium">
                         {analytics.currentAvgWeight.toFixed(2)}g
@@ -1704,7 +1814,9 @@ export default function BatchDetailPage() {
                   )}
                   {receivableTotal > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Outstanding:</span>
+                      <span className="text-muted-foreground">
+                        Outstanding:
+                      </span>
                       <span className="font-medium text-orange-600">
                         ₹{receivableTotal.toLocaleString()}
                       </span>
@@ -1720,7 +1832,9 @@ export default function BatchDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Batch Notes</CardTitle>
-                <CardDescription>Additional information and closure notes</CardDescription>
+                <CardDescription>
+                  Additional information and closure notes
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="text-sm text-gray-700 whitespace-pre-wrap">
@@ -1921,13 +2035,19 @@ export default function BatchDetailPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className={`border-2 ${profit >= 0 ? 'border-green-300 bg-green-100' : 'border-red-300 bg-red-100'}`}>
+            <Card
+              className={`border-2 ${profit >= 0 ? "border-green-300 bg-green-100" : "border-red-300 bg-red-100"}`}
+            >
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <div className={`text-2xl font-bold ${profit >= 0 ? 'text-green-900' : 'text-red-900'}`}>
+                  <div
+                    className={`text-2xl font-bold ${profit >= 0 ? "text-green-900" : "text-red-900"}`}
+                  >
                     ₹{profit.toLocaleString()}
                   </div>
-                  <div className={`text-sm ${profit >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                  <div
+                    className={`text-sm ${profit >= 0 ? "text-green-700" : "text-red-700"}`}
+                  >
                     Net Profit
                   </div>
                 </div>
@@ -1937,7 +2057,9 @@ export default function BatchDetailPage() {
               <CardContent className="pt-6">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-orange-900">
-                    {analytics?.profitMargin ? `${analytics.profitMargin.toFixed(1)}%` : '0%'}
+                    {analytics?.profitMargin
+                      ? `${analytics.profitMargin.toFixed(1)}%`
+                      : "0%"}
                   </div>
                   <div className="text-sm text-orange-700">Profit Margin</div>
                 </div>
@@ -1955,48 +2077,72 @@ export default function BatchDetailPage() {
               <CardContent>
                 <div className="space-y-4 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Sales Amount:</span>
+                    <span className="text-muted-foreground">
+                      Total Sales Amount:
+                    </span>
                     <span className="font-medium text-green-600">
                       ₹{salesTotal.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Amount Received:</span>
+                    <span className="text-muted-foreground">
+                      Amount Received:
+                    </span>
                     <span className="font-medium text-green-600">
                       ₹{(salesTotal - receivableTotal).toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Outstanding Amount:</span>
+                    <span className="text-muted-foreground">
+                      Outstanding Amount:
+                    </span>
                     <span className="font-medium text-orange-600">
                       ₹{receivableTotal.toLocaleString()}
                     </span>
                   </div>
                   <div className="border-t pt-2">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Revenue per Bird:</span>
-                      <span className="font-medium">₹{perBirdRevenue.toFixed(2)}</span>
+                      <span className="text-muted-foreground">
+                        Revenue per Bird:
+                      </span>
+                      <span className="font-medium">
+                        ₹{perBirdRevenue.toFixed(2)}
+                      </span>
                     </div>
                   </div>
                   {analytics?.totalSalesQuantity && (
                     <>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Birds Sold:</span>
-                        <span className="font-medium">{analytics.totalSalesQuantity.toLocaleString()}</span>
+                        <span className="text-muted-foreground">
+                          Birds Sold:
+                        </span>
+                        <span className="font-medium">
+                          {analytics.totalSalesQuantity.toLocaleString()}
+                        </span>
                       </div>
                       {analytics?.totalSalesWeight && (
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Total Weight Sold:</span>
-                          <span className="font-medium">{analytics.totalSalesWeight.toFixed(2)} kg</span>
+                          <span className="text-muted-foreground">
+                            Total Weight Sold:
+                          </span>
+                          <span className="font-medium">
+                            {analytics.totalSalesWeight.toFixed(2)} kg
+                          </span>
                         </div>
                       )}
                     </>
                   )}
                   {salesTotal > 0 && receivableTotal > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Collection Rate:</span>
+                      <span className="text-muted-foreground">
+                        Collection Rate:
+                      </span>
                       <span className="font-medium">
-                        {((salesTotal - receivableTotal) / salesTotal * 100).toFixed(1)}%
+                        {(
+                          ((salesTotal - receivableTotal) / salesTotal) *
+                          100
+                        ).toFixed(1)}
+                        %
                       </span>
                     </div>
                   )}
@@ -2013,50 +2159,75 @@ export default function BatchDetailPage() {
               <CardContent>
                 <div className="space-y-4 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Expenses:</span>
+                    <span className="text-muted-foreground">
+                      Total Expenses:
+                    </span>
                     <span className="font-medium text-red-600">
                       ₹{expensesTotal.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Cost per Bird:</span>
-                    <span className="font-medium">₹{perBirdExpense.toFixed(2)}</span>
+                    <span className="text-muted-foreground">
+                      Cost per Bird:
+                    </span>
+                    <span className="font-medium">
+                      ₹{perBirdExpense.toFixed(2)}
+                    </span>
                   </div>
                   {batch.initialChicks > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Cost per Initial Bird:</span>
+                      <span className="text-muted-foreground">
+                        Cost per Initial Bird:
+                      </span>
                       <span className="font-medium">
                         ₹{(expensesTotal / batch.initialChicks).toFixed(2)}
                       </span>
                     </div>
                   )}
-                  {analytics?.totalSalesQuantity && analytics.totalSalesQuantity > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Cost per Bird Sold:</span>
-                      <span className="font-medium">
-                        ₹{(expensesTotal / analytics.totalSalesQuantity).toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                  {analytics?.totalSalesWeight && analytics.totalSalesWeight > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Cost per Kg:</span>
-                      <span className="font-medium">
-                        ₹{(expensesTotal / analytics.totalSalesWeight).toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                  {analytics?.totalFeedConsumption && analytics.totalFeedConsumption > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Feed Consumed:</span>
-                      <span className="font-medium">
-                        {analytics.totalFeedConsumption.toFixed(2)} kg
-                      </span>
-                    </div>
-                  )}
+                  {analytics?.totalSalesQuantity &&
+                    analytics.totalSalesQuantity > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Cost per Bird Sold:
+                        </span>
+                        <span className="font-medium">
+                          ₹
+                          {(
+                            expensesTotal / analytics.totalSalesQuantity
+                          ).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  {analytics?.totalSalesWeight &&
+                    analytics.totalSalesWeight > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Cost per Kg:
+                        </span>
+                        <span className="font-medium">
+                          ₹
+                          {(expensesTotal / analytics.totalSalesWeight).toFixed(
+                            2
+                          )}
+                        </span>
+                      </div>
+                    )}
+                  {analytics?.totalFeedConsumption &&
+                    analytics.totalFeedConsumption > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Total Feed Consumed:
+                        </span>
+                        <span className="font-medium">
+                          {analytics.totalFeedConsumption.toFixed(2)} kg
+                        </span>
+                      </div>
+                    )}
                   {analytics?.daysActive && analytics.daysActive > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Daily Average Cost:</span>
+                      <span className="text-muted-foreground">
+                        Daily Average Cost:
+                      </span>
                       <span className="font-medium">
                         ₹{(expensesTotal / analytics.daysActive).toFixed(2)}
                       </span>
@@ -2069,23 +2240,33 @@ export default function BatchDetailPage() {
             {/* Performance Metrics */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Performance Indicators</CardTitle>
+                <CardTitle className="text-base">
+                  Performance Indicators
+                </CardTitle>
                 <CardDescription>Key efficiency metrics</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4 text-sm">
                   {analytics?.mortalityRate && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Mortality Rate:</span>
-                      <span className={`font-medium ${analytics.mortalityRate > 10 ? 'text-red-600' : analytics.mortalityRate > 5 ? 'text-orange-600' : 'text-green-600'}`}>
+                      <span className="text-muted-foreground">
+                        Mortality Rate:
+                      </span>
+                      <span
+                        className={`font-medium ${analytics.mortalityRate > 10 ? "text-red-600" : analytics.mortalityRate > 5 ? "text-orange-600" : "text-green-600"}`}
+                      >
                         {analytics.mortalityRate.toFixed(2)}%
                       </span>
                     </div>
                   )}
                   {analytics?.fcr && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">FCR (Feed Conversion):</span>
-                      <span className={`font-medium ${analytics.fcr > 2.5 ? 'text-red-600' : analytics.fcr > 2.0 ? 'text-orange-600' : 'text-green-600'}`}>
+                      <span className="text-muted-foreground">
+                        FCR (Feed Conversion):
+                      </span>
+                      <span
+                        className={`font-medium ${analytics.fcr > 2.5 ? "text-red-600" : analytics.fcr > 2.0 ? "text-orange-600" : "text-green-600"}`}
+                      >
                         {analytics.fcr.toFixed(2)}
                       </span>
                     </div>
@@ -2093,7 +2274,9 @@ export default function BatchDetailPage() {
                   {analytics?.currentAvgWeight && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
-                        {isBatchClosed ? "Final Avg Weight:" : "Current Avg Weight:"}
+                        {isBatchClosed
+                          ? "Final Avg Weight:"
+                          : "Current Avg Weight:"}
                       </span>
                       <span className="font-medium">
                         {analytics.currentAvgWeight.toFixed(2)}g
@@ -2105,25 +2288,37 @@ export default function BatchDetailPage() {
                       <span className="text-muted-foreground">
                         {isBatchClosed ? "Total Days:" : "Days Active:"}
                       </span>
-                      <span className="font-medium">{analytics.daysActive} days</span>
+                      <span className="font-medium">
+                        {analytics.daysActive} days
+                      </span>
                     </div>
                   )}
                   {profit !== 0 && batch.initialChicks > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Profit per Bird:</span>
-                      <span className={`font-medium ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <span className="text-muted-foreground">
+                        Profit per Bird:
+                      </span>
+                      <span
+                        className={`font-medium ${profit >= 0 ? "text-green-600" : "text-red-600"}`}
+                      >
                         ₹{(profit / batch.initialChicks).toFixed(2)}
                       </span>
                     </div>
                   )}
-                  {analytics?.totalSalesWeight && analytics.totalSalesWeight > 0 && profit !== 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Profit per Kg:</span>
-                      <span className={`font-medium ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        ₹{(profit / analytics.totalSalesWeight).toFixed(2)}
-                      </span>
-                    </div>
-                  )}
+                  {analytics?.totalSalesWeight &&
+                    analytics.totalSalesWeight > 0 &&
+                    profit !== 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Profit per Kg:
+                        </span>
+                        <span
+                          className={`font-medium ${profit >= 0 ? "text-green-600" : "text-red-600"}`}
+                        >
+                          ₹{(profit / analytics.totalSalesWeight).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
                 </div>
               </CardContent>
             </Card>
@@ -2131,38 +2326,56 @@ export default function BatchDetailPage() {
             {/* ROI & Efficiency */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Return on Investment</CardTitle>
-                <CardDescription>Investment efficiency analysis</CardDescription>
+                <CardTitle className="text-base">
+                  Return on Investment
+                </CardTitle>
+                <CardDescription>
+                  Investment efficiency analysis
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4 text-sm">
                   {expensesTotal > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">ROI Percentage:</span>
-                      <span className={`font-medium ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <span className="text-muted-foreground">
+                        ROI Percentage:
+                      </span>
+                      <span
+                        className={`font-medium ${profit >= 0 ? "text-green-600" : "text-red-600"}`}
+                      >
                         {((profit / expensesTotal) * 100).toFixed(2)}%
                       </span>
                     </div>
                   )}
                   {analytics?.profitMargin && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Profit Margin:</span>
-                      <span className={`font-medium ${analytics.profitMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <span className="text-muted-foreground">
+                        Profit Margin:
+                      </span>
+                      <span
+                        className={`font-medium ${analytics.profitMargin >= 0 ? "text-green-600" : "text-red-600"}`}
+                      >
                         {analytics.profitMargin.toFixed(2)}%
                       </span>
                     </div>
                   )}
                   {analytics?.daysActive && analytics.daysActive > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Daily Profit:</span>
-                      <span className={`font-medium ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <span className="text-muted-foreground">
+                        Daily Profit:
+                      </span>
+                      <span
+                        className={`font-medium ${profit >= 0 ? "text-green-600" : "text-red-600"}`}
+                      >
                         ₹{(profit / analytics.daysActive).toFixed(2)}
                       </span>
                     </div>
                   )}
                   {salesTotal > 0 && expensesTotal > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Revenue Multiple:</span>
+                      <span className="text-muted-foreground">
+                        Revenue Multiple:
+                      </span>
                       <span className="font-medium">
                         {(salesTotal / expensesTotal).toFixed(2)}x
                       </span>
@@ -2170,8 +2383,12 @@ export default function BatchDetailPage() {
                   )}
                   {isBatchClosed && (
                     <div className="p-3 bg-gray-50 rounded-lg">
-                      <div className="text-xs text-gray-600 mb-1">Batch Status</div>
-                      <div className="font-medium text-green-700">Completed Successfully</div>
+                      <div className="text-xs text-gray-600 mb-1">
+                        Batch Status
+                      </div>
+                      <div className="font-medium text-green-700">
+                        Completed Successfully
+                      </div>
                       {batch.endDate && (
                         <div className="text-xs text-gray-600">
                           Closed: {formatDateYYYYMMDD(batch.endDate)}
@@ -2213,7 +2430,7 @@ export default function BatchDetailPage() {
                   <li>Create a notification with batch completion details</li>
                 </ul>
               </div>
-              
+
               <div>
                 <Label htmlFor="endDate">End Date</Label>
                 <Input
@@ -2246,21 +2463,40 @@ export default function BatchDetailPage() {
 
               {analytics && (
                 <div className="p-3 bg-gray-50 rounded-lg">
-                  <h4 className="font-medium text-sm mb-2">Current Batch Status</h4>
+                  <h4 className="font-medium text-sm mb-2">
+                    Current Batch Status
+                  </h4>
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>Initial Birds: {batch?.initialChicks?.toLocaleString()}</div>
-                    <div>Current Birds: {analytics.currentChicks?.toLocaleString()}</div>
-                    <div>Total Mortality: {(batch?.initialChicks || 0) - (analytics.currentChicks || 0)}</div>
+                    <div>
+                      Initial Birds: {batch?.initialChicks?.toLocaleString()}
+                    </div>
+                    <div>
+                      Current Birds: {analytics.currentChicks?.toLocaleString()}
+                    </div>
+                    <div>
+                      Total Mortality:{" "}
+                      {(batch?.initialChicks || 0) -
+                        (analytics.currentChicks || 0)}
+                    </div>
                     <div>Days Active: {analytics.daysActive}</div>
-                    <div>Total Sales: ₹{analytics.totalSales?.toLocaleString()}</div>
-                    <div>Total Expenses: ₹{analytics.totalExpenses?.toLocaleString()}</div>
-                    <div className={`col-span-2 font-medium ${analytics.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <div>
+                      Total Sales: ₹{analytics.totalSales?.toLocaleString()}
+                    </div>
+                    <div>
+                      Total Expenses: ₹
+                      {analytics.totalExpenses?.toLocaleString()}
+                    </div>
+                    <div
+                      className={`col-span-2 font-medium ${analytics.profit >= 0 ? "text-green-600" : "text-red-600"}`}
+                    >
                       Net Profit: ₹{analytics.profit?.toLocaleString()}
                     </div>
                   </div>
                   {analytics.currentChicks > 0 && (
                     <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                      <strong>Note:</strong> {analytics.currentChicks} remaining birds will be recorded as mortality (batch closure) when you close this batch.
+                      <strong>Note:</strong> {analytics.currentChicks} remaining
+                      birds will be recorded as mortality (batch closure) when
+                      you close this batch.
                     </div>
                   )}
                 </div>
@@ -2317,7 +2553,9 @@ export default function BatchDetailPage() {
           <div className="space-y-4">
             <div className="p-4 bg-red-50 rounded-lg border border-red-200">
               <p className="text-sm text-red-800">
-                <strong>Warning:</strong> This will attempt to roll back initial chick usage and permanently delete this batch. This action cannot be undone.
+                <strong>Warning:</strong> This will attempt to roll back initial
+                chick usage and permanently delete this batch. This action
+                cannot be undone.
               </p>
             </div>
             <div>
@@ -2350,7 +2588,8 @@ export default function BatchDetailPage() {
               if (!batchId) return;
               setIsBatchDeleting(true);
               try {
-                const v = await verifyPasswordMutation.mutateAsync(deletePassword);
+                const v =
+                  await verifyPasswordMutation.mutateAsync(deletePassword);
                 if (!v?.success) {
                   throw new Error(v?.message || "Password verification failed");
                 }
@@ -2359,7 +2598,11 @@ export default function BatchDetailPage() {
                 setDeletePassword("");
                 window.location.href = "/dashboard/batches";
               } catch (e: any) {
-                alert(e?.response?.data?.message || e?.message || "Failed to delete batch");
+                alert(
+                  e?.response?.data?.message ||
+                    e?.message ||
+                    "Failed to delete batch"
+                );
               } finally {
                 setIsBatchDeleting(false);
               }
@@ -2696,256 +2939,24 @@ export default function BatchDetailPage() {
       </Modal>
 
       {/* Sale Modal with errors */}
-      <Modal
-        isOpen={isSaleModalOpen}
-        onClose={() => {
-          setIsSaleModalOpen(false);
-          setEditingSaleId(null);
-        }}
-        title={editingSaleId ? "Edit Sale" : "Add Sale"}
-      >
-        <form onSubmit={submitSale}>
-          <ModalContent>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="item">Item Description</Label>
-                <Input
-                  id="item"
-                  name="item"
-                  value={saleForm.item}
-                  onChange={updateSaleField}
-                  placeholder="e.g., Chicken, Eggs, etc."
-                />
-                {saleErrors.item && (
-                  <p className="text-xs text-red-600 mt-1">{saleErrors.item}</p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="category">Category</Label>
-                <select
-                  id="category"
-                  name="categoryId"
-                  value={saleForm.categoryId}
-                  onChange={updateSaleField}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                >
-                  {salesCategories.map((category: any) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Label htmlFor="rate">Rate</Label>
-                <Input
-                  id="rate"
-                  name="rate"
-                  type="number"
-                  value={saleForm.rate}
-                  onChange={updateSaleField}
-                />
-                {saleErrors.rate && (
-                  <p className="text-xs text-red-600 mt-1">{saleErrors.rate}</p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="quantity">Quantity (Birds)</Label>
-                <Input
-                  id="quantity"
-                  name="quantity"
-                  type="number"
-                  value={saleForm.quantity}
-                  onChange={updateSaleField}
-                  placeholder="Number of birds"
-                />
-                {saleErrors.quantity && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {saleErrors.quantity}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="weight">Weight (kg)</Label>
-                <Input
-                  id="weight"
-                  name="weight"
-                  type="number"
-                  step="0.01"
-                  value={saleForm.weight}
-                  onChange={updateSaleField}
-                  placeholder="Total weight in kg"
-                />
-                {saleErrors.weight && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {saleErrors.weight}
-                  </p>
-                )}
-                {saleForm.quantity && saleForm.weight && (
-                  <p className="text-xs text-green-600 mt-1">
-                    Avg weight per bird: {(Number(saleForm.weight) / Number(saleForm.quantity)).toFixed(2)} kg
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="date">Date</Label>
-                <Input
-                  id="date"
-                  name="date"
-                  type="date"
-                  value={saleForm.date}
-                  onChange={updateSaleField}
-                />
-                {saleErrors.date && (
-                  <p className="text-xs text-red-600 mt-1">{saleErrors.date}</p>
-                )}
-              </div>
-              <div className="col-span-2">
-                <label className="inline-flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    name="remaining"
-                    checked={saleForm.remaining}
-                    onChange={updateSaleField}
-                    className="h-4 w-4"
-                  />
-                  Remaining balance?
-                </label>
-              </div>
-              {saleForm.remaining && (
-                <div className="col-span-2 grid md:grid-cols-2 gap-4 border rounded-md p-4">
-                  <div>
-                    <Label htmlFor="customerSearch">Search Customer</Label>
-                    <div className="relative">
-                      <Input
-                        id="customerSearch"
-                        name="customerSearch"
-                        value={customerSearch}
-                        onChange={(e) => setCustomerSearch(e.target.value)}
-                        placeholder="Search existing customers..."
-                        className="pr-8"
-                      />
-                      {customerSearch && (
-                        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
-                          {customers.length > 0 ? (
-                            customers.map((customer: any) => (
-                              <div
-                                key={customer.id}
-                                className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                                onClick={() => {
-                                  setSaleForm(prev => ({
-                                    ...prev,
-                                    customerId: customer.id,
-                                    customerName: customer.name,
-                                    contact: customer.phone,
-                                    customerCategory: customer.category || "Chicken"
-                                  }));
-                                  setCustomerSearch("");
-                                }}
-                              >
-                                <div className="font-medium">{customer.name}</div>
-                                <div className="text-sm text-gray-500">{customer.phone}</div>
-                                {customer.category && (
-                                  <div className="text-xs text-blue-600">{customer.category}</div>
-                                )}
-                              </div>
-                            ))
-                          ) : (
-                            <div className="px-3 py-2 text-gray-500 text-sm">
-                              No customers found
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="customerName">Customer Name</Label>
-                    <Input
-                      id="customerName"
-                      name="customerName"
-                      value={saleForm.customerName}
-                      onChange={updateSaleField}
-                      placeholder="Enter new customer name"
-                    />
-                    {saleErrors.customerName && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {saleErrors.customerName}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="contact">Contact</Label>
-                    <Input
-                      id="contact"
-                      name="contact"
-                      value={saleForm.contact}
-                      onChange={updateSaleField}
-                      placeholder="Enter phone number"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="category">Category</Label>
-                    <select
-                      id="category"
-                      name="customerCategory"
-                      value={saleForm.customerCategory || "Chicken"}
-                      onChange={updateSaleField}
-                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                    >
-                      <option value="Chicken">Chicken</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="balance">Amount Paid (Optional)</Label>
-                    <Input
-                      id="balance"
-                      name="balance"
-                      type="number"
-                      value={saleForm.balance}
-                      onChange={updateSaleField}
-                      placeholder="Enter amount paid now (leave 0 for full credit)"
-                    />
-                    {saleErrors.balance && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {saleErrors.balance}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </ModalContent>
-          <ModalFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsSaleModalOpen(false);
-                setEditingSaleId(null);
-                setSaleErrors({});
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="bg-primary hover:bg-primary/90"
-              disabled={isCreating || isUpdating}
-            >
-              {isCreating || isUpdating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {editingSaleId ? "Updating..." : "Creating..."}
-                </>
-              ) : (
-                "Save"
-              )}
-            </Button>
-          </ModalFooter>
-        </form>
-      </Modal>
+      <BatchSaleModel
+        saleForm={saleForm}
+        saleErrors={saleErrors}
+        updateSaleField={updateSaleField}
+        customerSearch={customerSearch}
+        setCustomerSearch={setCustomerSearch}
+        customers={customers}
+        isCreating={isCreating}
+        isUpdating={isUpdating}
+        isSaleModalOpen={isSaleModalOpen}
+        setIsSaleModalOpen={setIsSaleModalOpen}
+        editingSaleId={editingSaleId}
+        setEditingSaleId={setEditingSaleId}
+        submitSale={submitSale}
+        setSaleForm={setSaleForm}
+        setSaleErrors={setSaleErrors}
+        categoryId={saleForm.categoryId}
+      />
 
       {/* Ledger Modal with errors */}
       <Modal
@@ -3176,7 +3187,9 @@ export default function BatchDetailPage() {
             <div className="space-y-4">
               {/* Sale Summary */}
               <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-900 mb-2">Sale Details</h4>
+                <h4 className="font-semibold text-gray-900 mb-2">
+                  Sale Details
+                </h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-600">Date:</span>
@@ -3207,41 +3220,45 @@ export default function BatchDetailPage() {
 
               {/* Payment History */}
               <div>
-                <h4 className="font-semibold text-gray-900 mb-3">Payment History</h4>
+                <h4 className="font-semibold text-gray-900 mb-3">
+                  Payment History
+                </h4>
                 {selectedSale.payments && selectedSale.payments.length > 0 ? (
                   <div className="space-y-3">
-                    {selectedSale.payments.map((payment: any, index: number) => (
-                      <div
-                        key={payment.id}
-                        className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                            <span className="text-green-600 font-semibold text-sm">
-                              {index + 1}
-                            </span>
-                          </div>
-                          <div>
-                            <div className="font-medium text-gray-900">
-                              ₹{Number(payment.amount).toLocaleString()}
+                    {selectedSale.payments.map(
+                      (payment: any, index: number) => (
+                        <div
+                          key={payment.id}
+                          className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                              <span className="text-green-600 font-semibold text-sm">
+                                {index + 1}
+                              </span>
                             </div>
-                            <div className="text-sm text-gray-600">
-                              {formatDateYYYYMMDD(payment.date)}
-                            </div>
-                            {payment.description && (
-                              <div className="text-xs text-gray-500">
-                                {payment.description}
+                            <div>
+                              <div className="font-medium text-gray-900">
+                                ₹{Number(payment.amount).toLocaleString()}
                               </div>
-                            )}
+                              <div className="text-sm text-gray-600">
+                                {formatDateYYYYMMDD(payment.date)}
+                              </div>
+                              {payment.description && (
+                                <div className="text-xs text-gray-500">
+                                  {payment.description}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-gray-500">
+                              {new Date(payment.createdAt).toLocaleDateString()}
+                            </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-xs text-gray-500">
-                            {new Date(payment.createdAt).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-8 text-gray-500">
@@ -3279,36 +3296,53 @@ export default function BatchDetailPage() {
             <div className="space-y-4">
               {/* Customer Summary */}
               <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-900 mb-2">Customer Summary</h4>
+                <h4 className="font-semibold text-gray-900 mb-2">
+                  Customer Summary
+                </h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-600">Name:</span>
-                    <span className="ml-2 font-medium">{selectedCustomerForTransactions.name}</span>
+                    <span className="ml-2 font-medium">
+                      {selectedCustomerForTransactions.name}
+                    </span>
                   </div>
                   <div>
                     <span className="text-gray-600">Phone:</span>
-                    <span className="ml-2 font-medium">{selectedCustomerForTransactions.phone}</span>
+                    <span className="ml-2 font-medium">
+                      {selectedCustomerForTransactions.phone}
+                    </span>
                   </div>
                   <div>
                     <span className="text-gray-600">Total Sales:</span>
                     <span className="ml-2 font-medium">
-                      ₹{Number(selectedCustomerForTransactions.sales).toLocaleString()}
+                      ₹
+                      {Number(
+                        selectedCustomerForTransactions.sales
+                      ).toLocaleString()}
                     </span>
                   </div>
                   <div>
                     <span className="text-gray-600">Total Received:</span>
                     <span className="ml-2 font-medium text-green-600">
-                      ₹{Number(selectedCustomerForTransactions.received).toLocaleString()}
+                      ₹
+                      {Number(
+                        selectedCustomerForTransactions.received
+                      ).toLocaleString()}
                     </span>
                   </div>
                   <div className="col-span-2">
                     <span className="text-gray-600">Outstanding Balance:</span>
-                    <span className={`ml-2 font-bold ${
-                      Number(selectedCustomerForTransactions.balance) > 0 
-                        ? "text-orange-600" 
-                        : "text-green-600"
-                    }`}>
-                      ₹{Number(selectedCustomerForTransactions.balance).toLocaleString()}
+                    <span
+                      className={`ml-2 font-bold ${
+                        Number(selectedCustomerForTransactions.balance) > 0
+                          ? "text-orange-600"
+                          : "text-green-600"
+                      }`}
+                    >
+                      ₹
+                      {Number(
+                        selectedCustomerForTransactions.balance
+                      ).toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -3316,11 +3350,16 @@ export default function BatchDetailPage() {
 
               {/* All Sales and Payments */}
               <div>
-                <h4 className="font-semibold text-gray-900 mb-3">Sales & Payment History</h4>
+                <h4 className="font-semibold text-gray-900 mb-3">
+                  Sales & Payment History
+                </h4>
                 {(() => {
-                  const customerSales = batchSales?.filter((sale: any) => 
-                    sale.isCredit && sale.customerId === selectedCustomerForTransactions.id
-                  ) || [];
+                  const customerSales =
+                    batchSales?.filter(
+                      (sale: any) =>
+                        sale.isCredit &&
+                        sale.customerId === selectedCustomerForTransactions.id
+                    ) || [];
 
                   if (customerSales.length === 0) {
                     return (
@@ -3333,7 +3372,10 @@ export default function BatchDetailPage() {
                   return (
                     <div className="space-y-4">
                       {customerSales.map((sale: any, saleIndex: number) => (
-                        <div key={sale.id} className="border border-gray-200 rounded-lg p-4">
+                        <div
+                          key={sale.id}
+                          className="border border-gray-200 rounded-lg p-4"
+                        >
                           {/* Sale Header */}
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center space-x-3">
@@ -3344,12 +3386,15 @@ export default function BatchDetailPage() {
                               </div>
                               <div>
                                 <div className="font-medium text-gray-900">
-                                  {sale.description} - {formatDateYYYYMMDD(sale.date)}
+                                  {sale.description} -{" "}
+                                  {formatDateYYYYMMDD(sale.date)}
                                 </div>
                                 <div className="text-sm text-gray-600">
-                                  Total: ₹{Number(sale.amount).toLocaleString()} | 
-                                  Paid: ₹{Number(sale.paidAmount).toLocaleString()} | 
-                                  Due: ₹{Number(sale.dueAmount || 0).toLocaleString()}
+                                  Total: ₹{Number(sale.amount).toLocaleString()}{" "}
+                                  | Paid: ₹
+                                  {Number(sale.paidAmount).toLocaleString()} |
+                                  Due: ₹
+                                  {Number(sale.dueAmount || 0).toLocaleString()}
                                 </div>
                               </div>
                             </div>
@@ -3358,33 +3403,43 @@ export default function BatchDetailPage() {
                           {/* Payments for this sale */}
                           {sale.payments && sale.payments.length > 0 ? (
                             <div className="ml-11 space-y-2">
-                              <div className="text-sm font-medium text-gray-700 mb-2">Payments:</div>
-                              {sale.payments.map((payment: any, paymentIndex: number) => (
-                                <div
-                                  key={payment.id}
-                                  className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded"
-                                >
-                                  <div className="flex items-center space-x-2">
-                                    <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-                                      <span className="text-green-600 font-semibold text-xs">
-                                        {paymentIndex + 1}
-                                      </span>
+                              <div className="text-sm font-medium text-gray-700 mb-2">
+                                Payments:
+                              </div>
+                              {sale.payments.map(
+                                (payment: any, paymentIndex: number) => (
+                                  <div
+                                    key={payment.id}
+                                    className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded"
+                                  >
+                                    <div className="flex items-center space-x-2">
+                                      <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                                        <span className="text-green-600 font-semibold text-xs">
+                                          {paymentIndex + 1}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <div className="font-medium text-gray-900">
+                                          ₹
+                                          {Number(
+                                            payment.amount
+                                          ).toLocaleString()}
+                                        </div>
+                                        <div className="text-xs text-gray-600">
+                                          {formatDateYYYYMMDD(payment.date)}
+                                          {payment.description &&
+                                            ` - ${payment.description}`}
+                                        </div>
+                                      </div>
                                     </div>
-                                    <div>
-                                      <div className="font-medium text-gray-900">
-                                        ₹{Number(payment.amount).toLocaleString()}
-                                      </div>
-                                      <div className="text-xs text-gray-600">
-                                        {formatDateYYYYMMDD(payment.date)}
-                                        {payment.description && ` - ${payment.description}`}
-                                      </div>
+                                    <div className="text-xs text-gray-500">
+                                      {new Date(
+                                        payment.createdAt
+                                      ).toLocaleDateString()}
                                     </div>
                                   </div>
-                                  <div className="text-xs text-gray-500">
-                                    {new Date(payment.createdAt).toLocaleDateString()}
-                                  </div>
-                                </div>
-                              ))}
+                                )
+                              )}
                             </div>
                           ) : (
                             <div className="ml-11 text-sm text-gray-500">

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
-import { UserRole, TransactionType } from "@prisma/client";
+import { UserRole, TransactionType, SalesItemType } from "@prisma/client";
 import {
   CreateSaleSchema,
   UpdateSaleSchema,
@@ -8,6 +8,7 @@ import {
 } from "@myapp/shared-types";
 
 // ==================== GET ALL SALES ====================
+import { getSalesCategoryIdForItemType } from "../utils/category";
 export const getAllSales = async (
   req: Request,
   res: Response
@@ -321,7 +322,7 @@ export const getBatchSales = async (
 // ==================== CREATE SALE ====================
 export const createSale = async (req: Request, res: Response): Promise<any> => {
   try {
-    const currentUserId = req.userId;
+    const currentUserId = req.userId as string;
     const currentUserRole = req.role;
 
     // Validate request body
@@ -341,12 +342,17 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       paidAmount = 0,
       farmId,
       batchId,
-      categoryId,
       customerId,
+      itemType,
     } = data;
-    // Optional: number of birds slaughtered for this sale (not yet in typed schema)
-    const birdsCount = (data as any).birdsCount;
+    // Ensure required categoryId is present (Prisma requires non-null string)
+    const categoryId = await getSalesCategoryIdForItemType(currentUserId, itemType as SalesItemType);
 
+    if (!categoryId) {
+      return res.status(400).json({ message: "categoryId is required" });
+    }
+    
+  
     // Validate farm access if provided
     if (farmId) {
       const farm = await prisma.farm.findUnique({
@@ -472,7 +478,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
     const numericAmount = Number(amount);
     const numericPaidAmount = Number(paidAmount);
     const numericQuantity = Number(quantity);
-    const numericWeight = Number(weight);
+    const numericWeight = weight !== undefined && weight !== null ? Number(weight) : null;
     const numericUnitPrice = Number(unitPrice);
     const numericBirdsCount = numericQuantity;
 
@@ -483,8 +489,14 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
     if (isNaN(numericQuantity) || numericQuantity <= 0) {
       return res.status(400).json({ message: "Invalid quantity" });
     }
-    if (isNaN(numericWeight) || numericWeight <= 0) {
-      return res.status(400).json({ message: "Invalid weight" });
+    if (itemType === SalesItemType.Chicken_Meat) {
+      if (numericWeight === null || isNaN(numericWeight) || numericWeight <= 0) {
+        return res.status(400).json({ message: "Weight is required and must be > 0 for Chicken_Meat sales" });
+      }
+    } else {
+      if (numericWeight !== null && (isNaN(numericWeight) || numericWeight < 0)) {
+        return res.status(400).json({ message: "Invalid weight" });
+      }
     }
     if (isNaN(numericUnitPrice) || numericUnitPrice <= 0) {
       return res.status(400).json({ message: "Invalid unit price" });
@@ -503,15 +515,16 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
           date: new Date(date),
           amount: numericAmount,
           quantity: numericQuantity,
-          weight: numericWeight,
+          weight: numericWeight !== null ? numericWeight : null,
           unitPrice: numericUnitPrice,
           description: description || null,
           isCredit,
           paidAmount: numericPaidAmount,
           dueAmount: dueAmount > 0 ? dueAmount : null,
+          itemType,
           farmId: farmId || null,
           batchId: batchId || null,
-          categoryId,
+          categoryId: categoryId,
           customerId: finalCustomerId || null,
         },
       });
@@ -557,7 +570,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       // - quantity: Used for mortality tracking, determining when batch is complete
       // - weight: Used for yield calculations (weight per bird), profit per kg calculations
       // - Together: Enable FCR calculations, expense allocation per bird/kg, profit analysis
-      if (batchId && numericBirdsCount > 0) {
+      if (itemType === SalesItemType.Chicken_Meat && batchId && numericBirdsCount > 0) {
         console.log("numericBirdsCount:", numericBirdsCount);
         await tx.mortality.create({
           data: {

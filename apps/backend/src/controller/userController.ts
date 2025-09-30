@@ -250,11 +250,17 @@ export const updateUser = async (req: Request, res: Response): Promise<any> => {
       delete data.status;
     }
 
-
-    // Convert string fields to appropriate types
-    const updateData = {
-      ...data,
-    };
+    // Build update payload with only fields that exist in Prisma User model
+    const updateData: any = {};
+    if (typeof data.name !== "undefined") updateData.name = data.name;
+    if (typeof data.phone !== "undefined") updateData.phone = data.phone;
+    if (typeof data.role !== "undefined") updateData.role = data.role;
+    if (typeof data.status !== "undefined") updateData.status = data.status;
+    if (typeof data.companyName !== "undefined")
+      updateData.companyName = data.companyName;
+    if (typeof data.CompanyFarmLocation !== "undefined")
+      updateData.CompanyFarmLocation = data.CompanyFarmLocation;
+    // Ignore fields not in Prisma model (email, gender, ownerId, CompanyFarmNumber, CompanyFarmCapacity)
 
     // Update user
     const updatedUser = await prisma.user.update({

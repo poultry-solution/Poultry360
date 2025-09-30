@@ -73,18 +73,28 @@ export default function BatchesPage() {
     setCountFilter(filter);
     setIsCountModalOpen(true);
   }
-
   function computeBatchName(startDateStr: string, farmId: string) {
     if (!startDateStr || !farmId) return "";
+  
     const farm = farms.find((f: any) => f.id === farmId);
     if (!farm) return "";
+  
     const d = new Date(startDateStr);
     if (isNaN(d.getTime())) return "";
+  
+    // Format date as "Month-Day"
     const month = d.toLocaleString("en-US", { month: "long" });
     const day = d.getDate();
-    return `${month}-${day}-${farm.name}`;
+  
+    // Add current time (HH-MM-SS with dashes)
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    const ss = String(now.getSeconds()).padStart(2, "0");
+  
+    return `${month}-${day}-${farm.name}-${hh}-${mm}-${ss}`;
   }
-
+  
   function handleChange(
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -93,6 +103,7 @@ export default function BatchesPage() {
     const { name, value } = e.target;
     setFormData((prev) => {
       const next = { ...prev, [name]: value } as typeof prev;
+  
       if (name === "startDate" || name === "farmId") {
         const suggested = computeBatchName(
           name === "startDate" ? value : next.startDate,
@@ -100,9 +111,11 @@ export default function BatchesPage() {
         );
         if (suggested) next.batchNumber = suggested;
       }
+  
       return next;
     });
   }
+  
 
   // Reset to current date when modal opens
   useEffect(() => {

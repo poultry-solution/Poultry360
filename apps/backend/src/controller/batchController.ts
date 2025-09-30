@@ -114,7 +114,8 @@ export const getAllBatches = async (
     });
   } catch (error) {
     console.error("Get all batches error:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    const message = (error as any)?.message || "Internal server error";
+    return res.status(500).json({ message });
   }
 };
 
@@ -276,7 +277,8 @@ export const getBatchById = async (
     });
   } catch (error) {
     console.error("Get batch by ID error:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    const message = (error as any)?.message || "Internal server error";
+    return res.status(500).json({ message });
   }
 };
 
@@ -370,7 +372,8 @@ export const getFarmBatches = async (
     });
   } catch (error) {
     console.error("Get farm batches error:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    const message = (error as any)?.message || "Internal server error";
+    return res.status(500).json({ message });
   }
 };
 
@@ -557,7 +560,8 @@ export const createBatch = async (
     });
   } catch (error) {
     console.error("Create batch error:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    const message = (error as any)?.message || "Internal server error";
+    return res.status(500).json({ message });
   }
 };
 
@@ -658,7 +662,8 @@ export const updateBatch = async (
     });
   } catch (error) {
     console.error("Update batch error:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    const message = (error as any)?.message || "Internal server error";
+    return res.status(500).json({ message });
   }
 };
 
@@ -795,7 +800,8 @@ export const deleteBatch = async (
     return res.json({ success: true, message: "Batch deleted successfully" });
   } catch (error) {
     console.error("Delete batch error:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    const message = (error as any)?.message || "Internal server error";
+    return res.status(500).json({ message });
   }
 };
 
@@ -992,7 +998,8 @@ export const closeBatch = async (req: Request, res: Response): Promise<any> => {
     });
   } catch (error) {
     console.error("Close batch error:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    const message = (error as any)?.message || "Internal server error";
+    return res.status(500).json({ message });
   }
 };
 
@@ -1070,7 +1077,8 @@ export const updateBatchStatus = async (
     });
   } catch (error) {
     console.error("Update batch status error:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    const message = (error as any)?.message || "Internal server error";
+    return res.status(500).json({ message });
   }
 };
 
@@ -1257,7 +1265,8 @@ export const getBatchClosureSummary = async (
     });
   } catch (error) {
     console.error("Get batch closure summary error:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    const message = (error as any)?.message || "Internal server error";
+    return res.status(500).json({ message });
   }
 };
 
@@ -1433,6 +1442,7 @@ export const getBatchAnalytics = async (
     });
   } catch (error) {
     console.error("Get batch analytics error:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    const message = (error as any)?.message || "Internal server error";
+    return res.status(500).json({ message });
   }
 };

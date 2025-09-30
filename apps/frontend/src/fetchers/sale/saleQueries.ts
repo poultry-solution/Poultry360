@@ -28,6 +28,7 @@ export const useGetSales = (params?: {
   isCredit?: boolean;
   startDate?: string;
   endDate?: string;
+  itemType?: string; // e.g., Chicken_Meat, EGGS, FEED, etc.
 }) => {
   return useQuery({
     queryKey: saleQueryKeys.list(params),
@@ -102,7 +103,7 @@ export const useCreateSale = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: CreateSale & { birdsCount?: number }) => {
+    mutationFn: async (data: CreateSale & { birdsCount?: number; itemType?: string }) => {
       const response = await axiosInstance.post("/sales", data);
       return response.data;
     },
@@ -138,7 +139,7 @@ export const useUpdateSale = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: UpdateSale }) => {
+    mutationFn: async ({ id, data }: { id: string; data: UpdateSale & { itemType?: string } }) => {
       const response = await axiosInstance.put(`/sales/${id}`, data);
       return response.data;
     },

@@ -441,6 +441,18 @@ export type UpdateExpense = z.infer<typeof UpdateExpenseSchema>;
 
 // ==================== SALE SCHEMAS ====================
 
+
+export const SalesItemTypeSchema = z.enum([
+  "Chicken_Meat",
+  "CHICKS",
+  "FEED",
+  "MEDICINE",
+  "OTHER",
+  "EGGS",
+  "EQUIPMENT",
+]);
+export type SalesItemType = z.infer<typeof SalesItemTypeSchema>;
+
 export const SaleSchema = BaseSchema.extend({
   date: z.date(),
   amount: z.number().positive(),
@@ -453,9 +465,12 @@ export const SaleSchema = BaseSchema.extend({
   dueAmount: z.number().nonnegative().nullable(),
   farmId: z.string(),
   batchId: z.string().nullable(),
-  categoryId: z.string(),
   customerId: z.string().nullable(),
+  itemType: SalesItemTypeSchema,
+  categoryId: z.string().nullable(),
 });
+
+
 
 export type Sale = z.infer<typeof SaleSchema>;
 
@@ -463,15 +478,16 @@ export const CreateSaleSchema = z.object({
   date: z.string().datetime(),
   amount: z.number().positive(),
   quantity: z.number().positive(),
-  weight: z.number().positive(),
+  weight: z.number().positive().optional().nullable(),
   unitPrice: z.number().positive(),
   description: z.string().optional(),
   isCredit: z.boolean().optional().default(false),
   paidAmount: z.number().nonnegative().optional().default(0),
   farmId: z.string().optional(),
   batchId: z.string().optional(),
-  categoryId: z.string(),
   customerId: z.string().optional(),
+  itemType: SalesItemTypeSchema.optional(),
+  categoryId: z.string().optional(),
   customerData: z.object({
     name: z.string(),
     phone: z.string(),
@@ -493,8 +509,9 @@ export const UpdateSaleSchema = z.object({
   paidAmount: z.number().nonnegative().optional(),
   farmId: z.string().optional(),
   batchId: z.string().nullable().optional(),
-  categoryId: z.string().optional(),
   customerId: z.string().nullable().optional(),
+  itemType: SalesItemTypeSchema.optional().default("Chicken_Meat"),
+  categoryId: z.string().optional(),
 });
 
 export type UpdateSale = z.infer<typeof UpdateSaleSchema>;

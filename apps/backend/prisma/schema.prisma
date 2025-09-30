@@ -280,15 +280,27 @@ model Expense {
   @@index([batchId])
 }
 
+
+enum SalesItemType {
+  EGGS
+  Chicken_Meat
+  CHICKS
+  FEED
+  MEDICINE
+  EQUIPMENT
+  OTHER
+}
+
 model Sale {
   id          String   @id @default(cuid())
   date        DateTime
   amount      Decimal  @db.Decimal(10, 2)
   quantity    Decimal  @db.Decimal(10, 2)
-  weight      Decimal  @db.Decimal(10, 2)
+  weight      Decimal?  @db.Decimal(10, 2)
   unitPrice   Decimal  @db.Decimal(10, 2)
   description String?
-  
+
+  itemType    SalesItemType @default(Chicken_Meat) 
   // Credit tracking (simplified)
   isCredit    Boolean  @default(false)
   paidAmount  Decimal  @db.Decimal(10, 2) @default(0)

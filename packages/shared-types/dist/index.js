@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.EntityTransactionSchema = exports.CreateInventoryUsageSchema = exports.InventoryUsageSchema = exports.CreateInventoryTransactionSchema = exports.InventoryTransactionSchema = exports.UpdateInventoryItemSchema = exports.CreateInventoryItemSchema = exports.InventoryItemSchema = exports.InventoryItemTypeSchema = exports.CreateSalePaymentSchema = exports.SalePaymentSchema = exports.UpdateSaleSchema = exports.CreateSaleSchema = exports.SaleSchema = exports.UpdateExpenseSchema = exports.CreateExpenseSchema = exports.ExpenseSchema = exports.UpdateCategorySchema = exports.CreateCategorySchema = exports.CategorySchema = exports.BatchSummarySchema = exports.CloseBatchSchema = exports.UpdateBatchSchema = exports.CreateBatchSchema = exports.BatchResponseSchema = exports.BatchCountSchema = exports.BatchFarmSchema = exports.BatchSchema = exports.UpdateFarmSchema = exports.CreateFarmSchema = exports.FarmResponseSchema = exports.FarmCountSchema = exports.FarmManagerSchema = exports.FarmOwnerSchema = exports.FarmSchema = exports.UpdateUserSchema = exports.CreateUserSchema = exports.UserSchema = exports.BaseSchema = exports.RecurrencePatternSchema = exports.ReminderStatusSchema = exports.ReminderTypeSchema = exports.CategoryTypeSchema = exports.AuditActionSchema = exports.VaccinationStatusSchema = exports.NotificationStatusSchema = exports.NotificationTypeSchema = exports.TransactionTypeSchema = exports.BatchStatusSchema = exports.UserRoleSchema = void 0;
-exports.schemas = exports.BatchDetailResponseSchema = exports.BatchListResponseSchema = exports.FarmDetailResponseSchema = exports.FarmListResponseSchema = exports.AuthResponseSchema = exports.UserResponseSchema = exports.FarmAnalyticsSchema = exports.BatchAnalyticsSchema = exports.SignupSchema = exports.LoginSchema = exports.CreateAuditLogSchema = exports.AuditLogSchema = exports.UpdateReminderSchema = exports.CreateReminderSchema = exports.ReminderSchema = exports.UpdateNotificationSchema = exports.CreateNotificationSchema = exports.NotificationSchema = exports.UpdateBirdWeightSchema = exports.CreateBirdWeightSchema = exports.BirdWeightSchema = exports.UpdateFeedConsumptionSchema = exports.CreateFeedConsumptionSchema = exports.FeedConsumptionSchema = exports.UpdateVaccinationSchema = exports.CreateVaccinationSchema = exports.VaccinationSchema = exports.UpdateMortalitySchema = exports.CreateMortalitySchema = exports.MortalitySchema = exports.CreateCustomerTransactionSchema = exports.CustomerTransactionSchema = exports.UpdateCustomerSchema = exports.CreateCustomerSchema = exports.CustomerSchema = exports.UpdateMedicineSupplierSchema = exports.CreateMedicineSupplierSchema = exports.MedicineSupplierSchema = exports.UpdateHatcherySchema = exports.CreateHatcherySchema = exports.HatcherySchema = exports.DealerDetailResponseSchema = exports.DealerStatisticsSchema = exports.DealerResponseSchema = exports.DealerTransactionSchema = exports.UpdateDealerSchema = exports.CreateDealerSchema = exports.DealerSchema = exports.CreateEntityTransactionSchema = void 0;
-exports.PaginatedResponseSchema = exports.ApiResponseSchema = void 0;
+exports.CreateInventoryUsageSchema = exports.InventoryUsageSchema = exports.CreateInventoryTransactionSchema = exports.InventoryTransactionSchema = exports.UpdateInventoryItemSchema = exports.CreateInventoryItemSchema = exports.InventoryItemSchema = exports.InventoryItemTypeSchema = exports.CreateSalePaymentSchema = exports.SalePaymentSchema = exports.UpdateSaleSchema = exports.CreateSaleSchema = exports.SaleSchema = exports.SalesItemTypeSchema = exports.UpdateExpenseSchema = exports.CreateExpenseSchema = exports.ExpenseSchema = exports.UpdateCategorySchema = exports.CreateCategorySchema = exports.CategorySchema = exports.BatchSummarySchema = exports.CloseBatchSchema = exports.UpdateBatchSchema = exports.CreateBatchSchema = exports.BatchResponseSchema = exports.BatchCountSchema = exports.BatchFarmSchema = exports.BatchSchema = exports.UpdateFarmSchema = exports.CreateFarmSchema = exports.FarmResponseSchema = exports.FarmCountSchema = exports.FarmManagerSchema = exports.FarmOwnerSchema = exports.FarmSchema = exports.UpdateUserSchema = exports.CreateUserSchema = exports.UserSchema = exports.BaseSchema = exports.RecurrencePatternSchema = exports.ReminderStatusSchema = exports.ReminderTypeSchema = exports.CategoryTypeSchema = exports.AuditActionSchema = exports.VaccinationStatusSchema = exports.NotificationStatusSchema = exports.NotificationTypeSchema = exports.TransactionTypeSchema = exports.BatchStatusSchema = exports.UserRoleSchema = void 0;
+exports.BatchDetailResponseSchema = exports.BatchListResponseSchema = exports.FarmDetailResponseSchema = exports.FarmListResponseSchema = exports.AuthResponseSchema = exports.UserResponseSchema = exports.FarmAnalyticsSchema = exports.BatchAnalyticsSchema = exports.SignupSchema = exports.LoginSchema = exports.CreateAuditLogSchema = exports.AuditLogSchema = exports.UpdateReminderSchema = exports.CreateReminderSchema = exports.ReminderSchema = exports.UpdateNotificationSchema = exports.CreateNotificationSchema = exports.NotificationSchema = exports.UpdateBirdWeightSchema = exports.CreateBirdWeightSchema = exports.BirdWeightSchema = exports.UpdateFeedConsumptionSchema = exports.CreateFeedConsumptionSchema = exports.FeedConsumptionSchema = exports.UpdateVaccinationSchema = exports.CreateVaccinationSchema = exports.VaccinationSchema = exports.UpdateMortalitySchema = exports.CreateMortalitySchema = exports.MortalitySchema = exports.CreateCustomerTransactionSchema = exports.CustomerTransactionSchema = exports.UpdateCustomerSchema = exports.CreateCustomerSchema = exports.CustomerSchema = exports.UpdateMedicineSupplierSchema = exports.CreateMedicineSupplierSchema = exports.MedicineSupplierSchema = exports.UpdateHatcherySchema = exports.CreateHatcherySchema = exports.HatcherySchema = exports.DealerDetailResponseSchema = exports.DealerStatisticsSchema = exports.DealerResponseSchema = exports.DealerTransactionSchema = exports.UpdateDealerSchema = exports.CreateDealerSchema = exports.DealerSchema = exports.CreateEntityTransactionSchema = exports.EntityTransactionSchema = void 0;
+exports.PaginatedResponseSchema = exports.ApiResponseSchema = exports.schemas = void 0;
 // packages/shared-types/index.ts
 const zod_1 = require("zod");
 // ==================== ENUMS ====================
@@ -335,6 +335,15 @@ exports.UpdateExpenseSchema = zod_1.z.object({
     categoryId: zod_1.z.string().optional(),
 });
 // ==================== SALE SCHEMAS ====================
+exports.SalesItemTypeSchema = zod_1.z.enum([
+    "Chicken_Meat",
+    "CHICKS",
+    "FEED",
+    "MEDICINE",
+    "OTHER",
+    "EGGS",
+    "EQUIPMENT",
+]);
 exports.SaleSchema = exports.BaseSchema.extend({
     date: zod_1.z.date(),
     amount: zod_1.z.number().positive(),
@@ -347,22 +356,24 @@ exports.SaleSchema = exports.BaseSchema.extend({
     dueAmount: zod_1.z.number().nonnegative().nullable(),
     farmId: zod_1.z.string(),
     batchId: zod_1.z.string().nullable(),
-    categoryId: zod_1.z.string(),
     customerId: zod_1.z.string().nullable(),
+    itemType: exports.SalesItemTypeSchema,
+    categoryId: zod_1.z.string().nullable(),
 });
 exports.CreateSaleSchema = zod_1.z.object({
     date: zod_1.z.string().datetime(),
     amount: zod_1.z.number().positive(),
     quantity: zod_1.z.number().positive(),
-    weight: zod_1.z.number().positive(),
+    weight: zod_1.z.number().positive().optional().nullable(),
     unitPrice: zod_1.z.number().positive(),
     description: zod_1.z.string().optional(),
     isCredit: zod_1.z.boolean().optional().default(false),
     paidAmount: zod_1.z.number().nonnegative().optional().default(0),
     farmId: zod_1.z.string().optional(),
     batchId: zod_1.z.string().optional(),
-    categoryId: zod_1.z.string(),
     customerId: zod_1.z.string().optional(),
+    itemType: exports.SalesItemTypeSchema.optional(),
+    categoryId: zod_1.z.string().optional(),
     customerData: zod_1.z.object({
         name: zod_1.z.string(),
         phone: zod_1.z.string(),
@@ -381,8 +392,9 @@ exports.UpdateSaleSchema = zod_1.z.object({
     paidAmount: zod_1.z.number().nonnegative().optional(),
     farmId: zod_1.z.string().optional(),
     batchId: zod_1.z.string().nullable().optional(),
-    categoryId: zod_1.z.string().optional(),
     customerId: zod_1.z.string().nullable().optional(),
+    itemType: exports.SalesItemTypeSchema.optional().default("Chicken_Meat"),
+    categoryId: zod_1.z.string().optional(),
 });
 // ==================== SALE PAYMENT SCHEMAS ====================
 exports.SalePaymentSchema = exports.BaseSchema.extend({
