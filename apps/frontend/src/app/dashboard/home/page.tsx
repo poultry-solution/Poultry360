@@ -19,7 +19,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useAuth } from "@/store/store";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -188,11 +188,12 @@ export default function DashboardPage() {
     item: "Chicken",
     rate: "",
     quantity: "",
+    weight: "",
     remaining: false,
     customerId: "",
     customerName: "",
     contact: "",
-    category: "Chicken",
+    categoryId: "",
     customerCategory: "Chicken",
     balance: "",
     date: "",
@@ -204,6 +205,19 @@ export default function DashboardPage() {
   const [quickFormErrors, setQuickFormErrors] = useState<
     Record<string, string>
   >({});
+
+  // Ensure default sales category and date when modal opens
+  useEffect(() => {
+    if (isQuickSaleOpen) {
+      if (!quickSaleForm.categoryId && salesCategories.length > 0) {
+        setQuickSaleForm((p) => ({ ...p, categoryId: salesCategories[0].id }));
+      }
+      if (!quickSaleForm.date) {
+        const today = new Date().toISOString().split("T")[0];
+        setQuickSaleForm((p) => ({ ...p, date: today }));
+      }
+    }
+  }, [isQuickSaleOpen, salesCategories, quickSaleForm.categoryId, quickSaleForm.date]);
 
   const handleAddReminder = async () => {
     if (!reminderForm.title.trim() || !reminderForm.date || !reminderForm.time)
@@ -495,9 +509,20 @@ export default function DashboardPage() {
     if (!quickSaleForm.item) errors.item = "Please enter item";
     if (!quickSaleForm.rate) errors.rate = "Please enter rate";
     if (!quickSaleForm.quantity) errors.quantity = "Please enter quantity";
+    if (!quickSaleForm.weight) errors.weight = "Please enter weight";
     if (!quickSaleForm.date) errors.date = "Please select a date";
-    
-    // Customer validation for credit sales (same as batch detail page)
+
+    // Sanity check like batch page
+    const quantityNum = Number(quickSaleForm.quantity || 0);
+    const weightNum = Number(quickSaleForm.weight || 0);
+    if (quantityNum > 0 && weightNum > 0) {
+      const avgWeightPerBird = weightNum / quantityNum;
+      if (avgWeightPerBird < 0.5 || avgWeightPerBird > 5) {
+        errors.weight = `Average weight per bird (${avgWeightPerBird.toFixed(2)}kg) seems unrealistic. Please check your values.`;
+      }
+    }
+
+    // Customer validation for credit sales (align with batch page)
     if (quickSaleForm.remaining) {
       if (!quickSaleForm.customerId && !quickSaleForm.customerName) {
         errors.customerName = "Please select existing customer or enter new customer name";
@@ -505,8 +530,8 @@ export default function DashboardPage() {
       if (!quickSaleForm.customerId && !quickSaleForm.contact) {
         errors.contact = "Contact number required for new customer";
       }
-      // Validate that paid amount doesn't exceed total amount
-      const totalAmount = Number(quickSaleForm.rate || 0) * Number(quickSaleForm.quantity || 0);
+      // Validate that paid amount doesn't exceed total amount (rate * weight)
+      const totalAmount = Number(quickSaleForm.rate || 0) * Number(quickSaleForm.weight || 0);
       const paidAmount = Number(quickSaleForm.balance || 0);
       if (paidAmount > totalAmount) {
         errors.balance = `Paid amount cannot exceed total amount of ₹${totalAmount.toLocaleString()}`;
@@ -519,29 +544,28 @@ export default function DashboardPage() {
     }
 
     try {
-      // Find the category ID (look for item, not category)
+      // Category must be selected explicitly now
       const selectedCategory = salesCategories.find(
-        (cat: any) =>
-          cat.name.toLowerCase() === quickSaleForm.item.toLowerCase()
+        (cat: any) => cat.id === quickSaleForm.categoryId
       );
 
       if (!selectedCategory) {
-        console.error("❌ Category not found for item:", quickSaleForm.item);
-        console.log("📋 Available categories:", salesCategories);
-        setQuickFormErrors({ item: "Category not found for selected item" });
+        console.error("❌ Category not selected or not found");
+        setQuickFormErrors({ categoryId: "Please select a category" });
         return;
       }
 
-      console.log("✅ Found category:", selectedCategory);
-
-      // Calculate amount
+      // Calculate amount using weight (align with batch page)
       const quantity = parseFloat(quickSaleForm.quantity);
+      const weight = parseFloat(quickSaleForm.weight);
       const unitPrice = parseFloat(quickSaleForm.rate);
-      const amount = quantity * unitPrice;
-      const paidAmount = quickSaleForm.balance
-        ? parseFloat(quickSaleForm.balance)
-        : 0;
-      const isCredit = paidAmount < amount;
+      const amount = unitPrice * weight;
+
+      const paidAmount = quickSaleForm.remaining
+        ? (quickSaleForm.balance ? parseFloat(quickSaleForm.balance) : 0)
+        : amount;
+
+      const isCredit = quickSaleForm.remaining;
 
       // Create sale data (same structure as batch detail page)
       const saleData: any = {
@@ -550,6 +574,7 @@ export default function DashboardPage() {
           : new Date().toISOString(),
         amount,
         quantity,
+        weight,
         unitPrice,
         description: quickSaleForm.item,
         isCredit,
@@ -561,16 +586,22 @@ export default function DashboardPage() {
 
       // Handle customer data (same as batch detail page)
       if (quickSaleForm.customerId) {
-        // Use existing customer
         saleData.customerId = quickSaleForm.customerId;
       } else if (quickSaleForm.remaining && quickSaleForm.customerName && quickSaleForm.contact) {
-        // Create new customer
         saleData.customerData = {
           name: quickSaleForm.customerName,
           phone: quickSaleForm.contact,
           category: quickSaleForm.customerCategory,
-          address: "", // Could add address field later
+          address: "",
         };
+      }
+
+      // birdsCount: align with batch (currently derived from weight)
+      if (saleData.batchId) {
+        const birdsCount = Number(quickSaleForm.weight || 0);
+        if (Number.isFinite(birdsCount) && birdsCount > 0) {
+          saleData.birdsCount = birdsCount;
+        }
       }
 
       console.log("🚀 Sending sale data to API:", saleData);
@@ -584,11 +615,12 @@ export default function DashboardPage() {
         item: "Chicken",
         rate: "",
         quantity: "",
+        weight: "",
         remaining: false,
         customerId: "",
         customerName: "",
         contact: "",
-        category: "Chicken",
+        categoryId: "",
         customerCategory: "Chicken",
         balance: "",
         date: "",
@@ -1306,21 +1338,14 @@ export default function DashboardPage() {
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="item">Item</Label>
-                  <select
+                  <Label htmlFor="item">Item Description</Label>
+                  <Input
                     id="item"
                     name="item"
                     value={quickSaleForm.item}
                     onChange={updateQuickSaleField}
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                  >
-                    <option value="">Select item</option>
-                    {salesCategories.map((category: any) => (
-                      <option key={category.id} value={category.name}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="e.g., Chicken, Eggs, etc."
+                  />
                   {quickFormErrors.item && (
                     <p className="text-xs text-red-600 mt-1">
                       {quickFormErrors.item}
@@ -1328,14 +1353,25 @@ export default function DashboardPage() {
                   )}
                 </div>
                 <div>
-                  <Label htmlFor="saleDate">Date</Label>
-                  <Input
-                    id="saleDate"
-                    name="date"
-                    type="date"
-                    value={quickSaleForm.date}
+                  <Label htmlFor="category">Category</Label>
+                  <select
+                    id="category"
+                    name="categoryId"
+                    value={quickSaleForm.categoryId}
                     onChange={updateQuickSaleField}
-                  />
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                  >
+                    {salesCategories.map((category: any) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  {quickFormErrors.categoryId && (
+                    <p className="text-xs text-red-600 mt-1">
+                      {quickFormErrors.categoryId}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -1350,18 +1386,49 @@ export default function DashboardPage() {
                     onChange={updateQuickSaleField}
                     placeholder="Rate per unit"
                   />
+                  {quickFormErrors.rate && (
+                    <p className="text-xs text-red-600 mt-1">{quickFormErrors.rate}</p>
+                  )}
                 </div>
                 <div>
-                  <Label htmlFor="quantity">Quantity</Label>
+                  <Label htmlFor="quantity">Quantity (Birds)</Label>
                   <Input
                     id="quantity"
                     name="quantity"
                     type="number"
                     value={quickSaleForm.quantity}
                     onChange={updateQuickSaleField}
-                    placeholder="Quantity sold"
+                    placeholder="Number of birds"
                   />
+                  {quickFormErrors.quantity && (
+                    <p className="text-xs text-red-600 mt-1">
+                      {quickFormErrors.quantity}
+                    </p>
+                  )}
                 </div>
+              </div>
+
+              <div>
+                <Label htmlFor="weight">Weight (kg)</Label>
+                <Input
+                  id="weight"
+                  name="weight"
+                  type="number"
+                  step="0.01"
+                  value={quickSaleForm.weight}
+                  onChange={updateQuickSaleField}
+                  placeholder="Total weight in kg"
+                />
+                {quickFormErrors.weight && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {quickFormErrors.weight}
+                  </p>
+                )}
+                {quickSaleForm.quantity && quickSaleForm.weight && (
+                  <p className="text-xs text-green-600 mt-1">
+                    Avg weight per bird: {(Number(quickSaleForm.weight) / Number(quickSaleForm.quantity)).toFixed(2)} kg
+                  </p>
+                )}
               </div>
 
               <div className="col-span-2">
