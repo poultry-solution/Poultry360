@@ -32,7 +32,6 @@ export const getAllUsers = async (
     if (search) {
       where.OR = [
         { name: { contains: search as string, mode: "insensitive" } },
-        { email: { contains: search as string, mode: "insensitive" } },
         { phone: { contains: search as string, mode: "insensitive" } },
       ];
     }
@@ -45,15 +44,11 @@ export const getAllUsers = async (
         select: {
           id: true,
           name: true,
-          email: true,
           phone: true,
           role: true,
-          gender: true,
           status: true,
           companyName: true,
           CompanyFarmLocation: true,
-          CompanyFarmNumber: true,
-          CompanyFarmCapacity: true,
           createdAt: true,
           updatedAt: true,
           _count: {
@@ -255,22 +250,10 @@ export const updateUser = async (req: Request, res: Response): Promise<any> => {
       delete data.status;
     }
 
-    // Check for email uniqueness if email is being updated
-    if (data.email && data.email !== existingUser.email) {
-      const emailExists = await prisma.user.findUnique({
-        where: { email: data.email },
-      });
-      if (emailExists) {
-        return res.status(400).json({ message: "Email already exists" });
-      }
-    }
 
     // Convert string fields to appropriate types
     const updateData = {
       ...data,
-      CompanyFarmNumber: data.CompanyFarmNumber
-        ? parseInt(data.CompanyFarmNumber as string)
-        : null,
     };
 
     // Update user
@@ -280,15 +263,11 @@ export const updateUser = async (req: Request, res: Response): Promise<any> => {
       select: {
         id: true,
         name: true,
-        email: true,
         phone: true,
         role: true,
-        gender: true,
         status: true,
         companyName: true,
         CompanyFarmLocation: true,
-        CompanyFarmNumber: true,
-        CompanyFarmCapacity: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -378,7 +357,6 @@ export const getOwnerUsers = async (
     if (search) {
       where.OR = [
         { name: { contains: search as string, mode: "insensitive" } },
-        { email: { contains: search as string, mode: "insensitive" } },
         { phone: { contains: search as string, mode: "insensitive" } },
       ];
     }
@@ -391,14 +369,10 @@ export const getOwnerUsers = async (
         select: {
           id: true,
           name: true,
-          email: true,
           phone: true,
-          gender: true,
           status: true,
           companyName: true,
           CompanyFarmLocation: true,
-          CompanyFarmNumber: true,
-          CompanyFarmCapacity: true,
           createdAt: true,
           _count: {
             select: {
@@ -445,7 +419,6 @@ export const getManagerUsers = async (
     if (search) {
       where.OR = [
         { name: { contains: search as string, mode: "insensitive" } },
-        { email: { contains: search as string, mode: "insensitive" } },
         { phone: { contains: search as string, mode: "insensitive" } },
       ];
     }
@@ -458,14 +431,10 @@ export const getManagerUsers = async (
         select: {
           id: true,
           name: true,
-          email: true,
           phone: true,
-          gender: true,
           status: true,
           companyName: true,
           CompanyFarmLocation: true,
-          CompanyFarmNumber: true,
-          CompanyFarmCapacity: true,
           createdAt: true,
           _count: {
             select: {
@@ -531,7 +500,6 @@ export const updateUserStatus = async (
       select: {
         id: true,
         name: true,
-        email: true,
         role: true,
         status: true,
         updatedAt: true,

@@ -34,10 +34,10 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     }
     const { emailOrPhone, password } = data;
 
-    // Find user by phone or username
+    // Find user by phone
     const user = await prisma.user.findFirst({
       where: {
-        OR: [{ phone: emailOrPhone }, { email: emailOrPhone }],
+        phone: emailOrPhone,
       },
       include: {
         managedFarms: true,
@@ -70,14 +70,10 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     let userWithFarms: any = {
       id: user.id,
       name: user.name,
-      email: user.email,
       phone: user.phone,
       companyName: user.companyName,
       companyFarmLocation: user.CompanyFarmLocation,
-      companyFarmNumber: user.CompanyFarmNumber,
-      companyFarmCapacity: user.CompanyFarmCapacity,
       role: user.role,
-      gender: user.gender,
       status: user.status,
       managedFarms: user.managedFarms?.map((farm) => farm.id),
       ownedFarms: user.ownedFarms?.map((farm) => farm.id),
@@ -104,15 +100,11 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     }
     const {
       name,
-      email,
       phone,
       password,
-      gender,
       role,
       companyName,
       companyFarmLocation,
-      companyFarmNumber,
-      companyFarmCapacity,
     } = data;
 
     // Check if user exists
@@ -136,19 +128,15 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       data: {
         name: name,        
         phone: phone,
-        email: email,
         password: hashedPassword,
         // if user is owner then marked as verified else pending verification
         status:
           role === UserRole.OWNER
             ? UserStatus.ACTIVE
             : UserStatus.PENDING_VERIFICATION,
-        gender: gender,
         role: role || UserRole.OWNER,
         companyName: companyName,
         CompanyFarmLocation: companyFarmLocation,
-        CompanyFarmNumber: companyFarmNumber ? parseInt(companyFarmNumber) : null,
-        CompanyFarmCapacity: companyFarmCapacity,
       },
       include: {
         managedFarms: {
@@ -172,7 +160,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: "/",
-      domain: process.env.NODE_ENV === "production" ? ".myapp.com" : undefined, // Allow subdomains in production
+      // Remove domain in development to allow cross-port access
     });
 
     // Return access token and user data
@@ -181,14 +169,10 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email,
         phone: user.phone,
         companyName: user.companyName,
         companyFarmLocation: user.CompanyFarmLocation,
-        companyFarmNumber: user.CompanyFarmNumber,
-        companyFarmCapacity: user.CompanyFarmCapacity,
         role: user.role,
-        gender: user.gender,
         status: user.status,
         managedFarms: user.managedFarms,
         ownedFarms: user.ownedFarms,
@@ -241,7 +225,7 @@ export const refreshToken = async (
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: "/",
-      domain: process.env.NODE_ENV === "production" ? ".myapp.com" : undefined, // Allow subdomains in production
+      // Remove domain in development to allow cross-port access
     });
 
     // Return new access token
@@ -311,13 +295,9 @@ export const getUserInfo = async (
   return res.json({
     id: userData.id,
     name: userData.name,
-    email: userData.email,
     phone: userData.phone,
     companyName: userData.companyName,
     companyFarmLocation: userData.CompanyFarmLocation,
-    companyFarmNumber: userData.CompanyFarmNumber,
-    companyFarmCapacity: userData.CompanyFarmCapacity,
-    gender: userData.gender,
     status: userData.status,
     managedFarms: userData.managedFarms,
     ownedFarms: userData.ownedFarms,
@@ -387,14 +367,10 @@ export const validateToken = async (
     let userResponse: any = {
       id: userData.id,
       name: userData.name,
-      email: userData.email,
       phone: userData.phone,
       companyName: userData.companyName,
       companyFarmLocation: userData.CompanyFarmLocation,
-      companyFarmNumber: userData.CompanyFarmNumber,
-      companyFarmCapacity: userData.CompanyFarmCapacity,
       role: userData.role,
-      gender: userData.gender,
       status: userData.status,
       managedFarms: userData.managedFarms,
       ownedFarms: userData.ownedFarms,

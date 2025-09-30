@@ -7,14 +7,10 @@ import { crossPortAuth, AuthData } from "@myapp/shared-auth";
 export interface User {
   id: string;
   name: string;
-  email: string;
   phone: string;
   companyName?: string;
   companyFarmLocation?: string;
-  companyFarmNumber?: string;
-  companyFarmCapacity?: number;
   role: "OWNER" | "MANAGER" | "DOCTOR";
-  gender: "MALE" | "FEMALE" | "OTHER";
   status: "ACTIVE" | "INACTIVE" | "PENDING_VERIFICATION";
   managedFarms?: string[];
 }
@@ -137,17 +133,11 @@ export const useAuthStore = create<AuthState>()(
                   const transformedUser: User = {
                     id: validationResponse.user.id,
                     name: validationResponse.user.name,
-                    email: validationResponse.user.email,
                     phone: validationResponse.user.phone,
                     companyName: validationResponse.user.companyName,
                     companyFarmLocation:
                       validationResponse.user.companyFarmLocation,
-                    companyFarmNumber:
-                      validationResponse.user.companyFarmNumber,
-                    companyFarmCapacity:
-                      validationResponse.user.companyFarmCapacity,
                     role: validationResponse.user.role,
-                    gender: validationResponse.user.gender || "OTHER",
                     status: validationResponse.user.status || "ACTIVE",
                     managedFarms: validationResponse.user.managedFarms || [],
                   };
@@ -167,7 +157,6 @@ export const useAuthStore = create<AuthState>()(
                     user: {
                       id: transformedUser.id,
                       name: transformedUser.name,
-                      email: transformedUser.email,
                       phone: transformedUser.phone,
                       role: transformedUser.role,
                       companyName: transformedUser.companyName,
@@ -210,11 +199,9 @@ export const useAuthStore = create<AuthState>()(
           const transformedUser: User = {
             id: authData.user.id,
             name: authData.user.name,
-            email: authData.user.email,
             phone: authData.user.phone,
             companyName: authData.user.companyName,
             role: authData.user.role as any,
-            gender: "OTHER", // Default value
             status: "ACTIVE", // Default value
             managedFarms: [],
           };

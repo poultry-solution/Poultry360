@@ -8,14 +8,10 @@ import { crossPortAuth } from "@myapp/shared-auth";
 export interface User {
   id: string;
   name: string;
-  email: string;
   phone: string;
   companyName?: string;
   companyFarmLocation?: string;
-  companyFarmNumber?: string;
-  companyFarmCapacity?: number;
   role: "OWNER" | "MANAGER" | "DOCTOR" | "SUPER_ADMIN";
-  gender: "MALE" | "FEMALE" | "OTHER";
   status: "ACTIVE" | "INACTIVE" | "PENDING_VERIFICATION";
   managedFarms?: string[]; // Array of farm IDs for managers
 }
@@ -27,15 +23,11 @@ export interface LoginCredentials {
 
 export interface RegisterData {
   name: string;
-  email?: string;
   password: string;
-  phone?: string;
-  gender: "MALE" | "FEMALE" | "OTHER";
+  phone: string;
   role: "OWNER" | "MANAGER" | "DOCTOR" | "SUPER_ADMIN";
   companyName?: string;
   companyFarmLocation?: string;
-  companyFarmNumber?: string;
-  companyFarmCapacity?: number;
 }
 
 interface AuthState {
@@ -175,14 +167,10 @@ export const useAuthStore = create<AuthState>()(
             const transformedUser: User = {
               id: user.id,
               name: user.name,
-              email: user.email,
               phone: user.phone,
               companyName: user.companyName,
               companyFarmLocation: user.companyFarmLocation,
-              companyFarmNumber: user.companyFarmNumber,
-              companyFarmCapacity: user.companyFarmCapacity,
               role: user.role,
-              gender: data.gender,
               status: "ACTIVE", // New users are active by default
               managedFarms: [],
             };

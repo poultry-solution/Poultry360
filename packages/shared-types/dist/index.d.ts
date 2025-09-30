@@ -89,18 +89,12 @@ export declare const UserSchema: z.ZodObject<{
     id: z.ZodString;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
-    email: z.ZodOptional<z.ZodEmail>;
     name: z.ZodString;
     phone: z.ZodOptional<z.ZodString>;
     password: z.ZodString;
     role: z.ZodEnum<{
         OWNER: "OWNER";
         MANAGER: "MANAGER";
-    }>;
-    gender: z.ZodEnum<{
-        MALE: "MALE";
-        FEMALE: "FEMALE";
-        OTHER: "OTHER";
     }>;
     status: z.ZodEnum<{
         ACTIVE: "ACTIVE";
@@ -110,8 +104,6 @@ export declare const UserSchema: z.ZodObject<{
     ownerId: z.ZodNullable<z.ZodString>;
     companyName: z.ZodNullable<z.ZodString>;
     CompanyFarmLocation: z.ZodNullable<z.ZodString>;
-    CompanyFarmNumber: z.ZodNullable<z.ZodString>;
-    CompanyFarmCapacity: z.ZodNullable<z.ZodNumber>;
 }, z.core.$strip>;
 export type User = z.infer<typeof UserSchema>;
 export declare const CreateUserSchema: z.ZodObject<{
@@ -1277,22 +1269,14 @@ export declare const LoginSchema: z.ZodObject<{
 export type Login = z.infer<typeof LoginSchema>;
 export declare const SignupSchema: z.ZodObject<{
     name: z.ZodString;
-    email: z.ZodOptional<z.ZodEmail>;
-    phone: z.ZodOptional<z.ZodString>;
+    phone: z.ZodString;
     password: z.ZodString;
-    gender: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
-        MALE: "MALE";
-        FEMALE: "FEMALE";
-        OTHER: "OTHER";
-    }>>>;
     role: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
         OWNER: "OWNER";
         MANAGER: "MANAGER";
     }>>>;
     companyName: z.ZodOptional<z.ZodString>;
     companyFarmLocation: z.ZodOptional<z.ZodString>;
-    companyFarmNumber: z.ZodOptional<z.ZodString>;
-    companyFarmCapacity: z.ZodOptional<z.ZodNumber>;
 }, z.core.$strip>;
 export type Signup = z.infer<typeof SignupSchema>;
 export declare const BatchAnalyticsSchema: z.ZodObject<{
@@ -1682,18 +1666,12 @@ export declare const schemas: {
         id: z.ZodString;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
-        email: z.ZodOptional<z.ZodEmail>;
         name: z.ZodString;
         phone: z.ZodOptional<z.ZodString>;
         password: z.ZodString;
         role: z.ZodEnum<{
             OWNER: "OWNER";
             MANAGER: "MANAGER";
-        }>;
-        gender: z.ZodEnum<{
-            MALE: "MALE";
-            FEMALE: "FEMALE";
-            OTHER: "OTHER";
         }>;
         status: z.ZodEnum<{
             ACTIVE: "ACTIVE";
@@ -1703,8 +1681,6 @@ export declare const schemas: {
         ownerId: z.ZodNullable<z.ZodString>;
         companyName: z.ZodNullable<z.ZodString>;
         CompanyFarmLocation: z.ZodNullable<z.ZodString>;
-        CompanyFarmNumber: z.ZodNullable<z.ZodString>;
-        CompanyFarmCapacity: z.ZodNullable<z.ZodNumber>;
     }, z.core.$strip>;
     readonly CreateUser: z.ZodObject<{
         email: z.ZodOptional<z.ZodEmail>;
@@ -2987,22 +2963,14 @@ export declare const schemas: {
     }, z.core.$strip>;
     readonly Signup: z.ZodObject<{
         name: z.ZodString;
-        email: z.ZodOptional<z.ZodEmail>;
-        phone: z.ZodOptional<z.ZodString>;
+        phone: z.ZodString;
         password: z.ZodString;
-        gender: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
-            MALE: "MALE";
-            FEMALE: "FEMALE";
-            OTHER: "OTHER";
-        }>>>;
         role: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
             OWNER: "OWNER";
             MANAGER: "MANAGER";
         }>>>;
         companyName: z.ZodOptional<z.ZodString>;
         companyFarmLocation: z.ZodOptional<z.ZodString>;
-        companyFarmNumber: z.ZodOptional<z.ZodString>;
-        companyFarmCapacity: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strip>;
     readonly BatchAnalytics: z.ZodObject<{
         batchId: z.ZodString;

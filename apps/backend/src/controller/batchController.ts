@@ -64,7 +64,6 @@ export const getAllBatches = async (
                 select: {
                   id: true,
                   name: true,
-                  email: true,
                 },
               },
             },
@@ -141,14 +140,12 @@ export const getBatchById = async (
               select: {
                 id: true,
                 name: true,
-                email: true,
               },
             },
             managers: {
               select: {
                 id: true,
                 name: true,
-                email: true,
               },
             },
           },
@@ -491,7 +488,7 @@ export const createBatch = async (
               id: true,
               name: true,
               owner: {
-                select: { id: true, name: true, email: true },
+                select: { id: true, name: true },
               },
             },
           },
@@ -647,7 +644,6 @@ export const updateBatch = async (
               select: {
                 id: true,
                 name: true,
-                email: true,
               },
             },
           },
@@ -942,7 +938,7 @@ export const closeBatch = async (req: Request, res: Response): Promise<any> => {
               id: true,
               name: true,
               owner: {
-                select: { id: true, name: true, email: true },
+                select: { id: true, name: true },
               },
             },
           },

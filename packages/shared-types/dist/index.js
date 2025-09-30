@@ -75,18 +75,14 @@ exports.BaseSchema = zod_1.z.object({
 });
 // ==================== USER SCHEMAS ====================
 exports.UserSchema = exports.BaseSchema.extend({
-    email: zod_1.z.email().optional(),
     name: zod_1.z.string(),
     phone: zod_1.z.string().optional(),
     password: zod_1.z.string(),
     role: exports.UserRoleSchema,
-    gender: zod_1.z.enum(["MALE", "FEMALE", "OTHER"]),
     status: zod_1.z.enum(["ACTIVE", "INACTIVE", "PENDING_VERIFICATION"]),
     ownerId: zod_1.z.string().nullable(),
     companyName: zod_1.z.string().nullable(),
     CompanyFarmLocation: zod_1.z.string().nullable(),
-    CompanyFarmNumber: zod_1.z.string().nullable(),
-    CompanyFarmCapacity: zod_1.z.number().int().nullable(),
 });
 exports.CreateUserSchema = zod_1.z.object({
     email: zod_1.z.email().optional(),
@@ -824,20 +820,16 @@ exports.CreateAuditLogSchema = zod_1.z.object({
 });
 // ==================== AUTHENTICATION SCHEMAS ====================
 exports.LoginSchema = zod_1.z.object({
-    emailOrPhone: zod_1.z.string(), // Can be email or phone
+    emailOrPhone: zod_1.z.string(), // Can be phone
     password: zod_1.z.string(),
 });
 exports.SignupSchema = zod_1.z.object({
     name: zod_1.z.string(),
-    email: zod_1.z.email().optional(),
-    phone: zod_1.z.string().optional(),
+    phone: zod_1.z.string(),
     password: zod_1.z.string(),
-    gender: zod_1.z.enum(["MALE", "FEMALE", "OTHER"]).optional().default("OTHER"),
     role: exports.UserRoleSchema.optional().default("OWNER"),
     companyName: zod_1.z.string().optional(),
     companyFarmLocation: zod_1.z.string().optional(),
-    companyFarmNumber: zod_1.z.string().optional(),
-    companyFarmCapacity: zod_1.z.number().int().optional(),
 });
 // ==================== COMPUTED TYPES ====================
 exports.BatchAnalyticsSchema = zod_1.z.object({

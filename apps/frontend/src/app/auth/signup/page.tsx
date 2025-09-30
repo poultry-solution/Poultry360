@@ -18,9 +18,6 @@ export default function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [step, setStep] = useState<"form" | "otp">("form");
   const [otp, setOtp] = useState("");
-  const [verificationMethod, setVerificationMethod] = useState<
-    "email" | "phone"
-  >("email");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -29,12 +26,8 @@ export default function SignupPage() {
     location: "",
     countryCode: "+977",
     phone: "",
-    email: "",
-    farmsCount: "",
-    totalCapacity: "",
     password: "",
     confirmPassword: "",
-    gender: "OTHER" as "MALE" | "FEMALE" | "OTHER",
   });
 
   const handleInputChange = (
@@ -57,8 +50,8 @@ export default function SignupPage() {
       return false;
     }
 
-    if (!formData.email && !formData.phone) {
-      alert("Please provide either an email or phone number!");
+    if (!formData.phone) {
+      alert("Please provide a phone number!");
       return false;
     }
 
@@ -70,19 +63,11 @@ export default function SignupPage() {
 
     if (!validateForm()) return;
 
-    // Determine verification method based on what user provided
-    if (formData.email && formData.phone) {
-      // Both provided, let user choose
-      setVerificationMethod("email"); // Default to email
-    } else if (formData.email) {
-      setVerificationMethod("email");
-    } else {
-      setVerificationMethod("phone");
-    }
+    // Phone verification only
 
     // Simulate sending OTP
     console.log(
-      `Sending OTP to ${verificationMethod === "email" ? formData.email : formData.countryCode + formData.phone}`
+      `Sending OTP to ${formData.countryCode + formData.phone}`
     );
     setStep("otp");
   };
@@ -96,24 +81,17 @@ export default function SignupPage() {
     }
 
     try {
-      const email = formData.email;
       const name = formData.name;
       const companyFarmLocation = `${formData.province}, ${formData.location}`;
 
-      const phone = formData.phone
-        ? `${formData.countryCode}${formData.phone}`
-        : undefined;
+      const phone = `${formData.countryCode}${formData.phone}`;
       const registerData = {
         name,
-        email: email ? email : undefined,
-        phone: phone ? phone : undefined,
+        phone,
         password: formData.password,
-        gender: formData.gender,
         role: "OWNER" as const,
         companyName: formData.companyName,
         companyFarmLocation,
-        companyFarmNumber: formData.farmsCount,
-        companyFarmCapacity: parseInt(formData.totalCapacity) || 0,
       };
 
       await register(registerData);
@@ -127,7 +105,6 @@ export default function SignupPage() {
           user: {
             id: user.id,
             name: user.name,
-            email: user.email,
             phone: user.phone,
             role: user.role,
             companyName: user.companyName,
@@ -148,11 +125,7 @@ export default function SignupPage() {
   };
 
   const getVerificationTarget = () => {
-    if (verificationMethod === "email") {
-      return formData.email;
-    } else {
-      return `${formData.countryCode}${formData.phone}`;
-    }
+    return `${formData.countryCode}${formData.phone}`;
   };
 
   const fillTestData = () => {
@@ -160,11 +133,6 @@ export default function SignupPage() {
     const timestamp = now.getTime();
 
     const phone = `98${timestamp.toString().slice(-8)}`;
-    const email = `testuser${timestamp}@example.com`;
-
-    const chooseToUSeEmailOrPhone = Math.random() < 0.5;
-
-
 
     setFormData({
       name: `Test User ${timestamp}`,
@@ -172,13 +140,9 @@ export default function SignupPage() {
       province: "Bagmati",
       location: `Test City ${timestamp}`,
       countryCode: "+977",
-      phone: chooseToUSeEmailOrPhone ? phone : "",
-      email: chooseToUSeEmailOrPhone ? "" : email,
-      farmsCount: "2",
-      totalCapacity: "1500",
+      phone: phone,
       password: "test123",
       confirmPassword: "test123",
-      gender: "MALE",
     });
   };
 
@@ -281,18 +245,7 @@ export default function SignupPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
+                  <Label htmlFor="phone">Phone *</Label>
                   <div className="flex gap-2">
                     <select
                       id="countryCode"
@@ -316,55 +269,10 @@ export default function SignupPage() {
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Provide either email or phone number (or both) for account
-                    verification
+                    Phone number is required for account verification
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="gender">Gender</Label>
-                    <select
-                      id="gender"
-                      name="gender"
-                      value={formData.gender}
-                      onChange={handleInputChange}
-                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                    >
-                      <option value="MALE">Male</option>
-                      <option value="FEMALE">Female</option>
-                      <option value="OTHER">Other</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="farmsCount">Number of farms *</Label>
-                    <Input
-                      id="farmsCount"
-                      name="farmsCount"
-                      type="number"
-                      min={1}
-                      value={formData.farmsCount}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="totalCapacity">
-                    Total capacity (birds) *
-                  </Label>
-                  <Input
-                    id="totalCapacity"
-                    name="totalCapacity"
-                    type="number"
-                    min={1}
-                    value={formData.totalCapacity}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="password">Password *</Label>
@@ -448,38 +356,6 @@ export default function SignupPage() {
                 </p>
               </div>
 
-              {/* Option to switch verification method if both email and phone are provided */}
-              {formData.email && formData.phone && (
-                <div className="mb-6 p-3 bg-gray-50 rounded-md">
-                  <p className="text-xs text-gray-600 mb-2">
-                    Didn&#39;t receive the code?
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setVerificationMethod("email")}
-                      className={`px-3 py-1 rounded text-xs ${
-                        verificationMethod === "email"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                      }`}
-                    >
-                      Send to Email
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setVerificationMethod("phone")}
-                      className={`px-3 py-1 rounded text-xs ${
-                        verificationMethod === "phone"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                      }`}
-                    >
-                      Send to Phone
-                    </button>
-                  </div>
-                </div>
-              )}
 
               <form onSubmit={handleOtpSubmit} className="space-y-4">
                 <div className="space-y-2">

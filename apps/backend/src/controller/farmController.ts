@@ -58,7 +58,6 @@ export const getAllFarms = async (
             select: {
               id: true,
               name: true,
-              email: true,
               phone: true,
               role: true,
             },
@@ -67,7 +66,6 @@ export const getAllFarms = async (
             select: {
               id: true,
               name: true,
-              email: true,
               phone: true,
               role: true,
             },
@@ -152,7 +150,6 @@ export const getFarmById = async (
           select: {
             id: true,
             name: true,
-            email: true,
             phone: true,
             role: true,
           },
@@ -161,7 +158,6 @@ export const getFarmById = async (
           select: {
             id: true,
             name: true,
-            email: true,
             phone: true,
             role: true,
           },
@@ -283,7 +279,6 @@ export const getUserFarms = async (
           select: {
             id: true,
             name: true,
-            email: true,
             role: true,
           },
         },
@@ -291,7 +286,6 @@ export const getUserFarms = async (
           select: {
             id: true,
             name: true,
-            email: true,
             role: true,
           },
         },
@@ -396,7 +390,6 @@ export const createFarm = async (req: Request, res: Response): Promise<any> => {
           select: {
             id: true,
             name: true,
-            email: true,
             role: true,
           },
         },
@@ -404,7 +397,6 @@ export const createFarm = async (req: Request, res: Response): Promise<any> => {
           select: {
             id: true,
             name: true,
-            email: true,
             role: true,
           },
         },
@@ -496,7 +488,6 @@ export const updateFarm = async (req: Request, res: Response): Promise<any> => {
           select: {
             id: true,
             name: true,
-            email: true,
             role: true,
           },
         },
@@ -504,7 +495,6 @@ export const updateFarm = async (req: Request, res: Response): Promise<any> => {
           select: {
             id: true,
             name: true,
-            email: true,
             role: true,
           },
         },
@@ -634,7 +624,6 @@ export const addManagerToFarm = async (
           select: {
             id: true,
             name: true,
-            email: true,
             role: true,
           },
         },
@@ -642,7 +631,6 @@ export const addManagerToFarm = async (
           select: {
             id: true,
             name: true,
-            email: true,
             role: true,
           },
         },
@@ -698,7 +686,6 @@ export const removeManagerFromFarm = async (
           select: {
             id: true,
             name: true,
-            email: true,
             role: true,
           },
         },
@@ -706,7 +693,6 @@ export const removeManagerFromFarm = async (
           select: {
             id: true,
             name: true,
-            email: true,
             role: true,
           },
         },

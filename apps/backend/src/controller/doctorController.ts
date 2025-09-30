@@ -55,7 +55,6 @@ export const updateOnlineStatus = async (
       select: {
         id: true,
         name: true,
-        email: true,
         role: true,
         isOnline: true,
         lastSeen: true
@@ -120,7 +119,6 @@ export const updateOnlineStatus = async (
       user: {
         id: updatedUser.id,
         name: updatedUser.name,
-        email: updatedUser.email,
         role: updatedUser.role,
         isOnline: updatedUser.isOnline,
         lastSeen: updatedUser.lastSeen
@@ -155,7 +153,6 @@ export const getDoctorStatus = async (
       select: {
         id: true,
         name: true,
-        email: true,
         role: true,
         status: true,
         isOnline: true,
@@ -212,7 +209,6 @@ export const getDoctorStatus = async (
       user: {
         id: user.id,
         name: user.name,
-        email: user.email,
         role: user.role,
         status: user.status,
         isOnline: realTimeOnline,

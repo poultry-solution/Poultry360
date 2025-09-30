@@ -479,7 +479,6 @@ export const conversationController = {
         select: {
           id: true,
           name: true,
-          email: true,
           phone: true,
           companyName: true
         }

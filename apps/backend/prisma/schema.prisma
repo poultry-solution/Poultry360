@@ -101,21 +101,17 @@ enum UserStatus {
 
 model User {
   id        String   @id @default(cuid())
-  email     String?  @unique
   phone     String?  @unique
   name      String  //name of the user 
   
   companyName String? //name of the company
   CompanyFarmLocation String? // Province + Location 
-  CompanyFarmNumber Int?
-  CompanyFarmCapacity Int?
  
 
 
   password  String  
 
   role      UserRole @default(OWNER)  
-  gender    Gender   @default(MALE) //rm 
   status    UserStatus @default(PENDING_VERIFICATION)
   isOnline  Boolean @default(false)
   lastSeen  DateTime?

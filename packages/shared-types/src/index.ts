@@ -98,18 +98,14 @@ export const BaseSchema = z.object({
 // ==================== USER SCHEMAS ====================
 
 export const UserSchema = BaseSchema.extend({
-  email: z.email().optional(),
   name: z.string(),
   phone: z.string().optional(),
   password: z.string(),
   role: UserRoleSchema,
-  gender: z.enum(["MALE", "FEMALE", "OTHER"]),
   status: z.enum(["ACTIVE", "INACTIVE", "PENDING_VERIFICATION"]),
   ownerId: z.string().nullable(),
   companyName: z.string().nullable(),
   CompanyFarmLocation: z.string().nullable(),
-  CompanyFarmNumber: z.string().nullable(),
-  CompanyFarmCapacity: z.number().int().nullable(),
 });
 
 export type User = z.infer<typeof UserSchema>;
@@ -1112,7 +1108,7 @@ export type CreateAuditLog = z.infer<typeof CreateAuditLogSchema>;
 // ==================== AUTHENTICATION SCHEMAS ====================
 
 export const LoginSchema = z.object({
-  emailOrPhone: z.string(), // Can be email or phone
+  emailOrPhone: z.string(), // Can be phone
   password: z.string(),
 });
 
@@ -1120,15 +1116,11 @@ export type Login = z.infer<typeof LoginSchema>;
 
 export const SignupSchema = z.object({
   name: z.string(),
-  email: z.email().optional(),
-  phone: z.string().optional(),
+  phone: z.string(),
   password: z.string(),
-  gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional().default("OTHER"),
   role: UserRoleSchema.optional().default("OWNER"),
   companyName: z.string().optional(),
   companyFarmLocation: z.string().optional(),
-  companyFarmNumber: z.string().optional(),
-  companyFarmCapacity: z.number().int().optional(),
 });
 
 export type Signup = z.infer<typeof SignupSchema>;

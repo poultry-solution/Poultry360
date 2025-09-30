@@ -29,7 +29,6 @@ router.get("/online", async (req, res) => {
       select: {
         id: true,
         name: true,
-        email: true,
         isOnline: true,
         lastSeen: true
       },
