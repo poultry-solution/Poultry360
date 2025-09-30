@@ -67,6 +67,7 @@ export const useGetBatchById = (id: string, options?: { enabled?: boolean }) => 
     queryKey: batchKeys.detail(id),
     queryFn: async () => {
       const response = await axiosInstance.get(`/batches/${id}`);
+      console.log("Get Batch By ID", response.data);
       return response.data;
     },
     enabled: (options?.enabled !== false) && !!id,

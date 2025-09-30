@@ -1207,14 +1207,27 @@ export default function BatchDetailPage() {
       width: "100px",
       render: (value) => formatDateYYYYMMDD(value),
     }),
-    createColumn("description", "Item", {
+    createColumn("itemType", "Item Type", {
       type: "badge",
       width: "120px",
-      render: (value) => (
-        <Badge variant="secondary" className="bg-green-100 text-green-800">
-          {value || "Sale"}
-        </Badge>
-      ),
+      render: (value) => {
+        const itemTypeColors: Record<string, string> = {
+          Chicken_Meat: "bg-green-100 text-green-800",
+          EGGS: "bg-yellow-100 text-yellow-800",
+          CHICKS: "bg-blue-100 text-blue-800",
+          FEED: "bg-orange-100 text-orange-800",
+          MEDICINE: "bg-red-100 text-red-800",
+          EQUIPMENT: "bg-purple-100 text-purple-800",
+          OTHER: "bg-gray-100 text-gray-800",
+        };
+        const colorClass = itemTypeColors[value as string] || "bg-gray-100 text-gray-800";
+        
+        return (
+          <Badge variant="secondary" className={colorClass}>
+            {value || "Sale"}
+          </Badge>
+        );
+      },
     }),
     createColumn("quantity", "Quantity", {
       type: "number",
