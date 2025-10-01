@@ -379,8 +379,9 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
     }
 
     // Validate batch access if provided
+    let batch = null;
     if (batchId) {
-      const batch = await prisma.batch.findUnique({
+      batch = await prisma.batch.findUnique({
         where: { id: batchId },
         include: {
           farm: {
@@ -389,6 +390,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
               managers: true,
             },
           },
+          mortalities: true,
         },
       });
 
@@ -403,6 +405,21 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
 
         if (!hasAccess) {
           return res.status(403).json({ message: "Access denied to batch" });
+        }
+      }
+
+      // Validate birds count for Chicken_Meat sales
+      if (itemType === SalesItemType.Chicken_Meat) {
+        // Calculate current birds in batch
+        const totalMortality = batch.mortalities.reduce((sum, m) => sum + m.count, 0);
+        const currentBirds = batch.initialChicks - totalMortality;
+        
+        const requestedBirds = Number(quantity || 0);
+        
+        if (requestedBirds > currentBirds) {
+          return res.status(400).json({ 
+            message: `Cannot sell ${requestedBirds} birds. Only ${currentBirds} birds available in batch (Initial: ${batch.initialChicks}, Mortality: ${totalMortality})` 
+          });
         }
       }
     }

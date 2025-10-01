@@ -46,6 +46,12 @@ import {
   useBatchSalesManagement,
   useGetCustomersForSales,
 } from "@/fetchers/sale/saleQueries";
+import {
+  useGetBatchMortalities,
+  useCreateMortality,
+  useUpdateMortality,
+  useDeleteMortality,
+} from "@/fetchers/mortality/mortalityQueries";
 import { BatchSaleModel } from "@/components/ui/batchSaleModel";
 
 type ExpenseCategory = "Feed" | "Medicine" | "Hatchery" | "Other";
@@ -100,6 +106,7 @@ const TABS = [
   "Overview",
   "Expenses",
   "Sales",
+  "Mortality",
   "Sales Balance",
   "Profit & Loss",
 ] as const;
@@ -210,6 +217,21 @@ export default function BatchDetailPage() {
   // Customer search for sales
   const [customerSearch, setCustomerSearch] = useState("");
   const { data: customers = [] } = useGetCustomersForSales(customerSearch);
+
+  // Fetch mortality data for this batch
+  const {
+    data: mortalityResponse,
+    isLoading: mortalityLoading,
+    error: mortalityError,
+  } = useGetBatchMortalities(safeBatchId, { enabled: !!batchId });
+
+  const batchMortalities = mortalityResponse?.data || [];
+  const mortalityStats = mortalityResponse?.statistics;
+
+  // Mortality mutations
+  const createMortalityMutation = useCreateMortality();
+  const updateMortalityMutation = useUpdateMortality();
+  const deleteMortalityMutation = useDeleteMortality();
 
   // ==================== CLOSE BATCH FUNCTIONS ====================
 
@@ -900,6 +922,110 @@ export default function BatchDetailPage() {
   const [paymentErrors, setPaymentErrors] = useState<Record<string, string>>(
     {}
   );
+
+  // --- Mortality Modal ---
+  const [isMortalityModalOpen, setIsMortalityModalOpen] = useState(false);
+  const [editingMortalityId, setEditingMortalityId] = useState<string | null>(null);
+  const [mortalityForm, setMortalityForm] = useState({
+    date: "",
+    count: "",
+    reason: "",
+  });
+  const [mortalityErrors, setMortalityErrors] = useState<Record<string, string>>({});
+
+  function updateMortalityField(
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) {
+    const { name, value } = e.target;
+    setMortalityForm((p) => ({ ...p, [name]: value }));
+  }
+
+  function openNewMortality() {
+    setEditingMortalityId(null);
+    setMortalityForm({
+      date: new Date().toISOString().split("T")[0],
+      count: "",
+      reason: "",
+    });
+    setMortalityErrors({});
+    setIsMortalityModalOpen(true);
+  }
+
+  function openEditMortality(row: any) {
+    setEditingMortalityId(row.id);
+    setMortalityForm({
+      date: row.date ? new Date(row.date).toISOString().slice(0, 10) : "",
+      count: String(row.count),
+      reason: row.reason || "",
+    });
+    setMortalityErrors({});
+    setIsMortalityModalOpen(true);
+  }
+
+  async function deleteMortality(id: string) {
+    try {
+      await deleteMortalityMutation.mutateAsync(id);
+      flash("success", "Mortality record deleted successfully");
+    } catch (error) {
+      console.error("Failed to delete mortality:", error);
+      flash("error", "Failed to delete mortality record");
+    }
+  }
+
+  function validateMortality(): boolean {
+    const errs: Record<string, string> = {};
+    if (!mortalityForm.date) errs.date = "Date is required";
+    if (!mortalityForm.count) errs.count = "Count is required";
+    const count = Number(mortalityForm.count || 0);
+    if (count <= 0) errs.count = "Count must be greater than 0";
+    
+    // Check if count exceeds current available birds
+    if (mortalityStats && count > mortalityStats.currentBirds) {
+      errs.count = `Cannot record ${count} deaths. Only ${mortalityStats.currentBirds} birds available in batch`;
+    }
+    
+    setMortalityErrors(errs);
+    return Object.keys(errs).length === 0;
+  }
+
+  async function submitMortality(e: React.FormEvent) {
+    e.preventDefault();
+    if (!validateMortality()) return;
+
+    try {
+      const mortalityData = {
+        date: mortalityForm.date
+          ? new Date(mortalityForm.date)
+          : new Date(),
+        count: Number(mortalityForm.count),
+        reason: mortalityForm.reason || undefined,
+        batchId: batch?.id!,
+      };
+
+      if (editingMortalityId) {
+        await updateMortalityMutation.mutateAsync({
+          id: editingMortalityId,
+          data: {
+            date: mortalityData.date,
+            count: mortalityData.count,
+            reason: mortalityData.reason,
+          },
+        });
+        flash("success", "Mortality record updated successfully");
+      } else {
+        await createMortalityMutation.mutateAsync(mortalityData);
+        flash("success", "Mortality record added successfully");
+      }
+
+      setIsMortalityModalOpen(false);
+      setEditingMortalityId(null);
+      setMortalityErrors({});
+    } catch (error: any) {
+      console.error("Failed to save mortality:", error);
+      flash("error", error?.response?.data?.message || "Failed to save mortality record");
+    }
+  }
+
   function updateLedgerField(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) {
@@ -1338,6 +1464,73 @@ export default function BatchDetailPage() {
     },
   ];
 
+  const mortalityColumns: Column<any>[] = [
+    createColumn("date", "Date", {
+      type: "date",
+      width: "120px",
+      render: (value) => formatDateYYYYMMDD(value),
+    }),
+    createColumn("count", "Birds", {
+      type: "number",
+      align: "center",
+      width: "100px",
+      render: (value) => (
+        <span className="font-medium text-red-600">{value}</span>
+      ),
+    }),
+    createColumn("reason", "Reason", {
+      width: "200px",
+      render: (value) => (
+        <Badge
+          variant="secondary"
+          className="bg-red-100 text-red-800 border-red-200"
+        >
+          {value || "Not specified"}
+        </Badge>
+      ),
+    }),
+    {
+      key: "actions",
+      label: "Actions",
+      type: "actions",
+      align: "right",
+      width: "120px",
+      render: (_, row) => (
+        <div className="flex items-center justify-end gap-2">
+          {!isBatchClosed ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-300"
+                onClick={() => openEditMortality(row)}
+                disabled={updateMortalityMutation.isPending}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
+                onClick={() => deleteMortality(row.id)}
+                disabled={deleteMortalityMutation.isPending}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          ) : (
+            <Badge
+              variant="secondary"
+              className="bg-gray-100 text-gray-500 text-xs"
+            >
+              Closed
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   const ledgerColumns: Column<LedgerRow>[] = [
     createColumn("name", "Name", {
       render: (value) => <span className="font-medium">{value}</span>,
@@ -1664,7 +1857,7 @@ export default function BatchDetailPage() {
                           Natural Deaths:
                         </span>
                         <span className="font-medium text-red-600">
-                          {analytics?.totalMortality?.toLocaleString() || 0}
+                          {mortalityStats?.totalMortality?.toLocaleString() || analytics?.totalMortality?.toLocaleString() || 0}
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -1689,8 +1882,8 @@ export default function BatchDetailPage() {
                     <span className="text-muted-foreground">
                       Mortality Rate:
                     </span>
-                    <span className="font-medium">
-                      {analytics?.mortalityRate?.toFixed(2) || 0}%
+                    <span className={`font-medium ${Number(mortalityStats?.mortalityRate || analytics?.mortalityRate || 0) > 10 ? 'text-red-600' : Number(mortalityStats?.mortalityRate || analytics?.mortalityRate || 0) > 5 ? 'text-orange-600' : 'text-green-600'}`}>
+                      {mortalityStats?.mortalityRate || analytics?.mortalityRate?.toFixed(2) || 0}%
                     </span>
                   </div>
                   {analytics?.fcr && (
@@ -1974,6 +2167,110 @@ export default function BatchDetailPage() {
                 }
                 emptyMessage="No sales recorded yet"
               />
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === "Mortality" && (
+        <Card>
+          <CardHeader className="flex items-center justify-between">
+            <div>
+              <CardTitle>Mortality Records</CardTitle>
+              <CardDescription>
+                Track natural deaths and disease-related losses
+              </CardDescription>
+            </div>
+            {!isBatchClosed && (
+              <Button
+                className="bg-primary hover:bg-primary/90"
+                onClick={openNewMortality}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Mortality
+              </Button>
+            )}
+            {isBatchClosed && (
+              <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                Batch Closed - No New Entries
+              </Badge>
+            )}
+          </CardHeader>
+          <CardContent className="p-0">
+            {mortalityLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <span className="ml-2">Loading mortality records...</span>
+              </div>
+            ) : mortalityError ? (
+              <div className="text-center py-8">
+                <p className="text-red-600">
+                  Failed to load mortality records. Please try again.
+                </p>
+              </div>
+            ) : (
+              <>
+                {mortalityStats && (
+                  <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <div className="text-xs text-gray-600">Natural Deaths</div>
+                        <div className="text-lg font-semibold text-red-600">
+                          {mortalityStats.totalMortality || 0}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          (Excluding sales)
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-600">Current Birds</div>
+                        <div className="text-lg font-semibold text-green-600">
+                          {mortalityStats.currentBirds || 0}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          (After all losses)
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-600">Mortality Rate</div>
+                        <div className={`text-lg font-semibold ${Number(mortalityStats.mortalityRate) > 10 ? 'text-red-600' : Number(mortalityStats.mortalityRate) > 5 ? 'text-orange-600' : 'text-green-600'}`}>
+                          {mortalityStats.mortalityRate}%
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          (Natural only)
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-600">Total Records</div>
+                        <div className="text-lg font-semibold text-gray-900">
+                          {batchMortalities.length}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          (Disease/Natural)
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <DataTable
+                  data={batchMortalities}
+                  columns={mortalityColumns}
+                  showFooter={mortalityStats ? true : false}
+                  footerContent={
+                    mortalityStats ? (
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-gray-900">
+                          Total Natural Deaths
+                        </span>
+                        <span className="font-bold text-lg text-red-600">
+                          {mortalityStats.totalMortality || 0} birds
+                        </span>
+                      </div>
+                    ) : undefined
+                  }
+                  emptyMessage="No mortality records yet"
+                />
+              </>
             )}
           </CardContent>
         </Card>
@@ -3293,6 +3590,139 @@ export default function BatchDetailPage() {
             Close
           </Button>
         </ModalFooter>
+      </Modal>
+
+      {/* Mortality Modal */}
+      <Modal
+        isOpen={isMortalityModalOpen}
+        onClose={() => {
+          setIsMortalityModalOpen(false);
+          setEditingMortalityId(null);
+          setMortalityErrors({});
+        }}
+        title={editingMortalityId ? "Edit Mortality Record" : "Add Mortality Record"}
+      >
+        <form onSubmit={submitMortality}>
+          <ModalContent>
+            <div className="space-y-4">
+              <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                <p className="text-sm text-red-800">
+                  <strong>Note:</strong> Record only natural deaths and disease-related losses here. 
+                  Birds sold are automatically tracked in the Sales section.
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="mortalityDate">Date</Label>
+                  <Input
+                    id="mortalityDate"
+                    name="date"
+                    type="date"
+                    value={mortalityForm.date}
+                    onChange={updateMortalityField}
+                    required
+                  />
+                  {mortalityErrors.date && (
+                    <p className="text-xs text-red-600 mt-1">
+                      {mortalityErrors.date}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="mortalityCount">Number of Birds</Label>
+                  <Input
+                    id="mortalityCount"
+                    name="count"
+                    type="number"
+                    min="1"
+                    value={mortalityForm.count}
+                    onChange={updateMortalityField}
+                    placeholder="Enter count"
+                    required
+                  />
+                  {mortalityErrors.count && (
+                    <p className="text-xs text-red-600 mt-1">
+                      {mortalityErrors.count}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="mortalityReason">Reason (Optional)</Label>
+                <textarea
+                  id="mortalityReason"
+                  name="reason"
+                  value={mortalityForm.reason}
+                  onChange={updateMortalityField}
+                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  rows={3}
+                  placeholder="e.g., Disease, Heat stress, Predator attack, etc."
+                />
+              </div>
+
+              {mortalityStats && (
+                <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <h4 className="font-medium text-sm mb-2">Current Status</h4>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-gray-600">Current Birds:</span>
+                      <span className="ml-2 font-medium text-green-600">
+                        {mortalityStats.currentBirds}
+                      </span>
+                      <span className="ml-1 text-xs text-gray-500">
+                        (after all losses)
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Natural Deaths:</span>
+                      <span className="ml-2 font-medium text-red-600">
+                        {mortalityStats.totalMortality}
+                      </span>
+                      <span className="ml-1 text-xs text-gray-500">
+                        (excluding sales)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </ModalContent>
+
+          <ModalFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsMortalityModalOpen(false);
+                setEditingMortalityId(null);
+                setMortalityErrors({});
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={
+                createMortalityMutation.isPending ||
+                updateMortalityMutation.isPending
+              }
+            >
+              {createMortalityMutation.isPending ||
+              updateMortalityMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {editingMortalityId ? "Updating..." : "Creating..."}
+                </>
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </ModalFooter>
+        </form>
       </Modal>
 
       {/* Customer Transactions Modal */}

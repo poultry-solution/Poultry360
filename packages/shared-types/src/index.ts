@@ -912,7 +912,7 @@ export type CreateMortality = z.infer<typeof CreateMortalitySchema>;
 export const UpdateMortalitySchema = z.object({
   date: z.date().optional(),
   count: z.number().int().positive().optional(),
-  reason: z.string().nullable().optional(),
+  reason: z.string().optional().nullable(),
 });
 
 export type UpdateMortality = z.infer<typeof UpdateMortalitySchema>;
