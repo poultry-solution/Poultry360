@@ -13,6 +13,7 @@ import {
   Package,
   MessageCircle,
   ChevronLeft,
+  Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/store/store";
@@ -21,6 +22,7 @@ const navigation = [
   { name: "Home", href: "/dashboard/home", icon: Home },
   { name: "Farms", href: "/dashboard/farms", icon: Building2 },
   { name: "Batches", href: "/dashboard/batches", icon: Layers },
+  { name: "Sales Ledger", href: "/dashboard/sales-ledger", icon: Receipt },
   { name: "Feed Ledger", href: "/dashboard/dealer-ledger", icon: Users },
   {
     name: "Medical Supplier Ledger",

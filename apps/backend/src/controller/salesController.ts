@@ -1371,3 +1371,217 @@ export const createSalesCategory = async (
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+// ==================== CUSTOMER MANAGEMENT ====================
+
+// Create customer
+export const createCustomer = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const currentUserId = req.userId;
+    const { name, phone, category, address } = req.body;
+
+    if (!name || !phone) {
+      return res.status(400).json({ 
+        message: "Customer name and phone are required" 
+      });
+    }
+
+    // Check if customer already exists
+    const existingCustomer = await prisma.customer.findFirst({
+      where: {
+        userId: currentUserId,
+        OR: [
+          { name: name },
+          { phone: phone }
+        ],
+      },
+    });
+
+    if (existingCustomer) {
+      return res.status(400).json({
+        message: "Customer with this name or phone already exists",
+      });
+    }
+
+    // Create customer
+    const customer = await prisma.customer.create({
+      data: {
+        name,
+        phone,
+        category: category || null,
+        address: address || null,
+        balance: 0,
+        userId: currentUserId as string,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: customer,
+      message: "Customer created successfully",
+    });
+  } catch (error) {
+    console.error("Create customer error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// Update customer
+export const updateCustomer = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.userId;
+    const { name, phone, category, address } = req.body;
+
+    // Check if customer exists and belongs to user
+    const existingCustomer = await prisma.customer.findFirst({
+      where: {
+        id,
+        userId: currentUserId,
+      },
+    });
+
+    if (!existingCustomer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    // Check if name or phone conflicts with other customers
+    if (name || phone) {
+      const conflictCustomer = await prisma.customer.findFirst({
+        where: {
+          id: { not: id },
+          userId: currentUserId,
+          OR: [
+            ...(name ? [{ name: name }] : []),
+            ...(phone ? [{ phone: phone }] : []),
+          ],
+        },
+      });
+
+      if (conflictCustomer) {
+        return res.status(400).json({
+          message: "Customer with this name or phone already exists",
+        });
+      }
+    }
+
+    // Update customer
+    const updatedCustomer = await prisma.customer.update({
+      where: { id },
+      data: {
+        ...(name && { name }),
+        ...(phone && { phone }),
+        ...(category !== undefined && { category }),
+        ...(address !== undefined && { address }),
+      },
+    });
+
+    return res.json({
+      success: true,
+      data: updatedCustomer,
+      message: "Customer updated successfully",
+    });
+  } catch (error) {
+    console.error("Update customer error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// Delete customer
+export const deleteCustomer = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.userId;
+
+    // Check if customer exists and belongs to user
+    const existingCustomer = await prisma.customer.findFirst({
+      where: {
+        id,
+        userId: currentUserId,
+      },
+      include: {
+        sales: true,
+      },
+    });
+
+    if (!existingCustomer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    // Check if customer has any sales
+    if (existingCustomer.sales.length > 0) {
+      return res.status(400).json({
+        message: "Cannot delete customer with existing sales. Please delete sales first.",
+      });
+    }
+
+    // Delete customer
+    await prisma.customer.delete({
+      where: { id },
+    });
+
+    return res.json({
+      success: true,
+      message: "Customer deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete customer error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// Get customer by ID
+export const getCustomerById = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.userId;
+
+    const customer = await prisma.customer.findFirst({
+      where: {
+        id,
+        userId: currentUserId,
+      },
+      include: {
+        sales: {
+          select: {
+            id: true,
+            amount: true,
+            date: true,
+            isCredit: true,
+            paidAmount: true,
+            dueAmount: true,
+          },
+          orderBy: { date: "desc" },
+        },
+        transactions: {
+          orderBy: { date: "desc" },
+          take: 10,
+        },
+      },
+    });
+
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    return res.json({
+      success: true,
+      data: customer,
+    });
+  } catch (error) {
+    console.error("Get customer by ID error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
