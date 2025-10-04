@@ -107,11 +107,11 @@ export const BatchSaleModel = ({
                 className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
               >
                 <option value="Chicken_Meat">Chicken_Meat</option>
-                <option value="EGGS">EGGS</option>
-                <option value="CHICKS">CHICKS</option>
-                <option value="FEED">FEED</option>
-                <option value="MEDICINE">MEDICINE</option>
-                <option value="EQUIPMENT">EQUIPMENT</option>
+                {/* <option value="EGGS">EGGS</option> */}
+                {/* <option value="CHICKS">CHICKS</option> */}
+                {/* <option value="FEED">FEED</option> */}
+                {/* <option value="MEDICINE">MEDICINE</option> */}
+                {/* <option value="EQUIPMENT">EQUIPMENT</option> */}
                 <option value="OTHER">OTHER</option>
               </select>
             </div>

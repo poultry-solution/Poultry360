@@ -413,3 +413,66 @@ export const useGetCustomersForSales = (search?: string) => {
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 };
+
+// Get customer by ID
+export const useGetCustomer = (id: string) => {
+  return useQuery({
+    queryKey: ["customers", "detail", id],
+    queryFn: async () => {
+      const response = await axiosInstance.get(`/sales/customers/${id}`);
+      return response.data;
+    },
+    enabled: !!id,
+    staleTime: 2 * 60 * 1000,
+  });
+};
+
+// Create customer
+export const useCreateCustomer = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { name: string; phone: string; category?: string; address?: string }) => {
+      const response = await axiosInstance.post("/sales/customers", data);
+      return response.data;
+    },
+    onSuccess: () => {
+      // Invalidate customers list
+      queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
+    },
+  });
+};
+
+// Update customer
+export const useUpdateCustomer = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { name?: string; phone?: string; category?: string; address?: string } }) => {
+      const response = await axiosInstance.put(`/sales/customers/${id}`, data);
+      return response.data;
+    },
+    onSuccess: (data, variables) => {
+      // Invalidate customers list and specific customer
+      queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
+      queryClient.invalidateQueries({ queryKey: ["customers", "detail", variables.id] });
+    },
+  });
+};
+
+// Delete customer
+export const useDeleteCustomer = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await axiosInstance.delete(`/sales/customers/${id}`);
+      return response.data;
+    },
+    onSuccess: (data, id) => {
+      // Remove customer from cache and invalidate lists
+      queryClient.removeQueries({ queryKey: ["customers", "detail", id] });
+      queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
+    },
+  });
+};
