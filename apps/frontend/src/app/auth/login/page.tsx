@@ -16,21 +16,36 @@ export default function LoginPage() {
   const { isRedirecting, handleLoginRedirect } = useLoginRedirect();
 
   const [formData, setFormData] = useState({
+    // emailOrPhone will hold ONLY the 10 local digits; +977 is shown separately
     emailOrPhone: "",
     password: "",
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Sanitize phone to digits only and cap at 10 when editing the phone field
+    if (name === "emailOrPhone") {
+      const digitsOnly = value.replace(/\D/g, "").slice(0, 10);
+      setFormData((prev) => ({ ...prev, [name]: digitsOnly }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
     if (error) clearError();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Normalize Nepal phone number: always prefix with +977 and require 10 digits
+      const localDigits = formData.emailOrPhone.replace(/\D/g, "");
+      if (localDigits.length !== 10) {
+        // Do not proceed if not exactly 10 digits
+        return;
+      }
+      const normalizedPhone = `+977${localDigits}`;
+
       await login({
-        emailOrPhone: formData.emailOrPhone.trim(),
+        emailOrPhone: normalizedPhone,
         password: formData.password,
       });
       
@@ -40,12 +55,12 @@ export default function LoginPage() {
       if (user?.role === "DOCTOR") {
         // Store auth data for cross-port navigation
         console.log('🔍 Main app - storing auth data for doctor navigation');
+        const emailForAuth = (user as unknown as { email?: string })?.email ?? "";
         crossPortAuth.setAuthData({
           accessToken: accessToken!,
           user: {
             id: user.id,
             name: user.name,
-            email: user.email,
             phone: user.phone,
             role: user.role,
             companyName: user.companyName,
@@ -102,14 +117,25 @@ export default function LoginPage() {
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
-            <Label htmlFor="emailOrPhone">  Phone</Label>
-            <Input
-              id="emailOrPhone"
-              name="emailOrPhone"
-              value={formData.emailOrPhone}
-              onChange={handleInputChange}
-              required
-            />
+            <Label htmlFor="emailOrPhone">Phone</Label>
+            <div className="flex items-stretch gap-0">
+              <div className="flex items-center gap-2 rounded-l-md border border-r-0 bg-muted px-3 text-foreground">
+                <span aria-hidden>🇳🇵</span>
+                <span className="text-sm font-medium">+977</span>
+              </div>
+              <Input
+                id="emailOrPhone"
+                name="emailOrPhone"
+                value={formData.emailOrPhone}
+                onChange={handleInputChange}
+                inputMode="numeric"
+                pattern="[0-9]{10}"
+                placeholder="98XXXXXXXX"
+                className="rounded-l-none"
+                required
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">Enter the 10-digit Nepal number (without country code).</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>

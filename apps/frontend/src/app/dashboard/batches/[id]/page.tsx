@@ -1736,6 +1736,44 @@ export default function BatchDetailPage() {
         </div>
       </div>
 
+      {/* Prompt to close when batch is active but birds are 0 */}
+      {batch.status === "ACTIVE" && batch.currentChicks === 0 && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="text-sm font-semibold text-orange-900">
+                  Batch appears finished
+                </div>
+                <div className="text-sm text-orange-800">
+                  Current birds are 0. You can close the batch to finalize records and generate a summary.
+                </div>
+              </div>
+              <div className="shrink-0">
+                <Button
+                  variant="outline"
+                  className="text-orange-600 border-orange-200 hover:bg-orange-100"
+                  onClick={openCloseBatchModal}
+                  disabled={closeBatchMutation.isPending}
+                >
+                  {closeBatchMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Preparing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Close Batch
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader>

@@ -20,7 +20,7 @@ import {
   Skull,
 } from "lucide-react";
 import { useAuth } from "@/store/store";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,10 +39,8 @@ import {
   useGetSalesCategories,
   useGetCustomersForSales,
 } from "@/fetchers/sale/saleQueries";
+import { useCreateMortality } from "@/fetchers/mortality/mortalityQueries";
 import {
-  useCreateMortality,
-} from "@/fetchers/mortality/mortalityQueries";
-import { 
   useDashboardStats,
   useGetMoneyToReceiveDetails,
   useGetMoneyToPayDetails,
@@ -69,7 +67,10 @@ export default function DashboardPage() {
   const { data: batchesResponse } = useGetAllBatches();
   const { data: farmsResponse } = useGetUserFarms("all");
 
-  const activeBatches = batchesResponse?.data || [];
+  // Only keep ACTIVE batches globally so completed ones are never selectable
+  const activeBatches = (batchesResponse?.data || []).filter(
+    (batch: any) => batch.status === "ACTIVE"
+  );
   const farms = farmsResponse?.data || [];
 
   // Fetch categories and customers for quick forms
@@ -93,7 +94,7 @@ export default function DashboardPage() {
   // Inventory integration - using table data for better structure (same as batch detail page)
   const { data: inventoryResponse } = useGetInventoryTableData();
   const inventoryItems = inventoryResponse?.data || [];
-  
+
   // Filter inventory items by type (same as batch detail page)
   const feedInventory = inventoryItems.filter(
     (item: any) => item.itemType === "FEED"
@@ -162,8 +163,10 @@ export default function DashboardPage() {
   } = useDashboardStats();
 
   // Money details queries
-  const { data: moneyToReceiveData, isLoading: moneyToReceiveLoading } = useGetMoneyToReceiveDetails();
-  const { data: moneyToPayData, isLoading: moneyToPayLoading } = useGetMoneyToPayDetails();
+  const { data: moneyToReceiveData, isLoading: moneyToReceiveLoading } =
+    useGetMoneyToReceiveDetails();
+  const { data: moneyToPayData, isLoading: moneyToPayLoading } =
+    useGetMoneyToPayDetails();
 
   // Quick form states
   const [quickExpenseForm, setQuickExpenseForm] = useState({
@@ -204,10 +207,38 @@ export default function DashboardPage() {
     date: "",
   });
 
+  const { computedSaleAmount, paidAmount, dueAmount } = useMemo(() => {
+    const rate = parseFloat(quickSaleForm.rate || "0");
+    const quantity = parseFloat(quickSaleForm.quantity || "0");
+    const weight =
+      quickSaleForm.itemType === "Chicken_Meat"
+        ? parseFloat(quickSaleForm.weight || "0")
+        : 0;
+    const total = Number.isFinite(rate)
+      ? rate *
+        (quickSaleForm.itemType === "Chicken_Meat"
+          ? Number.isFinite(weight)
+            ? weight
+            : 0
+          : Number.isFinite(quantity)
+            ? quantity
+            : 0)
+      : 0;
+    const paid = quickSaleForm.remaining
+      ? parseFloat(quickSaleForm.balance || "0") || 0
+      : total;
+    const due = Math.max(0, total - paid);
+    return {
+      computedSaleAmount: isNaN(total) ? 0 : total,
+      paidAmount: isNaN(paid) ? 0 : paid,
+      dueAmount: isNaN(due) ? 0 : due,
+    };
+  }, [quickSaleForm]);
+
   const [quickMortalityForm, setQuickMortalityForm] = useState({
     farmId: "",
     batchId: "",
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString().split("T")[0],
     count: "",
     reason: "Natural Death",
   });
@@ -228,6 +259,16 @@ export default function DashboardPage() {
       }
     }
   }, [isQuickSaleOpen, quickSaleForm.date]);
+
+  // Ensure default date when quick expense modal opens
+  useEffect(() => {
+    if (isQuickExpenseOpen) {
+      if (!quickExpenseForm.date) {
+        const today = new Date().toISOString().split("T")[0];
+        setQuickExpenseForm((p) => ({ ...p, date: today }));
+      }
+    }
+  }, [isQuickExpenseOpen, quickExpenseForm.date]);
 
   // Ensure default date when mortality modal opens
   useEffect(() => {
@@ -322,7 +363,9 @@ export default function DashboardPage() {
   };
 
   const updateQuickMortalityField = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
   ) => {
     const { name, value } = e.target;
     setQuickMortalityForm((p) => ({ ...p, [name]: value }));
@@ -400,7 +443,10 @@ export default function DashboardPage() {
         errors.medicineRate = "Please enter rate";
 
       // Check if quantity exceeds available inventory
-      if (quickExpenseForm.selectedMedicineId && quickExpenseForm.medicineQuantity) {
+      if (
+        quickExpenseForm.selectedMedicineId &&
+        quickExpenseForm.medicineQuantity
+      ) {
         const selectedMedicine = medicineInventory.find(
           (medicine: any) => medicine.id === quickExpenseForm.selectedMedicineId
         );
@@ -541,7 +587,8 @@ export default function DashboardPage() {
     if (!quickSaleForm.rate) errors.rate = "Please enter rate";
     if (!quickSaleForm.quantity) errors.quantity = "Please enter quantity";
     if (quickSaleForm.itemType === "Chicken_Meat") {
-      if (!quickSaleForm.weight) errors.weight = "Weight required for Chicken_Meat";
+      if (!quickSaleForm.weight)
+        errors.weight = "Weight required for Chicken_Meat";
     }
     if (!quickSaleForm.date) errors.date = "Please select a date";
 
@@ -560,15 +607,18 @@ export default function DashboardPage() {
     // Customer validation for credit sales (align with batch page)
     if (quickSaleForm.remaining) {
       if (!quickSaleForm.customerId && !quickSaleForm.customerName) {
-        errors.customerName = "Please select existing customer or enter new customer name";
+        errors.customerName =
+          "Please select existing customer or enter new customer name";
       }
       if (!quickSaleForm.customerId && !quickSaleForm.contact) {
         errors.contact = "Contact number required for new customer";
       }
       // Validate that paid amount doesn't exceed total amount
-      const totalAmount = quickSaleForm.itemType === "Chicken_Meat"
-        ? Number(quickSaleForm.rate || 0) * Number(quickSaleForm.weight || 0)
-        : Number(quickSaleForm.rate || 0) * Number(quickSaleForm.quantity || 0);
+      const totalAmount =
+        quickSaleForm.itemType === "Chicken_Meat"
+          ? Number(quickSaleForm.rate || 0) * Number(quickSaleForm.weight || 0)
+          : Number(quickSaleForm.rate || 0) *
+            Number(quickSaleForm.quantity || 0);
       const paidAmount = Number(quickSaleForm.balance || 0);
       if (paidAmount > totalAmount) {
         errors.balance = `Paid amount cannot exceed total amount of ₹${totalAmount.toLocaleString()}`;
@@ -583,14 +633,20 @@ export default function DashboardPage() {
     try {
       // Calculate amount based on itemType (align with batch page)
       const quantity = parseFloat(quickSaleForm.quantity);
-      const weight = quickSaleForm.itemType === "Chicken_Meat" ? parseFloat(quickSaleForm.weight) : null;
+      const weight =
+        quickSaleForm.itemType === "Chicken_Meat"
+          ? parseFloat(quickSaleForm.weight)
+          : null;
       const unitPrice = parseFloat(quickSaleForm.rate);
-      const amount = quickSaleForm.itemType === "Chicken_Meat"
-        ? unitPrice * (weight || 0)
-        : unitPrice * quantity;
+      const amount =
+        quickSaleForm.itemType === "Chicken_Meat"
+          ? unitPrice * (weight || 0)
+          : unitPrice * quantity;
 
       const paidAmount = quickSaleForm.remaining
-        ? (quickSaleForm.balance ? parseFloat(quickSaleForm.balance) : 0)
+        ? quickSaleForm.balance
+          ? parseFloat(quickSaleForm.balance)
+          : 0
         : amount;
 
       const isCredit = quickSaleForm.remaining;
@@ -615,7 +671,11 @@ export default function DashboardPage() {
       // Handle customer data (same as batch detail page)
       if (quickSaleForm.customerId) {
         saleData.customerId = quickSaleForm.customerId;
-      } else if (quickSaleForm.remaining && quickSaleForm.customerName && quickSaleForm.contact) {
+      } else if (
+        quickSaleForm.remaining &&
+        quickSaleForm.customerName &&
+        quickSaleForm.contact
+      ) {
         saleData.customerData = {
           name: quickSaleForm.customerName,
           phone: quickSaleForm.contact,
@@ -700,7 +760,7 @@ export default function DashboardPage() {
       setQuickMortalityForm({
         farmId: quickMortalityForm.farmId, // Keep farm for smart persistence
         batchId: quickMortalityForm.batchId, // Keep batch for smart persistence
-        date: new Date().toISOString().split('T')[0],
+        date: new Date().toISOString().split("T")[0],
         count: "",
         reason: "Natural Death",
       });
@@ -815,9 +875,14 @@ export default function DashboardPage() {
                   <div>
                     <div className="font-medium">{batch.batchNumber}</div>
                     <div className="text-xs text-muted-foreground">
-                      {batch.farm.name} • Birds {batch.initialChicks.toLocaleString()} • Age {Math.floor(
-                        (new Date().getTime() - new Date(batch.startDate).getTime()) / (1000 * 60 * 60 * 24)
-                      )} days
+                      {batch.farm.name} • Birds{" "}
+                      {batch.initialChicks.toLocaleString()} • Age{" "}
+                      {Math.floor(
+                        (new Date().getTime() -
+                          new Date(batch.startDate).getTime()) /
+                          (1000 * 60 * 60 * 24)
+                      )}{" "}
+                      days
                     </div>
                   </div>
                   <div
@@ -844,7 +909,6 @@ export default function DashboardPage() {
           </Button>
         </ModalFooter>
       </Modal>
-
 
       <Modal
         isOpen={isReminderModalOpen}
@@ -1096,11 +1160,14 @@ export default function DashboardPage() {
                     className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                   >
                     <option value="">Select category</option>
-                    {expenseCategories.map((category: any) => (
-                      <option key={category.id} value={category.name}>
-                        {category.name}
-                      </option>
-                    ))}
+                    {/* dont show hatchery category as this not valid after batch is started  */}
+                    {expenseCategories
+                      .filter((category: any) => category.name !== "Hatchery")
+                      .map((category: any) => (
+                        <option key={category.id} value={category.name}>
+                          {category.name}
+                        </option>
+                      ))}
                   </select>
                   {quickFormErrors.category && (
                     <p className="text-xs text-red-600 mt-1">
@@ -1134,8 +1201,8 @@ export default function DashboardPage() {
                       <option value="">Select feed from inventory</option>
                       {feedInventory.map((feed: any) => (
                         <option key={feed.id} value={feed.id}>
-                          {feed.name} ({feed.quantity} {feed.unit} available)
-                          - ₹{feed.rate}/unit
+                          {feed.name} ({feed.quantity} {feed.unit} available) -
+                          ₹{feed.rate}/unit
                         </option>
                       ))}
                     </select>
@@ -1159,7 +1226,9 @@ export default function DashboardPage() {
                       value={quickExpenseForm.feedRate}
                       onChange={updateQuickExpenseField}
                       readOnly={!!quickExpenseForm.selectedFeedId}
-                      className={quickExpenseForm.selectedFeedId ? "bg-gray-50" : ""}
+                      className={
+                        quickExpenseForm.selectedFeedId ? "bg-gray-50" : ""
+                      }
                       placeholder={
                         quickExpenseForm.selectedFeedId
                           ? "Auto-filled from inventory"
@@ -1452,7 +1521,9 @@ export default function DashboardPage() {
                     placeholder="Rate per unit"
                   />
                   {quickFormErrors.rate && (
-                    <p className="text-xs text-red-600 mt-1">{quickFormErrors.rate}</p>
+                    <p className="text-xs text-red-600 mt-1">
+                      {quickFormErrors.rate}
+                    </p>
                   )}
                 </div>
                 <div>
@@ -1481,7 +1552,9 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {["Chicken_Meat", "FEED", "MEDICINE"].includes(quickSaleForm.itemType) && (
+              {["Chicken_Meat", "FEED", "MEDICINE"].includes(
+                quickSaleForm.itemType
+              ) && (
                 <div>
                   <Label htmlFor="weight">Weight (kg)</Label>
                   <Input
@@ -1498,11 +1571,18 @@ export default function DashboardPage() {
                       {quickFormErrors.weight}
                     </p>
                   )}
-                  {quickSaleForm.itemType === "Chicken_Meat" && quickSaleForm.quantity && quickSaleForm.weight && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Avg weight per bird: {(Number(quickSaleForm.weight) / Number(quickSaleForm.quantity)).toFixed(2)} kg
-                    </p>
-                  )}
+                  {quickSaleForm.itemType === "Chicken_Meat" &&
+                    quickSaleForm.quantity &&
+                    quickSaleForm.weight && (
+                      <p className="text-xs text-green-600 mt-1">
+                        Avg weight per bird:{" "}
+                        {(
+                          Number(quickSaleForm.weight) /
+                          Number(quickSaleForm.quantity)
+                        ).toFixed(2)}{" "}
+                        kg
+                      </p>
+                    )}
                 </div>
               )}
 
@@ -1521,108 +1601,139 @@ export default function DashboardPage() {
 
               {quickSaleForm.remaining && (
                 <div className="grid md:grid-cols-2 gap-4 border rounded-md p-4">
-                <div>
-                  <Label htmlFor="customerSearch">Search Customer</Label>
-                  <div className="relative">
-                    <Input
-                      id="customerSearch"
-                      name="customerSearch"
-                      value={customerSearch}
-                      onChange={(e) => setCustomerSearch(e.target.value)}
-                      placeholder="Search existing customers..."
-                      className="pr-8"
-                    />
-                    {customerSearch && (
-                      <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
-                        {customers.length > 0 ? (
-                          customers.map((customer: any) => (
-                            <div
-                              key={customer.id}
-                              className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                              onClick={() => {
-                                setQuickSaleForm(prev => ({
-                                  ...prev,
-                                  customerId: customer.id,
-                                  customerName: customer.name,
-                                  contact: customer.phone,
-                                  customerCategory: customer.category || "Chicken"
-                                }));
-                                setCustomerSearch("");
-                              }}
-                            >
-                              <div className="font-medium">{customer.name}</div>
-                              <div className="text-sm text-gray-500">{customer.phone}</div>
-                              {customer.category && (
-                                <div className="text-xs text-blue-600">{customer.category}</div>
-                              )}
+                  <div>
+                    <Label htmlFor="customerSearch">Search Customer</Label>
+                    <div className="relative">
+                      <Input
+                        id="customerSearch"
+                        name="customerSearch"
+                        value={customerSearch}
+                        onChange={(e) => setCustomerSearch(e.target.value)}
+                        placeholder="Search existing customers..."
+                        className="pr-8"
+                      />
+                      {customerSearch && (
+                        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
+                          {customers.length > 0 ? (
+                            customers.map((customer: any) => (
+                              <div
+                                key={customer.id}
+                                className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                onClick={() => {
+                                  setQuickSaleForm((prev) => ({
+                                    ...prev,
+                                    customerId: customer.id,
+                                    customerName: customer.name,
+                                    contact: customer.phone,
+                                    customerCategory:
+                                      customer.category || "Chicken",
+                                  }));
+                                  setCustomerSearch("");
+                                }}
+                              >
+                                <div className="font-medium">
+                                  {customer.name}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {customer.phone}
+                                </div>
+                                {customer.category && (
+                                  <div className="text-xs text-blue-600">
+                                    {customer.category}
+                                  </div>
+                                )}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="px-3 py-2 text-gray-500 text-sm">
+                              No customers found
                             </div>
-                          ))
-                        ) : (
-                          <div className="px-3 py-2 text-gray-500 text-sm">
-                            No customers found
-                          </div>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="customerName">Customer Name *</Label>
+                    <Input
+                      id="customerName"
+                      name="customerName"
+                      value={quickSaleForm.customerName}
+                      onChange={updateQuickSaleField}
+                      placeholder="Enter new customer name"
+                    />
+                    {quickFormErrors.customerName && (
+                      <p className="text-xs text-red-600 mt-1">
+                        {quickFormErrors.customerName}
+                      </p>
                     )}
                   </div>
-                </div>
-                <div>
-                  <Label htmlFor="customerName">Customer Name *</Label>
-                  <Input
-                    id="customerName"
-                    name="customerName"
-                    value={quickSaleForm.customerName}
-                    onChange={updateQuickSaleField}
-                    placeholder="Enter new customer name"
-                  />
-                  {quickFormErrors.customerName && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {quickFormErrors.customerName}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="contact">Contact *</Label>
-                  <Input
-                    id="contact"
-                    name="contact"
-                    value={quickSaleForm.contact}
-                    onChange={updateQuickSaleField}
-                    placeholder="Phone number"
-                    required
-                  />
-                  {quickFormErrors.contact && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {quickFormErrors.contact}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="customerCategory">Customer Category</Label>
-                  <select
-                    id="customerCategory"
-                    name="customerCategory"
-                    value={quickSaleForm.customerCategory || "Chicken"}
-                    onChange={updateQuickSaleField}
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                  >
-                    <option value="Chicken">Chicken</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="balance">Amount Paid (Optional)</Label>
-                  <Input
-                    id="balance"
-                    name="balance"
-                    type="number"
-                    value={quickSaleForm.balance}
-                    onChange={updateQuickSaleField}
-                    placeholder="Amount paid (leave empty for full credit)"
-                  />
-                </div>
+                  <div>
+                    <Label htmlFor="contact">Contact *</Label>
+                    <Input
+                      id="contact"
+                      name="contact"
+                      value={quickSaleForm.contact}
+                      onChange={updateQuickSaleField}
+                      placeholder="Phone number"
+                      required
+                    />
+                    {quickFormErrors.contact && (
+                      <p className="text-xs text-red-600 mt-1">
+                        {quickFormErrors.contact}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="customerCategory">Customer Category</Label>
+                    <select
+                      id="customerCategory"
+                      name="customerCategory"
+                      value={quickSaleForm.customerCategory || "Chicken"}
+                      onChange={updateQuickSaleField}
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                    >
+                      <option value="Chicken">Chicken</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="balance">Amount Paid (Optional)</Label>
+                    <Input
+                      id="balance"
+                      name="balance"
+                      type="number"
+                      value={quickSaleForm.balance}
+                      onChange={updateQuickSaleField}
+                      placeholder="Amount paid (leave empty for full credit)"
+                    />
+                  </div>
                 </div>
               )}
+
+              {/* Computed totals summary */}
+              <div className="border rounded-md p-3 bg-gray-50">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium">Total Amount</span>
+                  <span className="font-semibold">
+                    ₹{Number(computedSaleAmount).toLocaleString()}
+                  </span>
+                </div>
+                {quickSaleForm.remaining && (
+                  <div className="mt-1 text-xs text-gray-600 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span>Paid</span>
+                      <span>₹{Number(paidAmount).toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Due</span>
+                      <span className="text-red-600 font-medium">
+                        ₹{Number(dueAmount).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </ModalContent>
           <ModalFooter>
@@ -2031,7 +2142,8 @@ export default function DashboardPage() {
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
               <p>Loading customer details...</p>
             </div>
-          ) : moneyToReceiveData?.data && moneyToReceiveData.data.customers.length > 0 ? (
+          ) : moneyToReceiveData?.data &&
+            moneyToReceiveData.data.customers.length > 0 ? (
             <>
               {/* Table Container with Fixed Header */}
               <div className="flex-1 overflow-auto">
@@ -2040,50 +2152,87 @@ export default function DashboardPage() {
                     {/* Sticky Header */}
                     <thead className="sticky top-0 z-10">
                       <tr className="bg-gray-100">
-                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">Customer Name</th>
-                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">Phone</th>
-                        <th className="border border-gray-300 px-3 py-2 text-right font-semibold text-sm">Due Amount</th>
-                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold text-sm">Sales</th>
-                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">Recent Sales</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">
+                          Customer Name
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">
+                          Phone
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-right font-semibold text-sm">
+                          Due Amount
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold text-sm">
+                          Sales
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">
+                          Recent Sales
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {moneyToReceiveData.data.customers.map((customer, index) => (
-                        <tr key={customer.customerId} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                          <td className="border border-gray-300 px-3 py-2 font-medium text-sm">{customer.customerName}</td>
-                          <td className="border border-gray-300 px-3 py-2 text-gray-600 text-sm">{customer.customerPhone}</td>
-                          <td className="border border-gray-300 px-3 py-2 text-right font-bold text-green-600 text-sm">
-                            ₹{Number(customer.totalDueAmount).toLocaleString()}
-                          </td>
-                          <td className="border border-gray-300 px-3 py-2 text-center text-sm">{customer.salesCount}</td>
-                          <td className="border border-gray-300 px-3 py-2 text-sm">
-                            <div className="space-y-1 max-w-xs">
-                              {customer.sales.slice(0, 2).map((sale) => (
-                                <div key={sale.saleId} className="text-xs">
-                                  <div className="flex justify-between items-center">
-                                    <span className="font-medium truncate">{sale.categoryName}</span>
-                                    <span className="font-semibold text-green-600">₹{Number(sale.dueAmount).toLocaleString()}</span>
+                      {moneyToReceiveData.data.customers.map(
+                        (customer, index) => (
+                          <tr
+                            key={customer.customerId}
+                            className={
+                              index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                            }
+                          >
+                            <td className="border border-gray-300 px-3 py-2 font-medium text-sm">
+                              {customer.customerName}
+                            </td>
+                            <td className="border border-gray-300 px-3 py-2 text-gray-600 text-sm">
+                              {customer.customerPhone}
+                            </td>
+                            <td className="border border-gray-300 px-3 py-2 text-right font-bold text-green-600 text-sm">
+                              ₹
+                              {Number(customer.totalDueAmount).toLocaleString()}
+                            </td>
+                            <td className="border border-gray-300 px-3 py-2 text-center text-sm">
+                              {customer.salesCount}
+                            </td>
+                            <td className="border border-gray-300 px-3 py-2 text-sm">
+                              <div className="space-y-1 max-w-xs">
+                                {customer.sales.slice(0, 2).map((sale) => (
+                                  <div key={sale.saleId} className="text-xs">
+                                    <div className="flex justify-between items-center">
+                                      <span className="font-medium truncate">
+                                        {sale.categoryName}
+                                      </span>
+                                      <span className="font-semibold text-green-600">
+                                        ₹
+                                        {Number(
+                                          sale.dueAmount
+                                        ).toLocaleString()}
+                                      </span>
+                                    </div>
+                                    <div className="text-gray-500 truncate">
+                                      {sale.farmName} •{" "}
+                                      {new Date(sale.date).toLocaleDateString(
+                                        "en-IN"
+                                      )}
+                                    </div>
                                   </div>
-                                  <div className="text-gray-500 truncate">{sale.farmName} • {new Date(sale.date).toLocaleDateString('en-IN')}</div>
-                                </div>
-                              ))}
-                              {customer.sales.length > 2 && (
-                                <div className="text-xs text-gray-500 text-center py-1 bg-gray-100 rounded">
-                                  +{customer.sales.length - 2} more
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                                ))}
+                                {customer.sales.length > 2 && (
+                                  <div className="text-xs text-gray-500 text-center py-1 bg-gray-100 rounded">
+                                    +{customer.sales.length - 2} more
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
-              
+
               {/* Footer with Total Count */}
               <div className="border-t border-gray-200 px-4 py-2 bg-gray-50 text-sm text-gray-600">
-                Showing {moneyToReceiveData.data.customers.length} customers with outstanding payments
+                Showing {moneyToReceiveData.data.customers.length} customers
+                with outstanding payments
               </div>
             </>
           ) : (
@@ -2116,7 +2265,8 @@ export default function DashboardPage() {
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
               <p>Loading supplier details...</p>
             </div>
-          ) : moneyToPayData?.data && moneyToPayData.data.suppliers.length > 0 ? (
+          ) : moneyToPayData?.data &&
+            moneyToPayData.data.suppliers.length > 0 ? (
             <>
               {/* Table Container with Fixed Header */}
               <div className="flex-1 overflow-auto">
@@ -2125,17 +2275,34 @@ export default function DashboardPage() {
                     {/* Sticky Header */}
                     <thead className="sticky top-0 z-10">
                       <tr className="bg-gray-100">
-                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">Supplier Name</th>
-                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">Contact</th>
-                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">Address</th>
-                        <th className="border border-gray-300 px-3 py-2 text-right font-semibold text-sm">Outstanding</th>
-                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold text-sm">Trans.</th>
-                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">Recent Transactions</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">
+                          Supplier Name
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">
+                          Contact
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">
+                          Address
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-right font-semibold text-sm">
+                          Outstanding
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold text-sm">
+                          Trans.
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">
+                          Recent Transactions
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {moneyToPayData.data.suppliers.map((supplier, index) => (
-                        <tr key={supplier.supplierId} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                        <tr
+                          key={supplier.supplierId}
+                          className={
+                            index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                          }
+                        >
                           <td className="border border-gray-300 px-3 py-2 font-medium text-sm">
                             <div className="flex items-center gap-2">
                               <span>{supplier.supplierName}</span>
@@ -2144,30 +2311,54 @@ export default function DashboardPage() {
                               </span>
                             </div>
                           </td>
-                          <td className="border border-gray-300 px-3 py-2 text-gray-600 text-sm">{supplier.supplierContact}</td>
+                          <td className="border border-gray-300 px-3 py-2 text-gray-600 text-sm">
+                            {supplier.supplierContact}
+                          </td>
                           <td className="border border-gray-300 px-3 py-2 text-gray-600 text-xs max-w-32 truncate">
                             {supplier.supplierAddress || "-"}
                           </td>
                           <td className="border border-gray-300 px-3 py-2 text-right font-bold text-red-600 text-sm">
-                            ₹{Number(supplier.outstandingAmount).toLocaleString()}
+                            ₹
+                            {Number(
+                              supplier.outstandingAmount
+                            ).toLocaleString()}
                           </td>
-                          <td className="border border-gray-300 px-3 py-2 text-center text-sm">{supplier.totalTransactions}</td>
+                          <td className="border border-gray-300 px-3 py-2 text-center text-sm">
+                            {supplier.totalTransactions}
+                          </td>
                           <td className="border border-gray-300 px-3 py-2 text-sm">
                             <div className="space-y-1 max-w-xs">
-                              {supplier.recentTransactions.slice(0, 2).map((transaction) => (
-                                <div key={transaction.transactionId} className="text-xs">
-                                  <div className="flex justify-between items-center">
-                                    <span className="font-medium truncate">
-                                      {transaction.type}
-                                      {transaction.itemName && <span className="text-gray-500"> - {transaction.itemName}</span>}
-                                    </span>
-                                    <span className="font-semibold text-red-600">₹{Number(transaction.amount).toLocaleString()}</span>
+                              {supplier.recentTransactions
+                                .slice(0, 2)
+                                .map((transaction) => (
+                                  <div
+                                    key={transaction.transactionId}
+                                    className="text-xs"
+                                  >
+                                    <div className="flex justify-between items-center">
+                                      <span className="font-medium truncate">
+                                        {transaction.type}
+                                        {transaction.itemName && (
+                                          <span className="text-gray-500">
+                                            {" "}
+                                            - {transaction.itemName}
+                                          </span>
+                                        )}
+                                      </span>
+                                      <span className="font-semibold text-red-600">
+                                        ₹
+                                        {Number(
+                                          transaction.amount
+                                        ).toLocaleString()}
+                                      </span>
+                                    </div>
+                                    <div className="text-gray-500 truncate">
+                                      {new Date(
+                                        transaction.date
+                                      ).toLocaleDateString("en-IN")}
+                                    </div>
                                   </div>
-                                  <div className="text-gray-500 truncate">
-                                    {new Date(transaction.date).toLocaleDateString('en-IN')}
-                                  </div>
-                                </div>
-                              ))}
+                                ))}
                               {supplier.recentTransactions.length > 2 && (
                                 <div className="text-xs text-gray-500 text-center py-1 bg-gray-100 rounded">
                                   +{supplier.recentTransactions.length - 2} more
@@ -2181,10 +2372,11 @@ export default function DashboardPage() {
                   </table>
                 </div>
               </div>
-              
+
               {/* Footer with Total Count */}
               <div className="border-t border-gray-200 px-4 py-2 bg-gray-50 text-sm text-gray-600">
-                Showing {moneyToPayData.data.suppliers.length} suppliers with outstanding payments
+                Showing {moneyToPayData.data.suppliers.length} suppliers with
+                outstanding payments
               </div>
             </>
           ) : (
@@ -2227,7 +2419,8 @@ export default function DashboardPage() {
               {/* Smart persistence info */}
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
                 <p className="text-sm text-blue-700">
-                  💡 <strong>Smart Form:</strong> Farm and batch selections are remembered for your next mortality record to save time!
+                  💡 <strong>Smart Form:</strong> Farm and batch selections are
+                  remembered for your next mortality record to save time!
                 </p>
               </div>
 
@@ -2342,8 +2535,9 @@ export default function DashboardPage() {
 
               <div className="p-4 bg-red-50 rounded-lg border border-red-200">
                 <p className="text-sm text-red-800">
-                  <strong>Note:</strong> Record only natural deaths and disease-related losses here. 
-                  Birds sold are automatically tracked in the Sales section.
+                  <strong>Note:</strong> Record only natural deaths and
+                  disease-related losses here. Birds sold are automatically
+                  tracked in the Sales section.
                 </p>
               </div>
             </div>
