@@ -81,7 +81,10 @@ export class SocketService {
       // Join conversation room
       socket.on('join_conversation', async (data: { conversationId: string }) => {
         try {
+          console.log(`🚪 User ${socket.userId} (${socket.userName}) attempting to join conversation ${data.conversationId}`);
+
           if (!socket.userId || !socket.userRole) {
+            console.error('❌ Join failed: No authentication');
             socket.emit('error', { message: 'Authentication required' });
             return;
           }
@@ -100,11 +103,13 @@ export class SocketService {
           });
 
           if (!conversation) {
+            console.error(`❌ Conversation ${conversationId} not found or access denied for user ${socket.userId}`);
             socket.emit('error', { message: 'Conversation not found or access denied' });
             return;
           }
 
           const userRole = conversation.farmerId === socket.userId ? 'FARMER' : 'DOCTOR';
+          console.log(`👤 User ${socket.userId} is ${userRole} in conversation ${conversationId}`);
           
           const result = await this.roomService.joinRoom(
             socket.id,
@@ -114,16 +119,19 @@ export class SocketService {
           );
 
           if (result.success) {
+            console.log(`✅ User ${socket.userId} successfully joined conversation ${conversationId}`);
             socket.emit('joined_conversation', { conversationId });
             
             // Send recent messages to the user
             const messages = await messageService.getMessages(conversationId, socket.userId, 1, 50);
+            console.log(`📜 Sending ${messages.messages?.length || 0} messages to user ${socket.userId}`);
             socket.emit('conversation_history', messages);
           } else {
+            console.error(`❌ Join failed for user ${socket.userId}: ${result.error}`);
             socket.emit('error', { message: result.error });
           }
         } catch (error) {
-          console.error('Error joining conversation:', error);
+          console.error('❌ Error joining conversation:', error);
           socket.emit('error', { message: 'Failed to join conversation' });
         }
       });
@@ -131,6 +139,12 @@ export class SocketService {
       // Send message
       socket.on('send_message', async (data: { conversationId: string; text: string; messageType?: string }) => {
         try {
+          console.log(`📨 Received send_message from ${socket.userId} (${socket.userName}):`, {
+            conversationId: data.conversationId,
+            textLength: data.text?.length,
+            socketId: socket.id
+          });
+
           if (!socket.userId) {
             socket.emit('error', { message: 'Authentication required' });
             return;
@@ -149,16 +163,20 @@ export class SocketService {
           }
 
           // Create message in database
+          console.log(`💾 Creating message in database for conversation ${conversationId}`);
           const message = await messageService.createMessage({
             conversationId,
             senderId: socket.userId,
             text: text.trim(),
             messageType: messageType as any
           });
+          console.log(`✅ Message created in DB with ID: ${message.id}`);
 
           // Broadcast message to room
+          console.log(`📡 Broadcasting message ${message.id} to conversation ${conversationId}`);
           await this.roomService.broadcastMessage(conversationId, {
             id: message.id,
+            conversationId: conversationId,  // ✅ Add conversationId for frontend matching
             text: message.text,
             senderId: message.sender.id,
             senderName: message.sender.name,
@@ -168,9 +186,10 @@ export class SocketService {
           });
 
           // Confirm message sent
+          console.log(`✅ Confirming message_sent to sender ${socket.userId}`);
           socket.emit('message_sent', { messageId: message.id });
         } catch (error) {
-          console.error('Error sending message:', error);
+          console.error('❌ Error sending message:', error);
           socket.emit('error', { message: 'Failed to send message' });
         }
       });

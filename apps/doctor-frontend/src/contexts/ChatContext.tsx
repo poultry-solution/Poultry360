@@ -94,16 +94,17 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
   const handleNewMessage = useCallback(
     (socketMessage: any) => {
-      // Debug logging for development
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Doctor] Received new message via socket:', {
-          messageId: socketMessage.id,
-          conversationId: socketMessage.conversationId,
-          currentConversationId,
-          senderRole: socketMessage.senderRole,
-          text: socketMessage.text?.substring(0, 50) + '...'
-        });
-      }
+      // Always log message reception for debugging
+      console.log('📨 [Doctor] handleNewMessage triggered:', {
+        messageId: socketMessage.id,
+        conversationId: socketMessage.conversationId,
+        currentConversationId,
+        senderRole: socketMessage.senderRole,
+        senderId: socketMessage.senderId,
+        senderName: socketMessage.senderName,
+        text: socketMessage.text?.substring(0, 50) + '...',
+        timestamp: new Date().toISOString()
+      });
       
       // Transform socket message to Message format
       const message: Message = {
@@ -122,20 +123,19 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       };
 
       setMessages((prev) => {
-        // Only add messages that belong to the current conversation
-        if (message.conversationId !== currentConversationId) {
-          return prev;
-        }
-        
         // Check if this is a real message replacing an optimistic one
         const existingOptimisticIndex = prev.findIndex((m) => 
           m.id.startsWith('temp-') && 
           m.text === message.text && 
-          m.sender.id === message.sender.id
+          m.conversationId === message.conversationId
         );
         
         if (existingOptimisticIndex !== -1) {
-          // Replace optimistic message with real one
+          console.log('🔄 [Doctor] Replacing optimistic message with real:', {
+            optimisticId: prev[existingOptimisticIndex].id,
+            realId: message.id,
+            text: message.text.substring(0, 30) + '...'
+          });
           const newMessages = [...prev];
           newMessages[existingOptimisticIndex] = message;
           return newMessages;
@@ -143,15 +143,25 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         
         // Avoid duplicates for real messages
         if (prev.some((m) => m.id === message.id)) {
-          if (process.env.NODE_ENV === 'development') {
-          console.log('[Doctor] Duplicate message rejected:', message.id);
-        }
+          console.log('⚠️ [Doctor] Duplicate message rejected:', message.id);
           return prev;
         }
         
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Doctor] Adding message to context:', message.id, 'Total:', prev.length + 1);
+        // Only add messages that belong to the current conversation
+        if (message.conversationId !== currentConversationId) {
+          console.log('❌ [Doctor] Message not for current conversation:', {
+            messageConversationId: message.conversationId,
+            currentConversationId,
+            messageId: message.id
+          });
+          return prev;
         }
+        
+        console.log('✅ [Doctor] Adding NEW message to state:', {
+          messageId: message.id,
+          senderRole: message.sender.role,
+          totalAfter: prev.length + 1
+        });
         return [...prev, message];
       });
 
@@ -274,7 +284,17 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         setIsLoading(true);
         setError(null);
 
-        await socketService.current.connect(accessToken);
+        console.log('🔌 [Doctor] Attempting socket connection...', {
+        userId: user?.id,
+        userName: user?.name,
+        userRole: user?.role
+      });
+      
+      await socketService.current.connect(accessToken);
+
+        console.log('✅ [Doctor] Socket connected successfully:', {
+          socketId: socketService.current.getSocketId()
+        });
 
         // Debounce connection state to prevent rapid changes
         if (connectionTimeoutRef.current) {
@@ -282,9 +302,11 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         }
         connectionTimeoutRef.current = setTimeout(() => {
           setIsConnected(true);
+          console.log('✅ [Doctor] Connection state set to true');
         }, 100);
 
         // Set up event listeners
+        console.log('📡 [Doctor] Setting up event listeners...');
         socketService.current.on("new_message", handleNewMessage);
         socketService.current.on("user_joined", handleUserJoined);
         socketService.current.on("user_left", handleUserLeft);
@@ -327,14 +349,27 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
   const joinConversation = useCallback(
     (conversationId: string) => {
-      if (!isConnected) return;
+      console.log('🔵 [Doctor] joinConversation called:', {
+        conversationId,
+        isConnected,
+        socketId: socketService.current.getSocketId(),
+        userId: user?.id,
+        userName: user?.name
+      });
+      
+      if (!isConnected) {
+        console.warn('⚠️ [Doctor] Cannot join - socket not connected');
+        return;
+      }
 
       // Clear old messages when switching conversations
       setMessages([]);
       setCurrentConversationId(conversationId);
       socketService.current.joinConversation(conversationId);
+      
+      console.log('✅ [Doctor] Join conversation emitted:', conversationId);
     },
-    [isConnected]
+    [isConnected, user]
   );
 
   const leaveConversation = useCallback(() => {
@@ -348,15 +383,80 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
   const sendMessage = useCallback(
     (text: string, messageType: "TEXT" | "IMAGE" | "FILE" = "TEXT") => {
-      if (!currentConversationId || !isConnected || !text.trim()) return;
+      console.log('📤 [Doctor] sendMessage called:', {
+        conversationId: currentConversationId,
+        isConnected,
+        textLength: text.trim().length,
+        messageType,
+        userId: user?.id,
+        socketId: socketService.current.getSocketId()
+      });
+      
+      if (!currentConversationId || !isConnected || !text.trim()) {
+        console.warn('⚠️ [Doctor] Cannot send message:', {
+          hasConversationId: !!currentConversationId,
+          isConnected,
+          hasText: !!text.trim()
+        });
+        return;
+      }
 
+      // Create optimistic message for immediate feedback
+      const optimisticMessage: Message = {
+        id: `temp-${Date.now()}-${Math.random()}`,
+        conversationId: currentConversationId,
+        text: text.trim(),
+        messageType,
+        createdAt: new Date().toISOString(),
+        read: false,
+        edited: false,
+        sender: {
+          id: user?.id || '',
+          name: user?.name || '',
+          role: user?.role || 'DOCTOR'
+        }
+      };
+
+      console.log('💬 [Doctor] Created optimistic message:', {
+        id: optimisticMessage.id,
+        conversationId: optimisticMessage.conversationId,
+        text: optimisticMessage.text.substring(0, 30) + '...'
+      });
+
+      // Add optimistic message to local state immediately
+      setMessages((prev) => {
+        console.log('📝 [Doctor] Adding optimistic message to state. Current messages:', prev.length);
+        return [...prev, optimisticMessage];
+      });
+
+      // Send message via socket
+      console.log('🚀 [Doctor] Emitting send_message event to socket');
       socketService.current.sendMessage(
         currentConversationId,
         text.trim(),
         messageType
       );
+
+      // Set timeout to remove optimistic message if no confirmation received
+      setTimeout(() => {
+        setMessages((prev) => {
+          const messageIndex = prev.findIndex(m => m.id === optimisticMessage.id);
+          if (messageIndex !== -1) {
+            console.warn('⏰ [Doctor] Message timeout - marking as failed:', optimisticMessage.id);
+            const newMessages = [...prev];
+            newMessages[messageIndex] = {
+              ...newMessages[messageIndex],
+              text: `${newMessages[messageIndex].text} (Failed to send)`
+            };
+            return newMessages;
+          } else {
+            console.log('✅ [Doctor] Message confirmed (optimistic removed):', optimisticMessage.id);
+          }
+          return prev;
+        });
+      }, 10000); // 10 second timeout
     },
-    [currentConversationId, isConnected]
+    [currentConversationId, isConnected, user]
   );
 
   const startTyping = useCallback(() => {
