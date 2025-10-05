@@ -40,11 +40,12 @@ import {
   useGetCustomersForSales,
 } from "@/fetchers/sale/saleQueries";
 import { useCreateMortality } from "@/fetchers/mortality/mortalityQueries";
-import {
+import { 
   useDashboardStats,
   useGetMoneyToReceiveDetails,
   useGetMoneyToPayDetails,
 } from "@/fetchers/dashboard/dashboardQueries";
+import { TodayExpenses } from "@/components/today-expenses";
 
 import {
   useGetReminderDashboard,
@@ -1162,7 +1163,12 @@ export default function DashboardPage() {
                     <option value="">Select category</option>
                     {/* dont show hatchery category as this not valid after batch is started  */}
                     {expenseCategories
-                      .filter((category: any) => category.name !== "Hatchery")
+                      .filter((category: any) => {
+                        return (
+                          category.name !== "Hatchery" &&
+                          category.name !== "Equipment" 
+                        );
+                      })
                       .map((category: any) => (
                         <option key={category.id} value={category.name}>
                           {category.name}
@@ -1841,6 +1847,8 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Today's Expenses */}
 
       {/* Money Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3">
@@ -2571,6 +2579,8 @@ export default function DashboardPage() {
           </ModalFooter>
         </form>
       </Modal>
+      <TodayExpenses />
+
     </div>
   );
 }
