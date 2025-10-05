@@ -121,14 +121,10 @@ export const useAuthStore = create<AuthState>()(
             const transformedUser: User = {
               id: user.id,
               name: user.name,
-              email: user.email,
               phone: user.phone,
               companyName: user.companyName,
               companyFarmLocation: user.companyFarmLocation,
-              companyFarmNumber: user.companyFarmNumber,
-              companyFarmCapacity: user.companyFarmCapacity,
               role: user.role,
-              gender: user.gender || "OTHER",
               status: user.status || "ACTIVE",
               managedFarms: user.managedFarms || [],
             };
@@ -268,14 +264,10 @@ export const useAuthStore = create<AuthState>()(
               const transformedUser: User = {
                 id: response.user.id,
                 name: response.user.name,
-                email: response.user.email,
                 phone: response.user.phone,
                 companyName: response.user.companyName,
                 companyFarmLocation: response.user.companyFarmLocation,
-                companyFarmNumber: response.user.companyFarmNumber,
-                companyFarmCapacity: response.user.companyFarmCapacity,
                 role: response.user.role,
-                gender: response.user.gender || "OTHER",
                 status: response.user.status || "ACTIVE",
                 managedFarms: response.user.managedFarms || [],
               };
@@ -324,14 +316,10 @@ export const useAuthStore = create<AuthState>()(
             const transformedUser: User = {
               id: userData.id,
               name: userData.name,
-              email: userData.email,
               phone: userData.phone,
               companyName: userData.companyName,
               companyFarmLocation: userData.companyFarmLocation,
-              companyFarmNumber: userData.companyFarmNumber,
-              companyFarmCapacity: userData.companyFarmCapacity,
               role: userData.role,
-              gender: userData.gender || "OTHER",
               status: userData.status || "ACTIVE",
               managedFarms: userData.managedFarms || [],
             };
@@ -436,8 +424,7 @@ export const useAuthStore = create<AuthState>()(
             accessToken,
             user: {
               id: user.id,
-              name: user.name,
-              email: user.email,
+              name: user.name,  
               phone: user.phone,
               role: user.role,
               companyName: user.companyName,

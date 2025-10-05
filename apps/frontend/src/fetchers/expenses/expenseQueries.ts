@@ -87,7 +87,8 @@ export const useGetExpenseCategories = (type?: CategoryType) => {
       const response = await axiosInstance.get("/expenses/categories", {
         params: type ? { type } : undefined,
       });
-      return response.data;
+      
+      return response.data || [];
     },
   });
 };

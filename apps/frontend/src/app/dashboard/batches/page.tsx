@@ -326,6 +326,23 @@ export default function BatchesPage() {
       {/* Batches List */}
       {!batchesLoading && !batchesError && (
         <div className="grid gap-4">
+          {/* Suggest closing batches with 0 current chicks */}
+          {activeBatches.some((b: BatchResponse) => (b as any).currentChicks === 0) && (
+            <Card className="border-orange-200 bg-orange-50">
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-sm font-semibold text-orange-900">
+                      Some batches appear finished
+                    </div>
+                    <div className="text-sm text-orange-800">
+                      One or more active batches have 0 current birds. Consider closing them to finalize records.
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {batches.length === 0 ? (
             <div className="text-center py-8">
               <Layers className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
