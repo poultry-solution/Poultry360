@@ -929,7 +929,7 @@ export default function BatchDetailPage() {
   const [mortalityForm, setMortalityForm] = useState({
     date: "",
     count: "",
-    reason: "",
+    reason: "Natural Death",
   });
   const [mortalityErrors, setMortalityErrors] = useState<Record<string, string>>({});
 
@@ -945,7 +945,7 @@ export default function BatchDetailPage() {
     setMortalityForm({
       date: new Date().toISOString().split("T")[0],
       count: "",
-      reason: "",
+      reason: "Natural Death",
     });
     setMortalityErrors({});
     setIsMortalityModalOpen(true);
@@ -956,7 +956,7 @@ export default function BatchDetailPage() {
     setMortalityForm({
       date: row.date ? new Date(row.date).toISOString().slice(0, 10) : "",
       count: String(row.count),
-      reason: row.reason || "",
+      reason: row.reason || "Natural Death",
     });
     setMortalityErrors({});
     setIsMortalityModalOpen(true);
@@ -998,7 +998,7 @@ export default function BatchDetailPage() {
           ? new Date(mortalityForm.date)
           : new Date(),
         count: Number(mortalityForm.count),
-        reason: mortalityForm.reason || undefined,
+        reason: mortalityForm.reason || "Natural Death",
         batchId: batch?.id!,
       };
 
@@ -1223,6 +1223,7 @@ export default function BatchDetailPage() {
   const perBirdRevenue = batch.initialChicks
     ? salesTotal / batch.initialChicks
     : 0;
+
   const perBirdExpense = batch.initialChicks
     ? expensesTotal / batch.initialChicks
     : 0;
@@ -1485,7 +1486,7 @@ export default function BatchDetailPage() {
           variant="secondary"
           className="bg-red-100 text-red-800 border-red-200"
         >
-          {value || "Not specified"}
+          {value || "Natural Death"}
         </Badge>
       ),
     }),
@@ -2494,6 +2495,7 @@ export default function BatchDetailPage() {
                       </span>
                     </div>
                   )}
+
                   {analytics?.totalSalesQuantity &&
                     analytics.totalSalesQuantity > 0 && (
                       <div className="flex justify-between">
@@ -2508,6 +2510,7 @@ export default function BatchDetailPage() {
                         </span>
                       </div>
                     )}
+                    
                   {analytics?.totalSalesWeight &&
                     analytics.totalSalesWeight > 0 && (
                       <div className="flex justify-between">
@@ -2522,7 +2525,7 @@ export default function BatchDetailPage() {
                         </span>
                       </div>
                     )}
-                  {analytics?.totalFeedConsumption &&
+                  {/* {analytics?.totalFeedConsumption &&
                     analytics.totalFeedConsumption > 0 && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">
@@ -2532,7 +2535,7 @@ export default function BatchDetailPage() {
                           {analytics.totalFeedConsumption.toFixed(2)} kg
                         </span>
                       </div>
-                    )}
+                    )} */}
                   {analytics?.daysActive && analytics.daysActive > 0 && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
