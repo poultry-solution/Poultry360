@@ -117,14 +117,26 @@ class SocketService {
 
   private emitToListeners(event: string, data: any): void {
     const listeners = this.eventListeners.get(event);
+    console.log(`⬇️ [Doctor Socket] Received ${event}:`, {
+      hasListeners: !!listeners,
+      listenerCount: listeners?.size || 0,
+      data: event === 'new_message' ? {
+        messageId: data?.id,
+        conversationId: data?.conversationId,
+        senderRole: data?.senderRole
+      } : data
+    });
+    
     if (listeners) {
       listeners.forEach((listener) => {
         try {
           listener(data);
         } catch (error) {
-          console.error(`Error in event listener for ${event}:`, error);
+          console.error(`❌ [Doctor Socket] Error in event listener for ${event}:`, error);
         }
       });
+    } else {
+      console.warn(`⚠️ [Doctor Socket] No listeners registered for ${event}`);
     }
   }
 
@@ -139,9 +151,11 @@ class SocketService {
     }
     this.eventListeners.get(event)!.add(listener);
 
-    // If socket is already connected, set up the listener
-    if (this.socket && this.isConnected) {
-      this.socket.on(event as string, listener as any);
+    // Always register with socket immediately if connected
+    if (this.socket) {
+      this.socket.on(event as string, (data: any) => {
+        this.emitToListeners(event, data);
+      });
     }
   }
 
@@ -161,19 +175,29 @@ class SocketService {
 
   emit<K extends keyof SocketEvents>(event: K, data: SocketEvents[K]): void {
     if (this.socket && this.isConnected) {
+      console.log(`⬆️ [Doctor Socket] Emitting ${event}:`, data);
       this.socket.emit(event, data);
     } else {
-      console.warn(`Cannot emit ${event}: Socket not connected`);
+      console.warn(`⚠️ [Doctor Socket] Cannot emit ${event}: Socket not connected`, {
+        hasSocket: !!this.socket,
+        isConnected: this.isConnected
+      });
     }
   }
 
   // ==================== CHAT SPECIFIC METHODS ====================
 
   joinConversation(conversationId: string): void {
+    console.log('🚪 [Doctor Socket] Emitting join_conversation:', {
+      conversationId,
+      socketId: this.socket?.id,
+      isConnected: this.isConnected
+    });
     this.emit("join_conversation", { conversationId });
   }
 
   leaveConversation(conversationId: string): void {
+    console.log('👋 [Doctor Socket] Emitting leave_conversation:', conversationId);
     this.emit("leave_conversation", { conversationId });
   }
 
@@ -182,6 +206,12 @@ class SocketService {
     text: string,
     messageType: "TEXT" | "IMAGE" | "FILE" = "TEXT"
   ): void {
+    console.log('📮 [Doctor Socket] Emitting send_message:', {
+      conversationId,
+      textLength: text.length,
+      messageType,
+      socketId: this.socket?.id
+    });
     this.emit("send_message", { conversationId, text, messageType });
   }
 

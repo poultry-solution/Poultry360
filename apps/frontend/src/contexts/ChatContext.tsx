@@ -94,16 +94,17 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
   const handleNewMessage = useCallback(
     (socketMessage: any) => {
-      // Debug logging for development
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Farmer] Received new message via socket:', {
-          messageId: socketMessage.id,
-          conversationId: socketMessage.conversationId,
-          currentConversationId,
-          senderRole: socketMessage.senderRole,
-          text: socketMessage.text?.substring(0, 50) + '...'
-        });
-      }
+      // Always log message reception for debugging
+      console.log('📨 [Farmer] handleNewMessage triggered:', {
+        messageId: socketMessage.id,
+        conversationId: socketMessage.conversationId,
+        currentConversationId,
+        senderRole: socketMessage.senderRole,
+        senderId: socketMessage.senderId,
+        senderName: socketMessage.senderName,
+        text: socketMessage.text?.substring(0, 50) + '...',
+        timestamp: new Date().toISOString()
+      });
       
       // Transform socket message to Message format
       const message: Message = {
@@ -122,20 +123,19 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       };
 
       setMessages((prev) => {
-        // Only add messages that belong to the current conversation
-        if (message.conversationId !== currentConversationId) {
-          return prev;
-        }
-        
         // Check if this is a real message replacing an optimistic one
         const existingOptimisticIndex = prev.findIndex((m) => 
           m.id.startsWith('temp-') && 
           m.text === message.text && 
-          m.sender.id === message.sender.id
+          m.conversationId === message.conversationId
         );
         
         if (existingOptimisticIndex !== -1) {
-          // Replace optimistic message with real one
+          console.log('🔄 [Farmer] Replacing optimistic message with real:', {
+            optimisticId: prev[existingOptimisticIndex].id,
+            realId: message.id,
+            text: message.text.substring(0, 30) + '...'
+          });
           const newMessages = [...prev];
           newMessages[existingOptimisticIndex] = message;
           return newMessages;
@@ -143,15 +143,25 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         
         // Avoid duplicates for real messages
         if (prev.some((m) => m.id === message.id)) {
-          if (process.env.NODE_ENV === 'development') {
-          console.log('[Farmer] Duplicate message rejected:', message.id);
-        }
+          console.log('⚠️ [Farmer] Duplicate message rejected:', message.id);
           return prev;
         }
         
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Farmer] Adding message to context:', message.id, 'Total:', prev.length + 1);
+        // Only add messages that belong to the current conversation
+        if (message.conversationId !== currentConversationId) {
+          console.log('❌ [Farmer] Message not for current conversation:', {
+            messageConversationId: message.conversationId,
+            currentConversationId,
+            messageId: message.id
+          });
+          return prev;
         }
+        
+        console.log('✅ [Farmer] Adding NEW message to state:', {
+          messageId: message.id,
+          senderRole: message.sender.role,
+          totalAfter: prev.length + 1
+        });
         return [...prev, message];
       });
 
@@ -279,7 +289,17 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         setIsLoading(true);
         setError(null);
 
-        await socketService.current.connect(accessToken);
+        console.log('🔌 [Farmer] Attempting socket connection...', {
+        userId: user?.id,
+        userName: user?.name,
+        userRole: user?.role
+      });
+      
+      await socketService.current.connect(accessToken);
+
+        console.log('✅ [Farmer] Socket connected successfully:', {
+          socketId: socketService.current.getSocketId()
+        });
 
         // Debounce connection state to prevent rapid changes
         if (connectionTimeoutRef.current) {
@@ -287,9 +307,11 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         }
         connectionTimeoutRef.current = setTimeout(() => {
           setIsConnected(true);
+          console.log('✅ [Farmer] Connection state set to true');
         }, 100);
 
         // Set up event listeners
+        console.log('📡 [Farmer] Setting up event listeners...');
         socketService.current.on("new_message", handleNewMessage);
         socketService.current.on("user_joined", handleUserJoined);
         socketService.current.on("user_left", handleUserLeft);
@@ -334,14 +356,27 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
   const joinConversation = useCallback(
     (conversationId: string) => {
-      if (!isConnected) return;
+      console.log('🔵 [Farmer] joinConversation called:', {
+        conversationId,
+        isConnected,
+        socketId: socketService.current.getSocketId(),
+        userId: user?.id,
+        userName: user?.name
+      });
+      
+      if (!isConnected) {
+        console.warn('⚠️ [Farmer] Cannot join - socket not connected');
+        return;
+      }
 
       // Clear old messages when switching conversations
       setMessages([]);
       setCurrentConversationId(conversationId);
       socketService.current.joinConversation(conversationId);
+      
+      console.log('✅ [Farmer] Join conversation emitted:', conversationId);
     },
-    [isConnected]
+    [isConnected, user]
   );
 
   const leaveConversation = useCallback(() => {
@@ -355,7 +390,23 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
   const sendMessage = useCallback(
     (text: string, messageType: "TEXT" | "IMAGE" | "FILE" = "TEXT") => {
-      if (!currentConversationId || !isConnected || !text.trim()) return;
+      console.log('📤 [Farmer] sendMessage called:', {
+        conversationId: currentConversationId,
+        isConnected,
+        textLength: text.trim().length,
+        messageType,
+        userId: user?.id,
+        socketId: socketService.current.getSocketId()
+      });
+      
+      if (!currentConversationId || !isConnected || !text.trim()) {
+        console.warn('⚠️ [Farmer] Cannot send message:', {
+          hasConversationId: !!currentConversationId,
+          isConnected,
+          hasText: !!text.trim()
+        });
+        return;
+      }
 
       // Create optimistic message
       const optimisticMessage: Message = {
@@ -373,10 +424,20 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         }
       };
 
+      console.log('💬 [Farmer] Created optimistic message:', {
+        id: optimisticMessage.id,
+        conversationId: optimisticMessage.conversationId,
+        text: optimisticMessage.text.substring(0, 30) + '...'
+      });
+
       // Add optimistic message to local state immediately
-      setMessages((prev) => [...prev, optimisticMessage]);
+      setMessages((prev) => {
+        console.log('📝 [Farmer] Adding optimistic message to state. Current messages:', prev.length);
+        return [...prev, optimisticMessage];
+      });
 
       // Send message via socket
+      console.log('🚀 [Farmer] Emitting send_message event to socket');
       socketService.current.sendMessage(
         currentConversationId,
         text.trim(),
@@ -388,13 +449,15 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         setMessages((prev) => {
           const messageIndex = prev.findIndex(m => m.id === optimisticMessage.id);
           if (messageIndex !== -1) {
-            // Message still exists (no confirmation received), mark as failed
+            console.warn('⏰ [Farmer] Message timeout - marking as failed:', optimisticMessage.id);
             const newMessages = [...prev];
             newMessages[messageIndex] = {
               ...newMessages[messageIndex],
               text: `${newMessages[messageIndex].text} (Failed to send)`
             };
             return newMessages;
+          } else {
+            console.log('✅ [Farmer] Message confirmed (optimistic removed):', optimisticMessage.id);
           }
           return prev;
         });

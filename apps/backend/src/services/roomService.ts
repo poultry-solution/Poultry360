@@ -140,6 +140,10 @@ export class RoomService {
       const socket = this.io.sockets.sockets.get(socketId);
       if (socket) {
         await socket.join(roomId);
+        console.log(`✅ Socket ${socketId} (${userRole} ${userData.name}) joined room ${roomId}`);
+        console.log(`📊 Room ${roomId} now has ${room.users.size} user(s)`);
+      } else {
+        console.error(`❌ Socket ${socketId} not found, cannot join room ${roomId}`);
       }
 
       // Notify other users in the room
@@ -299,6 +303,7 @@ export class RoomService {
     conversationId: string,
     message: {
       id: string;
+      conversationId: string;  // ✅ Add this field
       text: string;
       senderId: string;
       senderName: string;
@@ -308,14 +313,40 @@ export class RoomService {
     }
   ): Promise<void> {
     const roomId = `conversation_${conversationId}`;
-    const room = this.rooms.get(roomId);
+    let room = this.rooms.get(roomId);
 
+    // If room doesn't exist, create it (happens when users haven't joined yet or after server restart)
     if (!room) {
-      console.warn(`Room not found for conversation ${conversationId}`);
-      return;
+      console.log(`🔄 Room not in memory, creating it for conversation ${conversationId}`);
+      
+      // Fetch conversation details from DB
+      const conversation = await prisma.conversation.findUnique({
+        where: { id: conversationId },
+        include: {
+          farmer: true,
+          doctor: true
+        }
+      });
+
+      if (!conversation) {
+        console.error(`❌ Cannot broadcast: Conversation ${conversationId} not found in database`);
+        return;
+      }
+
+      // Create the room in memory
+      room = {
+        conversationId,
+        farmerId: conversation.farmerId,
+        doctorId: conversation.doctorId,
+        users: new Map(),
+        isActive: true
+      };
+      this.rooms.set(roomId, room);
+      console.log(`✅ Created room ${roomId} for broadcasting`);
     }
 
-    // Broadcast to all users in the room
+    // Broadcast to all users in the room (even if no one is in it yet, socket.io will handle it)
+    console.log(`📡 Broadcasting message ${message.id} to room ${roomId}. Users in room: ${room.users.size}`);
     this.io.to(roomId).emit('new_message', message);
 
     // Mark message as delivered to online users
