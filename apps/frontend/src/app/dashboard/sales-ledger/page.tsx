@@ -32,7 +32,7 @@ import {
   Receipt,
   AlertCircle,
 } from "lucide-react";
-import { 
+import {
   useSalesManagement,
   useGetCustomersForSales,
   useCreateCustomer,
@@ -45,7 +45,7 @@ import { toast } from "sonner";
 // Helper function for date formatting
 const formatDate = (dateStr: string | Date): string => {
   const date = new Date(dateStr);
-  return date.toLocaleDateString('en-GB');
+  return date.toLocaleDateString("en-GB");
 };
 
 // Types
@@ -100,7 +100,7 @@ export default function SalesLedgerPage() {
     rate: "",
     quantity: "",
     weight: "",
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString().split("T")[0],
     remaining: false,
     customerId: "",
     customerName: "",
@@ -118,12 +118,17 @@ export default function SalesLedgerPage() {
 
   const [paymentForm, setPaymentForm] = useState({
     amount: "",
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString().split("T")[0],
     description: "",
+    reference: "",
   });
 
+  const [paymentErrors, setPaymentErrors] = useState<Record<string, string>>(
+    {}
+  );
+
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+
   // Customer search for sales (same as home page)
   const [customerSearch, setCustomerSearch] = useState("");
 
@@ -147,19 +152,22 @@ export default function SalesLedgerPage() {
     createSale,
     updateSale,
     deleteSale,
+    addPayment,
     isCreating,
     isUpdating,
     isDeleting,
+    isAddingPayment,
   } = useSalesManagement({
     ...salesFilters,
-    isCredit: salesFilters.isCredit ? salesFilters.isCredit === "true" : undefined,
+    isCredit: salesFilters.isCredit
+      ? salesFilters.isCredit === "true"
+      : undefined,
     page: 1,
     limit: 50,
   });
 
-  const { data: customers, isLoading: customersLoading } = useGetCustomersForSales(
-    partyFilters.search
-  );
+  const { data: customers, isLoading: customersLoading } =
+    useGetCustomersForSales(partyFilters.search);
 
   // Fetch farms and batches for sale form (same as home page)
   const { data: batchesResponse } = useGetAllBatches();
@@ -176,14 +184,20 @@ export default function SalesLedgerPage() {
   // Computed values
   const salesStats = useMemo(() => {
     const totalSales = sales.length;
-    const totalAmount = sales.reduce((sum: number, sale: any) => sum + Number(sale.amount), 0);
+    const totalAmount = sales.reduce(
+      (sum: number, sale: any) => sum + Number(sale.amount),
+      0
+    );
     const creditSales = sales.filter((sale: any) => sale.isCredit).length;
     const creditAmount = sales
       .filter((sale: any) => sale.isCredit)
       .reduce((sum: number, sale: any) => sum + Number(sale.amount), 0);
     const paidAmount = sales
       .filter((sale: any) => sale.isCredit)
-      .reduce((sum: number, sale: any) => sum + Number(sale.paidAmount || 0), 0);
+      .reduce(
+        (sum: number, sale: any) => sum + Number(sale.paidAmount || 0),
+        0
+      );
     const dueAmount = creditAmount - paidAmount;
 
     return {
@@ -199,22 +213,28 @@ export default function SalesLedgerPage() {
   }, [sales]);
 
   const partyStats = useMemo(() => {
-    if (!customers) return { totalParties: 0, totalBalance: 0, partiesWithBalance: 0 };
-    
+    if (!customers)
+      return { totalParties: 0, totalBalance: 0, partiesWithBalance: 0 };
+
     const totalParties = customers.length;
-    const totalBalance = customers.reduce((sum: number, customer: any) => sum + Number(customer.balance || 0), 0);
-    const partiesWithBalance = customers.filter((customer: any) => Number(customer.balance || 0) > 0).length;
+    const totalBalance = customers.reduce(
+      (sum: number, customer: any) => sum + Number(customer.balance || 0),
+      0
+    );
+    const partiesWithBalance = customers.filter(
+      (customer: any) => Number(customer.balance || 0) > 0
+    ).length;
 
     return { totalParties, totalBalance, partiesWithBalance };
   }, [customers]);
 
   // Event handlers
   const handleSalesFilterChange = (key: keyof SalesFilters, value: string) => {
-    setSalesFilters(prev => ({ ...prev, [key]: value }));
+    setSalesFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   const handlePartyFilterChange = (key: keyof PartyFilters, value: string) => {
-    setPartyFilters(prev => ({ ...prev, [key]: value }));
+    setPartyFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   // Handle sale form field updates (same as home page)
@@ -264,15 +284,17 @@ export default function SalesLedgerPage() {
     // Customer validation for credit sales (align with home page)
     if (saleForm.remaining) {
       if (!saleForm.customerId && !saleForm.customerName) {
-        errors.customerName = "Please select existing customer or enter new customer name";
+        errors.customerName =
+          "Please select existing customer or enter new customer name";
       }
       if (!saleForm.customerId && !saleForm.contact) {
         errors.contact = "Contact number required for new customer";
       }
       // Validate that paid amount doesn't exceed total amount
-      const totalAmount = saleForm.itemType === "Chicken_Meat"
-        ? Number(saleForm.rate || 0) * Number(saleForm.weight || 0)
-        : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0);
+      const totalAmount =
+        saleForm.itemType === "Chicken_Meat"
+          ? Number(saleForm.rate || 0) * Number(saleForm.weight || 0)
+          : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0);
       const paidAmount = Number(saleForm.balance || 0);
       if (paidAmount > totalAmount) {
         errors.balance = `Paid amount cannot exceed total amount of ₹${totalAmount.toLocaleString()}`;
@@ -283,18 +305,24 @@ export default function SalesLedgerPage() {
       setErrors(errors);
       return;
     }
-    
+
     try {
       // Calculate amount based on itemType (align with home page)
       const quantity = parseFloat(saleForm.quantity);
-      const weight = saleForm.itemType === "Chicken_Meat" ? parseFloat(saleForm.weight) : null;
+      const weight =
+        saleForm.itemType === "Chicken_Meat"
+          ? parseFloat(saleForm.weight)
+          : null;
       const unitPrice = parseFloat(saleForm.rate);
-      const amount = saleForm.itemType === "Chicken_Meat"
-        ? unitPrice * (weight || 0)
-        : unitPrice * quantity;
+      const amount =
+        saleForm.itemType === "Chicken_Meat"
+          ? unitPrice * (weight || 0)
+          : unitPrice * quantity;
 
       const paidAmount = saleForm.remaining
-        ? (saleForm.balance ? parseFloat(saleForm.balance) : 0)
+        ? saleForm.balance
+          ? parseFloat(saleForm.balance)
+          : 0
         : amount;
 
       const isCredit = saleForm.remaining;
@@ -319,7 +347,11 @@ export default function SalesLedgerPage() {
       // Handle customer data (same as home page)
       if (saleForm.customerId) {
         saleData.customerId = saleForm.customerId;
-      } else if (saleForm.remaining && saleForm.customerName && saleForm.contact) {
+      } else if (
+        saleForm.remaining &&
+        saleForm.customerName &&
+        saleForm.contact
+      ) {
         saleData.customerData = {
           name: saleForm.customerName,
           phone: saleForm.contact,
@@ -353,7 +385,7 @@ export default function SalesLedgerPage() {
 
   const handlePartySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       if (editingPartyId) {
         await updateCustomerMutation.mutateAsync({
@@ -381,9 +413,65 @@ export default function SalesLedgerPage() {
 
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Implementation for payment processing
-    toast.success("Payment processing feature coming soon!");
-    setIsPaymentModalOpen(false);
+    if (!validatePayment() || !selectedParty) return;
+
+    try {
+      // Find the first credit sale for this customer to add payment to
+      const customerSale = sales.find(
+        (sale: any) => sale.isCredit && sale.customerId === selectedParty.id
+      );
+
+      if (!customerSale) {
+        toast.error("No credit sales found for this customer");
+        return;
+      }
+
+      // Add payment using the existing addPayment function
+      await addPayment({
+        saleId: customerSale.id,
+        data: {
+          amount: Number(paymentForm.amount),
+          date: paymentForm.date,
+          description: paymentForm.description,
+        },
+      });
+
+      toast.success("Payment recorded successfully!");
+      setIsPaymentModalOpen(false);
+      setPaymentForm({
+        amount: "",
+        date: new Date().toISOString().split("T")[0],
+        description: "",
+        reference: "",
+      });
+      setSelectedParty(null);
+      setPaymentErrors({});
+    } catch (error) {
+      console.error("Failed to record payment:", error);
+      toast.error("Failed to record payment");
+    }
+  };
+
+  const validatePayment = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!paymentForm.amount) errors.amount = "Amount is required";
+    if (!paymentForm.date) errors.date = "Date is required";
+    if (selectedParty && Number(paymentForm.amount) > selectedParty.balance) {
+      errors.amount = `Amount cannot exceed balance of ₹${selectedParty.balance.toLocaleString()}`;
+    }
+    setPaymentErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const updatePaymentField = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setPaymentForm((prev) => ({ ...prev, [name]: value }));
+    // Clear error when user starts typing
+    if (paymentErrors[name]) {
+      setPaymentErrors((prev) => ({ ...prev, [name]: "" }));
+    }
   };
 
   const handleDeleteParty = async (id: string) => {
@@ -410,7 +498,7 @@ export default function SalesLedgerPage() {
   };
 
   const resetSaleForm = () => {
-    setSaleForm(prev => ({
+    setSaleForm((prev) => ({
       // Keep farmId and batchId for smart persistence
       farmId: prev.farmId,
       batchId: prev.batchId,
@@ -418,7 +506,7 @@ export default function SalesLedgerPage() {
       rate: "",
       quantity: "",
       weight: "",
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toISOString().split("T")[0],
       remaining: false,
       customerId: "",
       customerName: "",
@@ -480,9 +568,7 @@ export default function SalesLedgerPage() {
       width: "100px",
       align: "center" as const,
       render: (value: number | null) => (
-        <span className="text-sm">
-          {value ? `${value} kg` : "—"}
-        </span>
+        <span className="text-sm">{value ? `${value} kg` : "—"}</span>
       ),
     },
     {
@@ -550,9 +636,7 @@ export default function SalesLedgerPage() {
       key: "category",
       label: "Category",
       width: "120px",
-      render: (value: string) => (
-        <Badge variant="outline">{value}</Badge>
-      ),
+      render: (value: string) => <Badge variant="outline">{value}</Badge>,
     },
     {
       key: "balance",
@@ -561,10 +645,44 @@ export default function SalesLedgerPage() {
       width: "120px",
       align: "right" as const,
       render: (value: number) => (
-        <span className={value > 0 ? "text-red-600 font-medium" : "text-green-600"}>
+        <span
+          className={value > 0 ? "text-red-600 font-medium" : "text-green-600"}
+        >
           ₹{value.toLocaleString()}
         </span>
       ),
+    },
+    {
+      key: "transactions",
+      label: "Transactions",
+      type: "actions" as const,
+      align: "center" as const,
+      width: "120px",
+      render: (_: any, row: any) => {
+        // Count total transactions for this customer
+        const customerTransactions = sales.filter(
+          (sale: any) => sale.isCredit && sale.customerId === row.id
+        );
+
+        const totalPayments = customerTransactions.reduce(
+          (sum: number, sale: any) => sum + (sale.payments?.length || 0),
+          0
+        );
+
+        return (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 px-3 text-xs hover:bg-blue-50 hover:border-blue-300"
+            onClick={() => {
+              setSelectedParty(row);
+              setIsPaymentModalOpen(true);
+            }}
+          >
+            View ({totalPayments})
+          </Button>
+        );
+      },
     },
     {
       key: "actions",
@@ -577,9 +695,16 @@ export default function SalesLedgerPage() {
           <Button
             variant="outline"
             size="sm"
-            className="h-8 w-8 p-0"
+            className="h-8 w-8 p-0 hover:bg-green-50 hover:border-green-300 hover:text-green-700"
             onClick={() => {
               setSelectedParty(row);
+              setPaymentForm({
+                amount: "",
+                date: new Date().toISOString().split("T")[0],
+                description: `Payment from ${row.name}`,
+                reference: "",
+              });
+              setPaymentErrors({});
               setIsPaymentModalOpen(true);
             }}
             disabled={Number(row.balance || 0) <= 0}
@@ -628,10 +753,7 @@ export default function SalesLedgerPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setIsPartyModalOpen(true)}
-          >
+          <Button variant="outline" onClick={() => setIsPartyModalOpen(true)}>
             <UserPlus className="mr-2 h-4 w-4" />
             Add Party
           </Button>
@@ -673,11 +795,15 @@ export default function SalesLedgerPage() {
           <div className="grid gap-4 md:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Total Sales
+                </CardTitle>
                 <Receipt className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{salesStats.totalSales}</div>
+                <div className="text-2xl font-bold">
+                  {salesStats.totalSales}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   ₹{salesStats.totalAmount.toLocaleString()} total value
                 </p>
@@ -686,11 +812,15 @@ export default function SalesLedgerPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Credit Sales</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Credit Sales
+                </CardTitle>
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{salesStats.creditSales}</div>
+                <div className="text-2xl font-bold">
+                  {salesStats.creditSales}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   ₹{salesStats.creditAmount.toLocaleString()} outstanding
                 </p>
@@ -699,11 +829,15 @@ export default function SalesLedgerPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Parties</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Total Parties
+                </CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{partyStats.totalParties}</div>
+                <div className="text-2xl font-bold">
+                  {partyStats.totalParties}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {partyStats.partiesWithBalance} with outstanding balance
                 </p>
@@ -712,7 +846,9 @@ export default function SalesLedgerPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Outstanding
+                </CardTitle>
                 <AlertCircle className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -735,7 +871,7 @@ export default function SalesLedgerPage() {
             <CardContent>
               <DataTable
                 data={sales.slice(0, 5)}
-                columns={salesColumns.filter(col => col.key !== "actions")}
+                columns={salesColumns.filter((col) => col.key !== "actions")}
                 showFooter={false}
               />
             </CardContent>
@@ -764,7 +900,9 @@ export default function SalesLedgerPage() {
                       id="search"
                       placeholder="Search sales..."
                       value={salesFilters.search}
-                      onChange={(e) => handleSalesFilterChange("search", e.target.value)}
+                      onChange={(e) =>
+                        handleSalesFilterChange("search", e.target.value)
+                      }
                       className="pl-10"
                     />
                   </div>
@@ -774,7 +912,9 @@ export default function SalesLedgerPage() {
                   <select
                     id="itemType"
                     value={salesFilters.itemType}
-                    onChange={(e) => handleSalesFilterChange("itemType", e.target.value)}
+                    onChange={(e) =>
+                      handleSalesFilterChange("itemType", e.target.value)
+                    }
                     className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                   >
                     <option value="">All Types</option>
@@ -792,7 +932,9 @@ export default function SalesLedgerPage() {
                   <select
                     id="isCredit"
                     value={salesFilters.isCredit}
-                    onChange={(e) => handleSalesFilterChange("isCredit", e.target.value)}
+                    onChange={(e) =>
+                      handleSalesFilterChange("isCredit", e.target.value)
+                    }
                     className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                   >
                     <option value="">All</option>
@@ -806,7 +948,9 @@ export default function SalesLedgerPage() {
                     id="startDate"
                     type="date"
                     value={salesFilters.startDate}
-                    onChange={(e) => handleSalesFilterChange("startDate", e.target.value)}
+                    onChange={(e) =>
+                      handleSalesFilterChange("startDate", e.target.value)
+                    }
                   />
                 </div>
                 <div>
@@ -815,20 +959,24 @@ export default function SalesLedgerPage() {
                     id="endDate"
                     type="date"
                     value={salesFilters.endDate}
-                    onChange={(e) => handleSalesFilterChange("endDate", e.target.value)}
+                    onChange={(e) =>
+                      handleSalesFilterChange("endDate", e.target.value)
+                    }
                   />
                 </div>
                 <div className="flex items-end">
                   <Button
                     variant="outline"
-                    onClick={() => setSalesFilters({
-                      search: "",
-                      itemType: "",
-                      isCredit: "",
-                      startDate: "",
-                      endDate: "",
-                      customerId: "",
-                    })}
+                    onClick={() =>
+                      setSalesFilters({
+                        search: "",
+                        itemType: "",
+                        isCredit: "",
+                        startDate: "",
+                        endDate: "",
+                        customerId: "",
+                      })
+                    }
                   >
                     Clear
                   </Button>
@@ -853,7 +1001,9 @@ export default function SalesLedgerPage() {
                 footerContent={
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
                     <span>Total Sales: {salesStats.totalSales}</span>
-                    <span>Total Amount: ₹{salesStats.totalAmount.toLocaleString()}</span>
+                    <span>
+                      Total Amount: ₹{salesStats.totalAmount.toLocaleString()}
+                    </span>
                   </div>
                 }
               />
@@ -883,7 +1033,9 @@ export default function SalesLedgerPage() {
                       id="partySearch"
                       placeholder="Search parties..."
                       value={partyFilters.search}
-                      onChange={(e) => handlePartyFilterChange("search", e.target.value)}
+                      onChange={(e) =>
+                        handlePartyFilterChange("search", e.target.value)
+                      }
                       className="pl-10"
                     />
                   </div>
@@ -893,7 +1045,9 @@ export default function SalesLedgerPage() {
                   <select
                     id="category"
                     value={partyFilters.category}
-                    onChange={(e) => handlePartyFilterChange("category", e.target.value)}
+                    onChange={(e) =>
+                      handlePartyFilterChange("category", e.target.value)
+                    }
                     className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                   >
                     <option value="">All Categories</option>
@@ -906,7 +1060,9 @@ export default function SalesLedgerPage() {
                   <select
                     id="hasBalance"
                     value={partyFilters.hasBalance}
-                    onChange={(e) => handlePartyFilterChange("hasBalance", e.target.value)}
+                    onChange={(e) =>
+                      handlePartyFilterChange("hasBalance", e.target.value)
+                    }
                     className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                   >
                     <option value="">All</option>
@@ -917,11 +1073,13 @@ export default function SalesLedgerPage() {
                 <div className="flex items-end">
                   <Button
                     variant="outline"
-                    onClick={() => setPartyFilters({
-                      search: "",
-                      category: "",
-                      hasBalance: "",
-                    })}
+                    onClick={() =>
+                      setPartyFilters({
+                        search: "",
+                        category: "",
+                        hasBalance: "",
+                      })
+                    }
                   >
                     Clear
                   </Button>
@@ -935,7 +1093,8 @@ export default function SalesLedgerPage() {
             <CardHeader>
               <CardTitle>Customer Parties</CardTitle>
               <CardDescription>
-                {partyStats.totalParties} total parties, {partyStats.partiesWithBalance} with outstanding balance
+                {partyStats.totalParties} total parties,{" "}
+                {partyStats.partiesWithBalance} with outstanding balance
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -952,7 +1111,10 @@ export default function SalesLedgerPage() {
                   footerContent={
                     <div className="flex items-center justify-between text-sm text-muted-foreground">
                       <span>Total Parties: {partyStats.totalParties}</span>
-                      <span>Total Outstanding: ₹{partyStats.totalBalance.toLocaleString()}</span>
+                      <span>
+                        Total Outstanding: ₹
+                        {partyStats.totalBalance.toLocaleString()}
+                      </span>
                     </div>
                   }
                 />
@@ -975,7 +1137,9 @@ export default function SalesLedgerPage() {
             <CardContent>
               <div className="text-center py-8">
                 <CreditCard className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Payment Management</h3>
+                <h3 className="text-lg font-semibold mb-2">
+                  Payment Management
+                </h3>
                 <p className="text-muted-foreground mb-4">
                   Payment tracking and management features coming soon.
                 </p>
@@ -1005,19 +1169,18 @@ export default function SalesLedgerPage() {
             <div className="space-y-4">
               {errors.general && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-sm text-red-600">
-                    {errors.general}
-                  </p>
+                  <p className="text-sm text-red-600">{errors.general}</p>
                 </div>
               )}
 
               {/* Smart persistence info */}
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
                 <p className="text-sm text-blue-700">
-                  💡 <strong>Smart Form:</strong> Farm and batch selections are remembered for your next sale to save time!
+                  💡 <strong>Smart Form:</strong> Farm and batch selections are
+                  remembered for your next sale to save time!
                 </p>
               </div>
-              
+
               {/* Farm Selection */}
               <div>
                 <Label htmlFor="farmId">Select Farm *</Label>
@@ -1037,9 +1200,7 @@ export default function SalesLedgerPage() {
                   ))}
                 </select>
                 {errors.farmId && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {errors.farmId}
-                  </p>
+                  <p className="text-xs text-red-600 mt-1">{errors.farmId}</p>
                 )}
               </div>
 
@@ -1060,8 +1221,7 @@ export default function SalesLedgerPage() {
                     .filter(
                       (batch) =>
                         batch.status === "ACTIVE" &&
-                        (!saleForm.farmId ||
-                          batch.farmId === saleForm.farmId)
+                        (!saleForm.farmId || batch.farmId === saleForm.farmId)
                     )
                     .map((batch) => (
                       <option key={batch.id} value={batch.id}>
@@ -1070,12 +1230,10 @@ export default function SalesLedgerPage() {
                     ))}
                 </select>
                 {errors.batchId && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {errors.batchId}
-                  </p>
+                  <p className="text-xs text-red-600 mt-1">{errors.batchId}</p>
                 )}
               </div>
-              
+
               <div>
                 <Label htmlFor="itemType">Item Type</Label>
                 <select
@@ -1107,7 +1265,9 @@ export default function SalesLedgerPage() {
                 </div>
                 <div>
                   <Label htmlFor="quantity">
-                    {saleForm.itemType === "Chicken_Meat" ? "Quantity (Birds)" : "Quantity (Units)"}
+                    {saleForm.itemType === "Chicken_Meat"
+                      ? "Quantity (Birds)"
+                      : "Quantity (Units)"}
                   </Label>
                   <Input
                     id="quantity"
@@ -1129,7 +1289,9 @@ export default function SalesLedgerPage() {
                 </div>
               </div>
 
-              {["Chicken_Meat", "FEED", "MEDICINE"].includes(saleForm.itemType) && (
+              {["Chicken_Meat", "FEED", "MEDICINE"].includes(
+                saleForm.itemType
+              ) && (
                 <div>
                   <Label htmlFor="weight">Weight (kg)</Label>
                   <Input
@@ -1142,29 +1304,40 @@ export default function SalesLedgerPage() {
                     placeholder="Total weight in kg"
                   />
                   {errors.weight && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {errors.weight}
-                    </p>
+                    <p className="text-xs text-red-600 mt-1">{errors.weight}</p>
                   )}
-                  {saleForm.itemType === "Chicken_Meat" && saleForm.quantity && saleForm.weight && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Avg weight per bird: {(Number(saleForm.weight) / Number(saleForm.quantity)).toFixed(2)} kg
-                    </p>
-                  )}
+                  {saleForm.itemType === "Chicken_Meat" &&
+                    saleForm.quantity &&
+                    saleForm.weight && (
+                      <p className="text-xs text-green-600 mt-1">
+                        Avg weight per bird:{" "}
+                        {(
+                          Number(saleForm.weight) / Number(saleForm.quantity)
+                        ).toFixed(2)}{" "}
+                        kg
+                      </p>
+                    )}
                 </div>
               )}
 
               {/* Total Preview */}
               <div className="p-4 bg-gray-50 border border-gray-200 rounded-md">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Total Amount</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    Total Amount
+                  </span>
                   <span className="text-lg font-bold text-green-700">
-                    ₹{(() => {
+                    ₹
+                    {(() => {
                       const rate = Number(saleForm.rate || 0);
                       const quantity = Number(saleForm.quantity || 0);
                       const weight = Number(saleForm.weight || 0);
-                      
-                      if (["Chicken_Meat", "FEED", "MEDICINE"].includes(saleForm.itemType)) {
+
+                      if (
+                        ["Chicken_Meat", "FEED", "MEDICINE"].includes(
+                          saleForm.itemType
+                        )
+                      ) {
                         return (rate * weight).toLocaleString();
                       } else {
                         return (rate * quantity).toLocaleString();
@@ -1173,7 +1346,9 @@ export default function SalesLedgerPage() {
                   </span>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  {["Chicken_Meat", "FEED", "MEDICINE"].includes(saleForm.itemType)
+                  {["Chicken_Meat", "FEED", "MEDICINE"].includes(
+                    saleForm.itemType
+                  )
                     ? "Calculated as rate : weight"
                     : "Calculated as rate : quantity"}
                 </p>
@@ -1199,7 +1374,12 @@ export default function SalesLedgerPage() {
                     type="checkbox"
                     name="remaining"
                     checked={saleForm.remaining}
-                    onChange={(e) => setSaleForm(prev => ({ ...prev, remaining: e.target.checked }))}
+                    onChange={(e) =>
+                      setSaleForm((prev) => ({
+                        ...prev,
+                        remaining: e.target.checked,
+                      }))
+                    }
                     className="h-4 w-4"
                   />
                   Remaining balance?
@@ -1227,20 +1407,27 @@ export default function SalesLedgerPage() {
                                 key={customer.id}
                                 className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                                 onClick={() => {
-                                  setSaleForm(prev => ({
+                                  setSaleForm((prev) => ({
                                     ...prev,
                                     customerId: customer.id,
                                     customerName: customer.name,
                                     contact: customer.phone,
-                                    customerCategory: customer.category || "Chicken"
+                                    customerCategory:
+                                      customer.category || "Chicken",
                                   }));
                                   setCustomerSearch("");
                                 }}
                               >
-                                <div className="font-medium">{customer.name}</div>
-                                <div className="text-sm text-gray-500">{customer.phone}</div>
+                                <div className="font-medium">
+                                  {customer.name}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {customer.phone}
+                                </div>
                                 {customer.category && (
-                                  <div className="text-xs text-blue-600">{customer.category}</div>
+                                  <div className="text-xs text-blue-600">
+                                    {customer.category}
+                                  </div>
                                 )}
                               </div>
                             ))
@@ -1341,8 +1528,10 @@ export default function SalesLedgerPage() {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   {editingSaleId ? "Updating..." : "Creating..."}
                 </>
+              ) : editingSaleId ? (
+                "Update Sale"
               ) : (
-                editingSaleId ? "Update Sale" : "Create Sale"
+                "Create Sale"
               )}
             </Button>
           </ModalFooter>
@@ -1366,7 +1555,9 @@ export default function SalesLedgerPage() {
                 <Input
                   id="partyName"
                   value={partyForm.name}
-                  onChange={(e) => setPartyForm(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) =>
+                    setPartyForm((prev) => ({ ...prev, name: e.target.value }))
+                  }
                   placeholder="Enter party name"
                 />
               </div>
@@ -1375,7 +1566,9 @@ export default function SalesLedgerPage() {
                 <Input
                   id="partyPhone"
                   value={partyForm.phone}
-                  onChange={(e) => setPartyForm(prev => ({ ...prev, phone: e.target.value }))}
+                  onChange={(e) =>
+                    setPartyForm((prev) => ({ ...prev, phone: e.target.value }))
+                  }
                   placeholder="Enter phone number"
                 />
               </div>
@@ -1384,7 +1577,12 @@ export default function SalesLedgerPage() {
                 <select
                   id="partyCategory"
                   value={partyForm.category}
-                  onChange={(e) => setPartyForm(prev => ({ ...prev, category: e.target.value }))}
+                  onChange={(e) =>
+                    setPartyForm((prev) => ({
+                      ...prev,
+                      category: e.target.value,
+                    }))
+                  }
                   className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                 >
                   <option value="Chicken">Chicken</option>
@@ -1396,7 +1594,12 @@ export default function SalesLedgerPage() {
                 <Input
                   id="partyAddress"
                   value={partyForm.address}
-                  onChange={(e) => setPartyForm(prev => ({ ...prev, address: e.target.value }))}
+                  onChange={(e) =>
+                    setPartyForm((prev) => ({
+                      ...prev,
+                      address: e.target.value,
+                    }))
+                  }
                   placeholder="Enter address (optional)"
                 />
               </div>
@@ -1416,15 +1619,21 @@ export default function SalesLedgerPage() {
             <Button
               type="submit"
               className="bg-primary hover:bg-primary/90"
-              disabled={createCustomerMutation.isPending || updateCustomerMutation.isPending}
+              disabled={
+                createCustomerMutation.isPending ||
+                updateCustomerMutation.isPending
+              }
             >
-              {createCustomerMutation.isPending || updateCustomerMutation.isPending ? (
+              {createCustomerMutation.isPending ||
+              updateCustomerMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   {editingPartyId ? "Updating..." : "Creating..."}
                 </>
+              ) : editingPartyId ? (
+                "Update Party"
               ) : (
-                editingPartyId ? "Update Party" : "Create Party"
+                "Create Party"
               )}
             </Button>
           </ModalFooter>
@@ -1437,46 +1646,131 @@ export default function SalesLedgerPage() {
         onClose={() => {
           setIsPaymentModalOpen(false);
           setSelectedParty(null);
+          setPaymentForm({
+            amount: "",
+            date: new Date().toISOString().split("T")[0],
+            description: "",
+            reference: "",
+          });
+          setPaymentErrors({});
         }}
-        title="Record Payment"
+        title={`Record Payment - ${selectedParty?.name || ""}`}
       >
         <form onSubmit={handlePaymentSubmit}>
           <ModalContent>
-            {selectedParty && (
-              <div className="mb-4 p-4 bg-muted rounded-lg">
-                <h3 className="font-medium">{selectedParty.name}</h3>
-                <p className="text-sm text-muted-foreground">
-                  Outstanding Balance: ₹{Number(selectedParty.balance || 0).toLocaleString()}
-                </p>
-              </div>
-            )}
-            <div className="grid gap-4">
+            <div className="space-y-4">
+              {selectedParty && (
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <h3 className="font-medium text-gray-900">
+                    {selectedParty.name}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Outstanding Balance: ₹
+                    {Number(selectedParty.balance || 0).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Phone: {selectedParty.phone}
+                  </p>
+                </div>
+              )}
+
+              {/* Transaction History */}
+              {selectedParty && (
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm">Recent Transactions</h4>
+                  <div className="max-h-32 overflow-y-auto border rounded-md">
+                    {sales
+                      .filter(
+                        (sale: any) =>
+                          sale.isCredit && sale.customerId === selectedParty.id
+                      )
+                      .slice(0, 3)
+                      .map((sale: any) => (
+                        <div
+                          key={sale.id}
+                          className="p-2 border-b last:border-b-0 text-xs"
+                        >
+                          <div className="flex justify-between">
+                            <span>
+                              Sale: ₹{Number(sale.amount).toLocaleString()}
+                            </span>
+                            <span className="text-gray-500">
+                              {formatDate(sale.date)}
+                            </span>
+                          </div>
+                          {sale.payments && sale.payments.length > 0 && (
+                            <div className="text-green-600 mt-1">
+                              Payments: {sale.payments.length} (₹
+                              {sale.payments
+                                .reduce(
+                                  (sum: number, p: any) =>
+                                    sum + Number(p.amount),
+                                  0
+                                )
+                                .toLocaleString()}
+                              )
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
               <div>
-                <Label htmlFor="paymentAmount">Amount (₹)</Label>
+                <Label htmlFor="amount">Payment Amount *</Label>
                 <Input
-                  id="paymentAmount"
+                  id="amount"
+                  name="amount"
                   type="number"
                   value={paymentForm.amount}
-                  onChange={(e) => setPaymentForm(prev => ({ ...prev, amount: e.target.value }))}
+                  onChange={updatePaymentField}
                   placeholder="Enter payment amount"
+                  required
                 />
+                {paymentErrors.amount && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {paymentErrors.amount}
+                  </p>
+                )}
               </div>
+
               <div>
-                <Label htmlFor="paymentDate">Date</Label>
+                <Label htmlFor="date">Payment Date *</Label>
                 <Input
-                  id="paymentDate"
+                  id="date"
+                  name="date"
                   type="date"
                   value={paymentForm.date}
-                  onChange={(e) => setPaymentForm(prev => ({ ...prev, date: e.target.value }))}
+                  onChange={updatePaymentField}
+                  required
+                />
+                {paymentErrors.date && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {paymentErrors.date}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Input
+                  id="description"
+                  name="description"
+                  value={paymentForm.description}
+                  onChange={updatePaymentField}
+                  placeholder="Payment description"
                 />
               </div>
+
               <div>
-                <Label htmlFor="paymentDescription">Description</Label>
+                <Label htmlFor="reference">Reference</Label>
                 <Input
-                  id="paymentDescription"
-                  value={paymentForm.description}
-                  onChange={(e) => setPaymentForm(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Enter payment description (optional)"
+                  id="reference"
+                  name="reference"
+                  value={paymentForm.reference}
+                  onChange={updatePaymentField}
+                  placeholder="Receipt number or reference"
                 />
               </div>
             </div>
@@ -1488,15 +1782,30 @@ export default function SalesLedgerPage() {
               onClick={() => {
                 setIsPaymentModalOpen(false);
                 setSelectedParty(null);
+                setPaymentForm({
+                  amount: "",
+                  date: new Date().toISOString().split("T")[0],
+                  description: "",
+                  reference: "",
+                });
+                setPaymentErrors({});
               }}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              className="bg-primary hover:bg-primary/90"
+              className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={isAddingPayment}
             >
-              Record Payment
+              {isAddingPayment ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Recording...
+                </>
+              ) : (
+                "Record Payment"
+              )}
             </Button>
           </ModalFooter>
         </form>

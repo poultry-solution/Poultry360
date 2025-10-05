@@ -17,6 +17,7 @@ import {
   Plus,
   Clock,
   Loader2,
+  Skull,
 } from "lucide-react";
 import { useAuth } from "@/store/store";
 import { useState, useEffect } from "react";
@@ -38,6 +39,9 @@ import {
   useGetSalesCategories,
   useGetCustomersForSales,
 } from "@/fetchers/sale/saleQueries";
+import {
+  useCreateMortality,
+} from "@/fetchers/mortality/mortalityQueries";
 import { 
   useDashboardStats,
   useGetMoneyToReceiveDetails,
@@ -111,6 +115,7 @@ export default function DashboardPage() {
   // Shortcut modals
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
   const [isQuickSaleOpen, setIsQuickSaleOpen] = useState(false);
+  const [isQuickMortalityOpen, setIsQuickMortalityOpen] = useState(false);
 
   // Reminder form state
   const [reminderForm, setReminderForm] = useState({
@@ -141,6 +146,7 @@ export default function DashboardPage() {
   // Quick form mutations
   const createExpenseMutation = useCreateExpense();
   const createSaleMutation = useCreateSale();
+  const createMortalityMutation = useCreateMortality();
 
   // Dashboard statistics
   const {
@@ -198,6 +204,14 @@ export default function DashboardPage() {
     date: "",
   });
 
+  const [quickMortalityForm, setQuickMortalityForm] = useState({
+    farmId: "",
+    batchId: "",
+    date: new Date().toISOString().split('T')[0],
+    count: "",
+    reason: "Natural Death",
+  });
+
   // Customer search for sales (same as batch detail page)
   const [customerSearch, setCustomerSearch] = useState("");
 
@@ -214,6 +228,16 @@ export default function DashboardPage() {
       }
     }
   }, [isQuickSaleOpen, quickSaleForm.date]);
+
+  // Ensure default date when mortality modal opens
+  useEffect(() => {
+    if (isQuickMortalityOpen) {
+      if (!quickMortalityForm.date) {
+        const today = new Date().toISOString().split("T")[0];
+        setQuickMortalityForm((p) => ({ ...p, date: today }));
+      }
+    }
+  }, [isQuickMortalityOpen, quickMortalityForm.date]);
 
   const handleAddReminder = async () => {
     if (!reminderForm.title.trim() || !reminderForm.date || !reminderForm.time)
@@ -294,6 +318,18 @@ export default function DashboardPage() {
     // If farm is changed, reset batch selection
     if (name === "farmId") {
       setQuickSaleForm((p) => ({ ...p, batchId: "" }));
+    }
+  };
+
+  const updateQuickMortalityField = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setQuickMortalityForm((p) => ({ ...p, [name]: value }));
+
+    // If farm is changed, reset batch selection
+    if (name === "farmId") {
+      setQuickMortalityForm((p) => ({ ...p, batchId: "" }));
     }
   };
 
@@ -627,6 +663,57 @@ export default function DashboardPage() {
     }
   };
 
+  const submitQuickMortality = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log("🚀 Mortality form submitted", quickMortalityForm);
+
+    // Validation
+    const errors: Record<string, string> = {};
+    if (!quickMortalityForm.farmId) errors.farmId = "Please select a farm";
+    if (!quickMortalityForm.batchId) errors.batchId = "Please select a batch";
+    if (!quickMortalityForm.count) errors.count = "Please enter count";
+    if (!quickMortalityForm.date) errors.date = "Please select a date";
+
+    const count = Number(quickMortalityForm.count || 0);
+    if (count <= 0) errors.count = "Count must be greater than 0";
+
+    if (Object.keys(errors).length > 0) {
+      setQuickFormErrors(errors);
+      return;
+    }
+
+    try {
+      const mortalityData = {
+        date: quickMortalityForm.date
+          ? new Date(quickMortalityForm.date)
+          : new Date(),
+        count: count,
+        reason: quickMortalityForm.reason || "Natural Death",
+        batchId: quickMortalityForm.batchId,
+      };
+
+      console.log("🚀 Sending mortality data to API:", mortalityData);
+      await createMortalityMutation.mutateAsync(mortalityData);
+      console.log("✅ Mortality record created successfully!");
+
+      // Reset form
+      setQuickMortalityForm({
+        farmId: quickMortalityForm.farmId, // Keep farm for smart persistence
+        batchId: quickMortalityForm.batchId, // Keep batch for smart persistence
+        date: new Date().toISOString().split('T')[0],
+        count: "",
+        reason: "Natural Death",
+      });
+      setQuickFormErrors({});
+      setIsQuickMortalityOpen(false);
+    } catch (error) {
+      console.error("Failed to create mortality:", error);
+      setQuickFormErrors({
+        general: "Failed to create mortality record. Please try again.",
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Welcome Header */}
@@ -650,6 +737,13 @@ export default function DashboardPage() {
           >
             <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
             <span className="truncate">Add Sales</span>
+          </Button>
+          <Button
+            onClick={() => setIsQuickMortalityOpen(true)}
+            className="cursor-pointer bg-orange-500 hover:bg-orange-600 hover:shadow-md transition-all duration-200 text-white px-2 sm:px-3 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center justify-center min-w-0"
+          >
+            <Skull className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+            <span className="truncate">Add Mortality</span>
           </Button>
         </div>
       </div>
@@ -2108,6 +2202,180 @@ export default function DashboardPage() {
             Close
           </Button>
         </ModalFooter>
+      </Modal>
+
+      {/* Quick Mortality Modal */}
+      <Modal
+        isOpen={isQuickMortalityOpen}
+        onClose={() => {
+          setIsQuickMortalityOpen(false);
+          setQuickFormErrors({});
+        }}
+        title="Quick Add Mortality"
+      >
+        <form onSubmit={submitQuickMortality}>
+          <ModalContent>
+            <div className="space-y-4">
+              {quickFormErrors.general && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-600">
+                    {quickFormErrors.general}
+                  </p>
+                </div>
+              )}
+
+              {/* Smart persistence info */}
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-sm text-blue-700">
+                  💡 <strong>Smart Form:</strong> Farm and batch selections are remembered for your next mortality record to save time!
+                </p>
+              </div>
+
+              {/* Farm Selection */}
+              <div>
+                <Label htmlFor="mortalityFarmId">Select Farm *</Label>
+                <select
+                  id="mortalityFarmId"
+                  name="farmId"
+                  value={quickMortalityForm.farmId}
+                  onChange={updateQuickMortalityField}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                  required
+                >
+                  <option value="">Choose a farm</option>
+                  {farms.map((farm) => (
+                    <option key={farm.id} value={farm.id}>
+                      {farm.name}
+                    </option>
+                  ))}
+                </select>
+                {quickFormErrors.farmId && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {quickFormErrors.farmId}
+                  </p>
+                )}
+              </div>
+
+              {/* Batch Selection */}
+              <div>
+                <Label htmlFor="mortalityBatchId">Select Batch *</Label>
+                <select
+                  id="mortalityBatchId"
+                  name="batchId"
+                  value={quickMortalityForm.batchId}
+                  onChange={updateQuickMortalityField}
+                  disabled={!quickMortalityForm.farmId}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  required
+                >
+                  <option value="">Choose a batch</option>
+                  {activeBatches
+                    .filter(
+                      (batch) =>
+                        batch.status === "ACTIVE" &&
+                        (!quickMortalityForm.farmId ||
+                          batch.farmId === quickMortalityForm.farmId)
+                    )
+                    .map((batch) => (
+                      <option key={batch.id} value={batch.id}>
+                        {batch.batchNumber} - {batch.farm.name}
+                      </option>
+                    ))}
+                </select>
+                {quickFormErrors.batchId && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {quickFormErrors.batchId}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="mortalityDate">Date *</Label>
+                  <Input
+                    id="mortalityDate"
+                    name="date"
+                    type="date"
+                    value={quickMortalityForm.date}
+                    onChange={updateQuickMortalityField}
+                    required
+                  />
+                  {quickFormErrors.date && (
+                    <p className="text-xs text-red-600 mt-1">
+                      {quickFormErrors.date}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="mortalityCount">Number of Birds *</Label>
+                  <Input
+                    id="mortalityCount"
+                    name="count"
+                    type="number"
+                    min="1"
+                    value={quickMortalityForm.count}
+                    onChange={updateQuickMortalityField}
+                    placeholder="Enter count"
+                    required
+                  />
+                  {quickFormErrors.count && (
+                    <p className="text-xs text-red-600 mt-1">
+                      {quickFormErrors.count}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="mortalityReason">Reason (Optional)</Label>
+                <textarea
+                  id="mortalityReason"
+                  name="reason"
+                  value={quickMortalityForm.reason}
+                  onChange={updateQuickMortalityField}
+                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  rows={3}
+                  placeholder="e.g., Disease, Heat stress, Predator attack, etc."
+                />
+              </div>
+
+              <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                <p className="text-sm text-red-800">
+                  <strong>Note:</strong> Record only natural deaths and disease-related losses here. 
+                  Birds sold are automatically tracked in the Sales section.
+                </p>
+              </div>
+            </div>
+          </ModalContent>
+          <ModalFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsQuickMortalityOpen(false);
+                setQuickFormErrors({});
+              }}
+              className="cursor-pointer hover:bg-gray-50 transition-colors duration-200"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="cursor-pointer bg-red-600 hover:bg-red-700 hover:shadow-md transition-all duration-200 text-white"
+              disabled={createMortalityMutation.isPending}
+            >
+              {createMortalityMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                "Add Mortality"
+              )}
+            </Button>
+          </ModalFooter>
+        </form>
       </Modal>
     </div>
   );
