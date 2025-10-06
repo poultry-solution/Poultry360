@@ -174,6 +174,9 @@ export const useAddHatcheryTransaction = () => {
         paymentDescription?: string;
         // 🔗 NEW: Link standalone PAYMENT to a specific purchase
         paymentToPurchaseId?: string;
+        // NEW: Free chicks handling (client can send either)
+        freeCount?: number;
+        freePercent?: number;
       };
     }) => {
       const response = await axiosInstance.post(

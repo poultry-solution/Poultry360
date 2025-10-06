@@ -432,7 +432,9 @@ model EntityTransaction {
   id          String          @id @default(cuid())
   type        TransactionType
   amount      Decimal         @db.Decimal(10, 2)
-  quantity    Int?            // For hatchery chicks, medicine units
+  quantity    Int?            // Paid quantity (for hatchery chicks, medicine units)
+  // Free quantity provided at zero cost (e.g., free chicks from hatchery)
+  freeQuantity Int?
   itemName    String?         // For medicine names
   date        DateTime
   description String?

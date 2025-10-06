@@ -31,7 +31,11 @@ export const getAllExpenses = async (
     const skip = (Number(page) - 1) * Number(limit);
 
     // Build where clause
-    const where: any = {};
+    const where: any = {
+      category: {
+        userId: currentUserId,
+      }
+    };
 
     // Role-based filtering
     if (currentUserRole === UserRole.MANAGER) {
@@ -62,6 +66,7 @@ export const getAllExpenses = async (
 
     if (categoryType) {
       where.category = {
+        ...(where.category || {}),
         type: categoryType as CategoryType,
       };
     }
