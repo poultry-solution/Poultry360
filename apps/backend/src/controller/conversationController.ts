@@ -83,6 +83,18 @@ export const conversationController = {
         })
       ]);
 
+      // Determine for each conversation if the current user (doctor) has ever sent a message
+      const conversationIds = conversations.map(c => c.id);
+      const doctorMessagesByConversation = await prisma.message.findMany({
+        where: {
+          conversationId: { in: conversationIds },
+          senderId: userId
+        },
+        select: { conversationId: true },
+        distinct: ['conversationId']
+      });
+      const doctorSentSet = new Set(doctorMessagesByConversation.map(m => m.conversationId));
+
       const formattedConversations = conversations.map(conv => ({
         id: conv.id,
         farmer: conv.farmer,
@@ -97,6 +109,7 @@ export const conversationController = {
           createdAt: conv.messages[0].createdAt
         } : null,
         unreadCount: conv._count.messages,
+        hasDoctorMessaged: doctorSentSet.has(conv.id),
         updatedAt: conv.updatedAt,
         createdAt: conv.createdAt
       }));

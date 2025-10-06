@@ -80,7 +80,7 @@ export default function DoctorDashboard() {
     useConversationsList(isAuthenticated ? { status: "ACTIVE" } : undefined);
   const { unreadCounts, totalUnread } = useUnreadCounts();
   const { isConnected } = useChatConnection();
-  
+
   // Doctor status management
   const { data: doctorStatus, isLoading: statusLoading } = useDoctorStatus();
   const updateStatusMutation = useUpdateDoctorStatus();
@@ -93,28 +93,21 @@ export default function DoctorDashboard() {
     }
   }, [initialize, isAuthenticated, authLoading]);
 
-  // Filter conversations
-  const activeConversations =
-    conversations?.filter((conv) => conv.status === "ACTIVE") || [];
-
-  // Pending consultations: conversations where last message is from farmer (doctor hasn't replied to latest)
+  // Grouping logic (server provides hasDoctorMessaged)
   const pendingConversations =
     conversations?.filter(
-      (conv) =>
-        conv.status === "ACTIVE" &&
-        conv.lastMessage &&
-        conv.lastMessage.senderId !== conv.doctor.id
+      (conv: any) => conv.status === "ACTIVE" && !conv.hasDoctorMessaged
     ) || [];
 
-  // New messages: conversations where last message is from doctor (ongoing conversation) and has unread messages
-  const newMessageConversations =
+  const activeConversations =
     conversations?.filter(
-      (conv) =>
-        conv.status === "ACTIVE" &&
-        conv.unreadCount > 0 &&
-        conv.lastMessage &&
-        conv.lastMessage.senderId === conv.doctor.id
+      (conv: any) => conv.status === "ACTIVE" && conv.hasDoctorMessaged
     ) || [];
+
+  // New messages for active chats: unread messages from farmer
+  const newMessageConversations = activeConversations.filter(
+    (conv: any) => conv.unreadCount > 0
+  );
 
   const todayStats = {
     totalConsultations: activeConversations.length,
@@ -164,15 +157,17 @@ export default function DoctorDashboard() {
 
   const handleToggleOnlineStatus = async () => {
     if (!doctorStatus?.user) return;
-    
+
     const newStatus = !doctorStatus.user.isOnline;
     setIsUpdating(true);
-    
+
     try {
       // Optimistic update - update the UI immediately
       await updateStatusMutation.mutateAsync(newStatus);
-      
-      console.log(`Doctor status updated to: ${newStatus ? 'online' : 'offline'}`);
+
+      console.log(
+        `Doctor status updated to: ${newStatus ? "online" : "offline"}`
+      );
     } catch (error) {
       console.error("Failed to update online status:", error);
       // The error will automatically revert the optimistic update due to the mutation's onError handler
@@ -301,16 +296,16 @@ export default function DoctorDashboard() {
                 }`}
               ></div>
               <span className="text-sm font-medium">
-                {statusLoading 
-                  ? "Loading..." 
-                  : doctorStatus?.user?.isOnline 
-                    ? "Online" 
-                    : "Offline"
-                }
+                {statusLoading
+                  ? "Loading..."
+                  : doctorStatus?.user?.isOnline
+                    ? "Online"
+                    : "Offline"}
               </span>
               {doctorStatus?.user?.lastSeen && !doctorStatus.user.isOnline && (
                 <span className="text-xs text-muted-foreground">
-                  Last seen: {new Date(doctorStatus.user.lastSeen).toLocaleTimeString()}
+                  Last seen:{" "}
+                  {new Date(doctorStatus.user.lastSeen).toLocaleTimeString()}
                 </span>
               )}
             </div>
@@ -328,9 +323,14 @@ export default function DoctorDashboard() {
             </CardHeader>
             <CardContent className="pb-2">
               <div className="text-lg font-bold">
-                {statusLoading ? '...' : (doctorStatus?.stats?.activeConversations || todayStats.totalConsultations)}
+                {statusLoading
+                  ? "..."
+                  : doctorStatus?.stats?.activeConversations ||
+                    todayStats.totalConsultations}
               </div>
-              <p className="text-xs text-muted-foreground">Active consultations</p>
+              <p className="text-xs text-muted-foreground">
+                Active consultations
+              </p>
             </CardContent>
           </Card>
 
@@ -480,12 +480,13 @@ export default function DoctorDashboard() {
                     </CardDescription>
                   </div>
                   <Badge className="bg-primary text-primary-foreground text-xs">
-                    {statusLoading ? '...' : (doctorStatus?.stats?.unreadMessages || 
-                      newMessageConversations.reduce(
-                        (sum, conv) => sum + conv.unreadCount,
-                        0
-                      )
-                    )}
+                    {statusLoading
+                      ? "..."
+                      : doctorStatus?.stats?.unreadMessages ||
+                        newMessageConversations.reduce(
+                          (sum, conv) => sum + conv.unreadCount,
+                          0
+                        )}
                   </Badge>
                 </div>
               </CardHeader>
