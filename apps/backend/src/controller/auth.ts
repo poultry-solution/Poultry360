@@ -75,6 +75,8 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       companyFarmLocation: user.CompanyFarmLocation,
       role: user.role,
       status: user.status,
+      language: user.language,
+      calendarType: user.calendarType,
       managedFarms: user.managedFarms?.map((farm) => farm.id),
       ownedFarms: user.ownedFarms?.map((farm) => farm.id),
     };
@@ -105,6 +107,8 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       role,
       companyName,
       companyFarmLocation,
+      language,
+      calendarType,
     } = data;
 
     // Check if phone number already exists (phone must be unique)
@@ -137,6 +141,8 @@ export const register = async (req: Request, res: Response): Promise<any> => {
         role: role || UserRole.OWNER,
         companyName: companyName,
         CompanyFarmLocation: companyFarmLocation,
+        language: language || "ENGLISH",
+        calendarType: calendarType || "AD",
       },
       include: {
         managedFarms: {
@@ -174,6 +180,8 @@ export const register = async (req: Request, res: Response): Promise<any> => {
         companyFarmLocation: user.CompanyFarmLocation,
         role: user.role,
         status: user.status,
+        language: user.language,
+        calendarType: user.calendarType,
         managedFarms: user.managedFarms,
         ownedFarms: user.ownedFarms,
       },
@@ -299,6 +307,8 @@ export const getUserInfo = async (
     companyName: userData.companyName,
     companyFarmLocation: userData.CompanyFarmLocation,
     status: userData.status,
+    language: userData.language,
+    calendarType: userData.calendarType,
     managedFarms: userData.managedFarms,
     ownedFarms: userData.ownedFarms,
     role: userData.role,
@@ -372,6 +382,8 @@ export const validateToken = async (
       companyFarmLocation: userData.CompanyFarmLocation,
       role: userData.role,
       status: userData.status,
+      language: userData.language,
+      calendarType: userData.calendarType,
       managedFarms: userData.managedFarms,
       ownedFarms: userData.ownedFarms,
     };

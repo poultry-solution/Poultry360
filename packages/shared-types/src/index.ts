@@ -1131,6 +1131,9 @@ export const LoginSchema = z.object({
 
 export type Login = z.infer<typeof LoginSchema>;
 
+export const LanguageSchema = z.enum(["ENGLISH", "NEPALI"]);
+export const CalendarTypeSchema = z.enum(["AD", "BS"]);
+
 export const SignupSchema = z.object({
   name: z.string(),
   phone: z.string(),
@@ -1138,6 +1141,8 @@ export const SignupSchema = z.object({
   role: UserRoleSchema.optional().default("OWNER"),
   companyName: z.string().optional(),
   companyFarmLocation: z.string().optional(),
+  language: LanguageSchema.optional().default("ENGLISH"),
+  calendarType: CalendarTypeSchema.optional().default("AD"),
 });
 
 export type Signup = z.infer<typeof SignupSchema>;

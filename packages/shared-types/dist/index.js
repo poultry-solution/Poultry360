@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateInventoryUsageSchema = exports.InventoryUsageSchema = exports.CreateInventoryTransactionSchema = exports.InventoryTransactionSchema = exports.UpdateInventoryItemSchema = exports.CreateInventoryItemSchema = exports.InventoryItemSchema = exports.InventoryItemTypeSchema = exports.CreateSalePaymentSchema = exports.SalePaymentSchema = exports.UpdateSaleSchema = exports.CreateSaleSchema = exports.SaleSchema = exports.SalesItemTypeSchema = exports.UpdateExpenseSchema = exports.CreateExpenseSchema = exports.ExpenseSchema = exports.UpdateCategorySchema = exports.CreateCategorySchema = exports.CategorySchema = exports.BatchSummarySchema = exports.CloseBatchSchema = exports.UpdateBatchSchema = exports.CreateBatchSchema = exports.BatchResponseSchema = exports.BatchCountSchema = exports.BatchFarmSchema = exports.BatchSchema = exports.UpdateFarmSchema = exports.CreateFarmSchema = exports.FarmResponseSchema = exports.FarmCountSchema = exports.FarmManagerSchema = exports.FarmOwnerSchema = exports.FarmSchema = exports.UpdateUserSchema = exports.CreateUserSchema = exports.UserSchema = exports.BaseSchema = exports.RecurrencePatternSchema = exports.ReminderStatusSchema = exports.ReminderTypeSchema = exports.CategoryTypeSchema = exports.AuditActionSchema = exports.VaccinationStatusSchema = exports.NotificationStatusSchema = exports.NotificationTypeSchema = exports.TransactionTypeSchema = exports.BatchStatusSchema = exports.UserRoleSchema = void 0;
-exports.BatchDetailResponseSchema = exports.BatchListResponseSchema = exports.FarmDetailResponseSchema = exports.FarmListResponseSchema = exports.AuthResponseSchema = exports.UserResponseSchema = exports.FarmAnalyticsSchema = exports.BatchAnalyticsSchema = exports.SignupSchema = exports.LoginSchema = exports.CreateAuditLogSchema = exports.AuditLogSchema = exports.UpdateReminderSchema = exports.CreateReminderSchema = exports.ReminderSchema = exports.UpdateNotificationSchema = exports.CreateNotificationSchema = exports.NotificationSchema = exports.UpdateBirdWeightSchema = exports.CreateBirdWeightSchema = exports.BirdWeightSchema = exports.UpdateFeedConsumptionSchema = exports.CreateFeedConsumptionSchema = exports.FeedConsumptionSchema = exports.UpdateVaccinationSchema = exports.CreateVaccinationSchema = exports.VaccinationSchema = exports.UpdateMortalitySchema = exports.CreateMortalitySchema = exports.MortalitySchema = exports.CreateCustomerTransactionSchema = exports.CustomerTransactionSchema = exports.UpdateCustomerSchema = exports.CreateCustomerSchema = exports.CustomerSchema = exports.UpdateMedicineSupplierSchema = exports.CreateMedicineSupplierSchema = exports.MedicineSupplierSchema = exports.UpdateHatcherySchema = exports.CreateHatcherySchema = exports.HatcherySchema = exports.DealerDetailResponseSchema = exports.DealerStatisticsSchema = exports.DealerResponseSchema = exports.DealerTransactionSchema = exports.UpdateDealerSchema = exports.CreateDealerSchema = exports.DealerSchema = exports.CreateEntityTransactionSchema = exports.EntityTransactionSchema = void 0;
-exports.PaginatedResponseSchema = exports.ApiResponseSchema = exports.schemas = void 0;
+exports.FarmDetailResponseSchema = exports.FarmListResponseSchema = exports.AuthResponseSchema = exports.UserResponseSchema = exports.FarmAnalyticsSchema = exports.BatchAnalyticsSchema = exports.SignupSchema = exports.CalendarTypeSchema = exports.LanguageSchema = exports.LoginSchema = exports.CreateAuditLogSchema = exports.AuditLogSchema = exports.UpdateReminderSchema = exports.CreateReminderSchema = exports.ReminderSchema = exports.UpdateNotificationSchema = exports.CreateNotificationSchema = exports.NotificationSchema = exports.UpdateBirdWeightSchema = exports.CreateBirdWeightSchema = exports.BirdWeightSchema = exports.UpdateFeedConsumptionSchema = exports.CreateFeedConsumptionSchema = exports.FeedConsumptionSchema = exports.UpdateVaccinationSchema = exports.CreateVaccinationSchema = exports.VaccinationSchema = exports.UpdateMortalitySchema = exports.CreateMortalitySchema = exports.MortalitySchema = exports.CreateCustomerTransactionSchema = exports.CustomerTransactionSchema = exports.UpdateCustomerSchema = exports.CreateCustomerSchema = exports.CustomerSchema = exports.UpdateMedicineSupplierSchema = exports.CreateMedicineSupplierSchema = exports.MedicineSupplierSchema = exports.UpdateHatcherySchema = exports.CreateHatcherySchema = exports.HatcherySchema = exports.DealerDetailResponseSchema = exports.DealerStatisticsSchema = exports.DealerResponseSchema = exports.DealerTransactionSchema = exports.UpdateDealerSchema = exports.CreateDealerSchema = exports.DealerSchema = exports.CreateEntityTransactionSchema = exports.EntityTransactionSchema = void 0;
+exports.PaginatedResponseSchema = exports.ApiResponseSchema = exports.schemas = exports.BatchDetailResponseSchema = exports.BatchListResponseSchema = void 0;
 // packages/shared-types/index.ts
 const zod_1 = require("zod");
 // ==================== ENUMS ====================
@@ -677,7 +677,7 @@ exports.CreateMortalitySchema = zod_1.z.object({
 exports.UpdateMortalitySchema = zod_1.z.object({
     date: zod_1.z.date().optional(),
     count: zod_1.z.number().int().positive().optional(),
-    reason: zod_1.z.string().nullable().optional(),
+    reason: zod_1.z.string().optional().nullable(),
 });
 exports.VaccinationSchema = exports.BaseSchema.extend({
     vaccineName: zod_1.z.string(),
@@ -835,6 +835,8 @@ exports.LoginSchema = zod_1.z.object({
     emailOrPhone: zod_1.z.string(), // Can be phone
     password: zod_1.z.string(),
 });
+exports.LanguageSchema = zod_1.z.enum(["ENGLISH", "NEPALI"]);
+exports.CalendarTypeSchema = zod_1.z.enum(["AD", "BS"]);
 exports.SignupSchema = zod_1.z.object({
     name: zod_1.z.string(),
     phone: zod_1.z.string(),
@@ -842,6 +844,8 @@ exports.SignupSchema = zod_1.z.object({
     role: exports.UserRoleSchema.optional().default("OWNER"),
     companyName: zod_1.z.string().optional(),
     companyFarmLocation: zod_1.z.string().optional(),
+    language: exports.LanguageSchema.optional().default("ENGLISH"),
+    calendarType: exports.CalendarTypeSchema.optional().default("AD"),
 });
 // ==================== COMPUTED TYPES ====================
 exports.BatchAnalyticsSchema = zod_1.z.object({

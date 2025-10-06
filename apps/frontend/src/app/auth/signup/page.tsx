@@ -28,6 +28,8 @@ export default function SignupPage() {
     phone: "",
     password: "",
     confirmPassword: "",
+    language: "ENGLISH",
+    calendarType: "AD",
   });
 
   const handleInputChange = (
@@ -92,6 +94,8 @@ export default function SignupPage() {
         role: "OWNER" as const,
         companyName: formData.companyName,
         companyFarmLocation,
+        language: formData.language as "ENGLISH" | "NEPALI",
+        calendarType: formData.calendarType as "AD" | "BS",
       };
 
       await register(registerData);
@@ -143,6 +147,8 @@ export default function SignupPage() {
       phone: phone,
       password: "test123",
       confirmPassword: "test123",
+      language: "ENGLISH",
+      calendarType: "AD",
     });
   };
 
@@ -273,6 +279,35 @@ export default function SignupPage() {
                   </p>
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="language">Language *</Label>
+                    <select
+                      id="language"
+                      name="language"
+                      value={formData.language}
+                      onChange={handleInputChange}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="ENGLISH">English</option>
+                      <option value="NEPALI">नेपाली (Nepali)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="calendarType">Calendar *</Label>
+                    <select
+                      id="calendarType"
+                      name="calendarType"
+                      value={formData.calendarType}
+                      onChange={handleInputChange}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="AD">AD (Gregorian)</option>
+                      <option value="BS">BS (Bikram Sambat)</option>
+                    </select>
+                  </div>
+                </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="password">Password *</Label>

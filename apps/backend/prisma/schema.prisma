@@ -97,6 +97,16 @@ enum UserStatus {
   PENDING_VERIFICATION
 }
 
+enum Language {
+  ENGLISH
+  NEPALI
+}
+
+enum CalendarType {
+  AD
+  BS
+}
+
 model User {
   id        String   @id @default(cuid())
   phone     String  @unique
@@ -113,6 +123,11 @@ model User {
   status    UserStatus @default(PENDING_VERIFICATION)
   isOnline  Boolean @default(false)
   lastSeen  DateTime?
+  
+  // User preferences
+  language      Language @default(ENGLISH)
+  calendarType  CalendarType @default(AD)
+  
   // Relationships
   // Farms this user owns
   ownedFarms Farm[]
