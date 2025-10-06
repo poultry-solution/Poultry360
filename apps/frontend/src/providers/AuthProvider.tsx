@@ -3,7 +3,10 @@
 import { ReactNode, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/store";
-import { AuthLoadingScreen, AppLoadingScreen } from "@/components/ui/loading-screen";
+import {
+  AuthLoadingScreen,
+  AppLoadingScreen,
+} from "@/components/ui/loading-screen";
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -17,8 +20,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   const { initialize, isInitialized, isLoading } = useAuthStore();
   const pathname = usePathname();
 
-  // Check if we're on auth pages (login/signup)
+  // Check if we're on auth pages (login/signup) or public share pages
   const isAuthPage = pathname?.startsWith("/auth/");
+  const isPublicSharePage = pathname?.startsWith("/share/");
 
   useEffect(() => {
     if (!isInitialized) {
@@ -27,7 +31,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   }, [initialize, isInitialized]);
 
   // On auth pages, always show children
-  if (isAuthPage) {
+  if (isAuthPage || isPublicSharePage) {
     return <>{children}</>;
   }
 
@@ -37,7 +41,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     if (fallback) {
       return <>{fallback}</>;
     }
-    
+
     return <AppLoadingScreen message="Initializing authentication..." />;
   }
 

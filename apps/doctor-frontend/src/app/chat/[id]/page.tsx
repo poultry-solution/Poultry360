@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Send, Image, Paperclip, MoreVertical } from "lucide-react";
+import { ArrowLeft, Send, Image, Paperclip, MoreVertical, Share2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -193,8 +193,57 @@ export default function DoctorChatPage() {
                           </div>
                         </div>
                       )}
-                      {message?.messageType === 'TEXT' && (
-                        <p className="text-sm">{message?.text || ''}</p>
+                      {(message?.messageType === 'BATCH_SHARE' || (message?.text || '').startsWith('BATCH_SHARE:')) ? (
+                        <div>
+                          <div className={`relative overflow-hidden rounded-lg ${isDoctor ? 'bg-white/10' : 'bg-white'} p-4 shadow-md ring-1 ring-inset ${isDoctor ? 'ring-white/15' : 'ring-gray-100'}`}>
+                            <div className="absolute inset-0 pointer-events-none opacity-10" style={{
+                              background: 'radial-gradient(600px circle at 0 0, #22c55e 10%, transparent 40%), radial-gradient(600px circle at 100% 0, #06b6d4 10%, transparent 40%)'
+                            }} />
+
+                            <div className="relative flex items-start justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <div className={`h-8 w-8 rounded-md flex items-center justify-center ${isDoctor ? 'bg-white/20' : 'bg-primary/10'}`}>
+                                  <Share2 className={`h-4 w-4 ${isDoctor ? 'text-white' : 'text-primary'}`} />
+                                </div>
+                                <div>
+                                  <div className="text-sm font-semibold tracking-tight">Batch Data Shared</div>
+                                  <div className={`text-xs ${isDoctor ? 'text-primary-foreground/75' : 'text-gray-500'}`}>Secure snapshot link is attached</div>
+                                </div>
+                              </div>
+                              <Badge className={`${isDoctor ? 'bg-black/10 text-white/90' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'} shadow-sm`}>Snapshot</Badge>
+                            </div>
+
+                            <div className="relative mt-3 flex items-center gap-2">
+                              <a
+                                href={`http://localhost:3000/share/batch/${(message?.text || '').replace('BATCH_SHARE:', '')}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                                  isDoctor ? 'bg-white text-primary hover:bg-white/90' : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                                }`}
+                              >
+                                View Full Report
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => navigator.clipboard.writeText(`${(process.env.NEXT_PUBLIC_MAIN_APP_URL || '')}/share/batch/${(message?.text || '').replace('BATCH_SHARE:', '')}`)}
+                                className={`inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                                  isDoctor ? 'border-white/20 text-primary-foreground hover:bg-white/10' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                                }`}
+                              >
+                                Copy Link
+                              </button>
+                            </div>
+
+                            <div className={`relative mt-3 text-[11px] ${isDoctor ? 'text-primary-foreground/60' : 'text-gray-500'}`}>
+                              Token: <span className={`${isDoctor ? 'text-white' : 'text-gray-800'} font-mono`}>{(message?.text || '').replace('BATCH_SHARE:', '').slice(0, 6)}•••</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        (message?.messageType === 'TEXT' || !message?.messageType) && (
+                          <p className="text-sm">{message?.text || ''}</p>
+                        )
                       )}
                       <div className="flex justify-between items-center mt-1">
                         <p className={`text-xs ${
