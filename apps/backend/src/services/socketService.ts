@@ -221,9 +221,24 @@ export class SocketService {
           }
 
           const { conversationId, messageIds } = data;
-          await messageService.markMessagesAsRead(conversationId, socket.userId, messageIds);
+          console.log(`📖 [Mark as Read] User ${socket.userId} marking messages in conversation ${conversationId}`);
+          
+          const readCount = await messageService.markMessagesAsRead(conversationId, socket.userId, messageIds);
+          
+          console.log(`✅ [Mark as Read] Marked ${readCount} messages as read`);
+          
+          // Broadcast to all users in the conversation that messages were read
+          const roomId = `conversation_${conversationId}`;
+          this.io.to(roomId).emit('messages_read', {
+            conversationId,
+            userId: socket.userId,
+            readCount
+          });
+          
+          console.log(`📡 [Mark as Read] Broadcasted messages_read event to room ${roomId}`);
         } catch (error) {
           console.error('Error marking messages as read:', error);
+          socket.emit('error', { message: 'Failed to mark messages as read' });
         }
       });
 

@@ -296,7 +296,7 @@ export default function SharedBatchPage() {
                                  ? `${Number(it.quantity).toLocaleString()}${it.unit ? ` ${it.unit}` : ""}`
                                  : "-"}
                              </td>
-                             <td className="px-4 py-3 text-sm text-muted-foreground">{it.description || "-"}</td>
+                             <td className="px-4 py-3 text-sm text-muted-foreground">{it.itemName || "-"}</td>
                            </tr>
                          ))}
                        </tbody>

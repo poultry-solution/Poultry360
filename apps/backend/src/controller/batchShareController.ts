@@ -30,6 +30,11 @@ export const createBatchShare = async (req: Request, res: Response) => {
         expenses: {
           include: {
             category: true,
+            inventoryUsages: {
+              include: {
+                item: true,
+              },
+            },
           },
         },
       },
@@ -61,21 +66,27 @@ export const createBatchShare = async (req: Request, res: Response) => {
       if (nameLower.includes("feed")) unit = "kg";
       else if (nameLower.includes("chick")) unit = "birds";
       else if (nameLower.includes("med")) unit = "units";
+      
+      // Get item name from inventory usages (non-financial)
+      const itemNames = exp.inventoryUsages?.map((usage: any) => usage.item?.name).filter(Boolean) || [];
+      // Fall back to category name if no inventory items are linked
+      const itemName = itemNames.length > 0 ? itemNames.join(", ") : rawName;
+      
       // Push structured, non-financial activity
       acc[key].push({
         date: exp.date,
         quantity: exp.quantity ? Number(exp.quantity) : null,
         unit,
-        description: exp.description || null,
+        itemName, // Use item name instead of description
       });
       return acc;
-    }, {} as Record<string, Array<{ date: Date; quantity: number | null; unit: string | null; description: string | null }>>);
+    }, {} as Record<string, Array<{ date: Date; quantity: number | null; unit: string | null; itemName: string | null }>>);
 
     const expensesGrouped = Object.keys(expenseGroups).map((name) => ({
       category: name,
       items: expenseGroups[name]
         .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .map((i: any) => ({ date: i.date, quantity: i.quantity, unit: i.unit, description: i.description })),
+        .map((i: any) => ({ date: i.date, quantity: i.quantity, unit: i.unit, itemName: i.itemName })),
     }));
 
     // Mortality timeline with cumulative

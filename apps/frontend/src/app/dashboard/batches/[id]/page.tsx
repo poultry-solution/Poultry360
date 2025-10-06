@@ -1989,7 +1989,7 @@ export default function BatchDetailPage() {
                       ₹{perBirdExpense.toFixed(2)}
                     </span>
                   </div>
-                  {analytics?.profitMargin && (
+                  {/* {analytics?.profitMargin && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
                         Profit Margin:
@@ -1998,7 +1998,7 @@ export default function BatchDetailPage() {
                         {analytics.profitMargin.toFixed(2)}%
                       </span>
                     </div>
-                  )}
+                  )} */}
                 </div>
               </CardContent>
             </Card>

@@ -95,6 +95,7 @@ export interface SocketEvents {
   // Server to Client
   joined_conversation: { conversationId: string };
   new_message: Message;
+  messages_read: { conversationId: string; userId: string; readCount: number };
   conversation_history: { messages: Message[]; totalCount: number; hasMore: boolean };
   user_joined: { userId: string; name: string; role: string };
   user_left: { userId: string; name: string; role: string };

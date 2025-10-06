@@ -89,11 +89,7 @@ enum AuditAction {
 }
 
 // ==================== CORE MODELS ====================
-enum Gender {
-  MALE
-  FEMALE
-  OTHER
-}
+
 
 enum UserStatus {
   ACTIVE
@@ -103,7 +99,7 @@ enum UserStatus {
 
 model User {
   id        String   @id @default(cuid())
-  phone     String?  @unique
+  phone     String  @unique
   name      String  //name of the user 
   
   companyName String? //name of the company

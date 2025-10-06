@@ -279,6 +279,36 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     console.log("Message sent successfully:", data.messageId);
   }, []);
 
+  const handleMessagesRead = useCallback(
+    (data: { conversationId: string; userId: string; readCount: number }) => {
+      console.log('✅ [Farmer] Messages read event:', data);
+      
+      // Update unread counts
+      setUnreadCounts((prev) => ({
+        totalUnread: Math.max(0, prev.totalUnread - data.readCount),
+        byConversation: {
+          ...prev.byConversation,
+          [data.conversationId]: Math.max(0, (prev.byConversation[data.conversationId] || 0) - data.readCount),
+        },
+      }));
+
+      // Update conversations list
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === data.conversationId
+            ? { ...conv, unreadCount: Math.max(0, conv.unreadCount - data.readCount) }
+            : conv
+        )
+      );
+
+      // Invalidate queries to refresh
+      queryClient.invalidateQueries({ queryKey: chatKeys.conversation(data.conversationId) });
+      queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
+      queryClient.invalidateQueries({ queryKey: chatKeys.unreadCount() });
+    },
+    [queryClient]
+  );
+
   // ==================== SOCKET SETUP ====================
 
   useEffect(() => {
@@ -313,6 +343,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         // Set up event listeners
         console.log('📡 [Farmer] Setting up event listeners...');
         socketService.current.on("new_message", handleNewMessage);
+        socketService.current.on("messages_read", handleMessagesRead);
         socketService.current.on("user_joined", handleUserJoined);
         socketService.current.on("user_left", handleUserLeft);
         socketService.current.on("user_typing", handleUserTyping);
@@ -344,6 +375,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     accessToken,
     user,
     handleNewMessage,
+    handleMessagesRead,
     handleUserJoined,
     handleUserLeft,
     handleUserTyping,

@@ -32,7 +32,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   useConversationsList,
@@ -43,7 +43,9 @@ import {
 } from "@/hooks/useChat";
 import { useAuthStore } from "@/store/authStore";
 import { AppLoadingScreen } from "@/components/loading-screen";
-
+import { useQueryClient } from "@tanstack/react-query";
+import { getSocketService } from "@/services/chatservices/socketService";
+const socketService = getSocketService();
 interface ChatRequest {
   id: string;
   farmerId: string;
@@ -80,6 +82,7 @@ export default function DoctorDashboard() {
     useConversationsList(isAuthenticated ? { status: "ACTIVE" } : undefined);
   const { unreadCounts, totalUnread } = useUnreadCounts();
   const { isConnected } = useChatConnection();
+  const queryClient = useQueryClient();
 
   // Doctor status management
   const { data: doctorStatus, isLoading: statusLoading } = useDoctorStatus();
@@ -92,6 +95,57 @@ export default function DoctorDashboard() {
       initialize();
     }
   }, [initialize, isAuthenticated, authLoading]);
+
+  // Real-time message updates - refresh conversations list when new messages arrive
+  useEffect(() => {
+    if (
+      !isConnected ||
+      !isAuthenticated ||
+      !conversations ||
+      conversations.length === 0
+    )
+      return;
+
+    const handleNewMessage = (message: any) => {
+      console.log("📨 [Doctor Dashboard] New message received:", message);
+      // Invalidate conversations to refetch with updated unread counts and last message
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      // Also invalidate unread counts
+      queryClient.invalidateQueries({ queryKey: ["unreadCounts"] });
+    };
+
+    const handleMessageRead = (data: any) => {
+      console.log("✅ [Doctor Dashboard] Message read:", data);
+      // Invalidate to update unread counts
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["unreadCounts"] });
+    };
+
+    // Subscribe to socket events
+    socketService.on("new_message", handleNewMessage);
+    socketService.on("messages_read", handleMessageRead);
+
+    // Join all active conversation rooms to receive real-time updates
+    console.log(
+      `🔌 [Doctor Dashboard] Joining ${conversations.length} conversation rooms`
+    );
+    conversations.forEach((conv: any) => {
+      socketService.emit("join_conversation", { conversationId: conv.id });
+      console.log(
+        `🔌 [Doctor Dashboard] Joined room for conversation: ${conv.id}`
+      );
+    });
+
+    console.log("🔌 [Doctor Dashboard] Subscribed to real-time message events");
+
+    return () => {
+      socketService.off("new_message", handleNewMessage);
+      socketService.off("messages_read", handleMessageRead);
+      console.log(
+        "🔌 [Doctor Dashboard] Unsubscribed from real-time message events"
+      );
+    };
+  }, [isConnected, isAuthenticated, conversations, queryClient]);
 
   // Grouping logic (server provides hasDoctorMessaged)
   const pendingConversations =
