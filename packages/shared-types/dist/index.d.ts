@@ -1001,7 +1001,7 @@ export type CreateMortality = z.infer<typeof CreateMortalitySchema>;
 export declare const UpdateMortalitySchema: z.ZodObject<{
     date: z.ZodOptional<z.ZodDate>;
     count: z.ZodOptional<z.ZodNumber>;
-    reason: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    reason: z.ZodNullable<z.ZodOptional<z.ZodString>>;
 }, z.core.$strip>;
 export type UpdateMortality = z.infer<typeof UpdateMortalitySchema>;
 export declare const VaccinationSchema: z.ZodObject<{
@@ -1304,6 +1304,14 @@ export declare const LoginSchema: z.ZodObject<{
     password: z.ZodString;
 }, z.core.$strip>;
 export type Login = z.infer<typeof LoginSchema>;
+export declare const LanguageSchema: z.ZodEnum<{
+    ENGLISH: "ENGLISH";
+    NEPALI: "NEPALI";
+}>;
+export declare const CalendarTypeSchema: z.ZodEnum<{
+    AD: "AD";
+    BS: "BS";
+}>;
 export declare const SignupSchema: z.ZodObject<{
     name: z.ZodString;
     phone: z.ZodString;
@@ -1314,6 +1322,14 @@ export declare const SignupSchema: z.ZodObject<{
     }>>>;
     companyName: z.ZodOptional<z.ZodString>;
     companyFarmLocation: z.ZodOptional<z.ZodString>;
+    language: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+        ENGLISH: "ENGLISH";
+        NEPALI: "NEPALI";
+    }>>>;
+    calendarType: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+        AD: "AD";
+        BS: "BS";
+    }>>>;
 }, z.core.$strip>;
 export type Signup = z.infer<typeof SignupSchema>;
 export declare const BatchAnalyticsSchema: z.ZodObject<{
@@ -2741,7 +2757,7 @@ export declare const schemas: {
     readonly UpdateMortality: z.ZodObject<{
         date: z.ZodOptional<z.ZodDate>;
         count: z.ZodOptional<z.ZodNumber>;
-        reason: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        reason: z.ZodNullable<z.ZodOptional<z.ZodString>>;
     }, z.core.$strip>;
     readonly Vaccination: z.ZodObject<{
         id: z.ZodString;
@@ -3035,6 +3051,14 @@ export declare const schemas: {
         }>>>;
         companyName: z.ZodOptional<z.ZodString>;
         companyFarmLocation: z.ZodOptional<z.ZodString>;
+        language: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+            ENGLISH: "ENGLISH";
+            NEPALI: "NEPALI";
+        }>>>;
+        calendarType: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+            AD: "AD";
+            BS: "BS";
+        }>>>;
     }, z.core.$strip>;
     readonly BatchAnalytics: z.ZodObject<{
         batchId: z.ZodString;
