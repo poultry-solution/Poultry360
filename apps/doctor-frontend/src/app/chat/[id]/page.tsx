@@ -47,12 +47,12 @@ export default function DoctorChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Mark messages as read when component mounts
+  // Mark messages as read when component mounts or when new messages arrive
   useEffect(() => {
-    if (conversationId && isConnected) {
+    if (conversationId && isConnected && messages.length > 0) {
       markAsRead();
     }
-  }, [conversationId, isConnected, markAsRead]);
+  }, [conversationId, isConnected, messages.length, markAsRead]);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

@@ -95,17 +95,17 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   const handleNewMessage = useCallback(
     (socketMessage: any) => {
       // Always log message reception for debugging
-      console.log('📨 [Doctor] handleNewMessage triggered:', {
+      console.log("📨 [Doctor] handleNewMessage triggered:", {
         messageId: socketMessage.id,
         conversationId: socketMessage.conversationId,
         currentConversationId,
         senderRole: socketMessage.senderRole,
         senderId: socketMessage.senderId,
         senderName: socketMessage.senderName,
-        text: socketMessage.text?.substring(0, 50) + '...',
-        timestamp: new Date().toISOString()
+        text: socketMessage.text?.substring(0, 50) + "...",
+        timestamp: new Date().toISOString(),
       });
-      
+
       // Transform socket message to Message format
       const message: Message = {
         id: socketMessage.id,
@@ -118,49 +118,50 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         sender: {
           id: socketMessage.senderId,
           name: socketMessage.senderName,
-          role: socketMessage.senderRole
-        }
+          role: socketMessage.senderRole,
+        },
       };
 
       setMessages((prev) => {
         // Check if this is a real message replacing an optimistic one
-        const existingOptimisticIndex = prev.findIndex((m) => 
-          m.id.startsWith('temp-') && 
-          m.text === message.text && 
-          m.conversationId === message.conversationId
+        const existingOptimisticIndex = prev.findIndex(
+          (m) =>
+            m.id.startsWith("temp-") &&
+            m.text === message.text &&
+            m.conversationId === message.conversationId
         );
-        
+
         if (existingOptimisticIndex !== -1) {
-          console.log('🔄 [Doctor] Replacing optimistic message with real:', {
+          console.log("🔄 [Doctor] Replacing optimistic message with real:", {
             optimisticId: prev[existingOptimisticIndex].id,
             realId: message.id,
-            text: message.text.substring(0, 30) + '...'
+            text: message.text.substring(0, 30) + "...",
           });
           const newMessages = [...prev];
           newMessages[existingOptimisticIndex] = message;
           return newMessages;
         }
-        
+
         // Avoid duplicates for real messages
         if (prev.some((m) => m.id === message.id)) {
-          console.log('⚠️ [Doctor] Duplicate message rejected:', message.id);
+          console.log("⚠️ [Doctor] Duplicate message rejected:", message.id);
           return prev;
         }
-        
+
         // Only add messages that belong to the current conversation
         if (message.conversationId !== currentConversationId) {
-          console.log('❌ [Doctor] Message not for current conversation:', {
+          console.log("❌ [Doctor] Message not for current conversation:", {
             messageConversationId: message.conversationId,
             currentConversationId,
-            messageId: message.id
+            messageId: message.id,
           });
           return prev;
         }
-        
-        console.log('✅ [Doctor] Adding NEW message to state:', {
+
+        console.log("✅ [Doctor] Adding NEW message to state:", {
           messageId: message.id,
           senderRole: message.sender.role,
-          totalAfter: prev.length + 1
+          totalAfter: prev.length + 1,
         });
         return [...prev, message];
       });
@@ -234,6 +235,44 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     [currentConversationId]
   );
 
+  const handleMessagesRead = useCallback(
+    (data: { conversationId: string; userId: string; readCount: number }) => {
+      console.log("✅ [Doctor] Messages read event:", data);
+
+      // Update unread counts
+      setUnreadCounts((prev) => ({
+        totalUnread: Math.max(0, prev.totalUnread - data.readCount),
+        byConversation: {
+          ...prev.byConversation,
+          [data.conversationId]: Math.max(
+            0,
+            (prev.byConversation[data.conversationId] || 0) - data.readCount
+          ),
+        },
+      }));
+
+      // Update conversations list
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === data.conversationId
+            ? {
+                ...conv,
+                unreadCount: Math.max(0, conv.unreadCount - data.readCount),
+              }
+            : conv
+        )
+      );
+
+      // Invalidate queries to refresh
+      queryClient.invalidateQueries({
+        queryKey: chatKeys.conversation(data.conversationId),
+      });
+      queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
+      queryClient.invalidateQueries({ queryKey: chatKeys.unreadCount() });
+    },
+    [queryClient]
+  );
+
   const handleUserTyping = useCallback(
     (data: SocketEvents["user_typing"]) => {
       if (!currentConversationId) return;
@@ -284,16 +323,16 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         setIsLoading(true);
         setError(null);
 
-        console.log('🔌 [Doctor] Attempting socket connection...', {
-        userId: user?.id,
-        userName: user?.name,
-        userRole: user?.role
-      });
-      
-      await socketService.current.connect(accessToken);
+        console.log("🔌 [Doctor] Attempting socket connection...", {
+          userId: user?.id,
+          userName: user?.name,
+          userRole: user?.role,
+        });
 
-        console.log('✅ [Doctor] Socket connected successfully:', {
-          socketId: socketService.current.getSocketId()
+        await socketService.current.connect(accessToken);
+
+        console.log("✅ [Doctor] Socket connected successfully:", {
+          socketId: socketService.current.getSocketId(),
         });
 
         // Debounce connection state to prevent rapid changes
@@ -302,12 +341,13 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         }
         connectionTimeoutRef.current = setTimeout(() => {
           setIsConnected(true);
-          console.log('✅ [Doctor] Connection state set to true');
+          console.log("✅ [Doctor] Connection state set to true");
         }, 100);
 
         // Set up event listeners
-        console.log('📡 [Doctor] Setting up event listeners...');
+        console.log("📡 [Doctor] Setting up event listeners...");
         socketService.current.on("new_message", handleNewMessage);
+        socketService.current.on("messages_read", handleMessagesRead);
         socketService.current.on("user_joined", handleUserJoined);
         socketService.current.on("user_left", handleUserLeft);
         socketService.current.on("user_typing", handleUserTyping);
@@ -338,6 +378,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     accessToken,
     user,
     handleNewMessage,
+    handleMessagesRead,
     handleUserJoined,
     handleUserLeft,
     handleUserTyping,
@@ -349,16 +390,16 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
   const joinConversation = useCallback(
     (conversationId: string) => {
-      console.log('🔵 [Doctor] joinConversation called:', {
+      console.log("🔵 [Doctor] joinConversation called:", {
         conversationId,
         isConnected,
         socketId: socketService.current.getSocketId(),
         userId: user?.id,
-        userName: user?.name
+        userName: user?.name,
       });
-      
+
       if (!isConnected) {
-        console.warn('⚠️ [Doctor] Cannot join - socket not connected');
+        console.warn("⚠️ [Doctor] Cannot join - socket not connected");
         return;
       }
 
@@ -366,8 +407,8 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       setMessages([]);
       setCurrentConversationId(conversationId);
       socketService.current.joinConversation(conversationId);
-      
-      console.log('✅ [Doctor] Join conversation emitted:', conversationId);
+
+      console.log("✅ [Doctor] Join conversation emitted:", conversationId);
     },
     [isConnected, user]
   );
@@ -383,20 +424,20 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
   const sendMessage = useCallback(
     (text: string, messageType: "TEXT" | "IMAGE" | "FILE" = "TEXT") => {
-      console.log('📤 [Doctor] sendMessage called:', {
+      console.log("📤 [Doctor] sendMessage called:", {
         conversationId: currentConversationId,
         isConnected,
         textLength: text.trim().length,
         messageType,
         userId: user?.id,
-        socketId: socketService.current.getSocketId()
+        socketId: socketService.current.getSocketId(),
       });
-      
+
       if (!currentConversationId || !isConnected || !text.trim()) {
-        console.warn('⚠️ [Doctor] Cannot send message:', {
+        console.warn("⚠️ [Doctor] Cannot send message:", {
           hasConversationId: !!currentConversationId,
           isConnected,
-          hasText: !!text.trim()
+          hasText: !!text.trim(),
         });
         return;
       }
@@ -411,26 +452,29 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         read: false,
         edited: false,
         sender: {
-          id: user?.id || '',
-          name: user?.name || '',
-          role: user?.role || 'DOCTOR'
-        }
+          id: user?.id || "",
+          name: user?.name || "",
+          role: user?.role || "DOCTOR",
+        },
       };
 
-      console.log('💬 [Doctor] Created optimistic message:', {
+      console.log("💬 [Doctor] Created optimistic message:", {
         id: optimisticMessage.id,
         conversationId: optimisticMessage.conversationId,
-        text: optimisticMessage.text.substring(0, 30) + '...'
+        text: optimisticMessage.text.substring(0, 30) + "...",
       });
 
       // Add optimistic message to local state immediately
       setMessages((prev) => {
-        console.log('📝 [Doctor] Adding optimistic message to state. Current messages:', prev.length);
+        console.log(
+          "📝 [Doctor] Adding optimistic message to state. Current messages:",
+          prev.length
+        );
         return [...prev, optimisticMessage];
       });
 
       // Send message via socket
-      console.log('🚀 [Doctor] Emitting send_message event to socket');
+      console.log("🚀 [Doctor] Emitting send_message event to socket");
       socketService.current.sendMessage(
         currentConversationId,
         text.trim(),
@@ -440,17 +484,25 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       // Set timeout to remove optimistic message if no confirmation received
       setTimeout(() => {
         setMessages((prev) => {
-          const messageIndex = prev.findIndex(m => m.id === optimisticMessage.id);
+          const messageIndex = prev.findIndex(
+            (m) => m.id === optimisticMessage.id
+          );
           if (messageIndex !== -1) {
-            console.warn('⏰ [Doctor] Message timeout - marking as failed:', optimisticMessage.id);
+            console.warn(
+              "⏰ [Doctor] Message timeout - marking as failed:",
+              optimisticMessage.id
+            );
             const newMessages = [...prev];
             newMessages[messageIndex] = {
               ...newMessages[messageIndex],
-              text: `${newMessages[messageIndex].text} (Failed to send)`
+              text: `${newMessages[messageIndex].text} (Failed to send)`,
             };
             return newMessages;
           } else {
-            console.log('✅ [Doctor] Message confirmed (optimistic removed):', optimisticMessage.id);
+            console.log(
+              "✅ [Doctor] Message confirmed (optimistic removed):",
+              optimisticMessage.id
+            );
           }
           return prev;
         });

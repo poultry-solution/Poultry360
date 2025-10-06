@@ -83,12 +83,12 @@ export default function ChatPage() {
 
   // axiosInstance is configured; no need for manual backend base here
 
-  // Mark messages as read when conversation loads
+  // Mark messages as read when conversation loads or when new messages arrive
   useEffect(() => {
-    if (conversation && messages.length > 0) {
+    if (chatId && isConnected && messages.length > 0) {
       markAsRead();
     }
-  }, [conversation?.id, messages.length, markAsRead]);
+  }, [chatId, isConnected, messages.length, markAsRead]);
 
   // Handle connection errors
   useEffect(() => {
