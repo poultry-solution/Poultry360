@@ -63,6 +63,8 @@ enum MessageType {
   TEXT
   IMAGE
   FILE
+  BATCH_SHARE
+  FARM_SHARE
 }
 
 enum NotificationStatus {
@@ -146,6 +148,11 @@ model User {
   doctorConversations Conversation[] @relation("DoctorConversations")
   sentMessages Message[]
 
+  // Batch share relationships
+  batchSharesOwned     BatchShare[]      @relation("BatchShareOwner")
+  batchSharesReceived  BatchShare[]      @relation("BatchShareRecipient")
+  batchShareViews      BatchShareView[]  @relation("BatchShareViewer")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -201,6 +208,9 @@ model Batch {
   inventoryUsages InventoryUsage[]
   notifications Notification[]
   reminders   Reminder[]
+
+  // Shares referencing this batch
+  batchShares BatchShare[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -787,6 +797,9 @@ model Conversation {
   farmer     User                @relation("FarmerConversations", fields: [farmerId], references: [id])
   doctor     User                @relation("DoctorConversations", fields: [doctorId], references: [id])
 
+  // Shares linked to this conversation
+  batchShares BatchShare[]
+
   @@unique([farmerId, doctorId]) // Prevent duplicate conversations
 }
 
@@ -803,5 +816,62 @@ model Message {
   conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender          User         @relation(fields: [senderId], references: [id])
 
+  // Optional reference to a shared batch snapshot
+  batchShareId    String?
+  batchShare      BatchShare?  @relation("MessageToBatchShare", fields: [batchShareId], references: [id])
+
   @@index([conversationId, createdAt]) // Optimize message queries
+}
+
+// ==================== BATCH/FARM SHARING ====================
+
+model BatchShare {
+  id             String        @id @default(cuid())
+  shareToken     String        @unique @default(cuid())
+
+  // Ownership and context
+  batchId        String
+  farmerId       String
+  sharedWithId   String?
+  conversationId String?
+
+  // Snapshot payload (immutable JSON)
+  snapshotData   Json
+
+  // Metadata
+  title          String?
+  description    String?
+  isPublic       Boolean       @default(false)
+  expiresAt      DateTime?
+  viewCount      Int           @default(0)
+
+  // Relations
+  batch          Batch         @relation(fields: [batchId], references: [id])
+  farmer         User          @relation("BatchShareOwner", fields: [farmerId], references: [id])
+  sharedWith     User?         @relation("BatchShareRecipient", fields: [sharedWithId], references: [id])
+  conversation   Conversation? @relation(fields: [conversationId], references: [id])
+  views          BatchShareView[]
+  // Reverse relation to messages if embedded in chat
+  messages       Message[]       @relation("MessageToBatchShare")
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([shareToken])
+  @@index([batchId])
+  @@index([conversationId])
+}
+
+model BatchShareView {
+  id         String      @id @default(cuid())
+  shareId    String
+  viewerId   String?
+  ipAddress  String?
+  userAgent  String?
+  viewedAt   DateTime    @default(now())
+
+  share      BatchShare  @relation(fields: [shareId], references: [id], onDelete: Cascade)
+  viewer     User?       @relation("BatchShareViewer", fields: [viewerId], references: [id])
+
+  @@index([shareId])
 }
