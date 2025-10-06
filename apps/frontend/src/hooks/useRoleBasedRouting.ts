@@ -47,6 +47,7 @@ const ROLE_ROUTES: RoleRouteConfig = {
   },
 };
 
+
 export const useRoleBasedRouting = () => {
   const router = useRouter();
   const pathname = usePathname();
@@ -55,6 +56,8 @@ export const useRoleBasedRouting = () => {
 
   // Check if current path is allowed for user's role
   const isPathAllowed = (userRole: string, currentPath: string): boolean => {
+    // Public share pages are always allowed
+    if (currentPath.startsWith("/share/")) return true;
     const roleConfig = ROLE_ROUTES[userRole];
     if (!roleConfig) return false;
 
@@ -98,6 +101,11 @@ export const useRoleBasedRouting = () => {
     
     if (!roleConfig) {
       console.error(`Unknown role: ${userRole}`);
+      return;
+    }
+
+    // Public share pages should never trigger cross-port or path redirects
+    if (typeof window !== "undefined" && window.location.pathname.startsWith("/share/")) {
       return;
     }
 

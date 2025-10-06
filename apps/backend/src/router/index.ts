@@ -14,6 +14,7 @@ import dashboardRoutes from "./dashboardRoutes";
 import conversationRoutes from "./conversationRoutes";
 import doctorRoutes from "./doctorRoutes";
 import mortalityRoutes from "./mortalityRoutes";
+import batchShareRoutes from "./batchShareRoutes";
 
 const router = express.Router();
 
@@ -32,5 +33,6 @@ router.use("/dashboard", dashboardRoutes);
 router.use("/conversations", conversationRoutes);
 router.use("/doctors", doctorRoutes);
 router.use("/mortalities", mortalityRoutes);
+router.use("/batch-share", batchShareRoutes);
 
 export default router;
