@@ -172,9 +172,14 @@ export const getHatcheryById = async (
           groups[key] = {
             id: transaction.id,
             itemName: transaction.itemName || "Unknown Item",
-            rate:
-              Number(transaction.amount) / Number(transaction.quantity || 1),
+            // rate will be recomputed from totals below
+            rate: 0,
+            // Paid quantity only
             quantity: 0,
+            // Free quantity (zero-cost)
+            freeQuantity: 0,
+            // Delivered = paid + free
+            deliveredQuantity: 0,
             totalAmount: 0,
             amountPaid: 0,
             amountDue: 0,
@@ -185,9 +190,16 @@ export const getHatcheryById = async (
             payments: [],
           };
         }
-        groups[key].quantity += transaction.quantity || 0;
+        const paidQty = Number(transaction.quantity || 0);
+        const freeQty = Number((transaction as any).freeQuantity || 0);
+        groups[key].quantity += paidQty;
+        groups[key].freeQuantity += freeQty;
+        groups[key].deliveredQuantity = groups[key].quantity + groups[key].freeQuantity;
         groups[key].totalAmount += Number(transaction.amount);
         groups[key].amountDue += Number(transaction.amount);
+        // Recompute average rate based on paid quantity only
+        const paidTotal = groups[key].quantity || 1;
+        groups[key].rate = groups[key].totalAmount / paidTotal;
       }
       return groups;
     }, {} as any);
@@ -454,6 +466,9 @@ export const addHatcheryTransaction = async (
       description,
       reference,
       unitPrice,
+      // Free chicks handling
+      freeCount,
+      freePercent,
       // 🔗 NEW: Payment data for single request
       paymentAmount,
       paymentDescription,
@@ -471,6 +486,7 @@ export const addHatcheryTransaction = async (
     console.log("Description:", description);
     console.log("Reference:", reference);
     console.log("Unit price:", unitPrice);
+    console.log("Free count:", freeCount, "Free percent:", freePercent);
     console.log("Type, amount, and date are required", type, amount, date);
     // Validate required fields
     if (!type || !amount || !date) {
@@ -488,6 +504,12 @@ export const addHatcheryTransaction = async (
     const numericAmount = Number(amount);
     const numericQuantity =
       quantity !== undefined && quantity !== null ? Number(quantity) : null;
+    const numericFreeCount =
+      freeCount !== undefined && freeCount !== null ? Number(freeCount) : null;
+    const numericFreePercent =
+      freePercent !== undefined && freePercent !== null
+        ? Number(freePercent)
+        : null;
     const numericPaymentAmount =
       paymentAmount !== undefined && paymentAmount !== null
         ? Number(paymentAmount)
@@ -521,6 +543,23 @@ export const addHatcheryTransaction = async (
           .status(400)
           .json({ message: "Quantity must be a positive integer" });
       }
+      // Normalize free quantity (either from count or percent)
+      let normalizedFreeQuantity = 0;
+      if (
+        numericFreeCount !== null &&
+        Number.isInteger(numericFreeCount) &&
+        numericFreeCount >= 0
+      ) {
+        normalizedFreeQuantity = numericFreeCount;
+      } else if (
+        numericFreePercent !== null &&
+        Number.isFinite(numericFreePercent) &&
+        numericFreePercent >= 0
+      ) {
+        normalizedFreeQuantity = Math.floor(
+          (Number(quantity) * numericFreePercent) / 100
+        );
+      }
       // Validate paymentAmount if provided
       if (
         numericPaymentAmount !== null &&
@@ -536,6 +575,7 @@ export const addHatcheryTransaction = async (
         hatcheryId: id,
         itemName,
         quantity: Number(quantity),
+        freeQuantity: normalizedFreeQuantity,
         unitPrice: Number(unitPrice || amount / quantity),
         totalAmount: Number(amount),
         date: new Date(date),
@@ -1006,6 +1046,7 @@ export const getHatcheryTransactions = async (
           type: true,
           amount: true,
           quantity: true,
+          freeQuantity: true,
           itemName: true,
           date: true,
           description: true,

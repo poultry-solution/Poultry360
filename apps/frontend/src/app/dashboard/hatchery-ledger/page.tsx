@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DataTable, Column, createColumn } from "@/components/ui/data-table";
 import { toast } from "sonner";
-import { 
+import {
   useGetAllHatcheries,
   useGetHatcheryStatistics,
   useGetHatcheryById,
@@ -62,6 +62,8 @@ export default function HatcheryLedgerPage() {
     date: "",
     dueDate: "",
   });
+  const [freeMode, setFreeMode] = useState<"count" | "percent">("count");
+  const [freeValue, setFreeValue] = useState<string>("");
   const [paymentForm, setPaymentForm] = useState({
     amount: "",
     date: "",
@@ -139,15 +141,23 @@ export default function HatcheryLedgerPage() {
         data: {
           type: "PURCHASE" as TransactionType,
           amount: rate * quantity,
-          quantity, 
+          quantity,
           itemName: newEntry.item,
           date,
           description: `Purchase of ${newEntry.item}`,
           entityType: "HATCHERY",
           entityId: activeHatcheryId,
+          // Free chicks handling
+          ...(freeMode === "count" && freeValue
+            ? { freeCount: Number(freeValue) }
+            : {}),
+          ...(freeMode === "percent" && freeValue
+            ? { freePercent: Number(freeValue) }
+            : {}),
           // 🔗 NEW: Include payment data in the same request
           paymentAmount: paid > 0 ? paid : undefined,
-          paymentDescription: paid > 0 ? `Initial payment for ${newEntry.item}` : undefined,
+          paymentDescription:
+            paid > 0 ? `Initial payment for ${newEntry.item}` : undefined,
         },
       });
 
@@ -161,6 +171,8 @@ export default function HatcheryLedgerPage() {
         date: "",
         dueDate: "",
       });
+      setFreeMode("count");
+      setFreeValue("");
     } catch (error) {
       console.error("Failed to add transaction:", error);
       // Error toast is handled by axios interceptor
@@ -177,9 +189,11 @@ export default function HatcheryLedgerPage() {
   async function handleAddPayment(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedEntry || !paymentForm.amount || !activeHatcheryId) return;
-    
+
     const paymentAmount = Number(paymentForm.amount);
-    const paymentDate: Date = paymentForm.date ? new Date(paymentForm.date) : new Date();
+    const paymentDate: Date = paymentForm.date
+      ? new Date(paymentForm.date)
+      : new Date();
 
     try {
       // 🔗 NEW: For standalone payments, we still use the single request format
@@ -223,35 +237,38 @@ export default function HatcheryLedgerPage() {
   }
 
   async function handlePasswordConfirm() {
-    if (!activeHatcheryId || selectedIds.size === 0 || !passwordForm.password) return;
-    
+    if (!activeHatcheryId || selectedIds.size === 0 || !passwordForm.password)
+      return;
+
     const ids = Array.from(selectedIds);
     let failed = 0;
-    
+
     try {
       await Promise.all(
         ids.map(async (entryId) => {
           try {
-            await deleteTxn.mutateAsync({ 
-              hatcheryId: activeHatcheryId, 
+            await deleteTxn.mutateAsync({
+              hatcheryId: activeHatcheryId,
               transactionId: entryId,
-              password: passwordForm.password 
+              password: passwordForm.password,
             });
           } catch (e) {
             failed += 1;
           }
         })
       );
-      
+
       setIsDeleteMode(false);
       setSelectedIds(new Set());
       setIsPasswordModalOpen(false);
       setPasswordForm({ password: "" });
-      
+
       if (failed === 0) {
         toast.success("Selected entries deleted successfully");
       } else {
-        toast.error(`Failed to delete ${failed} entr${failed === 1 ? 'y' : 'ies'}`);
+        toast.error(
+          `Failed to delete ${failed} entr${failed === 1 ? "y" : "ies"}`
+        );
       }
     } catch (error) {
       toast.error("Password verification failed. Deletion cancelled.");
@@ -279,12 +296,26 @@ export default function HatcheryLedgerPage() {
     createColumn("quantity", "Quantity", {
       type: "number",
       align: "right",
+      render: (_, row) => {
+        const paid = Number(row.quantity || 0);
+        const free = Number(row.freeQuantity || 0);
+        const delivered = Number(row.deliveredQuantity || (paid + free));
+        return (
+          <div className="text-right">
+            <div>
+              <span className="font-medium">{paid}</span>
+              {free > 0 && (
+                <span className="ml-1 text-xs text-muted-foreground">+ {free} free</span>
+              )}
+            </div>
+            {free > 0 && (
+              <div className="text-xs text-gray-600">= {delivered} delivered</div>
+            )}
+          </div>
+        );
+      },
     }),
     createColumn("totalAmount", "Amount", {
-      type: "currency",
-      align: "right",
-    }),
-    createColumn("amountPaid", "Amount Paid", {
       type: "currency",
       align: "right",
     }),
@@ -332,9 +363,9 @@ export default function HatcheryLedgerPage() {
           (sum: number, payment: { amount: number }) => sum + payment.amount,
           0
         );
-        
+
         return (
-          <div 
+          <div
             className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline"
             onClick={() => openHistoryModal(activeHatcheryId, row.id)}
           >
@@ -356,7 +387,6 @@ export default function HatcheryLedgerPage() {
           </p>
         </div>
         <div className="flex gap-2">
-        
           <Button
             className="bg-primary hover:bg-primary/90"
             onClick={() => setIsAddHatcheryOpen(true)}
@@ -447,7 +477,7 @@ export default function HatcheryLedgerPage() {
                   key={hatchery.id}
                   className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60"
                 >
-                <div>
+                  <div>
                     <div className="font-medium">{hatchery.name}</div>
                     <div className="text-xs text-muted-foreground">
                       Contact: {hatchery.contact}
@@ -479,19 +509,28 @@ export default function HatcheryLedgerPage() {
             <div className="p-4 bg-red-50 rounded-lg border border-red-200">
               <p className="text-sm text-red-800">
                 <strong>Warning:</strong> This will permanently delete hatchery{" "}
-                <strong>{activeHatchery?.name ? ` ${activeHatchery.name}` : ""}</strong>.
+                <strong>
+                  {activeHatchery?.name ? ` ${activeHatchery.name}` : ""}
+                </strong>
+                .
               </p>
               {activeHatchery?.transactionTable?.length > 0 && (
                 <p className="text-sm text-red-700 mt-2">
-                  This hatchery has {activeHatchery.transactionTable.length} transaction(s). You must delete all transactions first.
+                  This hatchery has {activeHatchery.transactionTable.length}{" "}
+                  transaction(s). You must delete all transactions first.
                 </p>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">Are you sure you want to proceed?</p>
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to proceed?
+            </p>
           </div>
         </ModalContent>
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsDeleteHatcheryOpen(false)}>
+          <Button
+            variant="outline"
+            onClick={() => setIsDeleteHatcheryOpen(false)}
+          >
             Cancel
           </Button>
           <Button
@@ -503,13 +542,21 @@ export default function HatcheryLedgerPage() {
                 toast.success("Hatchery deleted successfully");
                 setIsDeleteHatcheryOpen(false);
                 setSelectedIds(new Set());
-                const remaining = (hatcheries || []).filter((h: any) => h.id !== activeHatcheryId);
-                setActiveHatcheryId(remaining.length > 0 ? remaining[0].id : null);
+                const remaining = (hatcheries || []).filter(
+                  (h: any) => h.id !== activeHatcheryId
+                );
+                setActiveHatcheryId(
+                  remaining.length > 0 ? remaining[0].id : null
+                );
               } catch (e) {
                 // error handled globally
               }
             }}
-            disabled={!activeHatcheryId || deleteHatcheryMutation.isPending || (activeHatchery?.transactionTable?.length || 0) > 0}
+            disabled={
+              !activeHatcheryId ||
+              deleteHatcheryMutation.isPending ||
+              (activeHatchery?.transactionTable?.length || 0) > 0
+            }
           >
             {deleteHatcheryMutation.isPending ? (
               <>
@@ -526,15 +573,19 @@ export default function HatcheryLedgerPage() {
       <Modal
         isOpen={isConfirmDeleteOpen}
         onClose={() => setIsConfirmDeleteOpen(false)}
-        title={`Delete ${selectedIds.size} entr${selectedIds.size === 1 ? 'y' : 'ies'}?`}
+        title={`Delete ${selectedIds.size} entr${selectedIds.size === 1 ? "y" : "ies"}?`}
       >
         <ModalContent>
           <p className="text-sm text-muted-foreground">
-            This action cannot be undone. The selected entries will be permanently removed.
+            This action cannot be undone. The selected entries will be
+            permanently removed.
           </p>
         </ModalContent>
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsConfirmDeleteOpen(false)}>
+          <Button
+            variant="outline"
+            onClick={() => setIsConfirmDeleteOpen(false)}
+          >
             Cancel
           </Button>
           <Button
@@ -569,11 +620,15 @@ export default function HatcheryLedgerPage() {
           <div className="space-y-4">
             <div className="p-4 bg-red-50 rounded-lg border border-red-200">
               <p className="text-sm text-red-800">
-                <strong>Warning:</strong> This action cannot be undone. You are about to delete {selectedIds.size} transaction{selectedIds.size !== 1 ? 's' : ''}.
+                <strong>Warning:</strong> This action cannot be undone. You are
+                about to delete {selectedIds.size} transaction
+                {selectedIds.size !== 1 ? "s" : ""}.
               </p>
             </div>
             <div>
-              <Label htmlFor="password">Enter your password to confirm deletion</Label>
+              <Label htmlFor="password">
+                Enter your password to confirm deletion
+              </Label>
               <Input
                 id="password"
                 type="password"
@@ -587,8 +642,8 @@ export default function HatcheryLedgerPage() {
           </div>
         </ModalContent>
         <ModalFooter>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => {
               setIsPasswordModalOpen(false);
               setPasswordForm({ password: "" });
@@ -738,6 +793,64 @@ export default function HatcheryLedgerPage() {
                   />
                 </div>
               </div>
+
+              {/* Free chicks input */}
+              <div className="space-y-2">
+                <Label>Free chicks</Label>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant={freeMode === "count" ? "default" : "outline"}
+                    onClick={() => setFreeMode("count")}
+                    className="h-8 px-3"
+                  >
+                    Count
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={freeMode === "percent" ? "default" : "outline"}
+                    onClick={() => setFreeMode("percent")}
+                    className="h-8 px-3"
+                  >
+                    Percentage
+                  </Button>
+                  <Input
+                    id="freeValue"
+                    type="number"
+                    placeholder={
+                      freeMode === "count" ? "e.g. 20" : "e.g. 20 (for 20%)"
+                    }
+                    value={freeValue}
+                    onChange={(e) => setFreeValue(e.target.value)}
+                    className="max-w-[180px]"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Cost applies only to paid quantity. Free chicks are zero-cost.
+                </p>
+                {(() => {
+                  const qty = Number(newEntry.quantity || 0);
+                  const fv = Number(freeValue || 0);
+                  const freeCount =
+                    freeMode === "count"
+                      ? Math.max(0, Math.floor(fv))
+                      : Math.max(0, Math.floor((qty * fv) / 100));
+                  const totalDelivered =
+                    qty + (Number.isFinite(freeCount) ? freeCount : 0);
+                  return (
+                    <div className="text-sm">
+                      <span className="font-medium">Paid:</span>{" "}
+                      {isNaN(qty) ? 0 : qty} &nbsp;|
+                      <span className="font-medium ml-2">Free:</span>{" "}
+                      {isNaN(freeCount) ? 0 : freeCount} &nbsp;|
+                      <span className="font-medium ml-2">
+                        Total Delivered:
+                      </span>{" "}
+                      {isNaN(totalDelivered) ? 0 : totalDelivered}
+                    </div>
+                  );
+                })()}
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="date">Date</Label>
@@ -817,22 +930,22 @@ export default function HatcheryLedgerPage() {
               )}
               <div>
                 <Label htmlFor="paymentAmount">Payment Amount</Label>
-                <Input 
-                  id="paymentAmount" 
-                  type="number" 
-                  value={paymentForm.amount} 
+                <Input
+                  id="paymentAmount"
+                  type="number"
+                  value={paymentForm.amount}
                   onChange={(e) =>
                     setPaymentForm({ ...paymentForm, amount: e.target.value })
                   }
-                  required 
+                  required
                 />
               </div>
               <div>
                 <Label htmlFor="paymentDate">Payment Date</Label>
-                <Input 
-                  id="paymentDate" 
-                  type="date" 
-                  value={paymentForm.date} 
+                <Input
+                  id="paymentDate"
+                  type="date"
+                  value={paymentForm.date}
                   onChange={(e) =>
                     setPaymentForm({ ...paymentForm, date: e.target.value })
                   }
@@ -840,9 +953,9 @@ export default function HatcheryLedgerPage() {
               </div>
               <div>
                 <Label htmlFor="paymentNote">Note (optional)</Label>
-                <Input 
-                  id="paymentNote" 
-                  value={paymentForm.note} 
+                <Input
+                  id="paymentNote"
+                  value={paymentForm.note}
                   onChange={(e) =>
                     setPaymentForm({ ...paymentForm, note: e.target.value })
                   }
@@ -893,59 +1006,59 @@ export default function HatcheryLedgerPage() {
                 const totalAmount = entry ? entry.totalAmount : 0;
                 const totalPaid = entry ? entry.amountPaid : 0;
                 const remaining = entry ? entry.amountDue : 0;
-              
-              return (
-                <>
-                  <div className="p-4 bg-gray-50 rounded-lg border">
+
+                return (
+                  <>
+                    <div className="p-4 bg-gray-50 rounded-lg border">
                       <h3 className="font-semibold text-lg mb-2">
                         {entry?.itemName}
                       </h3>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-600">Total Amount:</span>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-600">Total Amount:</span>
                           <span className="ml-2 font-medium">
                             ₹{totalAmount.toLocaleString()}
                           </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Total Paid:</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Total Paid:</span>
                           <span className="ml-2 font-medium text-green-600">
                             ₹{totalPaid.toLocaleString()}
                           </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Remaining:</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Remaining:</span>
                           <span
                             className={`ml-2 font-medium ${remaining > 0 ? "text-red-600" : "text-green-600"}`}
                           >
-                          ₹{remaining.toLocaleString()}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Payments:</span>
+                            ₹{remaining.toLocaleString()}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Payments:</span>
                           <span className="ml-2 font-medium">
                             {history.length}
                           </span>
                         </div>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="space-y-3">
+
+                    <div className="space-y-3">
                       <h4 className="font-medium text-gray-900">
                         Payment Details
                       </h4>
-                    {history.length === 0 ? (
+                      {history.length === 0 ? (
                         <p className="text-gray-500 text-center py-4">
                           No payments recorded yet
                         </p>
-                    ) : (
-                      <div className="space-y-2">
+                      ) : (
+                        <div className="space-y-2">
                           {history.map((payment: any, index: number) => (
                             <div
                               key={index}
                               className="flex items-center justify-between p-3 bg-white border rounded-lg"
                             >
-                            <div>
+                              <div>
                                 <div className="font-medium">
                                   ₹{payment.amount.toLocaleString()}
                                 </div>
@@ -956,19 +1069,19 @@ export default function HatcheryLedgerPage() {
                                   <div className="text-sm text-gray-500">
                                     {payment.reference}
                                   </div>
-                              )}
+                                )}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                Payment #{index + 1}
+                              </div>
                             </div>
-                            <div className="text-sm text-gray-500">
-                              Payment #{index + 1}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
-              );
-            })()}
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
           </div>
         </ModalContent>
         <ModalFooter>
@@ -993,7 +1106,7 @@ export default function HatcheryLedgerPage() {
             <div className="text-red-600">Failed to load hatcheries</div>
           ) : (
             hatcheries.map((hatchery: any) => (
-            <Button
+              <Button
                 key={hatchery.id}
                 variant={
                   activeHatcheryId === hatchery.id ? "default" : "outline"
@@ -1006,7 +1119,7 @@ export default function HatcheryLedgerPage() {
                 onClick={() => setActiveHatcheryId(hatchery.id)}
               >
                 {hatchery.name}
-            </Button>
+              </Button>
             ))
           )}
           <Button variant="outline" onClick={() => setIsAddHatcheryOpen(true)}>
@@ -1040,7 +1153,13 @@ export default function HatcheryLedgerPage() {
                 )}
                 {isDeleteMode ? (
                   <>
-                    <Button variant="outline" onClick={() => { setIsDeleteMode(false); setSelectedIds(new Set()); }}>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsDeleteMode(false);
+                        setSelectedIds(new Set());
+                      }}
+                    >
                       <X className="mr-2 h-4 w-4" /> Cancel
                     </Button>
                     <Button
@@ -1048,7 +1167,8 @@ export default function HatcheryLedgerPage() {
                       disabled={selectedIds.size === 0 || deleteTxn.isPending}
                       onClick={() => setIsConfirmDeleteOpen(true)}
                     >
-                      <Trash2 className="mr-2 h-4 w-4" /> Delete ({selectedIds.size})
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete (
+                      {selectedIds.size})
                     </Button>
                   </>
                 ) : (
@@ -1080,37 +1200,46 @@ export default function HatcheryLedgerPage() {
                 <span className="ml-2">Loading hatchery data...</span>
               </div>
             ) : (
-            <DataTable
+              <DataTable
                 data={activeHatchery?.transactionTable || []}
-              columns={ledgerColumns}
-              selectable={isDeleteMode}
-              isAllSelected={
-                !!activeHatchery?.transactionTable &&
-                selectedIds.size > 0 &&
-                selectedIds.size === activeHatchery.transactionTable.length
-              }
-              onToggleAll={() => {
-                if (!activeHatchery?.transactionTable) return;
-                if (selectedIds.size === activeHatchery.transactionTable.length) setSelectedIds(new Set());
-                else setSelectedIds(new Set(activeHatchery.transactionTable.map((r: any) => r.id)));
-              }}
-              isRowSelected={(row: any) => selectedIds.has(row.id)}
-              onToggleRow={(row: any) => {
-                setSelectedIds((prev) => {
-                  const next = new Set(prev);
-                  const key = row.id;
-                  if (next.has(key)) next.delete(key); else next.add(key);
-                  return next;
-                });
-              }}
-              getRowKey={(row: any) => row.id}
-              showFooter={true}
-              footerContent={
-                <div className="grid grid-cols-9 gap-4 text-sm">
+                columns={ledgerColumns}
+                selectable={isDeleteMode}
+                isAllSelected={
+                  !!activeHatchery?.transactionTable &&
+                  selectedIds.size > 0 &&
+                  selectedIds.size === activeHatchery.transactionTable.length
+                }
+                onToggleAll={() => {
+                  if (!activeHatchery?.transactionTable) return;
+                  if (
+                    selectedIds.size === activeHatchery.transactionTable.length
+                  )
+                    setSelectedIds(new Set());
+                  else
+                    setSelectedIds(
+                      new Set(
+                        activeHatchery.transactionTable.map((r: any) => r.id)
+                      )
+                    );
+                }}
+                isRowSelected={(row: any) => selectedIds.has(row.id)}
+                onToggleRow={(row: any) => {
+                  setSelectedIds((prev) => {
+                    const next = new Set(prev);
+                    const key = row.id;
+                    if (next.has(key)) next.delete(key);
+                    else next.add(key);
+                    return next;
+                  });
+                }}
+                getRowKey={(row: any) => row.id}
+                showFooter={true}
+                footerContent={
+                  <div className="grid grid-cols-9 gap-4 text-sm">
                     <div className="col-span-3 font-semibold text-gray-900">
                       Total
                     </div>
-                  <div className="text-right font-medium">
+                    <div className="text-right font-medium">
                       ₹
                       {activeHatchery?.transactionTable
                         ?.reduce(
@@ -1118,26 +1247,26 @@ export default function HatcheryLedgerPage() {
                           0
                         )
                         .toLocaleString() || "0"}
-                  </div>
-                  <div className="text-right font-medium">
+                    </div>
+                    <div className="text-right font-medium">
                       ₹
                       {activeHatchery?.transactionTable
                         ?.reduce((sum: number, r: any) => sum + r.amountPaid, 0)
                         .toLocaleString() || "0"}
-                  </div>
-                  <div className="text-right font-medium">
+                    </div>
+                    <div className="text-right font-medium">
                       ₹
                       {activeHatchery?.transactionTable
                         ?.reduce((sum: number, r: any) => sum + r.amountDue, 0)
                         .toLocaleString() || "0"}
+                    </div>
+                    <div></div>
+                    <div></div>
+                    <div></div>
                   </div>
-                  <div></div>
-                  <div></div>
-                  <div></div>
-                </div>
-              }
-              emptyMessage="No entries for this hatchery"
-            />
+                }
+                emptyMessage="No entries for this hatchery"
+              />
             )}
           </CardContent>
         </Card>

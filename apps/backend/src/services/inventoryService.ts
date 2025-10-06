@@ -18,7 +18,10 @@ export class InventoryService {
 
     // Purchase details
     itemName: string;
+    // Paid quantity (cost applies to this only)
     quantity: number;
+    // Optional: free quantity provided at zero cost (e.g., free chicks)
+    freeQuantity?: number;
     unitPrice: number;
     totalAmount: number;
     date: Date;
@@ -34,6 +37,7 @@ export class InventoryService {
       medicineSupplierId,
       itemName,
       quantity,
+      freeQuantity = 0,
       unitPrice,
       totalAmount,
       date,
@@ -105,7 +109,7 @@ export class InventoryService {
         });
       }
 
-      // 2. Create expense record (without farm/batch context - this is a general purchase)
+      // 2. Create expense record for PAID quantity (free quantity is zero-cost)
       const expense = await tx.expense.create({
         data: {
           date,
@@ -119,7 +123,7 @@ export class InventoryService {
         },
       });
 
-      // 3. Create inventory transaction (stock addition)
+      // 3. Create inventory transaction for paid quantity (stock addition)
       await tx.inventoryTransaction.create({
         data: {
           type: TransactionType.PURCHASE,
@@ -132,12 +136,27 @@ export class InventoryService {
         },
       });
 
-      // 4. Update inventory stock
+      // 3b. If there is free quantity, add a zero-cost inventory transaction
+      if (freeQuantity && freeQuantity > 0) {
+        await tx.inventoryTransaction.create({
+          data: {
+            type: TransactionType.PURCHASE,
+            quantity: freeQuantity,
+            unitPrice: 0,
+            totalAmount: 0,
+            date,
+            description: `Free units received with purchase`,
+            itemId: inventoryItem.id,
+          },
+        });
+      }
+
+      // 4. Update inventory stock by paid + free
       await tx.inventoryItem.update({
         where: { id: inventoryItem.id },
         data: {
           currentStock: {
-            increment: quantity,
+            increment: quantity + (freeQuantity || 0),
           },
         },
       });
@@ -148,6 +167,7 @@ export class InventoryService {
           type: TransactionType.PURCHASE,
           amount: totalAmount,
           quantity,
+          freeQuantity: freeQuantity || 0,
           itemName,
           date,
           description,

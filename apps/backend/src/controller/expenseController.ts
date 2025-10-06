@@ -31,7 +31,11 @@ export const getAllExpenses = async (
     const skip = (Number(page) - 1) * Number(limit);
 
     // Build where clause
-    const where: any = {};
+    const where: any = {
+      category: {
+        userId: currentUserId,
+      },
+    };
 
     // Role-based filtering
     if (currentUserRole === UserRole.MANAGER) {
@@ -62,6 +66,7 @@ export const getAllExpenses = async (
 
     if (categoryType) {
       where.category = {
+        ...(where.category || {}),
         type: categoryType as CategoryType,
       };
     }
@@ -390,6 +395,8 @@ export const createExpense = async (
       inventoryItems, // NEW: Array of inventory items to deduct
     } = data as any; // Type assertion for now
 
+
+
     // Check if farm exists and user has access
     if (farmId) {
       const farm = await prisma.farm.findUnique({
@@ -431,6 +438,7 @@ export const createExpense = async (
           message: "Batch does not belong to the specified farm",
         });
       }
+      
     }
 
     // Check if category exists
@@ -441,6 +449,9 @@ export const createExpense = async (
     if (!category) {
       return res.status(404).json({ message: "Category not found" });
     }
+
+    console.log("----------------------------")
+    console.log(category)
 
     return await prisma.$transaction(async (tx) => {
       // 1. Create the expense
@@ -459,6 +470,8 @@ export const createExpense = async (
 
       // 2. Process inventory usage if inventory items are provided
       const inventoryUsages = [];
+      // Track total feed quantity captured via inventory items to avoid double-creating feed consumption
+      let totalFeedQuantityFromInventory = 0;
       if (inventoryItems && inventoryItems.length > 0) {
         for (const item of inventoryItems) {
           // Get inventory item
@@ -504,6 +517,25 @@ export const createExpense = async (
             },
           });
 
+          console.log(usage, category.name);
+
+          // If this expense is feed consumption and batch is provided, add a FeedConsumption record
+          if (
+            category.type === CategoryType.EXPENSE &&
+            category.name.toLowerCase() === "feed" &&
+            batchId
+          ) {
+            console.log("Adding feed consumption from inventory item");
+            await tx.feedConsumption.create({
+              data: {
+                date: new Date(date),
+                quantity: item.quantity,
+                feedType: inventoryItem.name,
+                batchId: batchId,
+              },
+            });
+            totalFeedQuantityFromInventory += Number(item.quantity || 0);
+          }
           // Update stock
           await tx.inventoryItem.update({
             where: { id: item.itemId },
@@ -529,6 +561,26 @@ export const createExpense = async (
 
           inventoryUsages.push(usage);
         }
+      }
+
+      // If category is Feed and we did not register any feed consumption via inventory items,
+      // but the expense itself has a quantity and batchId is present, create a single FeedConsumption.
+      if (
+        category.type === CategoryType.EXPENSE &&
+        category.name.toLowerCase() === "feed" &&
+        batchId &&
+        totalFeedQuantityFromInventory === 0 &&
+        (quantity || 0) > 0
+      ) {
+        console.log("Adding feed consumption from expense quantity");
+        await tx.feedConsumption.create({
+          data: {
+            date: new Date(date),
+            quantity: Number(quantity),
+            feedType: "Feed",
+            batchId: batchId,
+          },
+        });
       }
 
       // 3. Fetch the complete expense with relationships
