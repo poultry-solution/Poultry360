@@ -27,8 +27,11 @@ export const createBatchShare = async (req: Request, res: Response) => {
         feedConsumptions: { orderBy: { date: "asc" } },
         mortalities: { orderBy: { date: "asc" } },
         vaccinations: { orderBy: { scheduledDate: "asc" } },
-        expenses: true,
-        sales: true,
+        expenses: {
+          include: {
+            category: true,
+          },
+        },
       },
     });
 
@@ -48,14 +51,39 @@ export const createBatchShare = async (req: Request, res: Response) => {
       0
     );
 
-    const totalExpenses = batch.expenses.reduce(
-      (sum, e) => sum + Number(e.amount || 0),
-      0
-    );
-    const totalRevenue = batch.sales.reduce(
-      (sum, s) => sum + Number(s.amount || 0),
-      0
-    );
+    // Group expenses by category for non-financial activity feed
+    const expenseGroups = (batch.expenses || []).reduce((acc: any, exp) => {
+      const rawName = exp.category?.name || "Other";
+      const key = rawName;
+      if (!acc[key]) acc[key] = [];
+      const nameLower = rawName.toLowerCase();
+      let unit: string | null = null;
+      if (nameLower.includes("feed")) unit = "kg";
+      else if (nameLower.includes("chick")) unit = "birds";
+      else if (nameLower.includes("med")) unit = "units";
+      // Push structured, non-financial activity
+      acc[key].push({
+        date: exp.date,
+        quantity: exp.quantity ? Number(exp.quantity) : null,
+        unit,
+        description: exp.description || null,
+      });
+      return acc;
+    }, {} as Record<string, Array<{ date: Date; quantity: number | null; unit: string | null; description: string | null }>>);
+
+    const expensesGrouped = Object.keys(expenseGroups).map((name) => ({
+      category: name,
+      items: expenseGroups[name]
+        .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .map((i: any) => ({ date: i.date, quantity: i.quantity, unit: i.unit, description: i.description })),
+    }));
+
+    // Mortality timeline with cumulative
+    let cumulative = 0;
+    const mortalityTimeline = (batch.mortalities || []).map((m) => {
+      cumulative += m.count || 0;
+      return { date: m.date, count: m.count || 0, cumulative };
+    });
 
     const snapshotData = {
       batch: {
@@ -66,6 +94,7 @@ export const createBatchShare = async (req: Request, res: Response) => {
         status: batch.status,
         initialChicks: batch.initialChicks,
         currentChicks,
+        ageDays: Math.max(0, Math.floor((new Date().getTime() - new Date(batch.startDate).getTime()) / (1000 * 60 * 60 * 24))),
       },
       farm: {
         id: batch.farm.id,
@@ -92,11 +121,10 @@ export const createBatchShare = async (req: Request, res: Response) => {
           status: v.status,
           notes: v.notes,
         })),
+        mortalityTimeline,
       },
-      financials: {
-        totalExpenses,
-        totalRevenue,
-        netProfit: totalRevenue - totalExpenses,
+      activities: {
+        expensesGrouped, // textual, non-financial
       },
       meta: {
         snapshotDate: new Date().toISOString(),

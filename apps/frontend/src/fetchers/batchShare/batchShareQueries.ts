@@ -31,6 +31,8 @@ export const useGetBatchShareByToken = (token?: string) => {
     queryFn: async () => {
       if (!token) return null;
       const res = await axiosInstance.get(`/batch-share/${token}`);
+     
+      console.log(res.data);
       return res.data as {
         share: {
           id: string;
