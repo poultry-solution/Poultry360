@@ -154,10 +154,11 @@ export default function ChatPage() {
       console.log("res", res);
       const token = (res as any)?.shareToken;
       if (!token) throw new Error("No share token returned");
-      // Send message containing token (prefix for clarity)
-      setText(`BATCH_SHARE:${token}`);
-      await new Promise((r) => setTimeout(r, 0));
-      await sendMessageHandler();
+
+      const messageToBeSent = `BATCH_SHARE:${token}`;
+      // Send message directly without setting text state
+      sendMessage(messageToBeSent);
+
       toast.success("Batch shared in chat");
       setIsShareOpen(false);
       setSelectedBatchId("");
@@ -284,20 +285,29 @@ export default function ChatPage() {
                       {message?.messageType === "BATCH_SHARE" ||
                       (message?.text || "").startsWith("BATCH_SHARE:") ? (
                         <div>
-                          <div className={`relative overflow-hidden rounded-lg ${isOwner ? "bg-white/10" : "bg-white"} p-4 shadow-md ring-1 ring-inset ${isOwner ? "ring-white/15" : "ring-gray-100"}`}>
-                            <div className="absolute inset-0 pointer-events-none opacity-10" style={{
-                              background:
-                                "radial-gradient(600px circle at 0 0, #22c55e 10%, transparent 40%), radial-gradient(600px circle at 100% 0, #06b6d4 10%, transparent 40%)",
-                            }} />
+                          <div
+                            className={`relative overflow-hidden rounded-lg ${isOwner ? "bg-white/10" : "bg-white"} p-4 shadow-md ring-1 ring-inset ${isOwner ? "ring-white/15" : "ring-gray-100"}`}
+                          >
+                            <div
+                              className="absolute inset-0 pointer-events-none opacity-10"
+                              style={{
+                                background:
+                                  "radial-gradient(600px circle at 0 0, #22c55e 10%, transparent 40%), radial-gradient(600px circle at 100% 0, #06b6d4 10%, transparent 40%)",
+                              }}
+                            />
 
                             <div className="relative flex items-start justify-between gap-3">
                               <div className="flex items-center gap-3">
-                                <div className={`h-8 w-8 rounded-md flex items-center justify-center ${
-                                  isOwner ? "bg-white/20" : "bg-primary/10"
-                                }`}>
-                                  <Share2 className={`h-4 w-4 ${
-                                    isOwner ? "text-white" : "text-primary"
-                                  }`} />
+                                <div
+                                  className={`h-8 w-8 rounded-md flex items-center justify-center ${
+                                    isOwner ? "bg-white/20" : "bg-primary/10"
+                                  }`}
+                                >
+                                  <Share2
+                                    className={`h-4 w-4 ${
+                                      isOwner ? "text-white" : "text-primary"
+                                    }`}
+                                  />
                                 </div>
                                 <div>
                                   <div className="text-sm font-semibold tracking-tight">
@@ -370,9 +380,12 @@ export default function ChatPage() {
                                   : "text-gray-500"
                               }`}
                             >
-                              Token: <span className={`${
-                                isOwner ? "text-white" : "text-gray-800"
-                              } font-mono`}>
+                              Token:{" "}
+                              <span
+                                className={`${
+                                  isOwner ? "text-white" : "text-gray-800"
+                                } font-mono`}
+                              >
                                 {(message?.text || "")
                                   .replace("BATCH_SHARE:", "")
                                   .slice(0, 6)}
