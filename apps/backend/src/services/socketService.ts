@@ -194,6 +194,8 @@ export class SocketService {
         }
       });
 
+      // Listen for backend-triggered message updates/deletes if needed (no-op here; backend emits directly)
+
       // Typing indicator
       socket.on('typing_start', (data: { conversationId: string }) => {
         const roomId = `conversation_${data.conversationId}`;
@@ -286,6 +288,7 @@ export class SocketService {
   // Broadcast to conversation
   broadcastToConversation(conversationId: string, event: string, data: any) {
     const roomId = `conversation_${conversationId}`;
+    console.log("broadcasting to conversation", roomId, event, data);
     this.io.to(roomId).emit(event, data);
   }
 

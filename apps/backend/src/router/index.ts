@@ -12,10 +12,12 @@ import salesRoutes from "./salesRoutes";
 import remainderRoutes from "./remainderRoutes";
 import dashboardRoutes from "./dashboardRoutes";
 import conversationRoutes from "./conversationRoutes";
+import messageRoutes from "./messageRoutes";
 import doctorRoutes from "./doctorRoutes";
 import mortalityRoutes from "./mortalityRoutes";
 import batchShareRoutes from "./batchShareRoutes";
 import weightRoutes from "./weightRoutes";
+import s3Routes from "./s3Routes";
 
 const router = express.Router();
 
@@ -32,9 +34,11 @@ router.use("/sales", salesRoutes);
 router.use("/reminders", remainderRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/conversations", conversationRoutes);
+router.use("/messages", messageRoutes);
 router.use("/doctors", doctorRoutes);
 router.use("/mortalities", mortalityRoutes);
 router.use("/batch-share", batchShareRoutes);
 router.use("/batches", weightRoutes); // Weight routes for batches
+router.use("/s3", s3Routes);
 
 export default router;

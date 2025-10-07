@@ -1,35 +1,37 @@
-import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import { useChat as useChatContext } from '@/contexts/ChatContext';
-import { 
-  useConversations, 
-  useConversation, 
-  useCreateConversation as useCreateConversationQuery, 
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import { useChat as useChatContext } from "@/contexts/ChatContext";
+import {
+  useConversations,
+  useConversation,
+  useCreateConversation as useCreateConversationQuery,
   useUpdateConversation,
   useMarkMessagesAsRead,
   useAvailableDoctors,
   useOnlineDoctors,
   useDoctorsWithStatus,
   useUnreadCount,
-  chatKeys
-} from '@/services/chatservices/chatQueries';
-import { useQueryClient } from '@tanstack/react-query';
-import type { 
-  Conversation, 
-  Message, 
+  chatKeys,
+} from "@/services/chatservices/chatQueries";
+import { useQueryClient } from "@tanstack/react-query";
+import type {
+  Conversation,
+  Message,
   CreateConversationData,
-  Doctor 
-} from '@/types/chat';
+  Doctor,
+} from "@/types/chat";
 
 // ==================== MAIN CHAT HOOK ====================
 
 export const useChat = () => {
   const chatContext = useChatContext();
   const queryClient = useQueryClient();
-  
+
   // Sync context with React Query
   useEffect(() => {
     // Sync conversations from React Query to context
-    const conversationsQuery = queryClient.getQueryData(chatKeys.conversations());
+    const conversationsQuery = queryClient.getQueryData(
+      chatKeys.conversations()
+    );
     if (conversationsQuery) {
       // This will be handled by the individual hooks
     }
@@ -43,11 +45,12 @@ export const useChat = () => {
 export const useConversationsList = (params?: {
   page?: number;
   limit?: number;
-  status?: 'ACTIVE' | 'CLOSED' | 'ARCHIVED';
+  status?: "ACTIVE" | "CLOSED" | "ARCHIVED";
 }) => {
-  const { conversations: contextConversations, setCurrentConversation } = useChatContext();
+  const { conversations: contextConversations, setCurrentConversation } =
+    useChatContext();
   const query = useConversations(params);
-  
+
   // Sync query data with context
   useEffect(() => {
     if (query.data?.conversations) {
@@ -55,9 +58,12 @@ export const useConversationsList = (params?: {
     }
   }, [query.data]);
 
-  const selectConversation = useCallback((conversationId: string) => {
-    setCurrentConversation(conversationId);
-  }, [setCurrentConversation]);
+  const selectConversation = useCallback(
+    (conversationId: string) => {
+      setCurrentConversation(conversationId);
+    },
+    [setCurrentConversation]
+  );
 
   return {
     ...query,
@@ -67,9 +73,9 @@ export const useConversationsList = (params?: {
 };
 
 export const useCurrentConversation = (conversationId?: string) => {
-  const { 
-    currentConversationId, 
-    messages: contextMessages, 
+  const {
+    currentConversationId,
+    messages: contextMessages,
     joinConversation,
     leaveConversation,
     sendMessage,
@@ -78,12 +84,12 @@ export const useCurrentConversation = (conversationId?: string) => {
     markMessagesAsRead,
     typingUsers,
     onlineUsers,
-    isConnected
+    isConnected,
   } = useChatContext();
-  
+
   const activeConversationId = conversationId || currentConversationId;
-  const query = useConversation(activeConversationId || '');
-  
+  const query = useConversation(activeConversationId || "");
+
   // Auto-join conversation when conversationId changes
   useEffect(() => {
     if (activeConversationId && isConnected) {
@@ -93,10 +99,10 @@ export const useCurrentConversation = (conversationId?: string) => {
           joinConversation(activeConversationId);
         }
       }, 200);
-      
+
       return () => clearTimeout(timeoutId);
     }
-    
+
     return () => {
       if (activeConversationId && isConnected) {
         leaveConversation();
@@ -104,65 +110,91 @@ export const useCurrentConversation = (conversationId?: string) => {
     };
   }, [activeConversationId, isConnected, joinConversation, leaveConversation]);
 
-  const sendMessageHandler = useCallback((text: string, messageType?: 'TEXT' | 'IMAGE' | 'FILE') => {
-    if (activeConversationId) {
-      sendMessage(text, messageType);
-    }
-  }, [activeConversationId, sendMessage]);
-
-  const handleTyping = useCallback((isTyping: boolean) => {
-    if (isTyping) {
-      startTyping();
-    } else {
-      stopTyping();
-    }
-  }, [startTyping, stopTyping]);
-
-  const markAsRead = useCallback((messageIds?: string[]) => {
-    if (activeConversationId) {
-      markMessagesAsRead(messageIds);
-    }
-  }, [activeConversationId, markMessagesAsRead]);
-
-  // Merge API messages with real-time messages, avoiding duplicates
-  const allMessages = useMemo(() => {
-    const apiMessages = ((query.data as any)?.messages || []);
-    const merged = [...apiMessages];
-    
-    // Add context messages that aren't already in the API response
-    contextMessages.forEach((contextMsg) => {
-      const existsInApi = apiMessages.some((apiMsg: any) => apiMsg.id === contextMsg.id);
-      if (!existsInApi) {
-        merged.push(contextMsg);
+  const sendMessageHandler = useCallback(
+    (text: string, messageType?: "TEXT" | "IMAGE" | "FILE") => {
+      if (activeConversationId) {
+        sendMessage(text, messageType);
       }
-    });
-    
-    // Sort by creation time to maintain proper order
-    merged.sort((a: any, b: any) => 
-      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    );
+    },
+    [activeConversationId, sendMessage]
+  );
+
+  const handleTyping = useCallback(
+    (isTyping: boolean) => {
+      if (isTyping) {
+        startTyping();
+      } else {
+        stopTyping();
+      }
+    },
+    [startTyping, stopTyping]
+  );
+
+  const markAsRead = useCallback(
+    (messageIds?: string[]) => {
+      if (activeConversationId) {
+        markMessagesAsRead(messageIds);
+      }
+    },
+    [activeConversationId, markMessagesAsRead]
+  );
+
+  // Merge API messages with real-time messages, prefer context (socket) for real-time updates
+  const allMessages = useMemo(() => {
+    const apiMessages = (query.data as any)?.messages || [];
+
+    // Create a map to merge messages, context messages take precedence
+    const byId = new Map<string, any>();
+
+    // First add API messages
+    for (const m of apiMessages) {
+      byId.set(m.id, m);
+    }
+
+    // Then overlay context messages (socket-driven updates win)
+    for (const m of contextMessages) {
+      byId.set(m.id, m);
+    }
+
+    // Convert map to array, filter out deleted messages, and sort by createdAt
+    const merged = Array.from(byId.values())
+      .filter((m: any) => !m.isDeleted) // Filter out soft-deleted messages
+      .sort(
+        (a: any, b: any) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
 
     // Debug logging (can be removed in production)
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       console.log(`[Farmer] Conversation ${activeConversationId}:`, {
         apiMessages: apiMessages.length,
         contextMessages: contextMessages.length,
         totalMerged: merged.length,
         isConnected,
-        isLoading: query.isLoading
+        isLoading: query.isLoading,
       });
     }
 
     return merged;
-  }, [query.data, contextMessages, activeConversationId, isConnected, query.isLoading]);
+  }, [
+    query.data,
+    contextMessages,
+    activeConversationId,
+    isConnected,
+    query.isLoading,
+  ]);
   return {
     conversation: (query.data as any)?.conversation,
     messages: allMessages,
     isLoading: query.isLoading,
     error: query.error,
     isConnected,
-    typingUsers: activeConversationId ? (typingUsers[activeConversationId] || []) : [],
-    onlineUsers: activeConversationId ? (onlineUsers[activeConversationId] || []) : [],
+    typingUsers: activeConversationId
+      ? typingUsers[activeConversationId] || []
+      : [],
+    onlineUsers: activeConversationId
+      ? onlineUsers[activeConversationId] || []
+      : [],
     sendMessage: sendMessageHandler,
     handleTyping,
     markAsRead,
@@ -172,52 +204,61 @@ export const useCurrentConversation = (conversationId?: string) => {
 // ==================== MESSAGE HOOKS ====================
 
 export const useMessageInput = (conversationId?: string) => {
-  const [text, setText] = useState('');
+  const [text, setText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const { sendMessage, startTyping, stopTyping } = useChatContext();
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleTextChange = useCallback((newText: string) => {
-    setText(newText);
-    
-    if (!isTyping && newText.trim()) {
-      setIsTyping(true);
-      startTyping();
-    }
-    
-    // Clear existing timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-    
-    // Auto-stop typing after 2 seconds of no typing
-    typingTimeoutRef.current = setTimeout(() => {
+  const handleTextChange = useCallback(
+    (newText: string) => {
+      setText(newText);
+
+      if (!isTyping && newText.trim()) {
+        setIsTyping(true);
+        startTyping();
+      }
+
+      // Clear existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      // Auto-stop typing after 2 seconds of no typing
+      typingTimeoutRef.current = setTimeout(() => {
+        setIsTyping(false);
+        stopTyping();
+      }, 2000);
+    },
+    [isTyping, startTyping, stopTyping]
+  );
+
+  const handleSend = useCallback(
+    (messageType: "TEXT" | "IMAGE" | "FILE" = "TEXT") => {
+      if (!text.trim() || !conversationId) return;
+
+      sendMessage(text, messageType);
+      setText("");
       setIsTyping(false);
       stopTyping();
-    }, 2000);
-  }, [isTyping, startTyping, stopTyping]);
 
-  const handleSend = useCallback((messageType: 'TEXT' | 'IMAGE' | 'FILE' = 'TEXT') => {
-    if (!text.trim() || !conversationId) return;
-    
-    sendMessage(text, messageType);
-    setText('');
-    setIsTyping(false);
-    stopTyping();
-    
-    // Clear timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = null;
-    }
-  }, [text, conversationId, sendMessage, stopTyping]);
+      // Clear timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+    },
+    [text, conversationId, sendMessage, stopTyping]
+  );
 
-  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  }, [handleSend]);
+  const handleKeyPress = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
+    },
+    [handleSend]
+  );
 
   // Cleanup on unmount
   useEffect(() => {
@@ -247,17 +288,20 @@ export const useCreateConversation = () => {
   const mutation = useCreateConversationQuery();
   const { setCurrentConversation } = useChatContext();
 
-  const createAndJoin = useCallback(async (data: CreateConversationData) => {
-    try {
-      const result = await mutation.mutateAsync(data);
-      if (result.conversation) {
-        setCurrentConversation(result.conversation.id);
+  const createAndJoin = useCallback(
+    async (data: CreateConversationData) => {
+      try {
+        const result = await mutation.mutateAsync(data);
+        if (result.conversation) {
+          setCurrentConversation(result.conversation.id);
+        }
+        return result;
+      } catch (error) {
+        throw error;
       }
-      return result;
-    } catch (error) {
-      throw error;
-    }
-  }, [mutation, setCurrentConversation]);
+    },
+    [mutation, setCurrentConversation]
+  );
 
   return {
     ...mutation,
@@ -270,30 +314,36 @@ export const useConversationActions = (conversationId: string) => {
   const markReadMutation = useMarkMessagesAsRead();
   const { setCurrentConversation } = useChatContext();
 
-  const updateConversation = useCallback(async (updates: {
-    status?: 'ACTIVE' | 'CLOSED' | 'ARCHIVED';
-    subject?: string;
-  }) => {
-    return updateMutation.mutateAsync({
-      conversationId,
-      ...updates
-    });
-  }, [conversationId, updateMutation]);
+  const updateConversation = useCallback(
+    async (updates: {
+      status?: "ACTIVE" | "CLOSED" | "ARCHIVED";
+      subject?: string;
+    }) => {
+      return updateMutation.mutateAsync({
+        conversationId,
+        ...updates,
+      });
+    },
+    [conversationId, updateMutation]
+  );
 
   const closeConversation = useCallback(async () => {
-    return updateConversation({ status: 'CLOSED' });
+    return updateConversation({ status: "CLOSED" });
   }, [updateConversation]);
 
   const archiveConversation = useCallback(async () => {
-    return updateConversation({ status: 'ARCHIVED' });
+    return updateConversation({ status: "ARCHIVED" });
   }, [updateConversation]);
 
-  const markAsRead = useCallback(async (messageIds?: string[]) => {
-    return markReadMutation.mutateAsync({
-      conversationId,
-      messageIds
-    });
-  }, [conversationId, markReadMutation]);
+  const markAsRead = useCallback(
+    async (messageIds?: string[]) => {
+      return markReadMutation.mutateAsync({
+        conversationId,
+        messageIds,
+      });
+    },
+    [conversationId, markReadMutation]
+  );
 
   return {
     updateConversation,
@@ -308,13 +358,13 @@ export const useConversationActions = (conversationId: string) => {
 
 export const useDoctors = () => {
   const query = useAvailableDoctors();
-  
+
   const getOnlineDoctors = useCallback(() => {
-    return query.data?.doctors.filter(doctor => doctor.isOnline) || [];
+    return query.data?.doctors.filter((doctor) => doctor.isOnline) || [];
   }, [query.data]);
 
   const getOfflineDoctors = useCallback(() => {
-    return query.data?.doctors.filter(doctor => !doctor.isOnline) || [];
+    return query.data?.doctors.filter((doctor) => !doctor.isOnline) || [];
   }, [query.data]);
 
   console.log(query.data?.doctors);
@@ -327,7 +377,10 @@ export const useDoctors = () => {
 };
 
 // Export the new hooks directly
-export { useOnlineDoctors, useDoctorsWithStatus } from '@/services/chatservices/chatQueries';
+export {
+  useOnlineDoctors,
+  useDoctorsWithStatus,
+} from "@/services/chatservices/chatQueries";
 
 // ==================== UNREAD COUNT HOOK ====================
 
@@ -339,8 +392,10 @@ export const useUnreadCounts = () => {
     ...query,
     unreadCounts: query.data || contextUnreadCounts,
     totalUnread: query.data?.totalUnread || contextUnreadCounts.totalUnread,
-    getUnreadForConversation: (conversationId: string) => 
-      query.data?.byConversation[conversationId] || contextUnreadCounts.byConversation[conversationId] || 0,
+    getUnreadForConversation: (conversationId: string) =>
+      query.data?.byConversation[conversationId] ||
+      contextUnreadCounts.byConversation[conversationId] ||
+      0,
   };
 };
 
@@ -348,7 +403,7 @@ export const useUnreadCounts = () => {
 
 export const useChatConnection = () => {
   const { isConnected, isLoading, error } = useChatContext();
-  
+
   return {
     isConnected,
     isLoading,
@@ -359,16 +414,17 @@ export const useChatConnection = () => {
 
 export const useTypingIndicator = (conversationId: string) => {
   const { typingUsers, onlineUsers } = useChatContext();
-  
+
   const currentTypingUsers = typingUsers[conversationId] || [];
   const currentOnlineUsers = onlineUsers[conversationId] || [];
-  
+
   return {
     typingUsers: currentTypingUsers,
     onlineUsers: currentOnlineUsers,
     isAnyoneTyping: currentTypingUsers.length > 0,
-    typingText: currentTypingUsers.length > 0 
-      ? `${currentTypingUsers.length} user${currentTypingUsers.length > 1 ? 's' : ''} typing...`
-      : '',
+    typingText:
+      currentTypingUsers.length > 0
+        ? `${currentTypingUsers.length} user${currentTypingUsers.length > 1 ? "s" : ""} typing...`
+        : "",
   };
 };
