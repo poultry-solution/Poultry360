@@ -1,26 +1,46 @@
-import { PrismaClient, MessageType } from '@prisma/client';
+import { PrismaClient, MessageType } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
 export interface CreateMessageData {
   conversationId: string;
   senderId: string;
-  text: string;
+  text?: string;
   messageType?: MessageType;
+  attachmentKey?: string;
+  fileName?: string;
+  contentType?: string;
+  fileSize?: number;
+  durationMs?: number;
+  width?: number;
+  height?: number;
+  batchShareId?: string;
 }
 
 export interface MessageWithSender {
   id: string;
-  text: string;
+  text?: string;
   messageType: MessageType;
   createdAt: Date;
   read: boolean;
   edited: boolean;
+  isDeleted: boolean;
+  attachmentUrl?: string;
+  attachmentKey?: string;
+  fileName?: string;
+  contentType?: string;
+  fileSize?: number;
+  durationMs?: number;
+  width?: number;
+  height?: number;
+  thumbnailUrl?: string;
+  batchShareId?: string;
   sender: {
     id: string;
     name: string;
     role: string;
   };
+  batchShare?: any;
 }
 
 export class MessageService {
@@ -32,20 +52,17 @@ export class MessageService {
     const conversation = await prisma.conversation.findFirst({
       where: {
         id: data.conversationId,
-        OR: [
-          { farmerId: data.senderId },
-          { doctorId: data.senderId }
-        ],
-        status: 'ACTIVE'
+        OR: [{ farmerId: data.senderId }, { doctorId: data.senderId }],
+        status: "ACTIVE",
       },
       include: {
         farmer: true,
-        doctor: true
-      }
+        doctor: true,
+      },
     });
 
     if (!conversation) {
-      throw new Error('Conversation not found or access denied');
+      throw new Error("Conversation not found or access denied");
     }
 
     // Create the message
@@ -53,38 +70,60 @@ export class MessageService {
       data: {
         conversationId: data.conversationId,
         senderId: data.senderId,
-        text: data.text.trim(),
-        messageType: data.messageType || 'TEXT'
+        text: data.text?.trim() || null,
+        messageType: data.messageType || "TEXT",
+        attachmentKey: data.attachmentKey || null,
+        fileName: data.fileName || null,
+        contentType: data.contentType || null,
+        fileSize: data.fileSize || null,
+        durationMs: data.durationMs || null,
+        width: data.width || null,
+        height: data.height || null,
+        batchShareId: data.batchShareId || null,
+        isDeleted: false,
       },
       include: {
         sender: {
           select: {
             id: true,
             name: true,
-            role: true
-          }
-        }
-      }
+            role: true,
+          },
+        },
+        batchShare: data.batchShareId ? true : false,
+      },
     });
 
     // Update conversation timestamp
     await prisma.conversation.update({
       where: { id: data.conversationId },
-      data: { updatedAt: new Date() }
+      data: { updatedAt: new Date() },
     });
 
     return {
       id: message.id,
-      text: message.text,
+      text: message.text || "",
       messageType: message.messageType,
       createdAt: message.createdAt,
       read: message.read,
       edited: message.edited,
+      isDeleted: message.isDeleted,
+      attachmentUrl: message.attachmentUrl || undefined,
+      attachmentKey: message.attachmentKey || undefined,
+      fileName: message.fileName || undefined,
+      contentType: message.contentType || undefined,
+      fileSize: message.fileSize || undefined,
+      durationMs: message.durationMs || undefined,
+      width: message.width || undefined,
+      height: message.height || undefined,
+      thumbnailUrl: message.thumbnailUrl || undefined,
+      batchShareId: message.batchShareId || undefined,
       sender: {
         id: message.sender.id,
         name: message.sender.name,
-        role: message.sender.role
-      }
+        role: message.sender.role,
+      },
+      batchShare: message.batchShare,
     };
   }
 
@@ -105,58 +144,74 @@ export class MessageService {
     const conversation = await prisma.conversation.findFirst({
       where: {
         id: conversationId,
-        OR: [
-          { farmerId: userId },
-          { doctorId: userId }
-        ]
-      }
+        OR: [{ farmerId: userId }, { doctorId: userId }],
+      },
     });
 
     if (!conversation) {
-      throw new Error('Conversation not found or access denied');
+      throw new Error("Conversation not found or access denied");
     }
 
     const skip = (page - 1) * limit;
 
     const [messages, totalCount] = await Promise.all([
       prisma.message.findMany({
-        where: { conversationId },
+        where: {
+          conversationId,
+          isDeleted: false,
+        },
         include: {
           sender: {
             select: {
               id: true,
               name: true,
-              role: true
-            }
-          }
+              role: true,
+            },
+          },
+          batchShare: true,
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         skip,
-        take: limit
+        take: limit,
       }),
       prisma.message.count({
-        where: { conversationId }
-      })
+        where: {
+          conversationId,
+          isDeleted: false,
+        },
+      }),
     ]);
 
-    const formattedMessages: MessageWithSender[] = messages.map(msg => ({
+    const formattedMessages: MessageWithSender[] = messages.map((msg) => ({
       id: msg.id,
-      text: msg.text,
+      text: msg.text || "",
       messageType: msg.messageType,
       createdAt: msg.createdAt,
       read: msg.read,
       edited: msg.edited,
+      isDeleted: msg.isDeleted,
+      attachmentUrl: msg.attachmentUrl || undefined,
+      attachmentKey: msg.attachmentKey || undefined,
+      fileName: msg.fileName || undefined,
+      contentType: msg.contentType || undefined,
+      fileSize: msg.fileSize || undefined,
+      durationMs: msg.durationMs || undefined,
+      width: msg.width || undefined,
+      height: msg.height || undefined,
+      thumbnailUrl: msg.thumbnailUrl || undefined,
+      batchShareId: msg.batchShareId || undefined,
       sender: {
         id: msg.sender.id,
         name: msg.sender.name,
-        role: msg.sender.role
-      }
+        role: msg.sender.role,
+      },
+      batchShare: msg.batchShare || undefined,
     }));
 
     return {
       messages: formattedMessages.reverse(), // Reverse to show oldest first
       totalCount,
-      hasMore: skip + messages.length < totalCount
+      hasMore: skip + messages.length < totalCount,
     };
   }
 
@@ -172,21 +227,19 @@ export class MessageService {
     const conversation = await prisma.conversation.findFirst({
       where: {
         id: conversationId,
-        OR: [
-          { farmerId: userId },
-          { doctorId: userId }
-        ]
-      }
+        OR: [{ farmerId: userId }, { doctorId: userId }],
+      },
     });
 
     if (!conversation) {
-      throw new Error('Conversation not found or access denied');
+      throw new Error("Conversation not found or access denied");
     }
 
     const whereClause: any = {
       conversationId,
       senderId: { not: userId }, // Don't mark own messages as read
-      read: false
+      read: false,
+      isDeleted: false,
     };
 
     if (messageIds && messageIds.length > 0) {
@@ -195,7 +248,7 @@ export class MessageService {
 
     const result = await prisma.message.updateMany({
       where: whereClause,
-      data: { read: true }
+      data: { read: true },
     });
 
     return result.count;
@@ -213,21 +266,28 @@ export class MessageService {
     const existingMessage = await prisma.message.findFirst({
       where: {
         id: messageId,
-        senderId: userId
+        senderId: userId,
+        isDeleted: false,
       },
       include: {
         sender: {
           select: {
             id: true,
             name: true,
-            role: true
-          }
-        }
-      }
+            role: true,
+          },
+        },
+        batchShare: true,
+      },
     });
 
     if (!existingMessage) {
-      throw new Error('Message not found or access denied');
+      throw new Error("Message not found or access denied");
+    }
+
+    // Only allow editing text messages for now
+    if (existingMessage.messageType !== "TEXT") {
+      throw new Error("Only text messages can be edited");
     }
 
     // Update the message
@@ -235,57 +295,70 @@ export class MessageService {
       where: { id: messageId },
       data: {
         text: newText.trim(),
-        edited: true
+        edited: true,
       },
       include: {
         sender: {
           select: {
             id: true,
             name: true,
-            role: true
-          }
-        }
-      }
+            role: true,
+          },
+        },
+        batchShare: true,
+      },
     });
 
     return {
       id: updatedMessage.id,
-      text: updatedMessage.text,
+      text: updatedMessage.text || "",
       messageType: updatedMessage.messageType,
       createdAt: updatedMessage.createdAt,
       read: updatedMessage.read,
       edited: updatedMessage.edited,
+      isDeleted: updatedMessage.isDeleted,
+      attachmentUrl: updatedMessage.attachmentUrl || undefined,
+      attachmentKey: updatedMessage.attachmentKey || undefined,
+      fileName: updatedMessage.fileName || undefined,
+      contentType: updatedMessage.contentType || undefined,
+      fileSize: updatedMessage.fileSize || undefined,
+      durationMs: updatedMessage.durationMs || undefined,
+      width: updatedMessage.width || undefined,
+      height: updatedMessage.height || undefined,
+      thumbnailUrl: updatedMessage.thumbnailUrl || undefined,
+      batchShareId: updatedMessage.batchShareId || undefined,
       sender: {
         id: updatedMessage.sender.id,
-        name: updatedMessage.sender.name,
-        role: updatedMessage.sender.role
-      }
+        name: updatedMessage.sender.name || "",
+        role: updatedMessage.sender.role,
+      },
+      batchShare: updatedMessage.batchShare || undefined,
     };
   }
 
   /**
-   * Delete a message (soft delete by clearing text)
+   * Delete a message (soft delete)
    */
   async deleteMessage(messageId: string, userId: string): Promise<boolean> {
     // Verify message exists and user is the sender
     const existingMessage = await prisma.message.findFirst({
       where: {
         id: messageId,
-        senderId: userId
-      }
+        senderId: userId,
+        isDeleted: false,
+      },
     });
 
     if (!existingMessage) {
-      throw new Error('Message not found or access denied');
+      throw new Error("Message not found or access denied");
     }
 
-    // Soft delete by clearing the text
+    // Soft delete by setting isDeleted flag
     await prisma.message.update({
       where: { id: messageId },
       data: {
-        text: '[Message deleted]',
-        edited: true
-      }
+        isDeleted: true,
+      },
     });
 
     return true;
@@ -299,13 +372,11 @@ export class MessageService {
       where: {
         read: false,
         senderId: { not: userId },
+        isDeleted: false,
         conversation: {
-          OR: [
-            { farmerId: userId },
-            { doctorId: userId }
-          ]
-        }
-      }
+          OR: [{ farmerId: userId }, { doctorId: userId }],
+        },
+      },
     });
   }
 
@@ -317,30 +388,28 @@ export class MessageService {
   }> {
     const conversations = await prisma.conversation.findMany({
       where: {
-        OR: [
-          { farmerId: userId },
-          { doctorId: userId }
-        ]
+        OR: [{ farmerId: userId }, { doctorId: userId }],
       },
-      select: { id: true }
+      select: { id: true },
     });
 
-    const conversationIds = conversations.map(c => c.id);
+    const conversationIds = conversations.map((c) => c.id);
 
     const unreadCounts = await prisma.message.groupBy({
-      by: ['conversationId'],
+      by: ["conversationId"],
       where: {
         conversationId: { in: conversationIds },
         read: false,
-        senderId: { not: userId }
+        senderId: { not: userId },
+        isDeleted: false,
       },
       _count: {
-        id: true
-      }
+        id: true,
+      },
     });
 
     const result: { [conversationId: string]: number } = {};
-    unreadCounts.forEach(item => {
+    unreadCounts.forEach((item) => {
       result[item.conversationId] = item._count.id;
     });
 
@@ -365,15 +434,12 @@ export class MessageService {
     const conversation = await prisma.conversation.findFirst({
       where: {
         id: conversationId,
-        OR: [
-          { farmerId: userId },
-          { doctorId: userId }
-        ]
-      }
+        OR: [{ farmerId: userId }, { doctorId: userId }],
+      },
     });
 
     if (!conversation) {
-      throw new Error('Conversation not found or access denied');
+      throw new Error("Conversation not found or access denied");
     }
 
     const skip = (page - 1) * limit;
@@ -382,53 +448,68 @@ export class MessageService {
       prisma.message.findMany({
         where: {
           conversationId,
+          isDeleted: false,
           text: {
             contains: query,
-            mode: 'insensitive'
-          }
+            mode: "insensitive",
+          },
         },
         include: {
           sender: {
             select: {
               id: true,
               name: true,
-              role: true
-            }
-          }
+              role: true,
+            },
+          },
+          batchShare: true,
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         skip,
-        take: limit
+        take: limit,
       }),
       prisma.message.count({
         where: {
           conversationId,
+          isDeleted: false,
           text: {
             contains: query,
-            mode: 'insensitive'
-          }
-        }
-      })
+            mode: "insensitive",
+          },
+        },
+      }),
     ]);
 
-    const formattedMessages: MessageWithSender[] = messages.map(msg => ({
+    const formattedMessages: MessageWithSender[] = messages.map((msg) => ({
       id: msg.id,
-      text: msg.text,
+      text: msg.text || "",
       messageType: msg.messageType,
       createdAt: msg.createdAt,
       read: msg.read,
       edited: msg.edited,
+      isDeleted: msg.isDeleted,
+      attachmentUrl: msg.attachmentUrl || undefined,
+      attachmentKey: msg.attachmentKey || undefined,
+      fileName: msg.fileName || undefined,
+      contentType: msg.contentType || undefined,
+      fileSize: msg.fileSize || undefined,
+      durationMs: msg.durationMs || undefined,
+      width: msg.width || undefined,
+      height: msg.height || undefined,
+      thumbnailUrl: msg.thumbnailUrl || undefined,
+      batchShareId: msg.batchShareId || undefined,
       sender: {
         id: msg.sender.id,
         name: msg.sender.name,
-        role: msg.sender.role
-      }
+        role: msg.sender.role,
+      },
+      batchShare: msg.batchShare || undefined,
     }));
 
     return {
       messages: formattedMessages.reverse(),
       totalCount,
-      hasMore: skip + messages.length < totalCount
+      hasMore: skip + messages.length < totalCount,
     };
   }
 }

@@ -34,6 +34,8 @@ export const authMiddleware = (
     return res.status(403).json({ error: "Access denied" });
   }
 
+  console.log("decoded", decoded);
+
   const userId = (decoded as any).userId;
   const role = (decoded as any).role;
 

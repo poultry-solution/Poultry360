@@ -214,6 +214,24 @@ class SocketService {
     this.emit('mark_messages_read', { conversationId, messageIds });
   }
 
+  // ==================== MESSAGE UPDATE/DELETE EVENTS ====================
+
+  onMessageUpdated(callback: (data: { success: boolean; message: any }) => void): void {
+    this.on('message_updated' as any, callback as any);
+  }
+
+  offMessageUpdated(callback: (data: { success: boolean; message: any }) => void): void {
+    this.off('message_updated' as any, callback as any);
+  }
+
+  onMessageDeleted(callback: (data: { success: boolean; messageId: string; conversationId: string }) => void): void {
+    this.on('message_deleted' as any, callback as any);
+  }
+
+  offMessageDeleted(callback: (data: { success: boolean; messageId: string; conversationId: string }) => void): void {
+    this.off('message_deleted' as any, callback as any);
+  }
+
   // ==================== STATUS MANAGEMENT ====================
 
   updateOnlineStatus(isOnline: boolean): void {

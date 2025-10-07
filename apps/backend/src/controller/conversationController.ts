@@ -1,9 +1,8 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { getMessageService } from '../services/messageService';
 import { getRoomService } from '../services/roomService';
+import prisma from '../utils/prisma';
 
-const prisma = new PrismaClient();
 const messageService = getMessageService();
 
 export const conversationController = {

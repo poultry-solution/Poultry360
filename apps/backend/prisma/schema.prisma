@@ -63,6 +63,11 @@ enum MessageType {
   TEXT
   IMAGE
   FILE
+  VIDEO
+  AUDIO
+  PDF
+  DOC
+  OTHER
   BATCH_SHARE
   FARM_SHARE
 }
@@ -832,11 +837,25 @@ model Message {
   id              String      @id @default(cuid())
   conversationId  String
   senderId        String
-  text            String
+  // Optional textual content (e.g., message body or caption for attachments)
+  text            String?
   messageType     MessageType @default(TEXT)
   createdAt       DateTime    @default(now())
   read            Boolean     @default(false)
   edited          Boolean     @default(false)
+  // Soft delete flag
+  isDeleted       Boolean     @default(false)
+
+  // Attachment metadata (for IMAGE/VIDEO/AUDIO/PDF/DOC/FILE/OTHER)
+  attachmentUrl   String?
+  attachmentKey   String?      // Storage key/path in R2 (or other store)
+  fileName        String?
+  contentType     String?
+  fileSize        Int?
+  durationMs      Int?         // for audio/video
+  width           Int?         // for images/videos
+  height          Int?
+  thumbnailUrl    String?
 
   conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender          User         @relation(fields: [senderId], references: [id])

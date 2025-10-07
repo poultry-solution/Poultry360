@@ -1,6 +1,16 @@
 // ==================== CHAT TYPES ====================
 
-export type MessageType = 'TEXT' | 'IMAGE' | 'FILE';
+export type MessageType =
+  | 'TEXT'
+  | 'IMAGE'
+  | 'FILE'
+  | 'VIDEO'
+  | 'AUDIO'
+  | 'PDF'
+  | 'DOC'
+  | 'OTHER'
+  | 'BATCH_SHARE'
+  | 'FARM_SHARE';
 export type ConversationStatus = 'ACTIVE' | 'CLOSED' | 'ARCHIVED';
 
 export interface User {
@@ -13,11 +23,24 @@ export interface User {
 export interface Message {
   id: string;
   conversationId: string;
-  text: string;
+  text?: string; // optional to allow pure attachments
   messageType: MessageType;
   createdAt: string;
   read: boolean;
   edited: boolean;
+  isDeleted?: boolean;
+  // Attachment metadata
+  attachmentUrl?: string;
+  attachmentKey?: string;
+  fileName?: string;
+  contentType?: string;
+  fileSize?: number;
+  durationMs?: number; // audio/video
+  width?: number; // image/video
+  height?: number; // image/video
+  thumbnailUrl?: string;
+  // Share references
+  batchShareId?: string;
   sender: {
     id: string;
     name: string;
@@ -46,12 +69,23 @@ export interface Conversation {
 export interface CreateConversationData {
   doctorId: string;
   subject?: string;
+  initialMessage?: string;
 }
 
 export interface SendMessageData {
   conversationId: string;
-  text: string;
+  text?: string;
   messageType?: MessageType;
+  // Attachment inputs (when sending already-uploaded files)
+  attachmentKey?: string;
+  fileName?: string;
+  contentType?: string;
+  fileSize?: number;
+  durationMs?: number;
+  width?: number;
+  height?: number;
+  // Share references
+  batchShareId?: string;
 }
 
 export interface ConversationWithMessages extends Conversation {

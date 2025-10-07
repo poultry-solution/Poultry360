@@ -11,13 +11,14 @@ import React, {
 import { useQueryClient } from "@tanstack/react-query";
 import { getSocketService } from "@/services/chatservices/socketService";
 import { chatKeys } from "@/services/chatservices/chatQueries";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "../store/authStore";
+
 import type {
   Message,
   Conversation,
   SocketEvents,
   UnreadCounts,
-} from "@/types/chat";
+} from "../types/chat";
 
 // ==================== CHAT CONTEXT TYPES ====================
 
@@ -95,7 +96,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   const handleNewMessage = useCallback(
     (socketMessage: any) => {
       // Always log message reception for debugging
-      console.log("📨 [Doctor] handleNewMessage triggered:", {
+      console.log("📨 [Farmer] handleNewMessage triggered:", {
         messageId: socketMessage.id,
         conversationId: socketMessage.conversationId,
         currentConversationId,
@@ -132,10 +133,10 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         );
 
         if (existingOptimisticIndex !== -1) {
-          console.log("🔄 [Doctor] Replacing optimistic message with real:", {
+          console.log("🔄 [Farmer] Replacing optimistic message with real:", {
             optimisticId: prev[existingOptimisticIndex].id,
             realId: message.id,
-            text: message.text.substring(0, 30) + "...",
+            text: message.text?.substring(0, 30) + "...",
           });
           const newMessages = [...prev];
           newMessages[existingOptimisticIndex] = message;
@@ -144,13 +145,13 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
         // Avoid duplicates for real messages
         if (prev.some((m) => m.id === message.id)) {
-          console.log("⚠️ [Doctor] Duplicate message rejected:", message.id);
+          console.log("⚠️ [Farmer] Duplicate message rejected:", message.id);
           return prev;
         }
 
         // Only add messages that belong to the current conversation
         if (message.conversationId !== currentConversationId) {
-          console.log("❌ [Doctor] Message not for current conversation:", {
+          console.log("❌ [Farmer] Message not for current conversation:", {
             messageConversationId: message.conversationId,
             currentConversationId,
             messageId: message.id,
@@ -158,7 +159,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
           return prev;
         }
 
-        console.log("✅ [Doctor] Adding NEW message to state:", {
+        console.log("✅ [Farmer] Adding NEW message to state:", {
           messageId: message.id,
           senderRole: message.sender.role,
           totalAfter: prev.length + 1,
@@ -174,7 +175,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
                 ...conv,
                 lastMessage: {
                   id: message.id,
-                  text: message.text,
+                  text: message.text || "",
                   senderId: message.sender.id,
                   senderName: message.sender.name,
                   createdAt: message.createdAt,
@@ -235,44 +236,6 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     [currentConversationId]
   );
 
-  const handleMessagesRead = useCallback(
-    (data: { conversationId: string; userId: string; readCount: number }) => {
-      console.log("✅ [Doctor] Messages read event:", data);
-
-      // Update unread counts
-      setUnreadCounts((prev) => ({
-        totalUnread: Math.max(0, prev.totalUnread - data.readCount),
-        byConversation: {
-          ...prev.byConversation,
-          [data.conversationId]: Math.max(
-            0,
-            (prev.byConversation[data.conversationId] || 0) - data.readCount
-          ),
-        },
-      }));
-
-      // Update conversations list
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === data.conversationId
-            ? {
-                ...conv,
-                unreadCount: Math.max(0, conv.unreadCount - data.readCount),
-              }
-            : conv
-        )
-      );
-
-      // Invalidate queries to refresh
-      queryClient.invalidateQueries({
-        queryKey: chatKeys.conversation(data.conversationId),
-      });
-      queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
-      queryClient.invalidateQueries({ queryKey: chatKeys.unreadCount() });
-    },
-    [queryClient]
-  );
-
   const handleUserTyping = useCallback(
     (data: SocketEvents["user_typing"]) => {
       if (!currentConversationId) return;
@@ -308,10 +271,93 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     []
   );
 
+  const updateMessage = useCallback(
+    (messageId: string, updates: Partial<Message>) => {
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === messageId ? { ...msg, ...updates } : msg))
+      );
+    },
+    []
+  );
+
+  const removeMessage = useCallback((messageId: string) => {
+    console.log("removeMessage - marking as deleted", messageId);
+    setMessages((prev) => 
+      prev.map((msg) => msg.id === messageId ? { ...msg, isDeleted: true } : msg)
+    );
+  }, []);
+
+  // Handle message updated (edit)
+  const handleMessageUpdated = useCallback(
+    (data: { success: boolean; message: Message }) => {
+      const m = data.message as any;
+      if (!m?.conversationId) return;
+      if (m.conversationId !== currentConversationId) return;
+      updateMessage(m.id, m as any);
+    },
+    [currentConversationId, updateMessage]
+  );
+
+  // Handle message deleted
+  const handleMessageDeleted = useCallback(
+    (data: { success: boolean; messageId: string; conversationId: string }) => {
+      if (!data?.conversationId || !data?.messageId) return;
+      if (data.conversationId !== currentConversationId) return;
+      removeMessage(data.messageId as string);
+    },
+    [currentConversationId, removeMessage]
+  );
+
   const handleError = useCallback((data: SocketEvents["error"]) => {
     setError(data.message);
     console.error("Chat error:", data.message);
   }, []);
+
+  const handleMessageSent = useCallback(
+    (data: SocketEvents["message_sent"]) => {
+      // Message was successfully sent to server
+      console.log("Message sent successfully:", data.messageId);
+    },
+    []
+  );
+
+  const handleMessagesRead = useCallback(
+    (data: { conversationId: string; userId: string; readCount: number }) => {
+      console.log("✅ [Farmer] Messages read event:", data);
+
+      // Update unread counts
+      setUnreadCounts((prev) => ({
+        totalUnread: Math.max(0, prev.totalUnread - data.readCount),
+        byConversation: {
+          ...prev.byConversation,
+          [data.conversationId]: Math.max(
+            0,
+            (prev.byConversation[data.conversationId] || 0) - data.readCount
+          ),
+        },
+      }));
+
+      // Update conversations list
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === data.conversationId
+            ? {
+                ...conv,
+                unreadCount: Math.max(0, conv.unreadCount - data.readCount),
+              }
+            : conv
+        )
+      );
+
+      // Invalidate queries to refresh
+      queryClient.invalidateQueries({
+        queryKey: chatKeys.conversation(data.conversationId),
+      });
+      queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
+      queryClient.invalidateQueries({ queryKey: chatKeys.unreadCount() });
+    },
+    [queryClient]
+  );
 
   // ==================== SOCKET SETUP ====================
 
@@ -323,7 +369,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         setIsLoading(true);
         setError(null);
 
-        console.log("🔌 [Doctor] Attempting socket connection...", {
+        console.log("🔌 [Farmer] Attempting socket connection...", {
           userId: user?.id,
           userName: user?.name,
           userRole: user?.role,
@@ -331,7 +377,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
         await socketService.current.connect(accessToken);
 
-        console.log("✅ [Doctor] Socket connected successfully:", {
+        console.log("✅ [Farmer] Socket connected successfully:", {
           socketId: socketService.current.getSocketId(),
         });
 
@@ -341,11 +387,11 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         }
         connectionTimeoutRef.current = setTimeout(() => {
           setIsConnected(true);
-          console.log("✅ [Doctor] Connection state set to true");
+          console.log("✅ [Farmer] Connection state set to true");
         }, 100);
 
         // Set up event listeners
-        console.log("📡 [Doctor] Setting up event listeners...");
+        console.log("📡 [Farmer] Setting up event listeners...");
         socketService.current.on("new_message", handleNewMessage);
         socketService.current.on("messages_read", handleMessagesRead);
         socketService.current.on("user_joined", handleUserJoined);
@@ -355,6 +401,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
           "conversation_history",
           handleConversationHistory
         );
+        socketService.current.on("message_sent", handleMessageSent);
         socketService.current.on("error", handleError);
       } catch (error) {
         console.error("Failed to connect to chat:", error);
@@ -371,6 +418,9 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       if (connectionTimeoutRef.current) {
         clearTimeout(connectionTimeoutRef.current);
       }
+      // Unregister edit/delete handlers
+      socketService.current.offMessageUpdated(handleMessageUpdated as any);
+      socketService.current.offMessageDeleted(handleMessageDeleted as any);
       socketService.current.disconnect();
       setIsConnected(false);
     };
@@ -383,14 +433,28 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     handleUserLeft,
     handleUserTyping,
     handleConversationHistory,
+    handleMessageUpdated,
+    handleMessageDeleted,
+    handleMessageSent,
     handleError,
   ]);
+
+  // Register edit/delete listeners when connected
+  useEffect(() => {
+    if (!isConnected) return;
+    socketService.current.onMessageUpdated(handleMessageUpdated as any);
+    socketService.current.onMessageDeleted(handleMessageDeleted as any);
+    return () => {
+      socketService.current.offMessageUpdated(handleMessageUpdated as any);
+      socketService.current.offMessageDeleted(handleMessageDeleted as any);
+    };
+  }, [isConnected, handleMessageUpdated, handleMessageDeleted]);
 
   // ==================== ACTIONS ====================
 
   const joinConversation = useCallback(
     (conversationId: string) => {
-      console.log("🔵 [Doctor] joinConversation called:", {
+      console.log("🔵 [Farmer] joinConversation called:", {
         conversationId,
         isConnected,
         socketId: socketService.current.getSocketId(),
@@ -399,7 +463,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       });
 
       if (!isConnected) {
-        console.warn("⚠️ [Doctor] Cannot join - socket not connected");
+        console.warn("⚠️ [Farmer] Cannot join - socket not connected");
         return;
       }
 
@@ -408,7 +472,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       setCurrentConversationId(conversationId);
       socketService.current.joinConversation(conversationId);
 
-      console.log("✅ [Doctor] Join conversation emitted:", conversationId);
+      console.log("✅ [Farmer] Join conversation emitted:", conversationId);
     },
     [isConnected, user]
   );
@@ -424,7 +488,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
   const sendMessage = useCallback(
     (text: string, messageType: "TEXT" | "IMAGE" | "FILE" = "TEXT") => {
-      console.log("📤 [Doctor] sendMessage called:", {
+      console.log("📤 [Farmer] sendMessage called:", {
         conversationId: currentConversationId,
         isConnected,
         textLength: text.trim().length,
@@ -434,7 +498,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       });
 
       if (!currentConversationId || !isConnected || !text.trim()) {
-        console.warn("⚠️ [Doctor] Cannot send message:", {
+        console.warn("⚠️ [Farmer] Cannot send message:", {
           hasConversationId: !!currentConversationId,
           isConnected,
           hasText: !!text.trim(),
@@ -442,7 +506,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         return;
       }
 
-      // Create optimistic message for immediate feedback
+      // Create optimistic message
       const optimisticMessage: Message = {
         id: `temp-${Date.now()}-${Math.random()}`,
         conversationId: currentConversationId,
@@ -454,27 +518,27 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         sender: {
           id: user?.id || "",
           name: user?.name || "",
-          role: user?.role || "DOCTOR",
+          role: user?.role || "OWNER",
         },
       };
 
-      console.log("💬 [Doctor] Created optimistic message:", {
+      console.log("💬 [Farmer] Created optimistic message:", {
         id: optimisticMessage.id,
         conversationId: optimisticMessage.conversationId,
-        text: optimisticMessage.text.substring(0, 30) + "...",
+        text: optimisticMessage.text?.substring(0, 30) + "...",
       });
 
       // Add optimistic message to local state immediately
       setMessages((prev) => {
         console.log(
-          "📝 [Doctor] Adding optimistic message to state. Current messages:",
+          "📝 [Farmer] Adding optimistic message to state. Current messages:",
           prev.length
         );
         return [...prev, optimisticMessage];
       });
 
       // Send message via socket
-      console.log("🚀 [Doctor] Emitting send_message event to socket");
+      console.log("🚀 [Farmer] Emitting send_message event to socket");
       socketService.current.sendMessage(
         currentConversationId,
         text.trim(),
@@ -489,18 +553,18 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
           );
           if (messageIndex !== -1) {
             console.warn(
-              "⏰ [Doctor] Message timeout - marking as failed:",
+              "⏰ [Farmer] Message timeout - marking as failed:",
               optimisticMessage.id
             );
             const newMessages = [...prev];
             newMessages[messageIndex] = {
               ...newMessages[messageIndex],
-              text: `${newMessages[messageIndex].text} (Failed to send)`,
+              text: `${newMessages[messageIndex].text || ""} (Failed to send)`,
             };
             return newMessages;
           } else {
             console.log(
-              "✅ [Doctor] Message confirmed (optimistic removed):",
+              "✅ [Farmer] Message confirmed (optimistic removed):",
               optimisticMessage.id
             );
           }
@@ -585,19 +649,6 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
   const addMessage = useCallback((message: Message) => {
     setMessages((prev) => [...prev, message]);
-  }, []);
-
-  const updateMessage = useCallback(
-    (messageId: string, updates: Partial<Message>) => {
-      setMessages((prev) =>
-        prev.map((msg) => (msg.id === messageId ? { ...msg, ...updates } : msg))
-      );
-    },
-    []
-  );
-
-  const removeMessage = useCallback((messageId: string) => {
-    setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
   }, []);
 
   // ==================== CONTEXT VALUE ====================

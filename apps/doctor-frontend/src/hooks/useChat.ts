@@ -124,23 +124,29 @@ export const useCurrentConversation = (conversationId?: string) => {
     }
   }, [activeConversationId, markMessagesAsRead]);
 
-  // Merge API messages with real-time messages, avoiding duplicates
+  // Merge API messages with real-time messages, prefer context (socket) for real-time updates
   const allMessages = useMemo(() => {
     const apiMessages = ((query.data as any)?.messages || []);
-    const merged = [...apiMessages];
     
-    // Add context messages that aren't already in the API response
-    contextMessages.forEach((contextMsg) => {
-      const existsInApi = apiMessages.some((apiMsg: any) => apiMsg.id === contextMsg.id);
-      if (!existsInApi) {
-        merged.push(contextMsg);
-      }
-    });
+    // Create a map to merge messages, context messages take precedence
+    const byId = new Map<string, any>();
     
-    // Sort by creation time to maintain proper order
-    merged.sort((a: any, b: any) => 
-      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    );
+    // First add API messages
+    for (const m of apiMessages) {
+      byId.set(m.id, m);
+    }
+    
+    // Then overlay context messages (socket-driven updates win)
+    for (const m of contextMessages) {
+      byId.set(m.id, m);
+    }
+
+    // Convert map to array, filter out deleted messages, and sort by createdAt
+    const merged = Array.from(byId.values())
+      .filter((m: any) => !m.isDeleted) // Filter out soft-deleted messages
+      .sort((a: any, b: any) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
 
     // Debug logging (can be removed in production)
     if (process.env.NODE_ENV === 'development') {

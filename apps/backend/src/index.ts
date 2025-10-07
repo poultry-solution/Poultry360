@@ -5,7 +5,6 @@ import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import routes from "./router/index";
 import { getSocketService } from "./services/socketService";
-// import { UserSchema } from "@myapp/shared-types";
 dotenv.config();
 
 const PORT = process.env.PORT || 8081;
@@ -42,10 +41,7 @@ app.get("/", (req, res) => {
 app.use((req, res, next) => {
   console.log("--------------------------------");
   console.log(`${req.method} ${req.url}`);
-  // console.log(req.body);
-  // console.log(req.headers);
-  // console.log(req.params);
-  // console.log(req.query);
+  console.log("--------------------------------");
   next();
 });
 
