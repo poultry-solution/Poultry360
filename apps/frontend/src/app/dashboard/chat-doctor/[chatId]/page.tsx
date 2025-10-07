@@ -39,6 +39,7 @@ import {
   useVerifyChatUpload,
   useDeleteUploadedFile,
 } from "@/fetchers/s3/s3Queries";
+import { useDeleteConversation } from "@/services/chatservices/chatQueries";
 import { X } from "lucide-react";
 
 export default function ChatPage() {
@@ -398,6 +399,7 @@ export default function ChatPage() {
   const editMessageMutation = useEditMessage(chatId);
   const deleteMessageMutation = useDeleteMessage(chatId);
   const sendMessageMutation = useSendMessage();
+  const deleteConversationMutation = useDeleteConversation();
 
   // Custom send handler that supports attachments
   const handleSendMessage = async () => {
@@ -439,6 +441,20 @@ export default function ChatPage() {
   const handleDeleteMessage = (m: any) => {
     if (!window.confirm("Delete this message?")) return;
     deleteMessageMutation.mutate(m.id);
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!window.confirm("Are you sure you want to delete this conversation? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      await deleteConversationMutation.mutateAsync(chatId);
+      toast.success("Conversation deleted successfully");
+      router.push("/dashboard/chat-doctor");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete conversation");
+    }
   };
 
   const submitShare = async (e?: React.FormEvent) => {
@@ -507,6 +523,7 @@ export default function ChatPage() {
           subtitle="Veterinary Doctor"
           isOnline={conversation?.doctor?.isOnline}
           onBack={() => router.push("/dashboard/chat-doctor")}
+          onDelete={handleDeleteConversation}
         />
       </Card>
 

@@ -3,7 +3,13 @@
 import { CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, MoreVertical } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ArrowLeft, MoreVertical, Trash2 } from "lucide-react";
 import React from "react";
 
 interface ChatHeaderProps {
@@ -11,9 +17,10 @@ interface ChatHeaderProps {
   subtitle?: string;
   isOnline?: boolean;
   onBack: () => void;
+  onDelete?: () => void;
 }
 
-export default function ChatHeader({ title, subtitle, isOnline, onBack }: ChatHeaderProps) {
+export default function ChatHeader({ title, subtitle, isOnline, onBack, onDelete }: ChatHeaderProps) {
   const initials = React.useMemo(() => {
     const trimmed = (title || "").trim();
     if (!trimmed) return "?";
@@ -44,13 +51,27 @@ export default function ChatHeader({ title, subtitle, isOnline, onBack }: ChatHe
           >
             {isOnline ? "Online" : "Offline"}
           </Badge>
-          <Button variant="ghost" size="sm" className="p-2">
-            <MoreVertical className="h-4 w-4" />
-          </Button>
+          {onDelete && (
+            <DropdownMenu>
+              <DropdownMenuTrigger> 
+                <Button variant="ghost" size="sm" className="p-2">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={onDelete}
+                  className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Conversation
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
     </CardHeader>
   );
 }
-
 

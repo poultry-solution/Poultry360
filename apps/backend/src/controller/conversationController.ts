@@ -473,6 +473,49 @@ export const conversationController = {
   },
 
   /**
+   * Delete conversation (soft delete by setting status to ARCHIVED)
+   */
+  async deleteConversation(req: Request, res: Response) {
+    try {
+      const userId = req.userId;
+      const { conversationId } = req.params;
+
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      // Verify user has access to conversation
+      const conversation = await prisma.conversation.findFirst({
+        where: {
+          id: conversationId,
+          OR: [
+            { farmerId: userId },
+            { doctorId: userId }
+          ]
+        }
+      });
+
+      if (!conversation) {
+        return res.status(404).json({ error: 'Conversation not found' });
+      }
+
+      // Soft delete by archiving
+      await prisma.conversation.update({
+        where: { id: conversationId },
+        data: { status: 'ARCHIVED' }
+      });
+
+      res.json({
+        success: true,
+        message: 'Conversation deleted successfully'
+      });
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  },
+
+  /**
    * Get available doctors for conversation
    */
   async getAvailableDoctors(req: Request, res: Response) {

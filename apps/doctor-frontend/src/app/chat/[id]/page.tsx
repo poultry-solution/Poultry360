@@ -27,6 +27,7 @@ import {
   useVerifyChatUpload,
   useDeleteUploadedFile,
 } from "@/fetchers/s3/s3Queries";
+import { useDeleteConversation } from "@/services/chatservices/chatQueries";
 import { toast } from "sonner";
 
 export default function DoctorChatPage() {
@@ -306,6 +307,7 @@ export default function DoctorChatPage() {
   const editMessageMutation = useEditMessage(conversationId);
   const deleteMessageMutation = useDeleteMessage(conversationId);
   const sendMessageMutation = useSendMessage();
+  const deleteConversationMutation = useDeleteConversation();
 
   const handleEditMessage = (m: any) => {
     const current = (m?.text || "").toString();
@@ -317,6 +319,20 @@ export default function DoctorChatPage() {
   const handleDeleteMessage = (m: any) => {
     if (!window.confirm("Delete this message?")) return;
     deleteMessageMutation.mutate(m.id);
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!window.confirm("Are you sure you want to delete this conversation? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      await deleteConversationMutation.mutateAsync(conversationId);
+      toast.success("Conversation deleted successfully");
+      router.push("/dashboard");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete conversation");
+    }
   };
 
   // Custom send handler for attachments
@@ -399,6 +415,7 @@ export default function DoctorChatPage() {
           subtitle={conversation?.subject || "Veterinary Consultation"}
           isOnline={isConnected}
           onBack={() => router.push("/dashboard")}
+          onDelete={handleDeleteConversation}
         />
       </Card>
 
