@@ -242,6 +242,74 @@ export default function BatchDetailPage() {
   const updateMortalityMutation = useUpdateMortality();
   const deleteMortalityMutation = useDeleteMortality();
 
+  // Per Broiler Expense Calculation (place before any early returns to keep hooks order stable)
+  const perBroilerExpenseData = useMemo(() => {
+    const expensesList: any[] = (expensesResponse?.data as any[]) || [];
+    const totalExpenses = expensesList.reduce(
+      (sum: number, ex: any) => sum + Number(ex.amount || 0),
+      0
+    );
+
+    const totalSales = (batchSales || []).reduce(
+      (sum: number, sale: any) => sum + Number(sale.amount || 0),
+      0
+    );
+
+    const netExpenses = totalExpenses - totalSales;
+
+    const initialBroilers = Number(batch?.initialChicks || 0);
+    const totalMortality = Number(mortalityStats?.totalMortality || 0);
+    const totalSold = Number(analytics?.totalSalesQuantity || 0);
+    const remainingBroilers = Math.max(
+      0,
+      initialBroilers - (totalMortality + totalSold)
+    );
+
+    let perBroilerExpense = 0;
+    let displayValue = 0;
+    let isProfit = false;
+
+    if (remainingBroilers > 0) {
+      perBroilerExpense = netExpenses / remainingBroilers;
+      if (perBroilerExpense < 0) {
+        isProfit = true;
+        displayValue = Math.abs(perBroilerExpense);
+      } else {
+        displayValue = perBroilerExpense;
+      }
+    } else if (initialBroilers > 0) {
+      perBroilerExpense = netExpenses / initialBroilers;
+      if (perBroilerExpense < 0) {
+        isProfit = true;
+        displayValue = Math.abs(perBroilerExpense);
+      } else {
+        displayValue = perBroilerExpense;
+      }
+    } else {
+      displayValue = 0;
+    }
+
+
+    return {
+      netExpenses,
+      remainingBroilers,
+      totalMortality,
+      totalSold,
+      perBroilerExpense,
+      displayValue,
+      isProfit,
+    };
+  },
+   [
+    expensesResponse?.data,
+    batchSales,
+    batch?.initialChicks,
+    mortalityStats?.totalMortality,
+    analytics?.totalSalesQuantity,
+  ]);
+
+  console.log("perBroilerExpenseData", perBroilerExpenseData);
+
   // ==================== WEIGHTS (Growth) ====================
   const {
     data: weightsResponse,
@@ -1306,6 +1374,7 @@ export default function BatchDetailPage() {
     ? expensesTotal / batch.initialChicks
     : 0;
 
+
   // Calculate current age in days
   const currentAge = Math.ceil(
     (new Date().getTime() - new Date(batch.startDate).getTime()) /
@@ -2086,6 +2155,25 @@ export default function BatchDetailPage() {
                       ₹{perBirdExpense.toFixed(2)}
                     </span>
                   </div>
+                  <div className="border-t pt-2 mt-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground font-medium">
+                        {perBroilerExpenseData.isProfit ? "Profit" : "Cost"} per
+                        Broiler:
+                      </span>
+                      <span
+                        className={`font-bold ${perBroilerExpenseData.isProfit ? "text-green-600" : "text-orange-600"}`}
+                      >
+                        ₹{perBroilerExpenseData.displayValue.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Based on {perBroilerExpenseData.remainingBroilers > 0
+                        ? `${perBroilerExpenseData.remainingBroilers} remaining`
+                        : "all"}{" "}
+                      broilers
+                    </div>
+                  </div>
                   {/* {analytics?.profitMargin && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
@@ -2514,6 +2602,103 @@ export default function BatchDetailPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Per Broiler Expense Card */}
+          <Card className="border-2 border-primary/20">
+            <CardHeader>
+              <CardTitle className="text-base">Per Broiler Analysis</CardTitle>
+              <CardDescription>
+                Net expense/profit per remaining broiler
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4 text-sm">
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-xs text-muted-foreground mb-2">
+                      {perBroilerExpenseData.isProfit
+                        ? "Profit per Broiler"
+                        : "Cost per Broiler"}
+                    </div>
+                    <div
+                      className={`text-3xl font-bold ${perBroilerExpenseData.isProfit ? "text-green-600" : "text-orange-600"}`}
+                    >
+                      ₹{perBroilerExpenseData.displayValue.toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      Initial Broilers:
+                    </span>
+                    <span className="font-medium">
+                      {batch.initialChicks?.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Mortality:</span>
+                    <span className="font-medium text-red-600">
+                      -{perBroilerExpenseData.totalMortality?.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Sold:</span>
+                    <span className="font-medium text-blue-600">
+                      -{perBroilerExpenseData.totalSold?.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2">
+                    <span className="text-muted-foreground font-medium">
+                      Remaining Broilers:
+                    </span>
+                    <span className="font-bold">
+                      {perBroilerExpenseData.remainingBroilers?.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 border-t pt-3">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      Total Expenses:
+                    </span>
+                    <span className="font-medium text-red-600">
+                      ₹{expensesTotal.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total Sales:</span>
+                    <span className="font-medium text-green-600">
+                      -₹{salesTotal.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2">
+                    <span className="text-muted-foreground font-medium">
+                      Net Expenses:
+                    </span>
+                    <span
+                      className={`font-bold ${perBroilerExpenseData.netExpenses >= 0 ? "text-red-600" : "text-green-600"}`}
+                    >
+                      ₹{perBroilerExpenseData.netExpenses.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="text-xs text-blue-800">
+                    <strong>Formula:</strong> Net Expenses ÷ Remaining Broilers
+                  </div>
+                  <div className="text-xs text-blue-600 mt-1">
+                    ({perBroilerExpenseData.netExpenses >= 0 ? "₹" : "-₹"}
+                    {Math.abs(perBroilerExpenseData.netExpenses).toLocaleString()}{" "}
+                    ÷ {perBroilerExpenseData.remainingBroilers || batch.initialChicks})
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           <div className="grid gap-6 md:grid-cols-2">
             {/* Revenue Breakdown */}

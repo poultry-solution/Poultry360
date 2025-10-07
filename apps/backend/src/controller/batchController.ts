@@ -1348,7 +1348,7 @@ export const getBatchAnalytics = async (
       }),
       prisma.sale.aggregate({
         where: { batchId: id },
-        _sum: { amount: true },
+        _sum: { amount: true, quantity: true, weight: true },
       }),
       prisma.feedConsumption.aggregate({
         where: { batchId: id },
@@ -1411,6 +1411,9 @@ export const getBatchAnalytics = async (
       (new Date().getTime() - batch.startDate.getTime()) / (1000 * 60 * 60 * 24)
     );
 
+    // also include total sales quantity
+    const totalSalesQuantity = Number(totalSales._sum.quantity || 0);
+
     return res.json({
       success: true,
       data: {
@@ -1422,6 +1425,7 @@ export const getBatchAnalytics = async (
         mortalityRate,
         totalExpenses: totalExpensesAmount,
         totalSales: totalSalesAmount,
+        totalSalesQuantity,
         profit,
         profitMargin,
         totalFeedConsumption: totalFeedConsumptionAmount,
