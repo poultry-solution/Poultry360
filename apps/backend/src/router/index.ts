@@ -15,6 +15,7 @@ import conversationRoutes from "./conversationRoutes";
 import doctorRoutes from "./doctorRoutes";
 import mortalityRoutes from "./mortalityRoutes";
 import batchShareRoutes from "./batchShareRoutes";
+import weightRoutes from "./weightRoutes";
 
 const router = express.Router();
 
@@ -34,5 +35,6 @@ router.use("/conversations", conversationRoutes);
 router.use("/doctors", doctorRoutes);
 router.use("/mortalities", mortalityRoutes);
 router.use("/batch-share", batchShareRoutes);
+router.use("/batches", weightRoutes); // Weight routes for batches
 
 export default router;

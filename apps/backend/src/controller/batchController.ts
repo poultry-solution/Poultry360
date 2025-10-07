@@ -482,7 +482,7 @@ export const createBatch = async (
           endDate: data.endDate ? new Date(data.endDate) : null,
           status: data.status || BatchStatus.ACTIVE,
           initialChicks: totalChicks,
-          initialChickWeight: data.initialChickWeight || 0.045,
+          currentWeight: null, // Will be set when first weight is recorded
           farmId: data.farmId,
         },
         include: {

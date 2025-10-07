@@ -53,6 +53,13 @@ import {
   useDeleteMortality,
 } from "@/fetchers/mortality/mortalityQueries";
 import { BatchSaleModel } from "@/components/ui/batchSaleModel";
+import {
+  useGetWeights,
+  useGetGrowthChart,
+  useAddWeight,
+  useUpdateWeight,
+  useDeleteWeight,
+} from "@/fetchers/weight/weightQueries";
 
 type ExpenseCategory = "Feed" | "Medicine" | "Hatchery" | "Other";
 
@@ -109,6 +116,7 @@ const TABS = [
   "Mortality",
   "Sales Balance",
   "Profit & Loss",
+  "Growth",
 ] as const;
 
 function formatDateYYYYMMDD(dateStr: string | Date): string {
@@ -232,6 +240,66 @@ export default function BatchDetailPage() {
   const createMortalityMutation = useCreateMortality();
   const updateMortalityMutation = useUpdateMortality();
   const deleteMortalityMutation = useDeleteMortality();
+
+  // ==================== WEIGHTS (Growth) ====================
+  const {
+    data: weightsResponse,
+    isLoading: weightsLoading,
+    error: weightsError,
+  } = useGetWeights(safeBatchId, undefined, { enabled: !!batchId });
+  const addWeightMutation = useAddWeight(safeBatchId);
+  const currentWeight = weightsResponse?.data?.currentWeight ?? null;
+  const weights = weightsResponse?.data?.weights || [];
+
+  // Manual weight form state
+  const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
+  const [weightForm, setWeightForm] = useState({
+    date: new Date().toISOString().split("T")[0],
+    avgWeight: "",
+    sampleCount: "",
+    notes: "",
+  });
+  const [weightErrors, setWeightErrors] = useState<Record<string, string>>({});
+  function updateWeightField(
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) {
+    const { name, value } = e.target;
+    setWeightForm((p) => ({ ...p, [name]: value }));
+  }
+  function validateWeight(): boolean {
+    const errs: Record<string, string> = {};
+    if (!weightForm.date) errs.date = "Date is required";
+    if (!weightForm.avgWeight || Number(weightForm.avgWeight) <= 0)
+      errs.avgWeight = "Avg weight (kg) is required";
+    if (!weightForm.sampleCount || Number(weightForm.sampleCount) <= 0)
+      errs.sampleCount = "Sample count is required";
+    setWeightErrors(errs);
+    return Object.keys(errs).length === 0;
+  }
+  async function submitWeight(e: React.FormEvent) {
+    e.preventDefault();
+    if (!validateWeight()) return;
+    try {
+      await addWeightMutation.mutateAsync({
+        date: `${weightForm.date}T00:00:00.000Z`,
+        avgWeight: Number(weightForm.avgWeight),
+        sampleCount: Number(weightForm.sampleCount),
+        notes: weightForm.notes || undefined,
+      });
+      flash("success", "Weight recorded successfully");
+      setIsWeightModalOpen(false);
+      setWeightForm({
+        date: new Date().toISOString().split("T")[0],
+        avgWeight: "",
+        sampleCount: "",
+        notes: "",
+      });
+      setWeightErrors({});
+    } catch (error) {
+      console.error("Failed to save weight:", error);
+      flash("error", "Failed to save weight. Please try again.");
+    }
+  }
 
   // ==================== CLOSE BATCH FUNCTIONS ====================
 
@@ -1881,6 +1949,12 @@ export default function BatchDetailPage() {
                       {batch.initialChicks.toLocaleString()}
                     </span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Current Weight:</span>
+                    <span className="font-medium">
+                      {currentWeight ? `${Number(currentWeight).toFixed(2)} kg` : "—"}
+                    </span>
+                  </div>
                   {isBatchClosed ? (
                     <>
                       <div className="flex justify-between">
@@ -2035,14 +2109,6 @@ export default function BatchDetailPage() {
                     </span>
                     <span className="font-medium">
                       {analytics?.daysActive || currentAge} days
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Initial Weight:
-                    </span>
-                    <span className="font-medium">
-                      {batch.initialChickWeight}g
                     </span>
                   </div>
                   {analytics?.currentAvgWeight && (
@@ -2752,6 +2818,87 @@ export default function BatchDetailPage() {
             </Card>
           </div>
         </div>
+      )}
+
+      {activeTab === "Growth" && (
+        <Card>
+          <CardHeader className="flex items-center justify-between">
+            <div>
+              <CardTitle>Growth (Weights)</CardTitle>
+              <CardDescription>
+                Track average bird weight over time
+              </CardDescription>
+            </div>
+            {!isBatchClosed && (
+              <Button
+                className="bg-primary hover:bg-primary/90"
+                onClick={() => setIsWeightModalOpen(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Record Weight
+              </Button>
+            )}
+            {isBatchClosed && (
+              <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                Batch Closed - No New Entries
+              </Badge>
+            )}
+          </CardHeader>
+          <CardContent>
+            {weightsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <span className="ml-2">Loading weights...</span>
+              </div>
+            ) : weightsError ? (
+              <div className="text-center py-8">
+                <p className="text-red-600">Failed to load weights.</p>
+              </div>
+            ) : weights.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>No weight records yet</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted/50 border-y">
+                      <th className="text-left px-4 py-2">Date</th>
+                      <th className="text-right px-4 py-2">Avg Weight (kg)</th>
+                      <th className="text-right px-4 py-2">Sample Size</th>
+                      <th className="text-left px-4 py-2">Source</th>
+                      <th className="text-left px-4 py-2">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {weights.map((w: any) => (
+                      <tr key={w.id} className="hover:bg-muted/30">
+                        <td className="px-4 py-2">{formatDateYYYYMMDD(w.date)}</td>
+                        <td className="px-4 py-2 text-right">{Number(w.avgWeight).toFixed(2)}</td>
+                        <td className="px-4 py-2 text-right">{w.sampleCount}</td>
+                        <td className="px-4 py-2">
+                          <Badge
+                            variant="secondary"
+                            className={
+                              w.source === "SALE"
+                                ? "bg-green-100 text-green-800"
+                                : w.source === "MANUAL"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-gray-100 text-gray-800"
+                            }
+                          >
+                            {w.source}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-2">{w.notes || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Close Batch Modal */}
@@ -3950,6 +4097,108 @@ export default function BatchDetailPage() {
             Close
           </Button>
         </ModalFooter>
+      </Modal>
+
+      {/* Weight Modal */}
+      <Modal
+        isOpen={isWeightModalOpen}
+        onClose={() => {
+          setIsWeightModalOpen(false);
+          setWeightErrors({});
+        }}
+        title="Record Weight"
+      >
+        <form onSubmit={submitWeight}>
+          <ModalContent>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="weightDate">Date</Label>
+                <Input
+                  id="weightDate"
+                  name="date"
+                  type="date"
+                  value={weightForm.date}
+                  onChange={updateWeightField}
+                  required
+                />
+                {weightErrors.date && (
+                  <p className="text-xs text-red-600 mt-1">{weightErrors.date}</p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="avgWeight">Average Weight (kg)</Label>
+                <Input
+                  id="avgWeight"
+                  name="avgWeight"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={weightForm.avgWeight}
+                  onChange={updateWeightField}
+                  placeholder="e.g., 1.75"
+                  required
+                />
+                {weightErrors.avgWeight && (
+                  <p className="text-xs text-red-600 mt-1">{weightErrors.avgWeight}</p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="sampleCount">Birds Weighed</Label>
+                <Input
+                  id="sampleCount"
+                  name="sampleCount"
+                  type="number"
+                  min="1"
+                  value={weightForm.sampleCount}
+                  onChange={updateWeightField}
+                  placeholder="e.g., 50"
+                  required
+                />
+                {weightErrors.sampleCount && (
+                  <p className="text-xs text-red-600 mt-1">{weightErrors.sampleCount}</p>
+                )}
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="notes">Notes (optional)</Label>
+                <textarea
+                  id="notes"
+                  name="notes"
+                  value={weightForm.notes}
+                  onChange={updateWeightField}
+                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  rows={3}
+                  placeholder="Feed change, disease, etc."
+                />
+              </div>
+            </div>
+          </ModalContent>
+          <ModalFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsWeightModalOpen(false);
+                setWeightErrors({});
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="bg-primary hover:bg-primary/90"
+              disabled={addWeightMutation.isPending}
+            >
+              {addWeightMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </ModalFooter>
+        </form>
       </Modal>
     </div>
   );
