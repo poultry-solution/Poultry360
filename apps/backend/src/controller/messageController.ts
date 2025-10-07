@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { getSocketService } from '../services/socketService';
-import { generatePresignedViewUrl } from '../services/r2Service';
+import { generatePresignedViewUrl, deleteFile as deleteR2File } from '../services/r2Service';
 
 const prisma = new PrismaClient();
 
@@ -95,24 +95,28 @@ export const messageController = {
 
       // Broadcast the message to conversation participants
       const socketService = getSocketService();
-      await socketService.getRoomService().broadcastMessage({
-        id: message.id,
-        conversationId: message.conversationId,
-        senderId: message.senderId,
-        text: message.text,
-        messageType: message.messageType,
-        attachmentUrl: message.attachmentUrl,
-        fileName: message.fileName,
-        contentType: message.contentType,
-        fileSize: message.fileSize,
-        durationMs: message.durationMs,
-        width: message.width,
-        height: message.height,
-        batchShareId: message.batchShareId,
-        createdAt: message.createdAt,
-        sender: message.sender,
-        batchShare: message.batchShare
-      });
+      await socketService.getRoomService().broadcastMessage(
+        message.conversationId,
+        {
+          id: message.id,
+          conversationId: message.conversationId,
+          senderId: message.senderId,
+          senderName: message.sender.name,
+          senderRole: message.sender.role,
+          text: message.text || '',
+          messageType: message.messageType as any,
+          attachmentUrl: message.attachmentUrl,
+          attachmentKey: message.attachmentKey,
+          fileName: message.fileName,
+          contentType: message.contentType,
+          fileSize: message.fileSize,
+          durationMs: message.durationMs,
+          width: message.width,
+          height: message.height,
+          batchShareId: message.batchShareId,
+          createdAt: message.createdAt,
+        }
+      );
 
       res.status(201).json({
         success: true,
@@ -313,7 +317,20 @@ export const messageController = {
         return res.status(404).json({ error: 'Message not found or access denied' });
       }
 
-      // Soft delete the message
+      // If there is an attachment, attempt to remove the file from R2 first (best-effort)
+      if (message.attachmentKey) {
+        try {
+          const deleted = await deleteR2File(message.attachmentKey);
+          console.log("R2 attachment delete", {
+            key: message.attachmentKey,
+            success: deleted,
+          });
+        } catch (r2Err) {
+          console.warn("Failed to delete attachment from R2 (continuing soft delete)", r2Err);
+        }
+      }
+
+      // Soft delete the message in DB
       await prisma.message.update({
         where: { id: messageId },
         data: { isDeleted: true }

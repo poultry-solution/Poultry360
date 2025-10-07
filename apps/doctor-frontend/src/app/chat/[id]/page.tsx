@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import ChatHeader from "@/components/chat/ChatHeader";
 import MessageList from "@/components/chat/MessageList";
 import ChatInputBar from "@/components/chat/ChatInputBar";
+import VoiceRecorder from "@/components/chat/VoiceRecorder";
 import {
   useCurrentConversation,
   useMessageInput,
@@ -19,7 +20,14 @@ import { useAuthStore } from "@/store/authStore";
 import {
   useDeleteMessage,
   useEditMessage,
+  useSendMessage,
 } from "@/fetchers/message/messageQueries";
+import {
+  useGenerateChatUploadUrl,
+  useVerifyChatUpload,
+  useDeleteUploadedFile,
+} from "@/fetchers/s3/s3Queries";
+import { toast } from "sonner";
 
 export default function DoctorChatPage() {
   const router = useRouter();
@@ -50,6 +58,27 @@ export default function DoctorChatPage() {
   const { typingUsers, isAnyoneTyping, typingText } =
     useTypingIndicator(conversationId);
 
+  // Media upload state
+  const [isUploading, setIsUploading] = useState(false);
+  const [attachmentPreview, setAttachmentPreview] = useState<{
+    key: string;
+    url: string;
+    fileName: string;
+    contentType: string;
+    fileSize: number;
+    type: "IMAGE" | "VIDEO" | "AUDIO" | "PDF" | "DOC" | "OTHER";
+    width?: number;
+    height?: number;
+    durationMs?: number;
+  } | null>(null);
+
+  // Voice recording state
+  const [isVoiceRecording, setIsVoiceRecording] = useState(false);
+
+  const generateUploadUrl = useGenerateChatUploadUrl();
+  const verifyUpload = useVerifyChatUpload();
+  const deleteFile = useDeleteUploadedFile();
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -62,18 +91,221 @@ export default function DoctorChatPage() {
     }
   }, [conversationId, isConnected, messages.length, markAsRead]);
 
+  // Helper functions
+  const getMessageType = (
+    mimeType: string
+  ): "IMAGE" | "VIDEO" | "AUDIO" | "PDF" | "DOC" | "OTHER" => {
+    if (mimeType.startsWith("image/")) return "IMAGE";
+    if (mimeType.startsWith("video/")) return "VIDEO";
+    if (mimeType.startsWith("audio/")) return "AUDIO";
+    if (mimeType === "application/pdf") return "PDF";
+    if (
+      mimeType.includes("word") ||
+      mimeType.includes("document") ||
+      mimeType.includes("text")
+    )
+      return "DOC";
+    return "OTHER";
+  };
+
+  const getImageDimensions = (
+    file: File
+  ): Promise<{ width: number; height: number }> => {
+    return new Promise((resolve) => {
+      const img = document.createElement("img");
+      img.onload = () => {
+        resolve({ width: img.width, height: img.height });
+        URL.revokeObjectURL(img.src);
+      };
+      img.onerror = () => resolve({ width: 0, height: 0 });
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  const getVideoDimensions = (
+    file: File
+  ): Promise<{ width: number; height: number; durationMs: number }> => {
+    return new Promise((resolve) => {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        resolve({
+          width: video.videoWidth,
+          height: video.videoHeight,
+          durationMs: Math.floor(video.duration * 1000),
+        });
+        URL.revokeObjectURL(video.src);
+      };
+      video.onerror = () => resolve({ width: 0, height: 0, durationMs: 0 });
+      video.src = URL.createObjectURL(file);
+    });
+  };
+
+  // File upload handler
+  const handleFileUpload = async (file: File) => {
+    if (!file || !conversationId) return;
+
+    try {
+      setIsUploading(true);
+
+      const messageType = getMessageType(file.type);
+      let width, height, durationMs;
+
+      if (messageType === "IMAGE") {
+        const dims = await getImageDimensions(file);
+        width = dims.width;
+        height = dims.height;
+      } else if (messageType === "VIDEO") {
+        const dims = await getVideoDimensions(file);
+        width = dims.width;
+        height = dims.height;
+        durationMs = dims.durationMs;
+      }
+
+      const { uploadUrl, attachmentKey } =
+        await generateUploadUrl.mutateAsync({
+          conversationId,
+          fileName: file.name,
+          contentType: file.type,
+          fileSize: file.size,
+          width,
+          height,
+          durationMs,
+        });
+
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": file.type,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to upload file to storage");
+      }
+
+      const { success, attachmentUrl } = await verifyUpload.mutateAsync({
+        attachmentKey,
+      });
+
+      if (!success || !attachmentUrl) {
+        throw new Error("Upload verification failed");
+      }
+
+      setAttachmentPreview({
+        key: attachmentKey,
+        url: attachmentUrl,
+        fileName: file.name,
+        contentType: file.type,
+        fileSize: file.size,
+        type: messageType,
+        width,
+        height,
+        durationMs,
+      });
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      toast.error(error?.message || "Failed to upload file");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (file) handleFileUpload(file);
+  };
 
-    // TODO: Implement image upload to server
-    // For now, just send a text message about the image
-    const imageMessage = `[Image: ${file.name}]`;
-    sendMessage(imageMessage, "IMAGE");
+  const handleFileInputChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (file) handleFileUpload(file);
+  };
+
+  const clearAttachment = async () => {
+    if (!attachmentPreview) return;
+
+    try {
+      await deleteFile.mutateAsync(attachmentPreview.key);
+      toast.success("Attachment removed");
+    } catch (error) {
+      console.error("Failed to delete file:", error);
+      toast.warning(
+        "Attachment removed from preview (file may remain in storage)"
+      );
+    } finally {
+      setAttachmentPreview(null);
+    }
+  };
+
+  // Voice recording handler
+  const handleVoiceRecordingComplete = async (
+    audioBlob: Blob,
+    duration: number
+  ) => {
+    try {
+      setIsUploading(true);
+
+      const fileName = `voice-message-${Date.now()}.webm`;
+      const audioFile = new File([audioBlob], fileName, {
+        type: "audio/webm",
+      });
+
+      const { uploadUrl, attachmentKey } =
+        await generateUploadUrl.mutateAsync({
+          conversationId,
+          fileName,
+          contentType: "audio/webm",
+          fileSize: audioFile.size,
+          durationMs: duration * 1000,
+        });
+
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "PUT",
+        body: audioFile,
+        headers: {
+          "Content-Type": "audio/webm",
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to upload voice message to storage");
+      }
+
+      const { success, attachmentUrl } = await verifyUpload.mutateAsync({
+        attachmentKey,
+      });
+
+      if (!success || !attachmentUrl) {
+        throw new Error("Upload verification failed");
+      }
+
+      await sendMessageMutation.mutateAsync({
+        conversationId,
+        text: undefined,
+        messageType: "AUDIO",
+        attachmentKey,
+        fileName,
+        contentType: "audio/webm",
+        fileSize: audioFile.size,
+        durationMs: duration * 1000,
+      });
+
+      setIsVoiceRecording(false);
+      toast.success("Voice message sent");
+    } catch (error: any) {
+      console.error("Voice upload error:", error);
+      toast.error(error?.message || "Failed to send voice message");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const editMessageMutation = useEditMessage(conversationId);
   const deleteMessageMutation = useDeleteMessage(conversationId);
+  const sendMessageMutation = useSendMessage();
 
   const handleEditMessage = (m: any) => {
     const current = (m?.text || "").toString();
@@ -85,6 +317,34 @@ export default function DoctorChatPage() {
   const handleDeleteMessage = (m: any) => {
     if (!window.confirm("Delete this message?")) return;
     deleteMessageMutation.mutate(m.id);
+  };
+
+  // Custom send handler for attachments
+  const handleSendMessage = async () => {
+    if (attachmentPreview) {
+      try {
+        await sendMessageMutation.mutateAsync({
+          conversationId,
+          text: text.trim() || undefined,
+          messageType: attachmentPreview.type,
+          attachmentKey: attachmentPreview.key,
+          fileName: attachmentPreview.fileName,
+          contentType: attachmentPreview.contentType,
+          fileSize: attachmentPreview.fileSize,
+          width: attachmentPreview.width,
+          height: attachmentPreview.height,
+          durationMs: attachmentPreview.durationMs,
+        });
+        setText("");
+        setAttachmentPreview(null);
+        toast.success("Message sent");
+      } catch (error: any) {
+        console.error("Send error:", error);
+        toast.error("Failed to send message");
+      }
+    } else {
+      handleSend();
+    }
   };
 
   const formatTime = (d: string | Date) => {
@@ -158,19 +418,34 @@ export default function DoctorChatPage() {
               onDeleteMessage={handleDeleteMessage}
             />
 
-            {/* Message Input */}
-            <ChatInputBar
-              isDoctor={true}
-              text={text}
-              setText={setText}
-              handleKeyPress={handleKeyPress}
-              handleTyping={() => {}}
-              isConnected={isConnected}
-              openShareModal={() => {}}
-              sendMessageHandler={() => handleSend()}
-              canSend={!!text.trim()}
-              handleImageUpload={handleImageUpload}
-            />
+            {/* Message Input or Voice Recorder */}
+            {isVoiceRecording ? (
+              <div className="p-4 border-t">
+                <VoiceRecorder
+                  onRecordingComplete={handleVoiceRecordingComplete}
+                  onCancel={() => setIsVoiceRecording(false)}
+                  isUploading={isUploading}
+                />
+              </div>
+            ) : (
+              <ChatInputBar
+                isDoctor={true}
+                text={text}
+                setText={setText}
+                handleKeyPress={handleKeyPress}
+                handleTyping={() => {}}
+                isConnected={isConnected}
+                openShareModal={() => {}}
+                sendMessageHandler={handleSendMessage}
+                canSend={!!text.trim() || !!attachmentPreview}
+                handleImageUpload={handleImageUpload}
+                handleFileUpload={handleFileInputChange}
+                attachmentPreview={attachmentPreview}
+                clearAttachment={clearAttachment}
+                isUploading={isUploading}
+                onVoiceClick={() => setIsVoiceRecording(true)}
+              />
+            )}
           </div>
         </CardContent>
       </Card>
