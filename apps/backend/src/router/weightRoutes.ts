@@ -6,7 +6,7 @@ import {
   deleteBirdWeight,
   getGrowthChartData,
 } from "../controller/weightController";
-import { authMiddleware } from "../middleware/authMiddleware";
+import { authMiddleware } from "../middelware/middelware";
 
 const router = express.Router();
 

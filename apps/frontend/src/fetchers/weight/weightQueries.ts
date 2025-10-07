@@ -58,6 +58,7 @@ export const useGetWeights = (
       const response = await axiosInstance.get(`/batches/${batchId}/weights`, {
         params,
       });
+      console.log("Weights data", response.data);
       return response.data as GetWeightsResponse;
     },
     enabled: (options?.enabled !== false) && !!batchId,
@@ -66,10 +67,11 @@ export const useGetWeights = (
 
 // Get growth chart data
 export const useGetGrowthChart = (batchId: string, options?: { enabled?: boolean }) => {
-  return useQuery<{ success: boolean; data: Array<{ date: string; weight: number; source: string }> }>({
+  return useQuery({
     queryKey: weightKeys.chart(batchId),
     queryFn: async () => {
       const response = await axiosInstance.get(`/batches/${batchId}/growth-chart`);
+      console.log("Growth chart data", response.data);
       return response.data as { success: boolean; data: Array<{ date: string; weight: number; source: string }> };
     },
     enabled: (options?.enabled !== false) && !!batchId,

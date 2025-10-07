@@ -422,10 +422,12 @@ export const getGrowthChartData = async (
 
     // Format for chart
     const chartData = weights.map((w) => ({
-      date: w.date.toISOString().split("T")[0],
+      date: w.date.toISOString(),
       weight: Number(w.avgWeight),
       source: w.source,
     }));
+
+    console.log("Growth chart data", chartData);
 
     return res.json({
       success: true,

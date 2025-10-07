@@ -60,6 +60,7 @@ import {
   isReminderDueSoon,
   isReminderOverdue,
 } from "@/fetchers/remainder/remainderQueries";
+import { useAddWeight } from "@/fetchers/weight/weightQueries";
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -775,6 +776,73 @@ export default function DashboardPage() {
     }
   };
 
+  // ==================== QUICK ADD WEIGHT ====================
+  // Quick weight selection state
+  const [quickWeightForm, setQuickWeightForm] = useState({
+    farmId: "",
+    batchId: "",
+  });
+
+  const addWeightMutation = useAddWeight(quickWeightForm.batchId || "");
+  const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
+  const [weightForm, setWeightForm] = useState({
+    date: new Date().toISOString().split("T")[0],
+    avgWeight: "",
+    sampleCount: "",
+    notes: "",
+  });
+  const [weightErrors, setWeightErrors] = useState<Record<string, string>>({});
+  function updateWeightFieldHome(
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) {
+    const { name, value } = e.target;
+    setWeightForm((p) => ({ ...p, [name]: value }));
+  }
+  function updateQuickWeightSelect(
+    e: React.ChangeEvent<HTMLSelectElement>
+  ) {
+    const { name, value } = e.target;
+    setQuickWeightForm((p) => ({ ...p, [name]: value }));
+    if (name === "farmId") {
+      setQuickWeightForm((p) => ({ ...p, batchId: "" }));
+    }
+  }
+  function validateWeightHome(): boolean {
+    const errs: Record<string, string> = {};
+    if (!quickWeightForm.farmId) errs.farmId = "Select a farm";
+    if (!quickWeightForm.batchId) errs.batchId = "Select a batch";
+    if (!weightForm.date) errs.date = "Date required";
+    if (!weightForm.avgWeight || Number(weightForm.avgWeight) <= 0)
+      errs.avgWeight = "Avg weight (kg) required";
+    if (!weightForm.sampleCount || Number(weightForm.sampleCount) <= 0)
+      errs.sampleCount = "Sample count required";
+    setWeightErrors(errs);
+    return Object.keys(errs).length === 0;
+  }
+  async function submitQuickWeight(e: React.FormEvent) {
+    e.preventDefault();
+    if (!validateWeightHome()) return;
+    try {
+      await addWeightMutation.mutateAsync({
+        date: `${weightForm.date}T00:00:00.000Z`,
+        avgWeight: Number(weightForm.avgWeight),
+        sampleCount: Number(weightForm.sampleCount),
+        notes: weightForm.notes || undefined,
+      });
+      setIsWeightModalOpen(false);
+      setWeightForm({
+        date: new Date().toISOString().split("T")[0],
+        avgWeight: "",
+        sampleCount: "",
+        notes: "",
+      });
+      setWeightErrors({});
+      console.log("Weight recorded");
+    } catch (err) {
+      console.error("Failed to record weight", err);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Welcome Header */}
@@ -785,27 +853,34 @@ export default function DashboardPage() {
           </h1>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2 sm:flex-wrap sm:justify-end">
-          <Button
+          <button
+            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted"
             onClick={() => setIsQuickExpenseOpen(true)}
-            className="cursor-pointer bg-red-500 hover:bg-red-600 hover:shadow-md transition-all duration-200 text-white px-2 sm:px-3 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center justify-center min-w-0"
           >
-            <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+            <Plus className="h-4 w-4" />
             <span className="truncate">Add Expense</span>
-          </Button>
-          <Button
+          </button>
+          <button
+            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted"
             onClick={() => setIsQuickSaleOpen(true)}
-            className="cursor-pointer bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200 text-primary-foreground px-2 sm:px-3 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center justify-center min-w-0"
           >
-            <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+            <Plus className="h-4 w-4" />
             <span className="truncate">Add Sales</span>
-          </Button>
-          <Button
+          </button>
+          <button
+            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted"
             onClick={() => setIsQuickMortalityOpen(true)}
-            className="cursor-pointer bg-orange-500 hover:bg-orange-600 hover:shadow-md transition-all duration-200 text-white px-2 sm:px-3 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center justify-center min-w-0"
           >
-            <Skull className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+            <Plus className="h-4 w-4" />
             <span className="truncate">Add Mortality</span>
-          </Button>
+          </button>
+          <button
+            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted"
+            onClick={() => setIsWeightModalOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            <span className="truncate">Record Weight</span>
+          </button>
         </div>
       </div>
 
@@ -2574,6 +2649,138 @@ export default function DashboardPage() {
                 </>
               ) : (
                 "Add Mortality"
+              )}
+            </Button>
+          </ModalFooter>
+        </form>
+      </Modal>
+
+      {/* Quick Add Weight Modal */}
+      <Modal
+        isOpen={isWeightModalOpen}
+        onClose={() => {
+          setIsWeightModalOpen(false);
+          setWeightErrors({});
+        }}
+        title="Quick Record Weight"
+      >
+        <form onSubmit={submitQuickWeight}>
+          <ModalContent>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="weightFarmId">Select Farm *</Label>
+                <select
+                  id="weightFarmId"
+                  name="farmId"
+                  value={quickWeightForm.farmId}
+                  onChange={updateQuickWeightSelect}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="">Choose a farm</option>
+                  {farms.map((farm) => (
+                    <option key={farm.id} value={farm.id}>
+                      {farm.name}
+                    </option>
+                  ))}
+                </select>
+                {weightErrors.farmId && (
+                  <p className="text-xs text-red-600 mt-1">{weightErrors.farmId}</p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="weightBatchId">Select Batch *</Label>
+                <select
+                  id="weightBatchId"
+                  name="batchId"
+                  value={quickWeightForm.batchId}
+                  onChange={updateQuickWeightSelect}
+                  disabled={!quickWeightForm.farmId}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">Choose a batch</option>
+                  {activeBatches
+                    .filter(
+                      (batch) =>
+                        batch.status === "ACTIVE" &&
+                        (!quickWeightForm.farmId || batch.farmId === quickWeightForm.farmId)
+                    )
+                    .map((batch) => (
+                      <option key={batch.id} value={batch.id}>
+                        {batch.batchNumber} - {batch.farm.name}
+                      </option>
+                    ))}
+                </select>
+                {weightErrors.batchId && (
+                  <p className="text-xs text-red-600 mt-1">{weightErrors.batchId}</p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="weightDate">Date</Label>
+                <Input
+                  id="weightDate"
+                  name="date"
+                  type="date"
+                  value={weightForm.date}
+                  onChange={updateWeightFieldHome}
+                />
+                {weightErrors.date && (
+                  <p className="text-xs text-red-600 mt-1">{weightErrors.date}</p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="avgWeightHome">Average Weight (kg)</Label>
+                <Input
+                  id="avgWeightHome"
+                  name="avgWeight"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={weightForm.avgWeight}
+                  onChange={updateWeightFieldHome}
+                />
+                {weightErrors.avgWeight && (
+                  <p className="text-xs text-red-600 mt-1">{weightErrors.avgWeight}</p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="sampleCountHome">Birds Weighed</Label>
+                <Input
+                  id="sampleCountHome"
+                  name="sampleCount"
+                  type="number"
+                  min="1"
+                  value={weightForm.sampleCount}
+                  onChange={updateWeightFieldHome}
+                />
+                {weightErrors.sampleCount && (
+                  <p className="text-xs text-red-600 mt-1">{weightErrors.sampleCount}</p>
+                )}
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="notesHome">Notes (optional)</Label>
+                <textarea
+                  id="notesHome"
+                  name="notes"
+                  value={weightForm.notes}
+                  onChange={updateWeightFieldHome}
+                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                  rows={2}
+                  placeholder="Feed change, disease, etc."
+                />
+              </div>
+            </div>
+          </ModalContent>
+          <ModalFooter>
+            <Button type="button" variant="outline" onClick={() => setIsWeightModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" className="bg-primary" disabled={addWeightMutation.isPending || !quickWeightForm.batchId}>
+              {addWeightMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                </>
+              ) : (
+                "Save"
               )}
             </Button>
           </ModalFooter>

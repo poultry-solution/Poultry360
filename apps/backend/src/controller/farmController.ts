@@ -169,8 +169,7 @@ export const getFarmById = async (
             startDate: true,
             endDate: true,
             status: true,
-            initialChicks: true,
-            initialChickWeight: true,
+            currentWeight: true,
             createdAt: true,
           },
           orderBy: { startDate: "desc" },
@@ -233,7 +232,7 @@ export const getFarmById = async (
     if (currentUserRole === UserRole.MANAGER) {
       const hasAccess =
         farm.ownerId === currentUserId ||
-        farm.managers.some((manager) => manager.id === currentUserId);
+        (farm.managers || []).some((manager: any) => manager.id === currentUserId);
       if (!hasAccess) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -735,7 +734,7 @@ export const getFarmAnalytics = async (
     // Check access permissions
     const hasAccess =
       farm.ownerId === currentUserId ||
-      farm.managers.some((manager) => manager.id === currentUserId);
+      (farm.managers || []).some((manager: any) => manager.id === currentUserId);
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
     }

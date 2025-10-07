@@ -60,6 +60,7 @@ import {
   useUpdateWeight,
   useDeleteWeight,
 } from "@/fetchers/weight/weightQueries";
+import WeightGrowthChart from "@/components/charts/WeightGrowthChart";
 
 type ExpenseCategory = "Feed" | "Medicine" | "Hatchery" | "Other";
 
@@ -248,8 +249,12 @@ export default function BatchDetailPage() {
     error: weightsError,
   } = useGetWeights(safeBatchId, undefined, { enabled: !!batchId });
   const addWeightMutation = useAddWeight(safeBatchId);
+  const { data: growthChartResp } = useGetGrowthChart(safeBatchId, {
+    enabled: !!batchId,
+  });
   const currentWeight = weightsResponse?.data?.currentWeight ?? null;
   const weights = weightsResponse?.data?.weights || [];
+  const growthChartData = growthChartResp?.data || [];
 
   // Manual weight form state
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
@@ -823,7 +828,7 @@ export default function BatchDetailPage() {
       date: row.date,
       categoryId: row.categoryId || "",
     });
-    setCustomerSearch("");  
+    setCustomerSearch("");
     setIsSaleModalOpen(true);
   }
   async function handleDeleteSale(id: string) {
@@ -993,13 +998,17 @@ export default function BatchDetailPage() {
 
   // --- Mortality Modal ---
   const [isMortalityModalOpen, setIsMortalityModalOpen] = useState(false);
-  const [editingMortalityId, setEditingMortalityId] = useState<string | null>(null);
+  const [editingMortalityId, setEditingMortalityId] = useState<string | null>(
+    null
+  );
   const [mortalityForm, setMortalityForm] = useState({
     date: "",
     count: "",
     reason: "Natural Death",
   });
-  const [mortalityErrors, setMortalityErrors] = useState<Record<string, string>>({});
+  const [mortalityErrors, setMortalityErrors] = useState<
+    Record<string, string>
+  >({});
 
   function updateMortalityField(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -1046,12 +1055,12 @@ export default function BatchDetailPage() {
     if (!mortalityForm.count) errs.count = "Count is required";
     const count = Number(mortalityForm.count || 0);
     if (count <= 0) errs.count = "Count must be greater than 0";
-    
+
     // Check if count exceeds current available birds
     if (mortalityStats && count > mortalityStats.currentBirds) {
       errs.count = `Cannot record ${count} deaths. Only ${mortalityStats.currentBirds} birds available in batch`;
     }
-    
+
     setMortalityErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -1062,9 +1071,7 @@ export default function BatchDetailPage() {
 
     try {
       const mortalityData = {
-        date: mortalityForm.date
-          ? new Date(mortalityForm.date)
-          : new Date(),
+        date: mortalityForm.date ? new Date(mortalityForm.date) : new Date(),
         count: Number(mortalityForm.count),
         reason: mortalityForm.reason || "Natural Death",
         batchId: batch?.id!,
@@ -1090,7 +1097,10 @@ export default function BatchDetailPage() {
       setMortalityErrors({});
     } catch (error: any) {
       console.error("Failed to save mortality:", error);
-      flash("error", error?.response?.data?.message || "Failed to save mortality record");
+      flash(
+        "error",
+        error?.response?.data?.message || "Failed to save mortality record"
+      );
     }
   }
 
@@ -1415,8 +1425,9 @@ export default function BatchDetailPage() {
           EQUIPMENT: "bg-purple-100 text-purple-800",
           OTHER: "bg-gray-100 text-gray-800",
         };
-        const colorClass = itemTypeColors[value as string] || "bg-gray-100 text-gray-800";
-        
+        const colorClass =
+          itemTypeColors[value as string] || "bg-gray-100 text-gray-800";
+
         return (
           <Badge variant="secondary" className={colorClass}>
             {value || "Sale"}
@@ -1814,7 +1825,8 @@ export default function BatchDetailPage() {
                   Batch appears finished
                 </div>
                 <div className="text-sm text-orange-800">
-                  Current birds are 0. You can close the batch to finalize records and generate a summary.
+                  Current birds are 0. You can close the batch to finalize
+                  records and generate a summary.
                 </div>
               </div>
               <div className="shrink-0">
@@ -1950,9 +1962,13 @@ export default function BatchDetailPage() {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Current Weight:</span>
+                    <span className="text-muted-foreground">
+                      Current Weight:
+                    </span>
                     <span className="font-medium">
-                      {currentWeight ? `${Number(currentWeight).toFixed(2)} kg` : "—"}
+                      {currentWeight
+                        ? `${Number(currentWeight).toFixed(2)} kg`
+                        : "—"}
                     </span>
                   </div>
                   {isBatchClosed ? (
@@ -1970,7 +1986,9 @@ export default function BatchDetailPage() {
                           Natural Deaths:
                         </span>
                         <span className="font-medium text-red-600">
-                          {mortalityStats?.totalMortality?.toLocaleString() || analytics?.totalMortality?.toLocaleString() || 0}
+                          {mortalityStats?.totalMortality?.toLocaleString() ||
+                            analytics?.totalMortality?.toLocaleString() ||
+                            0}
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -1995,8 +2013,13 @@ export default function BatchDetailPage() {
                     <span className="text-muted-foreground">
                       Mortality Rate:
                     </span>
-                    <span className={`font-medium ${Number(mortalityStats?.mortalityRate || analytics?.mortalityRate || 0) > 10 ? 'text-red-600' : Number(mortalityStats?.mortalityRate || analytics?.mortalityRate || 0) > 5 ? 'text-orange-600' : 'text-green-600'}`}>
-                      {mortalityStats?.mortalityRate || analytics?.mortalityRate?.toFixed(2) || 0}%
+                    <span
+                      className={`font-medium ${Number(mortalityStats?.mortalityRate || analytics?.mortalityRate || 0) > 10 ? "text-red-600" : Number(mortalityStats?.mortalityRate || analytics?.mortalityRate || 0) > 5 ? "text-orange-600" : "text-green-600"}`}
+                    >
+                      {mortalityStats?.mortalityRate ||
+                        analytics?.mortalityRate?.toFixed(2) ||
+                        0}
+                      %
                     </span>
                   </div>
                   {analytics?.fcr && (
@@ -2319,7 +2342,9 @@ export default function BatchDetailPage() {
                   <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div>
-                        <div className="text-xs text-gray-600">Natural Deaths</div>
+                        <div className="text-xs text-gray-600">
+                          Natural Deaths
+                        </div>
                         <div className="text-lg font-semibold text-red-600">
                           {mortalityStats.totalMortality || 0}
                         </div>
@@ -2328,7 +2353,9 @@ export default function BatchDetailPage() {
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-600">Current Birds</div>
+                        <div className="text-xs text-gray-600">
+                          Current Birds
+                        </div>
                         <div className="text-lg font-semibold text-green-600">
                           {mortalityStats.currentBirds || 0}
                         </div>
@@ -2337,8 +2364,12 @@ export default function BatchDetailPage() {
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-600">Mortality Rate</div>
-                        <div className={`text-lg font-semibold ${Number(mortalityStats.mortalityRate) > 10 ? 'text-red-600' : Number(mortalityStats.mortalityRate) > 5 ? 'text-orange-600' : 'text-green-600'}`}>
+                        <div className="text-xs text-gray-600">
+                          Mortality Rate
+                        </div>
+                        <div
+                          className={`text-lg font-semibold ${Number(mortalityStats.mortalityRate) > 10 ? "text-red-600" : Number(mortalityStats.mortalityRate) > 5 ? "text-orange-600" : "text-green-600"}`}
+                        >
                           {mortalityStats.mortalityRate}%
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
@@ -2346,7 +2377,9 @@ export default function BatchDetailPage() {
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-600">Total Records</div>
+                        <div className="text-xs text-gray-600">
+                          Total Records
+                        </div>
                         <div className="text-lg font-semibold text-gray-900">
                           {batchMortalities.length}
                         </div>
@@ -2614,7 +2647,7 @@ export default function BatchDetailPage() {
                         </span>
                       </div>
                     )}
-                    
+
                   {analytics?.totalSalesWeight &&
                     analytics.totalSalesWeight > 0 && (
                       <div className="flex justify-between">
@@ -2845,6 +2878,10 @@ export default function BatchDetailPage() {
             )}
           </CardHeader>
           <CardContent>
+            {/* Chart */}
+            <div className="mb-6">
+              <WeightGrowthChart data={growthChartData}   />
+            </div>
             {weightsLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin" />
@@ -2860,41 +2897,57 @@ export default function BatchDetailPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-muted/50 border-y">
-                      <th className="text-left px-4 py-2">Date</th>
-                      <th className="text-right px-4 py-2">Avg Weight (kg)</th>
-                      <th className="text-right px-4 py-2">Sample Size</th>
-                      <th className="text-left px-4 py-2">Source</th>
-                      <th className="text-left px-4 py-2">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {weights.map((w: any) => (
-                      <tr key={w.id} className="hover:bg-muted/30">
-                        <td className="px-4 py-2">{formatDateYYYYMMDD(w.date)}</td>
-                        <td className="px-4 py-2 text-right">{Number(w.avgWeight).toFixed(2)}</td>
-                        <td className="px-4 py-2 text-right">{w.sampleCount}</td>
-                        <td className="px-4 py-2">
-                          <Badge
-                            variant="secondary"
-                            className={
-                              w.source === "SALE"
-                                ? "bg-green-100 text-green-800"
-                                : w.source === "MANUAL"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-gray-100 text-gray-800"
-                            }
-                          >
-                            {w.source}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-2">{w.notes || "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                {(() => {
+                  const weightsAsc = [...weights].sort(
+                    (a: any, b: any) =>
+                      new Date(a.date).getTime() - new Date(b.date).getTime()
+                  );
+                  return (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted/50 border-y">
+                          <th className="text-left px-4 py-2">Date</th>
+                          <th className="text-right px-4 py-2">
+                            Avg Weight (kg)
+                          </th>
+                          <th className="text-right px-4 py-2">Sample Size</th>
+                          <th className="text-left px-4 py-2">Source</th>
+                          <th className="text-left px-4 py-2">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {weightsAsc.map((w: any) => (
+                          <tr key={w.id} className="hover:bg-muted/30">
+                            <td className="px-4 py-2">
+                              {formatDateYYYYMMDD(w.date)}
+                            </td>
+                            <td className="px-4 py-2 text-right">
+                              {Number(w.avgWeight).toFixed(2)}
+                            </td>
+                            <td className="px-4 py-2 text-right">
+                              {w.sampleCount}
+                            </td>
+                            <td className="px-4 py-2">
+                              <Badge
+                                variant="secondary"
+                                className={
+                                  w.source === "SALE"
+                                    ? "bg-green-100 text-green-800"
+                                    : w.source === "MANUAL"
+                                      ? "bg-blue-100 text-blue-800"
+                                      : "bg-gray-100 text-gray-800"
+                                }
+                              >
+                                {w.source}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-2">{w.notes || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  );
+                })()}
               </div>
             )}
           </CardContent>
@@ -3788,15 +3841,18 @@ export default function BatchDetailPage() {
           setEditingMortalityId(null);
           setMortalityErrors({});
         }}
-        title={editingMortalityId ? "Edit Mortality Record" : "Add Mortality Record"}
+        title={
+          editingMortalityId ? "Edit Mortality Record" : "Add Mortality Record"
+        }
       >
         <form onSubmit={submitMortality}>
           <ModalContent>
             <div className="space-y-4">
               <div className="p-4 bg-red-50 rounded-lg border border-red-200">
                 <p className="text-sm text-red-800">
-                  <strong>Note:</strong> Record only natural deaths and disease-related losses here. 
-                  Birds sold are automatically tracked in the Sales section.
+                  <strong>Note:</strong> Record only natural deaths and
+                  disease-related losses here. Birds sold are automatically
+                  tracked in the Sales section.
                 </p>
               </div>
 
@@ -4122,7 +4178,9 @@ export default function BatchDetailPage() {
                   required
                 />
                 {weightErrors.date && (
-                  <p className="text-xs text-red-600 mt-1">{weightErrors.date}</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    {weightErrors.date}
+                  </p>
                 )}
               </div>
               <div>
@@ -4139,7 +4197,9 @@ export default function BatchDetailPage() {
                   required
                 />
                 {weightErrors.avgWeight && (
-                  <p className="text-xs text-red-600 mt-1">{weightErrors.avgWeight}</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    {weightErrors.avgWeight}
+                  </p>
                 )}
               </div>
               <div>
@@ -4155,7 +4215,9 @@ export default function BatchDetailPage() {
                   required
                 />
                 {weightErrors.sampleCount && (
-                  <p className="text-xs text-red-600 mt-1">{weightErrors.sampleCount}</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    {weightErrors.sampleCount}
+                  </p>
                 )}
               </div>
               <div className="md:col-span-2">
