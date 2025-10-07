@@ -599,6 +599,32 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
           },
         });
         console.log("mortality created");
+
+        // 4b. If weight is provided, create a BirdWeight record from this sale
+        if (weight && numericBirdsCount > 0) {
+          const avgWeight = Number(weight) / numericBirdsCount;
+          console.log("Creating weight record from sale:", avgWeight, "kg per bird");
+          
+          await tx.birdWeight.create({
+            data: {
+              batchId: batchId,
+              date: new Date(date),
+              avgWeight: avgWeight,
+              sampleCount: numericBirdsCount,
+              source: "SALE",
+              notes: `Auto-computed from sale #${sale.id}`,
+            },
+          });
+
+          // Update batch's currentWeight
+          await tx.batch.update({
+            where: { id: batchId },
+            data: {
+              currentWeight: avgWeight,
+            },
+          });
+          console.log("Weight record created and batch currentWeight updated");
+        }
       }
 
       // 5. Fetch the complete sale with relationships

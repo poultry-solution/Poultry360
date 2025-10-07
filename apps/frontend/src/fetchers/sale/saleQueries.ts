@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/lib/axios";
 import { CreateSale, UpdateSale, CategoryType } from "@myapp/shared-types";
+import { weightKeys } from "@/fetchers/weight/weightQueries";
 
 // ==================== QUERY KEYS ====================
 
@@ -272,12 +273,20 @@ export const useSalesDashboard = (params?: {
 
 // Batch sales management hook
 export const useBatchSalesManagement = (batchId: string, options?: { enabled?: boolean }) => {
+  const queryClient = useQueryClient();
   const batchSalesQuery = useGetBatchSales(batchId, options);
   const categoriesQuery = useGetSalesCategories();
   const createSaleMutation = useCreateSale();
   const updateSaleMutation = useUpdateSale();
   const deleteSaleMutation = useDeleteSale();
   const addPaymentMutation = useAddSalePayment();
+
+  // Helper: invalidate weights for this batch
+  const invalidateWeights = () => {
+    if (batchId) {
+      queryClient.invalidateQueries({ queryKey: weightKeys.byBatch(batchId) });
+    }
+  };
 
   return {
     sales: batchSalesQuery.data?.data || [],
@@ -286,9 +295,21 @@ export const useBatchSalesManagement = (batchId: string, options?: { enabled?: b
     error: batchSalesQuery.error || categoriesQuery.error,
     
     // Mutations
-    createSale: createSaleMutation.mutateAsync,
-    updateSale: updateSaleMutation.mutateAsync,
-    deleteSale: deleteSaleMutation.mutateAsync,
+    createSale: async (data: any) => {
+      const res = await createSaleMutation.mutateAsync(data);
+      invalidateWeights();
+      return res;
+    },
+    updateSale: async (vars: any) => {
+      const res = await updateSaleMutation.mutateAsync(vars);
+      invalidateWeights();
+      return res;
+    },
+    deleteSale: async (id: string) => {
+      const res = await deleteSaleMutation.mutateAsync(id);
+      invalidateWeights();
+      return res;
+    },
     addPayment: addPaymentMutation.mutateAsync,
     
     // Mutation states

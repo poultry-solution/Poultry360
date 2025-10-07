@@ -205,7 +205,11 @@ model Batch {
   notes       String?
 
   // Removed currentChicks - will be computed from mortalities
-  initialChickWeight Decimal @db.Decimal(6, 2) @default(0.045) // Default 45g per chick
+  // Removed initialChickWeight - replaced with currentWeight
+  
+  // Current average weight per bird (denormalized from latest BirdWeight for quick access)
+  // This is automatically updated when a new BirdWeight record is added or a sale is recorded
+  currentWeight Decimal? @db.Decimal(6, 2) // kg per bird, nullable initially
   
   // Relationships
   farmId      String
@@ -651,6 +655,8 @@ model BirdWeight {
   date        DateTime
   avgWeight   Decimal  @db.Decimal(6, 2)  // Average weight per bird in kg
   sampleCount Int      // Number of birds weighed for this average
+  source      WeightSource @default(MANUAL) // How this weight was recorded
+  notes       String?  // Optional notes about the weighing
   
   batchId     String
   batch       Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
@@ -659,6 +665,12 @@ model BirdWeight {
   updatedAt   DateTime @updatedAt
 
   @@index([batchId, date])
+}
+
+enum WeightSource {
+  MANUAL       // Farmer manually entered
+  SALE         // Computed from sales data
+  SYSTEM       // System calculated
 }
 
 // ==================== REMINDERS ====================
