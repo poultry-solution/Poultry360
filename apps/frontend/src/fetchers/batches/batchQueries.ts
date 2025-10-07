@@ -80,6 +80,7 @@ export const useGetBatchAnalytics = (id: string, options?: { enabled?: boolean }
     queryKey: batchKeys.analytics(id),
     queryFn: async () => {
       const response = await axiosInstance.get(`/batches/${id}/analytics`);
+      console.log("Get Batch Analytics", response.data);
       return response.data;
     },
     enabled: (options?.enabled !== false) && !!id,
