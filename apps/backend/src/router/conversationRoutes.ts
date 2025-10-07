@@ -18,6 +18,7 @@ router.get('/unread-count', conversationController.getUnreadCount);
 // Specific conversation operations
 router.get('/:conversationId', conversationController.getConversation);
 router.put('/:conversationId', conversationController.updateConversation);
+router.delete('/:conversationId', conversationController.deleteConversation);
 router.post('/:conversationId/mark-read', conversationController.markMessagesAsRead);
 router.get('/:conversationId/search', conversationController.searchMessages);
 

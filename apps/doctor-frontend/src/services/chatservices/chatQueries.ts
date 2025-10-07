@@ -243,6 +243,22 @@ export const useMarkMessagesAsRead = () => {
   });
 };
 
+export const useDeleteConversation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (conversationId: string): Promise<{ success: boolean; message: string }> => {
+      const response = await axiosInstance.delete(`/conversations/${conversationId}`);
+      return response.data;
+    },
+    onSuccess: (data, conversationId) => {
+      queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
+      queryClient.removeQueries({ queryKey: chatKeys.conversation(conversationId) });
+      queryClient.invalidateQueries({ queryKey: chatKeys.unreadCount() });
+    },
+  });
+};
+
 // ==================== MESSAGE MUTATIONS ====================
 
 export const useSendMessage = () => {

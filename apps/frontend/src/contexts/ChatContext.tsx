@@ -120,6 +120,16 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
           name: socketMessage.senderName,
           role: socketMessage.senderRole,
         },
+        // Attachment metadata
+        attachmentUrl: socketMessage.attachmentUrl,
+        attachmentKey: socketMessage.attachmentKey,
+        fileName: socketMessage.fileName,
+        contentType: socketMessage.contentType,
+        fileSize: socketMessage.fileSize,
+        width: socketMessage.width,
+        height: socketMessage.height,
+        durationMs: socketMessage.durationMs,
+        batchShareId: socketMessage.batchShareId,
       };
 
       setMessages((prev) => {

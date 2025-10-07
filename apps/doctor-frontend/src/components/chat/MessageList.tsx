@@ -2,7 +2,7 @@
 
 import React, { RefObject } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Share2, Image, Pencil, Trash2 } from "lucide-react";
+import { Share2, Image as ImageIcon, Pencil, Trash2, FileText, Film, Mic, Download, File } from "lucide-react";
 
 export interface ChatMessageSender {
   id: string;
@@ -16,6 +16,14 @@ export interface ChatMessage {
   messageType: string;
   createdAt: string | Date;
   sender?: ChatMessageSender;
+  attachmentUrl?: string;
+  attachmentKey?: string;
+  fileName?: string;
+  contentType?: string;
+  fileSize?: number;
+  width?: number;
+  height?: number;
+  durationMs?: number;
 }
 
 interface MessageListProps {
@@ -38,6 +46,31 @@ export default function MessageList({
   onDeleteMessage,
   userId,
 }: MessageListProps) {
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const formatDuration = (ms?: number) => {
+    if (!ms) return "";
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
+  const getFileIcon = (type: string) => {
+    switch (type) {
+      case "VIDEO": return <Film className="h-5 w-5" />;
+      case "AUDIO": return <Mic className="h-5 w-5" />;
+      case "PDF":
+      case "DOC": return <FileText className="h-5 w-5" />;
+      default: return <File className="h-5 w-5" />;
+    }
+  };
+
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-4">
       {messages.map((message: any) => {
@@ -52,12 +85,12 @@ export default function MessageList({
                 isSelf ? "bg-primary text-primary-foreground" : "bg-muted"
               } rounded-lg p-3`}
             >
-              {/* Owner actions */}
+              {/* Actions: Edit only for TEXT, Delete for all */}
               {isSelf && (onEditMessage || onDeleteMessage) && (
                 <div
                   className={`flex gap-2 justify-end mb-2 ${isSelf ? "text-primary-foreground/80" : "text-foreground/80"}`}
                 >
-                  {onEditMessage && (
+                  {onEditMessage && message.messageType === "TEXT" && (
                     <button
                       type="button"
                       aria-label="Edit message"
@@ -79,15 +112,88 @@ export default function MessageList({
                   )}
                 </div>
               )}
-              {message?.messageType === "IMAGE" && (
+
+              {/* IMAGE */}
+              {message?.messageType === "IMAGE" && message?.attachmentUrl && (
                 <div className="mb-2">
-                  <div className="bg-gray-200 rounded-lg p-4 text-center">
-                    <Image className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm text-gray-600">Image message</p>
-                  </div>
+                  <img 
+                    src={message.attachmentUrl} 
+                    alt={message.fileName || "Image"} 
+                    className="rounded-lg max-w-full h-auto max-h-96 object-contain"
+                    loading="lazy"
+                  />
+                  {message.fileName && (
+                    <p className={`text-xs mt-2 ${isSelf ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                      {message.fileName} {message.fileSize && `• ${formatFileSize(message.fileSize)}`}
+                    </p>
+                  )}
                 </div>
               )}
 
+              {/* VIDEO */}
+              {message?.messageType === "VIDEO" && message?.attachmentUrl && (
+                <div className="mb-2">
+                  <video 
+                    src={message.attachmentUrl} 
+                    controls 
+                    className="rounded-lg max-w-full h-auto max-h-96"
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                  {message.fileName && (
+                    <p className={`text-xs mt-2 ${isSelf ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                      {message.fileName} {message.fileSize && `• ${formatFileSize(message.fileSize)}`}
+                      {message.durationMs && ` • ${formatDuration(message.durationMs)}`}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* AUDIO */}
+              {message?.messageType === "AUDIO" && message?.attachmentUrl && (
+                <div className="mb-2 p-3 bg-background/10 rounded-lg">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Mic className={`h-5 w-5 ${isSelf ? "text-primary-foreground" : "text-foreground"}`} />
+                    <div className="flex-1">
+                      <p className={`text-sm font-medium ${isSelf ? "text-primary-foreground" : "text-foreground"}`}>
+                        {message.fileName || "Audio"}
+                      </p>
+                      <p className={`text-xs ${isSelf ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                        {message.fileSize && formatFileSize(message.fileSize)}
+                        {message.durationMs && ` • ${formatDuration(message.durationMs)}`}
+                      </p>
+                    </div>
+                  </div>
+                  <audio src={message.attachmentUrl} controls className="w-full" />
+                </div>
+              )}
+
+              {/* PDF / DOC / OTHER FILES */}
+              {(message?.messageType === "PDF" || message?.messageType === "DOC" || message?.messageType === "OTHER") && message?.attachmentUrl && (
+                <a 
+                  href={message.attachmentUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className={`block p-3 rounded-lg ${isSelf ? "bg-background/10 hover:bg-background/20" : "bg-background hover:bg-background/80"} transition-colors`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded ${isSelf ? "bg-background/20" : "bg-muted"}`}>
+                      {getFileIcon(message.messageType)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium truncate ${isSelf ? "text-primary-foreground" : "text-foreground"}`}>
+                        {message.fileName || "File"}
+                      </p>
+                      <p className={`text-xs ${isSelf ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                        {message.fileSize && formatFileSize(message.fileSize)}
+                      </p>
+                    </div>
+                    <Download className={`h-4 w-4 ${isSelf ? "text-primary-foreground/70" : "text-muted-foreground"}`} />
+                  </div>
+                </a>
+              )}
+
+              {/* BATCH_SHARE */}
               {message?.messageType === "BATCH_SHARE" ||
               (message?.text || "").startsWith("BATCH_SHARE:") ? (
                 <div>
@@ -170,8 +276,11 @@ export default function MessageList({
                     </div>
                   </div>
                 </div>
-              ) : (
-                <p className="text-sm">{message?.text || ""}</p>
+              ) : null}
+
+              {/* TEXT (caption for media or standalone text) */}
+              {message?.text && !message.text.startsWith("BATCH_SHARE:") && (
+                <p className="text-sm whitespace-pre-wrap">{message.text}</p>
               )}
 
               <p
