@@ -2,7 +2,6 @@
 
 import {
   Search,
-  Bell,
   User,
   Menu,
   Settings,
@@ -21,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/store/store";
 import { useRouter } from "next/navigation";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 interface TopbarProps {
   isCollapsed: boolean;
   onToggle: () => void;
@@ -78,16 +78,8 @@ export default function Topbar({ isCollapsed, onToggle }: TopbarProps) {
 
       {/* Right Side Actions */}
       <div className="flex items-center gap-3">
-        {/* Notification Button */}
-        <Button variant="ghost" size="icon" className="cursor-pointer h-9 w-9 relative hover:bg-gray-100 hover:shadow-sm transition-all duration-200">
-          <Bell className="h-5 w-5" />
-          <Badge
-            variant="destructive"
-            className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
-          >
-            3
-          </Badge>
-        </Button>
+        {/* Notification Bell */}
+        <NotificationBell />
 
         {/* Settings Button */}
         <Button variant="ghost" size="icon" className="cursor-pointer h-9 w-9 hover:bg-gray-100 hover:shadow-sm transition-all duration-200">

@@ -952,16 +952,16 @@ export const closeBatch = async (req: Request, res: Response): Promise<any> => {
       });
 
       // Create a notification for batch closure
-      await tx.notification.create({
-        data: {
-          type: "BATCH_COMPLETION",
-          title: `Batch ${existingBatch.batchNumber} Closed`,
-          message: `Batch ${existingBatch.batchNumber} has been successfully closed. Initial: ${existingBatch.initialChicks}, Sold: ${totalSoldChicks}, Natural Deaths: ${totalDeadChicks}, Remaining at Closure: ${remainingChicks}, Total Sales: ₹${Number(totalSales._sum.amount || 0).toLocaleString()}`,
-          userId: currentUserId as string,
-          farmId: existingBatch.farmId,
-          batchId: id,
-        },
-      });
+      // await tx.notification.create({
+      //   data: {
+      //     type: "BATCH_COMPLETION",
+      //     title: `Batch ${existingBatch.batchNumber} Closed`,
+      //     message: `Batch ${existingBatch.batchNumber} has been successfully closed. Initial: ${existingBatch.initialChicks}, Sold: ${totalSoldChicks}, Natural Deaths: ${totalDeadChicks}, Remaining at Closure: ${remainingChicks}, Total Sales: ₹${Number(totalSales._sum.amount || 0).toLocaleString()}`,
+      //     userId: currentUserId as string,
+      //     farmId: existingBatch.farmId,
+      //     batchId: id,
+      //   },
+      // });
 
       // Calculate final summary after accounting for remaining chicks
       const finalNaturalMortality = totalDeadChicks + remainingChicks;

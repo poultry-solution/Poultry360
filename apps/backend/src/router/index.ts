@@ -9,7 +9,9 @@ import hatcheryRoutes from "./hatcheryRoutes";
 import inventoryRoutes from "./inventoryRoutes";
 import expenseRoutes from "./expenseRoutes";
 import salesRoutes from "./salesRoutes";
-import remainderRoutes from "./remainderRoutes";
+import reminderRoutes from "./reminderRoutes";
+import reminderNotificationRoutes from "./reminderNotificationRoutes";
+import notificationActionRoutes from "./notificationActionRoutes";
 import dashboardRoutes from "./dashboardRoutes";
 import conversationRoutes from "./conversationRoutes";
 import messageRoutes from "./messageRoutes";
@@ -18,6 +20,11 @@ import mortalityRoutes from "./mortalityRoutes";
 import batchShareRoutes from "./batchShareRoutes";
 import weightRoutes from "./weightRoutes";
 import s3Routes from "./s3Routes";
+import notificationRoutes from "./notificationRoutes";
+import mortalityNotificationRoutes from "./mortalityNotificationRoutes";
+import feedNotificationRoutes from "./feedNotificationRoutes";
+import expenseNotificationRoutes from "./expenseNotificationRoutes";
+import inventoryNotificationRoutes from "./inventoryNotificationRoutes";
 
 const router = express.Router();
 
@@ -31,7 +38,9 @@ router.use("/hatcheries", hatcheryRoutes);
 router.use("/inventory", inventoryRoutes);
 router.use("/expenses", expenseRoutes);
 router.use("/sales", salesRoutes);
-router.use("/reminders", remainderRoutes);
+router.use("/reminders", reminderRoutes);
+router.use("/reminder-notifications", reminderNotificationRoutes);
+router.use("/notification-actions", notificationActionRoutes);  
 router.use("/dashboard", dashboardRoutes);
 router.use("/conversations", conversationRoutes);
 router.use("/messages", messageRoutes);
@@ -40,5 +49,10 @@ router.use("/mortalities", mortalityRoutes);
 router.use("/batch-share", batchShareRoutes);
 router.use("/batches", weightRoutes); // Weight routes for batches
 router.use("/s3", s3Routes);
+router.use("/notifications", notificationRoutes);
+router.use("/mortality-notifications", mortalityNotificationRoutes);
+router.use("/feed-notifications", feedNotificationRoutes);
+router.use("/expense-notifications", expenseNotificationRoutes);
+router.use("/inventory-notifications", inventoryNotificationRoutes);
 
 export default router;
