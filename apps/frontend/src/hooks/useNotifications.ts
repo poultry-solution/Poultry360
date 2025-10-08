@@ -30,14 +30,44 @@ export const useNotifications = () => {
   const [isSupported, setIsSupported] = useState(false);
   const queryClient = useQueryClient();
 
-  // Check if push notifications are supported
+  // Check if push notifications are supported and check existing subscription
   useEffect(() => {
-    const checkSupport = () => {
+    const checkSupport = async () => {
       const supported = 'serviceWorker' in navigator && 'PushManager' in window;
       setIsSupported(supported);
       
       if (supported) {
         setPermission(Notification.permission);
+        
+        // Check for existing subscription
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          const existingSubscription = await registration.pushManager.getSubscription();
+          if (existingSubscription) {
+            console.log('Found existing push subscription, verifying with backend...');
+            
+            // Verify the subscription is still valid with the backend
+            try {
+              const response = await axiosInstance.post('/notifications/subscribe', {
+                subscription: existingSubscription.toJSON(),
+              });
+              
+              if (response.data.success) {
+                console.log('Existing subscription verified and updated in backend');
+                setSubscription(existingSubscription);
+              } else {
+                console.log('Existing subscription not valid, clearing it');
+                await clearSubscription();
+              }
+            } catch (error) {
+              console.error('Failed to verify existing subscription:', error);
+              console.log('Clearing invalid subscription');
+              await clearSubscription();
+            }
+          }
+        } catch (error) {
+          console.error('Error checking existing subscription:', error);
+        }
       }
     };
 
@@ -53,6 +83,7 @@ export const useNotifications = () => {
     try {
       const result = await Notification.requestPermission();
       setPermission(result);
+      console.log('Permission requested, result:', result);
       return result;
     } catch (error) {
       console.error('Failed to request notification permission:', error);
@@ -71,15 +102,28 @@ export const useNotifications = () => {
     }
 
     try {
+      console.log('Starting push subscription process...');
+      
       // Register service worker
       const registration = await navigator.serviceWorker.ready;
+      console.log('Service worker ready');
+      
+      // Check if already subscribed
+      const existingSubscription = await registration.pushManager.getSubscription();
+      if (existingSubscription) {
+        console.log('Already subscribed, using existing subscription');
+        setSubscription(existingSubscription);
+        return existingSubscription;
+      }
       
       // Subscribe to push manager
+      console.log('Creating new push subscription...');
       const sub = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
       });
 
+      console.log('Push subscription created, sending to backend...');
       setSubscription(sub);
       
       // Send subscription to backend
@@ -114,6 +158,31 @@ export const useNotifications = () => {
       throw error;
     }
   }, [subscription]);
+
+  // Clear subscription (for invalid subscriptions)
+  const clearSubscription = useCallback(async (): Promise<void> => {
+    try {
+      // Clear from browser
+      const registration = await navigator.serviceWorker.ready;
+      const existingSubscription = await registration.pushManager.getSubscription();
+      if (existingSubscription) {
+        await existingSubscription.unsubscribe();
+      }
+      
+      setSubscription(null);
+      
+      // Clear from backend
+      await axiosInstance.post('/notifications/subscribe', {
+        subscription: null,
+      });
+      
+      console.log('Cleared invalid subscription');
+    } catch (error) {
+      console.error('Failed to clear subscription:', error);
+      // Still clear the local state even if backend call fails
+      setSubscription(null);
+    }
+  }, []);
 
   // Get user notifications
   const {
@@ -188,15 +257,22 @@ export const useNotifications = () => {
   // Initialize notifications (request permission and subscribe)
   const initializeNotifications = useCallback(async (): Promise<boolean> => {
     try {
+      console.log('Initializing notifications, current permission:', permission, 'subscription:', !!subscription);
+      
       if (permission === 'default') {
+        console.log('Requesting permission...');
         const newPermission = await requestPermission();
         if (newPermission !== 'granted') {
+          console.log('Permission not granted:', newPermission);
           return false;
         }
       }
 
       if (permission === 'granted' && !subscription) {
+        console.log('Subscribing to push notifications...');
         await subscribeToPush();
+      } else if (subscription) {
+        console.log('Already subscribed, skipping subscription');
       }
 
       return true;
@@ -250,6 +326,7 @@ export const useNotifications = () => {
     requestPermission,
     subscribeToPush,
     unsubscribeFromPush,
+    clearSubscription,
     initializeNotifications,
     markAsRead: markAsReadMutation.mutate,
     markAllAsRead: markAllAsReadMutation.mutate,

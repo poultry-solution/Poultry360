@@ -9,6 +9,10 @@ import {
   updateNotificationSettings,
   sendTestNotification,
 } from "../controller/notificationController";
+import {
+  testChatNotification,
+  getTestUsers,
+} from "../controller/notificationTestController";
 
 const router = Router();
 
@@ -31,5 +35,7 @@ router.patch("/settings", updateNotificationSettings);
 
 // Development/testing
 router.post("/test", sendTestNotification);
+router.post("/test-chat", testChatNotification);
+router.get("/test-users", getTestUsers);
 
 export default router;

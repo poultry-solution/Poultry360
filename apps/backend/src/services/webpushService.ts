@@ -1,7 +1,13 @@
 import webpush from "web-push";
 import prisma from "../utils/prisma";
 
+console.log("VAPID_PUBLIC_KEY exists:", !!process.env.VAPID_PUBLIC_KEY);
+console.log("VAPID_PRIVATE_KEY exists:", !!process.env.VAPID_PRIVATE_KEY);
+
 if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+  console.error("Missing VAPID keys:");
+  console.error("VAPID_PUBLIC_KEY:", process.env.VAPID_PUBLIC_KEY ? "SET" : "NOT SET");
+  console.error("VAPID_PRIVATE_KEY:", process.env.VAPID_PRIVATE_KEY ? "SET" : "NOT SET");
   throw new Error("VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY must be set");
 }
 

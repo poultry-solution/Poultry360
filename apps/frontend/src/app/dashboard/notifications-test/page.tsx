@@ -24,6 +24,7 @@ export default function NotificationsTestPage() {
     unreadCount,
     initializeNotifications,
     requestPermission,
+    clearSubscription,
     sendTestNotification,
     isSendingTest,
   } = useNotifications();
@@ -158,6 +159,16 @@ export default function NotificationsTestPage() {
               <Button onClick={initializeNotifications}>
                 <Bell className="h-4 w-4 mr-2" />
                 Subscribe to Notifications
+              </Button>
+            )}
+            
+            {isSubscribed && (
+              <Button 
+                variant="destructive" 
+                onClick={clearSubscription}
+              >
+                <BellOff className="h-4 w-4 mr-2" />
+                Clear Subscription
               </Button>
             )}
             

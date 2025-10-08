@@ -395,8 +395,6 @@ export const createExpense = async (
       inventoryItems, // NEW: Array of inventory items to deduct
     } = data as any; // Type assertion for now
 
-
-
     // Check if farm exists and user has access
     if (farmId) {
       const farm = await prisma.farm.findUnique({
@@ -438,7 +436,6 @@ export const createExpense = async (
           message: "Batch does not belong to the specified farm",
         });
       }
-      
     }
 
     // Check if category exists
@@ -450,8 +447,11 @@ export const createExpense = async (
       return res.status(404).json({ message: "Category not found" });
     }
 
-    console.log("----------------------------")
-    console.log(category)
+    console.log("----------------------------");
+    console.log(category);
+
+    // Track total feed quantity captured via inventory items to avoid double-creating feed consumption
+    let totalFeedQuantityFromInventory = 0;
 
     return await prisma.$transaction(async (tx) => {
       // 1. Create the expense
@@ -470,8 +470,6 @@ export const createExpense = async (
 
       // 2. Process inventory usage if inventory items are provided
       const inventoryUsages = [];
-      // Track total feed quantity captured via inventory items to avoid double-creating feed consumption
-      let totalFeedQuantityFromInventory = 0;
       if (inventoryItems && inventoryItems.length > 0) {
         for (const item of inventoryItems) {
           // Get inventory item
@@ -619,6 +617,49 @@ export const createExpense = async (
           },
         },
       });
+
+      // Check feed consumption patterns and send notifications if needed (only for feed expenses with batch)
+      if (batchId && totalFeedQuantityFromInventory > 0) {
+        try {
+          const { feedNotificationService } = await import(
+            "../services/feedNotificationService"
+          );
+          const result =
+            await feedNotificationService.checkBatchFeedConsumption(batchId);
+
+          if (result.thresholdExceeded !== "none") {
+            console.log(
+              `Feed consumption threshold ${result.thresholdExceeded} exceeded for batch ${result.stats.batchNumber}`
+            );
+          }
+        } catch (notificationError) {
+          console.error(
+            "Failed to check feed consumption patterns:",
+            notificationError
+          );
+          // Don't fail the expense creation if notification fails
+        }
+      }
+
+      // Check expense patterns and send notifications if needed (for all expenses with farm)
+      if (farmId) {
+        try {
+          const { expenseNotificationService } = await import(
+            "../services/expenseNotificationService"
+          );
+          const result =
+            await expenseNotificationService.checkFarmExpensePatterns(farmId);
+
+          if (result.thresholdExceeded !== "none") {
+            console.log(
+              `Expense threshold ${result.thresholdExceeded} exceeded for farm ${result.stats.farmName}`
+            );
+          }
+        } catch (notificationError) {
+          console.error("Failed to check expense patterns:", notificationError);
+          // Don't fail the expense creation if notification fails
+        }
+      }
 
       return res.status(201).json({
         success: true,

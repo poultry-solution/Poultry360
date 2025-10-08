@@ -8,7 +8,8 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { NotificationCenter } from "./NotificationCenter";
 
 export const NotificationBell = () => {
-  const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
+  const [isNotificationCenterOpen, setIsNotificationCenterOpen] =
+    useState(false);
   const {
     permission,
     isSupported,
@@ -18,31 +19,36 @@ export const NotificationBell = () => {
     requestPermission,
   } = useNotifications();
 
-  // Auto-initialize notifications when component mounts
+  // Check for existing subscription on mount (but don't auto-subscribe)
   useEffect(() => {
-    if (isSupported && permission === 'default') {
-      // Don't auto-request permission, let user do it manually
-      console.log('Push notifications supported but permission not requested yet');
-    } else if (isSupported && permission === 'granted' && !isSubscribed) {
-      initializeNotifications();
+    if (isSupported && permission === "default") {
+      console.log(
+        "Push notifications supported but permission not requested yet"
+      );
+    } else if (isSupported && permission === "granted") {
+      console.log("Permission granted, checking for existing subscription...");
+      // The useNotifications hook will automatically check for existing subscriptions
+      // but won't create new ones without explicit user action
     }
-  }, [isSupported, permission, isSubscribed, initializeNotifications]);
+  }, [isSupported, permission]);
 
   const handleBellClick = async () => {
     if (!isSupported) {
-      alert('Push notifications are not supported in this browser');
+      alert("Push notifications are not supported in this browser");
       return;
     }
 
-    if (permission === 'default') {
+    if (permission === "default") {
       try {
         const newPermission = await requestPermission();
-        if (newPermission === 'granted') {
+        if (newPermission === "granted") {
           await initializeNotifications();
         }
       } catch (error) {
-        console.error('Failed to request notification permission:', error);
-        alert('Failed to enable notifications. Please check your browser settings.');
+        console.error("Failed to request notification permission:", error);
+        alert(
+          "Failed to enable notifications. Please check your browser settings."
+        );
       }
     } else {
       setIsNotificationCenterOpen(true);
@@ -53,36 +59,36 @@ export const NotificationBell = () => {
     if (!isSupported) {
       return <BellOff className="h-5 w-5 text-gray-400" />;
     }
-    
-    if (permission === 'denied') {
+
+    if (permission === "denied") {
       return <BellOff className="h-5 w-5 text-red-500" />;
     }
-    
-    if (permission === 'default') {
+
+    if (permission === "default") {
       return <Bell className="h-5 w-5 text-gray-500" />;
     }
-    
+
     return <Bell className="h-5 w-5 text-blue-500" />;
   };
 
   const getTooltipText = () => {
     if (!isSupported) {
-      return 'Push notifications not supported';
+      return "Push notifications not supported";
     }
-    
-    if (permission === 'denied') {
-      return 'Notifications blocked - enable in browser settings';
+
+    if (permission === "denied") {
+      return "Notifications blocked - enable in browser settings";
     }
-    
-    if (permission === 'default') {
-      return 'Click to enable notifications';
+
+    if (permission === "default") {
+      return "Click to enable notifications";
     }
-    
+
     if (!isSubscribed) {
-      return 'Setting up notifications...';
+      return "Setting up notifications...";
     }
-    
-    return 'Notifications enabled';
+
+    return "Notifications enabled";
   };
 
   return (
@@ -96,13 +102,13 @@ export const NotificationBell = () => {
           title={getTooltipText()}
         >
           {getBellIcon()}
-          
+
           {unreadCount > 0 && (
-            <Badge 
-              variant="destructive" 
+            <Badge
+              variant="destructive"
               className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
             >
-              {unreadCount > 99 ? '99+' : unreadCount}
+              {unreadCount > 99 ? "99+" : unreadCount}
             </Badge>
           )}
         </Button>

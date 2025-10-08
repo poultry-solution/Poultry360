@@ -3,7 +3,6 @@ import {
   notificationService,
   NotificationType,
 } from "../services/webpushService";
-import { authMiddleware } from "../middelware/middelware";
 import prisma from "../utils/prisma";
 
 /**
@@ -13,6 +12,9 @@ export const subscribeToPush = async (req: Request, res: Response) => {
   try {
     const { subscription } = req.body;
     const userId = req.userId;
+
+    console.log("Received push subscription request from user:", userId);
+    console.log("Subscription data:", subscription ? "Present" : "Missing");
 
     if (!subscription) {
       return res.status(400).json({ error: "Push subscription is required" });
@@ -24,6 +26,7 @@ export const subscribeToPush = async (req: Request, res: Response) => {
       data: { pushSubscription: subscription },
     });
 
+    console.log("Push subscription saved successfully for user:", userId);
     res.json({
       success: true,
       message: "Push subscription saved successfully",

@@ -19,6 +19,9 @@ import batchShareRoutes from "./batchShareRoutes";
 import weightRoutes from "./weightRoutes";
 import s3Routes from "./s3Routes";
 import notificationRoutes from "./notificationRoutes";
+import mortalityNotificationRoutes from "./mortalityNotificationRoutes";
+import feedNotificationRoutes from "./feedNotificationRoutes";
+import expenseNotificationRoutes from "./expenseNotificationRoutes";
 
 const router = express.Router();
 
@@ -42,5 +45,8 @@ router.use("/batch-share", batchShareRoutes);
 router.use("/batches", weightRoutes); // Weight routes for batches
 router.use("/s3", s3Routes);
 router.use("/notifications", notificationRoutes);
+router.use("/mortality-notifications", mortalityNotificationRoutes);
+router.use("/feed-notifications", feedNotificationRoutes);
+router.use("/expense-notifications", expenseNotificationRoutes);
 
 export default router;
