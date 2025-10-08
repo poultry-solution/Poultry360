@@ -268,7 +268,6 @@ export default function ChatPage() {
         height,
         durationMs,
       });
-
     } catch (error: any) {
       console.error("Upload error:", error);
       toast.error(error?.message || "Failed to upload file");
@@ -323,14 +322,13 @@ export default function ChatPage() {
       });
 
       // Step 1: Get presigned upload URL
-      const { uploadUrl, attachmentKey } =
-        await generateUploadUrl.mutateAsync({
-          conversationId: chatId,
-          fileName,
-          contentType: "audio/webm",
-          fileSize: audioFile.size,
-          durationMs: duration * 1000, // Convert seconds to milliseconds
-        });
+      const { uploadUrl, attachmentKey } = await generateUploadUrl.mutateAsync({
+        conversationId: chatId,
+        fileName,
+        contentType: "audio/webm",
+        fileSize: audioFile.size,
+        durationMs: duration * 1000, // Convert seconds to milliseconds
+      });
 
       // Step 2: Upload to R2
       const uploadResponse = await fetch(uploadUrl, {
@@ -444,7 +442,11 @@ export default function ChatPage() {
   };
 
   const handleDeleteConversation = async () => {
-    if (!window.confirm("Are you sure you want to delete this conversation? This action cannot be undone.")) {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this conversation? This action cannot be undone."
+      )
+    ) {
       return;
     }
 

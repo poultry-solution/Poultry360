@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { getMessageService } from '../services/messageService';
+import { deleteFile as deleteR2File } from '../services/r2Service';
 import { getRoomService } from '../services/roomService';
 import prisma from '../utils/prisma';
 
@@ -473,7 +474,8 @@ export const conversationController = {
   },
 
   /**
-   * Delete conversation (soft delete by setting status to ARCHIVED)
+   * Delete conversation: hard-delete all messages then delete the conversation.
+   * This ensures users can start a new conversation later without unique constraint violations.
    */
   async deleteConversation(req: Request, res: Response) {
     try {
@@ -499,10 +501,32 @@ export const conversationController = {
         return res.status(404).json({ error: 'Conversation not found' });
       }
 
-      // Soft delete by archiving
-      await prisma.conversation.update({
-        where: { id: conversationId },
-        data: { status: 'ARCHIVED' }
+      // Delete attachments from R2 for messages in this conversation
+      try {
+        const messagesWithAttachments = await prisma.message.findMany({
+          where: { conversationId, attachmentKey: { not: null } },
+          select: { attachmentKey: true },
+        });
+
+        for (const msg of messagesWithAttachments) {
+          const key = msg.attachmentKey as string | null;
+          if (key) {
+            try {
+              await deleteR2File(key);
+            } catch (r2Err) {
+              // Log but continue; DB should still be purged
+              console.error(`Failed to delete R2 object for message: ${key}`, r2Err);
+            }
+          }
+        }
+      } catch (fetchErr) {
+        console.error('Failed to fetch/delete attachments for conversation:', fetchErr);
+      }
+
+      // Hard delete messages and the conversation in a single transaction
+      await prisma.$transaction(async (tx) => {
+        await tx.message.deleteMany({ where: { conversationId } });
+        await tx.conversation.delete({ where: { id: conversationId } });
       });
 
       res.json({
