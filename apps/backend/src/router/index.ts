@@ -22,6 +22,7 @@ import notificationRoutes from "./notificationRoutes";
 import mortalityNotificationRoutes from "./mortalityNotificationRoutes";
 import feedNotificationRoutes from "./feedNotificationRoutes";
 import expenseNotificationRoutes from "./expenseNotificationRoutes";
+import inventoryNotificationRoutes from "./inventoryNotificationRoutes";
 
 const router = express.Router();
 
@@ -48,5 +49,6 @@ router.use("/notifications", notificationRoutes);
 router.use("/mortality-notifications", mortalityNotificationRoutes);
 router.use("/feed-notifications", feedNotificationRoutes);
 router.use("/expense-notifications", expenseNotificationRoutes);
+router.use("/inventory-notifications", inventoryNotificationRoutes);
 
 export default router;

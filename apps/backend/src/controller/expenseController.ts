@@ -641,25 +641,40 @@ export const createExpense = async (
         }
       }
 
-      // Check expense patterns and send notifications if needed (for all expenses with farm)
-      if (farmId) {
-        try {
-          const { expenseNotificationService } = await import(
-            "../services/expenseNotificationService"
-          );
-          const result =
-            await expenseNotificationService.checkFarmExpensePatterns(farmId);
+       // Check expense patterns and send notifications if needed (for all expenses with farm)
+       if (farmId) {
+         try {
+           const { expenseNotificationService } = await import(
+             "../services/expenseNotificationService"
+           );
+           const result =
+             await expenseNotificationService.checkFarmExpensePatterns(farmId);
 
-          if (result.thresholdExceeded !== "none") {
-            console.log(
-              `Expense threshold ${result.thresholdExceeded} exceeded for farm ${result.stats.farmName}`
-            );
-          }
-        } catch (notificationError) {
-          console.error("Failed to check expense patterns:", notificationError);
-          // Don't fail the expense creation if notification fails
-        }
-      }
+           if (result.thresholdExceeded !== "none") {
+             console.log(
+               `Expense threshold ${result.thresholdExceeded} exceeded for farm ${result.stats.farmName}`
+             );
+           }
+         } catch (notificationError) {
+           console.error("Failed to check expense patterns:", notificationError);
+           // Don't fail the expense creation if notification fails
+         }
+       }
+
+       // Check inventory levels and send notifications if needed (when inventory items are used)
+       if (inventoryItems && inventoryItems.length > 0) {
+         try {
+           const { inventoryNotificationService } = await import('../services/inventoryNotificationService');
+           const result = await inventoryNotificationService.checkUserInventoryLevels(currentUserId as string);
+           
+           if (result.thresholdExceeded !== 'none') {
+             console.log(`Inventory threshold ${result.thresholdExceeded} exceeded for user ${currentUserId}`);
+           }
+         } catch (notificationError) {
+           console.error('Failed to check inventory levels:', notificationError);
+           // Don't fail the expense creation if notification fails
+         }
+       }
 
       return res.status(201).json({
         success: true,

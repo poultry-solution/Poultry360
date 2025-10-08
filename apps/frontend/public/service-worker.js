@@ -82,14 +82,27 @@ self.addEventListener('push', (event) => {
         ...data.data,
       },
       vibrate: [100, 50, 100],
-      requireInteraction: data.requireInteraction || false,
-      actions: data.actions || [],
+      requireInteraction: false, // Changed to false to avoid blocking
       tag: data.type, // Group notifications by type
       renotify: true,
     };
 
+    console.log('Service Worker: Notification options:', options);
+
+    // Check if we have permission to show notifications
+    if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+      console.error('Service Worker: Notification permission not granted:', Notification.permission);
+      return;
+    }
+
     event.waitUntil(
       self.registration.showNotification(data.title || 'Poultry360', options)
+        .then(() => {
+          console.log('Service Worker: Notification displayed successfully');
+        })
+        .catch((error) => {
+          console.error('Service Worker: Failed to display notification', error);
+        })
     );
   } catch (error) {
     console.error('Service Worker: Error processing push event', error);
