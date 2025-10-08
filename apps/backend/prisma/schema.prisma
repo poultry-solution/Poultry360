@@ -60,17 +60,21 @@ enum NotificationType {
   REMINDER_ALERT
   REQUEST_ALERT
   
-  // Legacy types (keeping for backward compatibility)
-  VACCINATION_DUE
-  BATCH_COMPLETION
-  PAYMENT_DUE
-  FEED_REMINDER
+  // Reminder-specific notifications
+  VACCINATION_REMINDER
+  FEEDING_REMINDER
   MEDICATION_REMINDER
   CLEANING_REMINDER
   WEIGHING_REMINDER
   SUPPLIER_PAYMENT_REMINDER
   CUSTOMER_PAYMENT_REMINDER
   GENERAL_REMINDER
+  
+  // Legacy types (keeping for backward compatibility)
+  VACCINATION_DUE
+  BATCH_COMPLETION
+  PAYMENT_DUE
+  FEED_REMINDER
 }
 
 enum ConversationStatus {

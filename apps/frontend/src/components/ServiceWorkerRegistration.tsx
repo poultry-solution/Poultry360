@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect } from 'react';
+import { useNotificationActions } from '@/hooks/useNotificationActions';
 
 export const ServiceWorkerRegistration = () => {
+  // Initialize notification actions handler
+  useNotificationActions();
+
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       const registerServiceWorker = async () => {

@@ -14,6 +14,7 @@
   "dependencies": {
     "@myapp/shared-types": "workspace:*",
     "@prisma/client": "6.15.0",
+    "@types/node-cron": "^3.0.11",
     "aws-sdk": "^2.1692.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
@@ -21,6 +22,7 @@
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "node-cron": "^4.2.1",
     "socket.io": "^4.8.1",
     "web-push": "^3.6.7",
     "zod": "^4.1.5"

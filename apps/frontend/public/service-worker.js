@@ -82,9 +82,10 @@ self.addEventListener('push', (event) => {
         ...data.data,
       },
       vibrate: [100, 50, 100],
-      requireInteraction: false, // Changed to false to avoid blocking
+      requireInteraction: data.requireInteraction || false,
       tag: data.type, // Group notifications by type
       renotify: true,
+      actions: data.actions || [], // Add action buttons for reminders
     };
 
     console.log('Service Worker: Notification options:', options);
@@ -158,6 +159,51 @@ self.addEventListener('notificationclick', (event) => {
       }
     })()
   );
+});
+
+// Notification action click event - handle user clicking on action buttons
+self.addEventListener('notificationclick', (event) => {
+  console.log('Service Worker: Notification action click event', event.action, event.notification.data);
+  
+  // Handle action button clicks
+  if (event.action && event.notification.data?.notificationType === 'reminder') {
+    event.notification.close();
+    
+    event.waitUntil(
+      (async () => {
+        try {
+          // Get the current user ID from storage or send to app
+          const allClients = await clients.matchAll({
+            includeUncontrolled: true,
+            type: 'window',
+          });
+
+          const appClient = allClients.find((client) =>
+            client.url.includes(self.origin)
+          );
+
+          if (appClient) {
+            // Send action to the app to handle
+            appClient.postMessage({ 
+              type: 'NOTIFICATION_ACTION', 
+              action: event.action,
+              data: event.notification.data 
+            });
+          } else {
+            // If app is not open, we need to handle this differently
+            // For now, we'll just log it - in a real app, you might want to
+            // store the action and process it when the app opens
+            console.log('Service Worker: App not open, action will be handled when app opens', {
+              action: event.action,
+              data: event.notification.data
+            });
+          }
+        } catch (error) {
+          console.error('Service Worker: Error handling notification action', error);
+        }
+      })()
+    );
+  }
 });
 
 // Background sync event (for future offline functionality)
