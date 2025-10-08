@@ -7,6 +7,9 @@ import routes from "./router/index";
 import { getSocketService } from "./services/socketService";
 dotenv.config();
 
+import "./services/webpushService";
+
+
 const PORT = process.env.PORT || 8081;
 const app = express();
 const server = createServer(app);
@@ -48,7 +51,7 @@ app.use((req, res, next) => {
 app.use("/api/v1", routes);
 
 app.get("/health", (req, res) => {
-  res.send("OK");
+  res.json({ message: "Server is running" });
 });
 
 // Initialize Socket.IO service

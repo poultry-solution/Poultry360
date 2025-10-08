@@ -38,12 +38,32 @@ enum TransactionType {
 }
 
 enum NotificationType {
+  // Chat notifications
+  CHAT_MESSAGE
+  
+  // Batch management
+  BATCH_UPDATE
+  MORTALITY_ALERT
+  FEED_WARNING
+  SALES_NOTIFICATION
+  
+  // Farm operations
+  FARM_ALERT
+  EXPENSE_WARNING
   LOW_INVENTORY
+  
+  // System notifications
+  SYSTEM
+  
+  // Alert notifications (as requested)
+  VACCINATION_ALERT
+  REMINDER_ALERT
+  REQUEST_ALERT
+  
+  // Legacy types (keeping for backward compatibility)
   VACCINATION_DUE
   BATCH_COMPLETION
   PAYMENT_DUE
-  MORTALITY_ALERT
-  // Reminder types
   FEED_REMINDER
   MEDICATION_REMINDER
   CLEANING_REMINDER
@@ -132,6 +152,11 @@ model User {
   // User preferences
   language      Language @default(ENGLISH)
   calendarType  CalendarType @default(AD)
+  
+  // Push notification settings
+  pushSubscription    Json?     // Web Push subscription object
+  notificationEnabled Boolean   @default(true)
+  notificationSettings Json?    // User preferences for notification types
   
   // Relationships
   // Farms this user owns
@@ -748,9 +773,9 @@ model Notification {
   id          String            @id @default(cuid())
   type        NotificationType
   title       String
-  message     String
-  status      NotificationStatus @default(PENDING)
+  body        String            // Changed from 'message' to 'body' for consistency
   data        Json?             // Additional data for the notification
+  read        Boolean           @default(false) // For push notifications
   
   // Optional context relationships
   farmId      String?
