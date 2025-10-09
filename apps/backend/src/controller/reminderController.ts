@@ -461,14 +461,15 @@ export const markReminderAsNotDone = async (req: Request, res: Response) => {
   try {
     const userId = req.userId as string;
     const { id } = req.params;
-    const { rescheduleMinutes = 60 } = req.body; // Default to 1 hour
 
-    const reminder = await reminderService.markAsNotDone(id, userId, rescheduleMinutes);
+    const reschedule_minutes =  60;
+
+    const reminder = await reminderService.markAsNotDone(id, userId, reschedule_minutes);
 
     res.json({
       success: true,
       data: reminder,
-      message: `Reminder rescheduled for ${rescheduleMinutes} minutes from now`
+      message: `Reminder rescheduled for ${reschedule_minutes} minutes from now`
     });
   } catch (error: any) {
     console.error('Error marking reminder as not done:', error);
