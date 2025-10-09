@@ -30,6 +30,10 @@ export class InventoryService {
 
     // User context (inventory is global, not farm-specific)
     userId: string;
+
+    // Optional: Payment details for initial payment
+    paymentAmount?: number;
+    paymentDescription?: string;
   }) {
     const {
       dealerId,
@@ -44,6 +48,8 @@ export class InventoryService {
       description,
       reference,
       userId,
+      paymentAmount,
+      paymentDescription,
     } = data;
 
     // Determine item type based on supplier
@@ -54,62 +60,58 @@ export class InventoryService {
     else itemType = InventoryItemType.OTHER;
 
     return await prisma.$transaction(async (tx) => {
-      // 1. Find or create inventory item
-      let inventoryItem = await tx.inventoryItem.findFirst({
+      // 1. Determine category name
+      const categoryName =
+        itemType === InventoryItemType.FEED
+          ? "Feed"
+          : itemType === InventoryItemType.CHICKS
+            ? "Chicks"
+            : itemType === InventoryItemType.MEDICINE
+              ? "Medicine"
+              : itemType === InventoryItemType.OTHER
+                ? "Equipment"
+                : "Other";
+
+      // 2. Upsert category (find or create in one operation)
+      const category = await tx.category.upsert({
         where: {
-          userId,
-          name: itemName,
-          itemType,
-        },
-      });
-
-      if (!inventoryItem) {
-        // Find or create category
-        const categoryName =
-          itemType === InventoryItemType.FEED
-            ? "Feed"
-            : itemType === InventoryItemType.CHICKS
-              ? "Chicks"
-              : itemType === InventoryItemType.MEDICINE
-                ? "Medicine"
-                : itemType === InventoryItemType.OTHER
-                  ? "Equipment"
-                  : "Other";
-
-        let category = await tx.category.findFirst({
-          where: {
+          userId_type_name: {
             userId,
             type: "INVENTORY",
             name: categoryName,
           },
-        });
+        },
+        update: {},
+        create: {
+          name: categoryName,
+          type: CategoryType.INVENTORY,
+          description: `Category for ${categoryName} items`,
+          userId,
+        },
+      });
 
-        // Create category if it doesn't exist
-        if (!category) {
-          category = await tx.category.create({
-            data: {
-              name: categoryName,
-              type: CategoryType.INVENTORY,
-              description: `Category for ${categoryName} items`,
-              userId,
-            },
-          });
-        }
-
-        inventoryItem = await tx.inventoryItem.create({
-          data: {
-            name: itemName,
-            description: description,
-            currentStock: 0,
-            unit: itemType === InventoryItemType.CHICKS ? "birds" : "kg",
-            itemType,
+      // 3. Upsert inventory item (find or create in one operation)
+      const inventoryItem = await tx.inventoryItem.upsert({
+        where: {
+          userId_categoryId_name: {
             userId,
             categoryId: category.id,
+            name: itemName,
           },
-        });
-      }
+        },
+        update: {},
+        create: {
+          name: itemName,
+          description: description,
+          currentStock: 0,
+          unit: itemType === InventoryItemType.CHICKS ? "birds" : "kg",
+          itemType,
+          userId,
+          categoryId: category.id,
+        },
+      });
 
-      // 2. Create expense record for PAID quantity (free quantity is zero-cost)
+      // 4. Create expense record for PAID quantity (free quantity is zero-cost)
       const expense = await tx.expense.create({
         data: {
           date,
@@ -123,7 +125,7 @@ export class InventoryService {
         },
       });
 
-      // 3. Create inventory transaction for paid quantity (stock addition)
+      // 5. Create inventory transaction for paid quantity (stock addition)
       await tx.inventoryTransaction.create({
         data: {
           type: TransactionType.PURCHASE,
@@ -136,7 +138,7 @@ export class InventoryService {
         },
       });
 
-      // 3b. If there is free quantity, add a zero-cost inventory transaction
+      // 6. If there is free quantity, add a zero-cost inventory transaction
       if (freeQuantity && freeQuantity > 0) {
         await tx.inventoryTransaction.create({
           data: {
@@ -151,7 +153,7 @@ export class InventoryService {
         });
       }
 
-      // 4. Update inventory stock by paid + free
+      // 7. Update inventory stock by paid + free
       await tx.inventoryItem.update({
         where: { id: inventoryItem.id },
         data: {
@@ -161,7 +163,7 @@ export class InventoryService {
         },
       });
 
-      // 5. Create entity transaction (supplier ledger)
+      // 8. Create entity transaction (supplier ledger)
       const entityTransaction = await tx.entityTransaction.create({
         data: {
           type: TransactionType.PURCHASE,
@@ -188,10 +190,45 @@ export class InventoryService {
         },
       });
 
+      // 9. Create payment transaction if paymentAmount is provided
+      let paymentTransaction = null;
+      if (paymentAmount && paymentAmount > 0) {
+        // Prevent overpayment at creation
+        if (paymentAmount > totalAmount) {
+          throw new Error("Initial payment cannot exceed purchase amount");
+        }
+        
+        paymentTransaction = await tx.entityTransaction.create({
+          data: {
+            type: TransactionType.PAYMENT,
+            amount: paymentAmount,
+            quantity: null,
+            itemName: null,
+            date,
+            description: paymentDescription || `Initial payment for ${itemName}`,
+            reference: null,
+            dealerId,
+            hatcheryId,
+            medicineSupplierId,
+            entityType: dealerId
+              ? "DEALER"
+              : hatcheryId
+                ? "HATCHERY"
+                : medicineSupplierId
+                  ? "MEDICINE_SUPPLIER"
+                  : "OTHER",
+            entityId: dealerId || hatcheryId || medicineSupplierId || "",
+            // 🔗 NEW: Link payment to purchase
+            paymentToPurchaseId: entityTransaction.id,
+          },
+        });
+      }
+
       return {
         inventoryItem,
         expense,
         entityTransaction,
+        paymentTransaction,
         purchaseTransactionId: entityTransaction.id, // 🔗 NEW: Return purchase transaction ID for payment linking
       };
     });

@@ -289,7 +289,6 @@ export default function BatchDetailPage() {
       displayValue = 0;
     }
 
-
     return {
       netExpenses,
       remainingBroilers,
@@ -299,8 +298,7 @@ export default function BatchDetailPage() {
       displayValue,
       isProfit,
     };
-  },
-   [
+  }, [
     expensesResponse?.data,
     batchSales,
     batch?.initialChicks,
@@ -1374,7 +1372,6 @@ export default function BatchDetailPage() {
     ? expensesTotal / batch.initialChicks
     : 0;
 
-
   // Calculate current age in days
   const currentAge = Math.ceil(
     (new Date().getTime() - new Date(batch.startDate).getTime()) /
@@ -2091,14 +2088,42 @@ export default function BatchDetailPage() {
                       %
                     </span>
                   </div>
-                  {analytics?.fcr && (
+                  {analytics?.fcr ? (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">FCR:</span>
-                      <span className="font-medium">
+                      <span
+                        className={`font-medium ${analytics.fcr > 2.5 ? "text-red-600" : analytics.fcr > 2.0 ? "text-orange-600" : "text-green-600"}`}
+                      >
                         {analytics.fcr.toFixed(2)}
                       </span>
                     </div>
-                  )}
+                  ) : analytics?.fcrData ? (
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          FCR (Feed Conversion Ratio):
+                        </span>
+                        <span className="font-medium text-gray-500">
+                          Not Available
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {analytics.fcrData.message || "No message available"}
+                      </div>
+                      {/* Debug info - remove after testing */}
+
+                      {analytics.fcrData.status === "no_weight_data" && (
+                        <div className="text-xs text-blue-600">
+                          💡 Record bird weights to calculate FCR
+                        </div>
+                      )}
+                      {analytics.fcrData.status === "no_feed_data" && (
+                        <div className="text-xs text-blue-600">
+                          💡 Record feed consumption to calculate FCR
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               </CardContent>
             </Card>
@@ -2168,7 +2193,8 @@ export default function BatchDetailPage() {
                       </span>
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      Based on {perBroilerExpenseData.remainingBroilers > 0
+                      Based on{" "}
+                      {perBroilerExpenseData.remainingBroilers > 0
                         ? `${perBroilerExpenseData.remainingBroilers} remaining`
                         : "all"}{" "}
                       broilers
@@ -2692,8 +2718,13 @@ export default function BatchDetailPage() {
                   </div>
                   <div className="text-xs text-blue-600 mt-1">
                     ({perBroilerExpenseData.netExpenses >= 0 ? "₹" : "-₹"}
-                    {Math.abs(perBroilerExpenseData.netExpenses).toLocaleString()}{" "}
-                    ÷ {perBroilerExpenseData.remainingBroilers || batch.initialChicks})
+                    {Math.abs(
+                      perBroilerExpenseData.netExpenses
+                    ).toLocaleString()}{" "}
+                    ÷{" "}
+                    {perBroilerExpenseData.remainingBroilers ||
+                      batch.initialChicks}
+                    )
                   </div>
                 </div>
               </div>
@@ -2894,18 +2925,65 @@ export default function BatchDetailPage() {
                       </span>
                     </div>
                   )}
-                  {analytics?.fcr && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        FCR (Feed Conversion):
-                      </span>
-                      <span
-                        className={`font-medium ${analytics.fcr > 2.5 ? "text-red-600" : analytics.fcr > 2.0 ? "text-orange-600" : "text-green-600"}`}
-                      >
-                        {analytics.fcr.toFixed(2)}
-                      </span>
+                  {analytics?.fcr ? (
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          FCR (Feed Conversion Ratio):
+                        </span>
+                        <span
+                          className={`font-medium ${analytics.fcr > 2.5 ? "text-red-600" : analytics.fcr > 2.0 ? "text-orange-600" : "text-green-600"}`}
+                        >
+                          {analytics.fcr.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {analytics.fcr > 2.5
+                          ? "⚠️ High FCR - Check feed quality and management"
+                          : analytics.fcr > 2.0
+                            ? "⚡ Moderate FCR - Room for improvement"
+                            : "✅ Excellent FCR - Great efficiency!"}
+                      </div>
+                      {analytics.fcrData && (
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <div>
+                            Feed consumed:{" "}
+                            {analytics.fcrData.totalFeedConsumed.toFixed(1)}kg
+                          </div>
+                          <div>
+                            Weight gained:{" "}
+                            {analytics.fcrData.totalWeightGained.toFixed(1)}kg
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  ) : analytics?.fcrData ? (
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          FCR (Feed Conversion Ratio):
+                        </span>
+                        <span className="font-medium text-gray-500">
+                          Not Available
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {analytics.fcrData.message || "No message available"}
+                      </div>
+                      {/* Debug info - remove after testing */}
+
+                      {analytics.fcrData.status === "no_weight_data" && (
+                        <div className="text-xs text-blue-600">
+                          💡 Record bird weights to calculate FCR
+                        </div>
+                      )}
+                      {analytics.fcrData.status === "no_feed_data" && (
+                        <div className="text-xs text-blue-600">
+                          💡 Record feed consumption to calculate FCR
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
                   {analytics?.currentAvgWeight && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
@@ -3065,7 +3143,7 @@ export default function BatchDetailPage() {
           <CardContent>
             {/* Chart */}
             <div className="mb-6">
-              <WeightGrowthChart data={growthChartData}   />
+              <WeightGrowthChart data={growthChartData} />
             </div>
             {weightsLoading ? (
               <div className="flex items-center justify-center py-8">

@@ -1341,6 +1341,20 @@ export declare const BatchAnalyticsSchema: z.ZodObject<{
     fcr: z.ZodNullable<z.ZodNumber>;
     avgWeight: z.ZodNullable<z.ZodNumber>;
     daysActive: z.ZodNumber;
+    fcrData: z.ZodOptional<z.ZodObject<{
+        totalFeedConsumed: z.ZodNumber;
+        initialTotalWeight: z.ZodNumber;
+        currentTotalWeight: z.ZodNumber;
+        totalWeightGained: z.ZodNumber;
+        initialWeightPerChick: z.ZodNumber;
+        status: z.ZodEnum<{
+            calculated: "calculated";
+            no_weight_data: "no_weight_data";
+            no_feed_data: "no_feed_data";
+            insufficient_data: "insufficient_data";
+        }>;
+        message: z.ZodString;
+    }, z.core.$strip>>;
 }, z.core.$strip>;
 export type BatchAnalytics = z.infer<typeof BatchAnalyticsSchema>;
 export declare const FarmAnalyticsSchema: z.ZodObject<{
@@ -3069,6 +3083,20 @@ export declare const schemas: {
         fcr: z.ZodNullable<z.ZodNumber>;
         avgWeight: z.ZodNullable<z.ZodNumber>;
         daysActive: z.ZodNumber;
+        fcrData: z.ZodOptional<z.ZodObject<{
+            totalFeedConsumed: z.ZodNumber;
+            initialTotalWeight: z.ZodNumber;
+            currentTotalWeight: z.ZodNumber;
+            totalWeightGained: z.ZodNumber;
+            initialWeightPerChick: z.ZodNumber;
+            status: z.ZodEnum<{
+                calculated: "calculated";
+                no_weight_data: "no_weight_data";
+                no_feed_data: "no_feed_data";
+                insufficient_data: "insufficient_data";
+            }>;
+            message: z.ZodString;
+        }, z.core.$strip>>;
     }, z.core.$strip>;
     readonly FarmAnalytics: z.ZodObject<{
         farmId: z.ZodString;

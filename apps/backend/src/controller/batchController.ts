@@ -1400,11 +1400,22 @@ export const getBatchAnalytics = async (
     );
 
     // Calculate FCR (Feed Conversion Ratio)
-    const currentWeight = latestWeight
+    // FCR = Total feed consumed / Total weight gained
+    // Weight gained = (Current total weight) - (Initial total weight)
+    // Initial total weight = Initial chicks * Initial average weight (assume 0.05kg per chick)
+    const initialWeightPerChick = 0.05; // 50g average weight of day-old chick
+    const initialTotalWeight = batch.initialChicks * initialWeightPerChick;
+    
+    const currentTotalWeight = latestWeight && currentChicks > 0
       ? Number(latestWeight.avgWeight) * currentChicks
       : 0;
-    const fcr =
-      currentWeight > 0 ? totalFeedConsumptionAmount / currentWeight : null;
+    
+    const totalWeightGained = Math.max(0, currentTotalWeight - initialTotalWeight);
+    
+    // FCR can only be calculated if we have both feed consumption and weight gain
+    const fcr = (totalWeightGained > 0 && totalFeedConsumptionAmount > 0)
+      ? totalFeedConsumptionAmount / totalWeightGained 
+      : null;
 
     // Calculate days active
     const daysActive = Math.ceil(
@@ -1430,7 +1441,22 @@ export const getBatchAnalytics = async (
         profitMargin,
         totalFeedConsumption: totalFeedConsumptionAmount,
         currentAvgWeight: latestWeight ? Number(latestWeight.avgWeight) : null,
+        // FCR (Feed Conversion Ratio) data
         fcr,
+        fcrData: {
+          totalFeedConsumed: totalFeedConsumptionAmount,
+          initialTotalWeight,
+          currentTotalWeight,
+          totalWeightGained,
+          initialWeightPerChick,
+          status: fcr ? 'calculated' : 
+                  totalWeightGained <= 0 ? 'no_weight_data' :
+                  totalFeedConsumptionAmount <= 0 ? 'no_feed_data' : 'insufficient_data',
+          message: fcr ? 'FCR calculated successfully' :
+                  totalWeightGained <= 0 ? 'Weight data required - record bird weights to calculate FCR' :
+                  totalFeedConsumptionAmount <= 0 ? 'Feed consumption data required - record feed usage to calculate FCR' :
+                  'Insufficient data to calculate FCR',
+        },
         daysActive,
         vaccinationStats: vaccinationStats.reduce(
           (acc, stat) => {
