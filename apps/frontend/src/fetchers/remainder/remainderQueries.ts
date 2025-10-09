@@ -64,6 +64,7 @@ export const reminderKeys = {
   detail: (id: string) => [...reminderKeys.details(), id] as const,
   upcoming: (days?: number) => [...reminderKeys.all, "upcoming", days] as const,
   overdue: () => [...reminderKeys.all, "overdue"] as const,
+  scheduled: () => [...reminderKeys.all, "scheduled"] as const,
   statistics: () => [...reminderKeys.all, "statistics"] as const,
 };
 
@@ -146,6 +147,32 @@ export const useGetOverdueReminders = () => {
       return response.data;
     },
     staleTime: 1 * 60 * 1000,
+  });
+};
+
+// Get all scheduled (future) reminders (any distance in future)
+export const useGetScheduledReminders = () => {
+  return useQuery({
+    queryKey: reminderKeys.scheduled(),
+    queryFn: async (): Promise<ReminderListResponse> => {
+      // Fetch all PENDING and sort by dueDate ascending
+      const response = await axiosInstance.get(`/reminders?status=PENDING`);
+      const list: Reminder[] = response.data?.data || [];
+      const sorted = [...list].sort(
+        (a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+      );
+      return {
+        success: true,
+        data: sorted,
+        pagination: {
+          page: 1,
+          limit: sorted.length,
+          total: sorted.length,
+          totalPages: 1,
+        },
+      } as ReminderListResponse;
+    },
+    staleTime: 2 * 60 * 1000,
   });
 };
 
