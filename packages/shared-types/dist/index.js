@@ -857,6 +857,15 @@ exports.BatchAnalyticsSchema = zod_1.z.object({
     fcr: zod_1.z.number().positive().nullable(),
     avgWeight: zod_1.z.number().positive().nullable(),
     daysActive: zod_1.z.number().int().nonnegative(),
+    fcrData: zod_1.z.object({
+        totalFeedConsumed: zod_1.z.number().nonnegative(),
+        initialTotalWeight: zod_1.z.number().nonnegative(),
+        currentTotalWeight: zod_1.z.number().nonnegative(),
+        totalWeightGained: zod_1.z.number().nonnegative(),
+        initialWeightPerChick: zod_1.z.number().positive(),
+        status: zod_1.z.enum(['calculated', 'no_weight_data', 'no_feed_data', 'insufficient_data']),
+        message: zod_1.z.string(),
+    }).optional(),
 });
 exports.FarmAnalyticsSchema = zod_1.z.object({
     farmId: zod_1.z.string(),

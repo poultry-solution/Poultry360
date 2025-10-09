@@ -570,7 +570,7 @@ export const addHatcheryTransaction = async (
           .json({ message: "Initial payment must be a positive number" });
       }
 
-      // 🔗 NEW: Use inventory service for purchases
+      // 🔗 NEW: Use inventory service for purchases (including optional payment)
       const result = await InventoryService.processSupplierPurchase({
         hatcheryId: id,
         itemName,
@@ -582,37 +582,16 @@ export const addHatcheryTransaction = async (
         description,
         reference,
         userId: currentUserId,
+        paymentAmount: paymentAmount ? Number(paymentAmount) : undefined,
+        paymentDescription,
       });
 
       const purchaseTransaction = result.entityTransaction;
       transactions.push(purchaseTransaction);
 
-      // 🔗 NEW: Create payment transaction if paymentAmount is provided
-      if (paymentAmount && Number(paymentAmount) > 0) {
-        // Prevent overpayment at creation
-        if (Number(paymentAmount) > Number(amount)) {
-          return res
-            .status(400)
-            .json({ message: "Initial payment cannot exceed purchase amount" });
-        }
-        const paymentTransaction = await prisma.entityTransaction.create({
-          data: {
-            type: TransactionType.PAYMENT,
-            amount: Number(paymentAmount),
-            quantity: null,
-            itemName: null,
-            date: new Date(date),
-            description:
-              paymentDescription || `Initial payment for ${itemName}`,
-            reference: null,
-            hatcheryId: id,
-            entityType: "HATCHERY",
-            entityId: id,
-            // 🔗 NEW: Link payment to purchase
-            paymentToPurchaseId: result.purchaseTransactionId,
-          },
-        });
-        transactions.push(paymentTransaction);
+      // Add payment transaction if it was created
+      if (result.paymentTransaction) {
+        transactions.push(result.paymentTransaction);
       }
     } else {
       // Simple transaction (payments, adjustments, etc.)

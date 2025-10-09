@@ -1158,6 +1158,15 @@ export const BatchAnalyticsSchema = z.object({
   fcr: z.number().positive().nullable(),
   avgWeight: z.number().positive().nullable(),
   daysActive: z.number().int().nonnegative(),
+  fcrData: z.object({
+    totalFeedConsumed: z.number().nonnegative(),
+    initialTotalWeight: z.number().nonnegative(),
+    currentTotalWeight: z.number().nonnegative(),
+    totalWeightGained: z.number().nonnegative(),
+    initialWeightPerChick: z.number().positive(),
+    status: z.enum(['calculated', 'no_weight_data', 'no_feed_data', 'insufficient_data']),
+    message: z.string(),
+  }).optional(),
 });
 
 export type BatchAnalytics = z.infer<typeof BatchAnalyticsSchema>;
