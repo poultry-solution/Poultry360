@@ -289,7 +289,13 @@ export const useNotifications = () => {
         console.log('Notification clicked:', event.data.data);
         
         // Handle navigation or other actions based on notification data
-        const { url, type } = event.data.data;
+        const { url, type, notificationType } = event.data.data;
+        
+        // If this is a reminder notification, suppress navigation (handled via actions)
+        if (notificationType === 'reminder') {
+          console.log('Suppressing navigation for reminder NOTIFICATION_CLICK');
+          return;
+        }
         
         if (url && window.location.pathname !== url) {
           window.location.href = url;

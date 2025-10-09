@@ -142,7 +142,12 @@ export default function RemindersTestPage() {
     setError(null);
 
     try {
-      const response = await axiosInstance.post("/reminders", newReminder);
+      // Omit empty farmId/batchId to avoid backend FK errors
+      const payload: any = { ...newReminder };
+      if (!payload.farmId) delete payload.farmId;
+      if (!payload.batchId) delete payload.batchId;
+
+      const response = await axiosInstance.post("/reminders", payload);
 
       if (!response.data) {
         throw new Error("Failed to create reminder");

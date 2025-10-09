@@ -112,12 +112,27 @@ export const useGetUpcomingReminders = (days: number = 7) => {
   return useQuery({
     queryKey: reminderKeys.upcoming(days),
     queryFn: async (): Promise<ReminderListResponse> => {
-      const response = await axiosInstance.get(
-        `/reminders/upcoming?days=${days}`
-      );
-      return response.data;
+      // Backend doesn't expose /upcoming; fetch all and filter client-side
+      const response = await axiosInstance.get(`/reminders`);
+      const all: Reminder[] = response.data?.data || [];
+      const now = new Date();
+      const end = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+      const filtered = all.filter((r: any) => {
+        const due = new Date(r.dueDate);
+        return r.status === 'PENDING' && due > now && due <= end;
+      });
+      return {
+        success: true,
+        data: filtered,
+        pagination: {
+          page: 1,
+          limit: filtered.length,
+          total: filtered.length,
+          totalPages: 1,
+        },
+      } as ReminderListResponse;
     },
-    staleTime: 1 * 60 * 1000, // 1 minute (more frequent for upcoming reminders)
+    staleTime: 1 * 60 * 1000,
   });
 };
 
@@ -126,10 +141,11 @@ export const useGetOverdueReminders = () => {
   return useQuery({
     queryKey: reminderKeys.overdue(),
     queryFn: async (): Promise<ReminderListResponse> => {
-      const response = await axiosInstance.get("/reminders/overdue");
+      // Fetch by status=OVERDUE
+      const response = await axiosInstance.get(`/reminders?status=OVERDUE`);
       return response.data;
     },
-    staleTime: 1 * 60 * 1000, // 1 minute (more frequent for overdue reminders)
+    staleTime: 1 * 60 * 1000,
   });
 };
 
@@ -138,7 +154,8 @@ export const useGetReminderStatistics = () => {
   return useQuery({
     queryKey: reminderKeys.statistics(),
     queryFn: async (): Promise<ReminderStatisticsResponse> => {
-      const response = await axiosInstance.get("/reminders/statistics");
+      // Backend route is /reminders/stats
+      const response = await axiosInstance.get("/reminders/stats");
       return response.data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -193,7 +210,8 @@ export const useMarkReminderCompleted = () => {
 
   return useMutation({
     mutationFn: async (id: string): Promise<ReminderResponse> => {
-      const response = await axiosInstance.patch(`/reminders/${id}/complete`);
+      // Backend route is POST /reminders/:id/mark-completed
+      const response = await axiosInstance.post(`/reminders/${id}/mark-completed`);
       return response.data;
     },
     onSuccess: (_, id) => {
@@ -203,6 +221,79 @@ export const useMarkReminderCompleted = () => {
       queryClient.invalidateQueries({ queryKey: reminderKeys.upcoming() });
       queryClient.invalidateQueries({ queryKey: reminderKeys.overdue() });
       queryClient.invalidateQueries({ queryKey: reminderKeys.statistics() });
+    },
+  });
+};
+
+// Mark reminder as not done (reschedule)
+export const useMarkReminderNotDone = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, rescheduleMinutes = 60 }: { id: string; rescheduleMinutes?: number; }): Promise<ReminderResponse> => {
+      const response = await axiosInstance.post(`/reminders/${id}/mark-not-done`, { rescheduleMinutes });
+      return response.data;
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: reminderKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: reminderKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: reminderKeys.upcoming() });
+      queryClient.invalidateQueries({ queryKey: reminderKeys.overdue() });
+      queryClient.invalidateQueries({ queryKey: reminderKeys.statistics() });
+    },
+  });
+};
+
+// Get reminders needing acknowledgment (OVERDUE list shorthand)
+export const useGetRemindersNeedingAcknowledgment = () => {
+  return useQuery({
+    queryKey: [...reminderKeys.all, 'needing-acknowledgment'],
+    queryFn: async (): Promise<Reminder[]> => {
+      const response = await axiosInstance.get(`/reminders/needing-acknowledgment`);
+      return response.data?.data || [];
+    },
+    staleTime: 60 * 1000,
+  });
+};
+
+// Create custom time reminder
+export const useCreateCustomTimeReminder = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { title: string; description?: string; specificTime: string; isRecurring?: boolean; farmId?: string; batchId?: string; }): Promise<ReminderResponse> => {
+      const response = await axiosInstance.post(`/reminders/custom-time`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reminderKeys.all });
+    },
+  });
+};
+
+// Create custom interval reminder
+export const useCreateCustomIntervalReminder = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { title: string; description?: string; interval: { unit: 'minutes' | 'hours' | 'days' | 'weeks' | 'months'; value: number }; farmId?: string; batchId?: string; }): Promise<ReminderResponse> => {
+      const response = await axiosInstance.post(`/reminders/custom-interval`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reminderKeys.all });
+    },
+  });
+};
+
+// Create day-of-week reminder
+export const useCreateDayOfWeekReminder = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { title: string; description?: string; dayOfWeek: number; timeOfDay: string; farmId?: string; batchId?: string; }): Promise<ReminderResponse> => {
+      const response = await axiosInstance.post(`/reminders/day-of-week`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reminderKeys.all });
     },
   });
 };

@@ -59,18 +59,25 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Push event - handle incoming push notifications
+
+// Push event handler (for completeness)
 self.addEventListener('push', (event) => {
-  console.log('Service Worker: Push event received');
+  console.log('📬 Service Worker: Push event received');
   
   if (!event.data) {
-    console.log('Service Worker: No data in push event');
+    console.log('⚠️ No data in push event');
     return;
   }
 
   try {
     const data = event.data.json();
-    console.log('Service Worker: Push data received', data);
+    console.log('📦 Push data received:', {
+      title: data.title,
+      type: data.type,
+      hasActions: !!data.actions && data.actions.length > 0,
+      actions: data.actions,
+      notificationType: data.data?.notificationType
+    });
 
     const options = {
       body: data.body || 'You have a new notification',
@@ -79,34 +86,38 @@ self.addEventListener('push', (event) => {
       data: {
         url: data.data?.url || '/dashboard',
         type: data.type,
+        notificationType: data.data?.notificationType,
+        reminderId: data.data?.reminderId,
+        reminderType: data.data?.reminderType,
+        batchId: data.data?.batchId,
+        farmId: data.data?.farmId,
+        customData: data.data?.customData,
         ...data.data,
       },
       vibrate: [100, 50, 100],
       requireInteraction: data.requireInteraction || false,
       tag: data.type, // Group notifications by type
       renotify: true,
-      actions: data.actions || [], // Add action buttons for reminders
+      actions: data.actions || [], // Action buttons
     };
 
-    console.log('Service Worker: Notification options:', options);
-
-    // Check if we have permission to show notifications
-    if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
-      console.error('Service Worker: Notification permission not granted:', Notification.permission);
-      return;
-    }
+    console.log('🎨 Notification options prepared:', {
+      hasActions: options.actions.length > 0,
+      actionCount: options.actions.length,
+      actions: options.actions
+    });
 
     event.waitUntil(
       self.registration.showNotification(data.title || 'Poultry360', options)
         .then(() => {
-          console.log('Service Worker: Notification displayed successfully');
+          console.log('✅ Notification displayed successfully');
         })
         .catch((error) => {
-          console.error('Service Worker: Failed to display notification', error);
+          console.error('❌ Failed to display notification', error);
         })
     );
   } catch (error) {
-    console.error('Service Worker: Error processing push event', error);
+    console.error('❌ Error processing push event', error);
     
     // Fallback notification
     event.waitUntil(
@@ -120,91 +131,146 @@ self.addEventListener('push', (event) => {
   }
 });
 
-// Notification click event - handle user clicking on notifications
-self.addEventListener('notificationclick', (event) => {
-  console.log('Service Worker: Notification click event', event.notification.data);
-  
-  event.notification.close();
+console.log('✨ Service Worker loaded successfully');
 
+
+// COMPLETE FIXED Service Worker - notificationclick handler with detailed logging
+
+self.addEventListener('notificationclick', (event) => {
+  console.log('🔔 Service Worker: notificationclick event triggered');
+  
+  const data = event.notification?.data || {};
+  const action = event.action;
+  
+  console.log('📊 Notification data:', {
+    action: action,
+    hasAction: !!action,
+    notificationType: data.notificationType,
+    reminderId: data.reminderId,
+    url: data.url,
+    fullData: data
+  });
+
+  // Always close the notification first
+  event.notification.close();
+  console.log('✅ Notification closed');
+
+  // CRITICAL: Check if this is an ACTION BUTTON click
+  if (action) {
+    console.log('🎯 ACTION BUTTON CLICKED:', action);
+    console.log('🚫 Skipping navigation, handling action only');
+    
+    event.waitUntil(
+      (async () => {
+        try {
+          console.log('🔍 Looking for active clients...');
+          const allClients = await clients.matchAll({ 
+            includeUncontrolled: true, 
+            type: 'window' 
+          });
+          
+          console.log(`📱 Found ${allClients.length} clients`);
+          const appClient = allClients.find((client) => client.url.includes(self.origin));
+
+          if (appClient) {
+            console.log('✅ Active client found, focusing and sending message');
+            await appClient.focus();
+            
+            // Send the action to the client
+            appClient.postMessage({ 
+              type: 'NOTIFICATION_ACTION', 
+              action: action,
+              data: {
+                notificationType: data.notificationType,
+                reminderId: data.reminderId,
+                reminderType: data.reminderType,
+                batchId: data.batchId,
+                farmId: data.farmId,
+                customData: data.customData,
+                url: data.url
+              }
+            });
+            
+            console.log('📤 NOTIFICATION_ACTION message sent:', {
+              action,
+              reminderId: data.reminderId,
+              notificationType: data.notificationType
+            });
+          } else {
+            console.log('⚠️ No active client found');
+            console.log('💡 Consider storing action in IndexedDB for later processing');
+            // Optional: Store in IndexedDB to process when app opens
+          }
+        } catch (err) {
+          console.error('❌ Error handling action click:', err);
+        }
+      })()
+    );
+    
+    // CRITICAL: RETURN HERE - Do not continue to navigation logic
+    console.log('🛑 Returning early - NO NAVIGATION');
+    return;
+  }
+
+  // This code only runs if NO action button was clicked (body click)
+  console.log('👆 Notification BODY clicked (no action button)');
+  
+  // Special-case: For reminder notifications on platforms that don't support actions,
+  // do NOT navigate. Just focus the app and notify the client to handle inline.
+  if (data?.notificationType === 'reminder') {
+    console.log('🔒 Reminder body click: suppressing navigation, forwarding to client');
+    event.waitUntil(
+      (async () => {
+        try {
+          const allClients = await clients.matchAll({ includeUncontrolled: true, type: 'window' });
+          const appClient = allClients.find((client) => client.url.includes(self.origin));
+          if (appClient) {
+            await appClient.focus();
+            appClient.postMessage({ type: 'NOTIFICATION_CLICK', data });
+          }
+        } catch (err) {
+          console.error('❌ Error handling reminder body click:', err);
+        }
+      })()
+    );
+    return;
+  }
+  console.log('🧭 Proceeding with navigation...');
+  
   event.waitUntil(
     (async () => {
-      const allClients = await clients.matchAll({
-        includeUncontrolled: true,
-        type: 'window',
-      });
-
-      // Check if app is already open
-      const appClient = allClients.find((client) =>
-        client.url.includes(self.origin)
-      );
-
-      if (appClient) {
-        // Focus existing window
-        await appClient.focus();
-        
-        // Send message to the app about the notification click
-        appClient.postMessage({ 
-          type: 'NOTIFICATION_CLICK', 
-          data: event.notification.data 
+      try {
+        const allClients = await clients.matchAll({ 
+          includeUncontrolled: true, 
+          type: 'window' 
         });
-        
-        // Navigate to specific page if URL is provided
-        if (event.notification.data?.url) {
-          appClient.navigate(event.notification.data.url);
+        const appClient = allClients.find((client) => client.url.includes(self.origin));
+
+        if (appClient) {
+          console.log('✅ Focusing existing client');
+          await appClient.focus();
+          
+          appClient.postMessage({ 
+            type: 'NOTIFICATION_CLICK', 
+            data 
+          });
+          
+          if (data?.url) {
+            console.log('🔄 Navigating to:', data.url);
+            appClient.navigate(data.url);
+          }
+        } else {
+          const urlToOpen = data?.url || '/dashboard';
+          console.log('🆕 Opening new window at:', urlToOpen);
+          await clients.openWindow(urlToOpen);
         }
-      } else {
-        // Open new window
-        const url = event.notification.data?.url || '/dashboard';
-        await clients.openWindow(url);
+      } catch (err) {
+        console.error('❌ Error handling notification body click:', err);
       }
     })()
   );
 });
 
-// Notification action click event - handle user clicking on action buttons
-self.addEventListener('notificationclick', (event) => {
-  console.log('Service Worker: Notification action click event', event.action, event.notification.data);
-  
-  // Handle action button clicks
-  if (event.action && event.notification.data?.notificationType === 'reminder') {
-    event.notification.close();
-    
-    event.waitUntil(
-      (async () => {
-        try {
-          // Get the current user ID from storage or send to app
-          const allClients = await clients.matchAll({
-            includeUncontrolled: true,
-            type: 'window',
-          });
-
-          const appClient = allClients.find((client) =>
-            client.url.includes(self.origin)
-          );
-
-          if (appClient) {
-            // Send action to the app to handle
-            appClient.postMessage({ 
-              type: 'NOTIFICATION_ACTION', 
-              action: event.action,
-              data: event.notification.data 
-            });
-          } else {
-            // If app is not open, we need to handle this differently
-            // For now, we'll just log it - in a real app, you might want to
-            // store the action and process it when the app opens
-            console.log('Service Worker: App not open, action will be handled when app opens', {
-              action: event.action,
-              data: event.notification.data
-            });
-          }
-        } catch (error) {
-          console.error('Service Worker: Error handling notification action', error);
-        }
-      })()
-    );
-  }
-});
 
 // Background sync event (for future offline functionality)
 self.addEventListener('sync', (event) => {

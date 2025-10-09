@@ -40,7 +40,7 @@ import {
   useGetCustomersForSales,
 } from "@/fetchers/sale/saleQueries";
 import { useCreateMortality } from "@/fetchers/mortality/mortalityQueries";
-import { 
+import {
   useDashboardStats,
   useGetMoneyToReceiveDetails,
   useGetMoneyToPayDetails,
@@ -333,6 +333,28 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Failed to delete reminder:", error);
     }
+  };
+
+  // Sort upcoming by nearest due date
+  const sortedUpcoming = useMemo(() => {
+    return [...(upcoming || [])].sort(
+      (a: any, b: any) =>
+        new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+    );
+  }, [upcoming]);
+
+  // Format relative time until due (e.g., "in 42 min")
+  const formatDueIn = (dateString: string) => {
+    const now = new Date().getTime();
+    const due = new Date(dateString).getTime();
+    const diffMs = due - now;
+    if (diffMs <= 0) return "now";
+    const diffMin = Math.round(diffMs / 60000);
+    if (diffMin < 60) return `in ${diffMin} min`;
+    const diffHr = Math.round(diffMin / 60);
+    if (diffHr < 24) return `in ${diffHr} hr`;
+    const diffDay = Math.round(diffHr / 24);
+    return `in ${diffDay} day${diffDay > 1 ? "s" : ""}`;
   };
 
   // Quick form handlers
@@ -798,9 +820,7 @@ export default function DashboardPage() {
     const { name, value } = e.target;
     setWeightForm((p) => ({ ...p, [name]: value }));
   }
-  function updateQuickWeightSelect(
-    e: React.ChangeEvent<HTMLSelectElement>
-  ) {
+  function updateQuickWeightSelect(e: React.ChangeEvent<HTMLSelectElement>) {
     const { name, value } = e.target;
     setQuickWeightForm((p) => ({ ...p, [name]: value }));
     if (name === "farmId") {
@@ -1241,7 +1261,7 @@ export default function DashboardPage() {
                       .filter((category: any) => {
                         return (
                           category.name !== "Hatchery" &&
-                          category.name !== "Equipment" 
+                          category.name !== "Equipment"
                         );
                       })
                       .map((category: any) => (
@@ -2130,12 +2150,12 @@ export default function DashboardPage() {
                 )}
 
                 {/* Upcoming Reminders */}
-                {upcoming.length > 0 && (
+                {sortedUpcoming.length > 0 && (
                   <div>
                     <h4 className="text-sm font-medium text-primary mb-2">
-                      Upcoming ({upcoming.length})
+                      Upcoming ({sortedUpcoming.length})
                     </h4>
-                    {upcoming.slice(0, 5).map((reminder) => (
+                    {sortedUpcoming.slice(0, 5).map((reminder) => (
                       <div
                         key={reminder.id}
                         className="flex items-center space-x-4 p-3 border rounded-lg hover:bg-muted/50 mb-2"
@@ -2160,7 +2180,8 @@ export default function DashboardPage() {
                             {reminder.title}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {formatReminderDueDate(reminder.dueDate)} •{" "}
+                            {formatReminderDueDate(reminder.dueDate)} (
+                            {formatDueIn(reminder.dueDate.toString())}) •{" "}
                             {getReminderTypeDisplayName(reminder.type)}
                             {reminder.farm && ` • ${reminder.farm.name}`}
                             {reminder.batch &&
@@ -2684,7 +2705,9 @@ export default function DashboardPage() {
                   ))}
                 </select>
                 {weightErrors.farmId && (
-                  <p className="text-xs text-red-600 mt-1">{weightErrors.farmId}</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    {weightErrors.farmId}
+                  </p>
                 )}
               </div>
               <div>
@@ -2702,7 +2725,8 @@ export default function DashboardPage() {
                     .filter(
                       (batch) =>
                         batch.status === "ACTIVE" &&
-                        (!quickWeightForm.farmId || batch.farmId === quickWeightForm.farmId)
+                        (!quickWeightForm.farmId ||
+                          batch.farmId === quickWeightForm.farmId)
                     )
                     .map((batch) => (
                       <option key={batch.id} value={batch.id}>
@@ -2711,7 +2735,9 @@ export default function DashboardPage() {
                     ))}
                 </select>
                 {weightErrors.batchId && (
-                  <p className="text-xs text-red-600 mt-1">{weightErrors.batchId}</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    {weightErrors.batchId}
+                  </p>
                 )}
               </div>
               <div>
@@ -2724,7 +2750,9 @@ export default function DashboardPage() {
                   onChange={updateWeightFieldHome}
                 />
                 {weightErrors.date && (
-                  <p className="text-xs text-red-600 mt-1">{weightErrors.date}</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    {weightErrors.date}
+                  </p>
                 )}
               </div>
               <div>
@@ -2739,7 +2767,9 @@ export default function DashboardPage() {
                   onChange={updateWeightFieldHome}
                 />
                 {weightErrors.avgWeight && (
-                  <p className="text-xs text-red-600 mt-1">{weightErrors.avgWeight}</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    {weightErrors.avgWeight}
+                  </p>
                 )}
               </div>
               <div>
@@ -2753,7 +2783,9 @@ export default function DashboardPage() {
                   onChange={updateWeightFieldHome}
                 />
                 {weightErrors.sampleCount && (
-                  <p className="text-xs text-red-600 mt-1">{weightErrors.sampleCount}</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    {weightErrors.sampleCount}
+                  </p>
                 )}
               </div>
               <div className="md:col-span-2">
@@ -2771,10 +2803,18 @@ export default function DashboardPage() {
             </div>
           </ModalContent>
           <ModalFooter>
-            <Button type="button" variant="outline" onClick={() => setIsWeightModalOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsWeightModalOpen(false)}
+            >
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary" disabled={addWeightMutation.isPending || !quickWeightForm.batchId}>
+            <Button
+              type="submit"
+              className="bg-primary"
+              disabled={addWeightMutation.isPending || !quickWeightForm.batchId}
+            >
               {addWeightMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
@@ -2787,7 +2827,6 @@ export default function DashboardPage() {
         </form>
       </Modal>
       <TodayExpenses />
-
     </div>
   );
 }

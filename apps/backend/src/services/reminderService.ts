@@ -179,10 +179,15 @@ export class ReminderService {
    * Create a new reminder
    */
   async createReminder(userId: string, data: CreateReminderData): Promise<Reminder> {
+    // Sanitize optional FKs: empty strings should be treated as undefined to avoid FK violations
+    const { farmId, batchId, ...rest } = data;
+
     return await prisma.reminder.create({
       data: {
-        ...data,
+        ...rest,
         userId,
+        farmId: farmId && farmId.trim() !== '' ? farmId : undefined,
+        batchId: batchId && batchId.trim() !== '' ? batchId : undefined,
       },
       include: {
         farm: {
