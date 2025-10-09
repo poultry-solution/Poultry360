@@ -1,4 +1,5 @@
 import { getReminderService } from './reminderService';
+import { getVaccinationService } from './vaccinationService';
 import { notificationService, NotificationType } from './webpushService';
 import { getNotificationTypeForReminder } from '../utils/reminderTypeMap';
 
@@ -8,6 +9,7 @@ import { getNotificationTypeForReminder } from '../utils/reminderTypeMap';
  */
 export class ReminderOrchestrator {
   private reminderService = getReminderService();
+  private vaccinationService = getVaccinationService();
 
   /**
    * Process all due reminders and send notifications
@@ -28,6 +30,10 @@ export class ReminderOrchestrator {
     };
 
     try {
+      // First, sync vaccination reminders to ensure all vaccinations have reminders
+      console.log('🩺 Syncing vaccination reminders...');
+      await this.vaccinationService.syncVaccinationReminders();
+
       // Get newly due reminders (PENDING -> OVERDUE)
       const dueReminders = await this.reminderService.getDueReminders();
       
@@ -91,8 +97,40 @@ export class ReminderOrchestrator {
     // Get notification type for this reminder
     const notificationType = getNotificationTypeForReminder(reminder.type);
     
-    // Create notification payload with action buttons for reminders
-    const payload = {
+    // Create notification payload - special handling for vaccination reminders
+    const payload = this.createNotificationPayload(reminder, notificationType);
+
+    // Send notification
+    const notificationResult = await notificationService.sendNotification(
+      reminder.userId,
+      payload
+    );
+
+    if (!notificationResult.success) {
+      throw new Error(`Failed to send notification: ${notificationResult.error}`);
+    }
+
+    // Only mark as triggered if it's newly due (PENDING -> OVERDUE)
+    // OVERDUE reminders stay OVERDUE until user acknowledges
+    if (reminder.status === 'PENDING') {
+      await this.reminderService.markAsTriggered(reminder);
+      console.log(`🔄 Moved reminder to OVERDUE: ${reminder.title}`);
+    } else {
+      console.log(`🔄 Resent notification for OVERDUE reminder: ${reminder.title}`);
+    }
+  }
+
+  /**
+   * Create notification payload with special handling for vaccination reminders
+   */
+  private createNotificationPayload(reminder: any, notificationType: NotificationType): any {
+    // Special handling for vaccination reminders
+    if (reminder.type === 'VACCINATION' && reminder.data?.reminderType) {
+      return this.createVaccinationNotificationPayload(reminder, notificationType);
+    }
+
+    // Default reminder notification payload
+    return {
       title: reminder.title,
       body: reminder.description || 'Reminder is due!',
       type: notificationType,
@@ -119,25 +157,59 @@ export class ReminderOrchestrator {
         notificationType: 'reminder' // Flag to identify reminder notifications
       }
     };
+  }
 
-    // Send notification
-    const notificationResult = await notificationService.sendNotification(
-      reminder.userId,
-      payload
-    );
+  /**
+   * Create special vaccination notification payload
+   */
+  private createVaccinationNotificationPayload(reminder: any, notificationType: NotificationType): any {
+    const isTomorrowReminder = reminder.data?.reminderType === 'vaccination_tomorrow';
+    
+    // Different titles and bodies for tomorrow vs due vaccinations
+    const title = isTomorrowReminder 
+      ? `🩺 Vaccination Tomorrow: ${reminder.data?.vaccineName || 'Vaccination'}`
+      : `🩺 Vaccination Due: ${reminder.data?.vaccineName || 'Vaccination'}`;
 
-    if (!notificationResult.success) {
-      throw new Error(`Failed to send notification: ${notificationResult.error}`);
-    }
+    const body = isTomorrowReminder
+      ? `Prepare for ${reminder.data?.vaccineName || 'vaccination'}${reminder.batch ? ` for Batch ${reminder.batch.batchNumber}` : ''}`
+      : `${reminder.data?.vaccineName || 'Vaccination'} is due now${reminder.batch ? ` for Batch ${reminder.batch.batchNumber}` : ''}`;
 
-    // Only mark as triggered if it's newly due (PENDING -> OVERDUE)
-    // OVERDUE reminders stay OVERDUE until user acknowledges
-    if (reminder.status === 'PENDING') {
-      await this.reminderService.markAsTriggered(reminder);
-      console.log(`🔄 Moved reminder to OVERDUE: ${reminder.title}`);
-    } else {
-      console.log(`🔄 Resent notification for OVERDUE reminder: ${reminder.title}`);
-    }
+    // Add dose information if available
+    const doseInfo = reminder.data?.totalDoses > 1 
+      ? ` (Dose ${reminder.data?.doseNumber}/${reminder.data?.totalDoses})`
+      : '';
+
+    return {
+      title: title + doseInfo,
+      body: body + doseInfo,
+      type: notificationType,
+      requireInteraction: true,
+      actions: [
+        {
+          action: 'mark-completed',
+          title: '✅ Vaccinated',
+          icon: '/icons/check.png'
+        },
+        {
+          action: 'mark-not-done',
+          title: '⏰ Later',
+          icon: '/icons/clock.png'
+        }
+      ],
+      data: {
+        reminderId: reminder.id,
+        vaccinationId: reminder.data?.vaccinationId,
+        farmId: reminder.farmId,
+        batchId: reminder.batchId,
+        reminderType: reminder.type,
+        vaccineName: reminder.data?.vaccineName,
+        doseNumber: reminder.data?.doseNumber,
+        totalDoses: reminder.data?.totalDoses,
+        url: this.getVaccinationUrl(reminder),
+        customData: reminder.data,
+        notificationType: 'reminder' // Flag to identify reminder notifications
+      }
+    };
   }
 
   /**
@@ -153,6 +225,22 @@ export class ReminderOrchestrator {
     }
     
     return '/dashboard/reminders';
+  }
+
+  /**
+   * Get the appropriate URL for vaccination reminders
+   */
+  private getVaccinationUrl(reminder: any): string {
+    // For vaccination reminders, prioritize batch context
+    if (reminder.batchId) {
+      return `/dashboard/batches/${reminder.batchId}?tab=vaccinations`;
+    }
+    
+    if (reminder.farmId) {
+      return `/dashboard/farms/${reminder.farmId}?tab=vaccinations`;
+    }
+    
+    return '/dashboard/vaccinations';
   }
 
   /**
@@ -303,6 +391,68 @@ export class ReminderOrchestrator {
       };
     }
   }
+
+  /**
+   * Process vaccination-specific reminders (for manual triggers)
+   */
+  async triggerVaccinationReminders(): Promise<{
+    processed: number;
+    successful: number;
+    failed: number;
+    errors: string[];
+  }> {
+    console.log('🩺 Starting vaccination reminder processing...');
+    
+    const results = {
+      processed: 0,
+      successful: 0,
+      failed: 0,
+      errors: [] as string[]
+    };
+
+    try {
+      // Sync vaccination reminders first
+      await this.vaccinationService.syncVaccinationReminders();
+
+      // Get vaccination reminders specifically
+      const vaccinationReminders = await this.reminderService.getDueReminders();
+      const filteredReminders = vaccinationReminders.filter((reminder: any) => 
+        reminder.type === 'VACCINATION'
+      );
+
+      if (filteredReminders.length === 0) {
+        console.log('✅ No due vaccination reminders found');
+        return results;
+      }
+
+      console.log(`📋 Found ${filteredReminders.length} due vaccination reminders`);
+
+      // Process each vaccination reminder
+      for (const reminder of filteredReminders) {
+        results.processed++;
+        
+        try {
+          await this.processReminder(reminder);
+          results.successful++;
+          console.log(`✅ Processed vaccination reminder: ${reminder.title}`);
+        } catch (error: any) {
+          results.failed++;
+          const errorMsg = `Failed to process vaccination reminder "${reminder.title}": ${error.message}`;
+          results.errors.push(errorMsg);
+          console.error(`❌ ${errorMsg}`);
+        }
+      }
+
+      console.log(`🎯 Vaccination reminder processing completed: ${results.successful}/${results.processed} successful`);
+      
+    } catch (error: any) {
+      const errorMsg = `Failed to process vaccination reminders: ${error.message}`;
+      results.errors.push(errorMsg);
+      console.error(`❌ ${errorMsg}`);
+    }
+
+    return results;
+  }
 }
 
 // Singleton instance
@@ -327,4 +477,18 @@ export const triggerReminders = async (): Promise<{
 }> => {
   const orchestrator = getReminderOrchestrator();
   return await orchestrator.triggerReminders();
+};
+
+/**
+ * Main function to trigger vaccination reminders specifically
+ * This can be called by the cron job or manually
+ */
+export const triggerVaccinationReminders = async (): Promise<{
+  processed: number;
+  successful: number;
+  failed: number;
+  errors: string[];
+}> => {
+  const orchestrator = getReminderOrchestrator();
+  return await orchestrator.triggerVaccinationReminders();
 };

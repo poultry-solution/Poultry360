@@ -232,6 +232,7 @@ export class ReminderService {
 
   /**
    * Delete a reminder
+   * For recurring reminders, this deletes ALL future instances of the same recurring reminder
    */
   async deleteReminder(reminderId: string, userId: string): Promise<boolean> {
     // Verify ownership
@@ -246,9 +247,30 @@ export class ReminderService {
       throw new Error('Reminder not found or access denied');
     }
 
-    await prisma.reminder.delete({
-      where: { id: reminderId },
-    });
+    // If it's a recurring reminder, delete ALL future instances
+    if (existingReminder.isRecurring && existingReminder.recurrencePattern !== 'NONE') {
+      // Delete all future instances of this recurring reminder
+      await prisma.reminder.deleteMany({
+        where: {
+          userId,
+          title: existingReminder.title,
+          type: existingReminder.type,
+          isRecurring: true,
+          recurrencePattern: existingReminder.recurrencePattern,
+          recurrenceInterval: existingReminder.recurrenceInterval,
+          farmId: existingReminder.farmId,
+          batchId: existingReminder.batchId,
+          status: {
+            in: ['PENDING', 'OVERDUE'] // Only delete future instances, not completed ones
+          }
+        }
+      });
+    } else {
+      // Non-recurring reminder, just delete this instance
+      await prisma.reminder.delete({
+        where: { id: reminderId },
+      });
+    }
 
     return true;
   }
@@ -432,6 +454,39 @@ export class ReminderService {
   }
 
   /**
+   * Calculate next due date for recurring reminders
+   */
+  private calculateNextDueDate(
+    currentDueDate: Date,
+    pattern: RecurrencePattern,
+    interval: number
+  ): Date {
+    const nextDate = new Date(currentDueDate);
+    
+    switch (pattern) {
+      case 'DAILY':
+        nextDate.setDate(nextDate.getDate() + interval);
+        break;
+      case 'WEEKLY':
+        nextDate.setDate(nextDate.getDate() + (7 * interval));
+        break;
+      case 'MONTHLY':
+        nextDate.setMonth(nextDate.getMonth() + interval);
+        break;
+      case 'CUSTOM':
+        // For custom patterns, we'll use daily as default
+        // The actual custom logic would be handled by the specific custom methods
+        nextDate.setDate(nextDate.getDate() + interval);
+        break;
+      default:
+        // Default to daily
+        nextDate.setDate(nextDate.getDate() + 1);
+    }
+    
+    return nextDate;
+  }
+
+  /**
    * Create a custom reminder with specific time (e.g., "Remind me to talk with dealer at 10 PM")
    */
   async createCustomTimeReminder(
@@ -533,6 +588,7 @@ export class ReminderService {
 
   /**
    * Mark a reminder as COMPLETED (user acknowledged completion)
+   * For recurring reminders, this creates a new instance for the next occurrence
    */
   async markAsCompleted(reminderId: string, userId: string): Promise<Reminder> {
     // Verify ownership
@@ -547,21 +603,103 @@ export class ReminderService {
       throw new Error('Reminder not found or access denied');
     }
 
-    return await prisma.reminder.update({
-      where: { id: reminderId },
-      data: {
-        status: 'COMPLETED',
-        lastTriggered: new Date(),
-      },
-      include: {
-        farm: {
-          select: { id: true, name: true }
-        },
-        batch: {
-          select: { id: true, batchNumber: true }
+    // If already completed, don't create duplicates
+    if (existingReminder.status === 'COMPLETED') {
+      return existingReminder;
+    }
+
+    // If it's a recurring reminder, create a new instance for the next occurrence
+    if (existingReminder.isRecurring && existingReminder.recurrencePattern !== 'NONE') {
+      const nextDueDate = this.calculateNextDueDate(
+        existingReminder.dueDate,
+        existingReminder.recurrencePattern,
+        existingReminder.recurrenceInterval || 1
+      );
+
+      // Check if a similar recurring reminder already exists for the next occurrence
+      // This prevents duplicate creation if the user clicks "Done" multiple times
+      const existingNextReminder = await prisma.reminder.findFirst({
+        where: {
+          userId: existingReminder.userId,
+          title: existingReminder.title,
+          type: existingReminder.type,
+          isRecurring: true,
+          recurrencePattern: existingReminder.recurrencePattern,
+          recurrenceInterval: existingReminder.recurrenceInterval,
+          farmId: existingReminder.farmId,
+          batchId: existingReminder.batchId,
+          dueDate: {
+            gte: new Date(nextDueDate.getTime() - 60000), // Within 1 minute
+            lte: new Date(nextDueDate.getTime() + 60000), // Within 1 minute
+          },
+          status: 'PENDING'
         }
-      },
-    });
+      });
+
+      // Mark the current reminder as completed first
+      const completedReminder = await prisma.reminder.update({
+        where: { id: reminderId },
+        data: {
+          status: 'COMPLETED',
+          lastTriggered: new Date(),
+        },
+        include: {
+          farm: {
+            select: { id: true, name: true }
+          },
+          batch: {
+            select: { id: true, batchNumber: true }
+          }
+        }
+      });
+
+      // Only create new reminder if one doesn't already exist for the next occurrence
+      if (!existingNextReminder) {
+        const newReminder = await prisma.reminder.create({
+          data: {
+            title: existingReminder.title,
+            description: existingReminder.description,
+            type: existingReminder.type,
+            dueDate: nextDueDate,
+            isRecurring: existingReminder.isRecurring,
+            recurrencePattern: existingReminder.recurrencePattern,
+            recurrenceInterval: existingReminder.recurrenceInterval,
+            farmId: existingReminder.farmId,
+            batchId: existingReminder.batchId,
+            data: existingReminder.data as any,
+            userId: existingReminder.userId,
+          },
+          include: {
+            farm: {
+              select: { id: true, name: true }
+            },
+            batch: {
+              select: { id: true, batchNumber: true }
+            }
+          }
+        });
+        return newReminder;
+      }
+
+      return completedReminder;
+    } else {
+      // Non-recurring reminder, just mark as completed
+      return await prisma.reminder.update({
+        where: { id: reminderId },
+        data: {
+          status: 'COMPLETED',
+          lastTriggered: new Date(),
+        },
+        include: {
+          farm: {
+            select: { id: true, name: true }
+          },
+          batch: {
+            select: { id: true, batchNumber: true }
+          }
+        },
+      });
+    }
   }
 
   /**
@@ -622,6 +760,43 @@ export class ReminderService {
       },
       orderBy: { dueDate: 'asc' }, // Show oldest overdue first
     });
+  }
+
+  /**
+   * Clean up duplicate recurring reminders (utility function)
+   */
+  async cleanupDuplicateReminders(userId: string): Promise<number> {
+    // Find all recurring reminders for the user
+    const recurringReminders = await prisma.reminder.findMany({
+      where: {
+        userId,
+        isRecurring: true,
+        status: 'PENDING'
+      },
+      orderBy: [
+        { title: 'asc' },
+        { dueDate: 'asc' }
+      ]
+    });
+
+    let duplicatesRemoved = 0;
+    const seen = new Map<string, string>(); // title -> reminderId
+
+    for (const reminder of recurringReminders) {
+      const key = `${reminder.title}-${reminder.type}-${reminder.farmId || 'null'}-${reminder.batchId || 'null'}`;
+      
+      if (seen.has(key)) {
+        // This is a duplicate, remove it
+        await prisma.reminder.delete({
+          where: { id: reminder.id }
+        });
+        duplicatesRemoved++;
+      } else {
+        seen.set(key, reminder.id);
+      }
+    }
+
+    return duplicatesRemoved;
   }
 
   /**

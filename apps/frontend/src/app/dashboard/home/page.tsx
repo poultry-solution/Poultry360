@@ -894,6 +894,13 @@ export default function DashboardPage() {
             <Plus className="h-4 w-4" />
             <span className="truncate">Add Mortality</span>
           </button>
+          <Link
+            href="/dashboard/reminders"
+            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted"
+          >
+            <Clock className="h-4 w-4" />
+            <span className="truncate">Reminders</span>
+          </Link>
           <button
             className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted"
             onClick={() => setIsWeightModalOpen(true)}

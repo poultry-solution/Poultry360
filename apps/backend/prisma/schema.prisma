@@ -174,6 +174,7 @@ model User {
   customers Customer[]
   notifications Notification[]
   reminders Reminder[]
+  vaccinations Vaccination[]
   auditLogs AuditLog[]
 
   
@@ -223,6 +224,7 @@ model Farm {
   inventoryUsages InventoryUsage[]
   notifications Notification[]
   reminders   Reminder[]
+  vaccinations Vaccination[]
 
 
   createdAt   DateTime @default(now())
@@ -660,13 +662,33 @@ model Vaccination {
   status      VaccinationStatus @default(PENDING) // Fixed: proper enum
   notes       String?
   
-  batchId     String
-  batch       Batch             @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  // NEW: Reminder integration
+  reminderCreated Boolean           @default(false)  // Track if reminder was created
+  reminderId      String?           @unique          // Link to reminder
+  reminder        Reminder?
   
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  // NEW: Multi-dose support
+  doseNumber      Int               @default(1)      // 1st dose, 2nd dose, etc.
+  totalDoses      Int               @default(1)      // Total doses required
+  daysBetweenDoses Int?                              // Days between doses
+  
+  // NEW: Flexible context relationships (can be tied to batch, farm, or neither)
+  batchId         String?
+  batch           Batch?            @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  farmId          String?
+  farm            Farm?             @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  
+  // NEW: User ownership for farm-level or general vaccinations
+  userId          String
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
   @@index([batchId, scheduledDate])
+  @@index([farmId, scheduledDate])
+  @@index([userId, scheduledDate])
+  @@index([status, scheduledDate])
 }
 
 model FeedConsumption {
@@ -755,6 +777,10 @@ model Reminder {
   batchId     String?
   batch       Batch?            @relation(fields: [batchId], references: [id], onDelete: Cascade)
   
+  // NEW: Vaccination integration
+  vaccinationId   String?           @unique
+  vaccination     Vaccination?      @relation(fields: [vaccinationId], references: [id])
+  
   // Additional data for specific reminder types
   data        Json?             // Store specific data like supplier ID, customer ID, etc.
   
@@ -769,6 +795,7 @@ model Reminder {
   @@index([farmId, dueDate])
   @@index([batchId, dueDate])
   @@index([type, dueDate])
+  @@index([vaccinationId])
 }
 
 // ==================== NOTIFICATIONS ====================
