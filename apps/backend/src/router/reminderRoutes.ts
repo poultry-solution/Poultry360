@@ -12,7 +12,8 @@ import {
   getReminderStats,
   markReminderAsNotDone,
   getRemindersNeedingAcknowledgment,
-  markReminderAsCompleted
+  markReminderAsCompleted,
+  cleanupDuplicateReminders
 } from '../controller/reminderController';
 
 const router = Router();
@@ -24,6 +25,7 @@ router.use(authMiddleware);
 router.get('/', getUserReminders);
 router.get('/stats', getReminderStats);
 router.get('/needing-acknowledgment', getRemindersNeedingAcknowledgment);
+router.post('/cleanup-duplicates', cleanupDuplicateReminders);
 router.post('/', createReminder);
 router.put('/:id', updateReminder);
 router.delete('/:id', deleteReminder);

@@ -150,6 +150,39 @@ export const useGetOverdueReminders = () => {
   });
 };
 
+// Get completed reminders for today
+export const useGetCompletedTodayReminders = () => {
+  return useQuery({
+    queryKey: [...reminderKeys.all, 'completed-today'],
+    queryFn: async (): Promise<ReminderListResponse> => {
+      // Fetch by status=COMPLETED and filter for today
+      const response = await axiosInstance.get(`/reminders?status=COMPLETED`);
+      const all: Reminder[] = response.data?.data || [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const todayCompleted = all.filter((r: any) => {
+        const completedDate = new Date(r.updatedAt || r.createdAt);
+        return completedDate >= today && completedDate < tomorrow;
+      });
+      
+      return {
+        success: true,
+        data: todayCompleted,
+        pagination: {
+          page: 1,
+          limit: todayCompleted.length,
+          total: todayCompleted.length,
+          totalPages: 1,
+        },
+      } as ReminderListResponse;
+    },
+    staleTime: 1 * 60 * 1000,
+  });
+};
+
 // Get all scheduled (future) reminders (any distance in future)
 export const useGetScheduledReminders = () => {
   return useQuery({
@@ -242,9 +275,12 @@ export const useMarkReminderCompleted = () => {
       return response.data;
     },
     onSuccess: (_, id) => {
-      // Invalidate specific reminder and all lists
-      queryClient.invalidateQueries({ queryKey: reminderKeys.detail(id) });
-      queryClient.invalidateQueries({ queryKey: reminderKeys.lists() });
+      // Invalidate all reminder queries to ensure fresh data
+      queryClient.invalidateQueries({ queryKey: reminderKeys.all });
+      
+      // Specifically invalidate completed today and scheduled queries
+      queryClient.invalidateQueries({ queryKey: [...reminderKeys.all, 'completed-today'] });
+      queryClient.invalidateQueries({ queryKey: reminderKeys.scheduled() });
       queryClient.invalidateQueries({ queryKey: reminderKeys.upcoming() });
       queryClient.invalidateQueries({ queryKey: reminderKeys.overdue() });
       queryClient.invalidateQueries({ queryKey: reminderKeys.statistics() });
@@ -262,8 +298,12 @@ export const useMarkReminderNotDone = () => {
       return response.data;
     },
     onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: reminderKeys.detail(id) });
-      queryClient.invalidateQueries({ queryKey: reminderKeys.lists() });
+      // Invalidate all reminder queries to ensure fresh data
+      queryClient.invalidateQueries({ queryKey: reminderKeys.all });
+      
+      // Specifically invalidate completed today and scheduled queries
+      queryClient.invalidateQueries({ queryKey: [...reminderKeys.all, 'completed-today'] });
+      queryClient.invalidateQueries({ queryKey: reminderKeys.scheduled() });
       queryClient.invalidateQueries({ queryKey: reminderKeys.upcoming() });
       queryClient.invalidateQueries({ queryKey: reminderKeys.overdue() });
       queryClient.invalidateQueries({ queryKey: reminderKeys.statistics() });
@@ -343,6 +383,22 @@ export const useDeleteReminder = () => {
       queryClient.invalidateQueries({ queryKey: reminderKeys.upcoming() });
       queryClient.invalidateQueries({ queryKey: reminderKeys.overdue() });
       queryClient.invalidateQueries({ queryKey: reminderKeys.statistics() });
+    },
+  });
+};
+
+// Clean up duplicate recurring reminders
+export const useCleanupDuplicateReminders = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (): Promise<{ success: boolean; message: string; duplicatesRemoved: number }> => {
+      const response = await axiosInstance.post(`/reminders/cleanup-duplicates`);
+      return response.data;
+    },
+    onSuccess: () => {
+      // Invalidate all reminder queries to refresh the data
+      queryClient.invalidateQueries({ queryKey: reminderKeys.all });
     },
   });
 };

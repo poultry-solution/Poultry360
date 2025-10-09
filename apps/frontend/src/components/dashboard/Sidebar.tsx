@@ -14,6 +14,7 @@ import {
   MessageCircle,
   ChevronLeft,
   Receipt,
+  Syringe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/store/store";
@@ -36,6 +37,7 @@ const navigation = [
     href: "/dashboard/chat-doctor",
     icon: MessageCircle,
   },
+  { name: "Vaccinations", href: "/dashboard/vaccinations", icon: Syringe },
 ];
 
 interface SidebarProps {

@@ -4,30 +4,39 @@ import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Clock, RotateCcw, Bell, Calendar, Plus, Filter } from "lucide-react";
+import { CheckCircle, Clock, RotateCcw, Bell, Calendar, Plus, Filter, Trash2 } from "lucide-react";
 import {
   useGetUpcomingReminders,
   useGetOverdueReminders,
   useGetScheduledReminders,
+  useGetCompletedTodayReminders,
   useCreateReminder,
   useMarkReminderCompleted,
   useMarkReminderNotDone,
+  useDeleteReminder,
+  useCleanupDuplicateReminders,
   getReminderTypeDisplayName,
   formatReminderDueDate,
 } from "@/fetchers/remainder/remainderQueries";
 
 export default function RemindersPage() {
-  const [activeTab, setActiveTab] = useState<"upcoming" | "overdue" | "scheduled">("upcoming");
+  const [activeTab, setActiveTab] = useState<"upcoming" | "overdue" | "scheduled" | "completed">("upcoming");
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   // Real queries
   const upcomingQuery = useGetUpcomingReminders(7);
   const overdueQuery = useGetOverdueReminders();
   const scheduledQuery = useGetScheduledReminders();
+  const completedTodayQuery = useGetCompletedTodayReminders();
 
   const createReminder = useCreateReminder();
   const markCompleted = useMarkReminderCompleted();
   const markNotDone = useMarkReminderNotDone();
+  const deleteReminder = useDeleteReminder();
+  const cleanupDuplicates = useCleanupDuplicateReminders();
+
+  // Track which reminder is being processed for loading states
+  const [processingReminderId, setProcessingReminderId] = useState<string | null>(null);
 
   // Form state
   const [form, setForm] = useState({
@@ -49,6 +58,7 @@ export default function RemindersPage() {
         upcomingQuery.refetch();
         overdueQuery.refetch();
         scheduledQuery.refetch();
+        completedTodayQuery.refetch();
       }
     };
 
@@ -61,7 +71,7 @@ export default function RemindersPage() {
         navigator.serviceWorker.removeEventListener('message', handleMessage);
       }
     };
-  }, [upcomingQuery, overdueQuery, scheduledQuery]);
+  }, [upcomingQuery, overdueQuery, scheduledQuery, completedTodayQuery]);
 
   // Handle form submission
   const handleCreateReminder = async () => {
@@ -91,6 +101,46 @@ export default function RemindersPage() {
       setShowCreateForm(false);
     } catch (error) {
       console.error('Failed to create reminder:', error);
+    }
+  };
+
+  // Handle mark as completed with loading state
+  const handleMarkCompleted = async (reminderId: string) => {
+    setProcessingReminderId(reminderId);
+    try {
+      await markCompleted.mutateAsync(reminderId);
+    } catch (error) {
+      console.error('Failed to mark reminder as completed:', error);
+    } finally {
+      setProcessingReminderId(null);
+    }
+  };
+
+  // Handle mark as not done with loading state
+  const handleMarkNotDone = async (reminderId: string) => {
+    setProcessingReminderId(reminderId);
+    try {
+      await markNotDone.mutateAsync({ id: reminderId, rescheduleMinutes: 60 });
+    } catch (error) {
+      console.error('Failed to mark reminder as not done:', error);
+    } finally {
+      setProcessingReminderId(null);
+    }
+  };
+
+  // Handle delete reminder with loading state
+  const handleDeleteReminder = async (reminderId: string) => {
+    if (!confirm('Are you sure you want to delete this reminder? For recurring reminders, this will delete ALL future instances.')) {
+      return;
+    }
+    
+    setProcessingReminderId(reminderId);
+    try {
+      await deleteReminder.mutateAsync(reminderId);
+    } catch (error) {
+      console.error('Failed to delete reminder:', error);
+    } finally {
+      setProcessingReminderId(null);
     }
   };
 
@@ -141,12 +191,13 @@ export default function RemindersPage() {
   const upcomingReminders = upcomingQuery.data?.data || [];
   const overdueReminders = overdueQuery.data?.data || [];
   const scheduledReminders = scheduledQuery.data?.data || [];
+  const completedTodayReminders = completedTodayQuery.data?.data || [];
 
   // Calculate stats
   const totalUpcoming = upcomingReminders.length;
   const totalOverdue = overdueReminders.length;
   const totalScheduled = scheduledReminders.length;
-  const completedToday = 0; // TODO: Add completed today query if needed
+  const completedToday = completedTodayReminders.length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
@@ -160,13 +211,23 @@ export default function RemindersPage() {
             </h1>
             <p className="text-slate-600 mt-1">Manage your farm tasks and notifications</p>
           </div>
-          <Button 
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="bg-blue-600 hover:bg-blue-700 shadow-lg"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Reminder
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => setShowCreateForm(!showCreateForm)}
+              className="bg-blue-600 hover:bg-blue-700 shadow-lg"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Reminder
+            </Button>
+            <Button 
+              onClick={() => cleanupDuplicates.mutate()}
+              variant="outline"
+              className="shadow-lg"
+              disabled={cleanupDuplicates.isPending}
+            >
+              {cleanupDuplicates.isPending ? "Cleaning..." : "Clean Duplicates"}
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -200,7 +261,7 @@ export default function RemindersPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-slate-600 font-medium">Completed Today</p>
-                  <p className="text-2xl font-bold text-slate-900">8</p>
+                  <p className="text-2xl font-bold text-slate-900">{completedToday}</p>
                 </div>
                 <CheckCircle className="h-10 w-10 text-green-500 opacity-20" />
               </div>
@@ -370,13 +431,24 @@ export default function RemindersPage() {
           >
             All Scheduled ({totalScheduled})
           </button>
+          <button
+            onClick={() => setActiveTab("completed")}
+            className={`px-6 py-3 font-medium transition-colors ${
+              activeTab === "completed"
+                ? "text-blue-600 border-b-2 border-blue-600"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Completed Today ({completedToday})
+          </button>
         </div>
 
         {/* Reminders List */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {(activeTab === "upcoming" ? upcomingReminders : 
             activeTab === "overdue" ? overdueReminders : 
-            scheduledReminders).map((reminder) => (
+            activeTab === "scheduled" ? scheduledReminders :
+            completedTodayReminders).map((reminder) => (
             <Card key={reminder.id} className="shadow-md hover:shadow-xl transition-all border-l-4 border-l-blue-500">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-3">
@@ -403,10 +475,13 @@ export default function RemindersPage() {
                   </div>
                   <div className="text-right">
                     <Badge 
-                      variant={reminder.status === "OVERDUE" ? "destructive" : "secondary"}
+                      variant={
+                        activeTab === "completed" ? "default" :
+                        reminder.status === "OVERDUE" ? "destructive" : "secondary"
+                      }
                       className="text-xs"
                     >
-                      {formatDueIn(reminder.dueDate.toString())}
+                      {activeTab === "completed" ? "Completed" : formatDueIn(reminder.dueDate.toString())}
                     </Badge>
                   </div>
                 </div>
@@ -422,24 +497,37 @@ export default function RemindersPage() {
                     })}
                   </div>
                   <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      className="bg-green-600 hover:bg-green-700 h-8 px-3"
-                      onClick={() => markCompleted.mutate(reminder.id)}
-                      disabled={markCompleted.isPending}
-                    >
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Done
-                    </Button>
+                    {activeTab !== "completed" && (
+                      <>
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 h-8 px-3"
+                          onClick={() => handleMarkCompleted(reminder.id)}
+                          disabled={processingReminderId === reminder.id}
+                        >
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          {processingReminderId === reminder.id ? "..." : "Done"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-3 border-slate-300"
+                          onClick={() => handleMarkNotDone(reminder.id)}
+                          disabled={processingReminderId === reminder.id}
+                        >
+                          <RotateCcw className="h-3 w-3 mr-1" />
+                          +1h
+                        </Button>
+                      </>
+                    )}
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-8 px-3 border-slate-300"
-                      onClick={() => markNotDone.mutate({ id: reminder.id, rescheduleMinutes: 60 })}
-                      disabled={markNotDone.isPending}
+                      className="h-8 px-3 border-red-300 text-red-600 hover:bg-red-50"
+                      onClick={() => handleDeleteReminder(reminder.id)}
+                      disabled={processingReminderId === reminder.id}
                     >
-                      <RotateCcw className="h-3 w-3 mr-1" />
-                      +1h
+                      <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>
@@ -451,7 +539,8 @@ export default function RemindersPage() {
         {/* Empty State */}
         {(activeTab === "upcoming" ? upcomingReminders : 
           activeTab === "overdue" ? overdueReminders : 
-          scheduledReminders).length === 0 && (
+          activeTab === "scheduled" ? scheduledReminders :
+          completedTodayReminders).length === 0 && (
           <Card className="shadow-md">
             <CardContent className="p-12 text-center">
               <div className="text-6xl mb-4">✨</div>
@@ -459,7 +548,10 @@ export default function RemindersPage() {
                 All caught up!
               </h3>
               <p className="text-slate-600">
-                No {activeTab === "upcoming" ? "upcoming" : activeTab === "overdue" ? "overdue" : "scheduled"} reminders at the moment.
+                No {activeTab === "upcoming" ? "upcoming" : 
+                    activeTab === "overdue" ? "overdue" : 
+                    activeTab === "scheduled" ? "scheduled" : 
+                    "completed"} reminders at the moment.
               </p>
             </CardContent>
           </Card>

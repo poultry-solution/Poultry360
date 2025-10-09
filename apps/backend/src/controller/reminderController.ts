@@ -510,3 +510,26 @@ export const getRemindersNeedingAcknowledgment = async (req: Request, res: Respo
     });
   }
 };
+
+/**
+ * Clean up duplicate recurring reminders
+ */
+export const cleanupDuplicateReminders = async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId as string;
+
+    const duplicatesRemoved = await reminderService.cleanupDuplicateReminders(userId);
+
+    res.json({
+      success: true,
+      message: `Cleaned up ${duplicatesRemoved} duplicate reminders`,
+      duplicatesRemoved
+    });
+  } catch (error: any) {
+    console.error('Error cleaning up duplicate reminders:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to clean up duplicate reminders'
+    });
+  }
+};
