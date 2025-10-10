@@ -215,10 +215,10 @@ self.addEventListener('notificationclick', (event) => {
   // This code only runs if NO action button was clicked (body click)
   console.log('👆 Notification BODY clicked (no action button)');
   
-  // Special-case: For reminder notifications on platforms that don't support actions,
+  // Special-case: For reminder and vaccination notifications on platforms that don't support actions,
   // do NOT navigate. Just focus the app and notify the client to handle inline.
-  if (data?.notificationType === 'reminder') {
-    console.log('🔒 Reminder body click: suppressing navigation, forwarding to client');
+  if (data?.notificationType === 'reminder' || data?.notificationType === 'vaccination') {
+    console.log('🔒 Reminder/Vaccination body click: suppressing navigation, forwarding to client');
     event.waitUntil(
       (async () => {
         try {
@@ -229,7 +229,7 @@ self.addEventListener('notificationclick', (event) => {
             appClient.postMessage({ type: 'NOTIFICATION_CLICK', data });
           }
         } catch (err) {
-          console.error('❌ Error handling reminder body click:', err);
+          console.error('❌ Error handling reminder/vaccination body click:', err);
         }
       })()
     );

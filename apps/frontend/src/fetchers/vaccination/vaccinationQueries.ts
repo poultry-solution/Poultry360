@@ -29,6 +29,12 @@ export interface Vaccination {
     dueDate: string;
   };
   userId: string;
+  // Standard vaccination fields
+  standardScheduleId?: string;
+  batchAge?: number;
+  retryCount?: number;
+  reminderCreated?: boolean;
+  reminderId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -56,6 +62,21 @@ export interface VaccinationSchedule {
   completedDoses: number;
   pendingDoses: number;
   overdueDoses: number;
+  // Standard vaccination fields
+  standardScheduleId?: string;
+  isStandard?: boolean;
+}
+
+export interface StandardVaccinationSchedule {
+  id: string;
+  vaccineName: string;
+  dayFrom: number;
+  dayTo: number;
+  isOptional: boolean;
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateVaccinationData {
@@ -124,6 +145,12 @@ export interface VaccinationStatsResponse {
   message?: string;
 }
 
+export interface StandardVaccinationScheduleListResponse {
+  success: boolean;
+  data: StandardVaccinationSchedule[];
+  message?: string;
+}
+
 // ==================== QUERY KEYS ====================
 export const vaccinationKeys = {
   all: ["vaccinations"] as const,
@@ -136,6 +163,7 @@ export const vaccinationKeys = {
   overdue: () => [...vaccinationKeys.all, "overdue"] as const,
   schedules: () => [...vaccinationKeys.all, "schedules"] as const,
   stats: () => [...vaccinationKeys.all, "stats"] as const,
+  standardSchedules: () => [...vaccinationKeys.all, "standard-schedules"] as const,
 };
 
 // ==================== QUERY HOOKS ====================
@@ -207,65 +235,82 @@ export const useGetVaccinationStats = (options?: { enabled?: boolean }) => {
   });
 };
 
-// ==================== MUTATION HOOKS ====================
-
-// Create single vaccination
-export const useCreateVaccination = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (data: CreateVaccinationData): Promise<VaccinationResponse> => {
-      const response = await axiosInstance.post("/vaccinations", data);
-      return response.data as VaccinationResponse;
-    },
-    onSuccess: (data) => {
-      // Invalidate vaccination queries
-      queryClient.invalidateQueries({ queryKey: vaccinationKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: vaccinationKeys.upcoming() });
-      queryClient.invalidateQueries({ queryKey: vaccinationKeys.overdue() });
-      queryClient.invalidateQueries({ queryKey: vaccinationKeys.schedules() });
-      queryClient.invalidateQueries({ queryKey: vaccinationKeys.stats() });
-      
-      // Invalidate batch vaccinations if batchId is provided
-      if (data.data?.batchId) {
-        queryClient.invalidateQueries({ 
-          queryKey: vaccinationKeys.batchVaccinations(data.data.batchId) 
-        });
-      }
-    },
-  });
-};
-
-// Create multi-dose vaccination
-export const useCreateMultiDoseVaccination = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (data: CreateMultiDoseVaccinationData): Promise<{
-      success: boolean;
-      data: Vaccination[];
-      message: string;
-    }> => {
-      const response = await axiosInstance.post("/vaccinations/multi-dose", data);
+// Get standard vaccination schedules (admin/system schedules)
+export const useGetStandardVaccinationSchedules = (options?: { enabled?: boolean }) => {
+  return useQuery<StandardVaccinationScheduleListResponse>({
+    queryKey: vaccinationKeys.standardSchedules(),
+    queryFn: async () => {
+      const response = await axiosInstance.get("/vaccinations/standard-schedules");
+      console.log("Get Standard Vaccination Schedules", response.data);
       return response.data;
     },
-    onSuccess: (data) => {
-      // Invalidate vaccination queries
-      queryClient.invalidateQueries({ queryKey: vaccinationKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: vaccinationKeys.upcoming() });
-      queryClient.invalidateQueries({ queryKey: vaccinationKeys.overdue() });
-      queryClient.invalidateQueries({ queryKey: vaccinationKeys.schedules() });
-      queryClient.invalidateQueries({ queryKey: vaccinationKeys.stats() });
-      
-      // Invalidate batch vaccinations if batchId is provided
-      if (data.data?.[0]?.batchId) {
-        queryClient.invalidateQueries({ 
-          queryKey: vaccinationKeys.batchVaccinations(data.data[0].batchId) 
-        });
-      }
-    },
+    enabled: options?.enabled !== false,
   });
 };
+
+// ==================== MUTATION HOOKS ====================
+
+// NOTE: Creation mutations are disabled since we now use automatic standard vaccination creation
+// Standard vaccinations are automatically created based on batch age and hardcoded schedules
+// Custom vaccinations can still be created through the vaccination page if needed
+
+// Create single vaccination (DISABLED - use automatic standard vaccinations)
+// export const useCreateVaccination = () => {
+//   const queryClient = useQueryClient();
+
+//   return useMutation({
+//     mutationFn: async (data: CreateVaccinationData): Promise<VaccinationResponse> => {
+//       const response = await axiosInstance.post("/vaccinations", data);
+//       return response.data as VaccinationResponse;
+//     },
+//     onSuccess: (data) => {
+//       // Invalidate vaccination queries
+//       queryClient.invalidateQueries({ queryKey: vaccinationKeys.lists() });
+//       queryClient.invalidateQueries({ queryKey: vaccinationKeys.upcoming() });
+//       queryClient.invalidateQueries({ queryKey: vaccinationKeys.overdue() });
+//       queryClient.invalidateQueries({ queryKey: vaccinationKeys.schedules() });
+//       queryClient.invalidateQueries({ queryKey: vaccinationKeys.stats() });
+      
+//       // Invalidate batch vaccinations if batchId is provided
+//       if (data.data?.batchId) {
+//         queryClient.invalidateQueries({ 
+//           queryKey: vaccinationKeys.batchVaccinations(data.data.batchId) 
+//         });
+//       }
+//     },
+//   });
+// };
+
+// Create multi-dose vaccination (DISABLED - use automatic standard vaccinations)
+// export const useCreateMultiDoseVaccination = () => {
+//   const queryClient = useQueryClient();
+
+//   return useMutation({
+//     mutationFn: async (data: CreateMultiDoseVaccinationData): Promise<{
+//       success: boolean;
+//       data: Vaccination[];
+//       message: string;
+//     }> => {
+//       const response = await axiosInstance.post("/vaccinations/multi-dose", data);
+//       return response.data;
+//     },
+//     onSuccess: (data) => {
+//       // Invalidate vaccination queries
+//       queryClient.invalidateQueries({ queryKey: vaccinationKeys.lists() });
+//       queryClient.invalidateQueries({ queryKey: vaccinationKeys.upcoming() });
+//       queryClient.invalidateQueries({ queryKey: vaccinationKeys.overdue() });
+//       queryClient.invalidateQueries({ queryKey: vaccinationKeys.schedules() });
+//       queryClient.invalidateQueries({ queryKey: vaccinationKeys.stats() });
+      
+//       // Invalidate batch vaccinations if batchId is provided
+//       if (data.data?.[0]?.batchId) {
+//         queryClient.invalidateQueries({ 
+//           queryKey: vaccinationKeys.batchVaccinations(data.data[0].batchId) 
+//         });
+//       }
+//     },
+//   });
+// };
 
 // Update vaccination
 export const useUpdateVaccination = () => {
@@ -295,7 +340,7 @@ export const useUpdateVaccination = () => {
   });
 };
 
-// Mark vaccination as completed
+// Mark vaccination as completed (works for both standard and custom vaccinations)
 export const useMarkVaccinationCompleted = () => {
   const queryClient = useQueryClient();
 
@@ -319,6 +364,22 @@ export const useMarkVaccinationCompleted = () => {
           queryKey: vaccinationKeys.batchVaccinations(data.data.batchId) 
         });
       }
+    },
+  });
+};
+
+// Mark standard vaccination as completed (specific for standard vaccinations)
+export const useMarkStandardVaccinationCompleted = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string): Promise<{ success: boolean; message: string }> => {
+      const response = await axiosInstance.post(`/vaccinations/standard/${id}/complete`);
+      return response.data;
+    },
+    onSuccess: (data, id) => {
+      // Invalidate all vaccination queries since standard vaccinations affect the entire system
+      queryClient.invalidateQueries({ queryKey: vaccinationKeys.all });
     },
   });
 };
@@ -384,6 +445,23 @@ export const useSyncVaccinationReminders = () => {
       queryClient.invalidateQueries({ queryKey: vaccinationKeys.upcoming() });
       queryClient.invalidateQueries({ queryKey: vaccinationKeys.overdue() });
       queryClient.invalidateQueries({ queryKey: vaccinationKeys.schedules() });
+    },
+  });
+};
+
+// Create standard vaccination reminders for a batch (useful for testing or manual triggers)
+export const useCreateStandardVaccinationReminders = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (batchId: string): Promise<{ success: boolean; message: string }> => {
+      const response = await axiosInstance.post(`/vaccinations/standard/reminders/${batchId}`);
+      return response.data;
+    },
+    onSuccess: (data, batchId) => {
+      // Invalidate vaccination queries to refresh data
+      queryClient.invalidateQueries({ queryKey: vaccinationKeys.all });
+      queryClient.invalidateQueries({ queryKey: vaccinationKeys.batchVaccinations(batchId) });
     },
   });
 };
