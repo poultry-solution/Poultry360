@@ -5,6 +5,7 @@ import {
   ReminderType,
 } from "@prisma/client";
 import { getReminderService } from "./reminderService";
+import { getStandardVaccinationService, BatchAgeInfo } from "./standardVaccinationService";
 
 const prisma = new PrismaClient();
 const reminderService = getReminderService();
@@ -686,6 +687,44 @@ export class VaccinationService {
       overdue,
       byBatch: byBatchMap,
     };
+  }
+
+  /**
+   * Create standard vaccination reminders for a batch
+   */
+  async createStandardVaccinationRemindersForBatch(
+    batchId: string,
+    userId: string
+  ): Promise<void> {
+    // Get batch information with farm details
+    const batch = await prisma.batch.findFirst({
+      where: { 
+        id: batchId,
+        farm: { ownerId: userId } // Check ownership through farm
+      },
+      include: { farm: true },
+    });
+
+    if (!batch) {
+      throw new Error('Batch not found or access denied');
+    }
+
+    // Calculate batch age
+    const standardVaccinationService = getStandardVaccinationService();
+    const currentAge = standardVaccinationService.calculateBatchAge(batch.startDate);
+
+    // Create batch age info
+    const batchInfo: BatchAgeInfo = {
+      batchId: batch.id,
+      batchNumber: batch.batchNumber,
+      startDate: batch.startDate,
+      currentAge,
+      farmId: batch.farmId,
+      userId: batch.farm.ownerId, // Get userId from farm owner
+    };
+
+    // Create standard vaccination reminders
+    await standardVaccinationService.createStandardVaccinationReminders(batchInfo);
   }
 
   /**

@@ -1,7 +1,9 @@
 import { getReminderService } from './reminderService';
 import { getVaccinationService } from './vaccinationService';
+import { getStandardVaccinationService } from './standardVaccinationService';
 import { notificationService, NotificationType } from './webpushService';
 import { getNotificationTypeForReminder } from '../utils/reminderTypeMap';
+import prisma from '../utils/prisma';
 
 /**
  * Orchestrator for processing due reminders and sending notifications
@@ -10,6 +12,7 @@ import { getNotificationTypeForReminder } from '../utils/reminderTypeMap';
 export class ReminderOrchestrator {
   private reminderService = getReminderService();
   private vaccinationService = getVaccinationService();
+  private standardVaccinationService = getStandardVaccinationService();
 
   /**
    * Process all due reminders and send notifications
@@ -33,6 +36,10 @@ export class ReminderOrchestrator {
       // First, sync vaccination reminders to ensure all vaccinations have reminders
       console.log('🩺 Syncing vaccination reminders...');
       await this.vaccinationService.syncVaccinationReminders();
+
+      // Process standard vaccination reminders for all active batches
+      console.log('🩺 Processing standard vaccination reminders...');
+      await this.processStandardVaccinationReminders();
 
       // Get newly due reminders (PENDING -> OVERDUE)
       const dueReminders = await this.reminderService.getDueReminders();
@@ -163,6 +170,30 @@ export class ReminderOrchestrator {
    * Create special vaccination notification payload
    */
   private createVaccinationNotificationPayload(reminder: any, notificationType: NotificationType): any {
+    // Check if this is a standard vaccination with custom notification payload
+    if (reminder.data?.notificationPayload) {
+      const payload = reminder.data.notificationPayload;
+      
+      // Update vaccinationId in the payload if it's available
+      if (reminder.data?.vaccinationId) {
+        payload.vaccinationId = reminder.data.vaccinationId;
+      }
+      
+      return {
+        title: reminder.title,
+        body: reminder.description,
+        type: notificationType,
+        requireInteraction: payload.requireInteraction || false,
+        actions: payload.actions || [], // Use actions from payload (empty for tomorrow notifications)
+        data: {
+          reminderId: reminder.id,
+          ...payload, // Spread the custom payload
+          customData: reminder.data,
+        }
+      };
+    }
+
+    // Fallback for custom vaccinations (existing logic)
     const isTomorrowReminder = reminder.data?.reminderType === 'vaccination_tomorrow';
     
     // Different titles and bodies for tomorrow vs due vaccinations
@@ -452,6 +483,52 @@ export class ReminderOrchestrator {
     }
 
     return results;
+  }
+
+  /**
+   * Process standard vaccination reminders for all active batches
+   */
+  private async processStandardVaccinationReminders(): Promise<void> {
+    try {
+      console.log('🩺 Processing standard vaccination reminders for all active batches...');
+      
+      // Get all active batches
+      const activeBatches = await prisma.batch.findMany({
+        where: { status: 'ACTIVE' },
+        include: { farm: true },
+      });
+
+      console.log(`📊 Found ${activeBatches.length} active batches to process`);
+
+      for (const batch of activeBatches) {
+        try {
+          // Calculate batch age
+          const currentAge = this.standardVaccinationService.calculateBatchAge(batch.startDate);
+          
+          // Create batch info
+          const batchInfo = {
+            batchId: batch.id,
+            batchNumber: batch.batchNumber,
+            startDate: batch.startDate,
+            currentAge,
+            farmId: batch.farmId,
+            userId: batch.farm.ownerId,
+          };
+
+          // Create standard vaccination reminders for this batch
+          await this.standardVaccinationService.createStandardVaccinationReminders(batchInfo);
+          
+          console.log(`✅ Processed standard vaccination reminders for batch ${batch.batchNumber} (age: ${currentAge} days)`);
+        } catch (batchError: any) {
+          console.error(`❌ Failed to process standard vaccination reminders for batch ${batch.batchNumber}:`, batchError.message);
+        }
+      }
+
+      console.log('✅ Standard vaccination reminder processing completed');
+    } catch (error: any) {
+      console.error('❌ Failed to process standard vaccination reminders:', error.message);
+      throw error;
+    }
   }
 }
 

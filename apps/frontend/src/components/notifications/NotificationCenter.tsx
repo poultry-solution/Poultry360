@@ -40,6 +40,7 @@ const getNotificationIcon = (type: string) => {
       return <AlertTriangle className="h-4 w-4 text-red-500" />;
     case "VACCINATION_ALERT":
     case "REMINDER_ALERT":
+    case "VACCINATION_REMINDER":
       return <AlertCircle className="h-4 w-4 text-orange-500" />;
     default:
       return <Info className="h-4 w-4 text-gray-500" />;
@@ -59,6 +60,7 @@ const getNotificationColor = (type: string) => {
       return "border-l-red-500";
     case "VACCINATION_ALERT":
     case "REMINDER_ALERT":
+    case "VACCINATION_REMINDER":
       return "border-l-orange-500";
     default:
       return "border-l-gray-500";

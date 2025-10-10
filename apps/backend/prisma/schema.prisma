@@ -672,6 +672,12 @@ model Vaccination {
   totalDoses      Int               @default(1)      // Total doses required
   daysBetweenDoses Int?                              // Days between doses
   
+  // NEW: Standard vaccination schedule integration
+  standardScheduleId String?                         // Link to standard schedule
+  standardSchedule   StandardVaccinationSchedule? @relation(fields: [standardScheduleId], references: [id])
+  batchAge           Int?                            // Age of batch when vaccination was due
+  retryCount         Int             @default(0)     // Number of retry attempts
+  
   // NEW: Flexible context relationships (can be tied to batch, farm, or neither)
   batchId         String?
   batch           Batch?            @relation(fields: [batchId], references: [id], onDelete: Cascade)
@@ -689,6 +695,28 @@ model Vaccination {
   @@index([farmId, scheduledDate])
   @@index([userId, scheduledDate])
   @@index([status, scheduledDate])
+  @@index([standardScheduleId])
+  @@index([batchId, batchAge])
+}
+
+// Standard vaccination schedule for systematic batch-age-based vaccinations
+model StandardVaccinationSchedule {
+  id            String   @id @default(cuid())
+  vaccineName   String   // e.g., "IB (Infectious Bronchitis)"
+  dayFrom       Int      // Start day (e.g., 1)
+  dayTo         Int      // End day (e.g., 1) 
+  isOptional    Boolean  @default(false) // e.g., IBH/HPS is optional
+  description   String?  // Additional details
+  isActive      Boolean  @default(true)  // Can be disabled by admin
+  
+  // Related vaccinations
+  vaccinations  Vaccination[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([dayFrom, dayTo])
+  @@index([isActive])
 }
 
 model FeedConsumption {

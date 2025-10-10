@@ -1,9 +1,11 @@
 import { Request, Response } from 'express';
 import { getReminderService } from '../services/reminderService';
 import { getVaccinationService } from '../services/vaccinationService';
+import { getStandardVaccinationService } from '../services/standardVaccinationService';
 
 const reminderService = getReminderService();
 const vaccinationService = getVaccinationService();
+const standardVaccinationService = getStandardVaccinationService();
 
 /**
  * Handle notification action clicks (for reminder acknowledgments)
@@ -33,25 +35,32 @@ export const handleNotificationAction = async (req: Request, res: Response) => {
 
     // Special handling for vaccination reminders
     if (reminder.type === 'VACCINATION' && vaccinationId) {
+      // Check if this is a standard vaccination (has standardScheduleId)
+      const isStandardVaccination = reminder.data && typeof reminder.data === 'object' && 'standardScheduleId' in reminder.data;
+      
       switch (action) {
         case 'mark-completed':
-          // Mark vaccination as completed (this will also handle the reminder)
-          result = await vaccinationService.markVaccinationCompleted(vaccinationId, userId);
-          message = 'Vaccination marked as completed';
+          if (isStandardVaccination) {
+            // Handle standard vaccination completion
+            await standardVaccinationService.markStandardVaccinationCompleted(vaccinationId, userId);
+            message = 'Standard vaccination marked as completed';
+          } else {
+            // Handle custom vaccination completion
+            result = await vaccinationService.markVaccinationCompleted(vaccinationId, userId);
+            message = 'Vaccination marked as completed';
+          }
           break;
         
         case 'mark-not-done':
-          // For vaccination reminders, we need to update both the vaccination status and reschedule the reminder
-          if (vaccinationId) {
-            // Update vaccination status to OVERDUE (since they didn't do it when it was due)
-            await vaccinationService.updateVaccinationStatus(vaccinationId, userId, 'OVERDUE');
-            // Reschedule the reminder
+          if (isStandardVaccination) {
+            // For standard vaccinations, just reschedule the reminder (retry logic)
             result = await reminderService.markAsNotDone(reminderId, userId, 60); // Reschedule for 1 hour
-            message = 'Vaccination marked as overdue and reminder rescheduled for later';
+            message = 'Standard vaccination reminder rescheduled for later';
           } else {
-            // Fallback to regular reminder rescheduling
+            // For custom vaccinations, update status and reschedule
+            await vaccinationService.updateVaccinationStatus(vaccinationId, userId, 'OVERDUE');
             result = await reminderService.markAsNotDone(reminderId, userId, 60);
-            message = 'Vaccination reminder rescheduled for later';
+            message = 'Vaccination marked as overdue and reminder rescheduled for later';
           }
           break;
         

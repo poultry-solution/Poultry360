@@ -46,27 +46,37 @@ export const useNotificationActions = () => {
           return;
         }
 
-        // Handle reminder notifications
-        if (data.notificationType === 'reminder') {
-          console.log('✅ Valid reminder action, processing...', {
+        // Handle reminder notifications (including vaccination reminders)
+        if (data.notificationType === 'reminder' || data.notificationType === 'vaccination') {
+          console.log('✅ Valid reminder/vaccination action, processing...', {
             action,
             reminderId: data.reminderId,
+            vaccinationId: data.vaccinationId,
+            notificationType: data.notificationType,
             userId: user.id
           });
           
           // Map the action from service worker to API action
           const apiAction = action as 'mark-completed' | 'mark-not-done';
           
-          // Call the API
-          handleNotificationAction({
+          // Call the API with vaccination ID if available
+          const requestData: any = {
             action: apiAction,
             reminderId: data.reminderId,
             userId: user.id,
-          }).then((result) => {
+          };
+          
+          // Add vaccinationId if this is a vaccination notification
+          if (data.vaccinationId) {
+            requestData.vaccinationId = data.vaccinationId;
+          }
+          
+          handleNotificationAction(requestData).then((result) => {
             if (result.success) {
-              console.log('✅ Reminder action completed successfully:', {
+              console.log('✅ Reminder/vaccination action completed successfully:', {
                 action: apiAction,
                 reminderId: data.reminderId,
+                vaccinationId: data.vaccinationId,
                 result: result.data
               });
               
@@ -76,7 +86,7 @@ export const useNotificationActions = () => {
               // Optional: Trigger a refetch of reminders list if on that page
               // queryClient.invalidateQueries(['reminders']);
             } else {
-              console.error('❌ Failed to handle reminder action:', {
+              console.error('❌ Failed to handle reminder/vaccination action:', {
                 action: apiAction,
                 error: result.error
               });
@@ -85,7 +95,7 @@ export const useNotificationActions = () => {
               // toast.error('Failed to update reminder');
             }
           }).catch((error) => {
-            console.error('❌ Exception while handling reminder action:', error);
+            console.error('❌ Exception while handling reminder/vaccination action:', error);
           });
         } else {
           console.log('ℹ️ Non-reminder notification type:', data.notificationType);

@@ -7,6 +7,8 @@ import {
   BatchSchema,
   CloseBatchSchema,
 } from "@myapp/shared-types";
+import { getVaccinationService } from "../services/vaccinationService";
+import { getStandardVaccinationService } from "../services/standardVaccinationService";
 
 // ==================== GET ALL BATCHES ====================
 export const getAllBatches = async (
@@ -549,6 +551,19 @@ export const createBatch = async (
 
       return { batch, usages };
     });
+
+    // Create standard vaccination reminders for the new batch
+    try {
+      const vaccinationService = getVaccinationService();
+      await vaccinationService.createStandardVaccinationRemindersForBatch(
+        result.batch.id,
+        currentUserId as string
+      );
+      console.log(`✅ Created standard vaccination reminders for batch ${result.batch.batchNumber}`);
+    } catch (vaccinationError) {
+      console.error("⚠️ Failed to create standard vaccination reminders:", vaccinationError);
+      // Don't fail the batch creation if vaccination reminders fail
+    }
 
     return res.status(201).json({
       success: true,
@@ -1417,10 +1432,14 @@ export const getBatchAnalytics = async (
       ? totalFeedConsumptionAmount / totalWeightGained 
       : null;
 
-    // Calculate days active
+    // Calculate days active and batch age
     const daysActive = Math.ceil(
       (new Date().getTime() - batch.startDate.getTime()) / (1000 * 60 * 60 * 24)
     );
+    
+    // Calculate batch age (same as days active for now, but can be different if needed)
+    const standardVaccinationService = getStandardVaccinationService();
+    const batchAge = standardVaccinationService.calculateBatchAge(batch.startDate);
 
     // also include total sales quantity
     const totalSalesQuantity = Number(totalSales._sum.quantity || 0);
@@ -1458,6 +1477,7 @@ export const getBatchAnalytics = async (
                   'Insufficient data to calculate FCR',
         },
         daysActive,
+        batchAge,
         vaccinationStats: vaccinationStats.reduce(
           (acc, stat) => {
             acc[stat.status] = stat._count.status;
