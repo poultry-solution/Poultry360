@@ -894,13 +894,7 @@ export default function DashboardPage() {
             <Plus className="h-4 w-4" />
             <span className="truncate">Add Mortality</span>
           </button>
-          <Link
-            href="/dashboard/reminders"
-            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted"
-          >
-            <Clock className="h-4 w-4" />
-            <span className="truncate">Reminders</span>
-          </Link>
+      
           <button
             className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted"
             onClick={() => setIsWeightModalOpen(true)}
@@ -1013,167 +1007,6 @@ export default function DashboardPage() {
         </ModalFooter>
       </Modal>
 
-      <Modal
-        isOpen={isReminderModalOpen}
-        onClose={() => setIsReminderModalOpen(false)}
-        title="Add New Reminder"
-      >
-        <ModalContent>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="reminderTitle">Reminder Title *</Label>
-              <Input
-                id="reminderTitle"
-                value={reminderForm.title}
-                onChange={(e) =>
-                  setReminderForm((prev) => ({
-                    ...prev,
-                    title: e.target.value,
-                  }))
-                }
-                placeholder="e.g. Collect payment from Ram"
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="reminderDescription">
-                Description (Optional)
-              </Label>
-              <Input
-                id="reminderDescription"
-                value={reminderForm.description}
-                onChange={(e) =>
-                  setReminderForm((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
-                placeholder="Additional details..."
-                className="mt-1"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="reminderDate">Select Date *</Label>
-                <Input
-                  id="reminderDate"
-                  type="date"
-                  value={reminderForm.date}
-                  onChange={(e) =>
-                    setReminderForm((prev) => ({
-                      ...prev,
-                      date: e.target.value,
-                    }))
-                  }
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="reminderTime">Select Time *</Label>
-                <Input
-                  id="reminderTime"
-                  type="time"
-                  value={reminderForm.time}
-                  onChange={(e) =>
-                    setReminderForm((prev) => ({
-                      ...prev,
-                      time: e.target.value,
-                    }))
-                  }
-                  className="mt-1"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="reminderType">Reminder Type</Label>
-              <select
-                id="reminderType"
-                value={reminderForm.type}
-                onChange={(e) =>
-                  setReminderForm((prev) => ({
-                    ...prev,
-                    type: e.target.value as any,
-                  }))
-                }
-                className="mt-1 w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
-              >
-                <option value="GENERAL">General</option>
-                <option value="VACCINATION">Vaccination</option>
-                <option value="FEEDING">Feeding</option>
-                <option value="MEDICATION">Medication</option>
-                <option value="CLEANING">Cleaning</option>
-                <option value="WEIGHING">Weighing</option>
-                <option value="SUPPLIER_PAYMENT">Supplier Payment</option>
-                <option value="CUSTOMER_PAYMENT">Customer Payment</option>
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="reminderFarm">Farm (Optional)</Label>
-                <select
-                  id="reminderFarm"
-                  value={reminderForm.farmId}
-                  onChange={(e) =>
-                    setReminderForm((prev) => ({
-                      ...prev,
-                      farmId: e.target.value,
-                    }))
-                  }
-                  className="mt-1 w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
-                >
-                  <option value="">Select farm</option>
-                  {farms.map((farm) => (
-                    <option key={farm.id} value={farm.id}>
-                      {farm.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Label htmlFor="reminderBatch">Batch (Optional)</Label>
-                <select
-                  id="reminderBatch"
-                  value={reminderForm.batchId}
-                  onChange={(e) =>
-                    setReminderForm((prev) => ({
-                      ...prev,
-                      batchId: e.target.value,
-                    }))
-                  }
-                  className="mt-1 w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
-                >
-                  <option value="">Select batch</option>
-                  {activeBatches.map((batch) => (
-                    <option key={batch.id} value={batch.id}>
-                      {batch.batchNumber} - {batch.farm.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-        </ModalContent>
-        <ModalFooter>
-          <Button
-            variant="outline"
-            onClick={() => setIsReminderModalOpen(false)}
-            className="cursor-pointer hover:bg-gray-50 transition-colors duration-200"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleAddReminder}
-            disabled={createReminderMutation.isPending}
-            className="cursor-pointer bg-primary hover:bg-primary/90 hover:shadow-md transition-all duration-200"
-          >
-            {createReminderMutation.isPending ? "Adding..." : "Add Reminder"}
-          </Button>
-        </ModalFooter>
-      </Modal>
 
       {/* Quick Expense Modal */}
       <Modal
@@ -2129,7 +1962,24 @@ export default function DashboardPage() {
                           <p className="text-xs text-red-600">
                             {formatReminderDueDate(reminder.dueDate)} •{" "}
                             {getReminderTypeDisplayName(reminder.type)}
+                            {reminder.farm && ` • ${reminder.farm.name}`}
+                            {reminder.batch &&
+                              ` • ${reminder.batch.batchNumber}`}
                           </p>
+                          {(reminder.batch || reminder.farm) && (
+                            <div className="flex gap-1 mt-1">
+                              {reminder.batch && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                  📦 {reminder.batch.batchNumber}
+                                </span>
+                              )}
+                              {reminder.farm && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                  🏡 {reminder.farm.name}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="flex space-x-1">
                           <Button
@@ -2194,6 +2044,20 @@ export default function DashboardPage() {
                             {reminder.batch &&
                               ` • ${reminder.batch.batchNumber}`}
                           </p>
+                          {(reminder.batch || reminder.farm) && (
+                            <div className="flex gap-1 mt-1">
+                              {reminder.batch && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                  📦 {reminder.batch.batchNumber}
+                                </span>
+                              )}
+                              {reminder.farm && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                  🏡 {reminder.farm.name}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="flex space-x-1">
                           <Button

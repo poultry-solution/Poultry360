@@ -470,6 +470,16 @@ export default function RemindersPage() {
                             🔄 Recurring
                           </Badge>
                         )}
+                        {reminder.batch && (
+                          <Badge variant="outline" className="text-blue-600 border-blue-300">
+                            📦 {reminder.batch.batchNumber}
+                          </Badge>
+                        )}
+                        {reminder.farm && (
+                          <Badge variant="outline" className="text-green-600 border-green-300">
+                            🏡 {reminder.farm.name}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </div>
