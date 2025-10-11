@@ -1056,3 +1056,138 @@ export const getMoneyToPayDetails = async (
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+// ==================== GET BATCH PERFORMANCE LIST ====================
+export const getBatchPerformanceList = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const currentUserId = req.userId;
+    const { status, sortBy = 'startDate', sortOrder = 'desc' } = req.query;
+    
+    // Get user's farms
+    const userFarms = await prisma.farm.findMany({
+      where: {
+        OR: [
+          { ownerId: currentUserId },
+          { managers: { some: { id: currentUserId } } },
+        ],
+      },
+      select: { id: true },
+    });
+
+    const farmIds = userFarms.map((farm) => farm.id);
+    
+    if (farmIds.length === 0) {
+      return res.json({
+        success: true,
+        data: [],
+      });
+    }
+    
+    // Build where clause with optional status filter
+    const where: any = { farmId: { in: farmIds } };
+    if (status) {
+      where.status = status; // 'ACTIVE' or 'COMPLETED'
+    }
+
+    // Fetch all batches with aggregated data
+    const batches = await prisma.batch.findMany({
+      where,
+      include: {
+        farm: { select: { name: true } },
+      },
+      orderBy: { [sortBy as string]: sortOrder },
+    });
+
+    // Calculate metrics for each batch
+    const batchesWithMetrics = await Promise.all(
+      batches.map(async (batch) => {
+        const [
+          mortality,
+          expenses,
+          sales,
+          feedConsumption,
+          latestWeight,
+        ] = await Promise.all([
+          prisma.mortality.aggregate({
+            where: { 
+              batchId: batch.id,
+              reason: { not: 'SLAUGHTERED_FOR_SALE' } // Only natural deaths
+            },
+            _sum: { count: true },
+          }),
+          prisma.expense.aggregate({
+            where: { batchId: batch.id },
+            _sum: { amount: true },
+          }),
+          prisma.sale.aggregate({
+            where: { batchId: batch.id },
+            _sum: { amount: true },
+          }),
+          prisma.feedConsumption.aggregate({
+            where: { batchId: batch.id },
+            _sum: { quantity: true },
+          }),
+          prisma.birdWeight.findFirst({
+            where: { batchId: batch.id },
+            orderBy: { date: 'desc' },
+            select: { avgWeight: true },
+          }),
+        ]);
+
+        // Calculate days (age of batch)
+        const endDate = batch.endDate || new Date();
+        const days = Math.ceil(
+          (endDate.getTime() - batch.startDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        // Calculate mortality count (only natural deaths)
+        const mortalityCount = Number(mortality._sum.count || 0);
+        const mortalityRate = (mortalityCount / batch.initialChicks) * 100;
+
+        // Calculate FCR
+        const totalFeed = Number(feedConsumption._sum.quantity || 0);
+        const initialWeight = batch.initialChicks * 0.05; // 50g per day-old chick
+        const currentChicks = batch.initialChicks - mortalityCount;
+        const currentWeight = latestWeight ? Number(latestWeight.avgWeight) * currentChicks : 0;
+        const weightGain = Math.max(0, currentWeight - initialWeight);
+        const fcr = weightGain > 0 ? totalFeed / weightGain : null;
+
+        // Calculate financials
+        const totalExpenses = Number(expenses._sum.amount || 0);
+        const totalSales = Number(sales._sum.amount || 0);
+        const profit = totalSales - totalExpenses;
+
+        // Average weight
+        const avgWeight = latestWeight ? Number(latestWeight.avgWeight) : 0;
+
+        return {
+          id: batch.id,
+          batchNumber: batch.batchNumber,
+          farmName: batch.farm.name,
+          status: batch.status,
+          startDate: batch.startDate,
+          days,
+          mortality: mortalityCount,
+          mortalityRate: mortalityRate.toFixed(2),
+          fcr: fcr ? fcr.toFixed(2) : 'N/A',
+          expenses: totalExpenses,
+          salesAmount: totalSales,
+          avgWeight: avgWeight.toFixed(2),
+          profitLoss: profit,
+          initialChicks: batch.initialChicks,
+        };
+      })
+    );
+
+    return res.json({
+      success: true,
+      data: batchesWithMetrics,
+    });
+  } catch (error) {
+    console.error("Get batch performance list error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};

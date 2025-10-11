@@ -10,6 +10,7 @@ export const dashboardQueryKeys = {
   performanceMetrics: () => [...dashboardQueryKeys.all, "performance-metrics"] as const,
   moneyToReceive: (page?: number, limit?: number) => [...dashboardQueryKeys.all, "money-to-receive", page, limit] as const,
   moneyToPay: (page?: number, limit?: number) => [...dashboardQueryKeys.all, "money-to-pay", page, limit] as const,
+  batchPerformance: (status?: string, sortBy?: string, sortOrder?: string) => [...dashboardQueryKeys.all, "batch-performance", status, sortBy, sortOrder] as const,
 };
 
 // ==================== TYPES ====================
@@ -227,6 +228,23 @@ export interface MoneyToPayDetails {
   };
 }
 
+export interface BatchPerformanceItem {
+  id: string;
+  batchNumber: string;
+  farmName: string;
+  status: "ACTIVE" | "COMPLETED";
+  startDate: string;
+  days: number;
+  mortality: number;
+  mortalityRate: string;
+  fcr: string;
+  expenses: number;
+  salesAmount: number;
+  avgWeight: string;
+  profitLoss: number;
+  initialChicks: number;
+}
+
 // ==================== ADDITIONAL QUERY HOOKS ====================
 
 // Get money to receive details
@@ -256,5 +274,28 @@ export const useGetMoneyToPayDetails = (page = 1, limit = 10) => {
       return response.data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+};
+
+// Get batch performance list
+export const useGetBatchPerformance = (
+  status?: 'ACTIVE' | 'COMPLETED', 
+  sortBy?: string, 
+  sortOrder?: 'asc' | 'desc'
+) => {
+  return useQuery({
+    queryKey: dashboardQueryKeys.batchPerformance(status, sortBy, sortOrder),
+    queryFn: async (): Promise<{ success: boolean; data: BatchPerformanceItem[] }> => {
+      const params: any = {};
+      if (status) params.status = status;
+      if (sortBy) params.sortBy = sortBy;
+      if (sortOrder) params.sortOrder = sortOrder;
+      
+      const response = await axiosInstance.get("/dashboard/batch-performance", {
+        params,
+      });
+      return response.data;
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 };
