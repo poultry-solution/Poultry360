@@ -6,6 +6,7 @@ import {
   getDashboardPerformanceMetrics,
   getMoneyToReceiveDetails,
   getMoneyToPayDetails,
+  getBatchPerformanceList,
 } from "../controller/dashboardController";
 
 const router = express.Router();
@@ -29,5 +30,8 @@ router.get("/money-to-receive", getMoneyToReceiveDetails);
 
 // GET /api/dashboard/money-to-pay - Get money to pay details
 router.get("/money-to-pay", getMoneyToPayDetails);
+
+// GET /api/dashboard/batch-performance - Get batch performance list
+router.get("/batch-performance", getBatchPerformanceList);
 
 export default router;
