@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DateInput } from "@/components/ui/date-input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -25,6 +26,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import { useAuthStore } from "@/store/store";
+import { DateDisplay } from "@/components/ui/date-display";
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 interface Reminder {
@@ -429,9 +431,6 @@ export default function RemindersTestPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
 
   const getDayName = (dayNumber: number) => {
     const days = [
@@ -639,14 +638,10 @@ export default function RemindersTestPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="dueDate">Due Date *</Label>
-              <Input
-                id="dueDate"
-                type="datetime-local"
+              <DateInput
+                label="Due Date *"
                 value={newReminder.dueDate}
-                onChange={(e: any) =>
-                  setNewReminder({ ...newReminder, dueDate: e.target.value })
-                }
+                onChange={(value) => setNewReminder({ ...newReminder, dueDate: value })}
               />
             </div>
             <div>
@@ -1013,7 +1008,7 @@ export default function RemindersTestPage() {
                     </div>
                   </div>
                   <div className="mt-2 text-sm text-gray-500">
-                    <div>Due: {formatDate(reminder.dueDate)}</div>
+                    <div>Due: <DateDisplay date={reminder.dueDate} format="long" /></div>
                     {reminder.isRecurring && (
                       <div>Recurring: {reminder.recurrencePattern}</div>
                     )}

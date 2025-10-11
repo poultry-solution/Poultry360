@@ -346,6 +346,60 @@ export const deleteUser = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
+// ==================== UPDATE USER PREFERENCES ====================
+export const updateUserPreferences = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { language, calendarType } = req.body;
+    
+    // Validate input
+    if (language && !['ENGLISH', 'NEPALI'].includes(language)) {
+      return res.status(400).json({ message: 'Invalid language value' });
+    }
+    
+    if (calendarType && !['AD', 'BS'].includes(calendarType)) {
+      return res.status(400).json({ message: 'Invalid calendar type value' });
+    }
+    
+    // Build update data
+    const updateData: any = {};
+    if (language) updateData.language = language;
+    if (calendarType) updateData.calendarType = calendarType;
+    
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: 'No valid preferences to update' });
+    }
+    
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        role: true,
+        status: true,
+        language: true,
+        calendarType: true,
+        companyName: true,
+        CompanyFarmLocation: true,
+        updatedAt: true,
+      },
+    });
+    
+    return res.json({
+      success: true,
+      data: updatedUser,
+    });
+  } catch (error) {
+    console.error('Update user preferences error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 // ==================== GET OWNER USERS ====================
 export const getOwnerUsers = async (
   req: Request,

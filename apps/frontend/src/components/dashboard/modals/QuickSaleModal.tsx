@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import { DateInput } from "@/components/ui/date-input";
 import { useCreateSale, useGetCustomersForSales } from "@/fetchers/sale/saleQueries";
 
 interface QuickSaleModalProps {
@@ -226,6 +227,11 @@ export function QuickSaleModal({
         itemType: quickSaleForm.itemType,
       };
 
+      // Add weight for Chicken_Meat sales
+      if (quickSaleForm.itemType === "Chicken_Meat" && quickSaleForm.weight) {
+        saleData.weight = parseFloat(quickSaleForm.weight);
+      }
+
       // Handle customer data
       if (quickSaleForm.customerId) {
         saleData.customerId = quickSaleForm.customerId;
@@ -356,23 +362,35 @@ export function QuickSaleModal({
               )}
             </div>
 
-            <div>
-              <Label htmlFor="itemType">Item Type</Label>
-              <select
-                id="itemType"
-                name="itemType"
-                value={quickSaleForm.itemType}
-                onChange={updateQuickSaleField}
-                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-              >
-                <option value="Chicken_Meat">Chicken_Meat</option>
-                <option value="OTHER">OTHER</option>
-              </select>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="itemType">Item Type</Label>
+                <select
+                  id="itemType"
+                  name="itemType"
+                  value={quickSaleForm.itemType}
+                  onChange={updateQuickSaleField}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                >
+                  <option value="Chicken_Meat">Chicken_Meat</option>
+                  <option value="OTHER">OTHER</option>
+                </select>
+              </div>
+              <div>
+                <DateInput
+                  label="Date *"
+                  value={quickSaleForm.date}
+                  onChange={(value) => setQuickSaleForm(prev => ({ ...prev, date: value }))}
+                />
+                {quickFormErrors.date && (
+                  <p className="text-xs text-red-600 mt-1">{quickFormErrors.date}</p>
+                )}
+              </div>
             </div>
 
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="rate">Rate</Label>
+                <Label htmlFor="rate">Rate *</Label>
                 <Input
                   id="rate"
                   name="rate"
@@ -380,6 +398,7 @@ export function QuickSaleModal({
                   value={quickSaleForm.rate}
                   onChange={updateQuickSaleField}
                   placeholder="Rate per unit"
+                  required
                 />
                 {quickFormErrors.rate && (
                   <p className="text-xs text-red-600 mt-1">
@@ -390,8 +409,8 @@ export function QuickSaleModal({
               <div>
                 <Label htmlFor="quantity">
                   {quickSaleForm.itemType === "Chicken_Meat"
-                    ? "Quantity (Birds)"
-                    : "Quantity (Units)"}
+                    ? "Quantity (Birds) *"
+                    : "Quantity (Units) *"}
                 </Label>
                 <Input
                   id="quantity"
@@ -404,6 +423,7 @@ export function QuickSaleModal({
                       ? "Number of birds"
                       : "Number of units"
                   }
+                  required
                 />
                 {quickFormErrors.quantity && (
                   <p className="text-xs text-red-600 mt-1">
@@ -417,7 +437,7 @@ export function QuickSaleModal({
               quickSaleForm.itemType
             ) && (
               <div>
-                <Label htmlFor="weight">Weight (kg)</Label>
+                <Label htmlFor="weight">Weight (kg) *</Label>
                 <Input
                   id="weight"
                   name="weight"
@@ -426,6 +446,7 @@ export function QuickSaleModal({
                   value={quickSaleForm.weight}
                   onChange={updateQuickSaleField}
                   placeholder="Total weight in kg"
+                  required={quickSaleForm.itemType === "Chicken_Meat"}
                 />
                 {quickFormErrors.weight && (
                   <p className="text-xs text-red-600 mt-1">

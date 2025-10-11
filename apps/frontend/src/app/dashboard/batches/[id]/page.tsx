@@ -61,6 +61,8 @@ import {
   useDeleteWeight,
 } from "@/fetchers/weight/weightQueries";
 import WeightGrowthChart from "@/components/charts/WeightGrowthChart";
+import { DateDisplay } from "@/components/ui/date-display";
+import { DateInput } from "@/components/ui/date-input";
 
 type ExpenseCategory = "Feed" | "Medicine" | "Hatchery" | "Other";
 
@@ -120,10 +122,6 @@ const TABS = [
   "Growth",
 ] as const;
 
-function formatDateYYYYMMDD(dateStr: string | Date): string {
-  const date = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
-  return date.toISOString().split("T")[0];
-}
 
 // helper banner
 function Banner({
@@ -1427,7 +1425,7 @@ export default function BatchDetailPage() {
     createColumn("date", "Date", {
       type: "date",
       width: "100px",
-      render: (value) => formatDateYYYYMMDD(value),
+      render: (value) => <DateDisplay date={value} format="short" />,
     }),
     createColumn("description", "Notes", {
       render: (value) => value || "—",
@@ -1476,7 +1474,7 @@ export default function BatchDetailPage() {
     createColumn("date", "Date", {
       type: "date",
       width: "100px",
-      render: (value) => formatDateYYYYMMDD(value),
+      render: (value) => <DateDisplay date={value} format="short" />,
     }),
     createColumn("itemType", "Item Type", {
       type: "badge",
@@ -1614,7 +1612,7 @@ export default function BatchDetailPage() {
     createColumn("date", "Date", {
       type: "date",
       width: "120px",
-      render: (value) => formatDateYYYYMMDD(value),
+      render: (value) => <DateDisplay date={value} format="short" />,
     }),
     createColumn("count", "Birds", {
       type: "number",
@@ -1925,7 +1923,7 @@ export default function BatchDetailPage() {
           <CardHeader>
             <CardTitle className="text-sm">Start Date</CardTitle>
             <CardDescription>
-              {formatDateYYYYMMDD(batch.startDate)}
+              <DateDisplay date={batch.startDate} format="short" />
             </CardDescription>
           </CardHeader>
         </Card>
@@ -1990,7 +1988,7 @@ export default function BatchDetailPage() {
                       <p className="text-sm text-green-700">
                         Closed on{" "}
                         {batch.endDate
-                          ? formatDateYYYYMMDD(batch.endDate)
+                          ? <DateDisplay date={batch.endDate} format="short" />
                           : "N/A"}
                       </p>
                     </div>
@@ -2229,14 +2227,14 @@ export default function BatchDetailPage() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Start Date:</span>
                     <span className="font-medium">
-                      {formatDateYYYYMMDD(batch.startDate)}
+                      <DateDisplay date={batch.startDate} format="short" />
                     </span>
                   </div>
                   {isBatchClosed && batch.endDate && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">End Date:</span>
                       <span className="font-medium">
-                        {formatDateYYYYMMDD(batch.endDate)}
+                        <DateDisplay date={batch.endDate} format="short" />
                       </span>
                     </div>
                   )}
@@ -3104,7 +3102,7 @@ export default function BatchDetailPage() {
                       </div>
                       {batch.endDate && (
                         <div className="text-xs text-gray-600">
-                          Closed: {formatDateYYYYMMDD(batch.endDate)}
+                          Closed: <DateDisplay date={batch.endDate} format="short" />
                         </div>
                       )}
                     </div>
@@ -3182,7 +3180,7 @@ export default function BatchDetailPage() {
                         {weightsAsc.map((w: any) => (
                           <tr key={w.id} className="hover:bg-muted/30">
                             <td className="px-4 py-2">
-                              {formatDateYYYYMMDD(w.date)}
+                              <DateDisplay date={w.date} format="short" />
                             </td>
                             <td className="px-4 py-2 text-right">
                               {Number(w.avgWeight).toFixed(2)}
@@ -3246,14 +3244,10 @@ export default function BatchDetailPage() {
               </div>
 
               <div>
-                <Label htmlFor="endDate">End Date</Label>
-                <Input
-                  id="endDate"
-                  name="endDate"
-                  type="date"
+                <DateInput
+                  label="End Date"
                   value={closeBatchForm.endDate}
-                  onChange={updateCloseBatchField}
-                  required
+                  onChange={(value) => setCloseBatchForm(prev => ({ ...prev, endDate: value }))}
                 />
                 {closeErrors.endDate && (
                   <p className="text-xs text-red-600 mt-1">
@@ -3462,13 +3456,10 @@ export default function BatchDetailPage() {
                 </select>
               </div>
               <div>
-                <Label htmlFor="date">Date</Label>
-                <Input
-                  id="date"
-                  name="date"
-                  type="date"
+                <DateInput
+                  label="Date"
                   value={expenseForm.date}
-                  onChange={updateExpenseField}
+                  onChange={(value) => setExpenseForm(prev => ({ ...prev, date: value }))}
                 />
                 {expenseErrors.date && (
                   <p className="text-xs text-red-600 mt-1">
@@ -3912,14 +3903,10 @@ export default function BatchDetailPage() {
               </div>
 
               <div>
-                <Label htmlFor="date">Payment Date</Label>
-                <Input
-                  id="date"
-                  name="date"
-                  type="date"
+                <DateInput
+                  label="Payment Date"
                   value={paymentForm.date}
-                  onChange={updatePaymentField}
-                  required
+                  onChange={(value) => setPaymentForm(prev => ({ ...prev, date: value }))}
                 />
                 {paymentErrors.date && (
                   <p className="text-xs text-red-600 mt-1">
@@ -4008,7 +3995,7 @@ export default function BatchDetailPage() {
                   <div>
                     <span className="text-gray-600">Date:</span>
                     <span className="ml-2 font-medium">
-                      {formatDateYYYYMMDD(selectedSale.date)}
+                      <DateDisplay date={selectedSale.date} format="short" />
                     </span>
                   </div>
                   <div>
@@ -4056,7 +4043,7 @@ export default function BatchDetailPage() {
                                 ₹{Number(payment.amount).toLocaleString()}
                               </div>
                               <div className="text-sm text-gray-600">
-                                {formatDateYYYYMMDD(payment.date)}
+                                <DateDisplay date={payment.date} format="short" />
                               </div>
                               {payment.description && (
                                 <div className="text-xs text-gray-500">
@@ -4067,7 +4054,7 @@ export default function BatchDetailPage() {
                           </div>
                           <div className="text-right">
                             <div className="text-xs text-gray-500">
-                              {new Date(payment.createdAt).toLocaleDateString()}
+                              <DateDisplay date={payment.createdAt} format="short" />
                             </div>
                           </div>
                         </div>
@@ -4121,14 +4108,10 @@ export default function BatchDetailPage() {
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="mortalityDate">Date</Label>
-                  <Input
-                    id="mortalityDate"
-                    name="date"
-                    type="date"
+                  <DateInput
+                    label="Date"
                     value={mortalityForm.date}
-                    onChange={updateMortalityField}
-                    required
+                    onChange={(value) => setMortalityForm(prev => ({ ...prev, date: value }))}
                   />
                   {mortalityErrors.date && (
                     <p className="text-xs text-red-600 mt-1">
@@ -4337,7 +4320,7 @@ export default function BatchDetailPage() {
                               <div>
                                 <div className="font-medium text-gray-900">
                                   {sale.description} -{" "}
-                                  {formatDateYYYYMMDD(sale.date)}
+                                  <DateDisplay date={sale.date} format="short" />
                                 </div>
                                 <div className="text-sm text-gray-600">
                                   Total: ₹{Number(sale.amount).toLocaleString()}{" "}
@@ -4376,16 +4359,14 @@ export default function BatchDetailPage() {
                                           ).toLocaleString()}
                                         </div>
                                         <div className="text-xs text-gray-600">
-                                          {formatDateYYYYMMDD(payment.date)}
+                                          <DateDisplay date={payment.date} format="short" />
                                           {payment.description &&
                                             ` - ${payment.description}`}
                                         </div>
                                       </div>
                                     </div>
                                     <div className="text-xs text-gray-500">
-                                      {new Date(
-                                        payment.createdAt
-                                      ).toLocaleDateString()}
+                                      <DateDisplay date={payment.createdAt} format="short" />
                                     </div>
                                   </div>
                                 )
@@ -4431,14 +4412,10 @@ export default function BatchDetailPage() {
           <ModalContent>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="weightDate">Date</Label>
-                <Input
-                  id="weightDate"
-                  name="date"
-                  type="date"
+                <DateInput
+                  label="Date"
                   value={weightForm.date}
-                  onChange={updateWeightField}
-                  required
+                  onChange={(value) => setWeightForm(prev => ({ ...prev, date: value }))}
                 />
                 {weightErrors.date && (
                   <p className="text-xs text-red-600 mt-1">

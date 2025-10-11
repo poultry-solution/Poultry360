@@ -9,6 +9,7 @@ import {
   getManagerUsers,
   updateUserStatus,
   getUserStatistics,
+  updateUserPreferences,
 } from "../controller/userController";
 import { authMiddleware } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
@@ -33,6 +34,9 @@ userRouter.get(
 
 // Get current user profile
 userRouter.get("/me", getCurrentUser);
+
+// Update user preferences (language, calendar type)
+userRouter.patch("/preferences", updateUserPreferences);
 
 // Get user by ID
 userRouter.get("/:id", getUserById);

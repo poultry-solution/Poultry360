@@ -15,6 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
+import { DateInput } from "@/components/ui/date-input";
+import { DateDisplay } from "@/components/ui/date-display";
 import {
   Building2,
   Users,
@@ -117,13 +119,6 @@ export default function FarmDetailPage() {
     }
   };
 
-  const formatDate = (date: string | Date) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   const calculateBatchAge = (startDate: string | Date) => {
     const start = new Date(startDate);
@@ -401,7 +396,7 @@ export default function FarmDetailPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Created:</span>
-              <span className="font-medium">{formatDate(farm.createdAt)}</span>
+              <span className="font-medium"><DateDisplay date={farm.createdAt} format="short" /></span>
             </div>
             {farm.description && (
               <div>
@@ -565,7 +560,7 @@ export default function FarmDetailPage() {
                           </div>
                           <div>
                             <span className="text-muted-foreground">Started:</span>
-                            <p className="font-medium">{formatDate(batch.startDate)}</p>
+                            <p className="font-medium"><DateDisplay date={batch.startDate} format="short" /></p>
                           </div>
                         </div>
                       </div>
@@ -743,14 +738,10 @@ export default function FarmDetailPage() {
                 </p>
               </div>
               <div>
-                <Label htmlFor="startDate">Start Date</Label>
-                <Input
-                  id="startDate"
-                  name="startDate"
-                  type="date"
+                <DateInput
+                  label="Start Date"
                   value={batchForm.startDate}
-                  onChange={handleBatchChange}
-                  required
+                  onChange={(value) => setBatchForm(prev => ({ ...prev, startDate: value }))}
                 />
               </div>
               

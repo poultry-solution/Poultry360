@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DateDisplay } from "@/components/ui/date-display";
 
 export interface Column<T = any> {
   key: string;
@@ -98,8 +99,7 @@ export function DataTable<T = any>({
       
       case 'date':
         if (!value) return '—';
-        const date = new Date(value);
-        return date.toLocaleDateString('en-GB');
+        return <DateDisplay date={value} format="short" />;
       
       case 'badge':
         return (

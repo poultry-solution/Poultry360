@@ -3,6 +3,7 @@
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { DateDisplay } from "@/components/ui/date-display";
 
 interface MoneyDetailsModalProps {
   isOpen: boolean;
@@ -93,7 +94,7 @@ export function MoneyDetailsModal({
                     </div>
                     <div className="text-gray-500 truncate">
                       {detail.farmName && `${detail.farmName} • `}
-                      {new Date(detail.date).toLocaleDateString("en-IN")}
+                      <DateDisplay date={detail.date} format="short" />
                     </div>
                   </div>
                 ))}
@@ -176,7 +177,7 @@ export function MoneyDetailsModal({
                       </span>
                     </div>
                     <div className="text-gray-500 truncate">
-                      {new Date(detail.date).toLocaleDateString("en-IN")}
+                      <DateDisplay date={detail.date} format="short" />
                     </div>
                   </div>
                 ))}

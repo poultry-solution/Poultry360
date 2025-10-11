@@ -9,6 +9,7 @@ import { useGetAllFarms } from "@/fetchers/farms/farmQueries";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { AlertTriangle, CheckCircle, XCircle, TestTube, TrendingUp, TrendingDown, Minus, DollarSign } from "lucide-react";
 import axiosInstance from "@/lib/axios";
+import { DateDisplay } from "@/components/ui/date-display";
 
 interface ExpenseStats {
   farmId: string;
@@ -318,7 +319,7 @@ export default function ExpenseNotificationsTestPage() {
                       <div className="text-right">
                         <div className="font-semibold">{formatCurrency(expense.amount)}</div>
                         <div className="text-xs text-gray-500">
-                          {new Date(expense.date).toLocaleDateString()}
+                          <DateDisplay date={expense.date} format="short" />
                         </div>
                       </div>
                     </div>

@@ -450,8 +450,8 @@ export default function DashboardPage() {
           onMarkCompleted={handleMarkCompleted}
           onDeleteReminder={handleDeleteReminder}
           onAddReminder={() => setIsReminderModalOpen(true)}
-        />
-      </div>
+                          />
+                        </div>
 
       {/* Money to Receive Details Modal */}
       <MoneyDetailsModal

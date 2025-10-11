@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, Search } from "lucide-react";
 import React from "react";
+import { DateDisplay } from "@/components/ui/date-display";
 
 export type BatchFilter = "ALL" | "ACTIVE" | "COMPLETED";
 
@@ -116,7 +117,9 @@ export function ShareBatchModal(props: ShareBatchModalProps) {
                     <div>
                       <div className="font-medium text-sm">{b.batchNumber}</div>
                       <div className="text-xs text-muted-foreground">
-                        {b.farm?.name} • {new Date(b.startDate || "").toLocaleDateString()} • {b.status}
+                        {b.farm?.name} •{" "}
+                        <DateDisplay date={b.startDate || ""} format="short" />{" "}
+                        • {b.status}
                       </div>
                     </div>
                     <input
@@ -167,7 +170,11 @@ export function ShareBatchModal(props: ShareBatchModalProps) {
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" className="bg-primary" disabled={isSubmitting || !selectedBatchId}>
+          <Button
+            type="submit"
+            className="bg-primary"
+            disabled={isSubmitting || !selectedBatchId}
+          >
             {isSubmitting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -184,5 +191,3 @@ export function ShareBatchModal(props: ShareBatchModalProps) {
 }
 
 export default ShareBatchModal;
-
-

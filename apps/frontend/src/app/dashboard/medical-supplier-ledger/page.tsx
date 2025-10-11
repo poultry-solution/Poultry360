@@ -27,6 +27,8 @@ import {
   useDeleteMedicalSupplier,
 } from "@/fetchers/medicalSuppliers/medicalSupplierQueries";
 import { TransactionType } from "@myapp/shared-types";
+import { DateInput } from "@/components/ui/date-input";
+import { DateDisplay } from "@/components/ui/date-display";
 
 export default function MedicalSupplierLedgerPage() {
   const [activeSupplierId, setActiveSupplierId] = useState<string | null>(null);
@@ -762,14 +764,10 @@ export default function MedicalSupplierLedgerPage() {
                 </div>
               </div>
               <div>
-                <Label htmlFor="date">Date</Label>
-                <Input
-                  id="date"
-                  type="datetime-local"
+                <DateInput
+                  label="Date"
                   value={newEntry.date}
-                  onChange={(e) =>
-                    setNewEntry({ ...newEntry, date: e.target.value })
-                  }
+                  onChange={(value) => setNewEntry({ ...newEntry, date: value })}
                 />
               </div>
             </div>
@@ -834,14 +832,10 @@ export default function MedicalSupplierLedgerPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="paymentDate">Payment Date</Label>
-                <Input
-                  id="paymentDate"
-                  type="date"
+                <DateInput
+                  label="Payment Date"
                   value={paymentForm.date}
-                  onChange={(e) =>
-                    setPaymentForm({ ...paymentForm, date: e.target.value })
-                  }
+                  onChange={(value) => setPaymentForm({ ...paymentForm, date: value })}
                 />
               </div>
               <div>
@@ -961,7 +955,7 @@ export default function MedicalSupplierLedgerPage() {
                                   ₹{payment.amount.toLocaleString()}
                                 </div>
                                 <div className="text-sm text-gray-600">
-                                  {new Date(payment.date).toLocaleDateString()}
+                                  <DateDisplay date={payment.date} format="short" />
                                 </div>
                                 {payment.reference && (
                                   <div className="text-sm text-gray-500">

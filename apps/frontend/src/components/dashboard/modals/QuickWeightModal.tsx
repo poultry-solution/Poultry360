@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import { DateInput } from "@/components/ui/date-input";
 
 interface QuickWeightModalProps {
   isOpen: boolean;
@@ -173,13 +174,10 @@ export function QuickWeightModal({
               </div>
               
               <div>
-                <Label htmlFor="weightDate">Date</Label>
-                <Input
-                  id="weightDate"
-                  name="date"
-                  type="date"
+                <DateInput
+                  label="Date"
                   value={form.date}
-                  onChange={updateField}
+                  onChange={(value) => setForm(prev => ({ ...prev, date: value }))}
                 />
                 {errors.date && (
                   <p className="text-xs text-red-600 mt-1">{errors.date}</p>

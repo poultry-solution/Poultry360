@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "./button";
 import { ModalFooter } from "./modal";
 import { useState } from "react";
+import { DateInput } from "./date-input";
 
 export const BatchSaleModel = ({
   isSaleModalOpen,
@@ -184,13 +185,10 @@ export const BatchSaleModel = ({
               </div>
             )}
             <div>
-              <Label htmlFor="date">Date</Label>
-              <Input
-                id="date"
-                name="date"
-                type="date"
+              <DateInput
+                label="Date"
                 value={saleForm.date}
-                onChange={updateSaleField}
+                onChange={(value) => setSaleForm(prev => ({ ...prev, date: value }))}
               />
               {saleErrors.date && (
                 <p className="text-xs text-red-600 mt-1">{saleErrors.date}</p>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import { DateInput } from "@/components/ui/date-input";
 
 interface QuickMortalityModalProps {
   isOpen: boolean;
@@ -181,14 +182,10 @@ export function QuickMortalityModal({
 
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="mortalityDate">Date *</Label>
-                <Input
-                  id="mortalityDate"
-                  name="date"
-                  type="date"
+                <DateInput
+                  label="Date *"
                   value={form.date}
-                  onChange={updateField}
-                  required
+                  onChange={(value) => updateField({ target: { name: 'date', value } })}
                 />
                 {errors.date && (
                   <p className="text-xs text-red-600 mt-1">{errors.date}</p>

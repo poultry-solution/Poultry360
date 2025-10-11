@@ -13,6 +13,8 @@ export interface User {
   companyFarmLocation?: string;
   role: "OWNER" | "MANAGER" | "DOCTOR" | "SUPER_ADMIN";
   status: "ACTIVE" | "INACTIVE" | "PENDING_VERIFICATION";
+  language?: "ENGLISH" | "NEPALI";
+  calendarType?: "AD" | "BS";
   managedFarms?: string[]; // Array of farm IDs for managers
 }
 
@@ -126,6 +128,8 @@ export const useAuthStore = create<AuthState>()(
               companyFarmLocation: user.companyFarmLocation,
               role: user.role,
               status: user.status || "ACTIVE",
+              language: user.language || "ENGLISH",
+              calendarType: user.calendarType || "AD",
               managedFarms: user.managedFarms || [],
             };
 
@@ -168,6 +172,8 @@ export const useAuthStore = create<AuthState>()(
               companyFarmLocation: user.companyFarmLocation,
               role: user.role,
               status: "ACTIVE", // New users are active by default
+              language: user.language || "ENGLISH",
+              calendarType: user.calendarType || "AD",
               managedFarms: [],
             };
 
@@ -269,6 +275,8 @@ export const useAuthStore = create<AuthState>()(
                 companyFarmLocation: response.user.companyFarmLocation,
                 role: response.user.role,
                 status: response.user.status || "ACTIVE",
+                language: response.user.language || "ENGLISH",
+                calendarType: response.user.calendarType || "AD",
                 managedFarms: response.user.managedFarms || [],
               };
 
@@ -321,6 +329,8 @@ export const useAuthStore = create<AuthState>()(
               companyFarmLocation: userData.companyFarmLocation,
               role: userData.role,
               status: userData.status || "ACTIVE",
+              language: userData.language || "ENGLISH",
+              calendarType: userData.calendarType || "AD",
               managedFarms: userData.managedFarms || [],
             };
 
@@ -424,7 +434,8 @@ export const useAuthStore = create<AuthState>()(
             accessToken,
             user: {
               id: user.id,
-              name: user.name,  
+              name: user.name,
+              email: user.phone, // Use phone as email since we don't have email
               phone: user.phone,
               role: user.role,
               companyName: user.companyName,
