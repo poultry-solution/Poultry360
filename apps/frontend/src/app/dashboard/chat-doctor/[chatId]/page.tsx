@@ -1,32 +1,23 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/common/components/ui/card";
+import { Button } from "@/common/components/ui/button";
 import {
   ArrowLeft,
-  Send,
-  Image,
-  Paperclip,
-  MoreVertical,
-  Share2,
-  Search,
-  Loader2,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import {
   useCurrentConversation,
   useMessageInput,
   useChatConnection,
-} from "@/hooks/useChat";
+} from "@/common/hooks/useChat";
 import { toast } from "sonner";
-import ShareBatchModal from "@/components/chat/ShareBatchModal";
-import ChatInputBar from "@/components/chat/ChatInputBar";
-import MessageList from "@/components/chat/MessageList";
-import ChatHeader from "@/components/chat/ChatHeader";
-import VoiceRecorder from "@/components/chat/VoiceRecorder";
+import ShareBatchModal from "@/common/components/chat/ShareBatchModal";
+import ChatInputBar from "@/common/components/chat/ChatInputBar";
+import MessageList from "@/common/components/chat/MessageList";
+import ChatHeader from "@/common/components/chat/ChatHeader";
+import VoiceRecorder from "@/common/components/chat/VoiceRecorder";
 import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
 import { useCreateBatchShare } from "@/fetchers/batchShare/batchShareQueries";
 import {
@@ -39,8 +30,7 @@ import {
   useVerifyChatUpload,
   useDeleteUploadedFile,
 } from "@/fetchers/s3/s3Queries";
-import { useDeleteConversation } from "@/services/chatservices/chatQueries";
-import { X } from "lucide-react";
+import { useDeleteConversation } from "@/common/services/chatservices/chatQueries";
 
 export default function ChatPage() {
   const router = useRouter();

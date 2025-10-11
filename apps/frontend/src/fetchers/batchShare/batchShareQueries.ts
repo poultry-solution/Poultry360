@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import axiosInstance from "@/lib/axios";
+import axiosInstance from "@/common/lib/axios";
 
 type CreateBatchSharePayload = {
   batchId: string;

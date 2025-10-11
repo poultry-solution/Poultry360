@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { useNotifications } from "@/hooks/useNotifications";
-import { NotificationCenter } from "@/components/notifications/NotificationCenter";
-import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui/card";
+import { Button } from "@/common/components/ui/button";
+import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
+import { Badge } from "@/common/components/ui/badge";
+import { useNotifications } from "@/common/hooks/useNotifications";
+import { NotificationCenter } from "@/common/components/notifications/NotificationCenter";
+import { NotificationBell } from "@/common/components/notifications/NotificationBell";
 import { Bell, BellOff, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 
 export default function NotificationsTestPage() {

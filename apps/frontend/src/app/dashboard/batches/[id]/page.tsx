@@ -10,9 +10,9 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+} from "@/common/components/ui/card";
+import { Button } from "@/common/components/ui/button";
+import { Badge } from "@/common/components/ui/badge";
 import {
   Layers,
   ArrowLeft,
@@ -20,10 +20,6 @@ import {
   Loader2,
   CheckCircle,
 } from "lucide-react";
-import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { DataTable, Column, createColumn } from "@/components/ui/data-table";
 import {
   useGetBatchById,
   useGetBatchAnalytics,
@@ -49,7 +45,7 @@ import {
   useUpdateMortality,
   useDeleteMortality,
 } from "@/fetchers/mortality/mortalityQueries";
-import { BatchSaleModel } from "@/components/ui/batchSaleModel";
+import { BatchSaleModel } from "@/common/components/ui/batchSaleModel";
 import {
   useGetWeights,
   useGetGrowthChart,
@@ -57,9 +53,7 @@ import {
   useUpdateWeight,
   useDeleteWeight,
 } from "@/fetchers/weight/weightQueries";
-import WeightGrowthChart from "@/components/charts/WeightGrowthChart";
-import { DateDisplay } from "@/components/ui/date-display";
-import { DateInput } from "@/components/ui/date-input";
+import { DateDisplay } from "@/common/components/ui/date-display";
 import { ExpenseModal } from "@/components/batches/modals/ExpenseModal";
 import { MortalityModal } from "@/components/batches/modals/MortalityModal";
 import { WeightModal } from "@/components/batches/modals/WeightModal";

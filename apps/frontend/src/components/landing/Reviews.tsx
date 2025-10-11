@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/common/components/ui/button";
+import { Badge } from "@/common/components/ui/badge";
 import { Star, Quote } from "lucide-react";
 
 export default function Reviews() {

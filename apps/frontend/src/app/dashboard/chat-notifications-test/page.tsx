@@ -1,17 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useNotifications } from "@/hooks/useNotifications";
-import { NotificationCenter } from "@/components/notifications/NotificationCenter";
-import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui/card";
+import { Button } from "@/common/components/ui/button";
+import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
+import { Badge } from "@/common/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/common/components/ui/select";
+import { useNotifications } from "@/common/hooks/useNotifications";
+import { NotificationCenter } from "@/common/components/notifications/NotificationCenter";
+import { NotificationBell } from "@/common/components/notifications/NotificationBell";
 import { MessageSquare, Image, Mic, FileText, Share2 } from "lucide-react";
-import axiosInstance from "@/lib/axios";
+import axiosInstance from "@/common/lib/axios";
 
 interface TestUser {
   id: string;

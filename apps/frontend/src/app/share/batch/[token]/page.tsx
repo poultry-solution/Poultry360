@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Loader2, Activity, Leaf, Syringe, TrendingDown, Calendar, Eye, Clock, MapPin, Bird } from "lucide-react";
 import { useGetBatchShareByToken } from "@/fetchers/batchShare/batchShareQueries";
-import { DateDisplay } from "@/components/ui/date-display";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 type SnapshotResponse = {
   share: {

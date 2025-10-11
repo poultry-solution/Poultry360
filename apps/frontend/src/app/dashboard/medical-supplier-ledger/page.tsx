@@ -6,16 +6,16 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/common/components/ui/card";
 import { Pill, Plus, TrendingUp, Loader2, Trash2, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/common/components/ui/button";
 import { useState, useEffect } from "react";
-import { getNowLocalDateTime } from "@/lib/utils";
-import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { DataTable, Column, createColumn } from "@/components/ui/data-table";
-import { useInventory } from "@/contexts/InventoryContext";
+import { getNowLocalDateTime } from "@/common/lib/utils";
+import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
+import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
+import { DataTable, Column, createColumn } from "@/common/components/ui/data-table";
+import { useInventory } from "@/common/contexts/InventoryContext";
 import { toast } from "sonner";
 import {
   useGetAllMedicalSuppliers,
@@ -27,8 +27,8 @@ import {
   useDeleteMedicalSupplier,
 } from "@/fetchers/medicalSuppliers/medicalSupplierQueries";
 import { TransactionType } from "@myapp/shared-types";
-import { DateInput } from "@/components/ui/date-input";
-import { DateDisplay } from "@/components/ui/date-display";
+import { DateInput } from "@/common/components/ui/date-input";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 export default function MedicalSupplierLedgerPage() {
   const [activeSupplierId, setActiveSupplierId] = useState<string | null>(null);

@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui/card";
+import { Button } from "@/common/components/ui/button";
+import { Badge } from "@/common/components/ui/badge";
 import { CheckCircle, Clock, RotateCcw, Bell, Calendar, Plus, Filter, Trash2 } from "lucide-react";
 import {
   useGetUpcomingReminders,
@@ -18,8 +18,8 @@ import {
   getReminderTypeDisplayName,
   formatReminderDueDate,
 } from "@/fetchers/remainder/remainderQueries";
-import { DateInput } from "@/components/ui/date-input";
-import { DateDisplay } from "@/components/ui/date-display";
+import { DateInput } from "@/common/components/ui/date-input";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 export default function RemindersPage() {
   const [activeTab, setActiveTab] = useState<"upcoming" | "overdue" | "scheduled" | "completed">("upcoming");

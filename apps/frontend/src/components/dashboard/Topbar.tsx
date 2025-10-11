@@ -7,9 +7,9 @@ import {
   Settings,
   LogOut,
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Input } from "@/common/components/ui/input";
+import { Button } from "@/common/components/ui/button";
+import { Badge } from "@/common/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,10 +17,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useAuth } from "@/store/store";
+} from "@/common/components/ui/dropdown-menu";
+import { useAuth } from "@/common/store/store";
 import { useRouter } from "next/navigation";
-import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { NotificationBell } from "@/common/components/notifications/NotificationBell";
 interface TopbarProps {
   isCollapsed: boolean;
   onToggle: () => void;

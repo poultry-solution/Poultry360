@@ -6,15 +6,15 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+} from "@/common/components/ui/card";
+import { Button } from "@/common/components/ui/button";
 import { Clock, Plus } from "lucide-react";
 import {
   getReminderTypeDisplayName,
   formatReminderDueDate,
   isReminderDueSoon,
 } from "@/fetchers/remainder/remainderQueries";
-import { DateDisplay } from "@/components/ui/date-display";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 interface RemindersSectionProps {
   upcoming: any[];

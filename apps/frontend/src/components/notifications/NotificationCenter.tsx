@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
+import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui/card";
+import { Button } from "@/common/components/ui/button";
+import { Badge } from "@/common/components/ui/badge";
+import { ScrollArea } from "@/common/components/ui/scroll-area";
+import { Separator } from "@/common/components/ui/separator";
 import {
   Bell,
   BellOff,
@@ -20,7 +20,7 @@ import {
   Info,
   Trash2,
 } from "lucide-react";
-import { useNotifications, NotificationData } from "@/hooks/useNotifications";
+import { useNotifications, NotificationData } from "@/common/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
 
 interface NotificationCenterProps {

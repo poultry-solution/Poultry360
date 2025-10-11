@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { crossPortAuth } from "@myapp/shared-auth";
-import { AppLoadingScreen } from "@/components/ui/loading-screen";
+import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
 
 interface RoleBasedRedirectProps {
   userRole: string;

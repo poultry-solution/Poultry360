@@ -1,8 +1,8 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useCalendar } from "@/hooks/useCalendar";
+import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
+import { useCalendar } from "@/common/hooks/useCalendar";
 
 interface DateInputProps {
   label?: string;

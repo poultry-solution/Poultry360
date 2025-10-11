@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Message, SendMessageData } from "@/types/chat";
-import axiosInstance from "@/lib/axios";
+import axiosInstance from "@/common/lib/axios";
 
 // ==================== TYPES ====================
 type MessagesResponse = {

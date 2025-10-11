@@ -7,13 +7,13 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
-import { Label } from "@/components/ui/label";
-import { DataTable } from "@/components/ui/data-table";
+} from "@/common/components/ui/card";
+import { Button } from "@/common/components/ui/button";
+import { Input } from "@/common/components/ui/input";
+import { Badge } from "@/common/components/ui/badge";
+import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
+import { Label } from "@/common/components/ui/label";
+import { DataTable } from "@/common/components/ui/data-table";
 import {
   Plus,
   Search,
@@ -42,7 +42,7 @@ import {
 import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
 import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
 import { toast } from "sonner";
-import { DateDisplay } from "@/components/ui/date-display";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 // Types
 type TabType = "overview" | "sales" | "parties" | "payments";

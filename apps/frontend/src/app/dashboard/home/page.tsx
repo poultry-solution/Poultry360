@@ -1,14 +1,14 @@
 "use client";
 
 import { Building2, Layers } from "lucide-react";
-import { useAuth } from "@/store/store";
+import { useAuth } from "@/common/store/store";
 import { useState, useEffect } from "react";
-import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
-import { Button } from "@/components/ui/button";
+import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
+import { Button } from "@/common/components/ui/button";
 import Link from "next/link";
 import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
 import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
-import { useInventory } from "@/contexts/InventoryContext";
+import { useInventory } from "@/common/contexts/InventoryContext";
 import {
   useCreateExpense,
   useGetExpenseCategories,

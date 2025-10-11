@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useLoading, usePageLoading, useOperationLoading } from "@/providers/LoadingProvider";
-import { MinimalLoadingScreen, PageLoadingScreen } from "@/components/ui/loading-screen";
+import { Button } from "@/common/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
+import { useLoading, usePageLoading, useOperationLoading } from "@/common/providers/LoadingProvider";
+import { MinimalLoadingScreen, PageLoadingScreen } from "@/common/components/ui/loading-screen";
 
 /**
  * Example component demonstrating different loading screen usage patterns
@@ -98,7 +98,7 @@ export const LoadingExamples: React.FC = () => {
             <div>
               <h4 className="font-semibold mb-2">Global Loading (Full Screen)</h4>
               <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
-{`import { useLoading } from "@/providers/LoadingProvider";
+{`import { useLoading } from "@/common/providers/LoadingProvider";
 
 const { showLoading, hideLoading } = useLoading();
 
@@ -113,7 +113,7 @@ hideLoading();`}
             <div>
               <h4 className="font-semibold mb-2">Page Loading</h4>
               <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
-{`import { usePageLoading } from "@/providers/LoadingProvider";
+{`import { usePageLoading } from "@/common/providers/LoadingProvider";
 
 const { showPageLoading, hidePageLoading } = usePageLoading();
 
@@ -128,7 +128,7 @@ hidePageLoading();`}
             <div>
               <h4 className="font-semibold mb-2">Operation Loading (Smaller)</h4>
               <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
-{`import { useOperationLoading } from "@/providers/LoadingProvider";
+{`import { useOperationLoading } from "@/common/providers/LoadingProvider";
 
 const { 
   showOperationLoading, 
@@ -151,7 +151,7 @@ return (
             <div>
               <h4 className="font-semibold mb-2">Direct Component Usage</h4>
               <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
-{`import { MinimalLoadingScreen, PageLoadingScreen } from "@/components/ui/loading-screen";
+{`import { MinimalLoadingScreen, PageLoadingScreen } from "@/common/components/ui/loading-screen";
 
 // Minimal loading
 <MinimalLoadingScreen message="Loading..." size="sm" />

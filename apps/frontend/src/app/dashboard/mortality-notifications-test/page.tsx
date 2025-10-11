@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui/card";
+import { Button } from "@/common/components/ui/button";
+import { Badge } from "@/common/components/ui/badge";
+import { Alert, AlertDescription } from "@/common/components/ui/alert";
 import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
-import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { NotificationBell } from "@/common/components/notifications/NotificationBell";
 import { AlertTriangle, CheckCircle, XCircle, TestTube } from "lucide-react";
-import axiosInstance from "@/lib/axios";
+import axiosInstance from "@/common/lib/axios";
 
 interface BatchMortalityStats {
   batchNumber: string;

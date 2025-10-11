@@ -9,14 +9,14 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
-import { DateInput } from "@/components/ui/date-input";
-import { DateDisplay } from "@/components/ui/date-display";
+} from "@/common/components/ui/card";
+import { Button } from "@/common/components/ui/button";
+import { Badge } from "@/common/components/ui/badge";
+import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
+import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
+import { DateInput } from "@/common/components/ui/date-input";
+import { DateDisplay } from "@/common/components/ui/date-display";
 import {
   Building2,
   Users,
@@ -38,7 +38,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useGetFarmById, useGetFarmAnalytics, useDeleteFarm } from "@/fetchers/farms/farmQueries";
-import { getTodayLocalDate } from "@/lib/utils";
+import { getTodayLocalDate } from "@/common/lib/utils";
 import { useGetAllBatches, useCreateBatch, useDeleteBatch } from "@/fetchers/batches/batchQueries";
 import { useInventoryByType } from "@/fetchers/inventory/inventoryQueries";
 import { toast } from "sonner";

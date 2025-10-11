@@ -1,8 +1,8 @@
 "use client";
 
-import { useAuthStore } from "@/store/store";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuthStore } from "@/common/store/store";
+import { Button } from "@/common/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui/card";
 
 export default function AuthDebug() {
   const {

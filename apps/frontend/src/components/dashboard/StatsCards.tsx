@@ -5,7 +5,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/common/components/ui/card";
 import {
   Building2,
   Layers,

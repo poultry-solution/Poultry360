@@ -1,12 +1,12 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAuth } from "@/store/store";
+import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui/card";
+import { Label } from "@/common/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/common/components/ui/select";
+import { useAuth } from "@/common/store/store";
 import { useState } from "react";
 import { toast } from "sonner";
-import axiosInstance from "@/lib/axios";
+import axiosInstance from "@/common/lib/axios";
 
 export default function SettingsPage() {
   const { user } = useAuth();

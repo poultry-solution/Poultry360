@@ -11,7 +11,7 @@ import React, {
 import { useQueryClient } from "@tanstack/react-query";
 import { getSocketService } from "@/services/chatservices/socketService";
 import { chatKeys } from "@/services/chatservices/chatQueries";
-import { useAuthStore } from "@/store/store";
+import { useAuthStore } from "@/common/store/store";
 import type {
   Message,
   Conversation,

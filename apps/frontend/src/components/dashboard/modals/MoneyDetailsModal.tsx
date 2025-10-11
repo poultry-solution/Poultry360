@@ -1,9 +1,9 @@
 "use client";
 
-import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
-import { Button } from "@/components/ui/button";
+import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
+import { Button } from "@/common/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { DateDisplay } from "@/components/ui/date-display";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 interface MoneyDetailsModalProps {
   isOpen: boolean;

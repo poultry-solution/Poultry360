@@ -1,20 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { DateInput } from "@/components/ui/date-input";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui/card";
+import { Button } from "@/common/components/ui/button";
+import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
+import { DateInput } from "@/common/components/ui/date-input";
+import { Badge } from "@/common/components/ui/badge";
+import { Textarea } from "@/common/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/common/components/ui/select";
 import {
   Bell,
   Plus,
@@ -25,8 +25,8 @@ import {
   XCircle,
 } from "lucide-react";
 import axios from "axios";
-import { useAuthStore } from "@/store/store";
-import { DateDisplay } from "@/components/ui/date-display";
+import { useAuthStore } from "@/common/store/store";
+import { DateDisplay } from "@/common/components/ui/date-display";
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 interface Reminder {

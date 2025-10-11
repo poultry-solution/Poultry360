@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { useAuth, useAuthStore } from "@/store/store";
-import { crossPortAuth } from "@myapp/shared-auth";
+import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
+import { Button } from "@/common/components/ui/button";
+import { useAuth, useAuthStore } from "@/common/store/store";
+// import { crossPortAuth } from "@myapp/shared-auth"; // Removed - no longer using shared packages
 import { Eye, EyeOff, CheckCircle } from "lucide-react";
 
 export default function SignupPage() {
@@ -102,27 +102,28 @@ export default function SignupPage() {
 
       // Check user role and redirect accordingly
       const { user, accessToken } = useAuthStore.getState();
-      if (user?.role === "DOCTOR") {
-        // Store auth data and navigate to doctor app using shared-auth
-        crossPortAuth.setAuthData({
-          accessToken: accessToken!,
-          user: {
-            id: user.id,
-            name: user.name,
-            phone: user.phone,
-            role: user.role,
-            companyName: user.companyName,
-          },
-        });
-        setTimeout(() => {
-          crossPortAuth.navigateToDoctorApp();
-        }, 1000);
-      } else {
-        // Redirect farmers/managers to farmer dashboard
-        setTimeout(() => {
-          router.push("/dashboard/home");
-        }, 1000);
-      }
+      // TODO: Handle doctor cross-port navigation when implementing unified architecture
+      // if (user?.role === "DOCTOR") {
+      //   // Store auth data and navigate to doctor app using shared-auth
+      //   crossPortAuth.setAuthData({
+      //     accessToken: accessToken!,
+      //     user: {
+      //       id: user.id,
+      //       name: user.name,
+      //       phone: user.phone,
+      //       role: user.role,
+      //       companyName: user.companyName,
+      //     },
+      //   });
+      //   setTimeout(() => {
+      //     crossPortAuth.navigateToDoctorApp();
+      //   }, 1000);
+      // } else {
+      // Redirect farmers/managers to farmer dashboard
+      setTimeout(() => {
+        router.push("/dashboard/home");
+      }, 1000);
+      // }
     } catch (err) {
       console.error("Registration failed:", err);
     }

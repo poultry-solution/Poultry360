@@ -12,8 +12,10 @@
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
     "build:types": "rm -rf packages/shared-types/dist && pnpm --filter @myapp/shared-types build",
+    "build:auth": "rm -rf packages/shared-auth/dist && pnpm --filter @myapp/shared-auth build",
     "build:utils": "rm -rf packages/utils/dist && pnpm --filter @myapp/utils build",
-    "watch:types": "pnpm --filter @myapp/shared-types exec tsc -w"
+    "watch:types": "pnpm --filter @myapp/shared-types exec tsc -w",
+    "watch:auth": "pnpm --filter @myapp/shared-auth exec tsc -w"
   },
   "keywords": [],
   "author": "",

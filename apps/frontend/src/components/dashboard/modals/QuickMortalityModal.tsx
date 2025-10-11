@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
+import { Button } from "@/common/components/ui/button";
+import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
 import { Loader2 } from "lucide-react";
-import { DateInput } from "@/components/ui/date-input";
+import { DateInput } from "@/common/components/ui/date-input";
 
 interface QuickMortalityModalProps {
   isOpen: boolean;

@@ -2,13 +2,14 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { useAuth, useAuthStore } from "@/store/store";
+import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
+import { Button } from "@/common/components/ui/button";
+import { useAuth, useAuthStore } from "@/common/store/store";
+// import { crossPortAuth } from "@myapp/shared-auth"; // Removed - no longer using shared packages
+import { useLoginRedirect } from "@/common/hooks/useRoleBasedRouting";
+import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
 import { crossPortAuth } from "@myapp/shared-auth";
-import { useLoginRedirect } from "@/hooks/useRoleBasedRouting";
-import { AppLoadingScreen } from "@/components/ui/loading-screen";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -48,29 +49,30 @@ export default function LoginPage() {
         emailOrPhone: normalizedPhone,
         password: formData.password,
       });
-      
+
       // Get user data after successful login
       const { user, accessToken } = useAuthStore.getState();
-      
-      if (user?.role === "DOCTOR") {
-        // Store auth data for cross-port navigation
-        console.log('🔍 Main app - storing auth data for doctor navigation');
-        const emailForAuth = (user as unknown as { email?: string })?.email ?? "";
-        crossPortAuth.setAuthData({
-          accessToken: accessToken!,
-          user: {
-            id: user.id,
-            name: user.name,
-            phone: user.phone,
-            role: user.role,
-            companyName: user.companyName,
-          },
-        });
-      }
-      
+
+      // TODO: Handle doctor cross-port navigation when implementing unified architecture
+      // if (user?.role === "DOCTOR") {
+      //   // Store auth data for cross-port navigation
+      //   console.log('🔍 Main app - storing auth data for doctor navigation');
+      //   const emailForAuth = (user as unknown as { email?: string })?.email ?? "";
+      //   crossPortAuth.setAuthData({
+      //     accessToken: accessToken!,
+      //     user: {
+      //       id: user.id,
+      //       name: user.name,
+      //       phone: user.phone,
+      //       role: user.role,
+      //       email: (user as any).email || "",
+      //       companyName: user.companyName,
+      //     },
+      //   });
+      // }
+
       // Use the new role-based redirection system
       await handleLoginRedirect(user?.role || "OWNER");
-      
     } catch (err) {
       console.error("Login failed:", err);
     }
@@ -78,11 +80,7 @@ export default function LoginPage() {
 
   // Show loading screen during redirection
   if (isRedirecting) {
-    return (
-      <AppLoadingScreen 
-        message="Redirecting to your dashboard..."
-      />
-    );
+    return <AppLoadingScreen message="Redirecting to your dashboard..." />;
   }
 
   return (
@@ -135,7 +133,9 @@ export default function LoginPage() {
                 required
               />
             </div>
-            <p className="text-xs text-muted-foreground">Enter the 10-digit Nepal number (without country code).</p>
+            <p className="text-xs text-muted-foreground">
+              Enter the 10-digit Nepal number (without country code).
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>

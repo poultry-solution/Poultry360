@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useAuthStore } from "@/store/store";
+import { useAuthStore } from "@/common/store/store";
 import { crossPortAuth } from "@myapp/shared-auth";
 
 interface RoleRouteConfig {

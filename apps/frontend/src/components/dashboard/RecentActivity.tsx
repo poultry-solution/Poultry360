@@ -6,8 +6,8 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { DateDisplay } from "@/components/ui/date-display";
+} from "@/common/components/ui/card";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 interface RecentActivityProps {
   recentActivity: any[];

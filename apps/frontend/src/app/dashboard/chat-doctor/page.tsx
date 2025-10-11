@@ -1,19 +1,19 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { MessageCircle, Clock, User } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/common/components/ui/button";
+import { Badge } from "@/common/components/ui/badge";
 import { useState, useEffect } from "react";
-import { Modal } from "@/components/ui/modal";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Modal } from "@/common/components/ui/modal";
+import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
 import { useRouter } from "next/navigation";
-import { useConversationsList, useDoctors, useCreateConversation, useUnreadCounts, useDoctorsWithStatus } from "@/hooks/useChat";
-import { useChatConnection } from "@/hooks/useChat";
-import { getSocketService } from "@/services/chatservices/socketService";
+import { useConversationsList, useDoctors, useCreateConversation, useUnreadCounts, useDoctorsWithStatus } from "@/common/hooks/useChat";
+import { useChatConnection } from "@/common/hooks/useChat";
+import { getSocketService } from "@/common/services/chatservices/socketService";
 import { useQueryClient } from "@tanstack/react-query";
-import { chatKeys } from "@/services/chatservices/chatQueries";
+import { chatKeys } from "@/common/services/chatservices/chatQueries";
 import { toast } from "sonner";
 
 export default function ChatDoctorPage() {

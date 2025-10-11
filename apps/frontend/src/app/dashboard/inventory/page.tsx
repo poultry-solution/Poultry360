@@ -6,7 +6,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/common/components/ui/card";
 import {
   Package,
   AlertTriangle,
@@ -16,19 +16,19 @@ import {
   Plus,
   Loader2,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/common/components/ui/button";
+import { Badge } from "@/common/components/ui/badge";
 import { useState } from "react";
-import { Modal } from "@/components/ui/modal";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { DataTable, Column, createColumn } from "@/components/ui/data-table";
+import { Modal } from "@/common/components/ui/modal";
+import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
+import { DataTable, Column, createColumn } from "@/common/components/ui/data-table";
 import {
   useInventoryDashboard,
   useCreateInventoryItem,
 } from "@/fetchers/inventory/inventoryQueries";
 import { InventoryItemType } from "@myapp/shared-types";
-import { DateDisplay } from "@/components/ui/date-display";
+import { DateDisplay } from "@/common/components/ui/date-display";
 import { toast } from "sonner";
 
 export default function InventoryPage() {

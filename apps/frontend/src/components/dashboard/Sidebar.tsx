@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn } from "@/common/lib/utils";
 import {
   Home,
   Building2,
@@ -16,8 +16,8 @@ import {
   Receipt,
   Syringe,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/store/store";
+import { Button } from "@/common/components/ui/button";
+import { useAuth } from "@/common/store/store";
 
 const navigation = [
   { name: "Home", href: "/dashboard/home", icon: Home },

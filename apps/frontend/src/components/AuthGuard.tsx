@@ -1,8 +1,8 @@
 "use client";
-import { useAuthStore } from "@/store/store";
+import { useAuthStore } from "@/common/store/store";
 import { usePathname } from "next/navigation";
-import { AuthLoadingScreen, AppLoadingScreen } from "@/components/ui/loading-screen";
-import { RoleBasedRedirect } from "@/components/RoleBasedRedirect";
+import { AuthLoadingScreen, AppLoadingScreen } from "@/common/components/ui/loading-screen";
+import { RoleBasedRedirect } from "@/common/components/auth/RoleBasedRedirect";
 
 interface AuthGuardProps {
   children: React.ReactNode;
