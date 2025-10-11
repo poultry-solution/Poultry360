@@ -7,7 +7,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, notFound } from "next/navigation";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -17,8 +16,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   Layers,
   ArrowLeft,
-  Plus,
-  Pencil,
   Trash2,
   Loader2,
   CheckCircle,
@@ -63,6 +60,27 @@ import {
 import WeightGrowthChart from "@/components/charts/WeightGrowthChart";
 import { DateDisplay } from "@/components/ui/date-display";
 import { DateInput } from "@/components/ui/date-input";
+import { ExpenseModal } from "@/components/batches/modals/ExpenseModal";
+import { MortalityModal } from "@/components/batches/modals/MortalityModal";
+import { WeightModal } from "@/components/batches/modals/WeightModal";
+import { PaymentModal } from "@/components/batches/modals/PaymentModal";
+import { CloseBatchModal } from "@/components/batches/modals/CloseBatchModal";
+import { DeleteBatchModal } from "@/components/batches/modals/DeleteBatchModal";
+import { TransactionsModal } from "@/components/batches/modals/TransactionsModal";
+import { CustomerTransactionsModal } from "@/components/batches/modals/CustomerTransactionsModal";
+import { LedgerModal } from "@/components/batches/modals/LedgerModal";
+import { OverviewTab } from "@/components/batches/tabs/OverviewTab";
+import { ExpensesTab } from "@/components/batches/tabs/ExpensesTab";
+import { SalesTab } from "@/components/batches/tabs/SalesTab";
+import { MortalityTab } from "@/components/batches/tabs/MortalityTab";
+import { SalesBalanceTab } from "@/components/batches/tabs/SalesBalanceTab";
+import { ProfitLossTab } from "@/components/batches/tabs/ProfitLossTab";
+import { GrowthTab } from "@/components/batches/tabs/GrowthTab";
+import { createExpenseColumns } from "@/components/batches/configs/expenseColumns";
+import { createSalesColumns } from "@/components/batches/configs/salesColumns";
+import { createMortalityColumns } from "@/components/batches/configs/mortalityColumns";
+import { createLedgerColumns } from "@/components/batches/configs/ledgerColumns";
+import { Banner } from "@/components/batches/sections/Banner";
 
 type ExpenseCategory = "Feed" | "Medicine" | "Hatchery" | "Other";
 
@@ -124,20 +142,6 @@ const TABS = [
 
 
 // helper banner
-function Banner({
-  type,
-  message,
-}: {
-  type: "success" | "error";
-  message: string;
-}) {
-  const base = "rounded-md px-3 py-2 text-sm border";
-  const styles =
-    type === "success"
-      ? "bg-green-50 text-green-800 border-green-200"
-      : "bg-red-50 text-red-800 border-red-200";
-  return <div className={`${base} ${styles}`}>{message}</div>;
-}
 
 export default function BatchDetailPage() {
   const params = useParams<{ id: string }>();
@@ -1377,442 +1381,37 @@ export default function BatchDetailPage() {
   );
 
   // Column configurations for DataTable
-  const expenseColumns: Column<any>[] = [
-    createColumn("category", "Category", {
-      type: "badge",
-      width: "120px",
-      render: (_, row) => (
-        <Badge
-          variant="secondary"
-          className={
-            row.category?.name === "Feed"
-              ? "bg-blue-100 text-blue-800"
-              : row.category?.name === "Medicine"
-                ? "bg-red-100 text-red-800"
-                : row.category?.name === "Hatchery"
-                  ? "bg-green-100 text-green-800"
-                  : "bg-gray-100 text-gray-800"
-          }
-        >
-          {row.category?.name || "Other"}
-        </Badge>
-      ),
-    }),
-    createColumn("details", "Details", {
-      render: (_, row) => {
-        const details = [];
-        if (row.quantity) details.push(`Qty: ${row.quantity}`);
-        if (row.unitPrice)
-          details.push(`Rate: ₹${Number(row.unitPrice).toLocaleString()}`);
-        if (row.inventoryUsages && row.inventoryUsages.length > 0) {
-          const items = row.inventoryUsages
-            .map(
-              (usage: any) =>
-                `${usage.item.name} (${usage.quantity}${usage.item.unit})`
-            )
-            .join(", ");
-          details.push(`Items: ${items}`);
-        }
-        return details.join(" • ") || row.description || "—";
-      },
-    }),
-    createColumn("amount", "Amount", {
-      type: "currency",
-      align: "right",
-      width: "120px",
-      render: (value) => `₹${Number(value).toLocaleString()}`,
-    }),
-    createColumn("date", "Date", {
-      type: "date",
-      width: "100px",
-      render: (value) => <DateDisplay date={value} format="short" />,
-    }),
-    createColumn("description", "Notes", {
-      render: (value) => value || "—",
-    }),
-    {
-      key: "actions",
-      label: "Actions",
-      type: "actions",
-      align: "right",
-      width: "120px",
-      render: (_, row) => (
-        <div className="flex items-center justify-end gap-2">
-          {!isBatchClosed ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-300"
-                onClick={() => openEditExpense(row)}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
-                onClick={() => deleteExpense(row.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </>
-          ) : (
-            <Badge
-              variant="secondary"
-              className="bg-gray-100 text-gray-500 text-xs"
-            >
-              Closed
-            </Badge>
-          )}
-        </div>
-      ),
-    },
-  ];
+  const expenseColumns = createExpenseColumns({
+    isBatchClosed,
+    openEditExpense,
+    deleteExpense,
+  });
 
-  const salesColumns: Column<any>[] = [
-    createColumn("date", "Date", {
-      type: "date",
-      width: "100px",
-      render: (value) => <DateDisplay date={value} format="short" />,
-    }),
-    createColumn("itemType", "Item Type", {
-      type: "badge",
-      width: "120px",
-      render: (value) => {
-        const itemTypeColors: Record<string, string> = {
-          Chicken_Meat: "bg-green-100 text-green-800",
-          EGGS: "bg-yellow-100 text-yellow-800",
-          CHICKS: "bg-blue-100 text-blue-800",
-          FEED: "bg-orange-100 text-orange-800",
-          MEDICINE: "bg-red-100 text-red-800",
-          EQUIPMENT: "bg-purple-100 text-purple-800",
-          OTHER: "bg-gray-100 text-gray-800",
-        };
-        const colorClass =
-          itemTypeColors[value as string] || "bg-gray-100 text-gray-800";
+  const salesColumns = createSalesColumns({
+    isBatchClosed,
+    isUpdating,
+    isDeleting,
+    openEditSale,
+    handleDeleteSale,
+    openTransactionsModal,
+  });
 
-        return (
-          <Badge variant="secondary" className={colorClass}>
-            {value || "Sale"}
-          </Badge>
-        );
-      },
-    }),
-    createColumn("quantity", "Quantity", {
-      type: "number",
-      align: "right",
-      width: "100px",
-    }),
-    createColumn("weight", "Weight (kg)", {
-      type: "number",
-      align: "right",
-      width: "100px",
-      render: (value) => (value ? `${Number(value).toFixed(2)} kg` : "—"),
-    }),
-    createColumn("unitPrice", "Rate", {
-      type: "currency",
-      align: "right",
-      width: "100px",
-    }),
-    createColumn("amount", "Total", {
-      type: "currency",
-      align: "right",
-      width: "120px",
-    }),
-    createColumn("isCredit", "Credit", {
-      type: "badge",
-      align: "center",
-      width: "80px",
-      render: (value) => (
-        <Badge
-          variant="secondary"
-          className={
-            value
-              ? "bg-orange-100 text-orange-800"
-              : "bg-gray-100 text-gray-800"
-          }
-        >
-          {value ? "Yes" : "No"}
-        </Badge>
-      ),
-    }),
-    createColumn("paidAmount", "Paid", {
-      type: "currency",
-      align: "right",
-      width: "100px",
-      render: (value) => (value ? `₹${Number(value).toLocaleString()}` : "—"),
-    }),
-    createColumn("dueAmount", "Due", {
-      type: "currency",
-      align: "right",
-      width: "100px",
-      render: (value) => (value ? `₹${Number(value).toLocaleString()}` : "—"),
-    }),
-    {
-      key: "transactions",
-      label: "Transactions",
-      type: "actions",
-      align: "center",
-      width: "120px",
-      render: (_, row) => (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 px-3 text-xs hover:bg-blue-50 hover:border-blue-300"
-          onClick={() => openTransactionsModal(row)}
-        >
-          View ({row.payments?.length || 0})
-        </Button>
-      ),
-    },
-    {
-      key: "actions",
-      label: "Actions",
-      type: "actions",
-      align: "right",
-      width: "120px",
-      render: (_, row) => (
-        <div className="flex items-center justify-end gap-2">
-          {!isBatchClosed ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-300"
-                onClick={() => openEditSale(row)}
-                disabled={isUpdating}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
-                onClick={() => handleDeleteSale(row.id)}
-                disabled={isDeleting}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </>
-          ) : (
-            <Badge
-              variant="secondary"
-              className="bg-gray-100 text-gray-500 text-xs"
-            >
-              Closed
-            </Badge>
-          )}
-        </div>
-      ),
-    },
-  ];
+  const mortalityColumns = createMortalityColumns({
+    isBatchClosed,
+    updateMortalityMutation,
+    deleteMortalityMutation,
+    openEditMortality,
+    deleteMortality,
+  });
 
-  const mortalityColumns: Column<any>[] = [
-    createColumn("date", "Date", {
-      type: "date",
-      width: "120px",
-      render: (value) => <DateDisplay date={value} format="short" />,
-    }),
-    createColumn("count", "Birds", {
-      type: "number",
-      align: "center",
-      width: "100px",
-      render: (value) => (
-        <span className="font-medium text-red-600">{value}</span>
-      ),
-    }),
-    createColumn("reason", "Reason", {
-      width: "200px",
-      render: (value) => (
-        <Badge
-          variant="secondary"
-          className="bg-red-100 text-red-800 border-red-200"
-        >
-          {value || "Natural Death"}
-        </Badge>
-      ),
-    }),
-    {
-      key: "actions",
-      label: "Actions",
-      type: "actions",
-      align: "right",
-      width: "120px",
-      render: (_, row) => (
-        <div className="flex items-center justify-end gap-2">
-          {!isBatchClosed ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-300"
-                onClick={() => openEditMortality(row)}
-                disabled={updateMortalityMutation.isPending}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
-                onClick={() => deleteMortality(row.id)}
-                disabled={deleteMortalityMutation.isPending}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </>
-          ) : (
-            <Badge
-              variant="secondary"
-              className="bg-gray-100 text-gray-500 text-xs"
-            >
-              Closed
-            </Badge>
-          )}
-        </div>
-      ),
-    },
-  ];
-
-  const ledgerColumns: Column<LedgerRow>[] = [
-    createColumn("name", "Name", {
-      render: (value) => <span className="font-medium">{value}</span>,
-    }),
-    createColumn("phone", "Phone"),
-    createColumn("category", "Category", {
-      type: "badge",
-      render: (value) => (
-        <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-          {value}
-        </Badge>
-      ),
-    }),
-    createColumn("sales", "Sales", {
-      type: "currency",
-      align: "right",
-      render: (value) => (
-        <span className="font-medium">₹{Number(value).toLocaleString()}</span>
-      ),
-    }),
-    createColumn("received", "Received", {
-      type: "currency",
-      align: "right",
-      render: (value) => (
-        <span className="text-green-600">
-          ₹{Number(value).toLocaleString()}
-        </span>
-      ),
-    }),
-    createColumn("balance", "Balance", {
-      type: "currency",
-      align: "right",
-      render: (value) => {
-        const numValue = Number(value);
-        return (
-          <span
-            className={
-              numValue > 0
-                ? "text-orange-600 font-bold"
-                : "text-green-600 font-bold"
-            }
-          >
-            ₹{numValue.toLocaleString()}
-          </span>
-        );
-      },
-    }),
-    {
-      key: "transactions",
-      label: "Transactions",
-      type: "actions",
-      align: "center",
-      width: "120px",
-      render: (_, row) => {
-        // Count total transactions for this customer
-        const customerTransactions =
-          batchSales?.filter(
-            (sale: any) => sale.isCredit && sale.customerId === row.id
-          ) || [];
-
-        const totalPayments = customerTransactions.reduce(
-          (sum: number, sale: any) => sum + (sale.payments?.length || 0),
-          0
-        );
-
-        return (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 px-3 text-xs hover:bg-blue-50 hover:border-blue-300"
-            onClick={() => openCustomerTransactionsModal(row)}
-          >
-            View ({totalPayments})
-          </Button>
-        );
-      },
-    },
-    {
-      key: "actions",
-      label: "Actions",
-      type: "actions",
-      align: "right",
-      width: "160px",
-      render: (_, row) => (
-        <div className="flex items-center justify-end gap-2">
-          {!isBatchClosed ? (
-            <>
-              {row.balance > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-3 text-xs hover:bg-green-50 hover:border-green-300 hover:text-green-700"
-                  onClick={() =>
-                    openPaymentModal({
-                      id:
-                        typeof row.id === "string" ? row.id : row.id.toString(),
-                      name: row.name,
-                      balance: row.balance,
-                    })
-                  }
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  Pay
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-300"
-                onClick={() => openEditLedger(row)}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
-                onClick={() =>
-                  deleteLedger(
-                    typeof row.id === "string" ? parseInt(row.id) : row.id
-                  )
-                }
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </>
-          ) : (
-            <Badge
-              variant="secondary"
-              className="bg-gray-100 text-gray-500 text-xs"
-            >
-              Closed
-            </Badge>
-          )}
-        </div>
-      ),
-    },
-  ];
+  const ledgerColumns = createLedgerColumns({
+    isBatchClosed,
+    batchSales,
+    openCustomerTransactionsModal,
+    openPaymentModal,
+    openEditLedger,
+    deleteLedger,
+  });
 
   return (
     <div className="space-y-6">
@@ -1881,41 +1480,7 @@ export default function BatchDetailPage() {
 
       {/* Prompt to close when batch is active but birds are 0 */}
       {batch.status === "ACTIVE" && batch.currentChicks === 0 && (
-        <Card className="border-orange-200 bg-orange-50">
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <div className="text-sm font-semibold text-orange-900">
-                  Batch appears finished
-                </div>
-                <div className="text-sm text-orange-800">
-                  Current birds are 0. You can close the batch to finalize
-                  records and generate a summary.
-                </div>
-              </div>
-              <div className="shrink-0">
-                <Button
-                  variant="outline"
-                  className="text-orange-600 border-orange-200 hover:bg-orange-100"
-                  onClick={openCloseBatchModal}
-                  disabled={closeBatchMutation.isPending}
-                >
-                  {closeBatchMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Preparing...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Close Batch
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <Banner type="error" message="Batch appears finished. You can close the batch to finalize records and generate a summary." />
       )}
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -1971,1252 +1536,96 @@ export default function BatchDetailPage() {
       </div>
 
       {activeTab === "Overview" && (
-        <div className="space-y-6">
-          {/* Batch Status Banner */}
-          {isBatchClosed && (
-            <Card className="border-green-200 bg-green-50">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-green-900">
-                        Batch Completed
-                      </h3>
-                      <p className="text-sm text-green-700">
-                        Closed on{" "}
-                        {batch.endDate
-                          ? <DateDisplay date={batch.endDate} format="short" />
-                          : "N/A"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-green-900">
-                      {analytics?.daysActive || currentAge} days
-                    </div>
-                    <div className="text-sm text-green-700">Total Duration</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <div className="grid gap-4 md:grid-cols-3">
-            {/* Performance Metrics */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Performance Metrics</CardTitle>
-                <CardDescription>
-                  {isBatchClosed
-                    ? "Final performance summary"
-                    : "Current performance snapshot"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Initial Birds:
-                    </span>
-                    <span className="font-medium">
-                      {batch.initialChicks.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Current Weight:
-                    </span>
-                    <span className="font-medium">
-                      {currentWeight
-                        ? `${Number(currentWeight).toFixed(2)} kg`
-                        : "—"}
-                    </span>
-                  </div>
-                  {isBatchClosed ? (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Birds Sold:
-                        </span>
-                        <span className="font-medium text-green-600">
-                          {analytics?.totalSalesQuantity?.toLocaleString() || 0}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Natural Deaths:
-                        </span>
-                        <span className="font-medium text-red-600">
-                          {mortalityStats?.totalMortality?.toLocaleString() ||
-                            analytics?.totalMortality?.toLocaleString() ||
-                            0}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Final Birds:
-                        </span>
-                        <span className="font-medium">0</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Current Birds:
-                      </span>
-                      <span className="font-medium">
-                        {batch.currentChicks?.toLocaleString() ||
-                          batch.initialChicks.toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Mortality Rate:
-                    </span>
-                    <span
-                      className={`font-medium ${Number(mortalityStats?.mortalityRate || analytics?.mortalityRate || 0) > 10 ? "text-red-600" : Number(mortalityStats?.mortalityRate || analytics?.mortalityRate || 0) > 5 ? "text-orange-600" : "text-green-600"}`}
-                    >
-                      {mortalityStats?.mortalityRate ||
-                        analytics?.mortalityRate?.toFixed(2) ||
-                        0}
-                      %
-                    </span>
-                  </div>
-                  {analytics?.fcr ? (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">FCR:</span>
-                      <span
-                        className={`font-medium ${analytics.fcr > 2.5 ? "text-red-600" : analytics.fcr > 2.0 ? "text-orange-600" : "text-green-600"}`}
-                      >
-                        {analytics.fcr.toFixed(2)}
-                      </span>
-                    </div>
-                  ) : analytics?.fcrData ? (
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          FCR (Feed Conversion Ratio):
-                        </span>
-                        <span className="font-medium text-gray-500">
-                          Not Available
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {analytics.fcrData.message || "No message available"}
-                      </div>
-                      {/* Debug info - remove after testing */}
-
-                      {analytics.fcrData.status === "no_weight_data" && (
-                        <div className="text-xs text-blue-600">
-                          💡 Record bird weights to calculate FCR
-                        </div>
-                      )}
-                      {analytics.fcrData.status === "no_feed_data" && (
-                        <div className="text-xs text-blue-600">
-                          💡 Record feed consumption to calculate FCR
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Financial Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Financial Summary</CardTitle>
-                <CardDescription>Revenue and cost breakdown</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Total Revenue:
-                    </span>
-                    <span className="font-medium text-green-600">
-                      ₹{salesTotal.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Total Expenses:
-                    </span>
-                    <span className="font-medium text-red-600">
-                      ₹{expensesTotal.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="border-t pt-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground font-medium">
-                        Net Profit:
-                      </span>
-                      <span
-                        className={`font-bold ${profit >= 0 ? "text-green-600" : "text-red-600"}`}
-                      >
-                        ₹{profit.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Revenue per Bird:
-                    </span>
-                    <span className="font-medium">
-                      ₹{perBirdRevenue.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Cost per Bird:
-                    </span>
-                    <span className="font-medium">
-                      ₹{perBirdExpense.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="border-t pt-2 mt-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground font-medium">
-                        {perBroilerExpenseData.isProfit ? "Profit" : "Cost"} per
-                        Broiler:
-                      </span>
-                      <span
-                        className={`font-bold ${perBroilerExpenseData.isProfit ? "text-green-600" : "text-orange-600"}`}
-                      >
-                        ₹{perBroilerExpenseData.displayValue.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      Based on{" "}
-                      {perBroilerExpenseData.remainingBroilers > 0
-                        ? `${perBroilerExpenseData.remainingBroilers} remaining`
-                        : "all"}{" "}
-                      broilers
-                    </div>
-                  </div>
-                  {/* {analytics?.profitMargin && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Profit Margin:
-                      </span>
-                      <span className="font-medium">
-                        {analytics.profitMargin.toFixed(2)}%
-                      </span>
-                    </div>
-                  )} */}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Batch Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Batch Information</CardTitle>
-                <CardDescription>Key details and timeline</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Farm Owner:</span>
-                    <span className="font-medium">{batch.farm.owner.name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Start Date:</span>
-                    <span className="font-medium">
-                      <DateDisplay date={batch.startDate} format="short" />
-                    </span>
-                  </div>
-                  {isBatchClosed && batch.endDate && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">End Date:</span>
-                      <span className="font-medium">
-                        <DateDisplay date={batch.endDate} format="short" />
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      {isBatchClosed ? "Total Days:" : "Days Active:"}
-                    </span>
-                    <span className="font-medium">
-                      {analytics?.daysActive || currentAge} days
-                    </span>
-                  </div>
-                  {analytics?.currentAvgWeight && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        {isBatchClosed
-                          ? "Final Avg Weight:"
-                          : "Current Avg Weight:"}
-                      </span>
-                      <span className="font-medium">
-                        {analytics.currentAvgWeight.toFixed(2)}g
-                      </span>
-                    </div>
-                  )}
-                  {receivableTotal > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Outstanding:
-                      </span>
-                      <span className="font-medium text-orange-600">
-                        ₹{receivableTotal.toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Closure Notes for Closed Batches */}
-          {isBatchClosed && (batch as any).notes && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Batch Notes</CardTitle>
-                <CardDescription>
-                  Additional information and closure notes
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm text-gray-700 whitespace-pre-wrap">
-                  {(batch as any).notes}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+        <OverviewTab
+          batch={batch}
+          analytics={analytics}
+          isBatchClosed={isBatchClosed}
+          currentAge={currentAge}
+          perBroilerExpenseData={perBroilerExpenseData}
+          salesTotal={salesTotal}
+          expensesTotal={expensesTotal}
+          mortalityStats={mortalityStats}
+          recentExpenses={expenses.slice(0, 3)}
+          recentSales={batchSales?.slice(0, 3) || []}
+          recentMortalities={batchMortalities.slice(0, 3)}
+        />
       )}
 
       {activeTab === "Expenses" && (
-        <Card>
-          <CardHeader className="flex items-center justify-between">
-            <div>
-              <CardTitle>Expenses</CardTitle>
-              <CardDescription>
-                List of expenses broiler for this batch with all category
-              </CardDescription>
-            </div>
-            {!isBatchClosed && (
-              <Button
-                className="bg-primary hover:bg-primary/90"
-                onClick={openNewExpense}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Expense
-              </Button>
-            )}
-            {isBatchClosed && (
-              <Badge variant="secondary" className="bg-gray-100 text-gray-600">
-                Batch Closed - No New Entries
-              </Badge>
-            )}
-          </CardHeader>
-          <CardContent className="p-0">
-            {expensesLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin" />
-                <span className="ml-2">Loading expenses...</span>
-              </div>
-            ) : expensesError ? (
-              <div className="text-center py-8">
-                <p className="text-red-600">
-                  Failed to load expenses. Please try again.
-                </p>
-              </div>
-            ) : (
-              <DataTable
-                data={expenses}
-                columns={expenseColumns}
-                showFooter={true}
-                footerContent={
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold text-gray-900">
-                      Total Expenses
-                    </span>
-                    <span className="font-bold text-lg text-gray-900">
-                      ₹{expensesTotal.toLocaleString()}
-                    </span>
-                  </div>
-                }
-                emptyMessage="No expenses recorded yet"
-              />
-            )}
-          </CardContent>
-        </Card>
+        <ExpensesTab
+          isBatchClosed={isBatchClosed}
+          expenses={expenses}
+          expensesLoading={expensesLoading}
+          expensesError={expensesError}
+          expensesTotal={expensesTotal}
+          expenseColumns={expenseColumns}
+          openNewExpense={openNewExpense}
+        />
       )}
 
       {activeTab === "Sales" && (
-        <Card>
-          <CardHeader className="flex items-center justify-between">
-            <div>
-              <CardTitle>Sales</CardTitle>
-              <CardDescription>Items sold from this batch</CardDescription>
-            </div>
-            {!isBatchClosed && (
-              <Button
-                className="bg-primary hover:bg-primary/90"
-                onClick={openNewSale}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Sale
-              </Button>
-            )}
-            {isBatchClosed && (
-              <Badge variant="secondary" className="bg-gray-100 text-gray-600">
-                Batch Closed - No New Entries
-              </Badge>
-            )}
-          </CardHeader>
-          <CardContent className="p-0">
-            {salesLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                <span>Loading sales...</span>
-              </div>
-            ) : salesError ? (
-              <div className="text-center py-8">
-                <p className="text-red-600">Failed to load sales data</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => refetchSales()}
-                  className="mt-2"
-                >
-                  Retry
-                </Button>
-              </div>
-            ) : (
-              <DataTable
-                data={batchSales || []}
-                columns={salesColumns}
-                showFooter={true}
-                footerContent={
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold text-gray-900">
-                      Total Sales
-                    </span>
-                    <span className="font-bold text-lg text-green-600">
-                      ₹{salesTotal.toLocaleString()}
-                    </span>
-                  </div>
-                }
-                emptyMessage="No sales recorded yet"
-              />
-            )}
-          </CardContent>
-        </Card>
+        <SalesTab
+          isBatchClosed={isBatchClosed}
+          batchSales={batchSales}
+          salesLoading={salesLoading}
+          salesError={salesError}
+          salesTotal={salesTotal}
+          salesColumns={salesColumns}
+          openNewSale={openNewSale}
+          refetchSales={refetchSales}
+        />
       )}
 
       {activeTab === "Mortality" && (
-        <Card>
-          <CardHeader className="flex items-center justify-between">
-            <div>
-              <CardTitle>Mortality Records</CardTitle>
-              <CardDescription>
-                Track natural deaths and disease-related losses
-              </CardDescription>
-            </div>
-            {!isBatchClosed && (
-              <Button
-                className="bg-primary hover:bg-primary/90"
-                onClick={openNewMortality}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Mortality
-              </Button>
-            )}
-            {isBatchClosed && (
-              <Badge variant="secondary" className="bg-gray-100 text-gray-600">
-                Batch Closed - No New Entries
-              </Badge>
-            )}
-          </CardHeader>
-          <CardContent className="p-0">
-            {mortalityLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin" />
-                <span className="ml-2">Loading mortality records...</span>
-              </div>
-            ) : mortalityError ? (
-              <div className="text-center py-8">
-                <p className="text-red-600">
-                  Failed to load mortality records. Please try again.
-                </p>
-              </div>
-            ) : (
-              <>
-                {mortalityStats && (
-                  <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div>
-                        <div className="text-xs text-gray-600">
-                          Natural Deaths
-                        </div>
-                        <div className="text-lg font-semibold text-red-600">
-                          {mortalityStats.totalMortality || 0}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          (Excluding sales)
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-600">
-                          Current Birds
-                        </div>
-                        <div className="text-lg font-semibold text-green-600">
-                          {mortalityStats.currentBirds || 0}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          (After all losses)
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-600">
-                          Mortality Rate
-                        </div>
-                        <div
-                          className={`text-lg font-semibold ${Number(mortalityStats.mortalityRate) > 10 ? "text-red-600" : Number(mortalityStats.mortalityRate) > 5 ? "text-orange-600" : "text-green-600"}`}
-                        >
-                          {mortalityStats.mortalityRate}%
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          (Natural only)
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-600">
-                          Total Records
-                        </div>
-                        <div className="text-lg font-semibold text-gray-900">
-                          {batchMortalities.length}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          (Disease/Natural)
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <DataTable
-                  data={batchMortalities}
-                  columns={mortalityColumns}
-                  showFooter={mortalityStats ? true : false}
-                  footerContent={
-                    mortalityStats ? (
-                      <div className="flex justify-between items-center">
-                        <span className="font-semibold text-gray-900">
-                          Total Natural Deaths
-                        </span>
-                        <span className="font-bold text-lg text-red-600">
-                          {mortalityStats.totalMortality || 0} birds
-                        </span>
-                      </div>
-                    ) : undefined
-                  }
-                  emptyMessage="No mortality records yet"
-                />
-              </>
-            )}
-          </CardContent>
-        </Card>
+        <MortalityTab
+          isBatchClosed={isBatchClosed}
+          batchMortalities={batchMortalities}
+          mortalityLoading={mortalityLoading}
+          mortalityError={mortalityError}
+          mortalityStats={mortalityStats}
+          mortalityColumns={mortalityColumns}
+          openNewMortality={openNewMortality}
+        />
       )}
 
       {activeTab === "Sales Balance" && (
-        <Card>
-          <CardHeader className="flex items-center justify-between">
-            <div>
-              <CardTitle>Customer Ledger</CardTitle>
-              <CardDescription>
-                Balances with customers for this batch
-              </CardDescription>
-            </div>
-            {!isBatchClosed && (
-              <Button
-                className="bg-primary hover:bg-primary/90"
-                onClick={openNewLedger}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Entry
-              </Button>
-            )}
-            {isBatchClosed && (
-              <Badge variant="secondary" className="bg-gray-100 text-gray-600">
-                Batch Closed - No New Entries
-              </Badge>
-            )}
-          </CardHeader>
-          <CardContent className="p-0">
-            <DataTable
-              data={customerBalances}
-              columns={ledgerColumns}
-              showFooter={true}
-              footerContent={
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold text-gray-900">
-                    Total Receivable
-                  </span>
-                  <span className="font-bold text-lg text-orange-600">
-                    ₹{receivableTotal.toLocaleString()}
-                  </span>
-                </div>
-              }
-              emptyMessage="No ledger entries yet"
-            />
-          </CardContent>
-        </Card>
+        <SalesBalanceTab
+          isBatchClosed={isBatchClosed}
+          customerBalances={customerBalances}
+          receivableTotal={receivableTotal}
+          ledgerColumns={ledgerColumns}
+          openNewLedger={openNewLedger}
+        />
       )}
 
       {activeTab === "Profit & Loss" && (
-        <div className="space-y-6">
-          {/* Summary Cards */}
-          <div className="grid gap-4 md:grid-cols-4">
-            <Card className="border-green-200 bg-green-50">
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-900">
-                    ₹{salesTotal.toLocaleString()}
-                  </div>
-                  <div className="text-sm text-green-700">Total Revenue</div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-red-200 bg-red-50">
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-red-900">
-                    ₹{expensesTotal.toLocaleString()}
-                  </div>
-                  <div className="text-sm text-red-700">Total Expenses</div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card
-              className={`border-2 ${profit >= 0 ? "border-green-300 bg-green-100" : "border-red-300 bg-red-100"}`}
-            >
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <div
-                    className={`text-2xl font-bold ${profit >= 0 ? "text-green-900" : "text-red-900"}`}
-                  >
-                    ₹{profit.toLocaleString()}
-                  </div>
-                  <div
-                    className={`text-sm ${profit >= 0 ? "text-green-700" : "text-red-700"}`}
-                  >
-                    Net Profit
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-orange-200 bg-orange-50">
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-orange-900">
-                    {analytics?.profitMargin
-                      ? `${analytics.profitMargin.toFixed(1)}%`
-                      : "0%"}
-                  </div>
-                  <div className="text-sm text-orange-700">Profit Margin</div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Per Broiler Expense Card */}
-          <Card className="border-2 border-primary/20">
-            <CardHeader>
-              <CardTitle className="text-base">Per Broiler Analysis</CardTitle>
-              <CardDescription>
-                Net expense/profit per remaining broiler
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4 text-sm">
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <div className="text-center">
-                    <div className="text-xs text-muted-foreground mb-2">
-                      {perBroilerExpenseData.isProfit
-                        ? "Profit per Broiler"
-                        : "Cost per Broiler"}
-                    </div>
-                    <div
-                      className={`text-3xl font-bold ${perBroilerExpenseData.isProfit ? "text-green-600" : "text-orange-600"}`}
-                    >
-                      ₹{perBroilerExpenseData.displayValue.toFixed(2)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Initial Broilers:
-                    </span>
-                    <span className="font-medium">
-                      {batch.initialChicks?.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Mortality:</span>
-                    <span className="font-medium text-red-600">
-                      -{perBroilerExpenseData.totalMortality?.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Sold:</span>
-                    <span className="font-medium text-blue-600">
-                      -{perBroilerExpenseData.totalSold?.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-t pt-2">
-                    <span className="text-muted-foreground font-medium">
-                      Remaining Broilers:
-                    </span>
-                    <span className="font-bold">
-                      {perBroilerExpenseData.remainingBroilers?.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-2 border-t pt-3">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Total Expenses:
-                    </span>
-                    <span className="font-medium text-red-600">
-                      ₹{expensesTotal.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Sales:</span>
-                    <span className="font-medium text-green-600">
-                      -₹{salesTotal.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-t pt-2">
-                    <span className="text-muted-foreground font-medium">
-                      Net Expenses:
-                    </span>
-                    <span
-                      className={`font-bold ${perBroilerExpenseData.netExpenses >= 0 ? "text-red-600" : "text-green-600"}`}
-                    >
-                      ₹{perBroilerExpenseData.netExpenses.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="text-xs text-blue-800">
-                    <strong>Formula:</strong> Net Expenses ÷ Remaining Broilers
-                  </div>
-                  <div className="text-xs text-blue-600 mt-1">
-                    ({perBroilerExpenseData.netExpenses >= 0 ? "₹" : "-₹"}
-                    {Math.abs(
-                      perBroilerExpenseData.netExpenses
-                    ).toLocaleString()}{" "}
-                    ÷{" "}
-                    {perBroilerExpenseData.remainingBroilers ||
-                      batch.initialChicks}
-                    )
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Revenue Breakdown */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Revenue Analysis</CardTitle>
-                <CardDescription>Breakdown of income sources</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Total Sales Amount:
-                    </span>
-                    <span className="font-medium text-green-600">
-                      ₹{salesTotal.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Amount Received:
-                    </span>
-                    <span className="font-medium text-green-600">
-                      ₹{(salesTotal - receivableTotal).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Outstanding Amount:
-                    </span>
-                    <span className="font-medium text-orange-600">
-                      ₹{receivableTotal.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="border-t pt-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Revenue per Bird:
-                      </span>
-                      <span className="font-medium">
-                        ₹{perBirdRevenue.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                  {analytics?.totalSalesQuantity && (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Birds Sold:
-                        </span>
-                        <span className="font-medium">
-                          {analytics.totalSalesQuantity.toLocaleString()}
-                        </span>
-                      </div>
-                      {analytics?.totalSalesWeight && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">
-                            Total Weight Sold:
-                          </span>
-                          <span className="font-medium">
-                            {analytics.totalSalesWeight.toFixed(2)} kg
-                          </span>
-                        </div>
-                      )}
-                    </>
-                  )}
-                  {salesTotal > 0 && receivableTotal > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Collection Rate:
-                      </span>
-                      <span className="font-medium">
-                        {(
-                          ((salesTotal - receivableTotal) / salesTotal) *
-                          100
-                        ).toFixed(1)}
-                        %
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Expense Breakdown */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Cost Analysis</CardTitle>
-                <CardDescription>Breakdown of expenses</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Total Expenses:
-                    </span>
-                    <span className="font-medium text-red-600">
-                      ₹{expensesTotal.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Cost per Bird:
-                    </span>
-                    <span className="font-medium">
-                      ₹{perBirdExpense.toFixed(2)}
-                    </span>
-                  </div>
-                  {batch.initialChicks > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Cost per Initial Bird:
-                      </span>
-                      <span className="font-medium">
-                        ₹{(expensesTotal / batch.initialChicks).toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-
-                  {analytics?.totalSalesQuantity &&
-                    analytics.totalSalesQuantity > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Cost per Bird Sold:
-                        </span>
-                        <span className="font-medium">
-                          ₹
-                          {(
-                            expensesTotal / analytics.totalSalesQuantity
-                          ).toFixed(2)}
-                        </span>
-                      </div>
-                    )}
-
-                  {analytics?.totalSalesWeight &&
-                    analytics.totalSalesWeight > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Cost per Kg:
-                        </span>
-                        <span className="font-medium">
-                          ₹
-                          {(expensesTotal / analytics.totalSalesWeight).toFixed(
-                            2
-                          )}
-                        </span>
-                      </div>
-                    )}
-                  {/* {analytics?.totalFeedConsumption &&
-                    analytics.totalFeedConsumption > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Total Feed Consumed:
-                        </span>
-                        <span className="font-medium">
-                          {analytics.totalFeedConsumption.toFixed(2)} kg
-                        </span>
-                      </div>
-                    )} */}
-                  {analytics?.daysActive && analytics.daysActive > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Daily Average Cost:
-                      </span>
-                      <span className="font-medium">
-                        ₹{(expensesTotal / analytics.daysActive).toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Performance Metrics */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">
-                  Performance Indicators
-                </CardTitle>
-                <CardDescription>Key efficiency metrics</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4 text-sm">
-                  {analytics?.mortalityRate && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Mortality Rate:
-                      </span>
-                      <span
-                        className={`font-medium ${analytics.mortalityRate > 10 ? "text-red-600" : analytics.mortalityRate > 5 ? "text-orange-600" : "text-green-600"}`}
-                      >
-                        {analytics.mortalityRate.toFixed(2)}%
-                      </span>
-                    </div>
-                  )}
-                  {analytics?.fcr ? (
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          FCR (Feed Conversion Ratio):
-                        </span>
-                        <span
-                          className={`font-medium ${analytics.fcr > 2.5 ? "text-red-600" : analytics.fcr > 2.0 ? "text-orange-600" : "text-green-600"}`}
-                        >
-                          {analytics.fcr.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {analytics.fcr > 2.5
-                          ? "⚠️ High FCR - Check feed quality and management"
-                          : analytics.fcr > 2.0
-                            ? "⚡ Moderate FCR - Room for improvement"
-                            : "✅ Excellent FCR - Great efficiency!"}
-                      </div>
-                      {analytics.fcrData && (
-                        <div className="text-xs text-muted-foreground space-y-1">
-                          <div>
-                            Feed consumed:{" "}
-                            {analytics.fcrData.totalFeedConsumed.toFixed(1)}kg
-                          </div>
-                          <div>
-                            Weight gained:{" "}
-                            {analytics.fcrData.totalWeightGained.toFixed(1)}kg
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : analytics?.fcrData ? (
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          FCR (Feed Conversion Ratio):
-                        </span>
-                        <span className="font-medium text-gray-500">
-                          Not Available
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {analytics.fcrData.message || "No message available"}
-                      </div>
-                      {/* Debug info - remove after testing */}
-
-                      {analytics.fcrData.status === "no_weight_data" && (
-                        <div className="text-xs text-blue-600">
-                          💡 Record bird weights to calculate FCR
-                        </div>
-                      )}
-                      {analytics.fcrData.status === "no_feed_data" && (
-                        <div className="text-xs text-blue-600">
-                          💡 Record feed consumption to calculate FCR
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
-                  {analytics?.currentAvgWeight && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        {isBatchClosed
-                          ? "Final Avg Weight:"
-                          : "Current Avg Weight:"}
-                      </span>
-                      <span className="font-medium">
-                        {analytics.currentAvgWeight.toFixed(2)}g
-                      </span>
-                    </div>
-                  )}
-                  {analytics?.daysActive && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        {isBatchClosed ? "Total Days:" : "Days Active:"}
-                      </span>
-                      <span className="font-medium">
-                        {analytics.daysActive} days
-                      </span>
-                    </div>
-                  )}
-                  {profit !== 0 && batch.initialChicks > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Profit per Bird:
-                      </span>
-                      <span
-                        className={`font-medium ${profit >= 0 ? "text-green-600" : "text-red-600"}`}
-                      >
-                        ₹{(profit / batch.initialChicks).toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                  {analytics?.totalSalesWeight &&
-                    analytics.totalSalesWeight > 0 &&
-                    profit !== 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Profit per Kg:
-                        </span>
-                        <span
-                          className={`font-medium ${profit >= 0 ? "text-green-600" : "text-red-600"}`}
-                        >
-                          ₹{(profit / analytics.totalSalesWeight).toFixed(2)}
-                        </span>
-                      </div>
-                    )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* ROI & Efficiency */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">
-                  Return on Investment
-                </CardTitle>
-                <CardDescription>
-                  Investment efficiency analysis
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4 text-sm">
-                  {expensesTotal > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        ROI Percentage:
-                      </span>
-                      <span
-                        className={`font-medium ${profit >= 0 ? "text-green-600" : "text-red-600"}`}
-                      >
-                        {((profit / expensesTotal) * 100).toFixed(2)}%
-                      </span>
-                    </div>
-                  )}
-                  {analytics?.profitMargin && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Profit Margin:
-                      </span>
-                      <span
-                        className={`font-medium ${analytics.profitMargin >= 0 ? "text-green-600" : "text-red-600"}`}
-                      >
-                        {analytics.profitMargin.toFixed(2)}%
-                      </span>
-                    </div>
-                  )}
-                  {analytics?.daysActive && analytics.daysActive > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Daily Profit:
-                      </span>
-                      <span
-                        className={`font-medium ${profit >= 0 ? "text-green-600" : "text-red-600"}`}
-                      >
-                        ₹{(profit / analytics.daysActive).toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                  {salesTotal > 0 && expensesTotal > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Revenue Multiple:
-                      </span>
-                      <span className="font-medium">
-                        {(salesTotal / expensesTotal).toFixed(2)}x
-                      </span>
-                    </div>
-                  )}
-                  {isBatchClosed && (
-                    <div className="p-3 bg-gray-50 rounded-lg">
-                      <div className="text-xs text-gray-600 mb-1">
-                        Batch Status
-                      </div>
-                      <div className="font-medium text-green-700">
-                        Completed Successfully
-                      </div>
-                      {batch.endDate && (
-                        <div className="text-xs text-gray-600">
-                          Closed: <DateDisplay date={batch.endDate} format="short" />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+        <ProfitLossTab
+          batch={batch}
+          analytics={analytics}
+          salesTotal={salesTotal}
+          expensesTotal={expensesTotal}
+          profit={profit}
+          perBroilerExpenseData={perBroilerExpenseData}
+          receivableTotal={receivableTotal}
+          perBirdRevenue={perBirdRevenue}
+          expenseBreakdown={[]}
+          salesBreakdown={[]}
+        />
       )}
 
       {activeTab === "Growth" && (
-        <Card>
-          <CardHeader className="flex items-center justify-between">
-            <div>
-              <CardTitle>Growth (Weights)</CardTitle>
-              <CardDescription>
-                Track average bird weight over time
-              </CardDescription>
-            </div>
-            {!isBatchClosed && (
-              <Button
-                className="bg-primary hover:bg-primary/90"
-                onClick={() => setIsWeightModalOpen(true)}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Record Weight
-              </Button>
-            )}
-            {isBatchClosed && (
-              <Badge variant="secondary" className="bg-gray-100 text-gray-600">
-                Batch Closed - No New Entries
-              </Badge>
-            )}
-          </CardHeader>
-          <CardContent>
-            {/* Chart */}
-            <div className="mb-6">
-              <WeightGrowthChart data={growthChartData} />
-            </div>
-            {weightsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin" />
-                <span className="ml-2">Loading weights...</span>
-              </div>
-            ) : weightsError ? (
-              <div className="text-center py-8">
-                <p className="text-red-600">Failed to load weights.</p>
-              </div>
-            ) : weights.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <p>No weight records yet</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                {(() => {
-                  const weightsAsc = [...weights].sort(
-                    (a: any, b: any) =>
-                      new Date(a.date).getTime() - new Date(b.date).getTime()
-                  );
-                  return (
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-muted/50 border-y">
-                          <th className="text-left px-4 py-2">Date</th>
-                          <th className="text-right px-4 py-2">
-                            Avg Weight (kg)
-                          </th>
-                          <th className="text-right px-4 py-2">Sample Size</th>
-                          <th className="text-left px-4 py-2">Source</th>
-                          <th className="text-left px-4 py-2">Notes</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {weightsAsc.map((w: any) => (
-                          <tr key={w.id} className="hover:bg-muted/30">
-                            <td className="px-4 py-2">
-                              <DateDisplay date={w.date} format="short" />
-                            </td>
-                            <td className="px-4 py-2 text-right">
-                              {Number(w.avgWeight).toFixed(2)}
-                            </td>
-                            <td className="px-4 py-2 text-right">
-                              {w.sampleCount}
-                            </td>
-                            <td className="px-4 py-2">
-                              <Badge
-                                variant="secondary"
-                                className={
-                                  w.source === "SALE"
-                                    ? "bg-green-100 text-green-800"
-                                    : w.source === "MANUAL"
-                                      ? "bg-blue-100 text-blue-800"
-                                      : "bg-gray-100 text-gray-800"
-                                }
-                              >
-                                {w.source}
-                              </Badge>
-                            </td>
-                            <td className="px-4 py-2">{w.notes || "—"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  );
-                })()}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <GrowthTab
+          isBatchClosed={isBatchClosed}
+          weights={weights}
+          weightsLoading={weightsLoading}
+          weightsError={weightsError}
+          growthChartData={growthChartData}
+          setIsWeightModalOpen={setIsWeightModalOpen}
+        />
       )}
 
       {/* Close Batch Modal */}
-      <Modal
+      <CloseBatchModal
         isOpen={isCloseModalOpen}
         onClose={() => {
           setIsCloseModalOpen(false);
@@ -3226,522 +1635,72 @@ export default function BatchDetailPage() {
           });
           setCloseErrors({});
         }}
-        title="Close Batch"
-      >
-        <form onSubmit={submitCloseBatch}>
-          <ModalContent>
-            <div className="space-y-4">
-              <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-                <p className="text-sm text-orange-800">
-                  <strong>Closing this batch will:</strong>
-                </p>
-                <ul className="text-sm text-orange-700 mt-2 space-y-1 list-disc list-inside">
-                  <li>Set the batch status to COMPLETED</li>
-                  <li>Set the end date for the batch</li>
-                  <li>Generate a final summary report</li>
-                  <li>Create a notification with batch completion details</li>
-                </ul>
-              </div>
-
-              <div>
-                <DateInput
-                  label="End Date"
-                  value={closeBatchForm.endDate}
-                  onChange={(value) => setCloseBatchForm(prev => ({ ...prev, endDate: value }))}
-                />
-                {closeErrors.endDate && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {closeErrors.endDate}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <Label htmlFor="finalNotes">Final Notes (Optional)</Label>
-                <textarea
-                  id="finalNotes"
-                  name="finalNotes"
-                  value={closeBatchForm.finalNotes}
-                  onChange={updateCloseBatchField}
-                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  rows={3}
-                  placeholder="Add any final notes about this batch..."
-                />
-              </div>
-
-              {analytics && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <h4 className="font-medium text-sm mb-2">
-                    Current Batch Status
-                  </h4>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      Initial Birds: {batch?.initialChicks?.toLocaleString()}
-                    </div>
-                    <div>
-                      Current Birds: {analytics.currentChicks?.toLocaleString()}
-                    </div>
-                    <div>
-                      Total Mortality:{" "}
-                      {(batch?.initialChicks || 0) -
-                        (analytics.currentChicks || 0)}
-                    </div>
-                    <div>Days Active: {analytics.daysActive}</div>
-                    <div>
-                      Total Sales: ₹{analytics.totalSales?.toLocaleString()}
-                    </div>
-                    <div>
-                      Total Expenses: ₹
-                      {analytics.totalExpenses?.toLocaleString()}
-                    </div>
-                    <div
-                      className={`col-span-2 font-medium ${analytics.profit >= 0 ? "text-green-600" : "text-red-600"}`}
-                    >
-                      Net Profit: ₹{analytics.profit?.toLocaleString()}
-                    </div>
-                  </div>
-                  {analytics.currentChicks > 0 && (
-                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                      <strong>Note:</strong> {analytics.currentChicks} remaining
-                      birds will be recorded as mortality (batch closure) when
-                      you close this batch.
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </ModalContent>
-
-          <ModalFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsCloseModalOpen(false);
-                setCloseBatchForm({
-                  endDate: "",
-                  finalNotes: "",
-                });
-                setCloseErrors({});
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="bg-orange-600 hover:bg-orange-700"
-              disabled={closeBatchMutation.isPending}
-            >
-              {closeBatchMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Closing Batch...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  Close Batch
-                </>
-              )}
-            </Button>
-          </ModalFooter>
-        </form>
-      </Modal>
+        closeBatchForm={closeBatchForm}
+        closeErrors={closeErrors}
+        batch={batch}
+        analytics={analytics}
+        onSubmit={submitCloseBatch}
+        onFieldUpdate={updateCloseBatchField}
+        isPending={closeBatchMutation.isPending}
+      />
 
       {/* Delete Batch Modal */}
-      <Modal
+      <DeleteBatchModal
         isOpen={isDeleteModalOpen}
         onClose={() => {
           setIsDeleteModalOpen(false);
           setDeletePassword("");
         }}
-        title="Delete Batch"
-      >
-        <ModalContent>
-          <div className="space-y-4">
-            <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-              <p className="text-sm text-red-800">
-                <strong>Warning:</strong> This will attempt to roll back initial
-                chick usage and permanently delete this batch. This action
-                cannot be undone.
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="delpass">Confirm with your password</Label>
-              <Input
-                id="delpass"
-                type="password"
-                value={deletePassword}
-                onChange={(e) => setDeletePassword(e.target.value)}
-                placeholder="Enter your password"
-                className="mt-1"
-              />
-            </div>
-          </div>
-        </ModalContent>
-        <ModalFooter>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setIsDeleteModalOpen(false);
-              setDeletePassword("");
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            className="bg-red-600 hover:bg-red-700 text-white"
-            disabled={isBatchDeleting || !deletePassword}
-            onClick={async () => {
-              if (!batchId) return;
-              setIsBatchDeleting(true);
-              try {
-                const v =
-                  await verifyPasswordMutation.mutateAsync(deletePassword);
-                if (!v?.success) {
-                  throw new Error(v?.message || "Password verification failed");
-                }
-                await deleteBatchMutation.mutateAsync(batchId);
-                setIsDeleteModalOpen(false);
-                setDeletePassword("");
-                window.location.href = "/dashboard/batches";
-              } catch (e: any) {
-                alert(
-                  e?.response?.data?.message ||
-                    e?.message ||
-                    "Failed to delete batch"
-                );
-              } finally {
-                setIsBatchDeleting(false);
-              }
-            }}
-          >
-            {isBatchDeleting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
-              </>
-            ) : (
-              "Confirm Delete"
-            )}
-          </Button>
-        </ModalFooter>
-      </Modal>
+        deletePassword={deletePassword}
+        setDeletePassword={setDeletePassword}
+        onDelete={async () => {
+          if (!batchId) return;
+          setIsBatchDeleting(true);
+          try {
+            const v = await verifyPasswordMutation.mutateAsync(deletePassword);
+            if (!v?.success) {
+              throw new Error(v?.message || "Password verification failed");
+            }
+            await deleteBatchMutation.mutateAsync(batchId);
+            setIsDeleteModalOpen(false);
+            setDeletePassword("");
+            window.location.href = "/dashboard/batches";
+          } catch (e: any) {
+            alert(
+              e?.response?.data?.message ||
+                e?.message ||
+                "Failed to delete batch"
+            );
+          } finally {
+            setIsBatchDeleting(false);
+          }
+        }}
+        isDeleting={isBatchDeleting}
+      />
 
       {/* Expense Modal */}
-      <Modal
+      <ExpenseModal
         isOpen={isExpenseModalOpen}
         onClose={() => {
           setIsExpenseModalOpen(false);
           setEditingExpenseId(null);
           setExpenseErrors({});
         }}
-        title={editingExpenseId ? "Edit Expense" : "Add Expense"}
-      >
-        <form onSubmit={submitExpense}>
-          <ModalContent>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="category">Category</Label>
-                <select
-                  id="category"
-                  name="category"
-                  value={expenseForm.category}
-                  onChange={updateExpenseField}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                >
-                  <option value="Feed">Feed</option>
-                  <option value="Medicine">Medicine</option>
-                  <option value="Hatchery">Hatchery</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div>
-                <DateInput
-                  label="Date"
-                  value={expenseForm.date}
-                  onChange={(value) => setExpenseForm(prev => ({ ...prev, date: value }))}
-                />
-                {expenseErrors.date && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {expenseErrors.date}
-                  </p>
-                )}
-              </div>
-              {expenseForm.category === "Feed" && (
-                <div className="md:col-span-2 grid md:grid-cols-3 gap-4 border rounded-md p-4">
-                  <div>
-                    <Label htmlFor="selectedFeedId">Feed Brand</Label>
-                    <select
-                      id="selectedFeedId"
-                      name="selectedFeedId"
-                      value={expenseForm.selectedFeedId}
-                      onChange={(e) => handleFeedSelection(e.target.value)}
-                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                    >
-                      <option value="">Select feed from inventory</option>
-                      {inventoryItems
-                        .filter((item: any) => item.itemType === "FEED")
-                        .map((feed: any) => (
-                          <option key={feed.id} value={feed.id}>
-                            {feed.name} ({feed.quantity} {feed.unit} available)
-                            - ₹{feed.rate}/unit
-                          </option>
-                        ))}
-                    </select>
-                    {expenseErrors.feedBrand && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {expenseErrors.feedBrand}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="feedQuantity">Quantity</Label>
-                    <Input
-                      id="feedQuantity"
-                      name="feedQuantity"
-                      type="number"
-                      value={expenseForm.feedQuantity}
-                      onChange={updateExpenseField}
-                    />
-                    {expenseErrors.feedQuantity && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {expenseErrors.feedQuantity}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="feedRate">Rate per piece</Label>
-                    <Input
-                      id="feedRate"
-                      name="feedRate"
-                      type="number"
-                      value={expenseForm.feedRate}
-                      onChange={updateExpenseField}
-                      readOnly={!!expenseForm.selectedFeedId}
-                      className={expenseForm.selectedFeedId ? "bg-gray-50" : ""}
-                      placeholder={
-                        expenseForm.selectedFeedId
-                          ? "Auto-filled from inventory"
-                          : "Enter rate"
-                      }
-                    />
-                    {expenseErrors.feedRate && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {expenseErrors.feedRate}
-                      </p>
-                    )}
-                    {expenseForm.selectedFeedId && (
-                      <p className="text-xs text-green-600 mt-1">
-                        Rate auto-filled from inventory
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-              {expenseForm.category === "Hatchery" && (
-                <div className="md:col-span-2 grid md:grid-cols-3 gap-4 border rounded-md p-4">
-                  <div>
-                    <Label htmlFor="hatcheryName">Hatchery Name</Label>
-                    <Input
-                      id="hatcheryName"
-                      name="hatcheryName"
-                      value={expenseForm.hatcheryName}
-                      onChange={updateExpenseField}
-                    />
-                    {expenseErrors.hatcheryName && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {expenseErrors.hatcheryName}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="hatcheryQuantity">Quantity</Label>
-                    <Input
-                      id="hatcheryQuantity"
-                      name="hatcheryQuantity"
-                      type="number"
-                      value={expenseForm.hatcheryQuantity}
-                      onChange={updateExpenseField}
-                    />
-                    {expenseErrors.hatcheryQuantity && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {expenseErrors.hatcheryQuantity}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="hatcheryRate">Rate</Label>
-                    <Input
-                      id="hatcheryRate"
-                      name="hatcheryRate"
-                      type="number"
-                      value={expenseForm.hatcheryRate}
-                      onChange={updateExpenseField}
-                    />
-                    {expenseErrors.hatcheryRate && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {expenseErrors.hatcheryRate}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-              {expenseForm.category === "Medicine" && (
-                <div className="md:col-span-2 grid md:grid-cols-3 gap-4 border rounded-md p-4">
-                  <div>
-                    <Label htmlFor="selectedMedicineId">Medicine Name</Label>
-                    <select
-                      id="selectedMedicineId"
-                      name="selectedMedicineId"
-                      value={expenseForm.selectedMedicineId}
-                      onChange={(e) => handleMedicineSelection(e.target.value)}
-                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                    >
-                      <option value="">Select medicine from inventory</option>
-                      {inventoryItems
-                        .filter((item: any) => item.itemType === "MEDICINE")
-                        .map((medicine: any) => (
-                          <option key={medicine.id} value={medicine.id}>
-                            {medicine.name} ({medicine.quantity} {medicine.unit}{" "}
-                            available) - ₹{medicine.rate}/unit
-                          </option>
-                        ))}
-                    </select>
-                    {expenseErrors.medicineName && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {expenseErrors.medicineName}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="medicineQuantity">Quantity</Label>
-                    <Input
-                      id="medicineQuantity"
-                      name="medicineQuantity"
-                      type="number"
-                      value={expenseForm.medicineQuantity}
-                      onChange={updateExpenseField}
-                    />
-                    {expenseErrors.medicineQuantity && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {expenseErrors.medicineQuantity}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="medicineRate">Rate</Label>
-                    <Input
-                      id="medicineRate"
-                      name="medicineRate"
-                      type="number"
-                      value={expenseForm.medicineRate}
-                      onChange={updateExpenseField}
-                      readOnly={!!expenseForm.selectedMedicineId}
-                      className={
-                        expenseForm.selectedMedicineId ? "bg-gray-50" : ""
-                      }
-                      placeholder={
-                        expenseForm.selectedMedicineId
-                          ? "Auto-filled from inventory"
-                          : "Enter rate"
-                      }
-                    />
-                    {expenseErrors.medicineRate && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {expenseErrors.medicineRate}
-                      </p>
-                    )}
-                    {expenseForm.selectedMedicineId && (
-                      <p className="text-xs text-green-600 mt-1">
-                        Rate auto-filled from inventory
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-              {expenseForm.category === "Other" && (
-                <div className="md:col-span-2 grid md:grid-cols-3 gap-4 border rounded-md p-4">
-                  <div>
-                    <Label htmlFor="otherName">Expense Name</Label>
-                    <Input
-                      id="otherName"
-                      name="otherName"
-                      value={expenseForm.otherName}
-                      onChange={updateExpenseField}
-                    />
-                    {expenseErrors.otherName && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {expenseErrors.otherName}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="otherQuantity">Quantity</Label>
-                    <Input
-                      id="otherQuantity"
-                      name="otherQuantity"
-                      type="number"
-                      value={expenseForm.otherQuantity}
-                      onChange={updateExpenseField}
-                    />
-                    {expenseErrors.otherQuantity && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {expenseErrors.otherQuantity}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="otherRate">Rate</Label>
-                    <Input
-                      id="otherRate"
-                      name="otherRate"
-                      type="number"
-                      value={expenseForm.otherRate}
-                      onChange={updateExpenseField}
-                    />
-                    {expenseErrors.otherRate && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {expenseErrors.otherRate}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </ModalContent>
-          <ModalFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsExpenseModalOpen(false);
-                setEditingExpenseId(null);
-                setExpenseErrors({});
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="bg-primary hover:bg-primary/90"
-              disabled={
-                createExpenseMutation.isPending ||
-                updateExpenseMutation.isPending
-              }
-            >
-              {createExpenseMutation.isPending ||
-              updateExpenseMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {editingExpenseId ? "Updating..." : "Creating..."}
-                </>
-              ) : (
-                "Save"
-              )}
-            </Button>
-          </ModalFooter>
-        </form>
-      </Modal>
+        prefilledBatchId={batchId}
+        prefilledFarmId={batch?.farmId}
+        editingExpenseId={editingExpenseId}
+        expenseForm={expenseForm}
+        expenseErrors={expenseErrors}
+        expenseCategories={expenseCategories}
+        feedInventory={feedInventory}
+        medicineInventory={medicineInventory}
+        inventoryItems={inventoryItems}
+        onSubmit={submitExpense}
+        onFieldUpdate={updateExpenseField}
+        onFeedSelection={handleFeedSelection}
+        onMedicineSelection={handleMedicineSelection}
+        isPending={createExpenseMutation.isPending || updateExpenseMutation.isPending}
+      />
 
       {/* Sale Modal with errors */}
       <BatchSaleModel
@@ -3764,97 +1723,26 @@ export default function BatchDetailPage() {
       />
 
       {/* Ledger Modal with errors */}
-      <Modal
+        <LedgerModal 
         isOpen={isLedgerModalOpen}
         onClose={() => {
           setIsLedgerModalOpen(false);
           setEditingLedgerId(null);
+          setLedgerErrors({});
         }}
-        title={editingLedgerId ? "Edit Ledger Entry" : "Add Ledger Entry"}
-      >
-        <form onSubmit={submitLedger}>
-          <ModalContent>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="name">Customer Name</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  value={ledgerForm.name}
-                  onChange={updateLedgerField}
-                  required
-                />
-                {ledgerErrors.name && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {ledgerErrors.name}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="contact">Contact</Label>
-                <Input
-                  id="contact"
-                  name="contact"
-                  value={ledgerForm.contact}
-                  onChange={updateLedgerField}
-                />
-              </div>
-              <div>
-                <Label htmlFor="category">Category</Label>
-                <select
-                  id="category"
-                  name="category"
-                  value={ledgerForm.category}
-                  onChange={updateLedgerField}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                >
-                  <option value="Chicken">Chicken</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div>
-                <Label htmlFor="sales">Sales</Label>
-                <Input
-                  id="sales"
-                  name="sales"
-                  type="number"
-                  value={ledgerForm.sales}
-                  onChange={updateLedgerField}
-                />
-              </div>
-              <div>
-                <Label htmlFor="received">Received</Label>
-                <Input
-                  id="received"
-                  name="received"
-                  type="number"
-                  value={ledgerForm.received}
-                  onChange={updateLedgerField}
-                />
-              </div>
-            </div>
-          </ModalContent>
-          <ModalFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsLedgerModalOpen(false);
-                setEditingLedgerId(null);
-                setLedgerErrors({});
-              }}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90">
-              Save
-            </Button>
-          </ModalFooter>
-        </form>
-      </Modal>
+        ledgerForm={ledgerForm}
+        ledgerErrors={ledgerErrors}
+      
+        editingLedgerId={editingLedgerId}
+        onSubmit={async (e) => {
+          e.preventDefault();
+          await submitLedger(e);
+        }}
+        onFieldUpdate={updateLedgerField}
+      />
 
       {/* Payment Modal */}
-      <Modal
+      <PaymentModal
         isOpen={isPaymentModalOpen}
         onClose={() => {
           setIsPaymentModalOpen(false);
@@ -3866,642 +1754,69 @@ export default function BatchDetailPage() {
             reference: "",
           });
         }}
-        title={`Record Payment - ${selectedCustomer?.name || ""}`}
-      >
-        <form onSubmit={submitPayment}>
-          <ModalContent>
-            <div className="space-y-4">
-              {selectedCustomer && (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-orange-800">
-                      Outstanding Balance:
-                    </span>
-                    <span className="text-lg font-bold text-orange-900">
-                      ₹{selectedCustomer.balance.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <Label htmlFor="amount">Payment Amount</Label>
-                <Input
-                  id="amount"
-                  name="amount"
-                  type="number"
-                  value={paymentForm.amount}
-                  onChange={updatePaymentField}
-                  placeholder="Enter payment amount"
-                  required
-                />
-                {paymentErrors.amount && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {paymentErrors.amount}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <DateInput
-                  label="Payment Date"
-                  value={paymentForm.date}
-                  onChange={(value) => setPaymentForm(prev => ({ ...prev, date: value }))}
-                />
-                {paymentErrors.date && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {paymentErrors.date}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Input
-                  id="description"
-                  name="description"
-                  value={paymentForm.description}
-                  onChange={updatePaymentField}
-                  placeholder="Payment description"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="reference">Reference/Receipt No.</Label>
-                <Input
-                  id="reference"
-                  name="reference"
-                  value={paymentForm.reference}
-                  onChange={updatePaymentField}
-                  placeholder="Receipt number or reference"
-                />
-              </div>
-            </div>
-          </ModalContent>
-
-          <ModalFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsPaymentModalOpen(false);
-                setSelectedCustomer(null);
-                setPaymentForm({
-                  amount: "",
-                  date: new Date().toISOString().split("T")[0],
-                  description: "",
-                  reference: "",
-                });
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="bg-green-600 hover:bg-green-700 text-white"
-              disabled={isAddingPayment}
-            >
-              {isAddingPayment ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Recording...
-                </>
-              ) : (
-                "Record Payment"
-              )}
-            </Button>
-          </ModalFooter>
-        </form>
-      </Modal>
+        selectedCustomer={selectedCustomer}
+        paymentForm={paymentForm}
+        paymentErrors={paymentErrors}
+        onSubmit={submitPayment}
+        onFieldUpdate={updatePaymentField}
+        isPending={isAddingPayment}
+      />
 
       {/* Transactions Modal */}
-      <Modal
+      <TransactionsModal
         isOpen={isTransactionsModalOpen}
         onClose={() => {
           setIsTransactionsModalOpen(false);
           setSelectedSale(null);
         }}
-        title={`Payment History - ${selectedSale?.description || "Sale"}`}
-      >
-        <ModalContent>
-          {selectedSale && (
-            <div className="space-y-4">
-              {/* Sale Summary */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-900 mb-2">
-                  Sale Details
-                </h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-600">Date:</span>
-                    <span className="ml-2 font-medium">
-                      <DateDisplay date={selectedSale.date} format="short" />
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Amount:</span>
-                    <span className="ml-2 font-medium">
-                      ₹{Number(selectedSale.amount).toLocaleString()}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Paid:</span>
-                    <span className="ml-2 font-medium text-green-600">
-                      ₹{Number(selectedSale.paidAmount).toLocaleString()}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Due:</span>
-                    <span className="ml-2 font-medium text-orange-600">
-                      ₹{Number(selectedSale.dueAmount || 0).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Payment History */}
-              <div>
-                <h4 className="font-semibold text-gray-900 mb-3">
-                  Payment History
-                </h4>
-                {selectedSale.payments && selectedSale.payments.length > 0 ? (
-                  <div className="space-y-3">
-                    {selectedSale.payments.map(
-                      (payment: any, index: number) => (
-                        <div
-                          key={payment.id}
-                          className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg"
-                        >
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                              <span className="text-green-600 font-semibold text-sm">
-                                {index + 1}
-                              </span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">
-                                ₹{Number(payment.amount).toLocaleString()}
-                              </div>
-                              <div className="text-sm text-gray-600">
-                                <DateDisplay date={payment.date} format="short" />
-                              </div>
-                              {payment.description && (
-                                <div className="text-xs text-gray-500">
-                                  {payment.description}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xs text-gray-500">
-                              <DateDisplay date={payment.createdAt} format="short" />
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <p>No payments recorded yet</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </ModalContent>
-        <ModalFooter>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setIsTransactionsModalOpen(false);
-              setSelectedSale(null);
-            }}
-          >
-            Close
-          </Button>
-        </ModalFooter>
-      </Modal>
+        selectedSale={selectedSale}
+      />
 
       {/* Mortality Modal */}
-      <Modal
+      <MortalityModal
         isOpen={isMortalityModalOpen}
         onClose={() => {
           setIsMortalityModalOpen(false);
           setEditingMortalityId(null);
           setMortalityErrors({});
         }}
-        title={
-          editingMortalityId ? "Edit Mortality Record" : "Add Mortality Record"
-        }
-      >
-        <form onSubmit={submitMortality}>
-          <ModalContent>
-            <div className="space-y-4">
-              <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-                <p className="text-sm text-red-800">
-                  <strong>Note:</strong> Record only natural deaths and
-                  disease-related losses here. Birds sold are automatically
-                  tracked in the Sales section.
-                </p>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <DateInput
-                    label="Date"
-                    value={mortalityForm.date}
-                    onChange={(value) => setMortalityForm(prev => ({ ...prev, date: value }))}
-                  />
-                  {mortalityErrors.date && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {mortalityErrors.date}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="mortalityCount">Number of Birds</Label>
-                  <Input
-                    id="mortalityCount"
-                    name="count"
-                    type="number"
-                    min="1"
-                    value={mortalityForm.count}
-                    onChange={updateMortalityField}
-                    placeholder="Enter count"
-                    required
-                  />
-                  {mortalityErrors.count && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {mortalityErrors.count}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="mortalityReason">Reason (Optional)</Label>
-                <textarea
-                  id="mortalityReason"
-                  name="reason"
-                  value={mortalityForm.reason}
-                  onChange={updateMortalityField}
-                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  rows={3}
-                  placeholder="e.g., Disease, Heat stress, Predator attack, etc."
-                />
-              </div>
-
-              {mortalityStats && (
-                <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <h4 className="font-medium text-sm mb-2">Current Status</h4>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="text-gray-600">Current Birds:</span>
-                      <span className="ml-2 font-medium text-green-600">
-                        {mortalityStats.currentBirds}
-                      </span>
-                      <span className="ml-1 text-xs text-gray-500">
-                        (after all losses)
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Natural Deaths:</span>
-                      <span className="ml-2 font-medium text-red-600">
-                        {mortalityStats.totalMortality}
-                      </span>
-                      <span className="ml-1 text-xs text-gray-500">
-                        (excluding sales)
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </ModalContent>
-
-          <ModalFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsMortalityModalOpen(false);
-                setEditingMortalityId(null);
-                setMortalityErrors({});
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="bg-red-600 hover:bg-red-700 text-white"
-              disabled={
-                createMortalityMutation.isPending ||
-                updateMortalityMutation.isPending
-              }
-            >
-              {createMortalityMutation.isPending ||
-              updateMortalityMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {editingMortalityId ? "Updating..." : "Creating..."}
-                </>
-              ) : (
-                "Save"
-              )}
-            </Button>
-          </ModalFooter>
-        </form>
-      </Modal>
+        prefilledBatchId={batchId}
+        prefilledFarmId={batch?.farmId}
+        editingMortalityId={editingMortalityId}
+        mortalityForm={mortalityForm}
+        mortalityErrors={mortalityErrors}
+        stats={mortalityStats}
+        onSubmit={submitMortality}
+        onFieldUpdate={updateMortalityField}
+        isPending={createMortalityMutation.isPending || updateMortalityMutation.isPending}
+      />
 
       {/* Customer Transactions Modal */}
-      <Modal
+      <CustomerTransactionsModal
         isOpen={isCustomerTransactionsModalOpen}
         onClose={() => {
           setIsCustomerTransactionsModalOpen(false);
           setSelectedCustomerForTransactions(null);
         }}
-        title={`All Transactions - ${selectedCustomerForTransactions?.name || "Customer"}`}
-      >
-        <ModalContent>
-          {selectedCustomerForTransactions && (
-            <div className="space-y-4">
-              {/* Customer Summary */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-900 mb-2">
-                  Customer Summary
-                </h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-600">Name:</span>
-                    <span className="ml-2 font-medium">
-                      {selectedCustomerForTransactions.name}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Phone:</span>
-                    <span className="ml-2 font-medium">
-                      {selectedCustomerForTransactions.phone}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Total Sales:</span>
-                    <span className="ml-2 font-medium">
-                      ₹
-                      {Number(
-                        selectedCustomerForTransactions.sales
-                      ).toLocaleString()}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Total Received:</span>
-                    <span className="ml-2 font-medium text-green-600">
-                      ₹
-                      {Number(
-                        selectedCustomerForTransactions.received
-                      ).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-gray-600">Outstanding Balance:</span>
-                    <span
-                      className={`ml-2 font-bold ${
-                        Number(selectedCustomerForTransactions.balance) > 0
-                          ? "text-orange-600"
-                          : "text-green-600"
-                      }`}
-                    >
-                      ₹
-                      {Number(
-                        selectedCustomerForTransactions.balance
-                      ).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* All Sales and Payments */}
-              <div>
-                <h4 className="font-semibold text-gray-900 mb-3">
-                  Sales & Payment History
-                </h4>
-                {(() => {
-                  const customerSales =
-                    batchSales?.filter(
-                      (sale: any) =>
-                        sale.isCredit &&
-                        sale.customerId === selectedCustomerForTransactions.id
-                    ) || [];
-
-                  if (customerSales.length === 0) {
-                    return (
-                      <div className="text-center py-8 text-gray-500">
-                        <p>No sales found for this customer</p>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div className="space-y-4">
-                      {customerSales.map((sale: any, saleIndex: number) => (
-                        <div
-                          key={sale.id}
-                          className="border border-gray-200 rounded-lg p-4"
-                        >
-                          {/* Sale Header */}
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                <span className="text-blue-600 font-semibold text-sm">
-                                  {saleIndex + 1}
-                                </span>
-                              </div>
-                              <div>
-                                <div className="font-medium text-gray-900">
-                                  {sale.description} -{" "}
-                                  <DateDisplay date={sale.date} format="short" />
-                                </div>
-                                <div className="text-sm text-gray-600">
-                                  Total: ₹{Number(sale.amount).toLocaleString()}{" "}
-                                  | Paid: ₹
-                                  {Number(sale.paidAmount).toLocaleString()} |
-                                  Due: ₹
-                                  {Number(sale.dueAmount || 0).toLocaleString()}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Payments for this sale */}
-                          {sale.payments && sale.payments.length > 0 ? (
-                            <div className="ml-11 space-y-2">
-                              <div className="text-sm font-medium text-gray-700 mb-2">
-                                Payments:
-                              </div>
-                              {sale.payments.map(
-                                (payment: any, paymentIndex: number) => (
-                                  <div
-                                    key={payment.id}
-                                    className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded"
-                                  >
-                                    <div className="flex items-center space-x-2">
-                                      <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-                                        <span className="text-green-600 font-semibold text-xs">
-                                          {paymentIndex + 1}
-                                        </span>
-                                      </div>
-                                      <div>
-                                        <div className="font-medium text-gray-900">
-                                          ₹
-                                          {Number(
-                                            payment.amount
-                                          ).toLocaleString()}
-                                        </div>
-                                        <div className="text-xs text-gray-600">
-                                          <DateDisplay date={payment.date} format="short" />
-                                          {payment.description &&
-                                            ` - ${payment.description}`}
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div className="text-xs text-gray-500">
-                                      <DateDisplay date={payment.createdAt} format="short" />
-                                    </div>
-                                  </div>
-                                )
-                              )}
-                            </div>
-                          ) : (
-                            <div className="ml-11 text-sm text-gray-500">
-                              No payments recorded for this sale
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
-        </ModalContent>
-        <ModalFooter>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setIsCustomerTransactionsModalOpen(false);
-              setSelectedCustomerForTransactions(null);
-            }}
-          >
-            Close
-          </Button>
-        </ModalFooter>
-      </Modal>
+        selectedCustomerForTransactions={selectedCustomerForTransactions}
+        batchSales={batchSales}
+      />
 
       {/* Weight Modal */}
-      <Modal
+      <WeightModal
         isOpen={isWeightModalOpen}
         onClose={() => {
           setIsWeightModalOpen(false);
           setWeightErrors({});
         }}
-        title="Record Weight"
-      >
-        <form onSubmit={submitWeight}>
-          <ModalContent>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <DateInput
-                  label="Date"
-                  value={weightForm.date}
-                  onChange={(value) => setWeightForm(prev => ({ ...prev, date: value }))}
-                />
-                {weightErrors.date && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {weightErrors.date}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="avgWeight">Average Weight (kg)</Label>
-                <Input
-                  id="avgWeight"
-                  name="avgWeight"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={weightForm.avgWeight}
-                  onChange={updateWeightField}
-                  placeholder="e.g., 1.75"
-                  required
-                />
-                {weightErrors.avgWeight && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {weightErrors.avgWeight}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="sampleCount">Birds Weighed</Label>
-                <Input
-                  id="sampleCount"
-                  name="sampleCount"
-                  type="number"
-                  min="1"
-                  value={weightForm.sampleCount}
-                  onChange={updateWeightField}
-                  placeholder="e.g., 50"
-                  required
-                />
-                {weightErrors.sampleCount && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {weightErrors.sampleCount}
-                  </p>
-                )}
-              </div>
-              <div className="md:col-span-2">
-                <Label htmlFor="notes">Notes (optional)</Label>
-                <textarea
-                  id="notes"
-                  name="notes"
-                  value={weightForm.notes}
-                  onChange={updateWeightField}
-                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  rows={3}
-                  placeholder="Feed change, disease, etc."
-                />
-              </div>
-            </div>
-          </ModalContent>
-          <ModalFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsWeightModalOpen(false);
-                setWeightErrors({});
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="bg-primary hover:bg-primary/90"
-              disabled={addWeightMutation.isPending}
-            >
-              {addWeightMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                "Save"
-              )}
-            </Button>
-          </ModalFooter>
-        </form>
-      </Modal>
+        prefilledBatchId={batchId}
+        prefilledFarmId={batch?.farmId}
+        weightForm={weightForm}
+        weightErrors={weightErrors}
+        onSubmit={submitWeight}
+        onFieldUpdate={updateWeightField}
+        isPending={addWeightMutation.isPending}
+      />
     </div>
   );
 }

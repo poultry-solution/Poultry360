@@ -25,6 +25,7 @@ import { getTodayLocalDate } from "@/lib/utils";
 import { BatchResponse, BatchStatus } from "@myapp/shared-types";
 import { useInventoryByType } from "@/fetchers/inventory/inventoryQueries";
 import { DateInput } from "@/components/ui/date-input";
+import { DateDisplay } from "@/components/ui/date-display";
 
 export default function BatchesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
