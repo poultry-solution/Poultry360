@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Activity, Leaf, Syringe, TrendingDown, Calendar, Eye, Clock, MapPin, Bird } from "lucide-react";
 import { useGetBatchShareByToken } from "@/fetchers/batchShare/batchShareQueries";
+import { DateDisplay } from "@/components/ui/date-display";
 
 type SnapshotResponse = {
   share: {
@@ -60,33 +61,6 @@ export default function SharedBatchPage() {
   const health = snap.health || {};
   const activities = snap.activities || {};
 
-  const formatDate = (d: any) => {
-    try {
-      const date = new Date(d);
-      return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
-      });
-    } catch {
-      return "-";
-    }
-  };
-
-  const formatDateTime = (d: any) => {
-    try {
-      const date = new Date(d);
-      return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch {
-      return "-";
-    }
-  };
 
   const totalFeedKg = (() => {
     const direct = Number(feed.totalConsumption);
@@ -147,12 +121,12 @@ export default function SharedBatchPage() {
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Calendar className="h-3.5 w-3.5" />
-                    <span>Shared: {formatDateTime(data.share.createdAt)}</span>
+                    <span>Shared: <DateDisplay date={data.share.createdAt} format="long" /></span>
                   </div>
                   {data.share.expiresAt && (
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Clock className="h-3.5 w-3.5" />
-                      <span>Expires: {formatDateTime(data.share.expiresAt)}</span>
+                      <span>Expires: <DateDisplay date={data.share.expiresAt} format="long" /></span>
                     </div>
                   )}
                   <div className="flex items-center gap-2 text-xs font-medium">
@@ -248,11 +222,11 @@ export default function SharedBatchPage() {
               </div>
               <div className="space-y-1">
                 <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Start Date</div>
-                <div className="text-base font-semibold">{batch.startDate ? formatDate(batch.startDate) : "-"}</div>
+                <div className="text-base font-semibold">{batch.startDate ? <DateDisplay date={batch.startDate} format="short" /> : "-"}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">End Date</div>
-                <div className="text-base font-semibold">{batch.endDate ? formatDate(batch.endDate) : "Active"}</div>
+                <div className="text-base font-semibold">{batch.endDate ? <DateDisplay date={batch.endDate} format="short" /> : "Active"}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Bird Count</div>
@@ -290,7 +264,7 @@ export default function SharedBatchPage() {
                        <tbody className="divide-y divide-border/30">
                          {group.items.map((it: any, j: number) => (
                            <tr key={j} className="hover:bg-muted/30 transition-colors">
-                             <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">{formatDate(it.date)}</td>
+                             <td className="px-4 py-3 whitespace-nowrap text-sm font-medium"><DateDisplay date={it.date} format="short" /></td>
                              <td className="px-4 py-3 text-right text-sm font-semibold">
                                {it.quantity !== null && it.quantity !== undefined
                                  ? `${Number(it.quantity).toLocaleString()}${it.unit ? ` ${it.unit}` : ""}`
@@ -345,7 +319,7 @@ export default function SharedBatchPage() {
                       .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
                       .map((f: any, i: number) => (
                         <tr key={i} className="hover:bg-muted/30 transition-colors">
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">{formatDate(f.date)}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium"><DateDisplay date={f.date} format="short" /></td>
                           <td className="px-4 py-3 text-right text-sm font-semibold">{Number(f.quantity || 0).toLocaleString()}</td>
                           <td className="px-4 py-3 text-sm text-muted-foreground">{f.feedType}</td>
                         </tr>
@@ -388,7 +362,7 @@ export default function SharedBatchPage() {
                       .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
                       .map((m: any, i: number) => (
                         <tr key={i} className="hover:bg-muted/30 transition-colors">
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">{formatDate(m.date)}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium"><DateDisplay date={m.date} format="short" /></td>
                           <td className="px-4 py-3 text-right text-sm font-semibold">{Number(m.count || 0)}</td>
                           <td className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">{Number(m.cumulative || 0)}</td>
                         </tr>

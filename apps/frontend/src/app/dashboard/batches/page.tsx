@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { getTodayLocalDate } from "@/lib/utils";
 import { BatchResponse, BatchStatus } from "@myapp/shared-types";
 import { useInventoryByType } from "@/fetchers/inventory/inventoryQueries";
+import { DateInput } from "@/components/ui/date-input";
 
 export default function BatchesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -379,7 +380,7 @@ export default function BatchesPage() {
                     </CardTitle>
                     <CardDescription>
                       {b.farm.name} • Started:{" "}
-                      {new Date(b.startDate).toLocaleDateString()}
+                      <DateDisplay date={b.startDate} format="short" />
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -476,14 +477,10 @@ export default function BatchesPage() {
                 </select>
               </div>
               <div>
-                <Label htmlFor="startDate">Start Date</Label>
-                <Input
-                  id="startDate"
-                  name="startDate"
-                  type="date"
+                <DateInput
+                  label="Start Date"
                   value={formData.startDate}
-                  onChange={handleChange}
-                  required
+                  onChange={(value) => setFormData(prev => ({ ...prev, startDate: value }))}
                 />
               </div>
               {/* Chicks Inventory Selection */}
@@ -685,7 +682,7 @@ export default function BatchesPage() {
                       <div className="font-medium">{b.batchNumber}</div>
                       <div className="text-xs text-muted-foreground">
                         {b.farm.name} • Started:{" "}
-                        {new Date(b.startDate).toLocaleDateString()}
+                        <DateDisplay date={b.startDate} format="short" />
                       </div>
                     </div>
                     <Badge

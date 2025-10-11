@@ -54,6 +54,8 @@ import {
 } from "@/fetchers/vaccination/vaccinationQueries";
 import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
 import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
+import { DateDisplay } from "@/components/ui/date-display";
+import { DateInput } from "@/components/ui/date-input";
 
 export default function VaccinationsPage() {
   // Data fetching
@@ -236,15 +238,6 @@ export default function VaccinationsPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   const formatRelativeTime = (dateString: string) => {
     const now = new Date().getTime();
@@ -503,7 +496,7 @@ export default function VaccinationsPage() {
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Calendar className="h-4 w-4" />
-                            {formatDate(vaccination.scheduledDate)}
+                            <DateDisplay date={vaccination.scheduledDate} format="short" />
                           </div>
                           <div className="flex items-center gap-1">
                             <Clock className="h-4 w-4" />
@@ -597,7 +590,7 @@ export default function VaccinationsPage() {
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Calendar className="h-4 w-4" />
-                            {formatDate(vaccination.scheduledDate)}
+                            <DateDisplay date={vaccination.scheduledDate} format="short" />
                           </div>
                           <div className="flex items-center gap-1 text-red-600">
                             <AlertTriangle className="h-4 w-4" />
@@ -701,7 +694,7 @@ export default function VaccinationsPage() {
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <Calendar className="h-4 w-4" />
-                              {formatDate(schedule.firstDoseDate)} - {formatDate(schedule.lastDoseDate)}
+                              <DateDisplay date={schedule.firstDoseDate} format="short" /> - <DateDisplay date={schedule.lastDoseDate} format="short" />
                             </div>
                             {schedule.batch && (
                               <div className="flex items-center gap-1">
@@ -772,7 +765,7 @@ export default function VaccinationsPage() {
                                   <div>
                                     <div className="font-medium">Dose {dose.doseNumber}</div>
                                     <div className="text-sm text-muted-foreground">
-                                      {formatDate(dose.scheduledDate)}
+                                      <DateDisplay date={dose.scheduledDate} format="short" />
                                     </div>
                                   </div>
                                 </div>
@@ -780,7 +773,7 @@ export default function VaccinationsPage() {
                                   {getStatusBadge(dose.status)}
                                   {dose.completedDate && (
                                     <div className="text-sm text-green-600">
-                                      Completed: {formatDate(dose.completedDate)}
+                                      Completed: <DateDisplay date={dose.completedDate} format="short" />
                                     </div>
                                   )}
                                 </div>

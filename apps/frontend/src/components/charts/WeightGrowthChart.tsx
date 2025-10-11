@@ -17,6 +17,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { useCalendar } from "@/hooks/useCalendar";
 
 type Point = { date: string; weight: number; source?: string };
 
@@ -40,28 +41,27 @@ export const WeightGrowthChart: React.FC<WeightGrowthChartProps> = ({
   title = "Weight Growth Chart",
   description,
 }) => {
+  const { toDisplayDate } = useCalendar();
+  
   // Transform data for recharts
   const chartData = React.useMemo(() => {
     return (data || [])
       .map((d) => ({
-        date: new Date(d.date).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        }),
+        date: toDisplayDate(d.date, 'short'),
         weight: Number(d.weight || 0),
         fullDate: d.date,
         source: d.source,
       }))
       .sort((a, b) => new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime());
-  }, [data]);
+  }, [data, toDisplayDate]);
 
   // Calculate date range for description
   const dateRange = React.useMemo(() => {
     if (chartData.length === 0) return "";
     const firstDate = new Date(chartData[0].fullDate);
     const lastDate = new Date(chartData[chartData.length - 1].fullDate);
-    return `${firstDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} - ${lastDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
-  }, [chartData]);
+    return `${toDisplayDate(firstDate, 'long')} - ${toDisplayDate(lastDate, 'long')}`;
+  }, [chartData, toDisplayDate]);
 
   if (chartData.length === 0) {
     return (

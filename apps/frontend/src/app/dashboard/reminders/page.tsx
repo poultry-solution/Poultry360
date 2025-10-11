@@ -18,6 +18,8 @@ import {
   getReminderTypeDisplayName,
   formatReminderDueDate,
 } from "@/fetchers/remainder/remainderQueries";
+import { DateInput } from "@/components/ui/date-input";
+import { DateDisplay } from "@/components/ui/date-display";
 
 export default function RemindersPage() {
   const [activeTab, setActiveTab] = useState<"upcoming" | "overdue" | "scheduled" | "completed">("upcoming");
@@ -329,13 +331,14 @@ export default function RemindersPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Due Date & Time</label>
-                  <input
-                    type="datetime-local"
-                    className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                  <DateInput
+                    label="Due Date"
                     value={form.dueDate}
-                    onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+                    onChange={(value) => setForm({ ...form, dueDate: value })}
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Note: Date picker will respect your calendar preference
+                  </p>
                 </div>
 
                 <div className="md:col-span-2 flex items-center gap-4">
@@ -499,12 +502,7 @@ export default function RemindersPage() {
                 <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                   <div className="text-xs text-slate-500 flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
-                    {new Date(reminder.dueDate).toLocaleString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
+                    <DateDisplay date={reminder.dueDate} format="long" />
                   </div>
                   <div className="flex gap-2">
                     {activeTab !== "completed" && (

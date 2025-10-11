@@ -14,6 +14,7 @@ import {
   formatReminderDueDate,
   isReminderDueSoon,
 } from "@/fetchers/remainder/remainderQueries";
+import { DateDisplay } from "@/components/ui/date-display";
 
 interface RemindersSectionProps {
   upcoming: any[];
@@ -195,7 +196,7 @@ export function RemindersSection({
                         {reminder.title}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {formatReminderDueDate(reminder.dueDate)} (
+                        <DateDisplay date={reminder.dueDate} format="short" /> (
                         {formatDueIn(reminder.dueDate.toString())}) •{" "}
                         {getReminderTypeDisplayName(reminder.type)}
                         {reminder.farm && ` • ${reminder.farm.name}`}

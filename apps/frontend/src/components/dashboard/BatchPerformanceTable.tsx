@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useGetBatchPerformance } from "@/fetchers/dashboard/dashboardQueries";
 import { useRouter } from "next/navigation";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { DateDisplay } from "@/components/ui/date-display";
 
 export function BatchPerformanceTable() {
   const router = useRouter();

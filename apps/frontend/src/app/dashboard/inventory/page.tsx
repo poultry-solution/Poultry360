@@ -28,6 +28,7 @@ import {
   useCreateInventoryItem,
 } from "@/fetchers/inventory/inventoryQueries";
 import { InventoryItemType } from "@myapp/shared-types";
+import { DateDisplay } from "@/components/ui/date-display";
 import { toast } from "sonner";
 
 export default function InventoryPage() {
@@ -202,7 +203,7 @@ export default function InventoryPage() {
             const isExpired = new Date(value) < new Date();
             return (
               <span className={isExpired ? "text-red-600 font-medium" : ""}>
-                {new Date(value).toLocaleDateString()}
+                <DateDisplay date={value} format="short" />
               </span>
             );
           },

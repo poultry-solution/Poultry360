@@ -4,13 +4,11 @@ import React, { useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Loader2, Receipt } from "lucide-react";
 import { useGetExpenses } from "@/fetchers/expenses/expenseQueries";
+import { useCalendar } from "@/hooks/useCalendar";
 
-function formatDateYYYYMMDD(date: Date): string {
-  return date.toISOString().split("T")[0];
-}
 
 export function TodayExpenses() {
-  const today = useMemo(() => formatDateYYYYMMDD(new Date()), []);
+  const today = useMemo(() => new Date().toISOString().split('T')[0], []);
 
   const { data, isLoading, error } = useGetExpenses({
     startDate: today,

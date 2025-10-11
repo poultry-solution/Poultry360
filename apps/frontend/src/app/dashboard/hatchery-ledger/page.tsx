@@ -26,6 +26,8 @@ import {
   useDeleteHatchery,
 } from "@/fetchers/hatcheries/hatcheryQueries";
 import { TransactionType } from "@myapp/shared-types";
+import { DateInput } from "@/components/ui/date-input";
+import { DateDisplay } from "@/components/ui/date-display";
 
 export default function HatcheryLedgerPage() {
   const [activeHatcheryId, setActiveHatcheryId] = useState<string | null>(null);
@@ -853,25 +855,17 @@ export default function HatcheryLedgerPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="date">Date</Label>
-                  <Input
-                    id="date"
-                    type="date"
+                  <DateInput
+                    label="Date"
                     value={newEntry.date}
-                    onChange={(e) =>
-                      setNewEntry({ ...newEntry, date: e.target.value })
-                    }
+                    onChange={(value) => setNewEntry({ ...newEntry, date: value })}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="dueDate">Due Date (optional)</Label>
-                  <Input
-                    id="dueDate"
-                    type="date"
+                  <DateInput
+                    label="Due Date (optional)"
                     value={newEntry.dueDate}
-                    onChange={(e) =>
-                      setNewEntry({ ...newEntry, dueDate: e.target.value })
-                    }
+                    onChange={(value) => setNewEntry({ ...newEntry, dueDate: value })}
                   />
                 </div>
               </div>
@@ -941,14 +935,10 @@ export default function HatcheryLedgerPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="paymentDate">Payment Date</Label>
-                <Input
-                  id="paymentDate"
-                  type="date"
+                <DateInput
+                  label="Payment Date"
                   value={paymentForm.date}
-                  onChange={(e) =>
-                    setPaymentForm({ ...paymentForm, date: e.target.value })
-                  }
+                  onChange={(value) => setPaymentForm({ ...paymentForm, date: value })}
                 />
               </div>
               <div>
@@ -1063,7 +1053,7 @@ export default function HatcheryLedgerPage() {
                                   ₹{payment.amount.toLocaleString()}
                                 </div>
                                 <div className="text-sm text-gray-600">
-                                  {new Date(payment.date).toLocaleDateString()}
+                                  <DateDisplay date={payment.date} format="short" />
                                 </div>
                                 {payment.reference && (
                                   <div className="text-sm text-gray-500">

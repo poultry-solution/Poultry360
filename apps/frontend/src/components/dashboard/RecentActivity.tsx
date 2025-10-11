@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { DateDisplay } from "@/components/ui/date-display";
 
 interface RecentActivityProps {
   recentActivity: any[];
@@ -60,7 +61,7 @@ export function RecentActivity({
                   <p className="text-sm font-medium">{activity.title}</p>
                   <p className="text-xs text-muted-foreground">
                     {activity.description} - {activity.farmName} -{" "}
-                    {new Date(activity.timestamp).toLocaleTimeString()}
+                    <DateDisplay date={activity.timestamp} format="relative" />
                   </p>
                 </div>
               </div>

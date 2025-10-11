@@ -42,11 +42,7 @@ import {
 import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
 import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
 import { toast } from "sonner";
-// Helper function for date formatting
-const formatDate = (dateStr: string | Date): string => {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString("en-GB");
-};
+import { DateDisplay } from "@/components/ui/date-display";
 
 // Types
 type TabType = "overview" | "sales" | "parties" | "payments";
@@ -525,7 +521,7 @@ export default function SalesLedgerPage() {
       label: "Date",
       type: "date" as const,
       width: "120px",
-      render: (value: string) => formatDate(value),
+      render: (value: string) => <DateDisplay date={value} format="short" />,
     },
     {
       key: "itemType",
@@ -1695,7 +1691,7 @@ export default function SalesLedgerPage() {
                               Sale: ₹{Number(sale.amount).toLocaleString()}
                             </span>
                             <span className="text-gray-500">
-                              {formatDate(sale.date)}
+                              <DateDisplay date={sale.date} format="short" />
                             </span>
                           </div>
                           {sale.payments && sale.payments.length > 0 && (

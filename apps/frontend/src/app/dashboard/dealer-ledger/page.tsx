@@ -28,6 +28,8 @@ import {
 } from "@/fetchers/dealers/dealerQueries";
 import { useQueryClient } from "@tanstack/react-query";
 import { TransactionType } from "@myapp/shared-types";
+import { DateInput } from "@/components/ui/date-input";
+import { DateDisplay } from "@/components/ui/date-display";
 
 export default function DealerLedgerPage() {
   const [activeDealerId, setActiveDealerId] = useState<string>("");
@@ -842,14 +844,10 @@ export default function DealerLedgerPage() {
                 </div>
               </div>
               <div>
-                <Label htmlFor="date">Date</Label>
-                <Input
-                  id="date"
-                  type="datetime-local"
+                <DateInput
+                  label="Date"
                   value={newEntry.date}
-                  onChange={(e) =>
-                    setNewEntry({ ...newEntry, date: e.target.value })
-                  }
+                  onChange={(value) => setNewEntry({ ...newEntry, date: value })}
                 />
               </div>
             </div>
@@ -916,14 +914,10 @@ export default function DealerLedgerPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="paymentDate">Payment Date</Label>
-                <Input
-                  id="paymentDate"
-                  type="date"
+                <DateInput
+                  label="Payment Date"
                   value={paymentForm.date}
-                  onChange={(e) =>
-                    setPaymentForm({ ...paymentForm, date: e.target.value })
-                  }
+                  onChange={(value) => setPaymentForm({ ...paymentForm, date: value })}
                 />
               </div>
               <div>
@@ -1042,7 +1036,7 @@ export default function DealerLedgerPage() {
                                   ₹{payment.amount.toLocaleString()}
                                 </div>
                                 <div className="text-sm text-gray-600">
-                                  {new Date(payment.date).toLocaleDateString()}
+                                  <DateDisplay date={payment.date} format="short" />
                                 </div>
                                 {payment.reference && (
                                   <div className="text-sm text-gray-500">

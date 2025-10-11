@@ -20,6 +20,7 @@ import { useGetFarmBatches } from "@/fetchers/batches/batchQueries";
 import { toast } from "sonner";
 import { useAuth } from "@/store/store";
 import { FarmResponse, BatchResponse } from "@myapp/shared-types";
+import { DateDisplay } from "@/components/ui/date-display";
 
 export default function FarmsPage() {
   const router = useRouter();
@@ -69,13 +70,6 @@ export default function FarmsPage() {
     });
   const modalBatches: BatchResponse[] = modalBatchesResponse?.data || [];
 
-  function formatDate(date: string | Date) {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  }
 
   function calculateBatchAge(startDate: string | Date) {
     const start = new Date(startDate);
@@ -230,7 +224,7 @@ export default function FarmsPage() {
                       <div>
                         <span className="text-muted-foreground">Created:</span>
                         <p className="font-medium">
-                          {formatDate(farm.createdAt)}
+                          <DateDisplay date={farm.createdAt} format="short" />
                         </p>
                       </div>
                     </div>
@@ -338,7 +332,7 @@ export default function FarmsPage() {
                           {batch.status}
                         </span>
                       </div>
-                      <p className="text-sm text-muted-foreground">Started {formatDate(batch.startDate)} • Age {calculateBatchAge(batch.startDate)} days • Current {batch.currentChicks?.toLocaleString?.() || "N/A"}</p>
+                      <p className="text-sm text-muted-foreground">Started <DateDisplay date={batch.startDate} format="short" /> • Age {calculateBatchAge(batch.startDate)} days • Current {batch.currentChicks?.toLocaleString?.() || "N/A"}</p>
                     </div>
                     <Button variant="outline" asChild onClick={(e) => e.stopPropagation()}>
                       <Link href={`/dashboard/batches/${batch.id}`}>View</Link>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import { DateInput } from "@/components/ui/date-input";
 
 interface QuickExpenseModalProps {
   isOpen: boolean;
@@ -35,6 +36,7 @@ export function QuickExpenseModal({
     batchId: "",
     category: "Feed",
     date: "",
+    amount: "",
     notes: "",
     feedBrand: "",
     feedQuantity: "",
@@ -109,52 +111,10 @@ export function QuickExpenseModal({
     if (!form.batchId) validationErrors.batchId = "Please select a batch";
     if (!form.category) validationErrors.category = "Please select a category";
     if (!form.date) validationErrors.date = "Please select a date";
+    if (!form.amount || Number(form.amount) <= 0) validationErrors.amount = "Please enter a valid amount";
 
-    // Category-specific validation
-    if (form.category === "Feed") {
-      if (!form.selectedFeedId)
-        validationErrors.feedBrand = "Please select a feed from inventory";
-      if (!form.feedQuantity)
-        validationErrors.feedQuantity = "Please enter quantity";
-      if (!form.feedRate) validationErrors.feedRate = "Please enter rate";
-
-      // Check if quantity exceeds available inventory
-      if (form.selectedFeedId && form.feedQuantity) {
-        const selectedFeed = feedInventory.find(
-          (feed: any) => feed.id === form.selectedFeedId
-        );
-        const requestedQty = Number(form.feedQuantity);
-        if (selectedFeed && requestedQty > selectedFeed.quantity) {
-          validationErrors.feedQuantity = `Only ${selectedFeed.quantity} ${selectedFeed.unit} available`;
-        }
-      }
-    } else if (form.category === "Medicine") {
-      if (!form.selectedMedicineId)
-        validationErrors.medicineName = "Please select a medicine from inventory";
-      if (!form.medicineQuantity)
-        validationErrors.medicineQuantity = "Please enter quantity";
-      if (!form.medicineRate) validationErrors.medicineRate = "Please enter rate";
-
-      // Check if quantity exceeds available inventory
-      if (form.selectedMedicineId && form.medicineQuantity) {
-        const selectedMedicine = medicineInventory.find(
-          (medicine: any) => medicine.id === form.selectedMedicineId
-        );
-        const requestedQty = Number(form.medicineQuantity);
-        if (selectedMedicine && requestedQty > selectedMedicine.quantity) {
-          validationErrors.medicineQuantity = `Only ${selectedMedicine.quantity} ${selectedMedicine.unit} available`;
-        }
-      }
-    } else if (form.category === "Hatchery") {
-      if (!form.hatcheryQuantity)
-        validationErrors.hatcheryQuantity = "Please enter quantity";
-      if (!form.hatcheryRate)
-        validationErrors.hatcheryRate = "Please enter rate";
-    } else if (form.category === "Other") {
-      if (!form.otherQuantity)
-        validationErrors.otherQuantity = "Please enter quantity";
-      if (!form.otherRate) validationErrors.otherRate = "Please enter rate";
-    }
+    // Basic validation - category-specific fields will be added later
+    // For now, just ensure we have the basic required fields
 
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -173,63 +133,16 @@ export function QuickExpenseModal({
         return;
       }
 
-      // Calculate amount based on category
-      let amount = 0;
-      let description = "";
-      let quantity = 0;
-      let unitPrice = 0;
-
-      if (form.category === "Feed") {
-        quantity = parseFloat(form.feedQuantity);
-        unitPrice = parseFloat(form.feedRate);
-        amount = quantity * unitPrice;
-        description = `Feed: ${form.feedBrand || "Unknown"} - Qty: ${quantity} • Rate: ₹${unitPrice}`;
-      } else if (form.category === "Medicine") {
-        quantity = parseFloat(form.medicineQuantity);
-        unitPrice = parseFloat(form.medicineRate);
-        amount = quantity * unitPrice;
-        description = `Medicine: ${form.medicineName || "Unknown"} - Qty: ${quantity} • Rate: ₹${unitPrice}`;
-      } else if (form.category === "Hatchery") {
-        quantity = parseFloat(form.hatcheryQuantity);
-        unitPrice = parseFloat(form.hatcheryRate);
-        amount = quantity * unitPrice;
-        description = `Hatchery: ${form.hatcheryName || "Unknown"} - Qty: ${quantity} • Rate: ₹${unitPrice}`;
-      } else if (form.category === "Other") {
-        quantity = parseFloat(form.otherQuantity);
-        unitPrice = parseFloat(form.otherRate);
-        amount = quantity * unitPrice;
-        description = `Other: ${form.otherName || "Unknown"} - Qty: ${quantity} • Rate: ₹${unitPrice}`;
-      }
-
-      // Create expense data
+      // Create basic expense data
       const expenseData = {
         date: new Date(form.date).toISOString(),
-        amount,
-        description:
-          description +
-          (form.notes ? ` • Notes: ${form.notes}` : ""),
-        quantity,
-        unitPrice,
+        amount: Number(form.amount),
+        description: `${form.category} expense${form.notes ? ` • Notes: ${form.notes}` : ""}`,
+        quantity: 1,
+        unitPrice: Number(form.amount),
         farmId: form.farmId,
         batchId: form.batchId,
         categoryId: selectedCategory.id,
-        inventoryItems: form.selectedFeedId
-          ? [
-              {
-                itemId: form.selectedFeedId,
-                quantity,
-                notes: form.notes,
-              },
-            ]
-          : form.selectedMedicineId
-            ? [
-                {
-                  itemId: form.selectedMedicineId,
-                  quantity,
-                  notes: form.notes,
-                },
-              ]
-            : undefined,
       };
 
       await onSubmit(expenseData);
@@ -240,6 +153,7 @@ export function QuickExpenseModal({
         batchId: "",
         category: "Feed",
         date: "",
+        amount: "",
         notes: "",
         feedBrand: "",
         feedQuantity: "",
@@ -366,18 +280,33 @@ export function QuickExpenseModal({
                 )}
               </div>
               <div>
-                <Label htmlFor="date">Date</Label>
-                <Input
-                  id="date"
-                  name="date"
-                  type="date"
+                <DateInput
+                  label="Date"
                   value={form.date}
-                  onChange={updateField}
+                  onChange={(value) => setForm(prev => ({ ...prev, date: value }))}
                 />
               </div>
             </div>
 
-            {/* Category-specific fields would go here - keeping it concise for now */}
+            {/* Basic amount field */}
+            <div>
+              <Label htmlFor="amount">Amount (₹) *</Label>
+              <Input
+                id="amount"
+                name="amount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.amount || ""}
+                onChange={updateField}
+                placeholder="Enter expense amount"
+                required
+              />
+              {errors.amount && (
+                <p className="text-xs text-red-600 mt-1">{errors.amount}</p>
+              )}
+            </div>
+
             <div>
               <Label htmlFor="notes">Notes (Optional)</Label>
               <Input
