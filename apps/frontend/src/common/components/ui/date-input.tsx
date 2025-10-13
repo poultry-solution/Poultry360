@@ -2,7 +2,7 @@
 
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
-import { useCalendar } from "@/hooks/useCalendar";
+import { useCalendar } from "@/common/hooks/useCalendar";
 
 interface DateInputProps {
   label?: string;

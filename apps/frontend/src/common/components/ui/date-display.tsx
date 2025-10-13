@@ -1,6 +1,6 @@
 "use client";
 
-import { useCalendar } from "@/hooks/useCalendar";
+import { useCalendar } from "@/common/hooks/useCalendar";
 
 interface DateDisplayProps {
   date: Date | string;

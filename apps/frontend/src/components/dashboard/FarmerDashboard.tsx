@@ -5,9 +5,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
 
-// Import the existing farmer dashboard layout
-// import DashboardLayout from "@/app/(farmer)/dashboard/layout";
-
 export default function FarmerDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
@@ -24,9 +21,9 @@ export default function FarmerDashboard() {
       if (user?.role !== "OWNER" && user?.role !== "MANAGER") {
         // Redirect to appropriate dashboard
         if (user?.role === "DOCTOR") {
-          router.push("/dashboard"); // Will show doctor dashboard
+          router.push("/doctor/dashboard");
         } else if (user?.role === "SUPER_ADMIN") {
-          router.push("/dashboard"); // Will show admin dashboard
+          router.push("/admin/dashboard");
         } else {
           router.push("/auth/login");
         }
@@ -38,32 +35,30 @@ export default function FarmerDashboard() {
   }, [user, isAuthenticated, isLoading, router]);
 
   if (isLoading || !isReady) {
-    return (
-      <AppLoadingScreen 
-        message="Loading farmer dashboard..."
-      />
-    );
+    return <AppLoadingScreen message="Loading farmer dashboard..." />;
   }
 
   if (!isAuthenticated) {
-    return (
-      <AppLoadingScreen 
-        message="Redirecting to login..."
-      />
-    );
+    return <AppLoadingScreen message="Redirecting to login..." />;
   }
 
-  // Use the existing farmer dashboard layout
+  // Instead of redirecting, show a simple farmer dashboard
   return (
-    <>
-      {/* This will render the farmer dashboard content */}
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">Farmer Dashboard</h1>
-        <p className="text-gray-600">
-          Welcome back, {user?.name || "Farmer"}! Your existing farmer dashboard features are available.
-        </p>
-        {/* The existing farmer dashboard content will be rendered here */}
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Farmer Dashboard</h1>
+      <p className="text-gray-600 mb-4">
+        Welcome back, {user?.name || "Farmer"}!
+      </p>
+      <div className="space-y-4">
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <h2 className="font-semibold text-blue-900">Quick Actions</h2>
+          <p className="text-blue-700">Access your farmer tools and features</p>
+        </div>
+        <div className="bg-green-50 p-4 rounded-lg">
+          <h2 className="font-semibold text-green-900">Your Farms</h2>
+          <p className="text-green-700">Manage your poultry farms and batches</p>
+        </div>
       </div>
-    </>
+    </div>
   );
 }

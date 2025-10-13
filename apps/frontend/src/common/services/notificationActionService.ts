@@ -1,4 +1,4 @@
-import axiosInstance from '@/lib/axios';
+import axiosInstance from '@/common/lib/axios';
 
 export interface NotificationActionData {
   reminderId: string;

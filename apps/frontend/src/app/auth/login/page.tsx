@@ -6,10 +6,8 @@ import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Button } from "@/common/components/ui/button";
 import { useAuth, useAuthStore } from "@/common/store/store";
-// import { crossPortAuth } from "@myapp/shared-auth"; // Removed - no longer using shared packages
 import { useLoginRedirect } from "@/common/hooks/useRoleBasedRouting";
 import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
-import { crossPortAuth } from "@myapp/shared-auth";
 
 export default function LoginPage() {
   const router = useRouter();

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { useAuthStore } from '@/store/store';
-import { handleNotificationAction } from '@/services/notificationActionService';
+import { useAuthStore } from '@/common/store/store';
+import { handleNotificationAction } from '@/common/services/notificationActionService';
 
 export const useNotificationActions = () => {
   const { user } = useAuthStore();

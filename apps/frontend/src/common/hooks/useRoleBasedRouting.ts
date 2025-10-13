@@ -18,32 +18,32 @@ interface RoleRouteConfig {
 // Define role-based routing configuration
 const ROLE_ROUTES: RoleRouteConfig = {
   DOCTOR: {
-    basePath: "/dashboard",
-    defaultRoute: "/dashboard",
-    port: 3002,
-    isCrossPort: true,
-    allowedPaths: ["/dashboard", "/chat", "/ledger"],
+    basePath: "/doctor",
+    defaultRoute: "/doctor/dashboard",
+    port: 3000,
+    isCrossPort: false,
+    allowedPaths: ["/doctor", "/auth"],
   },
   OWNER: {
-    basePath: "/dashboard",
-    defaultRoute: "/dashboard/home",
+    basePath: "/farmer",
+    defaultRoute: "/farmer/dashboard/home",
     port: 3000,
     isCrossPort: false,
-    allowedPaths: ["/dashboard", "/auth"],
+    allowedPaths: ["/farmer", "/auth"],
   },
   MANAGER: {
-    basePath: "/dashboard",
-    defaultRoute: "/dashboard/home",
+    basePath: "/farmer",
+    defaultRoute: "/farmer/dashboard/home",
     port: 3000,
     isCrossPort: false,
-    allowedPaths: ["/dashboard", "/auth"],
+    allowedPaths: ["/farmer", "/auth"],
   },
-  ADMIN: {
-    basePath: "/dashboard",
-    defaultRoute: "/dashboard/home",
+  SUPER_ADMIN: {
+    basePath: "/admin",
+    defaultRoute: "/admin/dashboard",
     port: 3000,
     isCrossPort: false,
-    allowedPaths: ["/dashboard", "/auth"],
+    allowedPaths: ["/admin", "/auth"],
   },
 };
 
@@ -77,24 +77,16 @@ export const useRoleBasedRouting = () => {
     }
 
     try {
-      if (roleConfig.isCrossPort) {
-        // TODO: Handle cross-port navigation when implementing unified architecture
-        console.log(`🔄 Cross-port navigation: ${userRole} to port ${roleConfig.port} - Not implemented yet`);
-        // await crossPortAuth.navigateToDoctorApp();
-        // For now, redirect to farmer dashboard
-        router.push("/dashboard/home");
-      } else {
-        // Same-port navigation
-        console.log(`🔄 Same-port navigation: ${userRole} to ${roleConfig.defaultRoute}`);
-        router.push(roleConfig.defaultRoute);
-      }
+      // Navigate to role-specific dashboard
+      console.log(`🔄 Navigating ${userRole} to ${roleConfig.defaultRoute}`);
+      router.push(roleConfig.defaultRoute);
     } catch (error) {
       console.error("Navigation error:", error);
       router.push("/auth/login");
     }
   };
 
-  // Check and redirect if user is on wrong app/port
+  // Check and redirect if user is on wrong path
   const checkAndRedirect = async () => {
     if (!isAuthenticated || !user) return;
 
@@ -106,28 +98,14 @@ export const useRoleBasedRouting = () => {
       return;
     }
 
-    // Public share pages should never trigger cross-port or path redirects
+    // Public share pages should never trigger redirects
     if (typeof window !== "undefined" && window.location.pathname.startsWith("/share/")) {
-      return;
-    }
-
-    // If user is a doctor but on main app, redirect to doctor app
-    if (roleConfig.isCrossPort && roleConfig.port !== 3000) {
-      console.log(`🔄 Doctor detected on main app, redirecting to doctor app`);
-      await navigateToRoleDashboard(userRole);
-      return;
-    }
-
-    // If user is not a doctor but on doctor app, redirect to main app
-    if (!roleConfig.isCrossPort && window.location.port === "3002") {
-      console.log(`🔄 Non-doctor detected on doctor app, redirecting to main app`);
-      await navigateToRoleDashboard(userRole);
       return;
     }
 
     // Check if current path is allowed for this role
     if (!isPathAllowed(userRole, pathname)) {
-      console.log(`🔄 Path ${pathname} not allowed for role ${userRole}, redirecting to dashboard`);
+      console.log(`🔄 Path ${pathname} not allowed for role ${userRole}, redirecting to role dashboard`);
       await navigateToRoleDashboard(userRole);
       return;
     }

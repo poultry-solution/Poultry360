@@ -2,26 +2,30 @@
 import { useAuthStore } from "@/common/store/store";
 import { usePathname } from "next/navigation";
 import { AuthLoadingScreen, AppLoadingScreen } from "@/common/components/ui/loading-screen";
-import { RoleBasedRedirect } from "@/components/RoleBasedRedirect";
+import { RoleBasedRedirect } from "@/common/components/auth/RoleBasedRedirect";
 
 interface AuthGuardProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
   requireAuth?: boolean;
-  allowedRoles?: Array<"MANAGER" | "OWNER" | "ADMIN" | "DOCTOR">;
+  allowedRoles?: Array<"MANAGER" | "OWNER" | "SUPER_ADMIN" | "DOCTOR">;
 }
 
 export const AuthGuard: React.FC<AuthGuardProps> = ({
   children,
   fallback,
   requireAuth = false,
-  allowedRoles = ["OWNER", "MANAGER", "ADMIN"],
+  allowedRoles = ["OWNER", "MANAGER", "SUPER_ADMIN", "DOCTOR"],
 }) => {
   const { isAuthenticated, user, isInitialized, isLoading } = useAuthStore();
   const pathname = usePathname();
 
-  // if path name starts with /dashboard then requireAuth should be true
-  const needsAuth = requireAuth || pathname.startsWith("/dashboard");
+  // Check if path requires authentication (role-specific paths or explicit dashboard)
+  const needsAuth = requireAuth || 
+    pathname.startsWith("/dashboard") || 
+    pathname.startsWith("/farmer") || 
+    pathname.startsWith("/doctor") || 
+    pathname.startsWith("/admin");
 
   // Show loading while initializing or during auth operations
   if (!isInitialized || isLoading) {
@@ -49,7 +53,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
 
   // Check role permissions for authenticated users
   if (needsAuth && isAuthenticated && allowedRoles.length > 0 && user) {
-    if (!allowedRoles.includes(user.role as "MANAGER" | "OWNER" | "ADMIN" | "DOCTOR")) {
+    if (!allowedRoles.includes(user.role as "MANAGER" | "OWNER" | "SUPER_ADMIN" | "DOCTOR")) {
       // Instead of showing an error screen, gracefully redirect to the appropriate dashboard
       return (
         <RoleBasedRedirect

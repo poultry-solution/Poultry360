@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
 import { Bell, BellOff, Settings } from "lucide-react";
-import { useNotifications } from "@/hooks/useNotifications";
+import { useNotifications } from "@/common/hooks/useNotifications";
 import { NotificationCenter } from "./NotificationCenter";
 
 export const NotificationBell = () => {

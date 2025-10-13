@@ -24,26 +24,26 @@ interface RoleRouteConfig {
 // Define role-based routing configuration
 const ROLE_ROUTES: RoleRouteConfig = {
   DOCTOR: {
-    basePath: "/dashboard",
-    defaultRoute: "/dashboard",
-    port: 3002,
-    isCrossPort: true,
+    basePath: "/doctor",
+    defaultRoute: "/doctor/dashboard",
+    port: 3000,
+    isCrossPort: false,
   },
   OWNER: {
-    basePath: "/dashboard",
-    defaultRoute: "/dashboard/home",
+    basePath: "/farmer",
+    defaultRoute: "/farmer/dashboard/home",
     port: 3000,
     isCrossPort: false,
   },
   MANAGER: {
-    basePath: "/dashboard",
-    defaultRoute: "/dashboard/home",
+    basePath: "/farmer",
+    defaultRoute: "/farmer/dashboard/home",
     port: 3000,
     isCrossPort: false,
   },
-  ADMIN: {
-    basePath: "/dashboard",
-    defaultRoute: "/dashboard/home",
+  SUPER_ADMIN: {
+    basePath: "/admin",
+    defaultRoute: "/admin/dashboard",
     port: 3000,
     isCrossPort: false,
   },
@@ -65,7 +65,7 @@ export const RoleBasedRedirect: React.FC<RoleBasedRedirectProps> = ({
 
       try {
         const roleConfig = ROLE_ROUTES[userRole];
-        
+
         if (!roleConfig) {
           console.error(`Unknown role: ${userRole}`);
           setRedirectMessage("Unknown user role. Redirecting to login...");
@@ -77,24 +77,20 @@ export const RoleBasedRedirect: React.FC<RoleBasedRedirectProps> = ({
 
         // Check if user is trying to access a path they're not allowed to
         const isAccessingRestrictedPath = !allowedRoles.includes(userRole);
-        
-        if (isAccessingRestrictedPath) {
-          setRedirectMessage(`Redirecting to ${userRole.toLowerCase()} dashboard...`);
-          
-          // Small delay to show the message
-          await new Promise(resolve => setTimeout(resolve, 1500));
 
-          if (roleConfig.isCrossPort) {
-            // TODO: Handle cross-port navigation when implementing unified architecture
-            console.log(`🔄 Cross-port redirect: ${userRole} to port ${roleConfig.port} - Not implemented yet`);
-            // await crossPortAuth.navigateToDoctorApp();
-            // For now, redirect to farmer dashboard
-            router.push("/dashboard/home");
-          } else {
-            // Same-port navigation (e.g., Owner/Manager to main dashboard)
-            console.log(`🔄 Same-port redirect: ${userRole} to ${roleConfig.defaultRoute}`);
-            router.push(roleConfig.defaultRoute);
-          }
+        if (isAccessingRestrictedPath) {
+          setRedirectMessage(
+            `Redirecting to ${userRole.toLowerCase()} dashboard...`
+          );
+
+          // Small delay to show the message
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+
+          // Redirect to role-specific dashboard
+          console.log(
+            `🔄 Redirecting ${userRole} to ${roleConfig.defaultRoute}`
+          );
+          router.push(roleConfig.defaultRoute);
         } else {
           // User has permission, no redirect needed
           setIsRedirecting(false);
@@ -114,7 +110,7 @@ export const RoleBasedRedirect: React.FC<RoleBasedRedirectProps> = ({
 
   if (isRedirecting) {
     return (
-      <AppLoadingScreen 
+      <AppLoadingScreen
         message={redirectMessage || `Redirecting ${userRole.toLowerCase()}...`}
       />
     );
@@ -127,9 +123,12 @@ export const RoleBasedRedirect: React.FC<RoleBasedRedirectProps> = ({
 export const useRoleBasedNavigation = () => {
   const router = useRouter();
 
-  const navigateBasedOnRole = async (userRole: string, fallbackPath?: string) => {
+  const navigateBasedOnRole = async (
+    userRole: string,
+    fallbackPath?: string
+  ) => {
     const roleConfig = ROLE_ROUTES[userRole];
-    
+
     if (!roleConfig) {
       console.error(`Unknown role: ${userRole}`);
       router.push(fallbackPath || "/auth/login");
@@ -137,16 +136,9 @@ export const useRoleBasedNavigation = () => {
     }
 
     try {
-      if (roleConfig.isCrossPort) {
-        // TODO: Handle cross-port navigation when implementing unified architecture
-        console.log(`🔄 Cross-port navigation: ${userRole} to port ${roleConfig.port} - Not implemented yet`);
-        // await crossPortAuth.navigateToDoctorApp();
-        // For now, redirect to farmer dashboard
-        router.push("/dashboard/home");
-      } else {
-        // Same-port navigation
-        router.push(roleConfig.defaultRoute);
-      }
+      // Navigate to role-specific dashboard
+      console.log(`🔄 Navigating ${userRole} to ${roleConfig.defaultRoute}`);
+      router.push(roleConfig.defaultRoute);
     } catch (error) {
       console.error("Navigation error:", error);
       router.push(fallbackPath || "/auth/login");
@@ -172,7 +164,9 @@ export const useRoleBasedNavigation = () => {
 };
 
 // Component for handling login redirects
-export const LoginRedirectHandler: React.FC<{ userRole: string }> = ({ userRole }) => {
+export const LoginRedirectHandler: React.FC<{ userRole: string }> = ({
+  userRole,
+}) => {
   const { navigateBasedOnRole } = useRoleBasedNavigation();
   const [isRedirecting, setIsRedirecting] = useState(true);
 
@@ -191,7 +185,7 @@ export const LoginRedirectHandler: React.FC<{ userRole: string }> = ({ userRole 
 
   if (isRedirecting) {
     return (
-      <AppLoadingScreen 
+      <AppLoadingScreen
         message={`Welcome ${userRole.toLowerCase()}! Redirecting to your dashboard...\nPoultry360\nSmart Poultry Management System`}
       />
     );

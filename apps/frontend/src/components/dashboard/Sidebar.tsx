@@ -20,9 +20,9 @@ import { Button } from "@/common/components/ui/button";
 import { useAuth } from "@/common/store/store";
 
 const navigation = [
-  { name: "Home", href: "/dashboard/home", icon: Home },
-  { name: "Farms", href: "/dashboard/farms", icon: Building2 },
-  { name: "Batches", href: "/dashboard/batches", icon: Layers },
+  { name: "Home", href: "/home", icon: Home },
+  { name: "Farms", href: "/farms", icon: Building2 },
+  { name: "Batches", href: "/batches", icon: Layers },
   { name: "Sales Ledger", href: "/dashboard/sales-ledger", icon: Receipt },
   { name: "Feed Ledger", href: "/dashboard/dealer-ledger", icon: Users },
   {

@@ -20,7 +20,7 @@ import {
   Info,
   Trash2,
 } from "lucide-react";
-import { useNotifications, NotificationData } from "@/hooks/useNotifications";
+import { useNotifications, NotificationData } from "@/common/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
 
 interface NotificationCenterProps {

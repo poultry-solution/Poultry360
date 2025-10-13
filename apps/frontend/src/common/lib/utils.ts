@@ -1,14 +1,15 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { User, UserSchema } from "@myapp/shared-types"
+// import { User, UserSchema } from "@myapp/shared-types" // Removed - no longer using shared packages
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function validateUser(user: User) {
-  return UserSchema.safeParse(user)
-}
+// TODO: Implement user validation when needed
+// export function validateUser(user: User) {
+//   return UserSchema.safeParse(user)
+// }
 
 // Date helpers (local timezone, UI-friendly)
 export function getTodayLocalDate(): string {

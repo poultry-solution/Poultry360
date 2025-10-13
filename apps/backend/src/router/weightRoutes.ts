@@ -1,4 +1,4 @@
-wimport express from "express";
+import express from "express";
 import {
   addBirdWeight,
   getBirdWeights,
@@ -23,4 +23,3 @@ router.delete("/:batchId/weights/:weightId", deleteBirdWeight);
 router.get("/:batchId/growth-chart", getGrowthChartData);
 
 export default router;
-
