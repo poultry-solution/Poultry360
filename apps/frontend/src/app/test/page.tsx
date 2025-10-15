@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useAuth } from "@/store/store";
+import { useAuth } from "@/common/store/store";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 

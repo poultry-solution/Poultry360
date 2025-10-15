@@ -1,8 +1,8 @@
 import React from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/common/components/ui/badge";
+import { Button } from "@/common/components/ui/button";
 import { Pencil, Trash2, Plus } from "lucide-react";
-import { createColumn, Column } from "@/components/ui/data-table";
+import { createColumn, Column } from "@/common/components/ui/data-table";
 
 interface LedgerRow {
   id: string | number;

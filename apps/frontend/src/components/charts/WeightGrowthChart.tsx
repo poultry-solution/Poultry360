@@ -10,14 +10,14 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/common/components/ui/card";
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-} from "@/components/ui/chart";
-import { useCalendar } from "@/hooks/useCalendar";
+} from "@/common/components/ui/chart";
+import { useCalendar } from "@/common/hooks/useCalendar";
 
 type Point = { date: string; weight: number; source?: string };
 

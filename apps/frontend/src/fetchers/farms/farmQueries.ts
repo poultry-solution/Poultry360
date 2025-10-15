@@ -7,7 +7,7 @@ import {
   FarmListResponse,
   FarmDetailResponse
 } from "@myapp/shared-types";
-import axiosInstance from "@/lib/axios";
+import axiosInstance from "@/common/lib/axios";
 
 // ==================== QUERY KEYS ====================
 export const farmKeys = {

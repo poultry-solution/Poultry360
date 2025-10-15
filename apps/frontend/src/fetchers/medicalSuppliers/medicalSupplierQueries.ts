@@ -4,7 +4,7 @@ import {
   UpdateMedicineSupplier,
   TransactionType,
 } from "@myapp/shared-types";
-import axiosInstance from "@/lib/axios";
+import axiosInstance from "@/common/lib/axios";
 import { inventoryKeys } from "../inventory/inventoryQueries";
 
 // ==================== QUERY KEYS ====================

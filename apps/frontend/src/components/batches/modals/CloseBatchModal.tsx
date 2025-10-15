@@ -1,10 +1,10 @@
 "use client";
 
-import { Modal, ModalContent, ModalFooter } from "@/components/ui/modal";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
+import { Button } from "@/common/components/ui/button";
+import { Label } from "@/common/components/ui/label";
 import { Loader2, CheckCircle } from "lucide-react";
-import { DateInput } from "@/components/ui/date-input";
+import { DateInput } from "@/common/components/ui/date-input";
 
 interface CloseBatchFormState {
   endDate: string;

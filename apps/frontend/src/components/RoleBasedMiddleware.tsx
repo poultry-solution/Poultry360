@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRoleBasedRouting } from "@/hooks/useRoleBasedRouting";
-import { AppLoadingScreen } from "@/components/ui/loading-screen";
+import { useRoleBasedRouting } from "@/common/hooks/useRoleBasedRouting";
+import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
 
 interface RoleBasedMiddlewareProps {
   children: React.ReactNode;

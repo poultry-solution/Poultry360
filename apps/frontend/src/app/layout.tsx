@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { QueryProvider } from "@/providers/QueryProvider";
-import { AuthGuard } from "@/components/AuthGuard";
-import { AuthProvider } from "@/providers/AuthProvider";
-import { InventoryProvider } from "@/contexts/InventoryContext";
-import { ToastProvider } from "@/providers/ToastProvider";
-import { ChatProvider } from "@/contexts/ChatContext";
-import { LoadingProvider } from "@/providers/LoadingProvider";
-import { RoleBasedMiddleware } from "@/components/RoleBasedMiddleware";
+import { QueryProvider } from "@/common/providers/QueryProvider";
+import { AuthGuard } from "@/common/components/auth/AuthGuard";
+import { AuthProvider } from "@/common/providers/AuthProvider";
+import { InventoryProvider } from "@/common/contexts/InventoryContext";
+import { ToastProvider } from "@/common/providers/ToastProvider";
+import { ChatProvider } from "@/common/contexts/ChatContext";
+import { LoadingProvider } from "@/common/providers/LoadingProvider";
+import { RoleBasedMiddleware } from "@/common/components/auth/RoleBasedMiddleware";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 const geistSans = Geist({
   variable: "--font-geist-sans",

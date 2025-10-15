@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/common/components/ui/badge";
 
 export default function Features() {
   return (

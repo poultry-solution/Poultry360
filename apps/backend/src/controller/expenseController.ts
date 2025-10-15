@@ -453,234 +453,298 @@ export const createExpense = async (
     // Track total feed quantity captured via inventory items to avoid double-creating feed consumption
     let totalFeedQuantityFromInventory = 0;
 
-    return await prisma.$transaction(async (tx) => {
-      // 1. Create the expense
-      const expense = await tx.expense.create({
-        data: {
-          date: new Date(date),
-          amount: Number(amount),
-          description: description || null,
-          quantity: quantity ? Number(quantity) : null,
-          unitPrice: unitPrice ? Number(unitPrice) : null,
-          farmId: farmId || null,
-          batchId: batchId || null,
-          categoryId,
-        },
+    // Pre-fetch inventory items and their latest transactions to reduce queries in transaction
+    let inventoryItemsData = [];
+    if (inventoryItems && inventoryItems.length > 0) {
+      const itemIds = inventoryItems.map((item: any) => item.itemId);
+
+      // Fetch all inventory items in one query
+      const items = await prisma.inventoryItem.findMany({
+        where: { id: { in: itemIds } },
+        include: { category: true },
       });
 
-      // 2. Process inventory usage if inventory items are provided
-      const inventoryUsages = [];
-      if (inventoryItems && inventoryItems.length > 0) {
-        for (const item of inventoryItems) {
-          // Get inventory item
-          const inventoryItem = await tx.inventoryItem.findUnique({
-            where: { id: item.itemId },
-            include: { category: true },
-          });
+      // Fetch all latest transactions in one query
+      const latestTransactions = await prisma.inventoryTransaction.findMany({
+        where: {
+          itemId: { in: itemIds },
+          type: "PURCHASE",
+        },
+        orderBy: { date: "desc" },
+        distinct: ["itemId"],
+      });
 
-          if (!inventoryItem) {
-            throw new Error("Inventory item not found");
-          }
+      // Create a map for quick lookup
+      const transactionMap = new Map();
+      latestTransactions.forEach((tx) => {
+        transactionMap.set(tx.itemId, tx);
+      });
 
-          // Check if enough stock available
-          if (Number(inventoryItem.currentStock) < item.quantity) {
-            throw new Error(
-              `Insufficient stock. Available: ${inventoryItem.currentStock}, Required: ${item.quantity}`
-            );
-          }
-
-          // Get latest unit price from transactions
-          const latestTransaction = await tx.inventoryTransaction.findFirst({
-            where: { itemId: item.itemId, type: "PURCHASE" },
-            orderBy: { date: "desc" },
-          });
-
-          const unitPrice = latestTransaction
-            ? Number(latestTransaction.unitPrice)
-            : 0;
-          const totalAmount = unitPrice * item.quantity;
-
-          // Record usage (link to existing expense)
-          const usage = await tx.inventoryUsage.create({
-            data: {
-              date: new Date(date),
-              quantity: item.quantity,
-              unitPrice,
-              totalAmount,
-              notes: `${description || "Expense"} - ${item.notes || ""}`,
-              itemId: item.itemId,
-              farmId: farmId || "",
-              batchId: batchId || null,
-              expenseId: expense.id,
-            },
-          });
-
-          console.log(usage, category.name);
-
-          // If this expense is feed consumption and batch is provided, add a FeedConsumption record
-          if (
-            category.type === CategoryType.EXPENSE &&
-            category.name.toLowerCase() === "feed" &&
-            batchId
-          ) {
-            console.log("Adding feed consumption from inventory item");
-            await tx.feedConsumption.create({
-              data: {
-                date: new Date(date),
-                quantity: item.quantity,
-                feedType: inventoryItem.name,
-                batchId: batchId,
-              },
-            });
-            totalFeedQuantityFromInventory += Number(item.quantity || 0);
-          }
-          // Update stock
-          await tx.inventoryItem.update({
-            where: { id: item.itemId },
-            data: {
-              currentStock: {
-                decrement: item.quantity,
-              },
-            },
-          });
-
-          // Create inventory transaction (stock reduction)
-          await tx.inventoryTransaction.create({
-            data: {
-              type: TransactionType.USAGE, // Using USAGE for internal consumption
-              quantity: item.quantity,
-              unitPrice,
-              totalAmount,
-              date: new Date(date),
-              description: `Usage recorded for ${farmId || "general"}${batchId ? ` - Batch ${batchId}` : ""}`,
-              itemId: item.itemId,
-            },
-          });
-
-          inventoryUsages.push(usage);
+      // Prepare inventory items data
+      inventoryItemsData = inventoryItems.map((item: any) => {
+        const inventoryItem = items.find((i) => i.id === item.itemId);
+        if (!inventoryItem) {
+          throw new Error(`Inventory item not found: ${item.itemId}`);
         }
-      }
 
-      // If category is Feed and we did not register any feed consumption via inventory items,
-      // but the expense itself has a quantity and batchId is present, create a single FeedConsumption.
-      if (
-        category.type === CategoryType.EXPENSE &&
-        category.name.toLowerCase() === "feed" &&
-        batchId &&
-        totalFeedQuantityFromInventory === 0 &&
-        (quantity || 0) > 0
-      ) {
-        console.log("Adding feed consumption from expense quantity");
-        await tx.feedConsumption.create({
+        // Check if enough stock available
+        if (Number(inventoryItem.currentStock) < item.quantity) {
+          throw new Error(
+            `Insufficient stock. Available: ${inventoryItem.currentStock}, Required: ${item.quantity}`
+          );
+        }
+
+        const latestTransaction = transactionMap.get(item.itemId);
+        const unitPrice = latestTransaction
+          ? Number(latestTransaction.unitPrice)
+          : 0;
+        const totalAmount = unitPrice * item.quantity;
+
+        return {
+          ...item,
+          inventoryItem,
+          unitPrice,
+          totalAmount,
+        };
+      });
+    }
+
+    // Execute the main transaction with increased timeout
+    const result = await prisma.$transaction(
+      async (tx) => {
+        // 1. Create the expense
+        const expense = await tx.expense.create({
           data: {
             date: new Date(date),
-            quantity: Number(quantity),
-            feedType: "Feed",
-            batchId: batchId,
+            amount: Number(amount),
+            description: description || null,
+            quantity: quantity ? Number(quantity) : null,
+            unitPrice: unitPrice ? Number(unitPrice) : null,
+            farmId: farmId || null,
+            batchId: batchId || null,
+            categoryId,
           },
         });
-      }
 
-      // 3. Fetch the complete expense with relationships
-      const completeExpense = await tx.expense.findUnique({
-        where: { id: expense.id },
-        include: {
-          farm: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          batch: {
-            select: {
-              id: true,
-              batchNumber: true,
-            },
-          },
-          category: {
-            select: {
-              id: true,
-              name: true,
-              type: true,
-            },
-          },
-          inventoryUsages: {
-            include: {
-              item: {
-                select: {
-                  id: true,
-                  name: true,
-                  unit: true,
+        // 2. Process inventory usage if inventory items are provided
+        const inventoryUsages = [];
+        if (inventoryItemsData.length > 0) {
+          // Create all inventory usages in parallel
+          const usagePromises = inventoryItemsData.map(
+            async (itemData: any) => {
+              const { inventoryItem, unitPrice, totalAmount } = itemData;
+
+              // Record usage (link to existing expense)
+              const usage = await tx.inventoryUsage.create({
+                data: {
+                  date: new Date(date),
+                  quantity: itemData.quantity,
+                  unitPrice,
+                  totalAmount,
+                  notes: `${description || "Expense"} - ${itemData.notes || ""}`,
+                  itemId: itemData.itemId,
+                  farmId: farmId || "",
+                  batchId: batchId || null,
+                  expenseId: expense.id,
                 },
+              });
+
+              // If this expense is feed consumption and batch is provided, add a FeedConsumption record
+              if (
+                category.type === CategoryType.EXPENSE &&
+                category.name.toLowerCase() === "feed" &&
+                batchId
+              ) {
+                console.log("Adding feed consumption from inventory item");
+                await tx.feedConsumption.create({
+                  data: {
+                    date: new Date(date),
+                    quantity: itemData.quantity,
+                    feedType: inventoryItem.name,
+                    batchId: batchId,
+                  },
+                });
+                totalFeedQuantityFromInventory += Number(
+                  itemData.quantity || 0
+                );
+              }
+
+              // Update stock
+              await tx.inventoryItem.update({
+                where: { id: itemData.itemId },
+                data: {
+                  currentStock: {
+                    decrement: itemData.quantity,
+                  },
+                },
+              });
+
+              // Create inventory transaction (stock reduction)
+              await tx.inventoryTransaction.create({
+                data: {
+                  type: TransactionType.USAGE, // Using USAGE for internal consumption
+                  quantity: itemData.quantity,
+                  unitPrice,
+                  totalAmount,
+                  date: new Date(date),
+                  description: `Usage recorded for ${farmId || "general"}${batchId ? ` - Batch ${batchId}` : ""}`,
+                  itemId: itemData.itemId,
+                },
+              });
+
+              return usage;
+            }
+          );
+
+          const usages = await Promise.all(usagePromises);
+          inventoryUsages.push(...usages);
+        }
+
+        // If category is Feed and we did not register any feed consumption via inventory items,
+        // but the expense itself has a quantity and batchId is present, create a single FeedConsumption.
+        if (
+          category.type === CategoryType.EXPENSE &&
+          category.name.toLowerCase() === "feed" &&
+          batchId &&
+          totalFeedQuantityFromInventory === 0 &&
+          (quantity || 0) > 0
+        ) {
+          console.log("Adding feed consumption from expense quantity");
+          await tx.feedConsumption.create({
+            data: {
+              date: new Date(date),
+              quantity: Number(quantity),
+              feedType: "Feed",
+              batchId: batchId,
+            },
+          });
+        }
+
+        return { expense, inventoryUsages };
+      },
+      {
+        timeout: 30000, // Increase timeout to 30 seconds
+      }
+    );
+
+    // 3. Fetch the complete expense with relationships (outside transaction)
+    const completeExpense = await prisma.expense.findUnique({
+      where: { id: result.expense.id },
+      include: {
+        farm: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        batch: {
+          select: {
+            id: true,
+            batchNumber: true,
+          },
+        },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+          },
+        },
+        inventoryUsages: {
+          include: {
+            item: {
+              select: {
+                id: true,
+                name: true,
+                unit: true,
               },
             },
           },
         },
-      });
+      },
+    });
 
-      // Check feed consumption patterns and send notifications if needed (only for feed expenses with batch)
-      if (batchId && totalFeedQuantityFromInventory > 0) {
-        try {
-          const { feedNotificationService } = await import(
-            "../services/feedNotificationService"
-          );
-          const result =
-            await feedNotificationService.checkBatchFeedConsumption(batchId);
+    // Send response first
+    res.status(201).json({
+      success: true,
+      data: completeExpense,
+      message: "Expense created successfully",
+    });
 
-          if (result.thresholdExceeded !== "none") {
-            console.log(
-              `Feed consumption threshold ${result.thresholdExceeded} exceeded for batch ${result.stats.batchNumber}`
+    // Run notification services asynchronously (outside transaction and response)
+    // Only run notifications for successful expense creation
+    setImmediate(async () => {
+      try {
+        // Check feed consumption patterns and send notifications if needed (only for feed expenses with batch)
+        if (batchId && totalFeedQuantityFromInventory > 0) {
+          try {
+            const { feedNotificationService } = await import(
+              "../services/feedNotificationService"
+            );
+            const result =
+              await feedNotificationService.checkBatchFeedConsumption(batchId);
+
+            if (result.thresholdExceeded !== "none") {
+              console.log(
+                `Feed consumption threshold ${result.thresholdExceeded} exceeded for batch ${result.stats.batchNumber}`
+              );
+            }
+          } catch (notificationError) {
+            console.error(
+              "Failed to check feed consumption patterns:",
+              notificationError
             );
           }
-        } catch (notificationError) {
-          console.error(
-            "Failed to check feed consumption patterns:",
-            notificationError
-          );
-          // Don't fail the expense creation if notification fails
         }
+
+        // Check expense patterns and send notifications if needed (for all expenses with farm)
+        if (farmId) {
+          try {
+            const { expenseNotificationService } = await import(
+              "../services/expenseNotificationService"
+            );
+            const result =
+              await expenseNotificationService.checkFarmExpensePatterns(farmId);
+
+            if (result.thresholdExceeded !== "none") {
+              console.log(
+                `Expense threshold ${result.thresholdExceeded} exceeded for farm ${result.stats.farmName}`
+              );
+            }
+          } catch (notificationError) {
+            console.error(
+              "Failed to check expense patterns:",
+              notificationError
+            );
+          }
+        }
+
+        // Check inventory levels and send notifications if needed (when inventory items are used)
+        if (inventoryItems && inventoryItems.length > 0) {
+          try {
+            const { inventoryNotificationService } = await import(
+              "../services/inventoryNotificationService"
+            );
+            const result =
+              await inventoryNotificationService.checkUserInventoryLevels(
+                currentUserId as string
+              );
+
+            if (result.thresholdExceeded !== "none") {
+              console.log(
+                `Inventory threshold ${result.thresholdExceeded} exceeded for user ${currentUserId}`
+              );
+            }
+          } catch (notificationError) {
+            console.error(
+              "Failed to check inventory levels:",
+              notificationError
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Error in notification services:", error);
       }
-
-       // Check expense patterns and send notifications if needed (for all expenses with farm)
-       if (farmId) {
-         try {
-           const { expenseNotificationService } = await import(
-             "../services/expenseNotificationService"
-           );
-           const result =
-             await expenseNotificationService.checkFarmExpensePatterns(farmId);
-
-           if (result.thresholdExceeded !== "none") {
-             console.log(
-               `Expense threshold ${result.thresholdExceeded} exceeded for farm ${result.stats.farmName}`
-             );
-           }
-         } catch (notificationError) {
-           console.error("Failed to check expense patterns:", notificationError);
-           // Don't fail the expense creation if notification fails
-         }
-       }
-
-       // Check inventory levels and send notifications if needed (when inventory items are used)
-       if (inventoryItems && inventoryItems.length > 0) {
-         try {
-           const { inventoryNotificationService } = await import('../services/inventoryNotificationService');
-           const result = await inventoryNotificationService.checkUserInventoryLevels(currentUserId as string);
-           
-           if (result.thresholdExceeded !== 'none') {
-             console.log(`Inventory threshold ${result.thresholdExceeded} exceeded for user ${currentUserId}`);
-           }
-         } catch (notificationError) {
-           console.error('Failed to check inventory levels:', notificationError);
-           // Don't fail the expense creation if notification fails
-         }
-       }
-
-      return res.status(201).json({
-        success: true,
-        data: completeExpense,
-        message: "Expense created successfully",
-      });
     });
   } catch (error) {
     console.error("Create expense error:", error);

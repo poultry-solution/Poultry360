@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CreateMortality, UpdateMortality } from "@myapp/shared-types";
-import axiosInstance from "@/lib/axios";
+import axiosInstance from "@/common/lib/axios";
 
 // ==================== TYPES ====================
 export interface Mortality {

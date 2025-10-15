@@ -1,9 +1,9 @@
 import React from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/common/components/ui/badge";
+import { Button } from "@/common/components/ui/button";
 import { Pencil, Trash2 } from "lucide-react";
-import { DateDisplay } from "@/components/ui/date-display";
-import { createColumn, Column } from "@/components/ui/data-table";
+import { DateDisplay } from "@/common/components/ui/date-display";
+import { createColumn, Column } from "@/common/components/ui/data-table";
 
 interface ExpenseColumnsProps {
   isBatchClosed: boolean;

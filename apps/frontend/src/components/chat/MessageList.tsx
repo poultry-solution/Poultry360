@@ -1,7 +1,7 @@
 "use client";
 
 import React, { RefObject } from "react";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/common/components/ui/badge";
 import { Share2, Image as ImageIcon, Pencil, Trash2, FileText, Film, Mic, Download, File } from "lucide-react";
 
 export interface ChatMessageSender {

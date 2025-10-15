@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/common/components/ui/card";
 import { Loader2, Receipt } from "lucide-react";
 import { useGetExpenses } from "@/fetchers/expenses/expenseQueries";
-import { useCalendar } from "@/hooks/useCalendar";
+import { useCalendar } from "@/common/hooks/useCalendar";
 
 
 export function TodayExpenses() {

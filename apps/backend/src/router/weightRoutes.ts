@@ -23,4 +23,3 @@ router.delete("/:batchId/weights/:weightId", deleteBirdWeight);
 router.get("/:batchId/growth-chart", getGrowthChartData);
 
 export default router;
-
