@@ -32,6 +32,8 @@ interface ChatContextType {
   unreadCounts: UnreadCounts;
   typingUsers: { [conversationId: string]: string[] };
   onlineUsers: { [conversationId: string]: string[] };
+  // Presence by user id (global)
+  isUserOnline: (userId: string | null | undefined) => boolean;
 
   // Actions
   joinConversation: (conversationId: string) => void;
@@ -82,6 +84,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userStatusById, setUserStatusById] = useState<Record<string, { isOnline: boolean; lastSeen?: string }>>({});
 
   // ==================== REFS ====================
   const socketService = useRef(getSocketService());
@@ -369,6 +372,48 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     [queryClient]
   );
 
+  // ==================== PRESENCE EVENTS ====================
+
+  const upsertUserPresence = useCallback((userId: string, isOnline: boolean, lastSeen?: string) => {
+    setUserStatusById((prev) => ({
+      ...prev,
+      [userId]: { isOnline, lastSeen },
+    }));
+
+    // Also patch conversations list when the participant is present
+    setConversations((prev) =>
+      prev.map((conv) => {
+        let changed = false;
+        const next = { ...conv } as any;
+        if (conv.doctor?.id === userId) {
+          next.doctor = { ...conv.doctor, isOnline };
+          changed = true;
+        }
+        if (conv.farmer?.id === userId) {
+          next.farmer = { ...conv.farmer, isOnline };
+          changed = true;
+        }
+        return changed ? next : conv;
+      })
+    );
+  }, []);
+
+  const handleDoctorStatusChanged = useCallback((data: any) => {
+    upsertUserPresence(data.doctorId, data.isOnline, data.lastSeen);
+  }, [upsertUserPresence]);
+
+  const handleDoctorGlobalStatusChanged = useCallback((data: any) => {
+    upsertUserPresence(data.doctorId, data.isOnline, data.lastSeen);
+  }, [upsertUserPresence]);
+
+  const handleUserStatusChanged = useCallback((data: any) => {
+    upsertUserPresence(data.userId, data.isOnline, data.timestamp);
+  }, [upsertUserPresence]);
+
+  const handleGlobalUserStatusChanged = useCallback((data: any) => {
+    upsertUserPresence(data.userId, data.isOnline, data.timestamp);
+  }, [upsertUserPresence]);
+
   // ==================== SOCKET SETUP ====================
 
   useEffect(() => {
@@ -413,6 +458,12 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         );
         socketService.current.on("message_sent", handleMessageSent);
         socketService.current.on("error", handleError);
+
+        // Presence listeners
+        socketService.current.on("doctor_status_changed" as any, handleDoctorStatusChanged as any);
+        socketService.current.on("doctor_global_status_changed" as any, handleDoctorGlobalStatusChanged as any);
+        socketService.current.on("user_status_changed" as any, handleUserStatusChanged as any);
+        socketService.current.on("global_user_status_changed" as any, handleGlobalUserStatusChanged as any);
       } catch (error) {
         console.error("Failed to connect to chat:", error);
         setError("Failed to connect to chat");
@@ -431,6 +482,11 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       // Unregister edit/delete handlers
       socketService.current.offMessageUpdated(handleMessageUpdated as any);
       socketService.current.offMessageDeleted(handleMessageDeleted as any);
+      // Remove presence listeners
+      socketService.current.offDoctorStatusChanged(handleDoctorStatusChanged as any);
+      socketService.current.offDoctorGlobalStatusChanged(handleDoctorGlobalStatusChanged as any);
+      socketService.current.offUserStatusChanged(handleUserStatusChanged as any);
+      socketService.current.offGlobalUserStatusChanged(handleGlobalUserStatusChanged as any);
       socketService.current.disconnect();
       setIsConnected(false);
     };
@@ -447,6 +503,10 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     handleMessageDeleted,
     handleMessageSent,
     handleError,
+    handleDoctorStatusChanged,
+    handleDoctorGlobalStatusChanged,
+    handleUserStatusChanged,
+    handleGlobalUserStatusChanged,
   ]);
 
   // Register edit/delete listeners when connected
@@ -661,6 +721,12 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     setMessages((prev) => [...prev, message]);
   }, []);
 
+  const isUserOnline = useCallback((userId: string | null | undefined) => {
+    if (!userId) return false;
+    if (userStatusById[userId]) return !!userStatusById[userId].isOnline;
+    return false;
+  }, [userStatusById]);
+
   // ==================== CONTEXT VALUE ====================
 
   const contextValue: ChatContextType = {
@@ -674,6 +740,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     unreadCounts,
     typingUsers,
     onlineUsers,
+    isUserOnline,
 
     // Actions
     joinConversation,

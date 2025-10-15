@@ -33,9 +33,10 @@ interface MessageListProps {
   formatTime: (d: string | Date) => string;
   onEditMessage?: (m: ChatMessage) => void;
   onDeleteMessage?: (m: ChatMessage) => void;
+  currentUserId?: string;
 }
 
-export default function MessageList({ messages, typingUsers, endRef, formatTime, onEditMessage, onDeleteMessage }: MessageListProps) {
+export default function MessageList({ messages, typingUsers, endRef, formatTime, onEditMessage, onDeleteMessage, currentUserId }: MessageListProps) {
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return "";
     if (bytes < 1024) return `${bytes} B`;
@@ -66,7 +67,7 @@ export default function MessageList({ messages, typingUsers, endRef, formatTime,
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-4">
       {messages.map((message: any) => {
-        const isOwner = message?.sender?.role === "OWNER";
+        const isOwner = currentUserId ? message?.sender?.id === currentUserId : (message?.sender?.role === "OWNER");
         return (
           <div key={message.id} className={`flex ${isOwner ? "justify-end" : "justify-start"}`}>
             <div

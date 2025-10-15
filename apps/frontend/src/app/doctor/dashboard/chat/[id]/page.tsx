@@ -15,6 +15,7 @@ import {
   useTypingIndicator,
 } from "@/common/hooks/useChat";
 import { useAuth } from "@/common/store/store";
+import { useChat as useChatCtx } from "@/common/contexts/ChatContext";
 import { toast } from "sonner";
 
 export default function DoctorChatPage() {
@@ -23,6 +24,7 @@ export default function DoctorChatPage() {
   const conversationId = params.id as string;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+  const { isUserOnline, onlineUsers } = useChatCtx();
 
   // Real-time chat hooks
   const {
@@ -279,7 +281,9 @@ export default function DoctorChatPage() {
         <ChatHeader
           title={conversation?.farmer?.name || "Unknown Farmer"}
           subtitle={conversation?.subject || "Veterinary Consultation"}
-          isOnline={isConnected}
+          isOnline={(conversation?.farmer?.id && isUserOnline(conversation?.farmer?.id))
+            || (conversation?.farmer?.id ? (onlineUsers[conversationId] || []).includes(conversation?.farmer?.id) : false)
+            || !!conversation?.farmer?.isOnline}
           onBack={() => router.push("/doctor/dashboard")}
           onDelete={handleDeleteConversation}
         />
@@ -297,6 +301,7 @@ export default function DoctorChatPage() {
               formatTime={formatTime}
               onEditMessage={handleEditMessage}
               onDeleteMessage={handleDeleteMessage}
+              currentUserId={user?.id}
             />
 
             {/* Message Input or Voice Recorder */}

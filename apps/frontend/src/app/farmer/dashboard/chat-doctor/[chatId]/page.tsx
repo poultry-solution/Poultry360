@@ -12,6 +12,8 @@ import {
   useMessageInput,
   useChatConnection,
 } from "@/common/hooks/useChat";
+import { useChat as useChatCtx } from "@/common/contexts/ChatContext";
+import { useAuth } from "@/common/store/store";
 import { toast } from "sonner";
 import ShareBatchModal from "@/common/components/chat/ShareBatchModal";
 import ChatInputBar from "@/common/components/chat/ChatInputBar";
@@ -51,6 +53,8 @@ export default function ChatPage() {
     handleTyping,
     markAsRead,
   } = useCurrentConversation(chatId);
+  const { isUserOnline } = useChatCtx();
+  const { user } = useAuth();
 
   const {
     text,
@@ -513,7 +517,9 @@ export default function ChatPage() {
         <ChatHeader
           title={conversation?.doctor?.name || "Unknown Doctor"}
           subtitle="Veterinary Doctor"
-          isOnline={conversation?.doctor?.isOnline}
+          isOnline={(conversation?.doctor?.id && isUserOnline(conversation?.doctor?.id))
+            || (conversation?.doctor?.id ? (onlineUsers || []).includes(conversation?.doctor?.id) : false)
+            || !!conversation?.doctor?.isOnline}
           onBack={() => router.push("/farmer/dashboard/chat-doctor")}
           onDelete={handleDeleteConversation}
         />
@@ -531,6 +537,7 @@ export default function ChatPage() {
               formatTime={formatTime}
               onEditMessage={handleEditMessage}
               onDeleteMessage={handleDeleteMessage}
+              currentUserId={user?.id}
             />
 
             {/* Message Input or Voice Recorder */}
