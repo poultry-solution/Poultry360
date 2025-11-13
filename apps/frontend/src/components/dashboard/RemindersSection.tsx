@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
-import { Clock, Plus } from "lucide-react";
+import { Check, Clock, Plus, X } from "lucide-react";
 import {
   getReminderTypeDisplayName,
   formatReminderDueDate,
@@ -146,18 +146,18 @@ export function RemindersSection({
                         variant="outline"
                         onClick={() => onMarkCompleted(reminder.id)}
                         disabled={markCompletedMutation.isPending}
-                        className="h-8 px-2 text-xs"
+                        className="h-8 px-2 text-xs hover:bg-primary/10 hover:text-primary cursor-pointer"
                       >
-                        ✓
+                        <Check className="h-4 w-4 text-primary hover:text-primary/80"/>
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => onDeleteReminder(reminder.id)}
                         disabled={deleteReminderMutation.isPending}
-                        className="h-8 px-2 text-xs text-red-600 hover:text-red-700"
+                        className="h-8 px-2 text-xs text-red-600 hover:bg-red-50 hover:text-red-700 cursor-pointer"
                       >
-                        ×
+                        <X className="h-4 w-4 text-red-600 hover:text-red-700"/>
                       </Button>
                     </div>
                   </div>
@@ -224,18 +224,18 @@ export function RemindersSection({
                         variant="outline"
                         onClick={() => onMarkCompleted(reminder.id)}
                         disabled={markCompletedMutation.isPending}
-                        className="h-8 px-2 text-xs"
+                        className="h-8 px-2 text-xs hover:bg-primary/10 hover:text-primary cursor-pointer"
                       >
-                        ✓
+                        <Check className="h-4 w-4 text-primary hover:text-primary/80"/>
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => onDeleteReminder(reminder.id)}
                         disabled={deleteReminderMutation.isPending}
-                        className="h-8 px-2 text-xs text-red-600 hover:text-red-700"
+                        className="h-8 px-2 text-xs text-red-600 hover:bg-red-50 hover:text-red-700 cursor-pointer"
                       >
-                        ×
+                        <X className="h-4 w-4 text-red-600 hover:text-red-700"/>
                       </Button>
                     </div>
                   </div>

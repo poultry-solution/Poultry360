@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
+import { MobileBottomNav } from "@/components/dashboard/MobileBottomNav";
+import { QuickActionsProvider } from "@/contexts/QuickActionsContext";
 
 export default function DashboardLayout({
   children,
@@ -33,27 +35,34 @@ export default function DashboardLayout({
   }, [isCollapsed]);
 
   return (
-    <div className="flex h-screen bg-background relative">
-      {/* Sidebar */}
-      <Sidebar isCollapsed={isCollapsed} onToggle={toggleSidebar} />
+    <QuickActionsProvider>
+      <div className="flex h-screen bg-background relative">
+        {/* Sidebar - Hidden on mobile, shown on desktop */}
+        <div className="hidden md:block">
+          <Sidebar isCollapsed={isCollapsed} onToggle={toggleSidebar} />
+        </div>
 
-      {/* Mobile Backdrop - visible only when sidebar is open */}
-      {!isCollapsed && (
-        <div
-          onClick={toggleSidebar}
-          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm md:hidden"
-          aria-hidden="true"
-        />
-      )}
+        {/* Mobile Backdrop - visible only when sidebar is open on mobile */}
+        {!isCollapsed && (
+          <div
+            onClick={toggleSidebar}
+            className="fixed inset-0 z-40 bg-black/30 md:hidden"
+            aria-hidden="true"
+          />
+        )}
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Topbar */}
-        <Topbar isCollapsed={isCollapsed} onToggle={toggleSidebar} />
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Topbar */}
+          <Topbar isCollapsed={isCollapsed} onToggle={toggleSidebar} />
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+          {/* Page Content - Add padding-bottom on mobile for bottom nav */}
+          <main className="flex-1 overflow-y-auto p-6 pb-24 md:pb-6">{children}</main>
+        </div>
+
+        {/* Mobile Bottom Navigation */}
+        <MobileBottomNav />
       </div>
-    </div>
+    </QuickActionsProvider>
   );
 }

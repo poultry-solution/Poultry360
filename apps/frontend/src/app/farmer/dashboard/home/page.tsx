@@ -40,9 +40,11 @@ import {
   useDeleteReminder,
 } from "@/fetchers/remainder/remainderQueries";
 import { useAddWeight } from "@/fetchers/weight/weightQueries";
+import { useQuickActions } from "@/contexts/QuickActionsContext";
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { setHandlers } = useQuickActions();
 
   // Fetch real data from APIs
   const { data: batchesResponse } = useGetAllBatches();
@@ -261,6 +263,21 @@ export default function DashboardPage() {
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
   const [weightErrors, setWeightErrors] = useState<Record<string, string>>({});
   const addWeightMutation = useAddWeight(""); // We'll pass the batchId from the modal
+
+  // Register quick action handlers for mobile bottom nav
+  useEffect(() => {
+    setHandlers({
+      onAddExpense: () => setIsQuickExpenseOpen(true),
+      onAddSale: () => setIsQuickSaleOpen(true),
+      onAddMortality: () => setIsQuickMortalityOpen(true),
+      onRecordWeight: () => setIsWeightModalOpen(true),
+    });
+
+    // Cleanup on unmount
+    return () => {
+      setHandlers({});
+    };
+  }, [setHandlers]);
 
   return (
     <div className="space-y-6">
