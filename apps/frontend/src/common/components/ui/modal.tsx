@@ -32,7 +32,7 @@ const Modal = ({ isOpen, onClose, title, children, className }: ModalProps) => {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 h-screen z-[9999] flex items-center justify-center p-4">
       {/* Backdrop (no blur for crisper modal) */}
       <div 
         className="absolute inset-0 bg-black/70" 

@@ -16,7 +16,7 @@ export function QuickActions({
   onRecordWeight,
 }: QuickActionsProps) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2 sm:flex-wrap sm:justify-end">
+    <div className="hidden md:flex md:items-center md:gap-2 md:flex-wrap md:justify-end">
       <button
         className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted"
         onClick={onAddExpense}
