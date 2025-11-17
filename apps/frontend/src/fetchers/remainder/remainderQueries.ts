@@ -71,7 +71,7 @@ export const reminderKeys = {
 // ==================== QUERY HOOKS ====================
 
 // Get all reminders with filters
-export const useGetReminders = (filters: ReminderFilters = {}) => {
+export const useGetReminders = (filters: ReminderFilters = {}, options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: reminderKeys.list(filters),
     queryFn: async (): Promise<ReminderListResponse> => {
@@ -92,24 +92,25 @@ export const useGetReminders = (filters: ReminderFilters = {}) => {
       return response.data;
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
+    enabled: options?.enabled === true,
   });
 };
 
 // Get reminder by ID
-export const useGetReminder = (id: string) => {
+export const useGetReminder = (id: string, options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: reminderKeys.detail(id),
     queryFn: async (): Promise<ReminderResponse> => {
       const response = await axiosInstance.get(`/reminders/${id}`);
       return response.data;
     },
-    enabled: !!id,
+    enabled: options?.enabled === true && !!id,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };
 
 // Get upcoming reminders
-export const useGetUpcomingReminders = (days: number = 7) => {
+export const useGetUpcomingReminders = (days: number = 7, options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: reminderKeys.upcoming(days),
     queryFn: async (): Promise<ReminderListResponse> => {
@@ -134,11 +135,12 @@ export const useGetUpcomingReminders = (days: number = 7) => {
       } as ReminderListResponse;
     },
     staleTime: 1 * 60 * 1000,
+    enabled: options?.enabled === true,
   });
 };
 
 // Get overdue reminders
-export const useGetOverdueReminders = () => {
+export const useGetOverdueReminders = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: reminderKeys.overdue(),
     queryFn: async (): Promise<ReminderListResponse> => {
@@ -147,11 +149,12 @@ export const useGetOverdueReminders = () => {
       return response.data;
     },
     staleTime: 1 * 60 * 1000,
+    enabled: options?.enabled === true,
   });
 };
 
 // Get completed reminders for today
-export const useGetCompletedTodayReminders = () => {
+export const useGetCompletedTodayReminders = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: [...reminderKeys.all, 'completed-today'],
     queryFn: async (): Promise<ReminderListResponse> => {
@@ -180,11 +183,12 @@ export const useGetCompletedTodayReminders = () => {
       } as ReminderListResponse;
     },
     staleTime: 1 * 60 * 1000,
+    enabled: options?.enabled === true,
   });
 };
 
 // Get all scheduled (future) reminders (any distance in future)
-export const useGetScheduledReminders = () => {
+export const useGetScheduledReminders = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: reminderKeys.scheduled(),
     queryFn: async (): Promise<ReminderListResponse> => {
@@ -206,11 +210,12 @@ export const useGetScheduledReminders = () => {
       } as ReminderListResponse;
     },
     staleTime: 2 * 60 * 1000,
+    enabled: options?.enabled === true,
   });
 };
 
 // Get reminder statistics
-export const useGetReminderStatistics = () => {
+export const useGetReminderStatistics = (options?: { enabled?: boolean } ) => {
   return useQuery({
     queryKey: reminderKeys.statistics(),
     queryFn: async (): Promise<ReminderStatisticsResponse> => {
@@ -219,6 +224,7 @@ export const useGetReminderStatistics = () => {
       return response.data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: options?.enabled === true,
   });
 };
 

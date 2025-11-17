@@ -6,11 +6,22 @@ import axiosInstance from "@/common/lib/axios";
 export const dashboardQueryKeys = {
   all: ["dashboard"] as const,
   overview: () => [...dashboardQueryKeys.all, "overview"] as const,
-  financialSummary: (period?: string) => [...dashboardQueryKeys.all, "financial-summary", period] as const,
-  performanceMetrics: () => [...dashboardQueryKeys.all, "performance-metrics"] as const,
-  moneyToReceive: (page?: number, limit?: number) => [...dashboardQueryKeys.all, "money-to-receive", page, limit] as const,
-  moneyToPay: (page?: number, limit?: number) => [...dashboardQueryKeys.all, "money-to-pay", page, limit] as const,
-  batchPerformance: (status?: string, sortBy?: string, sortOrder?: string) => [...dashboardQueryKeys.all, "batch-performance", status, sortBy, sortOrder] as const,
+  financialSummary: (period?: string) =>
+    [...dashboardQueryKeys.all, "financial-summary", period] as const,
+  performanceMetrics: () =>
+    [...dashboardQueryKeys.all, "performance-metrics"] as const,
+  moneyToReceive: (page?: number, limit?: number) =>
+    [...dashboardQueryKeys.all, "money-to-receive", page, limit] as const,
+  moneyToPay: (page?: number, limit?: number) =>
+    [...dashboardQueryKeys.all, "money-to-pay", page, limit] as const,
+  batchPerformance: (status?: string, sortBy?: string, sortOrder?: string) =>
+    [
+      ...dashboardQueryKeys.all,
+      "batch-performance",
+      status,
+      sortBy,
+      sortOrder,
+    ] as const,
 };
 
 // ==================== TYPES ====================
@@ -89,41 +100,60 @@ export interface DashboardPerformanceMetrics {
 // ==================== QUERY HOOKS ====================
 
 // Get dashboard overview
-export const useGetDashboardOverview = () => {
+export const useGetDashboardOverview = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: dashboardQueryKeys.overview(),
-    queryFn: async (): Promise<{ success: boolean; data: DashboardOverview }> => {
+    queryFn: async (): Promise<{
+      success: boolean;
+      data: DashboardOverview;
+    }> => {
       const response = await axiosInstance.get("/dashboard/overview");
       return response.data;
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
     refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+    enabled: options?.enabled === true,
   });
 };
 
 // Get dashboard financial summary
-export const useGetDashboardFinancialSummary = (period?: "month" | "quarter" | "year") => {
+export const useGetDashboardFinancialSummary = (
+  period?: "month" | "quarter" | "year",
+  options?: { enabled?: boolean }
+) => {
   return useQuery({
     queryKey: dashboardQueryKeys.financialSummary(period),
-    queryFn: async (): Promise<{ success: boolean; data: DashboardFinancialSummary }> => {
+    queryFn: async (): Promise<{
+      success: boolean;
+      data: DashboardFinancialSummary;
+    }> => {
       const response = await axiosInstance.get("/dashboard/financial-summary", {
         params: { period },
       });
       return response.data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: options?.enabled === true,
   });
 };
 
 // Get dashboard performance metrics
-export const useGetDashboardPerformanceMetrics = () => {
+export const useGetDashboardPerformanceMetrics = (options?: {
+  enabled?: boolean;
+}) => {
   return useQuery({
     queryKey: dashboardQueryKeys.performanceMetrics(),
-    queryFn: async (): Promise<{ success: boolean; data: DashboardPerformanceMetrics }> => {
-      const response = await axiosInstance.get("/dashboard/performance-metrics");
+    queryFn: async (): Promise<{
+      success: boolean;
+      data: DashboardPerformanceMetrics;
+    }> => {
+      const response = await axiosInstance.get(
+        "/dashboard/performance-metrics"
+      );
       return response.data;
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
+    enabled: options?.enabled === true,
   });
 };
 
@@ -131,23 +161,34 @@ export const useGetDashboardPerformanceMetrics = () => {
 
 // Combined dashboard data hook
 export const useDashboardData = () => {
-  const overview = useGetDashboardOverview();
-  const financialSummary = useGetDashboardFinancialSummary("month");
-  const performanceMetrics = useGetDashboardPerformanceMetrics();
+  const overview = useGetDashboardOverview({ enabled: true });
+  const financialSummary = useGetDashboardFinancialSummary("month", {
+    enabled: true,
+  });
+  const performanceMetrics = useGetDashboardPerformanceMetrics({
+    enabled: true,
+  });
 
   return {
     overview,
     financialSummary,
     performanceMetrics,
-    isLoading: overview.isLoading || financialSummary.isLoading || performanceMetrics.isLoading,
+    isLoading:
+      overview.isLoading ||
+      financialSummary.isLoading ||
+      performanceMetrics.isLoading,
     error: overview.error || financialSummary.error || performanceMetrics.error,
   };
 };
 
 // Dashboard statistics for home page
 export const useDashboardStats = () => {
-  const { data: overviewData, isLoading, error } = useGetDashboardOverview();
-  
+  const {
+    data: overviewData,
+    isLoading,
+    error,
+  } = useGetDashboardOverview({ enabled: true });
+
   return {
     data: overviewData?.data,
     isLoading,
@@ -248,10 +289,17 @@ export interface BatchPerformanceItem {
 // ==================== ADDITIONAL QUERY HOOKS ====================
 
 // Get money to receive details
-export const useGetMoneyToReceiveDetails = (page = 1, limit = 10) => {
+export const useGetMoneyToReceiveDetails = (
+  page = 1,
+  limit = 10,
+  options?: { enabled?: boolean }
+) => {
   return useQuery({
     queryKey: dashboardQueryKeys.moneyToReceive(page, limit),
-    queryFn: async (): Promise<{ success: boolean; data: MoneyToReceiveDetails }> => {
+    queryFn: async (): Promise<{
+      success: boolean;
+      data: MoneyToReceiveDetails;
+    }> => {
       const response = await axiosInstance.get("/dashboard/money-to-receive", {
         params: { page, limit },
       });
@@ -259,14 +307,22 @@ export const useGetMoneyToReceiveDetails = (page = 1, limit = 10) => {
       return response.data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: options?.enabled === true,
   });
 };
 
 // Get money to pay details
-export const useGetMoneyToPayDetails = (page = 1, limit = 10) => {
+export const useGetMoneyToPayDetails = (
+  page = 1,
+  limit = 10,
+  options?: { enabled?: boolean }
+) => {
   return useQuery({
     queryKey: dashboardQueryKeys.moneyToPay(page, limit),
-    queryFn: async (): Promise<{ success: boolean; data: MoneyToPayDetails }> => {
+    queryFn: async (): Promise<{
+      success: boolean;
+      data: MoneyToPayDetails;
+    }> => {
       const response = await axiosInstance.get("/dashboard/money-to-pay", {
         params: { page, limit },
       });
@@ -274,28 +330,34 @@ export const useGetMoneyToPayDetails = (page = 1, limit = 10) => {
       return response.data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: options?.enabled === true,
   });
 };
 
 // Get batch performance list
 export const useGetBatchPerformance = (
-  status?: 'ACTIVE' | 'COMPLETED', 
-  sortBy?: string, 
-  sortOrder?: 'asc' | 'desc'
+  status?: "ACTIVE" | "COMPLETED",
+  sortBy?: string,
+  sortOrder?: "asc" | "desc",
+  options?: { enabled?: boolean }
 ) => {
   return useQuery({
     queryKey: dashboardQueryKeys.batchPerformance(status, sortBy, sortOrder),
-    queryFn: async (): Promise<{ success: boolean; data: BatchPerformanceItem[] }> => {
+    queryFn: async (): Promise<{
+      success: boolean;
+      data: BatchPerformanceItem[];
+    }> => {
       const params: any = {};
       if (status) params.status = status;
       if (sortBy) params.sortBy = sortBy;
       if (sortOrder) params.sortOrder = sortOrder;
-      
+
       const response = await axiosInstance.get("/dashboard/batch-performance", {
         params,
       });
       return response.data;
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
+    enabled: options?.enabled === true,
   });
 };

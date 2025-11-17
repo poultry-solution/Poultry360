@@ -7,7 +7,8 @@ export const weightKeys = {
   byBatch: (batchId: string) => [...weightKeys.all, "batch", batchId] as const,
   list: (batchId: string, filters?: Record<string, any>) =>
     [...weightKeys.byBatch(batchId), "list", filters || {}] as const,
-  chart: (batchId: string) => [...weightKeys.byBatch(batchId), "chart"] as const,
+  chart: (batchId: string) =>
+    [...weightKeys.byBatch(batchId), "chart"] as const,
 };
 
 // ==================== TYPES (lightweight for fetchers) ====================
@@ -49,7 +50,11 @@ export type UpdateWeightPayload = Partial<AddWeightPayload>;
 // Get weight history + metrics
 export const useGetWeights = (
   batchId: string,
-  params?: { startDate?: string; endDate?: string; source?: "MANUAL" | "SALE" | "SYSTEM" },
+  params?: {
+    startDate?: string;
+    endDate?: string;
+    source?: "MANUAL" | "SALE" | "SYSTEM";
+  },
   options?: { enabled?: boolean }
 ) => {
   return useQuery<GetWeightsResponse>({
@@ -61,22 +66,30 @@ export const useGetWeights = (
       console.log("Weights data", response.data);
       return response.data as GetWeightsResponse;
     },
-    enabled: (options?.enabled !== false) && !!batchId,
+    enabled: options?.enabled !== false && !!batchId,
   });
 };
 
 // Get growth chart data
-export const useGetGrowthChart = (batchId: string, options?: { enabled?: boolean }) => {
+export const useGetGrowthChart = (
+  batchId: string,
+  options?: { enabled?: boolean }
+) => {
   return useQuery({
     queryKey: weightKeys.chart(batchId),
     queryFn: async () => {
-      const response = await axiosInstance.get(`/batches/${batchId}/growth-chart`);
-      console.log("Growth chart data", response.data);
-      return response.data as { success: boolean; data: Array<{ date: string; weight: number; source: string }> };
+      const response = await axiosInstance.get(
+        `/batches/${batchId}/growth-chart`
+      );
+      return response.data as {
+        success: boolean;
+        data: Array<{ date: string; weight: number; source: string }>;
+      };
     },
-    enabled: (options?.enabled !== false) && !!batchId,
+    enabled: options?.enabled === true && !!batchId,  // default = false
   });
 };
+
 
 // ==================== MUTATION HOOKS ====================
 
@@ -84,8 +97,13 @@ export const useGetGrowthChart = (batchId: string, options?: { enabled?: boolean
 export const useAddWeight = (batchId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: AddWeightPayload): Promise<{ success: boolean; data: WeightRecord }> => {
-      const response = await axiosInstance.post(`/batches/${batchId}/weights`, payload);
+    mutationFn: async (
+      payload: AddWeightPayload
+    ): Promise<{ success: boolean; data: WeightRecord }> => {
+      const response = await axiosInstance.post(
+        `/batches/${batchId}/weights`,
+        payload
+      );
       return response.data as { success: boolean; data: WeightRecord };
     },
     onSuccess: () => {
@@ -98,8 +116,13 @@ export const useAddWeight = (batchId: string) => {
 export const useUpdateWeight = (batchId: string, weightId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: UpdateWeightPayload): Promise<{ success: boolean; data: WeightRecord }> => {
-      const response = await axiosInstance.put(`/batches/${batchId}/weights/${weightId}`, payload);
+    mutationFn: async (
+      payload: UpdateWeightPayload
+    ): Promise<{ success: boolean; data: WeightRecord }> => {
+      const response = await axiosInstance.put(
+        `/batches/${batchId}/weights/${weightId}`,
+        payload
+      );
       return response.data as { success: boolean; data: WeightRecord };
     },
     onSuccess: () => {
@@ -109,11 +132,16 @@ export const useUpdateWeight = (batchId: string, weightId: string) => {
 };
 
 // Delete manual weight
-export const useDeleteWeight = (batchId: string) => {
+  export const useDeleteWeight = (batchId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (weightId: string): Promise<{ success: boolean; message: string }> => {
-      const response = await axiosInstance.delete(`/batches/${batchId}/weights/${weightId}`);
+    
+    mutationFn: async (
+      weightId: string
+    ): Promise<{ success: boolean; message: string }> => {
+      const response = await axiosInstance.delete(
+        `/batches/${batchId}/weights/${weightId}`
+      );
       return response.data as { success: boolean; message: string };
     },
     onSuccess: () => {
