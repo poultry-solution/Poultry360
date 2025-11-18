@@ -30,10 +30,10 @@ export default function ChatHeader({ title, subtitle, isOnline, onBack, onDelete
   }, [title]);
 
   return (
-    <CardHeader className="pb-4">
+    <CardHeader className="pb-4 ">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <Button variant="ghost" size="sm" onClick={onBack} className="p-2">
+          <Button variant="ghost" size="sm" onClick={onBack} className="p-2 cursor-pointer">
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
