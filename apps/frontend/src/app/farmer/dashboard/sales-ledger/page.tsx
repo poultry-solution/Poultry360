@@ -39,6 +39,7 @@ import {
   useUpdateCustomer,
   useDeleteCustomer,
 } from "@/fetchers/sale/saleQueries";
+
 import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
 import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
 import { toast } from "sonner";
@@ -163,7 +164,9 @@ export default function SalesLedgerPage() {
   });
 
   const { data: customers, isLoading: customersLoading } =
-    useGetCustomersForSales(partyFilters.search);
+    useGetCustomersForSales(partyFilters.search,{
+      enabled: true,
+    });
 
   // Fetch farms and batches for sale form (same as home page)
   const { data: batchesResponse } = useGetAllBatches();
@@ -818,7 +821,7 @@ export default function SalesLedgerPage() {
                   {salesStats.creditSales}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  ₹{salesStats.creditAmount.toLocaleString()} outstanding
+                  ₹{salesStats.dueAmount.toLocaleString()} outstanding
                 </p>
               </CardContent>
             </Card>

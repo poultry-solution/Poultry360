@@ -26,7 +26,7 @@ export const useGetAllDealers = (params?: {
   page?: number;
   limit?: number;
   search?: string;
-}) => {
+}, options?: { enabled?: boolean }) => {
   return useQuery<{
     success: boolean;
     data: any;
@@ -43,11 +43,12 @@ export const useGetAllDealers = (params?: {
       console.log(response.data);
       return response.data;
     },
+    enabled: options?.enabled === true,
   });
 };
 
 // Get dealer statistics
-export const useGetDealerStatistics = () => {
+export const useGetDealerStatistics = (options?: { enabled?: boolean }) => {
   return useQuery<{
     success: boolean;
     data: any;
@@ -57,6 +58,7 @@ export const useGetDealerStatistics = () => {
       const response = await axiosInstance.get("/dealers/statistics");
       return response.data;
     },
+    enabled: options?.enabled === true,
   });
 };
 

@@ -7,8 +7,6 @@ import {
   TransactionType,
 } from "@myapp/shared-types";
 
-const API_BASE = "http://localhost:8081/api/v1";
-
 // ==================== QUERY KEYS ====================
 
 export const hatcheryKeys = {
@@ -39,7 +37,7 @@ export const useGetAllHatcheries = (filters?: {
       if (filters?.search) params.append("search", filters.search);
 
       const response = await axiosInstance.get(
-        `${API_BASE}/hatcheries?${params.toString()}`
+        `/hatcheries?${params.toString()}`
       );
       return response.data;
     },
@@ -50,9 +48,7 @@ export const useGetHatcheryStatistics = () => {
   return useQuery({
     queryKey: hatcheryKeys.statistics(),
     queryFn: async (): Promise<{ data: any }> => {
-      const response = await axiosInstance.get(
-        `${API_BASE}/hatcheries/statistics`
-      );
+      const response = await axiosInstance.get(`/hatcheries/statistics`);
       return response.data;
     },
   });
@@ -62,7 +58,7 @@ export const useGetHatcheryById = (id: string | null) => {
   return useQuery({
     queryKey: hatcheryKeys.detail(id || ""),
     queryFn: async (): Promise<{ data: any }> => {
-      const response = await axiosInstance.get(`${API_BASE}/hatcheries/${id}`);
+      const response = await axiosInstance.get(`/hatcheries/${id}`);
       return response.data;
     },
     enabled: !!id,
@@ -90,7 +86,7 @@ export const useGetHatcheryTransactions = (
       if (filters?.endDate) params.append("endDate", filters.endDate);
 
       const response = await axiosInstance.get(
-        `${API_BASE}/hatcheries/${id}/transactions?${params.toString()}`
+        `/hatcheries/${id}/transactions?${params.toString()}`
       );
       return response.data;
     },
@@ -105,7 +101,7 @@ export const useCreateHatchery = () => {
 
   return useMutation({
     mutationFn: async (data: CreateHatchery) => {
-      const response = await axiosInstance.post(`${API_BASE}/hatcheries`, data);
+      const response = await axiosInstance.post(`/hatcheries`, data);
       return response.data;
     },
     onSuccess: () => {
@@ -144,9 +140,7 @@ export const useDeleteHatchery = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await axiosInstance.delete(
-        `${API_BASE}/hatcheries/${id}`
-      );
+      const response = await axiosInstance.delete(`/hatcheries/${id}`);
       return response.data;
     },
     onSuccess: () => {
@@ -180,7 +174,7 @@ export const useAddHatcheryTransaction = () => {
       };
     }) => {
       const response = await axiosInstance.post(
-        `${API_BASE}/hatcheries/${hatcheryId}/transactions`,
+        `/hatcheries/${hatcheryId}/transactions`,
         data
       );
       return response.data;
@@ -215,14 +209,18 @@ export const useDeleteHatcheryTransaction = () => {
       password: string;
     }) => {
       const response = await axiosInstance.delete(
-        `${API_BASE}/hatcheries/${hatcheryId}/transactions/${transactionId}`,
+        `/hatcheries/${hatcheryId}/transactions/${transactionId}`,
         { data: { password } }
       );
       return response.data;
     },
     onSuccess: (_, { hatcheryId }) => {
-      queryClient.invalidateQueries({ queryKey: hatcheryKeys.detail(hatcheryId) });
-      queryClient.invalidateQueries({ queryKey: hatcheryKeys.transactions(hatcheryId) });
+      queryClient.invalidateQueries({
+        queryKey: hatcheryKeys.detail(hatcheryId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: hatcheryKeys.transactions(hatcheryId),
+      });
       queryClient.invalidateQueries({ queryKey: hatcheryKeys.statistics() });
     },
   });

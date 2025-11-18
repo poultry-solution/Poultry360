@@ -1,6 +1,5 @@
-import { PrismaClient, MessageType } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { PrismaClient, MessageType, Prisma } from "@prisma/client";
+import prisma from "../utils/prisma";
 
 export interface CreateMessageData {
   conversationId: string;
@@ -154,33 +153,34 @@ export class MessageService {
 
     const skip = (page - 1) * limit;
 
-    const [messages, totalCount] = await Promise.all([
-      prisma.message.findMany({
-        where: {
-          conversationId,
-          isDeleted: false,
-        },
-        include: {
-          sender: {
-            select: {
-              id: true,
-              name: true,
-              role: true,
-            },
+    try {
+      const [messages, totalCount] = await Promise.all([
+        prisma.message.findMany({
+          where: {
+            conversationId,
+            isDeleted: false,
           },
-          batchShare: true,
-        },
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
-      }),
-      prisma.message.count({
-        where: {
-          conversationId,
-          isDeleted: false,
-        },
-      }),
-    ]);
+          include: {
+            sender: {
+              select: {
+                id: true,
+                name: true,
+                role: true,
+              },
+            },
+            batchShare: true,
+          },
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: limit,
+        }),
+        prisma.message.count({
+          where: {
+            conversationId,
+            isDeleted: false,
+          },
+        }),
+      ]);
 
     const formattedMessages: MessageWithSender[] = messages.map((msg) => ({
       id: msg.id,
@@ -208,11 +208,24 @@ export class MessageService {
       batchShare: msg.batchShare || undefined,
     }));
 
-    return {
-      messages: formattedMessages.reverse(), // Reverse to show oldest first
-      totalCount,
-      hasMore: skip + messages.length < totalCount,
-    };
+      return {
+        messages: formattedMessages.reverse(), // Reverse to show oldest first
+        totalCount,
+        hasMore: skip + messages.length < totalCount,
+      };
+    } catch (error) {
+      // Handle database connection errors
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === "P1001") {
+          throw new Error(
+            "Database connection failed. Please check your database connection string and ensure the database server is running."
+          );
+        }
+        throw new Error(`Database error: ${error.message}`);
+      }
+      // Re-throw other errors
+      throw error;
+    }
   }
 
   /**

@@ -275,9 +275,9 @@ export default function DoctorChatPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-2rem)] flex flex-col">
-      {/* Chat Header */}
-      <Card className="rounded-b-none border-b-0">
+    <div className="h-[calc(100vh-2rem)] flex flex-col overflow-hidden">
+      {/* Chat Header - Fixed */}
+      <Card className="rounded-b-none border-b-0 flex-shrink-0">
         <ChatHeader
           title={conversation?.farmer?.name || "Unknown Farmer"}
           subtitle={conversation?.subject || "Veterinary Consultation"}
@@ -289,11 +289,11 @@ export default function DoctorChatPage() {
         />
       </Card>
 
-      {/* Chat Messages */}
-      <Card className="flex-1 rounded-none border-0">
-        <CardContent className="p-0 h-full">
-          <div className="h-full flex flex-col">
-            {/* Messages Area */}
+      {/* Chat Messages - Scrollable Area */}
+      <Card className="flex-1 rounded-none border-0 overflow-hidden flex flex-col">
+        <CardContent className="p-0 h-full flex flex-col overflow-hidden">
+          {/* Messages Area - Only this scrolls */}
+          <div className="flex-1 overflow-y-auto min-h-0">
             <MessageList
               messages={messages as any}
               typingUsers={isAnyoneTyping ? typingUsers : []}
@@ -303,10 +303,12 @@ export default function DoctorChatPage() {
               onDeleteMessage={handleDeleteMessage}
               currentUserId={user?.id}
             />
+          </div>
 
-            {/* Message Input or Voice Recorder */}
+          {/* Message Input or Voice Recorder - Fixed */}
+          <div className="flex-shrink-0 border-t bg-background">
             {isVoiceRecording ? (
-              <div className="p-4 border-t">
+              <div className="p-4">
                 <VoiceRecorder
                   onRecordingComplete={handleVoiceRecordingComplete}
                   onCancel={() => setIsVoiceRecording(false)}

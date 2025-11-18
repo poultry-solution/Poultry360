@@ -11,26 +11,32 @@ export const saleQueryKeys = {
   list: (params: any) => [...saleQueryKeys.lists(), params] as const,
   details: () => [...saleQueryKeys.all, "detail"] as const,
   detail: (id: string) => [...saleQueryKeys.details(), id] as const,
-  batchSales: (batchId: string) => [...saleQueryKeys.all, "batch", batchId] as const,
-  statistics: (params?: any) => [...saleQueryKeys.all, "statistics", params] as const,
-  categories: (type?: CategoryType) => [...saleQueryKeys.all, "categories", type] as const,
+  batchSales: (batchId: string) =>
+    [...saleQueryKeys.all, "batch", batchId] as const,
+  statistics: (params?: any) =>
+    [...saleQueryKeys.all, "statistics", params] as const,
+  categories: (type?: CategoryType) =>
+    [...saleQueryKeys.all, "categories", type] as const,
 };
 
 // ==================== QUERY HOOKS ====================
 
 // Get all sales with filtering
-export const useGetSales = (params?: {
-  page?: number;
-  limit?: number;
-  search?: string;
-  farmId?: string;
-  batchId?: string;
-  customerId?: string;
-  isCredit?: boolean;
-  startDate?: string;
-  endDate?: string;
-  itemType?: string; // e.g., Chicken_Meat, EGGS, FEED, etc.
-}) => {
+export const useGetSales = (
+  params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    farmId?: string;
+    batchId?: string;
+    customerId?: string;
+    isCredit?: boolean;
+    startDate?: string;
+    endDate?: string;
+    itemType?: string; // e.g., Chicken_Meat, EGGS, FEED, etc.
+  },
+  options?: { enabled?: boolean }
+) => {
   return useQuery({
     queryKey: saleQueryKeys.list(params),
     queryFn: async () => {
@@ -38,24 +44,28 @@ export const useGetSales = (params?: {
       return response.data;
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
+    enabled: options?.enabled !== false,
   });
 };
 
 // Get sale by ID
-export const useGetSale = (id: string) => {
+export const useGetSale = (id: string, options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: saleQueryKeys.detail(id),
     queryFn: async () => {
       const response = await axiosInstance.get(`/sales/${id}`);
       return response.data;
     },
-    enabled: !!id,
+    enabled: options?.enabled === true && !!id,
     staleTime: 2 * 60 * 1000,
   });
 };
 
 // Get sales for a specific batch
-export const useGetBatchSales = (batchId: string, options?: { enabled?: boolean }) => {
+export const useGetBatchSales = (
+  batchId: string,
+  options?: { enabled?: boolean }
+) => {
   return useQuery({
     queryKey: saleQueryKeys.batchSales(batchId),
     queryFn: async () => {
@@ -63,18 +73,21 @@ export const useGetBatchSales = (batchId: string, options?: { enabled?: boolean 
       console.log("batch sales", response.data);
       return response.data;
     },
-    enabled: (options?.enabled !== false) && !!batchId,
+    enabled: options?.enabled !== false && !!batchId,
     staleTime: 2 * 60 * 1000,
   });
 };
 
 // Get sales statistics
-export const useGetSalesStatistics = (params?: {
-  farmId?: string;
-  batchId?: string;
-  startDate?: string;
-  endDate?: string;
-}) => {
+export const useGetSalesStatistics = (
+  params?: {
+    farmId?: string;
+    batchId?: string;
+    startDate?: string;
+    endDate?: string;
+  },
+  options?: { enabled?: boolean }
+) => {
   return useQuery({
     queryKey: saleQueryKeys.statistics(params),
     queryFn: async () => {
@@ -82,11 +95,12 @@ export const useGetSalesStatistics = (params?: {
       return response.data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: options?.enabled !== false,
   });
 };
 
 // Get sales categories
-export const useGetSalesCategories = () => {
+export const useGetSalesCategories = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: saleQueryKeys.categories("SALES"),
     queryFn: async () => {
@@ -94,6 +108,7 @@ export const useGetSalesCategories = () => {
       return response.data;
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
+    enabled: options?.enabled !== false,
   });
 };
 
@@ -104,31 +119,37 @@ export const useCreateSale = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: CreateSale & { birdsCount?: number; itemType?: string }) => {
+    mutationFn: async (
+      data: CreateSale & { birdsCount?: number; itemType?: string }
+    ) => {
       const response = await axiosInstance.post("/sales", data);
       return response.data;
     },
     onSuccess: (data, variables) => {
       // Invalidate and refetch sales lists
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
-      
+
       // Invalidate statistics
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
-      
+
       // If batchId is provided, invalidate batch sales
       if (variables.batchId) {
-        queryClient.invalidateQueries({ 
-          queryKey: saleQueryKeys.batchSales(variables.batchId) 
+        queryClient.invalidateQueries({
+          queryKey: saleQueryKeys.batchSales(variables.batchId),
         });
         // Also refresh batch detail and analytics to reflect current birds
-        queryClient.invalidateQueries({ queryKey: ["batches", "detail", variables.batchId] });
-        queryClient.invalidateQueries({ queryKey: ["batches", "analytics", variables.batchId] });
+        queryClient.invalidateQueries({
+          queryKey: ["batches", "detail", variables.batchId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["batches", "analytics", variables.batchId],
+        });
       }
-      
+
       // If farmId is provided, invalidate farm-related queries
       if (variables.farmId) {
-        queryClient.invalidateQueries({ 
-          queryKey: ["farms", "detail", variables.farmId] 
+        queryClient.invalidateQueries({
+          queryKey: ["farms", "detail", variables.farmId],
         });
       }
     },
@@ -140,31 +161,39 @@ export const useUpdateSale = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: UpdateSale & { itemType?: string } }) => {
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: UpdateSale & { itemType?: string };
+    }) => {
       const response = await axiosInstance.put(`/sales/${id}`, data);
       return response.data;
     },
     onSuccess: (data, variables) => {
       // Invalidate and refetch the specific sale
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.detail(variables.id) });
-      
+      queryClient.invalidateQueries({
+        queryKey: saleQueryKeys.detail(variables.id),
+      });
+
       // Invalidate sales lists
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
-      
+
       // Invalidate statistics
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
-      
+
       // If batchId is provided, invalidate batch sales
       if (variables.data.batchId) {
-        queryClient.invalidateQueries({ 
-          queryKey: saleQueryKeys.batchSales(variables.data.batchId) 
+        queryClient.invalidateQueries({
+          queryKey: saleQueryKeys.batchSales(variables.data.batchId),
         });
       }
-      
+
       // If farmId is provided, invalidate farm-related queries
       if (variables.data.farmId) {
-        queryClient.invalidateQueries({ 
-          queryKey: ["farms", "detail", variables.data.farmId] 
+        queryClient.invalidateQueries({
+          queryKey: ["farms", "detail", variables.data.farmId],
         });
       }
     },
@@ -183,15 +212,17 @@ export const useDeleteSale = () => {
     onSuccess: (data, id) => {
       // Remove the sale from cache
       queryClient.removeQueries({ queryKey: saleQueryKeys.detail(id) });
-      
+
       // Invalidate sales lists
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
-      
+
       // Invalidate statistics
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
-      
+
       // Invalidate batch sales (we don't know which batch, so invalidate all)
-      queryClient.invalidateQueries({ queryKey: [...saleQueryKeys.all, "batch"] });
+      queryClient.invalidateQueries({
+        queryKey: [...saleQueryKeys.all, "batch"],
+      });
     },
   });
 };
@@ -201,29 +232,44 @@ export const useAddSalePayment = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      saleId, 
-      data 
-    }: { 
-      saleId: string; 
-      data: { 
-        amount: number; 
-        date?: string; 
-        description?: string; 
-      } 
+    mutationFn: async ({
+      saleId,
+      data,
+    }: {
+      saleId: string;
+      data: {
+        amount: number;
+        date?: string;
+        description?: string;
+      };
     }) => {
-      const response = await axiosInstance.post(`/sales/${saleId}/payments`, data);
+      const response = await axiosInstance.post(
+        `/sales/${saleId}/payments`,
+        data
+      );
       return response.data;
     },
     onSuccess: (data, variables) => {
       // Invalidate and refetch the specific sale
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.detail(variables.saleId) });
-      
+      queryClient.invalidateQueries({
+        queryKey: saleQueryKeys.detail(variables.saleId),
+      });
+
       // Invalidate sales lists
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
-      
+
       // Invalidate statistics
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
+
+      // Invalidate customers for sales (to refresh customer balances after payment)
+      queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
+
+      // If the sale has a customer, also invalidate that specific customer
+      if (data?.data?.customerId) {
+        queryClient.invalidateQueries({
+          queryKey: ["customers", "detail", data.data.customerId],
+        });
+      }
     },
   });
 };
@@ -239,7 +285,9 @@ export const useCreateSalesCategory = () => {
     },
     onSuccess: () => {
       // Invalidate and refetch sales categories
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.categories("SALES") });
+      queryClient.invalidateQueries({
+        queryKey: saleQueryKeys.categories("SALES"),
+      });
     },
   });
 };
@@ -261,7 +309,10 @@ export const useSalesDashboard = (params?: {
     sales: salesQuery.data?.data || [],
     statistics: statisticsQuery.data?.data,
     categories: categoriesQuery.data?.data || [],
-    isLoading: salesQuery.isLoading || statisticsQuery.isLoading || categoriesQuery.isLoading,
+    isLoading:
+      salesQuery.isLoading ||
+      statisticsQuery.isLoading ||
+      categoriesQuery.isLoading,
     error: salesQuery.error || statisticsQuery.error || categoriesQuery.error,
     refetch: () => {
       salesQuery.refetch();
@@ -272,7 +323,10 @@ export const useSalesDashboard = (params?: {
 };
 
 // Batch sales management hook
-export const useBatchSalesManagement = (batchId: string, options?: { enabled?: boolean }) => {
+export const useBatchSalesManagement = (
+  batchId: string,
+  options?: { enabled?: boolean }
+) => {
   const queryClient = useQueryClient();
   const batchSalesQuery = useGetBatchSales(batchId, options);
   const categoriesQuery = useGetSalesCategories();
@@ -293,7 +347,7 @@ export const useBatchSalesManagement = (batchId: string, options?: { enabled?: b
     categories: categoriesQuery.data?.data || [],
     isLoading: batchSalesQuery.isLoading || categoriesQuery.isLoading,
     error: batchSalesQuery.error || categoriesQuery.error,
-    
+
     // Mutations
     createSale: async (data: any) => {
       const res = await createSaleMutation.mutateAsync(data);
@@ -311,13 +365,13 @@ export const useBatchSalesManagement = (batchId: string, options?: { enabled?: b
       return res;
     },
     addPayment: addPaymentMutation.mutateAsync,
-    
+
     // Mutation states
     isCreating: createSaleMutation.isPending,
     isUpdating: updateSaleMutation.isPending,
     isDeleting: deleteSaleMutation.isPending,
     isAddingPayment: addPaymentMutation.isPending,
-    
+
     // Refetch
     refetch: () => {
       batchSalesQuery.refetch();
@@ -352,21 +406,21 @@ export const useSalesManagement = (params?: {
     categories: categoriesQuery.data?.data || [],
     isLoading: salesQuery.isLoading || categoriesQuery.isLoading,
     error: salesQuery.error || categoriesQuery.error,
-    
+
     // Mutations
     createSale: createSaleMutation.mutateAsync,
     updateSale: updateSaleMutation.mutateAsync,
     deleteSale: deleteSaleMutation.mutateAsync,
     addPayment: addPaymentMutation.mutateAsync,
     createCategory: createCategoryMutation.mutateAsync,
-    
+
     // Mutation states
     isCreating: createSaleMutation.isPending,
     isUpdating: updateSaleMutation.isPending,
     isDeleting: deleteSaleMutation.isPending,
     isAddingPayment: addPaymentMutation.isPending,
     isCreatingCategory: createCategoryMutation.isPending,
-    
+
     // Refetch
     refetch: () => {
       salesQuery.refetch();
@@ -426,24 +480,31 @@ export const useSalesAnalytics = (params?: {
 
 // ==================== CUSTOMER QUERIES ====================
 
-export const useGetCustomersForSales = (search?: string) => {
+export const useGetCustomersForSales = (
+  search?: string,
+  options?: { enabled?: boolean }
+) => {
   return useQuery({
     queryKey: ["customers", "sales", search],
-    queryFn: () => axiosInstance.get(`/sales/customers${search ? `?search=${encodeURIComponent(search)}` : ""}`),
+    queryFn: () =>
+      axiosInstance.get(
+        `/sales/customers${search ? `?search=${encodeURIComponent(search)}` : ""}`
+      ),
     select: (response) => response.data.data,
     staleTime: 2 * 60 * 1000, // 2 minutes
+    enabled: options?.enabled === true,
   });
 };
 
 // Get customer by ID
-export const useGetCustomer = (id: string) => {
+export const useGetCustomer = (id: string, options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ["customers", "detail", id],
     queryFn: async () => {
       const response = await axiosInstance.get(`/sales/customers/${id}`);
       return response.data;
     },
-    enabled: !!id,
+    enabled: options?.enabled === true && !!id,
     staleTime: 2 * 60 * 1000,
   });
 };
@@ -453,7 +514,12 @@ export const useCreateCustomer = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { name: string; phone: string; category?: string; address?: string }) => {
+    mutationFn: async (data: {
+      name: string;
+      phone: string;
+      category?: string;
+      address?: string;
+    }) => {
       const response = await axiosInstance.post("/sales/customers", data);
       return response.data;
     },
@@ -469,14 +535,27 @@ export const useUpdateCustomer = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: { name?: string; phone?: string; category?: string; address?: string } }) => {
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: {
+        name?: string;
+        phone?: string;
+        category?: string;
+        address?: string;
+      };
+    }) => {
       const response = await axiosInstance.put(`/sales/customers/${id}`, data);
       return response.data;
     },
     onSuccess: (data, variables) => {
       // Invalidate customers list and specific customer
       queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
-      queryClient.invalidateQueries({ queryKey: ["customers", "detail", variables.id] });
+      queryClient.invalidateQueries({
+        queryKey: ["customers", "detail", variables.id],
+      });
     },
   });
 };
