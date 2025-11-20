@@ -182,6 +182,12 @@ export class ReminderService {
     // Sanitize optional FKs: empty strings should be treated as undefined to avoid FK violations
     const { farmId, batchId, ...rest } = data;
 
+    console.log("creating reminder with data3:", {
+      ...rest,
+      farmId: farmId && farmId.trim() !== '' ? farmId : undefined,
+      batchId: batchId && batchId.trim() !== '' ? batchId : undefined,
+    });
+
     return await prisma.reminder.create({
       data: {
         ...rest,
@@ -598,6 +604,8 @@ export class ReminderService {
         userId,
       },
     });
+
+    console.log("Existing Reminder:", existingReminder);
 
     if (!existingReminder) {
       throw new Error('Reminder not found or access denied');

@@ -89,6 +89,8 @@ export const useGetReminders = (filters: ReminderFilters = {}, options?: { enabl
       const response = await axiosInstance.get(
         `/reminders?${params.toString()}`
       );
+
+      console.log("Get All Reminders", response.data);
       return response.data;
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
@@ -114,8 +116,8 @@ export const useGetUpcomingReminders = (days: number = 7, options?: { enabled?: 
   return useQuery({
     queryKey: reminderKeys.upcoming(days),
     queryFn: async (): Promise<ReminderListResponse> => {
-      // Backend doesn't expose /upcoming; fetch all and filter client-side
-      const response = await axiosInstance.get(`/reminders`);
+      // Fetch all reminders with high limit to get all data
+      const response = await axiosInstance.get(`/reminders?limit=1000`);
       const all: Reminder[] = response.data?.data || [];
       const now = new Date();
       const end = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
@@ -144,8 +146,9 @@ export const useGetOverdueReminders = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: reminderKeys.overdue(),
     queryFn: async (): Promise<ReminderListResponse> => {
-      // Fetch by status=OVERDUE
-      const response = await axiosInstance.get(`/reminders?status=OVERDUE`);
+      // Fetch by status=OVERDUE with high limit
+      const response = await axiosInstance.get(`/reminders?status=OVERDUE&limit=1000`);
+      console.log("Get Overdue Reminders", response.data);
       return response.data;
     },
     staleTime: 1 * 60 * 1000,
@@ -158,8 +161,8 @@ export const useGetCompletedTodayReminders = (options?: { enabled?: boolean }) =
   return useQuery({
     queryKey: [...reminderKeys.all, 'completed-today'],
     queryFn: async (): Promise<ReminderListResponse> => {
-      // Fetch by status=COMPLETED and filter for today
-      const response = await axiosInstance.get(`/reminders?status=COMPLETED`);
+      // Fetch by status=COMPLETED with high limit and filter for today
+      const response = await axiosInstance.get(`/reminders?status=COMPLETED&limit=1000`);
       const all: Reminder[] = response.data?.data || [];
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -192,8 +195,8 @@ export const useGetScheduledReminders = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: reminderKeys.scheduled(),
     queryFn: async (): Promise<ReminderListResponse> => {
-      // Fetch all PENDING and sort by dueDate ascending
-      const response = await axiosInstance.get(`/reminders?status=PENDING`);
+      // Fetch all PENDING with high limit and sort by dueDate ascending
+      const response = await axiosInstance.get(`/reminders?status=PENDING&limit=1000`);
       const list: Reminder[] = response.data?.data || [];
       const sorted = [...list].sort(
         (a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
@@ -453,9 +456,9 @@ export const useGetTodayReminders = () => {
 
 // Get reminder dashboard data (upcoming, overdue, statistics)
 export const useGetReminderDashboard = () => {
-  const upcoming = useGetUpcomingReminders(7);
-  const overdue = useGetOverdueReminders();
-  const statistics = useGetReminderStatistics();
+  const upcoming = useGetUpcomingReminders(7, { enabled: true });
+  const overdue = useGetOverdueReminders({ enabled: true });
+  const statistics = useGetReminderStatistics({ enabled: true });
 
   return {
     upcoming: upcoming.data?.data || [],

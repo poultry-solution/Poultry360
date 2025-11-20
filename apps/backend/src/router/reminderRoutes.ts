@@ -3,8 +3,6 @@ import { authMiddleware } from '../middelware/middelware';
 import {
   getUserReminders,
   createReminder,
-  createCustomTimeReminder,
-  createCustomIntervalReminder,
   createDayOfWeekReminder,
   updateReminder,
   deleteReminder,
@@ -36,8 +34,6 @@ router.post('/:id/mark-completed', markReminderAsCompleted);
 router.post('/:id/mark-not-done', markReminderAsNotDone);
 
 // Custom reminder creation routes
-router.post('/custom-time', createCustomTimeReminder);
-router.post('/custom-interval', createCustomIntervalReminder);
 router.post('/day-of-week', createDayOfWeekReminder);
 
 export default router;

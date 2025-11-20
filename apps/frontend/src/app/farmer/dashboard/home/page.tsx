@@ -31,6 +31,7 @@ import { QuickSaleModal } from "@/components/dashboard/modals/QuickSaleModal";
 import { MoneyDetailsModal } from "@/components/dashboard/modals/MoneyDetailsModal";
 import { QuickMortalityModal } from "@/components/dashboard/modals/QuickMortalityModal";
 import { QuickWeightModal } from "@/components/dashboard/modals/QuickWeightModal";
+import { QuickReminderModal } from "@/components/dashboard/modals/QuickReminderModal";
 import { BatchPerformanceTable } from "@/components/dashboard/BatchPerformanceTable";
 
 import {
@@ -467,8 +468,8 @@ export default function DashboardPage() {
           onMarkCompleted={handleMarkCompleted}
           onDeleteReminder={handleDeleteReminder}
           onAddReminder={() => setIsReminderModalOpen(true)}
-                          />
-                        </div>
+        />
+      </div>
 
       {/* Money to Receive Details Modal */}
       <MoneyDetailsModal
@@ -520,6 +521,22 @@ export default function DashboardPage() {
         farms={farms}
         activeBatches={activeBatches}
         isLoading={addWeightMutation.isPending}
+      />
+
+      {/* Quick Reminder Modal */}
+      <QuickReminderModal
+        isOpen={isReminderModalOpen}
+        onClose={() => setIsReminderModalOpen(false)}
+        onSubmit={async (reminderData) => {
+          await createReminderMutation.mutateAsync({
+            ...reminderData,
+            type: reminderData.type as any,
+            recurrencePattern: reminderData.recurrencePattern as any,
+          } as any);
+        }}
+        farms={farms}
+        activeBatches={activeBatches}
+        isLoading={createReminderMutation.isPending}
       />
       <TodayExpenses />
     </div>
