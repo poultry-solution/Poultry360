@@ -84,10 +84,6 @@ export default function DashboardPage() {
     (item: any) => item.itemType === "MEDICINE"
   );
 
-  // Keep the old inventory context for other uses if needed
-  const { inventory, updateInventoryItem, getInventoryByCategory } =
-    useInventory();
-
   const [isFarmsOpen, setIsFarmsOpen] = useState(false);
   const [isBatchesOpen, setIsBatchesOpen] = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
@@ -144,9 +140,18 @@ export default function DashboardPage() {
 
   // Money details queries
   const { data: moneyToReceiveData, isLoading: moneyToReceiveLoading } =
-    useGetMoneyToReceiveDetails();
+    useGetMoneyToReceiveDetails(
+      // if path is /farmer/dashboard/home, then enable
+      1,
+      10,
+      {
+        enabled: window.location.pathname === "/farmer/dashboard/home",
+      }
+    );
   const { data: moneyToPayData, isLoading: moneyToPayLoading } =
-    useGetMoneyToPayDetails();
+    useGetMoneyToPayDetails(1, 10, {
+      enabled: window.location.pathname === "/farmer/dashboard/home",
+    });
 
   // Quick form states
   const [quickExpenseForm, setQuickExpenseForm] = useState({
@@ -203,42 +208,7 @@ export default function DashboardPage() {
     }
   }, [isQuickMortalityOpen, quickMortalityForm.date]);
 
-  const handleAddReminder = async () => {
-    if (!reminderForm.title.trim() || !reminderForm.date || !reminderForm.time)
-      return;
 
-    try {
-      // Combine date and time into ISO datetime string
-      const dueDate = new Date(
-        `${reminderForm.date}T${reminderForm.time}:00.000Z`
-      ).toISOString();
-
-      await createReminderMutation.mutateAsync({
-        title: reminderForm.title,
-        description: reminderForm.description || undefined,
-        type: reminderForm.type,
-        dueDate,
-        isRecurring: false,
-        recurrencePattern: "NONE",
-        farmId: reminderForm.farmId || undefined,
-        batchId: reminderForm.batchId || undefined,
-      });
-
-      // Reset form and close modal
-      setReminderForm({
-        title: "",
-        description: "",
-        date: "",
-        time: "",
-        type: "GENERAL",
-        farmId: "",
-        batchId: "",
-      });
-      setIsReminderModalOpen(false);
-    } catch (error) {
-      console.error("Failed to create reminder:", error);
-    }
-  };
 
   const handleMarkCompleted = async (reminderId: string) => {
     try {

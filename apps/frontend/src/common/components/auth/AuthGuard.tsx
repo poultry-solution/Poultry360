@@ -8,14 +8,14 @@ interface AuthGuardProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
   requireAuth?: boolean;
-  allowedRoles?: Array<"MANAGER" | "OWNER" | "SUPER_ADMIN" | "DOCTOR">;
+  allowedRoles?: Array<"MANAGER" | "OWNER" | "SUPER_ADMIN" | "DOCTOR" | "DEALER" | "COMPANY">;
 }
 
 export const AuthGuard: React.FC<AuthGuardProps> = ({
   children,
   fallback,
   requireAuth = false,
-  allowedRoles = ["OWNER", "MANAGER", "SUPER_ADMIN", "DOCTOR"],
+  allowedRoles = ["OWNER", "MANAGER", "SUPER_ADMIN", "DOCTOR", "DEALER", "COMPANY"],
 }) => {
   const { isAuthenticated, user, isInitialized, isLoading } = useAuthStore();
   const pathname = usePathname();
@@ -25,7 +25,9 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
     pathname.startsWith("/dashboard") || 
     pathname.startsWith("/farmer") || 
     pathname.startsWith("/doctor") || 
-    pathname.startsWith("/admin");
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/dealer") ||
+    pathname.startsWith("/company");
 
   // Show loading while initializing or during auth operations
   if (!isInitialized || isLoading) {
@@ -53,7 +55,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
 
   // Check role permissions for authenticated users
   if (needsAuth && isAuthenticated && allowedRoles.length > 0 && user) {
-    if (!allowedRoles.includes(user.role as "MANAGER" | "OWNER" | "SUPER_ADMIN" | "DOCTOR")) {
+    if (!allowedRoles.includes(user.role as "MANAGER" | "OWNER" | "SUPER_ADMIN" | "DOCTOR" | "DEALER" | "COMPANY")) {
       // Instead of showing an error screen, gracefully redirect to the appropriate dashboard
       return (
         <RoleBasedRedirect
