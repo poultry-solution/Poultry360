@@ -20,6 +20,7 @@ import {
   Truck,
   TrendingUp,
   FileText,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { useAuth } from "@/common/store/store";
@@ -43,6 +44,7 @@ const farmerNavigation = [
     href: "/farmer/dashboard/chat-doctor",
     icon: MessageCircle,
   },
+  { name: "Accounts", href: "/farmer/dashboard/accounts", icon: CreditCard },
   { name: "Vaccinations", href: "/farmer/dashboard/vaccinations", icon: Syringe },
 ];
 
@@ -50,6 +52,20 @@ const doctorNavigation = [
   { name: "Dashboard", href: "/doctor/dashboard", icon: Home },
   { name: "Chat", href: "/doctor/dashboard/chat", icon: MessageCircle },
   { name: "Ledger", href: "/doctor/dashboard/ledger", icon: Receipt },
+];
+
+const dealerNavigation = [
+  { name: "Home", href: "/dealer/dashboard/home", icon: Home },
+  { name: "Inventory", href: "/dealer/dashboard/inventory", icon: Package },
+  { name: "Customers", href: "/dealer/dashboard/customers", icon: Users },
+  { name: "Sales", href: "/dealer/dashboard/sales", icon: Receipt },
+];
+
+const companyNavigation = [
+  { name: "Home", href: "/company/dashboard/home", icon: Home },
+  { name: "Products", href: "/company/dashboard/products", icon: Package },
+  { name: "Dealers", href: "/company/dashboard/dealers", icon: Users },
+  { name: "Analytics", href: "/company/dashboard/analytics", icon: BarChart3 },
 ];
 
 const adminNavigation = [
@@ -64,7 +80,7 @@ const adminNavigation = [
 ];
 
 interface SidebarProps {
-  role?: "OWNER" | "MANAGER" | "DOCTOR" | "SUPER_ADMIN";
+  role?: "OWNER" | "MANAGER" | "DOCTOR" | "SUPER_ADMIN" | "DEALER" | "COMPANY";
   isCollapsed?: boolean;
   onToggle?: () => void;
 }
@@ -77,6 +93,8 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
   const getNavigation = () => {
     if (role === "DOCTOR") return doctorNavigation;
     if (role === "SUPER_ADMIN") return adminNavigation;
+    if (role === "DEALER") return dealerNavigation;
+    if (role === "COMPANY") return companyNavigation;
     return farmerNavigation; // Default to farmer navigation
   };
 
@@ -96,6 +114,20 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
         title: "Admin Panel",
         subtitle: "System Management",
         userTitle: "Administrator"
+      };
+    }
+    if (role === "DEALER") {
+      return {
+        title: "Dealer Portal",
+        subtitle: "Feed & Supply Management",
+        userTitle: "Dealer"
+      };
+    }
+    if (role === "COMPANY") {
+      return {
+        title: "Company Portal",
+        subtitle: "Product & Distribution Management",
+        userTitle: "Company"
       };
     }
     return {
@@ -168,6 +200,12 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
           } else if (item.href === "/doctor/dashboard") {
             // For doctor dashboard, only active if exactly on /doctor/dashboard
             isActive = pathname === "/doctor/dashboard";
+          } else if (item.href === "/dealer/dashboard/home") {
+            // For dealer home, only active if exactly on /dealer/dashboard/home
+            isActive = pathname === "/dealer/dashboard/home";
+          } else if (item.href === "/company/dashboard/home") {
+            // For company home, only active if exactly on /company/dashboard/home
+            isActive = pathname === "/company/dashboard/home";
           } else {
             // For all other routes, use the original logic (exact match or sub-routes)
             isActive = pathname === item.href || pathname.startsWith(item.href + '/');

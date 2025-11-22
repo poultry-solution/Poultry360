@@ -6,7 +6,7 @@ exports.PaginatedResponseSchema = exports.ApiResponseSchema = exports.schemas = 
 // packages/shared-types/index.ts
 const zod_1 = require("zod");
 // ==================== ENUMS ====================
-exports.UserRoleSchema = zod_1.z.enum(["OWNER", "MANAGER"]);
+exports.UserRoleSchema = zod_1.z.enum(["OWNER", "MANAGER", "DEALER", "COMPANY", "SUPER_ADMIN"]);
 exports.BatchStatusSchema = zod_1.z.enum(["ACTIVE", "COMPLETED"]);
 exports.TransactionTypeSchema = zod_1.z.enum([
     "PURCHASE",

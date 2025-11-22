@@ -2,6 +2,9 @@ import { z } from "zod";
 export declare const UserRoleSchema: z.ZodEnum<{
     OWNER: "OWNER";
     MANAGER: "MANAGER";
+    DEALER: "DEALER";
+    COMPANY: "COMPANY";
+    SUPER_ADMIN: "SUPER_ADMIN";
 }>;
 export type UserRole = z.infer<typeof UserRoleSchema>;
 export declare const BatchStatusSchema: z.ZodEnum<{
@@ -95,6 +98,9 @@ export declare const UserSchema: z.ZodObject<{
     role: z.ZodEnum<{
         OWNER: "OWNER";
         MANAGER: "MANAGER";
+        DEALER: "DEALER";
+        COMPANY: "COMPANY";
+        SUPER_ADMIN: "SUPER_ADMIN";
     }>;
     status: z.ZodEnum<{
         ACTIVE: "ACTIVE";
@@ -114,6 +120,9 @@ export declare const CreateUserSchema: z.ZodObject<{
     role: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
         OWNER: "OWNER";
         MANAGER: "MANAGER";
+        DEALER: "DEALER";
+        COMPANY: "COMPANY";
+        SUPER_ADMIN: "SUPER_ADMIN";
     }>>>;
     gender: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
         MALE: "MALE";
@@ -134,6 +143,9 @@ export declare const UpdateUserSchema: z.ZodObject<{
     role: z.ZodOptional<z.ZodEnum<{
         OWNER: "OWNER";
         MANAGER: "MANAGER";
+        DEALER: "DEALER";
+        COMPANY: "COMPANY";
+        SUPER_ADMIN: "SUPER_ADMIN";
     }>>;
     gender: z.ZodOptional<z.ZodEnum<{
         MALE: "MALE";
@@ -170,6 +182,9 @@ export declare const FarmOwnerSchema: z.ZodObject<{
     role: z.ZodEnum<{
         OWNER: "OWNER";
         MANAGER: "MANAGER";
+        DEALER: "DEALER";
+        COMPANY: "COMPANY";
+        SUPER_ADMIN: "SUPER_ADMIN";
     }>;
 }, z.core.$strip>;
 export type FarmOwner = z.infer<typeof FarmOwnerSchema>;
@@ -180,6 +195,9 @@ export declare const FarmManagerSchema: z.ZodObject<{
     role: z.ZodEnum<{
         OWNER: "OWNER";
         MANAGER: "MANAGER";
+        DEALER: "DEALER";
+        COMPANY: "COMPANY";
+        SUPER_ADMIN: "SUPER_ADMIN";
     }>;
 }, z.core.$strip>;
 export type FarmManager = z.infer<typeof FarmManagerSchema>;
@@ -206,6 +224,9 @@ export declare const FarmResponseSchema: z.ZodObject<{
         role: z.ZodEnum<{
             OWNER: "OWNER";
             MANAGER: "MANAGER";
+            DEALER: "DEALER";
+            COMPANY: "COMPANY";
+            SUPER_ADMIN: "SUPER_ADMIN";
         }>;
     }, z.core.$strip>;
     managers: z.ZodArray<z.ZodObject<{
@@ -215,6 +236,9 @@ export declare const FarmResponseSchema: z.ZodObject<{
         role: z.ZodEnum<{
             OWNER: "OWNER";
             MANAGER: "MANAGER";
+            DEALER: "DEALER";
+            COMPANY: "COMPANY";
+            SUPER_ADMIN: "SUPER_ADMIN";
         }>;
     }, z.core.$strip>>;
     _count: z.ZodObject<{
@@ -1319,6 +1343,9 @@ export declare const SignupSchema: z.ZodObject<{
     role: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
         OWNER: "OWNER";
         MANAGER: "MANAGER";
+        DEALER: "DEALER";
+        COMPANY: "COMPANY";
+        SUPER_ADMIN: "SUPER_ADMIN";
     }>>>;
     companyName: z.ZodOptional<z.ZodString>;
     companyFarmLocation: z.ZodOptional<z.ZodString>;
@@ -1375,6 +1402,9 @@ export declare const UserResponseSchema: z.ZodObject<{
     role: z.ZodEnum<{
         OWNER: "OWNER";
         MANAGER: "MANAGER";
+        DEALER: "DEALER";
+        COMPANY: "COMPANY";
+        SUPER_ADMIN: "SUPER_ADMIN";
     }>;
     gender: z.ZodEnum<{
         MALE: "MALE";
@@ -1403,6 +1433,9 @@ export declare const AuthResponseSchema: z.ZodObject<{
         role: z.ZodEnum<{
             OWNER: "OWNER";
             MANAGER: "MANAGER";
+            DEALER: "DEALER";
+            COMPANY: "COMPANY";
+            SUPER_ADMIN: "SUPER_ADMIN";
         }>;
         gender: z.ZodEnum<{
             MALE: "MALE";
@@ -1439,6 +1472,9 @@ export declare const FarmListResponseSchema: z.ZodObject<{
             role: z.ZodEnum<{
                 OWNER: "OWNER";
                 MANAGER: "MANAGER";
+                DEALER: "DEALER";
+                COMPANY: "COMPANY";
+                SUPER_ADMIN: "SUPER_ADMIN";
             }>;
         }, z.core.$strip>;
         managers: z.ZodArray<z.ZodObject<{
@@ -1448,6 +1484,9 @@ export declare const FarmListResponseSchema: z.ZodObject<{
             role: z.ZodEnum<{
                 OWNER: "OWNER";
                 MANAGER: "MANAGER";
+                DEALER: "DEALER";
+                COMPANY: "COMPANY";
+                SUPER_ADMIN: "SUPER_ADMIN";
             }>;
         }, z.core.$strip>>;
         _count: z.ZodObject<{
@@ -1478,6 +1517,9 @@ export declare const FarmDetailResponseSchema: z.ZodObject<{
             role: z.ZodEnum<{
                 OWNER: "OWNER";
                 MANAGER: "MANAGER";
+                DEALER: "DEALER";
+                COMPANY: "COMPANY";
+                SUPER_ADMIN: "SUPER_ADMIN";
             }>;
         }, z.core.$strip>;
         managers: z.ZodArray<z.ZodObject<{
@@ -1487,6 +1529,9 @@ export declare const FarmDetailResponseSchema: z.ZodObject<{
             role: z.ZodEnum<{
                 OWNER: "OWNER";
                 MANAGER: "MANAGER";
+                DEALER: "DEALER";
+                COMPANY: "COMPANY";
+                SUPER_ADMIN: "SUPER_ADMIN";
             }>;
         }, z.core.$strip>>;
         _count: z.ZodObject<{
@@ -1650,6 +1695,9 @@ export declare const schemas: {
     readonly UserRole: z.ZodEnum<{
         OWNER: "OWNER";
         MANAGER: "MANAGER";
+        DEALER: "DEALER";
+        COMPANY: "COMPANY";
+        SUPER_ADMIN: "SUPER_ADMIN";
     }>;
     readonly BatchStatus: z.ZodEnum<{
         ACTIVE: "ACTIVE";
@@ -1739,6 +1787,9 @@ export declare const schemas: {
         role: z.ZodEnum<{
             OWNER: "OWNER";
             MANAGER: "MANAGER";
+            DEALER: "DEALER";
+            COMPANY: "COMPANY";
+            SUPER_ADMIN: "SUPER_ADMIN";
         }>;
         status: z.ZodEnum<{
             ACTIVE: "ACTIVE";
@@ -1757,6 +1808,9 @@ export declare const schemas: {
         role: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
             OWNER: "OWNER";
             MANAGER: "MANAGER";
+            DEALER: "DEALER";
+            COMPANY: "COMPANY";
+            SUPER_ADMIN: "SUPER_ADMIN";
         }>>>;
         gender: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
             MALE: "MALE";
@@ -1776,6 +1830,9 @@ export declare const schemas: {
         role: z.ZodOptional<z.ZodEnum<{
             OWNER: "OWNER";
             MANAGER: "MANAGER";
+            DEALER: "DEALER";
+            COMPANY: "COMPANY";
+            SUPER_ADMIN: "SUPER_ADMIN";
         }>>;
         gender: z.ZodOptional<z.ZodEnum<{
             MALE: "MALE";
@@ -1832,6 +1889,9 @@ export declare const schemas: {
             role: z.ZodEnum<{
                 OWNER: "OWNER";
                 MANAGER: "MANAGER";
+                DEALER: "DEALER";
+                COMPANY: "COMPANY";
+                SUPER_ADMIN: "SUPER_ADMIN";
             }>;
         }, z.core.$strip>;
         managers: z.ZodArray<z.ZodObject<{
@@ -1841,6 +1901,9 @@ export declare const schemas: {
             role: z.ZodEnum<{
                 OWNER: "OWNER";
                 MANAGER: "MANAGER";
+                DEALER: "DEALER";
+                COMPANY: "COMPANY";
+                SUPER_ADMIN: "SUPER_ADMIN";
             }>;
         }, z.core.$strip>>;
         _count: z.ZodObject<{
@@ -1858,6 +1921,9 @@ export declare const schemas: {
         role: z.ZodEnum<{
             OWNER: "OWNER";
             MANAGER: "MANAGER";
+            DEALER: "DEALER";
+            COMPANY: "COMPANY";
+            SUPER_ADMIN: "SUPER_ADMIN";
         }>;
     }, z.core.$strip>;
     readonly FarmManager: z.ZodObject<{
@@ -1867,6 +1933,9 @@ export declare const schemas: {
         role: z.ZodEnum<{
             OWNER: "OWNER";
             MANAGER: "MANAGER";
+            DEALER: "DEALER";
+            COMPANY: "COMPANY";
+            SUPER_ADMIN: "SUPER_ADMIN";
         }>;
     }, z.core.$strip>;
     readonly FarmCount: z.ZodObject<{
@@ -1893,6 +1962,9 @@ export declare const schemas: {
                 role: z.ZodEnum<{
                     OWNER: "OWNER";
                     MANAGER: "MANAGER";
+                    DEALER: "DEALER";
+                    COMPANY: "COMPANY";
+                    SUPER_ADMIN: "SUPER_ADMIN";
                 }>;
             }, z.core.$strip>;
             managers: z.ZodArray<z.ZodObject<{
@@ -1902,6 +1974,9 @@ export declare const schemas: {
                 role: z.ZodEnum<{
                     OWNER: "OWNER";
                     MANAGER: "MANAGER";
+                    DEALER: "DEALER";
+                    COMPANY: "COMPANY";
+                    SUPER_ADMIN: "SUPER_ADMIN";
                 }>;
             }, z.core.$strip>>;
             _count: z.ZodObject<{
@@ -1931,6 +2006,9 @@ export declare const schemas: {
                 role: z.ZodEnum<{
                     OWNER: "OWNER";
                     MANAGER: "MANAGER";
+                    DEALER: "DEALER";
+                    COMPANY: "COMPANY";
+                    SUPER_ADMIN: "SUPER_ADMIN";
                 }>;
             }, z.core.$strip>;
             managers: z.ZodArray<z.ZodObject<{
@@ -1940,6 +2018,9 @@ export declare const schemas: {
                 role: z.ZodEnum<{
                     OWNER: "OWNER";
                     MANAGER: "MANAGER";
+                    DEALER: "DEALER";
+                    COMPANY: "COMPANY";
+                    SUPER_ADMIN: "SUPER_ADMIN";
                 }>;
             }, z.core.$strip>>;
             _count: z.ZodObject<{
@@ -3062,6 +3143,9 @@ export declare const schemas: {
         role: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
             OWNER: "OWNER";
             MANAGER: "MANAGER";
+            DEALER: "DEALER";
+            COMPANY: "COMPANY";
+            SUPER_ADMIN: "SUPER_ADMIN";
         }>>>;
         companyName: z.ZodOptional<z.ZodString>;
         companyFarmLocation: z.ZodOptional<z.ZodString>;
@@ -3115,6 +3199,9 @@ export declare const schemas: {
         role: z.ZodEnum<{
             OWNER: "OWNER";
             MANAGER: "MANAGER";
+            DEALER: "DEALER";
+            COMPANY: "COMPANY";
+            SUPER_ADMIN: "SUPER_ADMIN";
         }>;
         gender: z.ZodEnum<{
             MALE: "MALE";
@@ -3142,6 +3229,9 @@ export declare const schemas: {
             role: z.ZodEnum<{
                 OWNER: "OWNER";
                 MANAGER: "MANAGER";
+                DEALER: "DEALER";
+                COMPANY: "COMPANY";
+                SUPER_ADMIN: "SUPER_ADMIN";
             }>;
             gender: z.ZodEnum<{
                 MALE: "MALE";

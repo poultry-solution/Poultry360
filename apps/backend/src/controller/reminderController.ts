@@ -69,6 +69,8 @@ export const createReminder = async (req: Request, res: Response) => {
       data
     } = req.body;
 
+    console.log('Reminder data:', req.body);
+
     // Validate required fields
     if (!title || !type || !dueDate) {
       return res.status(400).json({
@@ -91,6 +93,19 @@ export const createReminder = async (req: Request, res: Response) => {
         error: 'Invalid recurrence pattern'
       });
     }
+
+    console.log("creating reminder with data2:", {
+      title,
+      description,
+      type,
+      dueDate: new Date(dueDate),
+      isRecurring,
+      recurrencePattern,
+      recurrenceInterval,
+      farmId,
+      batchId,
+      data
+    });
 
     const reminder = await reminderService.createReminder(userId, {
       title,
@@ -119,119 +134,7 @@ export const createReminder = async (req: Request, res: Response) => {
 };
 
 /**
- * Create a custom time reminder (e.g., "Remind me to talk with dealer at 10 PM")
- */
-export const createCustomTimeReminder = async (req: Request, res: Response) => {
-  try {
-    const userId = req.userId as string;
-    const {
-      title,
-      description,
-      specificTime, // Format: "22:00" for 10 PM
-      isRecurring = true,
-      farmId,
-      batchId
-    } = req.body;
 
-    // Validate required fields
-    if (!title || !specificTime) {
-      return res.status(400).json({
-        success: false,
-        error: 'Title and specific time are required'
-      });
-    }
-
-    // Validate time format (HH:MM)
-    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-    if (!timeRegex.test(specificTime)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid time format. Use HH:MM format (e.g., 22:00 for 10 PM)'
-      });
-    }
-
-    const reminder = await reminderService.createCustomTimeReminder(
-      userId,
-      title,
-      description || '',
-      specificTime,
-      isRecurring,
-      farmId,
-      batchId
-    );
-
-    res.status(201).json({
-      success: true,
-      data: reminder
-    });
-  } catch (error: any) {
-    console.error('Error creating custom time reminder:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create custom time reminder'
-    });
-  }
-};
-
-/**
- * Create a custom interval reminder (e.g., "Remind me every 3 hours")
- */
-export const createCustomIntervalReminder = async (req: Request, res: Response) => {
-  try {
-    const userId = req.userId as string;
-    const {
-      title,
-      description,
-      interval, // { unit: 'hours', value: 3 }
-      farmId,
-      batchId
-    } = req.body;
-
-    // Validate required fields
-    if (!title || !interval) {
-      return res.status(400).json({
-        success: false,
-        error: 'Title and interval are required'
-      });
-    }
-
-    // Validate interval structure
-    if (!interval.unit || !interval.value || typeof interval.value !== 'number') {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid interval format. Use { unit: "hours", value: 3 }'
-      });
-    }
-
-    const validUnits = ['minutes', 'hours', 'days', 'weeks', 'months'];
-    if (!validUnits.includes(interval.unit)) {
-      return res.status(400).json({
-        success: false,
-        error: `Invalid interval unit. Must be one of: ${validUnits.join(', ')}`
-      });
-    }
-
-    const reminder = await reminderService.createCustomIntervalReminder(
-      userId,
-      title,
-      description || '',
-      interval,
-      farmId,
-      batchId
-    );
-
-    res.status(201).json({
-      success: true,
-      data: reminder
-    });
-  } catch (error: any) {
-    console.error('Error creating custom interval reminder:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create custom interval reminder'
-    });
-  }
-};
 
 /**
  * Create a day-of-week reminder (e.g., "Remind me every Monday at 10 PM")
@@ -429,6 +332,8 @@ export const markReminderAsCompleted = async (req: Request, res: Response) => {
   try {
     const userId = req.userId as string;
     const { id } = req.params;
+
+    console.log("Marking reminder as completed:", id, userId);
 
     const reminder = await reminderService.markAsCompleted(id, userId);
 

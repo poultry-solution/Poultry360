@@ -45,6 +45,20 @@ const ROLE_ROUTES: RoleRouteConfig = {
     isCrossPort: false,
     allowedPaths: ["/admin", "/auth"],
   },
+  DEALER: {
+    basePath: "/dealer",
+    defaultRoute: "/dealer/dashboard/home",
+    port: 3000,
+    isCrossPort: false,
+    allowedPaths: ["/dealer", "/auth"],
+  },
+  COMPANY: {
+    basePath: "/company",
+    defaultRoute: "/company/dashboard/home",
+    port: 3000,
+    isCrossPort: false,
+    allowedPaths: ["/company", "/auth"],
+  },
 };
 
 

@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
 import { CheckCircle, Clock, RotateCcw, Bell, Calendar, Plus, Filter, Trash2 } from "lucide-react";
 import {
+  useGetReminders,
   useGetUpcomingReminders,
   useGetOverdueReminders,
   useGetScheduledReminders,
@@ -22,14 +23,25 @@ import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
 
 export default function RemindersPage() {
-  const [activeTab, setActiveTab] = useState<"upcoming" | "overdue" | "scheduled" | "completed">("upcoming");
+  const [activeTab, setActiveTab] = useState<"upcoming" | "overdue" | "scheduled" | "completed" | "all">("upcoming");
   const [showCreateForm, setShowCreateForm] = useState(false);
 
+  // Get all reminders query (for debugging and "All" tab)
+  const allRemindersQuery = useGetReminders({ limit: 1000 }, { enabled: activeTab === "all" });
+
   // Real queries
-  const upcomingQuery = useGetUpcomingReminders(7);
-  const overdueQuery = useGetOverdueReminders();
-  const scheduledQuery = useGetScheduledReminders();
-  const completedTodayQuery = useGetCompletedTodayReminders();
+  const upcomingQuery = useGetUpcomingReminders(7, {
+    enabled: activeTab === "upcoming" || activeTab === "all"
+  });
+  const overdueQuery = useGetOverdueReminders({
+    enabled: activeTab === "overdue" || activeTab === "all"
+  });
+  const scheduledQuery = useGetScheduledReminders({
+    enabled: activeTab === "scheduled" || activeTab === "all"
+  });
+  const completedTodayQuery = useGetCompletedTodayReminders({
+    enabled: activeTab === "completed" || activeTab === "all"
+  });
 
   const createReminder = useCreateReminder();
   const markCompleted = useMarkReminderCompleted();
@@ -57,6 +69,7 @@ export default function RemindersPage() {
       if (event.data?.type === 'NOTIFICATION_ACTION') {
         console.log('Received notification action in reminders page:', event.data);
         // Refetch reminders
+        allRemindersQuery.refetch();
         upcomingQuery.refetch();
         overdueQuery.refetch();
         scheduledQuery.refetch();
@@ -73,18 +86,19 @@ export default function RemindersPage() {
         navigator.serviceWorker.removeEventListener('message', handleMessage);
       }
     };
-  }, [upcomingQuery, overdueQuery, scheduledQuery, completedTodayQuery]);
+  }, [allRemindersQuery, upcomingQuery, overdueQuery, scheduledQuery, completedTodayQuery]);
 
   // Handle form submission
   const handleCreateReminder = async () => {
     if (!form.title || !form.dueDate) return;
     
     try {
+      // DateInput already returns ISO string, so we can use it directly
       await createReminder.mutateAsync({
         title: form.title,
         description: form.description || undefined,
         type: form.type as any,
-        dueDate: new Date(form.dueDate).toISOString(),
+        dueDate: form.dueDate, // Already ISO string from DateInput
         isRecurring: form.isRecurring,
         recurrencePattern: form.isRecurring ? (form.recurrencePattern as any) : "NONE",
         recurrenceInterval: form.isRecurring ? Number(form.recurrenceInterval) : undefined,
@@ -190,10 +204,19 @@ export default function RemindersPage() {
   };
 
   // Get data from queries
+  const allReminders = allRemindersQuery.data?.data || [];
   const upcomingReminders = upcomingQuery.data?.data || [];
   const overdueReminders = overdueQuery.data?.data || [];
   const scheduledReminders = scheduledQuery.data?.data || [];
   const completedTodayReminders = completedTodayQuery.data?.data || [];
+
+  // Debug: Log all reminders to console
+  useEffect(() => {
+    if (allRemindersQuery.data) {
+      console.log("📋 All Reminders:", allRemindersQuery.data);
+      console.log("📋 Total Count:", allReminders.length);
+    }
+  }, [allRemindersQuery.data, allReminders.length]);
 
   // Calculate stats
   const totalUpcoming = upcomingReminders.length;
@@ -334,10 +357,13 @@ export default function RemindersPage() {
                   <DateInput
                     label="Due Date"
                     value={form.dueDate}
-                    onChange={(value) => setForm({ ...form, dueDate: value })}
+                    onChange={(value) => {
+                      // DateInput returns ISO string (AD format) - ready for database
+                      setForm({ ...form, dueDate: value });
+                    }}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Note: Date picker will respect your calendar preference
+                    Date picker adapts to your calendar preference (BS/AD)
                   </p>
                 </div>
 
@@ -403,10 +429,20 @@ export default function RemindersPage() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 border-b border-slate-200">
+        <div className="flex gap-2 border-b border-slate-200 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab("all")}
+            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+              activeTab === "all"
+                ? "text-blue-600 border-b-2 border-blue-600"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            All ({allReminders.length})
+          </button>
           <button
             onClick={() => setActiveTab("upcoming")}
-            className={`px-6 py-3 font-medium transition-colors ${
+            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
               activeTab === "upcoming"
                 ? "text-blue-600 border-b-2 border-blue-600"
                 : "text-slate-600 hover:text-slate-900"
@@ -416,7 +452,7 @@ export default function RemindersPage() {
           </button>
           <button
             onClick={() => setActiveTab("overdue")}
-            className={`px-6 py-3 font-medium transition-colors ${
+            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
               activeTab === "overdue"
                 ? "text-blue-600 border-b-2 border-blue-600"
                 : "text-slate-600 hover:text-slate-900"
@@ -426,7 +462,7 @@ export default function RemindersPage() {
           </button>
           <button
             onClick={() => setActiveTab("scheduled")}
-            className={`px-6 py-3 font-medium transition-colors ${
+            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
               activeTab === "scheduled"
                 ? "text-blue-600 border-b-2 border-blue-600"
                 : "text-slate-600 hover:text-slate-900"
@@ -436,7 +472,7 @@ export default function RemindersPage() {
           </button>
           <button
             onClick={() => setActiveTab("completed")}
-            className={`px-6 py-3 font-medium transition-colors ${
+            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
               activeTab === "completed"
                 ? "text-blue-600 border-b-2 border-blue-600"
                 : "text-slate-600 hover:text-slate-900"
@@ -448,11 +484,21 @@ export default function RemindersPage() {
 
         {/* Reminders List */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {(activeTab === "upcoming" ? upcomingReminders : 
+          {(activeTab === "all" ? allReminders :
+            activeTab === "upcoming" ? upcomingReminders : 
             activeTab === "overdue" ? overdueReminders : 
             activeTab === "scheduled" ? scheduledReminders :
-            completedTodayReminders).map((reminder) => (
-            <Card key={reminder.id} className="shadow-md hover:shadow-xl transition-all border-l-4 border-l-blue-500">
+            completedTodayReminders).map((reminder) => {
+            const isCompleted = reminder.status === "COMPLETED";
+            return (
+            <Card 
+              key={reminder.id} 
+              className={`shadow-md hover:shadow-xl transition-all border-l-4 ${
+                isCompleted 
+                  ? "border-l-green-500 bg-green-50/30" 
+                  : "border-l-blue-500"
+              }`}
+            >
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-start gap-3 flex-1">
@@ -489,12 +535,18 @@ export default function RemindersPage() {
                   <div className="text-right">
                     <Badge 
                       variant={
+                        isCompleted ? "default" :
                         activeTab === "completed" ? "default" :
                         reminder.status === "OVERDUE" ? "destructive" : "secondary"
                       }
-                      className="text-xs"
+                      className={`text-xs ${isCompleted ? "bg-green-600 text-white" : ""}`}
                     >
-                      {activeTab === "completed" ? "Completed" : formatDueIn(reminder.dueDate.toString())}
+                      {isCompleted ? (
+                        <span className="flex items-center gap-1">
+                          <CheckCircle className="h-3 w-3" />
+                          Completed
+                        </span>
+                      ) : activeTab === "completed" ? "Completed" : formatDueIn(reminder.dueDate.toString())}
                     </Badge>
                   </div>
                 </div>
@@ -505,7 +557,8 @@ export default function RemindersPage() {
                     <DateDisplay date={reminder.dueDate} format="long" />
                   </div>
                   <div className="flex gap-2">
-                    {activeTab !== "completed" && (
+                    {/* Only show action buttons if not completed */}
+                    {!isCompleted && activeTab !== "completed" && (
                       <>
                         <Button
                           size="sm"
@@ -528,6 +581,7 @@ export default function RemindersPage() {
                         </Button>
                       </>
                     )}
+                    {/* Always show delete button */}
                     <Button
                       size="sm"
                       variant="outline"
@@ -541,11 +595,13 @@ export default function RemindersPage() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
 
         {/* Empty State */}
-        {(activeTab === "upcoming" ? upcomingReminders : 
+        {(activeTab === "all" ? allReminders :
+          activeTab === "upcoming" ? upcomingReminders : 
           activeTab === "overdue" ? overdueReminders : 
           activeTab === "scheduled" ? scheduledReminders :
           completedTodayReminders).length === 0 && (
