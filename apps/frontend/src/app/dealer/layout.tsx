@@ -38,7 +38,7 @@ export default function DealerLayout({
   return (
     <AuthGuard
       requireAuth={true}
-      allowedRoles={["OWNER", "MANAGER", "DEALER"]} // Phase 2A: Using OWNER role for dealers until DEALER role is added to backend
+      allowedRoles={ ["DEALER"]} // Phase 2A: Using OWNER role for dealers until DEALER role is added to backend
     >
       {children}
     </AuthGuard>

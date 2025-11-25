@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import prisma from "../utils/prisma";
-import {  UserRole, UserStatus } from "@prisma/client";
+import { UserRole, UserStatus } from "@prisma/client";
 import { LoginSchema, SignupSchema } from "@myapp/shared-types";
 
 const generateTokens = (userId: string, role: UserRole) => {
@@ -25,7 +25,6 @@ const generateTokens = (userId: string, role: UserRole) => {
   return { accessToken, refreshToken };
 };
 
-
 export const login = async (req: Request, res: Response): Promise<any> => {
   try {
     const { success, data, error } = LoginSchema.safeParse(req.body);
@@ -33,6 +32,8 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       return res.status(400).json({ message: error?.message });
     }
     const { emailOrPhone, password } = data;
+
+    console.log("emailOrPhone", emailOrPhone);
 
     // Find user by phone
     const user = await prisma.user.findFirst({
@@ -42,8 +43,14 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       include: {
         managedFarms: true,
         ownedFarms: true,
+        dealer: true,
+        company: true,
       },
     });
+
+    console.log("user", user);
+    console.log("user.dealer", user?.dealer);
+    console.log("user.company", user?.company);
 
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
@@ -79,11 +86,17 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       calendarType: user.calendarType,
       managedFarms: user.managedFarms?.map((farm) => farm.id),
       ownedFarms: user.ownedFarms?.map((farm) => farm.id),
+      dealer: user.dealer,
+      company: user.company,
     };
 
     console.log("userWithFarms", userWithFarms);
 
     // Return access token and user data
+
+    console.log("tokens", tokens);
+    console.log("userWithFarms", userWithFarms);
+
     return res.json({
       accessToken: tokens.accessToken,
       user: userWithFarms,
@@ -130,7 +143,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     // Create user
     const user = await prisma.user.create({
       data: {
-        name: name,        
+        name: name,
         phone: phone,
         password: hashedPassword,
         // if user is owner then marked as verified else pending verification
@@ -294,6 +307,8 @@ export const getUserInfo = async (
         },
       },
       ownedFarms: true,
+      dealer: true,
+      company: true,
     },
   });
   if (!userData) {
@@ -312,6 +327,8 @@ export const getUserInfo = async (
     managedFarms: userData.managedFarms,
     ownedFarms: userData.ownedFarms,
     role: userData.role,
+    dealer: userData.dealer,
+    company: userData.company,
   });
 };
 
@@ -355,6 +372,8 @@ export const validateToken = async (
           },
         },
         ownedFarms: true,
+        dealer: true,
+        company: true,
       },
     });
 
@@ -386,6 +405,8 @@ export const validateToken = async (
       calendarType: userData.calendarType,
       managedFarms: userData.managedFarms,
       ownedFarms: userData.ownedFarms,
+      dealer: userData.dealer,
+      company: userData.company,
     };
 
     // Add storeId for farm managers
@@ -429,7 +450,7 @@ export const storeCrossPortAuth = async (
 
     // Generate a unique session ID
     const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+
     // Store the auth data with expiration (5 minutes)
     crossPortAuthStorage.set(sessionId, {
       authData,
@@ -543,7 +564,7 @@ export const verifyPassword = async (
 
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password);
-    
+
     if (!isValidPassword) {
       return res.status(401).json({
         success: false,
@@ -560,6 +581,184 @@ export const verifyPassword = async (
     return res.status(500).json({
       success: false,
       message: "Internal server error",
+    });
+  }
+};
+
+// ==================== REGISTER ENTITY (DEALER/COMPANY) ====================
+export const registerEntity = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const {
+      name,
+      phone,
+      password,
+      entityType,
+      entityName,
+      entityContact,
+      entityAddress,
+    } = req.body;
+
+    // Validation
+    if (!name || !phone || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, phone, and password are required",
+      });
+    }
+
+    if (!entityType || !["DEALER", "COMPANY"].includes(entityType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Entity type must be either DEALER or COMPANY",
+      });
+    }
+
+    if (!entityName) {
+      return res.status(400).json({
+        success: false,
+        message: "Entity name is required",
+      });
+    }
+
+    // Contact is required only for Dealers
+    if (entityType === "DEALER" && !entityContact) {
+      return res.status(400).json({
+        success: false,
+        message: "Dealer contact is required",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters long",
+      });
+    }
+
+    // Check if phone number already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { phone },
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number already registered",
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Determine user role based on entity type
+    const userRole =
+      entityType === "DEALER" ? UserRole.DEALER : UserRole.COMPANY;
+
+    // Create user and entity in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Create user
+      const user = await tx.user.create({
+        data: {
+          name,
+          phone,
+          password: hashedPassword,
+          role: userRole,
+          status: UserStatus.ACTIVE, // Active by default for dealer/company
+          language: "ENGLISH",
+          calendarType: "AD",
+        },
+      });
+
+      // Create entity (Dealer or Company)
+      if (entityType === "DEALER") {
+        // Check if owner already has a dealer
+        const existingDealer = await tx.dealer.findUnique({
+          where: { ownerId: user.id },
+        });
+
+        if (existingDealer) {
+          throw new Error("User already owns a dealer account");
+        }
+
+        const dealer = await tx.dealer.create({
+          data: {
+            name: entityName,
+            contact: entityContact,
+            address: entityAddress || null,
+            ownerId: user.id,
+          },
+        });
+
+        return { user, entity: dealer, entityType: "DEALER" };
+      } else {
+        // COMPANY
+        // Check if owner already has a company
+        const existingCompany = await tx.company.findUnique({
+          where: { ownerId: user.id },
+        });
+
+        if (existingCompany) {
+          throw new Error("User already owns a company account");
+        }
+
+        const company = await tx.company.create({
+          data: {
+            name: entityName,
+            address: entityAddress || null,
+            ownerId: user.id,
+          },
+        });
+
+        return { user, entity: company, entityType: "COMPANY" };
+      }
+    });
+
+    // Generate tokens
+    const tokens = generateTokens(result.user.id, result.user.role);
+
+    res.cookie("refreshToken", tokens.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: "/",
+    });
+
+    // Return access token and user data
+    return res.status(201).json({
+      success: true,
+      accessToken: tokens.accessToken,
+      user: {
+        id: result.user.id,
+        name: result.user.name,
+        phone: result.user.phone,
+        role: result.user.role,
+        status: result.user.status,
+      },
+      entity: {
+        id: result.entity.id,
+        name: result.entity.name,
+        type: result.entityType,
+      },
+      message: `${result.entityType} account created successfully`,
+    });
+  } catch (error: any) {
+    console.error("Entity registration error:", error);
+
+    // Handle Prisma unique constraint errors
+    if (error.code === "P2002") {
+      return res.status(400).json({
+        success: false,
+        message: "A record with this information already exists",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
     });
   }
 };

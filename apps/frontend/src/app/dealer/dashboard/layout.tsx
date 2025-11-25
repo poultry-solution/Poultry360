@@ -15,6 +15,9 @@ export default function DealerDashboardLayout({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { user } = useAuthStore();
 
+  const role = user?.role as
+    | "DEALER";
+
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
   };
@@ -41,10 +44,10 @@ export default function DealerDashboardLayout({
       <div className="flex h-screen bg-background relative">
         {/* Sidebar - Hidden on mobile, shown on desktop */}
         <div className="hidden md:block">
-          <Sidebar 
-            role={user?.role as "OWNER" | "MANAGER" | "DOCTOR" | "SUPER_ADMIN" | "DEALER"}
-            isCollapsed={isCollapsed} 
-            onToggle={toggleSidebar} 
+          <Sidebar
+            role={role}
+            isCollapsed={isCollapsed}
+            onToggle={toggleSidebar}
           />
         </div>
 
@@ -60,10 +63,16 @@ export default function DealerDashboardLayout({
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Topbar */}
-          <Topbar isCollapsed={isCollapsed} onToggle={toggleSidebar} />
+          <Topbar
+            isCollapsed={isCollapsed}
+            onToggle={toggleSidebar}
+            role={role}
+          />
 
           {/* Page Content - Add padding-bottom on mobile for bottom nav */}
-          <main className="flex-1 overflow-y-auto p-6 pb-24 md:pb-6">{children}</main>
+          <main className="flex-1 overflow-y-auto p-6 pb-24 md:pb-6">
+            {children}
+          </main>
         </div>
 
         {/* Mobile Bottom Navigation */}
@@ -72,4 +81,3 @@ export default function DealerDashboardLayout({
     </QuickActionsProvider>
   );
 }
-

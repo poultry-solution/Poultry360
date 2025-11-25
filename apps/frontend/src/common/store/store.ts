@@ -4,17 +4,41 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { devtools } from "zustand/middleware";
 
 // Types based on your backend
+export interface DealerBusiness {
+  id: string;
+  name: string;
+  contact: string;
+  address?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  userId?: string | null;
+  ownerId: string;
+  companyId?: string | null;
+}
+
+export interface CompanyBusiness {
+  id: string;
+  name: string;
+  address?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  ownerId: string;
+}
+
 export interface User {
   id: string;
   name: string;
   phone: string;
   companyName?: string;
   companyFarmLocation?: string;
-  role: "OWNER" | "MANAGER" | "DOCTOR" | "SUPER_ADMIN";
+  role: "OWNER" | "MANAGER" | "DOCTOR" | "DEALER" | "COMPANY" | "SUPER_ADMIN";
   status: "ACTIVE" | "INACTIVE" | "PENDING_VERIFICATION";
   language?: "ENGLISH" | "NEPALI";
   calendarType?: "AD" | "BS";
   managedFarms?: string[]; // Array of farm IDs for managers
+  ownedFarms?: string[]; // Array of farm IDs for owners
+  dealer?: DealerBusiness | null; // Dealer business info if user owns a dealer
+  company?: CompanyBusiness | null; // Company business info if user owns a company
 }
 
 export interface LoginCredentials {
@@ -26,7 +50,7 @@ export interface RegisterData {
   name: string;
   password: string;
   phone: string;
-  role: "OWNER" | "MANAGER" | "DOCTOR" | "SUPER_ADMIN";
+  role: "OWNER" | "MANAGER" | "DOCTOR" | "DEALER" | "COMPANY" | "SUPER_ADMIN";
   companyName?: string;
   companyFarmLocation?: string;
 }
@@ -130,6 +154,9 @@ export const useAuthStore = create<AuthState>()(
               language: user.language || "ENGLISH",
               calendarType: user.calendarType || "AD",
               managedFarms: user.managedFarms || [],
+              ownedFarms: user.ownedFarms || [],
+              dealer: user.dealer || null,
+              company: user.company || null,
             };
 
             set({
@@ -174,6 +201,9 @@ export const useAuthStore = create<AuthState>()(
               language: user.language || "ENGLISH",
               calendarType: user.calendarType || "AD",
               managedFarms: [],
+              ownedFarms: user.ownedFarms || [],
+              dealer: user.dealer || null,
+              company: user.company || null,
             };
 
             set({
@@ -277,6 +307,9 @@ export const useAuthStore = create<AuthState>()(
                 language: response.user.language || "ENGLISH",
                 calendarType: response.user.calendarType || "AD",
                 managedFarms: response.user.managedFarms || [],
+                ownedFarms: response.user.ownedFarms || [],
+                dealer: response.user.dealer || null,
+                company: response.user.company || null,
               };
 
               set({
@@ -331,6 +364,9 @@ export const useAuthStore = create<AuthState>()(
               language: userData.language || "ENGLISH",
               calendarType: userData.calendarType || "AD",
               managedFarms: userData.managedFarms || [],
+              ownedFarms: userData.ownedFarms || [],
+              dealer: userData.dealer || null,
+              company: userData.company || null,
             };
 
             set({
@@ -420,30 +456,7 @@ export const useAuthStore = create<AuthState>()(
           }
         },
 
-        // TODO: Handle doctor navigation when implementing unified architecture
-        // navigateToDoctorApp: () => {
-        //   const { user, accessToken } = get();
-        //   if (!user || !accessToken) {
-        //     console.error("No auth data available for navigation");
-        //     return;
-        //   }
-
-        //   // Store auth data in shared storage
-        //   crossPortAuth.setAuthData({
-        //     accessToken,
-        //     user: {
-        //       id: user.id,
-        //       name: user.name,
-        //       email: user.phone, // Use phone as email since we don't have email
-        //       phone: user.phone,
-        //       role: user.role,
-        //       companyName: user.companyName,
-        //     },
-        //   });
-
-        //   // Navigate to doctor app
-        //   crossPortAuth.navigateToDoctorApp();
-        // },
+  
       }),
       {
         name: "auth-storage",
