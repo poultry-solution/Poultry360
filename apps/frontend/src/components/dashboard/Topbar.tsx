@@ -16,7 +16,7 @@ import { useAuth } from "@/common/store/store";
 import { useRouter } from "next/navigation";
 import { NotificationBell } from "@/common/components/notifications/NotificationBell";
 interface TopbarProps {
-  role?: "OWNER" | "MANAGER" | "DOCTOR" | "SUPER_ADMIN";
+  role?: "OWNER" | "MANAGER" | "DOCTOR" | "SUPER_ADMIN" | "DEALER" | "COMPANY";
   isCollapsed?: boolean;
   onToggle?: () => void;
 }
@@ -37,6 +37,19 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
       return {
         searchPlaceholder: "Search users, farms, batches...",
         settingsPath: "/admin/dashboard/settings"
+      };
+    }
+
+    if (role === "DEALER") {
+      return {
+        searchPlaceholder: "Search dealers, companies...",
+        settingsPath: "/dealer/dashboard/settings"
+      };
+    }
+    if (role === "COMPANY") {
+      return {
+        searchPlaceholder: "Search companies, dealers...",
+        settingsPath: "/company/dashboard/settings"
       };
     }
     return {

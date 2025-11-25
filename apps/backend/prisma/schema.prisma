@@ -184,9 +184,19 @@ model User {
   categories Category[]
   
   // Suppliers (simplified - no balance fields)
-  dealers   Dealer[]
+  dealers   Dealer[] @relation("DealerCreator")
   hatcheries Hatchery[]
+
   medicineSuppliers MedicineSupplier[]
+
+  dealer     Dealer? @relation("DealerOwner")
+
+  managedDealers Dealer[] @relation("DealerManagers")
+
+  company    Company? @relation("CompanyOwner")
+  
+  managedCompanies Company[] @relation("CompanyManagedBy")
+  suppliedProducts Product[] @relation("ProductSupplier")
   
   // Inventory
   inventoryItems InventoryItem[]
@@ -203,6 +213,24 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+
+
+model Company {
+  id          String   @id @default(cuid())
+  name        String
+  address     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  ownerId     String   @unique
+  owner       User     @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  managedBy User[]   @relation("CompanyManagedBy")
+  dealers   Dealer[]
+
+  @@index([ownerId])
 }
 
 model Farm {
@@ -292,6 +320,21 @@ enum InventoryItemType {
   OTHER          // Other items
 }
 
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        InventoryItemType
+  unit        String
+  price       Decimal  @db.Decimal(10, 2)
+  quantity    Decimal  @db.Decimal(10, 2)
+  totalPrice  Decimal  @db.Decimal(10, 2)
+  supplierId String?
+  supplier    User? @relation("ProductSupplier", fields: [supplierId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model Category {
   id          String   @id @default(cuid())
   name        String
@@ -311,6 +354,8 @@ model Category {
   @@unique([userId, type, name])
   @@index([userId, type])
 }
+
+
 
 // ==================== EXPENSES & SALES ====================
 
@@ -542,19 +587,32 @@ model Dealer {
   name        String
   contact     String
   address     String?
-  // Removed balance field - computed from EntityTransaction
-  
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // ✅ Direct relationship to transactions
-  transactions EntityTransaction[]
-  
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
+  // Farmer who created this dealer (for local/offline dealers)
+  userId      String?
+  user        User?    @relation("DealerCreator", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Owner (dealer authentication / access control)
+  ownerId     String?  @unique
+  owner       User?    @relation("DealerOwner", fields: [ownerId], references: [id])
+
+  // NEW: Managers of this dealer (many-to-many)
+  managers    User[]   @relation("DealerManagers")
+
+  // Optional dealer-company link
+  companyId   String?
+  company     Company? @relation(fields: [companyId], references: [id])
+
+
+  transactions EntityTransaction[]
+
   @@unique([userId, name])
+  @@index([ownerId])
 }
+
 
 model Hatchery {
   id          String   @id @default(cuid())

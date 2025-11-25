@@ -51,25 +51,7 @@ export default function LoginPage() {
       // Get user data after successful login
       const { user, accessToken } = useAuthStore.getState();
 
-      // TODO: Handle doctor cross-port navigation when implementing unified architecture
-      // if (user?.role === "DOCTOR") {
-      //   // Store auth data for cross-port navigation
-      //   console.log('🔍 Main app - storing auth data for doctor navigation');
-      //   const emailForAuth = (user as unknown as { email?: string })?.email ?? "";
-      //   crossPortAuth.setAuthData({
-      //     accessToken: accessToken!,
-      //     user: {
-      //       id: user.id,
-      //       name: user.name,
-      //       phone: user.phone,
-      //       role: user.role,
-      //       email: (user as any).email || "",
-      //       companyName: user.companyName,
-      //     },
-      //   });
-      // }
 
-      // Use the new role-based redirection system
       await handleLoginRedirect(user?.role || "OWNER");
     } catch (err) {
       console.error("Login failed:", err);

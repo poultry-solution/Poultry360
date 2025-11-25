@@ -9,6 +9,7 @@ import {
   storeCrossPortAuth,
   getCrossPortAuth,
   verifyPassword,
+  registerEntity,
 } from "../controller/auth";
 import { authMiddleware } from "../middelware/middelware";
 
@@ -16,6 +17,7 @@ const authRouter = Router();
 
 authRouter.post("/login", login);
 authRouter.post("/register", register);
+authRouter.post("/register-entity", registerEntity);
 authRouter.post("/logout", logout);
 authRouter.post("/refresh-token", refreshToken);
 authRouter.get("/@me", getUserInfo);
