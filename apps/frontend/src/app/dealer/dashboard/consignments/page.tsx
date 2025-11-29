@@ -11,10 +11,9 @@ import {
   CheckCircle,
   XCircle,
   Truck,
-  FileText,
-  Calendar,
   DollarSign,
   Ban,
+  Receipt,
 } from "lucide-react";
 import {
   Card,
@@ -54,84 +53,91 @@ import {
 import { Textarea } from "@/common/components/ui/textarea";
 import { toast } from "sonner";
 import {
-  useGetCompanyConsignments,
-  useGetConsignmentDetails,
-  useCreateCompanyConsignment,
-  useApproveConsignment,
-  useDispatchConsignment,
-  useRejectConsignment,
-  useCancelCompanyConsignment,
-  useGetConsignmentAuditLogs,
+  useGetDealerConsignments,
+  useRequestConsignment,
+  useAcceptConsignment,
+  useConfirmReceipt,
+  useRecordAdvancePayment,
+  useRejectDealerConsignment,
+  useCancelDealerConsignment,
   type Consignment,
-  type AuditLog,
-} from "@/fetchers/company/consignmentQueries";
-import { useGetCompanyDealers } from "@/fetchers/company/companyDealerQueries";
-import { useGetCompanyProducts } from "@/fetchers/company/companyProductQueries";
+} from "@/fetchers/dealer/consignmentQueries";
+import { useSearchCompanies } from "@/fetchers/dealer/companyQueries";
+import { CompanySearchSelect } from "@/common/components/forms/CompanySearchSelect";
 
-export default function CompanyConsignmentsPage() {
-  const [activeTab, setActiveTab] = useState("sent");
+export default function DealerConsignmentsPage() {
+  const [activeTab, setActiveTab] = useState("received");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [selectedConsignment, setSelectedConsignment] = useState<Consignment | null>(null);
-  
+
   // Dialogs
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
-  const [isDispatchDialogOpen, setIsDispatchDialogOpen] = useState(false);
+  const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
+  const [isConfirmReceiptDialogOpen, setIsConfirmReceiptDialogOpen] = useState(false);
+  const [isAdvancePaymentDialogOpen, setIsAdvancePaymentDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
 
-  // Form state for create consignment
-  const [createDealerId, setCreateDealerId] = useState("");
-  const [createItems, setCreateItems] = useState<Array<{
+  // Form state for request consignment
+  const [requestCompanyId, setRequestCompanyId] = useState("");
+  const [requestProductSearch, setRequestProductSearch] = useState("");
+  const [requestItems, setRequestItems] = useState<Array<{
     productId: string;
+    productName: string;
     quantity: number;
     unitPrice: number;
   }>>([]);
-  const [createNotes, setCreateNotes] = useState("");
+  const [requestNotes, setRequestNotes] = useState("");
 
-  // Form state for approve
-  const [approveItems, setApproveItems] = useState<Array<{
+  // Form state for accept
+  const [acceptItems, setAcceptItems] = useState<Array<{
     itemId: string;
     acceptedQuantity: number;
   }>>([]);
-  const [approveNotes, setApproveNotes] = useState("");
+  const [acceptNotes, setAcceptNotes] = useState("");
 
-  // Form state for dispatch
-  const [dispatchRef, setDispatchRef] = useState("");
-  const [trackingInfo, setTrackingInfo] = useState("");
-  const [dispatchNotes, setDispatchNotes] = useState("");
+  // Form state for confirm receipt
+  const [grnRef, setGrnRef] = useState("");
+  const [receiptNotes, setReceiptNotes] = useState("");
+
+  // Form state for advance payment
+  const [advanceAmount, setAdvanceAmount] = useState("");
+  const [advanceMethod, setAdvanceMethod] = useState("CASH");
+  const [advanceReference, setAdvanceReference] = useState("");
+  const [advanceDate, setAdvanceDate] = useState("");
+  const [advanceNotes, setAdvanceNotes] = useState("");
 
   // Form state for reject
   const [rejectReason, setRejectReason] = useState("");
 
+  // Company search for products
+  const [companyProductSearch, setCompanyProductSearch] = useState("");
+  const { data: companyProductsData } = useSearchCompanies(companyProductSearch);
+
   // Queries
-  const { data: sentData, isLoading: sentLoading } = useGetCompanyConsignments({
+  const { data: receivedData, isLoading: receivedLoading } = useGetDealerConsignments({
     direction: "COMPANY_TO_DEALER",
     status: statusFilter !== "ALL" ? statusFilter : undefined,
     search: search || undefined,
   });
 
-  const { data: receivedData, isLoading: receivedLoading } = useGetCompanyConsignments({
+  const { data: requestedData, isLoading: requestedLoading } = useGetDealerConsignments({
     direction: "DEALER_TO_COMPANY",
     status: statusFilter !== "ALL" ? statusFilter : undefined,
     search: search || undefined,
   });
 
-  const { data: dealersData } = useGetCompanyDealers({ limit: 100 });
-  const { data: productsData } = useGetCompanyProducts({ limit: 100 });
-
   // Mutations
-  const createMutation = useCreateCompanyConsignment();
-  const approveMutation = useApproveConsignment();
-  const dispatchMutation = useDispatchConsignment();
-  const rejectMutation = useRejectConsignment();
-  const cancelMutation = useCancelCompanyConsignment();
+  const requestMutation = useRequestConsignment();
+  const acceptMutation = useAcceptConsignment();
+  const confirmReceiptMutation = useConfirmReceipt();
+  const advancePaymentMutation = useRecordAdvancePayment();
+  const rejectMutation = useRejectDealerConsignment();
+  const cancelMutation = useCancelDealerConsignment();
 
-  const sentConsignments = sentData?.data || [];
   const receivedConsignments = receivedData?.data || [];
-  const dealers = dealersData?.data || [];
-  const products = productsData?.data || [];
+  const requestedConsignments = requestedData?.data || [];
 
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString("en-US", {
@@ -203,62 +209,90 @@ export default function CompanyConsignmentsPage() {
     }
   };
 
-  const handleCreateConsignment = async () => {
-    if (!createDealerId || createItems.length === 0) {
-      toast.error("Please select dealer and add items");
+  const handleRequestConsignment = async () => {
+    if (!requestCompanyId || requestItems.length === 0) {
+      toast.error("Please select company and add items");
       return;
     }
 
     try {
-      await createMutation.mutateAsync({
-        dealerId: createDealerId,
-        items: createItems,
-        notes: createNotes || undefined,
+      await requestMutation.mutateAsync({
+        companyId: requestCompanyId,
+        items: requestItems.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+        })),
+        notes: requestNotes || undefined,
       });
-      toast.success("Consignment created successfully");
-      setIsCreateDialogOpen(false);
-      resetCreateForm();
+      toast.success("Consignment request sent successfully");
+      setIsRequestDialogOpen(false);
+      resetRequestForm();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to create consignment");
+      toast.error(error.response?.data?.message || "Failed to request consignment");
     }
   };
 
-  const handleApproveConsignment = async () => {
-    if (!selectedConsignment || approveItems.length === 0) {
+  const handleAcceptConsignment = async () => {
+    if (!selectedConsignment || acceptItems.length === 0) {
       toast.error("Please specify accepted quantities");
       return;
     }
 
     try {
-      await approveMutation.mutateAsync({
+      await acceptMutation.mutateAsync({
         id: selectedConsignment.id,
-        items: approveItems,
-        notes: approveNotes || undefined,
+        items: acceptItems,
+        notes: acceptNotes || undefined,
       });
-      toast.success("Consignment approved successfully");
-      setIsApproveDialogOpen(false);
+      toast.success("Consignment accepted successfully");
+      setIsAcceptDialogOpen(false);
       setSelectedConsignment(null);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to approve consignment");
+      toast.error(error.response?.data?.message || "Failed to accept consignment");
     }
   };
 
-  const handleDispatchConsignment = async () => {
+  const handleConfirmReceipt = async () => {
     if (!selectedConsignment) return;
 
     try {
-      await dispatchMutation.mutateAsync({
+      await confirmReceiptMutation.mutateAsync({
         id: selectedConsignment.id,
-        dispatchRef: dispatchRef || undefined,
-        trackingInfo: trackingInfo || undefined,
-        notes: dispatchNotes || undefined,
+        grnRef: grnRef || undefined,
+        notes: receiptNotes || undefined,
       });
-      toast.success("Consignment dispatched successfully");
-      setIsDispatchDialogOpen(false);
+      toast.success("Receipt confirmed! Sale created and inventory updated.");
+      setIsConfirmReceiptDialogOpen(false);
       setSelectedConsignment(null);
-      resetDispatchForm();
+      setGrnRef("");
+      setReceiptNotes("");
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to dispatch consignment");
+      toast.error(error.response?.data?.message || "Failed to confirm receipt");
+    }
+  };
+
+  const handleRecordAdvancePayment = async () => {
+    if (!selectedConsignment || !advanceAmount || parseFloat(advanceAmount) <= 0) {
+      toast.error("Please enter a valid payment amount");
+      return;
+    }
+
+    try {
+      await advancePaymentMutation.mutateAsync({
+        id: selectedConsignment.id,
+        amount: parseFloat(advanceAmount),
+        paymentMethod: advanceMethod,
+        paymentReference: advanceReference || undefined,
+        paymentDate: advanceDate || undefined,
+        notes: advanceNotes || undefined,
+      });
+      toast.success("Advance payment recorded successfully");
+      setIsAdvancePaymentDialogOpen(false);
+      setSelectedConsignment(null);
+      resetAdvanceForm();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to record payment");
     }
   };
 
@@ -292,30 +326,36 @@ export default function CompanyConsignmentsPage() {
     }
   };
 
-  const resetCreateForm = () => {
-    setCreateDealerId("");
-    setCreateItems([]);
-    setCreateNotes("");
+  const resetRequestForm = () => {
+    setRequestCompanyId("");
+    setRequestItems([]);
+    setRequestNotes("");
   };
 
-  const resetDispatchForm = () => {
-    setDispatchRef("");
-    setTrackingInfo("");
-    setDispatchNotes("");
+  const resetAdvanceForm = () => {
+    setAdvanceAmount("");
+    setAdvanceMethod("CASH");
+    setAdvanceReference("");
+    setAdvanceDate("");
+    setAdvanceNotes("");
   };
 
-  const addCreateItem = () => {
-    setCreateItems([...createItems, { productId: "", quantity: 0, unitPrice: 0 }]);
+  const addRequestItem = (product: { id: string; name: string }) => {
+    setRequestItems([
+      ...requestItems,
+      { productId: product.id, productName: product.name, quantity: 0, unitPrice: 0 },
+    ]);
+    setCompanyProductSearch("");
   };
 
-  const removeCreateItem = (index: number) => {
-    setCreateItems(createItems.filter((_, i) => i !== index));
+  const removeRequestItem = (index: number) => {
+    setRequestItems(requestItems.filter((_, i) => i !== index));
   };
 
-  const updateCreateItem = (index: number, field: string, value: any) => {
-    const updated = [...createItems];
+  const updateRequestItem = (index: number, field: string, value: any) => {
+    const updated = [...requestItems];
     updated[index] = { ...updated[index], [field]: value };
-    setCreateItems(updated);
+    setRequestItems(updated);
   };
 
   return (
@@ -327,12 +367,12 @@ export default function CompanyConsignmentsPage() {
             Consignment Management
           </h1>
           <p className="text-muted-foreground">
-            Manage product consignments to dealers
+            Manage consignments from companies
           </p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-primary">
+        <Button onClick={() => setIsRequestDialogOpen(true)} className="bg-primary">
           <Plus className="mr-2 h-4 w-4" />
-          New Consignment
+          Request Consignment
         </Button>
       </div>
 
@@ -371,45 +411,43 @@ export default function CompanyConsignmentsPage() {
         </CardContent>
       </Card>
 
-      {/* Tabs for Sent and Received */}
+      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
-          <TabsTrigger value="sent">Sent to Dealers</TabsTrigger>
-          <TabsTrigger value="received">Received from Dealers</TabsTrigger>
+          <TabsTrigger value="received">Received from Company</TabsTrigger>
+          <TabsTrigger value="requested">My Requests</TabsTrigger>
         </TabsList>
 
-        {/* Sent Consignments Tab */}
-        <TabsContent value="sent">
+        {/* Received Consignments Tab */}
+        <TabsContent value="received">
           <Card>
             <CardHeader>
-              <CardTitle>Sent Consignments</CardTitle>
+              <CardTitle>Received Consignments</CardTitle>
               <CardDescription>
-                Consignments you've sent to dealers
+                Consignments received from companies
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {sentLoading ? (
+              {receivedLoading ? (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">Loading...</p>
                 </div>
-              ) : sentConsignments.length === 0 ? (
+              ) : receivedConsignments.length === 0 ? (
                 <div className="text-center py-8">
                   <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No consignments yet</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Create your first consignment to a dealer.
+                  <h3 className="text-lg font-semibold mb-2">
+                    No consignments received
+                  </h3>
+                  <p className="text-muted-foreground">
+                    Companies can send you consignments or you can request them.
                   </p>
-                  <Button onClick={() => setIsCreateDialogOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    New Consignment
-                  </Button>
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Request #</TableHead>
-                      <TableHead>Dealer</TableHead>
+                      <TableHead>Company</TableHead>
                       <TableHead>Items</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
                       <TableHead>Status</TableHead>
@@ -418,12 +456,12 @@ export default function CompanyConsignmentsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sentConsignments.map((consignment) => (
+                    {receivedConsignments.map((consignment) => (
                       <TableRow key={consignment.id}>
                         <TableCell className="font-medium">
                           {consignment.requestNumber}
                         </TableCell>
-                        <TableCell>{consignment.toDealer?.name || "N/A"}</TableCell>
+                        <TableCell>{consignment.fromCompany?.name || "N/A"}</TableCell>
                         <TableCell>{consignment.items.length} items</TableCell>
                         <TableCell className="text-right">
                           {formatCurrency(consignment.totalAmount)}
@@ -442,19 +480,73 @@ export default function CompanyConsignmentsPage() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            {consignment.status === "ACCEPTED_PENDING_DISPATCH" && (
+                            
+                            {/* Accept action for CREATED status */}
+                            {consignment.status === "CREATED" && (
+                              <>
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedConsignment(consignment);
+                                    setAcceptItems(
+                                      consignment.items.map((item) => ({
+                                        itemId: item.id,
+                                        acceptedQuantity: Number(item.quantity),
+                                      }))
+                                    );
+                                    setIsAcceptDialogOpen(true);
+                                  }}
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-1" />
+                                  Accept
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedConsignment(consignment);
+                                    setIsRejectDialogOpen(true);
+                                  }}
+                                >
+                                  <XCircle className="h-4 w-4 mr-1" />
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+
+                            {/* Confirm Receipt for DISPATCHED status */}
+                            {consignment.status === "DISPATCHED" && (
                               <Button
                                 variant="default"
                                 size="sm"
+                                className="bg-green-600 hover:bg-green-700"
                                 onClick={() => {
                                   setSelectedConsignment(consignment);
-                                  setIsDispatchDialogOpen(true);
+                                  setIsConfirmReceiptDialogOpen(true);
                                 }}
                               >
-                                <Truck className="h-4 w-4 mr-1" />
-                                Dispatch
+                                <Receipt className="h-4 w-4 mr-1" />
+                                Confirm Receipt
                               </Button>
                             )}
+
+                            {/* Record Advance Payment for pre-receipt statuses */}
+                            {["CREATED", "ACCEPTED_PENDING_DISPATCH", "DISPATCHED"].includes(consignment.status) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedConsignment(consignment);
+                                  setIsAdvancePaymentDialogOpen(true);
+                                }}
+                              >
+                                <DollarSign className="h-4 w-4 mr-1" />
+                                Pay Advance
+                              </Button>
+                            )}
+
+                            {/* Cancel for CREATED or ACCEPTED_PENDING_DISPATCH */}
                             {(consignment.status === "CREATED" || consignment.status === "ACCEPTED_PENDING_DISPATCH") && (
                               <Button
                                 variant="destructive"
@@ -477,36 +569,40 @@ export default function CompanyConsignmentsPage() {
           </Card>
         </TabsContent>
 
-        {/* Received Consignments Tab */}
-        <TabsContent value="received">
+        {/* Requested Consignments Tab */}
+        <TabsContent value="requested">
           <Card>
             <CardHeader>
-              <CardTitle>Received Requests</CardTitle>
+              <CardTitle>My Requests</CardTitle>
               <CardDescription>
-                Consignment requests from dealers
+                Consignment requests you've sent to companies
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {receivedLoading ? (
+              {requestedLoading ? (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">Loading...</p>
                 </div>
-              ) : receivedConsignments.length === 0 ? (
+              ) : requestedConsignments.length === 0 ? (
                 <div className="text-center py-8">
                   <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">
-                    No requests received
+                    No requests sent
                   </h3>
-                  <p className="text-muted-foreground">
-                    Dealers can request consignments from you.
+                  <p className="text-muted-foreground mb-4">
+                    Request products from companies on consignment.
                   </p>
+                  <Button onClick={() => setIsRequestDialogOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Request Consignment
+                  </Button>
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Request #</TableHead>
-                      <TableHead>Dealer</TableHead>
+                      <TableHead>Company</TableHead>
                       <TableHead>Items</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
                       <TableHead>Status</TableHead>
@@ -515,12 +611,12 @@ export default function CompanyConsignmentsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {receivedConsignments.map((consignment) => (
+                    {requestedConsignments.map((consignment) => (
                       <TableRow key={consignment.id}>
                         <TableCell className="font-medium">
                           {consignment.requestNumber}
                         </TableCell>
-                        <TableCell>{consignment.fromDealer?.name || "N/A"}</TableCell>
+                        <TableCell>{consignment.fromCompany?.name || "N/A"}</TableCell>
                         <TableCell>{consignment.items.length} items</TableCell>
                         <TableCell className="text-right">
                           {formatCurrency(consignment.totalAmount)}
@@ -540,36 +636,15 @@ export default function CompanyConsignmentsPage() {
                               <Eye className="h-4 w-4" />
                             </Button>
                             {consignment.status === "CREATED" && (
-                              <>
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedConsignment(consignment);
-                                    setApproveItems(
-                                      consignment.items.map((item) => ({
-                                        itemId: item.id,
-                                        acceptedQuantity: Number(item.quantity),
-                                      }))
-                                    );
-                                    setIsApproveDialogOpen(true);
-                                  }}
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Approve
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedConsignment(consignment);
-                                    setIsRejectDialogOpen(true);
-                                  }}
-                                >
-                                  <XCircle className="h-4 w-4 mr-1" />
-                                  Reject
-                                </Button>
-                              </>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleCancelConsignment(consignment.id)}
+                                disabled={cancelMutation.isPending}
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                Cancel
+                              </Button>
                             )}
                           </div>
                         </TableCell>
@@ -583,136 +658,147 @@ export default function CompanyConsignmentsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Create Consignment Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      {/* Request Consignment Dialog */}
+      <Dialog open={isRequestDialogOpen} onOpenChange={setIsRequestDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create New Consignment</DialogTitle>
+            <DialogTitle>Request Consignment from Company</DialogTitle>
             <DialogDescription>
-              Send products to a dealer on consignment
+              Request products from a company on consignment
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="dealer">Select Dealer *</Label>
-              <Select value={createDealerId} onValueChange={setCreateDealerId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select dealer..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {dealers.map((dealer) => (
-                    <SelectItem key={dealer.id} value={dealer.id}>
-                      {dealer.name} - {dealer.contact}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="company">Select Company *</Label>
+              <CompanySearchSelect
+                value={requestCompanyId}
+                onValueChange={setRequestCompanyId}
+                placeholder="Search for company..."
+              />
             </div>
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>Products *</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addCreateItem}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Product
-                </Button>
-              </div>
-              {createItems.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex gap-2 items-end p-3 border rounded-md"
-                >
-                  <div className="flex-1 space-y-2">
-                    <Label htmlFor={`product-${index}`}>Product</Label>
-                    <Select
-                      value={item.productId}
-                      onValueChange={(value) =>
-                        updateCreateItem(index, "productId", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select product..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {products.map((product) => (
-                          <SelectItem key={product.id} value={product.id}>
-                            {product.name} (Stock: {product.currentStock})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="w-24 space-y-2">
-                    <Label htmlFor={`quantity-${index}`}>Quantity</Label>
-                    <Input
-                      id={`quantity-${index}`}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={item.quantity}
-                      onChange={(e) =>
-                        updateCreateItem(index, "quantity", parseFloat(e.target.value) || 0)
-                      }
-                    />
-                  </div>
-                  <div className="w-32 space-y-2">
-                    <Label htmlFor={`unitPrice-${index}`}>Unit Price</Label>
-                    <Input
-                      id={`unitPrice-${index}`}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={item.unitPrice}
-                      onChange={(e) =>
-                        updateCreateItem(index, "unitPrice", parseFloat(e.target.value) || 0)
-                      }
-                    />
-                  </div>
-                  <div className="w-32">
-                    <p className="text-sm font-medium">Total</p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatCurrency(item.quantity * item.unitPrice)}
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeCreateItem(index)}
-                  >
-                    <XCircle className="h-4 w-4 text-destructive" />
-                  </Button>
+                <div className="text-sm text-muted-foreground">
+                  Add products with quantities and expected prices
                 </div>
-              ))}
-              {createItems.length === 0 && (
+              </div>
+              
+              {requestItems.length > 0 && (
+                <div className="space-y-2">
+                  {requestItems.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex gap-2 items-end p-3 border rounded-md"
+                    >
+                      <div className="flex-1">
+                        <Label>Product</Label>
+                        <p className="font-medium mt-1">{item.productName}</p>
+                      </div>
+                      <div className="w-24 space-y-2">
+                        <Label htmlFor={`quantity-${index}`}>Quantity</Label>
+                        <Input
+                          id={`quantity-${index}`}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.quantity}
+                          onChange={(e) =>
+                            updateRequestItem(
+                              index,
+                              "quantity",
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="w-32 space-y-2">
+                        <Label htmlFor={`unitPrice-${index}`}>Unit Price</Label>
+                        <Input
+                          id={`unitPrice-${index}`}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.unitPrice}
+                          onChange={(e) =>
+                            updateRequestItem(
+                              index,
+                              "unitPrice",
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="w-32">
+                        <p className="text-sm font-medium">Total</p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatCurrency(item.quantity * item.unitPrice)}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeRequestItem(index)}
+                      >
+                        <XCircle className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>Add Product</Label>
+                <Input
+                  placeholder="Type product name to search..."
+                  value={companyProductSearch}
+                  onChange={(e) => setCompanyProductSearch(e.target.value)}
+                />
+                {companyProductSearch && companyProductsData?.data && (
+                  <div className="border rounded-md max-h-[200px] overflow-y-auto">
+                    {companyProductsData.data.map((company: any) => (
+                      <button
+                        key={company.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-muted"
+                        onClick={() => addRequestItem({ id: company.id, name: company.name })}
+                      >
+                        <p className="font-medium">{company.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {company.address || "Company"}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {requestItems.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  No items added yet. Click "Add Product" to get started.
+                  No items added yet. Search and select products above.
                 </p>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes (Optional)</Label>
+              <Label htmlFor="request-notes">Notes (Optional)</Label>
               <Textarea
-                id="notes"
-                value={createNotes}
-                onChange={(e) => setCreateNotes(e.target.value)}
-                placeholder="Add any notes or special instructions..."
+                id="request-notes"
+                value={requestNotes}
+                onChange={(e) => setRequestNotes(e.target.value)}
+                placeholder="Add any notes or special requirements..."
                 rows={3}
               />
             </div>
 
-            {createItems.length > 0 && (
+            {requestItems.length > 0 && (
               <div className="bg-muted p-4 rounded-md">
-                <p className="text-sm font-medium">Total Amount</p>
+                <p className="text-sm font-medium">Total Requested Amount</p>
                 <p className="text-2xl font-bold">
                   {formatCurrency(
-                    createItems.reduce(
+                    requestItems.reduce(
                       (sum, item) => sum + item.quantity * item.unitPrice,
                       0
                     )
@@ -725,35 +811,35 @@ export default function CompanyConsignmentsPage() {
             <Button
               variant="outline"
               onClick={() => {
-                setIsCreateDialogOpen(false);
-                resetCreateForm();
+                setIsRequestDialogOpen(false);
+                resetRequestForm();
               }}
             >
               Cancel
             </Button>
             <Button
-              onClick={handleCreateConsignment}
-              disabled={createMutation.isPending}
+              onClick={handleRequestConsignment}
+              disabled={requestMutation.isPending}
             >
-              {createMutation.isPending ? "Creating..." : "Create Consignment"}
+              {requestMutation.isPending ? "Sending..." : "Send Request"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Approve Consignment Dialog */}
-      <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+      {/* Accept Consignment Dialog */}
+      <Dialog open={isAcceptDialogOpen} onOpenChange={setIsAcceptDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Approve Consignment Request</DialogTitle>
+            <DialogTitle>Accept Consignment</DialogTitle>
             <DialogDescription>
-              Review and approve quantities for {selectedConsignment?.requestNumber}
+              Review and accept quantities for {selectedConsignment?.requestNumber}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-3">
-              <Label>Approve Quantities</Label>
-              {approveItems.map((item, index) => {
+              <Label>Accept Quantities</Label>
+              {acceptItems.map((item, index) => {
                 const originalItem = selectedConsignment?.items.find(
                   (i) => i.id === item.itemId
                 );
@@ -764,24 +850,24 @@ export default function CompanyConsignmentsPage() {
                         {originalItem?.companyProduct?.name || "Unknown Product"}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        Requested: {originalItem?.quantity || 0} • Unit Price:{" "}
+                        Offered: {originalItem?.quantity || 0} • Unit Price:{" "}
                         {formatCurrency(originalItem?.unitPrice)}
                       </p>
                     </div>
                     <div className="w-32">
-                      <Label htmlFor={`approve-qty-${index}`}>Accept Qty</Label>
+                      <Label htmlFor={`accept-qty-${index}`}>Accept Qty</Label>
                       <Input
-                        id={`approve-qty-${index}`}
+                        id={`accept-qty-${index}`}
                         type="number"
                         min="0"
                         max={Number(originalItem?.quantity || 0)}
                         step="0.01"
                         value={item.acceptedQuantity}
                         onChange={(e) => {
-                          const updated = [...approveItems];
+                          const updated = [...acceptItems];
                           updated[index].acceptedQuantity =
                             parseFloat(e.target.value) || 0;
-                          setApproveItems(updated);
+                          setAcceptItems(updated);
                         }}
                       />
                     </div>
@@ -791,11 +877,11 @@ export default function CompanyConsignmentsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="approve-notes">Notes (Optional)</Label>
+              <Label htmlFor="accept-notes">Notes (Optional)</Label>
               <Textarea
-                id="approve-notes"
-                value={approveNotes}
-                onChange={(e) => setApproveNotes(e.target.value)}
+                id="accept-notes"
+                value={acceptNotes}
+                onChange={(e) => setAcceptNotes(e.target.value)}
                 placeholder="Add notes or reasons for quantity changes..."
                 rows={3}
               />
@@ -805,59 +891,172 @@ export default function CompanyConsignmentsPage() {
             <Button
               variant="outline"
               onClick={() => {
-                setIsApproveDialogOpen(false);
-                setApproveNotes("");
+                setIsAcceptDialogOpen(false);
+                setAcceptNotes("");
               }}
             >
               Cancel
             </Button>
             <Button
-              onClick={handleApproveConsignment}
-              disabled={approveMutation.isPending}
+              onClick={handleAcceptConsignment}
+              disabled={acceptMutation.isPending}
             >
-              {approveMutation.isPending ? "Approving..." : "Approve"}
+              {acceptMutation.isPending ? "Accepting..." : "Accept"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Dispatch Dialog */}
-      <Dialog open={isDispatchDialogOpen} onOpenChange={setIsDispatchDialogOpen}>
+      {/* Confirm Receipt Dialog */}
+      <Dialog open={isConfirmReceiptDialogOpen} onOpenChange={setIsConfirmReceiptDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Dispatch Consignment</DialogTitle>
+            <DialogTitle>Confirm Consignment Receipt</DialogTitle>
             <DialogDescription>
-              Enter dispatch and tracking details for {selectedConsignment?.requestNumber}
+              Confirm receipt of {selectedConsignment?.requestNumber}. This will create a sale and update your inventory.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 p-4 rounded-md">
+              <p className="text-sm font-medium text-yellow-900 dark:text-yellow-100">
+                ⚠️ Important
+              </p>
+              <p className="text-sm text-yellow-800 dark:text-yellow-200 mt-1">
+                Confirming receipt will:
+              </p>
+              <ul className="text-sm text-yellow-800 dark:text-yellow-200 mt-2 ml-4 list-disc space-y-1">
+                <li>Create a sale record in your name</li>
+                <li>Add products to your dealer inventory</li>
+                <li>Create an accounts payable balance</li>
+                <li>Apply any advance payments you've made</li>
+              </ul>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="grn-ref">GRN Reference (Optional)</Label>
+              <Input
+                id="grn-ref"
+                value={grnRef}
+                onChange={(e) => setGrnRef(e.target.value)}
+                placeholder="e.g., GRN-12345"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="receipt-notes">Notes (Optional)</Label>
+              <Textarea
+                id="receipt-notes"
+                value={receiptNotes}
+                onChange={(e) => setReceiptNotes(e.target.value)}
+                placeholder="Add any notes about the received goods..."
+                rows={3}
+              />
+            </div>
+
+            {selectedConsignment && (
+              <div className="bg-muted p-4 rounded-md">
+                <p className="text-sm font-medium mb-2">Consignment Summary</p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Items</p>
+                    <p className="font-medium">{selectedConsignment.items.length} products</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Total Amount</p>
+                    <p className="font-medium">{formatCurrency(selectedConsignment.totalAmount)}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsConfirmReceiptDialogOpen(false);
+                setGrnRef("");
+                setReceiptNotes("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmReceipt}
+              disabled={confirmReceiptMutation.isPending}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {confirmReceiptMutation.isPending ? "Confirming..." : "Confirm Receipt"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Advance Payment Dialog */}
+      <Dialog open={isAdvancePaymentDialogOpen} onOpenChange={setIsAdvancePaymentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Advance Payment</DialogTitle>
+            <DialogDescription>
+              Record a prepayment for {selectedConsignment?.requestNumber}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="dispatchRef">Dispatch Reference</Label>
+              <Label htmlFor="advance-amount">Amount *</Label>
               <Input
-                id="dispatchRef"
-                value={dispatchRef}
-                onChange={(e) => setDispatchRef(e.target.value)}
-                placeholder="e.g., Dispatch-12345"
+                id="advance-amount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={advanceAmount}
+                onChange={(e) => setAdvanceAmount(e.target.value)}
+                placeholder="0.00"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="trackingInfo">Tracking Information</Label>
+              <Label htmlFor="advance-method">Payment Method</Label>
+              <Select value={advanceMethod} onValueChange={setAdvanceMethod}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CASH">Cash</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                  <SelectItem value="CHEQUE">Cheque</SelectItem>
+                  <SelectItem value="UPI">UPI</SelectItem>
+                  <SelectItem value="OTHER">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="advance-reference">Payment Reference</Label>
               <Input
-                id="trackingInfo"
-                value={trackingInfo}
-                onChange={(e) => setTrackingInfo(e.target.value)}
-                placeholder="Courier name, LR number, vehicle details..."
+                id="advance-reference"
+                value={advanceReference}
+                onChange={(e) => setAdvanceReference(e.target.value)}
+                placeholder="Transaction ID, cheque number, etc."
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="dispatch-notes">Notes (Optional)</Label>
+              <Label htmlFor="advance-date">Payment Date</Label>
+              <Input
+                id="advance-date"
+                type="date"
+                value={advanceDate}
+                onChange={(e) => setAdvanceDate(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="advance-notes">Notes (Optional)</Label>
               <Textarea
-                id="dispatch-notes"
-                value={dispatchNotes}
-                onChange={(e) => setDispatchNotes(e.target.value)}
-                placeholder="Additional dispatch notes..."
+                id="advance-notes"
+                value={advanceNotes}
+                onChange={(e) => setAdvanceNotes(e.target.value)}
+                placeholder="Additional notes about this payment..."
                 rows={3}
               />
             </div>
@@ -866,17 +1065,17 @@ export default function CompanyConsignmentsPage() {
             <Button
               variant="outline"
               onClick={() => {
-                setIsDispatchDialogOpen(false);
-                resetDispatchForm();
+                setIsAdvancePaymentDialogOpen(false);
+                resetAdvanceForm();
               }}
             >
               Cancel
             </Button>
             <Button
-              onClick={handleDispatchConsignment}
-              disabled={dispatchMutation.isPending}
+              onClick={handleRecordAdvancePayment}
+              disabled={advancePaymentMutation.isPending}
             >
-              {dispatchMutation.isPending ? "Dispatching..." : "Dispatch"}
+              {advancePaymentMutation.isPending ? "Recording..." : "Record Payment"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -888,7 +1087,7 @@ export default function CompanyConsignmentsPage() {
           <DialogHeader>
             <DialogTitle>Reject Consignment</DialogTitle>
             <DialogDescription>
-              Reject consignment request {selectedConsignment?.requestNumber}
+              Reject consignment {selectedConsignment?.requestNumber}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -898,7 +1097,7 @@ export default function CompanyConsignmentsPage() {
                 id="reject-reason"
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Explain why this consignment is being rejected..."
+                placeholder="Explain why you're rejecting this consignment..."
                 rows={4}
               />
             </div>
@@ -924,7 +1123,7 @@ export default function CompanyConsignmentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* View Dialog */}
+      {/* View Dialog - Reusing same structure as company page */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -946,9 +1145,9 @@ export default function CompanyConsignmentsPage() {
                   <p className="font-medium mt-1">{selectedConsignment.direction}</p>
                 </div>
                 <div>
-                  <Label>Dealer</Label>
+                  <Label>Company</Label>
                   <p className="font-medium mt-1">
-                    {selectedConsignment.toDealer?.name || selectedConsignment.fromDealer?.name}
+                    {selectedConsignment.fromCompany?.name || "N/A"}
                   </p>
                 </div>
                 <div>
@@ -1090,3 +1289,4 @@ export default function CompanyConsignmentsPage() {
     </div>
   );
 }
+

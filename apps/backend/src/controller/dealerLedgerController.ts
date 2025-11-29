@@ -242,7 +242,31 @@ export const getLedgerSummary = async (
       if (endDate) where.date.lte = new Date(endDate as string);
     }
 
-    // Get entries grouped by type
+    // Calculate from actual sales data
+    const salesWhere: any = {
+      dealerId: dealer.id,
+    };
+
+    if (startDate || endDate) {
+      salesWhere.date = {};
+      if (startDate) salesWhere.date.gte = new Date(startDate as string);
+      if (endDate) salesWhere.date.lte = new Date(endDate as string);
+    }
+
+    const salesSummary = await prisma.dealerSale.aggregate({
+      where: salesWhere,
+      _sum: {
+        totalAmount: true,
+        paidAmount: true,
+        dueAmount: true,
+      },
+    });
+
+    const totalSalesAmount = Number(salesSummary._sum.totalAmount || 0);
+    const totalPaidAmount = Number(salesSummary._sum.paidAmount || 0);
+    const totalDueAmount = Number(salesSummary._sum.dueAmount || 0);
+
+    // Get entries grouped by type for other stats
     const entriesByType = await prisma.dealerLedgerEntry.groupBy({
       by: ["type"],
       where,
@@ -255,11 +279,7 @@ export const getLedgerSummary = async (
     // Get current balance
     const currentBalance = await DealerService.calculateBalance(dealer.id);
 
-    // Calculate totals
-    const totalSales = entriesByType
-      .filter((e) => e.type === "SALE")
-      .reduce((sum, e) => sum + Number(e._sum.amount || 0), 0);
-
+    // Calculate totals from ledger entries
     const totalPurchases = entriesByType
       .filter((e) => e.type === "PURCHASE")
       .reduce((sum, e) => sum + Number(e._sum.amount || 0), 0);
@@ -272,28 +292,20 @@ export const getLedgerSummary = async (
       .filter((e) => e.type === "PAYMENT_MADE")
       .reduce((sum, e) => sum + Number(e._sum.amount || 0), 0);
 
-    // Get outstanding balances by party
-    const outstandingByParty = await prisma.dealerLedgerEntry.findMany({
-      where: {
-        dealerId: dealer.id,
-        partyId: { not: null },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      distinct: ["partyId"],
-      select: {
-        partyId: true,
-        partyType: true,
-        balance: true,
-      },
+    // Get unique parties with transactions
+    const uniqueParties = await prisma.dealerSale.findMany({
+      where: { dealerId: dealer.id },
+      select: { customerId: true, farmerId: true },
+      distinct: ["customerId", "farmerId"],
     });
 
     return res.status(200).json({
       success: true,
       data: {
         currentBalance,
-        totalSales,
+        totalSales: totalSalesAmount,
+        totalPaidAmount,
+        totalDueAmount,
         totalPurchases,
         totalPaymentsReceived,
         totalPaymentsMade,
@@ -302,7 +314,7 @@ export const getLedgerSummary = async (
           count: e._count,
           total: e._sum.amount,
         })),
-        outstandingBalances: outstandingByParty.length,
+        outstandingBalances: uniqueParties.length,
       },
     });
   } catch (error: any) {
@@ -358,6 +370,192 @@ export const exportLedger = async (
   } catch (error: any) {
     console.error("Export ledger error:", error);
     return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== GET DEALER LEDGER PARTIES ====================
+export const getDealerLedgerParties = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { search } = req.query;
+
+    // Get dealer
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    // Get all customers (static customers)
+    const staticCustomers = await prisma.customer.findMany({
+      where: {
+        userId: userId,
+        ...(search
+          ? {
+              OR: [
+                { name: { contains: search as string, mode: "insensitive" } },
+                { phone: { contains: search as string, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
+      include: {
+        dealerSales: {
+          where: { dealerId: dealer.id },
+          select: {
+            id: true,
+            totalAmount: true,
+            paidAmount: true,
+            dueAmount: true,
+            date: true,
+          },
+        },
+      },
+    });
+
+    // Get all farmers (users) who have sales with this dealer
+    const farmersWithSales = await prisma.user.findMany({
+      where: {
+        dealerSalesReceived: {
+          some: { dealerId: dealer.id },
+        },
+        ...(search
+          ? {
+              OR: [
+                { name: { contains: search as string, mode: "insensitive" } },
+                { phone: { contains: search as string, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
+      include: {
+        dealerSalesReceived: {
+          where: { dealerId: dealer.id },
+          select: {
+            id: true,
+            totalAmount: true,
+            paidAmount: true,
+            dueAmount: true,
+            date: true,
+          },
+        },
+      },
+    });
+
+    // Combine and calculate balances
+    const partiesWithBalance = [
+      ...staticCustomers.map((customer) => {
+        const balance = customer.dealerSales.reduce((sum, sale) => {
+          const due = Number(sale.dueAmount || 0);
+          return sum + due;
+        }, 0);
+
+        const lastSale = customer.dealerSales
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+        return {
+          id: customer.id,
+          name: customer.name,
+          contact: customer.phone,
+          address: customer.address,
+          balance: Math.max(0, balance),
+          lastTransactionDate: lastSale?.date || null,
+          totalSales: customer.dealerSales.length,
+          partyType: "CUSTOMER",
+        };
+      }),
+      ...farmersWithSales.map((farmer) => {
+        const balance = farmer.dealerSalesReceived.reduce((sum: number, sale: any) => {
+          const due = Number(sale.dueAmount || 0);
+          return sum + due;
+        }, 0);
+
+        const lastSale = farmer.dealerSalesReceived
+          .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+        return {
+          id: farmer.id,
+          name: farmer.name,
+          contact: farmer.phone,
+          address: farmer.CompanyFarmLocation || null,
+          balance: Math.max(0, balance),
+          lastTransactionDate: lastSale?.date || null,
+          totalSales: farmer.dealerSalesReceived.length,
+          partyType: "FARMER",
+        };
+      }),
+    ];
+
+    // Filter out parties with no balance and no sales
+    const activeParties = partiesWithBalance.filter(
+      (p) => p.balance > 0 || p.totalSales > 0
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: activeParties,
+    });
+  } catch (error: any) {
+    console.error("Get dealer ledger parties error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== ADD DEALER PAYMENT ====================
+export const addDealerPayment = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { saleId, amount, paymentMethod, date, notes } = req.body;
+
+    // Validation
+    if (!saleId || !amount || amount <= 0) {
+      return res.status(400).json({ message: "Sale ID and valid amount are required" });
+    }
+
+    // Get dealer
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    // Verify sale belongs to dealer
+    const sale = await prisma.dealerSale.findUnique({
+      where: { id: saleId },
+      select: { dealerId: true },
+    });
+
+    if (!sale || sale.dealerId !== dealer.id) {
+      return res.status(403).json({ message: "Sale not found or access denied" });
+    }
+
+    // Use DealerService to add payment
+    await DealerService.addSalePayment({
+      saleId,
+      amount: Number(amount),
+      paymentMethod: paymentMethod || "CASH",
+      date: date ? new Date(date) : new Date(),
+      description: notes || `Payment received`,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment added successfully",
+    });
+  } catch (error: any) {
+    console.error("Add dealer payment error:", error);
+    return res.status(500).json({ message: error.message || "Internal server error" });
   }
 };
 

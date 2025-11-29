@@ -6,6 +6,8 @@ import {
   createAdjustment,
   getLedgerSummary,
   exportLedger,
+  getDealerLedgerParties,
+  addDealerPayment,
 } from "../controller/dealerLedgerController";
 import { authMiddleware } from "../middelware/middelware";
 
@@ -26,11 +28,17 @@ router.get("/balance", getCurrentBalance);
 // Get ledger summary
 router.get("/summary", getLedgerSummary);
 
+// Get parties (customers/farmers) with balances
+router.get("/parties", getDealerLedgerParties);
+
 // Export ledger
 router.get("/export", exportLedger);
 
 // Get party-specific ledger
 router.get("/party/:partyId", getPartyLedger);
+
+// Add payment
+router.post("/payments", addDealerPayment);
 
 // Create manual adjustment
 router.post("/adjustment", createAdjustment);

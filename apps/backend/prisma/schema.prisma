@@ -137,13 +137,13 @@ enum CalendarType {
 }
 
 enum ConsignmentStatus {
-  PENDING
-  APPROVED
-  PARTIALLY_ACCEPTED
-  REJECTED
-  DISPATCHED
-  COMPLETED
-  CANCELLED
+  CREATED                    // S0 - Request/offer formed
+  ACCEPTED_PENDING_DISPATCH  // S1 - Waiting for dispatch
+  DISPATCHED                 // S2 - Goods shipped
+  RECEIVED                   // S3 - Inventory transferred, sale created
+  SETTLED                    // S4 - Fully paid
+  REJECTED                   // Rejected before dispatch
+  CANCELLED                  // Cancelled before dispatch
 }
 
 enum ConsignmentDirection {
@@ -160,6 +160,23 @@ enum LedgerEntryType {
   RETURN
   ADJUSTMENT
   OPENING_BALANCE
+  ADVANCE_RECEIVED      // Prepayment from dealer
+  CONSIGNMENT_INVOICE   // When S3 creates sale
+  CONSIGNMENT_SETTLED   // When fully paid
+}
+
+enum PaymentRequestStatus {
+  PENDING              // Company sent request, waiting for dealer acceptance
+  ACCEPTED             // Dealer accepted the request (acknowledged they need to pay)
+  PAYMENT_SUBMITTED    // Dealer submitted payment proof (receipt/transaction ID)
+  VERIFIED             // Company verified and approved the payment
+  REJECTED             // Company rejected the payment proof
+  CANCELLED            // Request cancelled by either party
+}
+
+enum PaymentRequestDirection {
+  COMPANY_TO_DEALER  // Company requests payment from dealer
+  DEALER_TO_COMPANY  // Dealer submits payment for company verification
 }
 
 model User {
@@ -238,6 +255,15 @@ model User {
 
   // Consignment relationships
   consignmentsReceived ConsignmentRequest[] @relation("FarmerConsignments")
+  dispatchedConsignments ConsignmentRequest[] @relation("DispatchedConsignments")
+  receivedConsignments ConsignmentRequest[] @relation("ReceivedConsignments")
+  consignmentAuditLogs ConsignmentAuditLog[] @relation("ConsignmentAuditLogs")
+
+  // Payment Request relationships
+  paymentRequestsCreated   PaymentRequest[] @relation("PaymentRequestCreatedBy")
+  paymentRequestsAccepted  PaymentRequest[] @relation("PaymentRequestAcceptedBy")
+  paymentRequestsSubmitted PaymentRequest[] @relation("PaymentRequestSubmittedBy")
+  paymentRequestsReviewed  PaymentRequest[] @relation("PaymentRequestReviewedBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -253,11 +279,12 @@ model Company {
   ownerId String @unique
   owner   User   @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
 
-  managedBy     User[]               @relation("CompanyManagedBy")
-  dealers       Dealer[]
-  consignments  ConsignmentRequest[] @relation("CompanyConsignments")
-  companySales  CompanySale[]
-  ledgerEntries CompanyLedgerEntry[]
+  managedBy       User[]               @relation("CompanyManagedBy")
+  dealers         Dealer[]
+  consignments    ConsignmentRequest[] @relation("CompanyConsignments")
+  companySales    CompanySale[]
+  ledgerEntries   CompanyLedgerEntry[]
+  paymentRequests PaymentRequest[]
 
   @@index([ownerId])
 }
@@ -643,6 +670,7 @@ model Dealer {
   consignmentsTo   ConsignmentRequest[] @relation("DealerConsignmentsTo")
   ledgerEntries    DealerLedgerEntry[]
   companySales     CompanySale[]
+  paymentRequests  PaymentRequest[]
 
   @@unique([userId, name])
   @@index([ownerId])
@@ -1220,9 +1248,30 @@ model ConsignmentRequest {
   id            String               @id @default(cuid())
   requestNumber String               @unique
   direction     ConsignmentDirection
-  status        ConsignmentStatus    @default(PENDING)
+  status        ConsignmentStatus    @default(CREATED)
   totalAmount   Decimal              @db.Decimal(10, 2)
   notes         String?
+
+  // Quantity tracking (prepare for partial receipt)
+  requestedQuantity  Decimal?  @db.Decimal(10, 2)
+  approvedQuantity   Decimal?  @db.Decimal(10, 2)
+  dispatchedQuantity Decimal?  @db.Decimal(10, 2)
+  receivedQuantity   Decimal?  @db.Decimal(10, 2)
+
+  // Dispatch & Receipt documentation
+  dispatchRef     String?
+  trackingInfo    String?
+  grnRef          String?    // Goods Received Note
+  dispatchedAt    DateTime?
+  receivedAt      DateTime?
+  dispatchedById  String?
+  dispatchedBy    User?     @relation("DispatchedConsignments", fields: [dispatchedById], references: [id])
+  receivedById    String?
+  receivedBy      User?     @relation("ReceivedConsignments", fields: [receivedById], references: [id])
+
+  // Link to created sale (S3)
+  companySaleId   String?   @unique
+  companySale     CompanySale? @relation(fields: [companySaleId], references: [id])
 
   fromCompanyId String?
   fromCompany   Company? @relation("CompanyConsignments", fields: [fromCompanyId], references: [id], onDelete: Cascade)
@@ -1238,6 +1287,7 @@ model ConsignmentRequest {
 
   items         ConsignmentItem[]
   ledgerEntries DealerLedgerEntry[]
+  auditLogs     ConsignmentAuditLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1247,12 +1297,16 @@ model ConsignmentRequest {
   @@index([toDealerId, status])
   @@index([toFarmerId, status])
   @@index([requestNumber])
+  @@index([dispatchedById])
+  @@index([receivedById])
+  @@index([companySaleId])
 }
 
 model ConsignmentItem {
   id               String   @id @default(cuid())
   quantity         Decimal  @db.Decimal(10, 2)
   acceptedQuantity Decimal? @db.Decimal(10, 2)
+  receivedQuantity Decimal? @db.Decimal(10, 2)
   unitPrice        Decimal  @db.Decimal(10, 2)
   totalAmount      Decimal  @db.Decimal(10, 2)
   isAccepted       Boolean  @default(false)
@@ -1271,6 +1325,28 @@ model ConsignmentItem {
   updatedAt DateTime @updatedAt
 
   @@index([consignmentId])
+}
+
+model ConsignmentAuditLog {
+  id              String   @id @default(cuid())
+  consignmentId   String
+  consignment     ConsignmentRequest @relation(fields: [consignmentId], references: [id], onDelete: Cascade)
+  
+  action          String   // CREATED, ACCEPTED, DISPATCHED, RECEIVED, etc.
+  statusFrom      ConsignmentStatus?
+  statusTo        ConsignmentStatus
+  
+  actorId         String
+  actor           User     @relation("ConsignmentAuditLogs", fields: [actorId], references: [id])
+  
+  quantityChange  Decimal? @db.Decimal(10, 2)
+  documentRef     String?  // dispatch_ref, grn_ref, etc.
+  notes           String?
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([consignmentId])
+  @@index([actorId])
 }
 
 model DealerLedgerEntry {
@@ -1323,9 +1399,14 @@ model CompanySale {
   soldById String
   soldBy   User   @relation(fields: [soldById], references: [id], onDelete: Cascade)
 
-  items         CompanySaleItem[]
-  payments      CompanySalePayment[]
-  ledgerEntries CompanyLedgerEntry[]
+  // Link to consignment (if created from consignment receipt)
+  consignmentId   String?   @unique
+  consignment     ConsignmentRequest?
+
+  items           CompanySaleItem[]
+  payments        CompanySalePayment[]
+  ledgerEntries   CompanyLedgerEntry[]
+  paymentRequests PaymentRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1334,6 +1415,7 @@ model CompanySale {
   @@index([dealerId, date])
   @@index([soldById])
   @@index([invoiceNumber])
+  @@index([consignmentId])
 }
 
 model CompanySaleItem {
@@ -1395,4 +1477,64 @@ model CompanyLedgerEntry {
   @@index([partyId, partyType])
   @@index([companySaleId])
   @@index([transactionId])
+}
+
+// ==================== PAYMENT REQUEST MODEL ====================
+
+model PaymentRequest {
+  id            String                  @id @default(cuid())
+  requestNumber String                  @unique
+  direction     PaymentRequestDirection
+  status        PaymentRequestStatus    @default(PENDING)
+  amount        Decimal                 @db.Decimal(10, 2)
+  description   String?
+
+  // Payment proof details (for dealer-initiated or company-initiated after dealer accepts)
+  paymentMethod     String?
+  paymentReference  String?
+  paymentReceiptUrl String?
+  paymentDate       DateTime?
+
+  // Company initiating or receiving the request
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Dealer initiating or receiving the request
+  dealerId String
+  dealer   Dealer  @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
+  // Optional link to a specific CompanySale if the request is for an outstanding balance
+  companySaleId String?
+  companySale   CompanySale? @relation(fields: [companySaleId], references: [id], onDelete: SetNull)
+
+  // User who created the request
+  requestedById String
+  requestedBy   User   @relation("PaymentRequestCreatedBy", fields: [requestedById], references: [id])
+
+  // User who accepted the request (dealer side)
+  acceptedById String?
+  acceptedBy   User?   @relation("PaymentRequestAcceptedBy", fields: [acceptedById], references: [id])
+  acceptedAt   DateTime?
+
+  // User who submitted payment proof (dealer side)
+  submittedById String?
+  submittedBy   User?   @relation("PaymentRequestSubmittedBy", fields: [submittedById], references: [id])
+  submittedAt   DateTime?
+
+  // User who reviewed/verified the payment (company side)
+  reviewedById String?
+  reviewedBy   User?   @relation("PaymentRequestReviewedBy", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  reviewNotes  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, status])
+  @@index([dealerId, status])
+  @@index([companySaleId])
+  @@index([requestedById])
+  @@index([acceptedById])
+  @@index([submittedById])
+  @@index([reviewedById])
 }

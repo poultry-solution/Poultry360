@@ -165,6 +165,43 @@ export const useCreateAdjustment = () => {
   });
 };
 
+// Get dealer ledger parties (customers/farmers with balances)
+export const useGetDealerLedgerParties = (search?: string) => {
+  return useQuery({
+    queryKey: [...dealerLedgerKeys.all, "parties", search || ""],
+    queryFn: async () => {
+      const { data } = await axiosInstance.get("/dealer/ledger/parties", {
+        params: { search },
+      });
+      return data;
+    },
+  });
+};
+
+// Add dealer payment
+export const useAddDealerPayment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      saleId: string;
+      amount: number;
+      paymentMethod?: string;
+      date?: string;
+      notes?: string;
+    }) => {
+      const { data } = await axiosInstance.post("/dealer/ledger/payments", input);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealerLedgerKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: dealerLedgerKeys.balance() });
+      queryClient.invalidateQueries({ queryKey: dealerLedgerKeys.summary() });
+      queryClient.invalidateQueries({ queryKey: [...dealerLedgerKeys.all, "parties"] });
+    },
+  });
+};
+
 // Export ledger
 export const useExportLedger = () => {
   return useMutation({

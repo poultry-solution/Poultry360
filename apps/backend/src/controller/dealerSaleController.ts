@@ -293,6 +293,53 @@ export const addSalePayment = async (
   }
 };
 
+// ==================== SEARCH COMPANIES ====================
+export const searchCompanies = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { search } = req.query;
+
+    if (!search || (search as string).length < 2) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+      });
+    }
+
+    // Search companies by name
+    const companies = await prisma.company.findMany({
+      where: {
+        OR: [
+          { name: { contains: search as string, mode: "insensitive" } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+          },
+        },
+      },
+      take: 20,
+      orderBy: { name: "asc" },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: companies,
+    });
+  } catch (error: any) {
+    console.error("Search companies error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 // ==================== SEARCH CUSTOMERS/FARMERS ====================
 export const searchCustomers = async (
   req: Request,

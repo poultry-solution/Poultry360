@@ -12,6 +12,7 @@ import {
   Calendar,
   Plus,
   FileText,
+  Upload,
 } from "lucide-react";
 import {
   Card,
@@ -56,65 +57,68 @@ import {
 import { Textarea } from "@/common/components/ui/textarea";
 import { toast } from "sonner";
 import {
-  useGetCompanyPaymentRequests,
-  useCreateCompanyPaymentRequest,
-  useAcceptCompanyPaymentRequest,
-  useVerifyCompanyPaymentRequest,
-  useCancelCompanyPaymentRequest,
+  useGetDealerPaymentRequests,
+  useAcceptDealerPaymentRequest,
+  useSubmitDealerPaymentProof,
+  useCreateDealerPaymentRequest,
+  useCancelDealerPaymentRequest,
   type PaymentRequest,
-} from "@/fetchers/company/paymentRequestQueries";
-import { useGetCompanyDealers } from "@/fetchers/company/companyDealerQueries";
-import { useGetCompanySales } from "@/fetchers/company/companySaleQueries";
+} from "@/fetchers/dealer/paymentRequestQueries";
+import { CompanySearchSelect } from "@/common/components/forms/CompanySearchSelect";
 
-export default function CompanyPaymentsPage() {
+export default function DealerPaymentsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("received");
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [isCreateRequestOpen, setIsCreateRequestOpen] = useState(false);
   const [isViewRequestOpen, setIsViewRequestOpen] = useState(false);
+  const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
+  const [isSubmitProofOpen, setIsSubmitProofOpen] = useState(false);
+  const [isCreateRequestOpen, setIsCreateRequestOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<PaymentRequest | null>(
     null
   );
-  const [isVerifyDialogOpen, setIsVerifyDialogOpen] = useState(false);
-  const [verifyApproved, setVerifyApproved] = useState(true);
-  const [verifyNotes, setVerifyNotes] = useState("");
+
+  // Form state for submitting proof
+  const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentReceiptUrl, setPaymentReceiptUrl] = useState("");
+  const [paymentDate, setPaymentDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
 
   // Form state for creating request
-  const [selectedDealerId, setSelectedDealerId] = useState("");
-  const [selectedSaleId, setSelectedSaleId] = useState("");
+  const [requestCompanyId, setRequestCompanyId] = useState("");
+  const [requestSaleId, setRequestSaleId] = useState("");
   const [requestAmount, setRequestAmount] = useState<number>(0);
   const [requestDescription, setRequestDescription] = useState("");
+  const [requestPaymentMethod, setRequestPaymentMethod] = useState("CASH");
+  const [requestPaymentReference, setRequestPaymentReference] = useState("");
+  const [requestPaymentReceiptUrl, setRequestPaymentReceiptUrl] = useState("");
+  const [requestPaymentDate, setRequestPaymentDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   // Queries
   const { data: receivedData, isLoading: receivedLoading } =
-    useGetCompanyPaymentRequests({
-      direction: "DEALER_TO_COMPANY",
-      status: statusFilter !== "ALL" ? statusFilter : undefined,
-    });
-  const { data: sentData, isLoading: sentLoading } =
-    useGetCompanyPaymentRequests({
+    useGetDealerPaymentRequests({
       direction: "COMPANY_TO_DEALER",
       status: statusFilter !== "ALL" ? statusFilter : undefined,
     });
-  const { data: dealersData } = useGetCompanyDealers({ limit: 100 });
-  const { data: salesData } = useGetCompanySales({ limit: 1000 });
+  const { data: sentData, isLoading: sentLoading } =
+    useGetDealerPaymentRequests({
+      direction: "DEALER_TO_COMPANY",
+      status: statusFilter !== "ALL" ? statusFilter : undefined,
+    });
 
-  const createRequestMutation = useCreateCompanyPaymentRequest();
-  const acceptRequestMutation = useAcceptCompanyPaymentRequest();
-  const verifyRequestMutation = useVerifyCompanyPaymentRequest();
-  const cancelRequestMutation = useCancelCompanyPaymentRequest();
+  const acceptRequestMutation = useAcceptDealerPaymentRequest();
+  const submitProofMutation = useSubmitDealerPaymentProof();
+  const createRequestMutation = useCreateDealerPaymentRequest();
+  const cancelRequestMutation = useCancelDealerPaymentRequest();
 
   const receivedRequests = receivedData?.data || [];
   const sentRequests = sentData?.data || [];
-  const dealers = dealersData?.data || [];
-  const sales = salesData?.data || [];
-
-  // Filter sales for selected dealer
-  const dealerSales =
-    selectedDealerId && sales
-      ? sales.filter((s: any) => s.dealerId === selectedDealerId)
-      : [];
 
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString("en-US", {
@@ -183,54 +187,76 @@ export default function CompanyPaymentsPage() {
     }
   };
 
+  const handleAcceptRequest = async () => {
+    if (!selectedRequest) return;
+
+    try {
+      await acceptRequestMutation.mutateAsync(selectedRequest.id);
+      toast.success("Payment request accepted");
+      setIsAcceptDialogOpen(false);
+      setIsViewRequestOpen(false);
+      setSelectedRequest(null);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to accept request");
+    }
+  };
+
+  const handleSubmitProof = async () => {
+    if (!selectedRequest || !paymentMethod) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    try {
+      await submitProofMutation.mutateAsync({
+        id: selectedRequest.id,
+        paymentMethod,
+        paymentReference: paymentReference || undefined,
+        paymentReceiptUrl: paymentReceiptUrl || undefined,
+        paymentDate,
+      });
+      toast.success("Payment proof submitted successfully");
+      setIsSubmitProofOpen(false);
+      setIsViewRequestOpen(false);
+      setSelectedRequest(null);
+      setPaymentMethod("CASH");
+      setPaymentReference("");
+      setPaymentReceiptUrl("");
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to submit proof");
+    }
+  };
+
   const handleCreateRequest = async () => {
-    if (!selectedDealerId || !requestAmount || requestAmount <= 0) {
-      toast.error("Please select a dealer and enter a valid amount");
+    if (!requestCompanyId || !requestAmount || requestAmount <= 0 || !requestPaymentMethod) {
+      toast.error("Please fill in all required fields");
       return;
     }
 
     try {
       await createRequestMutation.mutateAsync({
-        dealerId: selectedDealerId,
+        companyId: requestCompanyId,
         amount: requestAmount,
-        companySaleId: selectedSaleId || undefined,
+        companySaleId: requestSaleId || undefined,
         description: requestDescription || undefined,
+        paymentMethod: requestPaymentMethod,
+        paymentReference: requestPaymentReference || undefined,
+        paymentReceiptUrl: requestPaymentReceiptUrl || undefined,
+        paymentDate: requestPaymentDate,
       });
-
-      toast.success("Payment request created successfully");
+      toast.success("Payment proof submitted successfully. Waiting for company verification.");
       setIsCreateRequestOpen(false);
-      setSelectedDealerId("");
-      setSelectedSaleId("");
+      setRequestCompanyId("");
+      setRequestSaleId("");
       setRequestAmount(0);
       setRequestDescription("");
+      setRequestPaymentMethod("CASH");
+      setRequestPaymentReference("");
+      setRequestPaymentReceiptUrl("");
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to create request");
-    }
-  };
-
-  const handleVerifyRequest = async () => {
-    if (!selectedRequest) return;
-
-    try {
-      await verifyRequestMutation.mutateAsync({
-        id: selectedRequest.id,
-        isApproved: verifyApproved,
-        reviewNotes: verifyNotes || undefined,
-      });
-
-      toast.success(
-        verifyApproved
-          ? "Payment verified and approved"
-          : "Payment request rejected"
-      );
-      setIsVerifyDialogOpen(false);
-      setIsViewRequestOpen(false);
-      setSelectedRequest(null);
-      setVerifyNotes("");
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || "Failed to verify request";
+      const errorMessage = error.response?.data?.message || error.message || "Failed to create request";
       toast.error(errorMessage);
-      console.error("Verify payment request error:", error);
+      console.error("Create payment request error:", error);
     }
   };
 
@@ -249,16 +275,13 @@ export default function CompanyPaymentsPage() {
   };
 
   const pendingReceived = receivedRequests.filter(
-    (r) => r.status === "PAYMENT_SUBMITTED"
+    (r) => r.status === "PENDING"
   ).length;
-  const verifiedToday = receivedRequests.filter(
-    (r) =>
-      r.status === "VERIFIED" &&
-      r.reviewedAt &&
-      new Date(r.reviewedAt).toDateString() === new Date().toDateString()
+  const acceptedRequests = receivedRequests.filter(
+    (r) => r.status === "ACCEPTED"
   ).length;
   const pendingAmount = receivedRequests
-    .filter((r) => r.status === "PAYMENT_SUBMITTED")
+    .filter((r) => r.status === "PENDING" || r.status === "ACCEPTED")
     .reduce((sum, r) => sum + r.amount, 0);
 
   return (
@@ -270,12 +293,12 @@ export default function CompanyPaymentsPage() {
             Payment Requests
           </h1>
           <p className="text-muted-foreground">
-            Manage payment requests with dealers
+            Manage payment requests with companies
           </p>
         </div>
         <Button onClick={() => setIsCreateRequestOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Create Request
+          Submit Payment
         </Button>
       </div>
 
@@ -289,21 +312,21 @@ export default function CompanyPaymentsPage() {
           <CardContent>
             <div className="text-2xl font-bold">{pendingReceived}</div>
             <p className="text-xs text-muted-foreground">
-              Awaiting verification
+              Awaiting acceptance
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Verified Today</CardTitle>
+            <CardTitle className="text-sm font-medium">Accepted</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {verifiedToday}
+              {acceptedRequests}
             </div>
             <p className="text-xs text-muted-foreground">
-              Processed payments
+              Ready for payment
             </p>
           </CardContent>
         </Card>
@@ -317,7 +340,7 @@ export default function CompanyPaymentsPage() {
               {formatCurrency(pendingAmount)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Awaiting verification
+              Total pending
             </p>
           </CardContent>
         </Card>
@@ -338,14 +361,14 @@ export default function CompanyPaymentsPage() {
                 <div>
                   <CardTitle>Received Payment Requests</CardTitle>
                   <CardDescription>
-                    Payment requests submitted by dealers for verification
+                    Payment requests from companies
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      placeholder="Search by dealer or invoice..."
+                      placeholder="Search by company or invoice..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       className="pl-10 w-[200px]"
@@ -365,6 +388,7 @@ export default function CompanyPaymentsPage() {
                       <SelectItem value="PAYMENT_SUBMITTED">Payment Submitted</SelectItem>
                       <SelectItem value="VERIFIED">Verified</SelectItem>
                       <SelectItem value="REJECTED">Rejected</SelectItem>
+                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -380,7 +404,7 @@ export default function CompanyPaymentsPage() {
                     No payment requests
                   </h3>
                   <p className="text-muted-foreground">
-                    Payment requests from dealers will appear here.
+                    Payment requests from companies will appear here.
                   </p>
                 </div>
               ) : (
@@ -388,7 +412,125 @@ export default function CompanyPaymentsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Date</TableHead>
-                      <TableHead>Dealer</TableHead>
+                      <TableHead>Company</TableHead>
+                      <TableHead>Invoice #</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {receivedRequests.map((request) => (
+                      <TableRow key={request.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            {formatDate(request.createdAt)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {request.company?.name || "N/A"}
+                        </TableCell>
+                        <TableCell>
+                          {request.companySale?.invoiceNumber || "General"}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">
+                          {formatCurrency(request.amount)}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(request.status)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedRequest(request);
+                                setIsViewRequestOpen(true);
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {/* Company-initiated requests: Dealer must accept and submit proof */}
+                            {request.status === "PENDING" && request.direction === "COMPANY_TO_DEALER" && (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedRequest(request);
+                                  setIsAcceptDialogOpen(true);
+                                }}
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Accept
+                              </Button>
+                            )}
+                            {request.status === "ACCEPTED" && request.direction === "COMPANY_TO_DEALER" && (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedRequest(request);
+                                  setIsSubmitProofOpen(true);
+                                }}
+                              >
+                                <Upload className="h-4 w-4 mr-1" />
+                                Submit Proof
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Sent Requests Tab */}
+        <TabsContent value="sent" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Sent Payment Requests</CardTitle>
+                  <CardDescription>
+                    Payment requests submitted to companies
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Search..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="pl-10 w-[200px]"
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {sentLoading ? (
+                <div className="text-center py-8">Loading requests...</div>
+              ) : sentRequests.length === 0 ? (
+                <div className="text-center py-8">
+                  <DollarSign className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">
+                    No payment requests sent
+                  </h3>
+                  <p className="text-muted-foreground">
+                    Submit a payment to get started.
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Company</TableHead>
                       <TableHead>Invoice #</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
                       <TableHead>Payment Method</TableHead>
@@ -397,8 +539,8 @@ export default function CompanyPaymentsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {receivedRequests.map((request) => {
-                      console.log('Company Received Request:', {
+                    {sentRequests.map((request) => {
+                      console.log('Dealer Sent Request:', {
                         id: request.id,
                         status: request.status,
                         direction: request.direction,
@@ -413,7 +555,7 @@ export default function CompanyPaymentsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="font-medium">
-                          {request.dealer?.name || "N/A"}
+                          {request.company?.name || "N/A"}
                         </TableCell>
                         <TableCell>
                           {request.companySale?.invoiceNumber || "General"}
@@ -437,203 +579,6 @@ export default function CompanyPaymentsPage() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            {request.status === "PENDING" && request.direction === "DEALER_TO_COMPANY" && (
-                              <>
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={async () => {
-                                    try {
-                                      await acceptRequestMutation.mutateAsync(request.id);
-                                      toast.success("Payment request accepted");
-                                    } catch (error: any) {
-                                      const errorMessage = error.response?.data?.message || error.message || "Failed to accept request";
-                                      toast.error(errorMessage);
-                                    }
-                                  }}
-                                  disabled={acceptRequestMutation.isPending}
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  {acceptRequestMutation.isPending ? "Accepting..." : "Accept"}
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedRequest(request);
-                                    setVerifyApproved(false);
-                                    setIsVerifyDialogOpen(true);
-                                  }}
-                                >
-                                  <XCircle className="h-4 w-4 mr-1" />
-                                  Reject
-                                </Button>
-                              </>
-                            )}
-                            {request.status === "PAYMENT_SUBMITTED" && request.direction === "DEALER_TO_COMPANY" && (
-                              <>
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedRequest(request);
-                                    setVerifyApproved(true);
-                                    setIsVerifyDialogOpen(true);
-                                  }}
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Accept Payment Proof
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedRequest(request);
-                                    setVerifyApproved(false);
-                                    setIsVerifyDialogOpen(true);
-                                  }}
-                                >
-                                  <XCircle className="h-4 w-4 mr-1" />
-                                  Reject
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Sent Requests Tab */}
-        <TabsContent value="sent" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Sent Payment Requests</CardTitle>
-                  <CardDescription>
-                    Payment requests sent to dealers
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="Search by dealer or invoice..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="pl-10 w-[200px]"
-                    />
-                  </div>
-                  <Select
-                    value={statusFilter}
-                    onValueChange={setStatusFilter}
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">All Statuses</SelectItem>
-                      <SelectItem value="PENDING">Pending</SelectItem>
-                      <SelectItem value="ACCEPTED">Accepted</SelectItem>
-                      <SelectItem value="PAYMENT_SUBMITTED">Payment Submitted</SelectItem>
-                      <SelectItem value="VERIFIED">Verified</SelectItem>
-                      <SelectItem value="REJECTED">Rejected</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {sentLoading ? (
-                <div className="text-center py-8">Loading requests...</div>
-              ) : sentRequests.length === 0 ? (
-                <div className="text-center py-8">
-                  <DollarSign className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">
-                    No payment requests sent
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Create a payment request to get started.
-                  </p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Dealer</TableHead>
-                      <TableHead>Invoice #</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sentRequests.map((request) => (
-                      <TableRow key={request.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            {formatDate(request.createdAt)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {request.dealer?.name || "N/A"}
-                        </TableCell>
-                        <TableCell>
-                          {request.companySale?.invoiceNumber || "General"}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold">
-                          {formatCurrency(request.amount)}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(request.status)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedRequest(request);
-                                setIsViewRequestOpen(true);
-                              }}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {request.status === "PAYMENT_SUBMITTED" && request.direction === "COMPANY_TO_DEALER" && (
-                              <>
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedRequest(request);
-                                    setVerifyApproved(true);
-                                    setIsVerifyDialogOpen(true);
-                                  }}
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Accept Payment Proof
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedRequest(request);
-                                    setVerifyApproved(false);
-                                    setIsVerifyDialogOpen(true);
-                                  }}
-                                >
-                                  <XCircle className="h-4 w-4 mr-1" />
-                                  Reject
-                                </Button>
-                              </>
-                            )}
                             {request.status === "PENDING" && (
                               <Button
                                 variant="destructive"
@@ -648,7 +593,8 @@ export default function CompanyPaymentsPage() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
@@ -656,118 +602,6 @@ export default function CompanyPaymentsPage() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Create Request Dialog */}
-      <Dialog open={isCreateRequestOpen} onOpenChange={setIsCreateRequestOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Create Payment Request</DialogTitle>
-            <DialogDescription>
-              Send a payment request to a dealer
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="dealer">Dealer *</Label>
-              <Select
-                value={selectedDealerId}
-                onValueChange={(value) => {
-                  setSelectedDealerId(value);
-                  setSelectedSaleId("");
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select dealer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {dealers.map((dealer: any) => (
-                    <SelectItem key={dealer.id} value={dealer.id}>
-                      {dealer.name} - {dealer.contact}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {selectedDealerId && dealerSales.length > 0 && (
-              <div className="space-y-2">
-                <Label htmlFor="sale">Sale (Optional)</Label>
-                <Select
-                  value={selectedSaleId || "GENERAL"}
-                  onValueChange={(value) => {
-                    if (value === "GENERAL") {
-                      setSelectedSaleId("");
-                    } else {
-                      setSelectedSaleId(value);
-                      const sale = dealerSales.find((s: any) => s.id === value);
-                      if (sale) {
-                        setRequestAmount(Number(sale.dueAmount || 0));
-                      }
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select sale (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="GENERAL">General Balance</SelectItem>
-                    {dealerSales
-                      .filter((s: any) => Number(s.dueAmount || 0) > 0)
-                      .map((sale: any) => (
-                        <SelectItem key={sale.id} value={sale.id}>
-                          {sale.invoiceNumber || sale.id.slice(0, 8)} - Due:{" "}
-                          {formatCurrency(Number(sale.dueAmount || 0))}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount *</Label>
-              <Input
-                id="amount"
-                type="number"
-                min="0"
-                step="0.01"
-                value={requestAmount}
-                onChange={(e) =>
-                  setRequestAmount(parseFloat(e.target.value) || 0)
-                }
-                placeholder="Enter amount"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description (Optional)</Label>
-              <Textarea
-                id="description"
-                value={requestDescription}
-                onChange={(e) => setRequestDescription(e.target.value)}
-                placeholder="Add description..."
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsCreateRequestOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateRequest}
-              disabled={createRequestMutation.isPending}
-            >
-              {createRequestMutation.isPending
-                ? "Creating..."
-                : "Create Request"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* View Request Dialog */}
       <Dialog open={isViewRequestOpen} onOpenChange={setIsViewRequestOpen}>
@@ -790,9 +624,15 @@ export default function CompanyPaymentsPage() {
                   <div>{getStatusBadge(selectedRequest.status)}</div>
                 </div>
                 <div>
-                  <Label>Dealer</Label>
+                  <Label>
+                    {selectedRequest.direction === "COMPANY_TO_DEALER"
+                      ? "Company"
+                      : "Dealer"}
+                  </Label>
                   <p className="font-medium">
-                    {selectedRequest.dealer?.name || "N/A"}
+                    {selectedRequest.direction === "COMPANY_TO_DEALER"
+                      ? selectedRequest.company?.name || "N/A"
+                      : selectedRequest.dealer?.name || "N/A"}
                   </p>
                 </div>
                 <div>
@@ -866,17 +706,59 @@ export default function CompanyPaymentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Verify Request Dialog */}
-      <Dialog open={isVerifyDialogOpen} onOpenChange={setIsVerifyDialogOpen}>
+      {/* Accept Request Dialog */}
+      <Dialog open={isAcceptDialogOpen} onOpenChange={setIsAcceptDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {verifyApproved ? "Approve Payment" : "Reject Payment"}
-            </DialogTitle>
+            <DialogTitle>Accept Payment Request</DialogTitle>
             <DialogDescription>
-              {verifyApproved
-                ? "Verify and approve this payment request"
-                : "Reject this payment request"}
+              Accept this payment request and proceed to submit payment proof
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRequest && (
+            <div className="space-y-4 py-4">
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="flex justify-between text-sm mb-2">
+                  <span>Amount:</span>
+                  <span className="font-bold">
+                    {formatCurrency(selectedRequest.amount)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Company:</span>
+                  <span className="font-medium">
+                    {selectedRequest.company?.name || "N/A"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsAcceptDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAcceptRequest}
+              disabled={acceptRequestMutation.isPending}
+            >
+              {acceptRequestMutation.isPending
+                ? "Accepting..."
+                : "Accept Request"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Submit Proof Dialog */}
+      <Dialog open={isSubmitProofOpen} onOpenChange={setIsSubmitProofOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Submit Payment Proof</DialogTitle>
+            <DialogDescription>
+              Submit payment proof for verification
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -889,48 +771,212 @@ export default function CompanyPaymentsPage() {
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>Dealer:</span>
+                  <span>Company:</span>
                   <span className="font-medium">
-                    {selectedRequest.dealer?.name || "N/A"}
+                    {selectedRequest.company?.name || "N/A"}
                   </span>
                 </div>
               </div>
             )}
+
             <div className="space-y-2">
-              <Label htmlFor="notes">
-                {verifyApproved ? "Notes (Optional)" : "Rejection Reason *"}
+              <Label htmlFor="payment-method">Payment Method *</Label>
+              <Select
+                value={paymentMethod}
+                onValueChange={setPaymentMethod}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CASH">Cash</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                  <SelectItem value="CHEQUE">Cheque</SelectItem>
+                  <SelectItem value="UPI">UPI</SelectItem>
+                  <SelectItem value="OTHER">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="payment-reference">
+                Payment Reference (Transaction ID, UPI ID, etc.)
               </Label>
-              <Textarea
-                id="notes"
-                value={verifyNotes}
-                onChange={(e) => setVerifyNotes(e.target.value)}
-                placeholder={
-                  verifyApproved
-                    ? "Add notes..."
-                    : "Enter rejection reason..."
-                }
-                rows={3}
-                required={!verifyApproved}
+              <Input
+                id="payment-reference"
+                value={paymentReference}
+                onChange={(e) => setPaymentReference(e.target.value)}
+                placeholder="Enter transaction reference..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="payment-receipt">Receipt URL (Optional)</Label>
+              <Input
+                id="payment-receipt"
+                value={paymentReceiptUrl}
+                onChange={(e) => setPaymentReceiptUrl(e.target.value)}
+                placeholder="Enter receipt URL..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="payment-date">Payment Date *</Label>
+              <Input
+                id="payment-date"
+                type="date"
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
               />
             </div>
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setIsVerifyDialogOpen(false)}
+              onClick={() => setIsSubmitProofOpen(false)}
             >
               Cancel
             </Button>
             <Button
-              onClick={handleVerifyRequest}
-              disabled={verifyRequestMutation.isPending}
-              variant={verifyApproved ? "default" : "destructive"}
+              onClick={handleSubmitProof}
+              disabled={submitProofMutation.isPending}
             >
-              {verifyRequestMutation.isPending
-                ? "Processing..."
-                : verifyApproved
-                ? "Approve"
-                : "Reject"}
+              {submitProofMutation.isPending
+                ? "Submitting..."
+                : "Submit Proof"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Request Dialog */}
+      <Dialog
+        open={isCreateRequestOpen}
+        onOpenChange={setIsCreateRequestOpen}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Submit Payment Proof</DialogTitle>
+            <DialogDescription>
+              Submit proof of payment you've already made to the company for verification and balance reduction
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <CompanySearchSelect
+              value={requestCompanyId}
+              onValueChange={setRequestCompanyId}
+              placeholder="Search and select company..."
+              label="Company"
+              required
+            />
+
+            <div className="space-y-2">
+              <Label htmlFor="sale-id">Sale ID (Optional)</Label>
+              <Input
+                id="sale-id"
+                value={requestSaleId}
+                onChange={(e) => setRequestSaleId(e.target.value)}
+                placeholder="Enter sale ID (optional)"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="request-amount">Amount *</Label>
+              <Input
+                id="request-amount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={requestAmount}
+                onChange={(e) =>
+                  setRequestAmount(parseFloat(e.target.value) || 0)
+                }
+                placeholder="Enter amount"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="request-description">Description (Optional)</Label>
+              <Textarea
+                id="request-description"
+                value={requestDescription}
+                onChange={(e) => setRequestDescription(e.target.value)}
+                placeholder="Add description..."
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="request-payment-method">Payment Method *</Label>
+              <Select
+                value={requestPaymentMethod}
+                onValueChange={setRequestPaymentMethod}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CASH">Cash</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                  <SelectItem value="CHEQUE">Cheque</SelectItem>
+                  <SelectItem value="UPI">UPI</SelectItem>
+                  <SelectItem value="OTHER">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="request-payment-reference">
+                Payment Reference (Transaction ID, Cheque #, etc.)
+              </Label>
+              <Input
+                id="request-payment-reference"
+                value={requestPaymentReference}
+                onChange={(e) => setRequestPaymentReference(e.target.value)}
+                placeholder="Enter payment reference..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="request-payment-receipt">Receipt URL (Optional)</Label>
+              <Input
+                id="request-payment-receipt"
+                value={requestPaymentReceiptUrl}
+                onChange={(e) => setRequestPaymentReceiptUrl(e.target.value)}
+                placeholder="Enter receipt URL..."
+              />
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-md">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>Note:</strong> You are submitting proof that you have already paid. The company will verify and reduce your outstanding balance.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="request-payment-date">Payment Date *</Label>
+              <Input
+                id="request-payment-date"
+                type="date"
+                value={requestPaymentDate}
+                onChange={(e) => setRequestPaymentDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsCreateRequestOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateRequest}
+              disabled={createRequestMutation.isPending}
+            >
+              {createRequestMutation.isPending
+                ? "Submitting..."
+                : "Submit Payment"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -938,3 +984,4 @@ export default function CompanyPaymentsPage() {
     </div>
   );
 }
+

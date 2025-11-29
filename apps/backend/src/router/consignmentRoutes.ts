@@ -1,76 +1,60 @@
 import express from "express";
 import {
-  createConsignmentRequest,
-  proposeConsignment,
-  getConsignments,
-  getConsignmentById,
-  acceptConsignment,
-  rejectConsignment,
-  approveConsignmentRequest,
-  dispatchConsignment,
+  createCompanyConsignment,
+  getCompanyConsignments,
+  getCompanyConsignmentById,
+  approveCompanyConsignment,
+  dispatchCompanyConsignment,
+  rejectCompanyConsignment,
+  cancelCompanyConsignment,
+  createDealerConsignment,
+  getDealerConsignments,
+  getDealerConsignmentById,
+  acceptDealerConsignment,
+  confirmDealerConsignmentReceipt,
+  recordDealerAdvancePayment,
+  rejectDealerConsignment,
+  cancelDealerConsignment,
+  getConsignmentAuditLogs,
 } from "../controller/consignmentController";
 import { authMiddleware } from "../middelware/middelware";
 
 const router = express.Router();
 
-// ==================== CONSIGNMENT ROUTES ====================
+// ==================== COMPANY CONSIGNMENT ROUTES ====================
+const companyRouter = express.Router();
+companyRouter.use((req, res, next) => {
+  authMiddleware(req, res, next, ["COMPANY"]);
+});
 
-// Dealer routes
-router.post(
-  "/dealer/request",
-  (req, res, next) => authMiddleware(req, res, next, ["DEALER"]),
-  createConsignmentRequest
-);
+companyRouter.post("/", createCompanyConsignment);
+companyRouter.get("/", getCompanyConsignments);
+companyRouter.get("/:id", getCompanyConsignmentById);
+companyRouter.post("/:id/approve", approveCompanyConsignment);
+companyRouter.post("/:id/dispatch", dispatchCompanyConsignment);
+companyRouter.post("/:id/reject", rejectCompanyConsignment);
+companyRouter.post("/:id/cancel", cancelCompanyConsignment);
 
-router.get(
-  "/dealer",
-  (req, res, next) => authMiddleware(req, res, next, ["DEALER"]),
-  getConsignments
-);
+// ==================== DEALER CONSIGNMENT ROUTES ====================
+const dealerRouter = express.Router();
+dealerRouter.use((req, res, next) => {
+  authMiddleware(req, res, next, ["DEALER"]);
+});
 
-router.put(
-  "/dealer/:id/accept",
-  (req, res, next) => authMiddleware(req, res, next, ["DEALER"]),
-  acceptConsignment
-);
+dealerRouter.post("/", createDealerConsignment);
+dealerRouter.get("/", getDealerConsignments);
+dealerRouter.get("/:id", getDealerConsignmentById);
+dealerRouter.post("/:id/accept", acceptDealerConsignment);
+dealerRouter.post("/:id/confirm-receipt", confirmDealerConsignmentReceipt);
+dealerRouter.post("/:id/advance-payment", recordDealerAdvancePayment);
+dealerRouter.post("/:id/reject", rejectDealerConsignment);
+dealerRouter.post("/:id/cancel", cancelDealerConsignment);
 
-router.put(
-  "/dealer/:id/reject",
-  (req, res, next) => authMiddleware(req, res, next, ["DEALER"]),
-  rejectConsignment
-);
+// ==================== SHARED ROUTES ====================
+router.get("/:id/audit-logs", getConsignmentAuditLogs);
 
-// Company routes
-router.post(
-  "/company/propose",
-  (req, res, next) => authMiddleware(req, res, next, ["COMPANY"]),
-  proposeConsignment
-);
-
-router.get(
-  "/company",
-  (req, res, next) => authMiddleware(req, res, next, ["COMPANY"]),
-  getConsignments
-);
-
-router.put(
-  "/company/:id/approve",
-  (req, res, next) => authMiddleware(req, res, next, ["COMPANY"]),
-  approveConsignmentRequest
-);
-
-router.put(
-  "/company/:id/dispatch",
-  (req, res, next) => authMiddleware(req, res, next, ["COMPANY"]),
-  dispatchConsignment
-);
-
-// Shared routes (both dealer and company can access)
-router.get(
-  "/:id",
-  (req, res, next) => authMiddleware(req, res, next, ["DEALER", "COMPANY"]),
-  getConsignmentById
-);
+// Mount routers
+router.use("/company", companyRouter);
+router.use("/dealer", dealerRouter);
 
 export default router;
-

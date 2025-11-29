@@ -59,6 +59,9 @@ const dealerNavigation = [
   { name: "Inventory", href: "/dealer/dashboard/inventory", icon: Package },
   { name: "Customers", href: "/dealer/dashboard/customers", icon: Users },
   { name: "Sales", href: "/dealer/dashboard/sales", icon: Receipt },
+  { name: "Ledger", href: "/dealer/dashboard/ledger", icon: FileText },
+  { name: "Consignments", href: "/dealer/dashboard/consignments", icon: Truck },
+  { name: "Payments", href: "/dealer/dashboard/payments", icon: CreditCard },
 ];
 
 const companyNavigation = [
@@ -66,10 +69,10 @@ const companyNavigation = [
   { name: "Products", href: "/company/dashboard/products", icon: Package },
   { name: "Dealers", href: "/company/dashboard/dealers", icon: Users },
   { name: "Sales", href: "/company/dashboard/sales", icon: Receipt },
+  { name: "Ledger", href: "/company/dashboard/ledger", icon: FileText },
   { name: "Consignments", href: "/company/dashboard/consignments", icon: Truck },
   { name: "Payments", href: "/company/dashboard/payments", icon: DollarSign },
   { name: "Analytics", href: "/company/dashboard/analytics", icon: BarChart3 },
-  
 ];
 
 const adminNavigation = [

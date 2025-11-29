@@ -1,81 +1,24 @@
-import { useQuery, useMutation, useQueryClient } from "@tantml:react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
+import type { Consignment, ConsignmentsResponse, AuditLog } from "../company/consignmentQueries";
 
-// Query keys
-export const consignmentKeys = {
-  all: ["consignments"] as const,
-  lists: () => [...consignmentKeys.all, "list"] as const,
-  list: (filters: string) => [...consignmentKeys.lists(), { filters }] as const,
-  details: () => [...consignmentKeys.all, "detail"] as const,
-  detail: (id: string) => [...consignmentKeys.details(), id] as const,
+export const dealerConsignmentKeys = {
+  all: ["dealer-consignments"] as const,
+  lists: () => [...dealerConsignmentKeys.all, "list"] as const,
+  list: (filters: string) =>
+    [...dealerConsignmentKeys.lists(), { filters }] as const,
+  details: () => [...dealerConsignmentKeys.all, "detail"] as const,
+  detail: (id: string) => [...dealerConsignmentKeys.details(), id] as const,
+  auditLogs: (id: string) => [...dealerConsignmentKeys.all, "audit", id] as const,
 };
 
-// Types
-export interface ConsignmentRequest {
-  id: string;
-  requestNumber: string;
-  direction: string;
-  status: string;
-  totalAmount: number;
-  notes?: string;
-  fromCompanyId?: string;
-  fromDealerId?: string;
-  toDealerId?: string;
-  toFarmerId?: string;
-  items: ConsignmentItem[];
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface ConsignmentItem {
-  id: string;
-  quantity: number;
-  acceptedQuantity?: number;
-  unitPrice: number;
-  totalAmount: number;
-  isAccepted: boolean;
-  rejectionReason?: string;
-  companyProductId?: string;
-  dealerProductId?: string;
-  companyProduct?: any;
-  dealerProduct?: any;
-}
-
-export interface CreateConsignmentRequestInput {
-  items: Array<{
-    companyProductId: string;
-    quantity: number;
-    unitPrice: number;
-  }>;
-  notes?: string;
-}
-
-export interface ProposeConsignmentInput {
-  dealerId: string;
-  items: Array<{
-    companyProductId: string;
-    quantity: number;
-    unitPrice: number;
-  }>;
-  notes?: string;
-}
-
-export interface AcceptConsignmentInput {
-  items: Array<{
-    itemId: string;
-    acceptedQuantity: number;
-    isAccepted: boolean;
-    rejectionReason?: string;
-  }>;
-}
-
-// Get consignments
-export const useGetConsignments = (params?: {
+// Get dealer consignments
+export const useGetDealerConsignments = (params?: {
   page?: number;
   limit?: number;
   status?: string;
   direction?: string;
-  type?: "incoming" | "outgoing";
+  search?: string;
 }) => {
   const queryString = new URLSearchParams(
     Object.entries(params || {})
@@ -84,125 +27,191 @@ export const useGetConsignments = (params?: {
   ).toString();
 
   return useQuery({
-    queryKey: consignmentKeys.list(queryString),
+    queryKey: dealerConsignmentKeys.list(queryString),
     queryFn: async () => {
-      const { data } = await axiosInstance.get(`/consignments/dealer?${queryString}`);
+      const { data } = await axiosInstance.get<ConsignmentsResponse>(
+        `/consignments/dealer?${queryString}`
+      );
       return data;
     },
   });
 };
 
-// Get consignment by ID
-export const useGetConsignmentById = (id: string) => {
+// Get single consignment details
+export const useGetDealerConsignmentDetails = (id: string) => {
   return useQuery({
-    queryKey: consignmentKeys.detail(id),
+    queryKey: dealerConsignmentKeys.detail(id),
     queryFn: async () => {
-      const { data } = await axiosInstance.get(`/consignments/${id}`);
-      return data;
+      const { data } = await axiosInstance.get(`/consignments/dealer/${id}`);
+      return data.data as Consignment;
     },
     enabled: !!id,
   });
 };
 
-// Create consignment request (Dealer to Company)
-export const useCreateConsignmentRequest = () => {
+// Get audit logs
+export const useGetDealerConsignmentAuditLogs = (id: string) => {
+  return useQuery({
+    queryKey: dealerConsignmentKeys.auditLogs(id),
+    queryFn: async () => {
+      const { data } = await axiosInstance.get(`/consignments/${id}/audit-logs`);
+      return data.data as AuditLog[];
+    },
+    enabled: !!id,
+  });
+};
+
+// Request consignment from company
+export const useRequestConsignment = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: CreateConsignmentRequestInput) => {
-      const { data } = await axiosInstance.post("/consignments/dealer/request", input);
+    mutationFn: async (input: {
+      companyId: string;
+      items: Array<{
+        productId: string;
+        quantity: number;
+        unitPrice: number;
+      }>;
+      notes?: string;
+    }) => {
+      const { data } = await axiosInstance.post("/consignments/dealer", input);
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: consignmentKeys.lists() });
+      queryClient.invalidateQueries({
+        queryKey: dealerConsignmentKeys.lists(),
+      });
     },
   });
 };
 
-// Propose consignment (Company to Dealer)
-export const useProposeConsignment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input: ProposeConsignmentInput) => {
-      const { data } = await axiosInstance.post("/consignments/company/propose", input);
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: consignmentKeys.lists() });
-    },
-  });
-};
-
-// Accept consignment
+// Accept consignment from company
 export const useAcceptConsignment = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...input }: AcceptConsignmentInput & { id: string }) => {
-      const { data } = await axiosInstance.put(
-        `/consignments/dealer/${id}/accept`,
-        input
+    mutationFn: async (input: {
+      id: string;
+      items: Array<{
+        itemId: string;
+        acceptedQuantity: number;
+      }>;
+      notes?: string;
+    }) => {
+      const { data } = await axiosInstance.post(
+        `/consignments/dealer/${input.id}/accept`,
+        { items: input.items, notes: input.notes }
       );
       return data;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: consignmentKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: consignmentKeys.detail(variables.id) });
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: dealerConsignmentKeys.lists(),
+      });
+    },
+  });
+};
+
+// Confirm receipt (CRITICAL - triggers S3)
+export const useConfirmReceipt = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      grnRef?: string;
+      notes?: string;
+    }) => {
+      const { data } = await axiosInstance.post(
+        `/consignments/dealer/${input.id}/confirm-receipt`,
+        { grnRef: input.grnRef, notes: input.notes }
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: dealerConsignmentKeys.lists(),
+      });
       queryClient.invalidateQueries({ queryKey: ["dealer-products"] });
+      queryClient.invalidateQueries({ queryKey: ["dealer-sales"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
+      queryClient.invalidateQueries({ queryKey: ["company-products"] });
+    },
+  });
+};
+
+// Record advance payment
+export const useRecordAdvancePayment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      amount: number;
+      paymentMethod: string;
+      paymentReference?: string;
+      paymentDate?: string;
+      notes?: string;
+    }) => {
+      const { data } = await axiosInstance.post(
+        `/consignments/dealer/${input.id}/advance-payment`,
+        {
+          amount: input.amount,
+          paymentMethod: input.paymentMethod,
+          paymentReference: input.paymentReference,
+          paymentDate: input.paymentDate,
+          notes: input.notes,
+        }
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: dealerConsignmentKeys.lists(),
+      });
+      queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
+      queryClient.invalidateQueries({ queryKey: ["company-ledger"] });
     },
   });
 };
 
 // Reject consignment
-export const useRejectConsignment = () => {
+export const useRejectDealerConsignment = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, reason }: { id: string; reason?: string }) => {
-      const { data } = await axiosInstance.put(
-        `/consignments/dealer/${id}/reject`,
-        { reason }
+    mutationFn: async (input: { id: string; reason?: string }) => {
+      const { data } = await axiosInstance.post(
+        `/consignments/dealer/${input.id}/reject`,
+        { reason: input.reason }
       );
       return data;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: consignmentKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: consignmentKeys.detail(variables.id) });
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: dealerConsignmentKeys.lists(),
+      });
     },
   });
 };
 
-// Approve consignment request (Company)
-export const useApproveConsignmentRequest = () => {
+// Cancel consignment
+export const useCancelDealerConsignment = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
-      const { data } = await axiosInstance.put(`/consignments/company/${id}/approve`);
+    mutationFn: async (input: { id: string; reason?: string }) => {
+      const { data } = await axiosInstance.post(
+        `/consignments/dealer/${input.id}/cancel`,
+        { reason: input.reason }
+      );
       return data;
     },
-    onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: consignmentKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: consignmentKeys.detail(id) });
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: dealerConsignmentKeys.lists(),
+      });
     },
   });
 };
-
-// Dispatch consignment (Company)
-export const useDispatchConsignment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { data } = await axiosInstance.put(`/consignments/company/${id}/dispatch`);
-      return data;
-    },
-    onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: consignmentKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: consignmentKeys.detail(id) });
-    },
-  });
-};
-

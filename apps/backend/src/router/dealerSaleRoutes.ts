@@ -5,6 +5,7 @@ import {
   getDealerSaleById,
   addSalePayment,
   searchCustomers,
+  searchCompanies,
   createCustomer,
   getDealerCustomers,
   getSalesStatistics,
@@ -33,6 +34,9 @@ router.get("/customers", getDealerCustomers);
 
 // Search customers/farmers
 router.get("/customers/search", searchCustomers);
+
+// Search companies
+router.get("/companies/search", searchCompanies);
 
 // Create customer on-the-fly
 router.post("/customers", createCustomer);
