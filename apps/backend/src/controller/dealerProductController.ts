@@ -1,0 +1,505 @@
+import { Request, Response } from "express";
+import prisma from "../utils/prisma";
+import { Prisma } from "@prisma/client";
+
+// ==================== CREATE DEALER PRODUCT ====================
+export const createDealerProduct = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const dealerId = req.userId; // Assuming dealer is logged in with their user ID
+
+    const {
+      name,
+      description,
+      type,
+      unit,
+      costPrice,
+      sellingPrice,
+      currentStock,
+      minStock,
+      sku,
+      companyProductId,
+    } = req.body;
+
+    // Validation
+    if (!name || !type || !unit || !costPrice || !sellingPrice) {
+      return res.status(400).json({
+        message: "Name, type, unit, cost price, and selling price are required",
+      });
+    }
+
+    // Get the dealer record to get dealerId
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: dealerId },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    // Check if product with same name already exists for this dealer
+    const existingProduct = await prisma.dealerProduct.findUnique({
+      where: {
+        dealerId_name: {
+          dealerId: dealer.id,
+          name,
+        },
+      },
+    });
+
+    if (existingProduct) {
+      return res.status(400).json({
+        message: "Product with this name already exists",
+      });
+    }
+
+    // Create product
+    const product = await prisma.dealerProduct.create({
+      data: {
+        name,
+        description,
+        type,
+        unit,
+        costPrice: new Prisma.Decimal(costPrice),
+        sellingPrice: new Prisma.Decimal(sellingPrice),
+        currentStock: currentStock ? new Prisma.Decimal(currentStock) : new Prisma.Decimal(0),
+        minStock: minStock ? new Prisma.Decimal(minStock) : null,
+        sku,
+        dealerId: dealer.id,
+        companyProductId,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: product,
+      message: "Product created successfully",
+    });
+  } catch (error: any) {
+    console.error("Create dealer product error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== GET ALL DEALER PRODUCTS ====================
+export const getDealerProducts = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const dealerId = req.userId;
+    const { page = 1, limit = 10, search, type, lowStock } = req.query;
+
+    // Get the dealer record
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: dealerId },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // Build where clause
+    const where: any = {
+      dealerId: dealer.id,
+    };
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search as string, mode: "insensitive" } },
+        { description: { contains: search as string, mode: "insensitive" } },
+        { sku: { contains: search as string, mode: "insensitive" } },
+      ];
+    }
+
+    if (type) {
+      where.type = type;
+    }
+
+    if (lowStock === "true") {
+      where.currentStock = {
+        lte: prisma.dealerProduct.fields.minStock,
+      };
+    }
+
+    const [products, total] = await Promise.all([
+      prisma.dealerProduct.findMany({
+        where,
+        skip,
+        take: Number(limit),
+        orderBy: { createdAt: "desc" },
+        include: {
+          companyProduct: true,
+        },
+      }),
+      prisma.dealerProduct.count({ where }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: products,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        totalPages: Math.ceil(total / Number(limit)),
+      },
+    });
+  } catch (error: any) {
+    console.error("Get dealer products error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== GET DEALER PRODUCT BY ID ====================
+export const getDealerProductById = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const dealerId = req.userId;
+    const { id } = req.params;
+
+    // Get the dealer record
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: dealerId },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    const product = await prisma.dealerProduct.findFirst({
+      where: {
+        id,
+        dealerId: dealer.id,
+      },
+      include: {
+        companyProduct: true,
+        transactions: {
+          orderBy: { date: "desc" },
+          take: 10,
+        },
+      },
+    });
+
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: product,
+    });
+  } catch (error: any) {
+    console.error("Get dealer product by ID error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== UPDATE DEALER PRODUCT ====================
+export const updateDealerProduct = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const dealerId = req.userId;
+    const { id } = req.params;
+
+    const {
+      name,
+      description,
+      type,
+      unit,
+      costPrice,
+      sellingPrice,
+      minStock,
+      sku,
+    } = req.body;
+
+    // Get the dealer record
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: dealerId },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    // Check if product exists and belongs to dealer
+    const existingProduct = await prisma.dealerProduct.findFirst({
+      where: {
+        id,
+        dealerId: dealer.id,
+      },
+    });
+
+    if (!existingProduct) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    // Check if name is being changed and if new name already exists
+    if (name && name !== existingProduct.name) {
+      const duplicateProduct = await prisma.dealerProduct.findUnique({
+        where: {
+          dealerId_name: {
+            dealerId: dealer.id,
+            name,
+          },
+        },
+      });
+
+      if (duplicateProduct) {
+        return res.status(400).json({
+          message: "Product with this name already exists",
+        });
+      }
+    }
+
+    // Update product
+    const updatedProduct = await prisma.dealerProduct.update({
+      where: { id },
+      data: {
+        name,
+        description,
+        type,
+        unit,
+        costPrice: costPrice ? new Prisma.Decimal(costPrice) : undefined,
+        sellingPrice: sellingPrice ? new Prisma.Decimal(sellingPrice) : undefined,
+        minStock: minStock !== undefined ? (minStock ? new Prisma.Decimal(minStock) : null) : undefined,
+        sku,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: updatedProduct,
+      message: "Product updated successfully",
+    });
+  } catch (error: any) {
+    console.error("Update dealer product error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== DELETE DEALER PRODUCT ====================
+export const deleteDealerProduct = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const dealerId = req.userId;
+    const { id } = req.params;
+
+    // Get the dealer record
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: dealerId },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    // Check if product exists and belongs to dealer
+    const product = await prisma.dealerProduct.findFirst({
+      where: {
+        id,
+        dealerId: dealer.id,
+      },
+    });
+
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    // Check if product has been used in sales
+    const saleItemsCount = await prisma.dealerSaleItem.count({
+      where: { productId: id },
+    });
+
+    if (saleItemsCount > 0) {
+      return res.status(400).json({
+        message: "Cannot delete product that has been used in sales",
+      });
+    }
+
+    // Delete product
+    await prisma.dealerProduct.delete({
+      where: { id },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Product deleted successfully",
+    });
+  } catch (error: any) {
+    console.error("Delete dealer product error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== GET INVENTORY SUMMARY ====================
+export const getInventorySummary = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const dealerId = req.userId;
+
+    // Get the dealer record
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: dealerId },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    // Get total products
+    const totalProducts = await prisma.dealerProduct.count({
+      where: { dealerId: dealer.id },
+    });
+
+    // Get low stock products
+    const lowStockProducts = await prisma.dealerProduct.count({
+      where: {
+        dealerId: dealer.id,
+        AND: [
+          { minStock: { not: null } },
+          {
+            currentStock: {
+              lte: prisma.dealerProduct.fields.minStock,
+            },
+          },
+        ],
+      },
+    });
+
+    // Get out of stock products
+    const outOfStockProducts = await prisma.dealerProduct.count({
+      where: {
+        dealerId: dealer.id,
+        currentStock: { lte: 0 },
+      },
+    });
+
+    // Get total inventory value
+    const products = await prisma.dealerProduct.findMany({
+      where: { dealerId: dealer.id },
+    });
+
+    const totalInventoryValue = products.reduce((sum, product) => {
+      return sum + Number(product.currentStock) * Number(product.costPrice);
+    }, 0);
+
+    // Get products by type
+    const productsByType = await prisma.dealerProduct.groupBy({
+      by: ["type"],
+      where: { dealerId: dealer.id },
+      _count: true,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        totalProducts,
+        lowStockProducts,
+        outOfStockProducts,
+        totalInventoryValue,
+        productsByType,
+      },
+    });
+  } catch (error: any) {
+    console.error("Get inventory summary error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== ADJUST PRODUCT STOCK ====================
+export const adjustProductStock = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const dealerId = req.userId;
+    const { id } = req.params;
+    const { quantity, type, description, reference } = req.body;
+
+    // Validation
+    if (!quantity || !type) {
+      return res.status(400).json({
+        message: "Quantity and type are required",
+      });
+    }
+
+    if (!["ADJUSTMENT", "PURCHASE", "RETURN"].includes(type)) {
+      return res.status(400).json({
+        message: "Invalid adjustment type",
+      });
+    }
+
+    // Get the dealer record
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: dealerId },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    // Check if product exists
+    const product = await prisma.dealerProduct.findFirst({
+      where: {
+        id,
+        dealerId: dealer.id,
+      },
+    });
+
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    // Perform adjustment
+    const result = await prisma.$transaction(async (tx) => {
+      // Update stock
+      const updatedProduct = await tx.dealerProduct.update({
+        where: { id },
+        data: {
+          currentStock: {
+            increment: new Prisma.Decimal(quantity),
+          },
+        },
+      });
+
+      // Create transaction record
+      await tx.dealerProductTransaction.create({
+        data: {
+          type,
+          quantity: new Prisma.Decimal(Math.abs(quantity)),
+          unitPrice: product.costPrice,
+          totalAmount: new Prisma.Decimal(Math.abs(quantity) * Number(product.costPrice)),
+          date: new Date(),
+          description: description || `Stock ${type.toLowerCase()}`,
+          reference,
+          productId: id,
+        },
+      });
+
+      return updatedProduct;
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      message: "Stock adjusted successfully",
+    });
+  } catch (error: any) {
+    console.error("Adjust product stock error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+

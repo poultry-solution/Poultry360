@@ -29,11 +29,11 @@ import {
 } from "@/common/components/ui/table";
 import { Badge } from "@/common/components/ui/badge";
 import {
-  useGetDealerSales,
-  type DealerSale,
-} from "@/fetchers/dealer/dealerSaleQueries";
+  useGetCompanySales,
+  type CompanySale,
+} from "@/fetchers/company/companySaleQueries";
 
-export default function DealerSalesPage() {
+export default function CompanySalesPage() {
   const router = useRouter();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -42,7 +42,7 @@ export default function DealerSalesPage() {
   const [endDate, setEndDate] = useState("");
 
   // Get sales
-  const { data: salesData, isLoading } = useGetDealerSales({
+  const { data: salesData, isLoading } = useGetCompanySales({
     page,
     limit: 10,
     search,
@@ -51,7 +51,7 @@ export default function DealerSalesPage() {
     endDate: endDate || undefined,
   });
 
-  const sales: DealerSale[] = salesData?.data || [];
+  const sales: CompanySale[] = salesData?.data || [];
   const pagination = salesData?.pagination;
 
   const formatDate = (date: Date | string) => {
@@ -73,11 +73,11 @@ export default function DealerSalesPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Sales Management</h1>
           <p className="text-muted-foreground">
-            Track and manage sales to your customers and farmers
+            Track and manage sales to dealers
           </p>
         </div>
         <Button
-          onClick={() => router.push("/dealer/dashboard/sales/new")}
+          onClick={() => router.push("/company/dashboard/sales/new")}
           className="bg-primary"
         >
           <Plus className="mr-2 h-4 w-4" />
@@ -152,7 +152,7 @@ export default function DealerSalesPage() {
               <p className="text-muted-foreground mb-4">
                 Get started by recording your first sale.
               </p>
-              <Button onClick={() => router.push("/dealer/dashboard/sales/new")}>
+              <Button onClick={() => router.push("/company/dashboard/sales/new")}>
                 <Plus className="mr-2 h-4 w-4" />
                 New Sale
               </Button>
@@ -164,7 +164,7 @@ export default function DealerSalesPage() {
                   <TableRow>
                     <TableHead>Invoice</TableHead>
                     <TableHead>Date</TableHead>
-                    <TableHead>Customer</TableHead>
+                    <TableHead>Dealer</TableHead>
                     <TableHead className="text-right">Total Amount</TableHead>
                     <TableHead className="text-right">Paid</TableHead>
                     <TableHead className="text-right">Due</TableHead>
@@ -185,18 +185,11 @@ export default function DealerSalesPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {sale.customer ? (
+                        {sale.dealer ? (
                           <div>
-                            <div className="font-medium">{sale.customer.name}</div>
+                            <div className="font-medium">{sale.dealer.name}</div>
                             <div className="text-sm text-muted-foreground">
-                              {sale.customer.phone}
-                            </div>
-                          </div>
-                        ) : sale.farmer ? (
-                          <div>
-                            <div className="font-medium">{sale.farmer.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {sale.farmer.phone}
+                              {sale.dealer.contact}
                             </div>
                           </div>
                         ) : (
@@ -233,7 +226,7 @@ export default function DealerSalesPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() =>
-                              router.push(`/dealer/dashboard/sales/${sale.id}`)
+                              router.push(`/company/dashboard/sales/${sale.id}`)
                             }
                           >
                             <Eye className="h-4 w-4" />
@@ -245,9 +238,7 @@ export default function DealerSalesPage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() =>
-                                  router.push(
-                                    `/dealer/dashboard/sales/${sale.id}?tab=payments`
-                                  )
+                                  router.push(`/company/dashboard/sales/${sale.id}`)
                                 }
                               >
                                 <CreditCard className="h-4 w-4" />
@@ -293,3 +284,4 @@ export default function DealerSalesPage() {
     </div>
   );
 }
+

@@ -65,7 +65,11 @@ const companyNavigation = [
   { name: "Home", href: "/company/dashboard/home", icon: Home },
   { name: "Products", href: "/company/dashboard/products", icon: Package },
   { name: "Dealers", href: "/company/dashboard/dealers", icon: Users },
+  { name: "Sales", href: "/company/dashboard/sales", icon: Receipt },
+  { name: "Consignments", href: "/company/dashboard/consignments", icon: Truck },
+  { name: "Payments", href: "/company/dashboard/payments", icon: DollarSign },
   { name: "Analytics", href: "/company/dashboard/analytics", icon: BarChart3 },
+  
 ];
 
 const adminNavigation = [

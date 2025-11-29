@@ -37,14 +37,14 @@ import {
 import { Label } from "@/common/components/ui/label";
 import { toast } from "sonner";
 import {
-  useGetCompanyProducts,
-  useCreateCompanyProduct,
-  useUpdateCompanyProduct,
-  useDeleteCompanyProduct,
-  type CreateCompanyProductInput,
-} from "@/fetchers/company/companyProductQueries";
+  useGetDealerProducts,
+  useCreateDealerProduct,
+  useUpdateDealerProduct,
+  useDeleteDealerProduct,
+  type CreateDealerProductInput,
+} from "@/fetchers/dealer/dealerProductQueries";
 
-export default function CompanyProductsPage() {
+export default function DealerProductsPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("");
@@ -52,26 +52,29 @@ export default function CompanyProductsPage() {
   const [editingProduct, setEditingProduct] = useState<any>(null);
 
   // Form state
-  const [formData, setFormData] = useState<CreateCompanyProductInput>({
+  const [formData, setFormData] = useState<CreateDealerProductInput>({
     name: "",
     description: "",
     type: "FEED",
     unit: "kg",
-    price: 0,
-    quantity: 0,
+    costPrice: 0,
+    sellingPrice: 0,
+    currentStock: 0,
+    minStock: 0,
+    sku: "",
   });
 
   // Queries
-  const { data: productsData, isLoading } = useGetCompanyProducts({
+  const { data: productsData, isLoading } = useGetDealerProducts({
     page,
     limit: 10,
     search,
     type: typeFilter || undefined,
   });
 
-  const createMutation = useCreateCompanyProduct();
-  const updateMutation = useUpdateCompanyProduct();
-  const deleteMutation = useDeleteCompanyProduct();
+  const createMutation = useCreateDealerProduct();
+  const updateMutation = useUpdateDealerProduct();
+  const deleteMutation = useDeleteDealerProduct();
 
   const handleOpenDialog = (product?: any) => {
     if (product) {
@@ -81,8 +84,10 @@ export default function CompanyProductsPage() {
         description: product.description || "",
         type: product.type,
         unit: product.unit,
-        price: Number(product.price),
-        quantity: Number(product.quantity),
+        costPrice: Number(product.costPrice),
+        sellingPrice: Number(product.sellingPrice),
+        minStock: product.minStock ? Number(product.minStock) : 0,
+        sku: product.sku || "",
       });
     } else {
       setEditingProduct(null);
@@ -91,8 +96,11 @@ export default function CompanyProductsPage() {
         description: "",
         type: "FEED",
         unit: "kg",
-        price: 0,
-        quantity: 0,
+        costPrice: 0,
+        sellingPrice: 0,
+        currentStock: 0,
+        minStock: 0,
+        sku: "",
       });
     }
     setIsDialogOpen(true);
@@ -142,9 +150,9 @@ export default function CompanyProductsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Product Catalog</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Products</h1>
           <p className="text-muted-foreground">
-            Manage your products available for dealers
+            Manage your product inventory and pricing
           </p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="bg-primary">
@@ -191,7 +199,7 @@ export default function CompanyProductsPage() {
         <CardHeader>
           <CardTitle>Products</CardTitle>
           <CardDescription>
-            {pagination?.total || 0} total products in catalog
+            {pagination?.total || 0} total products
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -202,7 +210,7 @@ export default function CompanyProductsPage() {
               <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No products found</h3>
               <p className="text-muted-foreground mb-4">
-                Get started by adding your first product to the catalog.
+                Get started by adding your first product.
               </p>
               <Button onClick={() => handleOpenDialog()}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -217,9 +225,10 @@ export default function CompanyProductsPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Unit</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead>
-                    <TableHead className="text-right">Total Value</TableHead>
+                    <TableHead className="text-right">Cost Price</TableHead>
+                    <TableHead className="text-right">Selling Price</TableHead>
+                    <TableHead className="text-right">Stock</TableHead>
+                    <TableHead className="text-right">Min Stock</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -228,17 +237,34 @@ export default function CompanyProductsPage() {
                     <TableRow key={product.id}>
                       <TableCell className="font-medium">
                         {product.name}
+                        {product.sku && (
+                          <span className="text-xs text-muted-foreground ml-2">
+                            ({product.sku})
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>{product.type}</TableCell>
                       <TableCell>{product.unit}</TableCell>
                       <TableCell className="text-right">
-                        रू {Number(product.price).toFixed(2)}
+                        रू {Number(product.costPrice).toFixed(2)}
                       </TableCell>
                       <TableCell className="text-right">
-                        {Number(product.quantity).toFixed(2)}
+                        रू {Number(product.sellingPrice).toFixed(2)}
                       </TableCell>
                       <TableCell className="text-right">
-                        रू {Number(product.totalPrice).toFixed(2)}
+                        <span
+                          className={
+                            product.minStock &&
+                            Number(product.currentStock) <= Number(product.minStock)
+                              ? "text-red-600 font-semibold"
+                              : ""
+                          }
+                        >
+                          {Number(product.currentStock).toFixed(2)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {product.minStock ? Number(product.minStock).toFixed(2) : "-"}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -304,22 +330,34 @@ export default function CompanyProductsPage() {
               </DialogTitle>
               <DialogDescription>
                 {editingProduct
-                  ? "Update product details in your catalog"
-                  : "Add a new product to your catalog"}
+                  ? "Update product details and pricing"
+                  : "Add a new product to your inventory"}
               </DialogDescription>
             </DialogHeader>
 
             <div className="grid gap-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Product Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Product Name *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sku">SKU</Label>
+                  <Input
+                    id="sku"
+                    value={formData.sku}
+                    onChange={(e) =>
+                      setFormData({ ...formData, sku: e.target.value })
+                    }
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -370,32 +408,32 @@ export default function CompanyProductsPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Unit Price *</Label>
+                  <Label htmlFor="costPrice">Cost Price *</Label>
                   <Input
-                    id="price"
+                    id="costPrice"
                     type="number"
                     step="0.01"
-                    value={formData.price}
+                    value={formData.costPrice}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        price: parseFloat(e.target.value) || 0,
+                        costPrice: parseFloat(e.target.value) || 0,
                       })
                     }
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="quantity">Quantity *</Label>
+                  <Label htmlFor="sellingPrice">Selling Price *</Label>
                   <Input
-                    id="quantity"
+                    id="sellingPrice"
                     type="number"
                     step="0.01"
-                    value={formData.quantity}
+                    value={formData.sellingPrice}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        quantity: parseFloat(e.target.value) || 0,
+                        sellingPrice: parseFloat(e.target.value) || 0,
                       })
                     }
                     required
@@ -403,14 +441,40 @@ export default function CompanyProductsPage() {
                 </div>
               </div>
 
-              {formData.price > 0 && formData.quantity > 0 && (
-                <div className="p-4 bg-muted rounded-lg">
-                  <div className="text-sm font-medium">Total Value</div>
-                  <div className="text-2xl font-bold">
-                    रू {(formData.price * formData.quantity).toFixed(2)}
+              <div className="grid grid-cols-2 gap-4">
+                {!editingProduct && (
+                  <div className="space-y-2">
+                    <Label htmlFor="currentStock">Initial Stock</Label>
+                    <Input
+                      id="currentStock"
+                      type="number"
+                      step="0.01"
+                      value={formData.currentStock}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          currentStock: parseFloat(e.target.value) || 0,
+                        })
+                      }
+                    />
                   </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="minStock">Minimum Stock Alert</Label>
+                  <Input
+                    id="minStock"
+                    type="number"
+                    step="0.01"
+                    value={formData.minStock}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        minStock: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                  />
                 </div>
-              )}
+              </div>
             </div>
 
             <DialogFooter>
@@ -438,3 +502,4 @@ export default function CompanyProductsPage() {
     </div>
   );
 }
+
