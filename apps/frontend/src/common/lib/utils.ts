@@ -29,3 +29,13 @@ export function getNowLocalDateTime(): string {
   const mm = String(d.getMinutes()).padStart(2, "0")
   return `${y}-${m}-${day}T${hh}:${mm}`
 }
+
+export function formatDate(date: Date | string): string {
+  return new Date(date).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}

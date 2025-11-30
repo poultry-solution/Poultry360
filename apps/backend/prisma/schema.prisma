@@ -5,12 +5,10 @@ generator client {
   provider = "prisma-client-js"
 }
 
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
 
 // ==================== ENUMS ====================
 
@@ -37,31 +35,32 @@ enum TransactionType {
   ADJUSTMENT
   OPENING_BALANCE
   USAGE
+  RETURN
 }
 
 enum NotificationType {
   // Chat notifications
   CHAT_MESSAGE
-  
+
   // Batch management
   BATCH_UPDATE
   MORTALITY_ALERT
   FEED_WARNING
   SALES_NOTIFICATION
-  
+
   // Farm operations
   FARM_ALERT
   EXPENSE_WARNING
   LOW_INVENTORY
-  
+
   // System notifications
   SYSTEM
-  
+
   // Alert notifications (as requested)
   VACCINATION_ALERT
   REMINDER_ALERT
   REQUEST_ALERT
-  
+
   // Reminder-specific notifications
   VACCINATION_REMINDER
   FEEDING_REMINDER
@@ -71,7 +70,7 @@ enum NotificationType {
   SUPPLIER_PAYMENT_REMINDER
   CUSTOMER_PAYMENT_REMINDER
   GENERAL_REMINDER
-  
+
   // Legacy types (keeping for backward compatibility)
   VACCINATION_DUE
   BATCH_COMPLETION
@@ -121,7 +120,6 @@ enum AuditAction {
 
 // ==================== CORE MODELS ====================
 
-
 enum UserStatus {
   ACTIVE
   INACTIVE
@@ -138,170 +136,226 @@ enum CalendarType {
   BS
 }
 
+enum ConsignmentStatus {
+  CREATED                    // S0 - Request/offer formed
+  ACCEPTED_PENDING_DISPATCH  // S1 - Waiting for dispatch
+  DISPATCHED                 // S2 - Goods shipped
+  RECEIVED                   // S3 - Inventory transferred, sale created
+  SETTLED                    // S4 - Fully paid
+  REJECTED                   // Rejected before dispatch
+  CANCELLED                  // Cancelled before dispatch
+}
+
+enum ConsignmentDirection {
+  COMPANY_TO_DEALER
+  DEALER_TO_COMPANY
+  DEALER_TO_FARMER
+}
+
+enum LedgerEntryType {
+  SALE
+  PURCHASE
+  PAYMENT_RECEIVED
+  PAYMENT_MADE
+  RETURN
+  ADJUSTMENT
+  OPENING_BALANCE
+  ADVANCE_RECEIVED      // Prepayment from dealer
+  CONSIGNMENT_INVOICE   // When S3 creates sale
+  CONSIGNMENT_SETTLED   // When fully paid
+}
+
+enum PaymentRequestStatus {
+  PENDING              // Company sent request, waiting for dealer acceptance
+  ACCEPTED             // Dealer accepted the request (acknowledged they need to pay)
+  PAYMENT_SUBMITTED    // Dealer submitted payment proof (receipt/transaction ID)
+  VERIFIED             // Company verified and approved the payment
+  REJECTED             // Company rejected the payment proof
+  CANCELLED            // Request cancelled by either party
+}
+
+enum PaymentRequestDirection {
+  COMPANY_TO_DEALER  // Company requests payment from dealer
+  DEALER_TO_COMPANY  // Dealer submits payment for company verification
+}
+
 model User {
-  id        String   @id @default(cuid())
-  phone     String  @unique
-  name      String  //name of the user 
-  
-  companyName String? //name of the company
+  id    String @id @default(cuid())
+  phone String @unique
+  name  String //name of the user 
+
+  companyName         String? //name of the company
   CompanyFarmLocation String? // Province + Location 
- 
 
+  password String
 
-  password  String  
+  role     UserRole   @default(OWNER)
+  status   UserStatus @default(PENDING_VERIFICATION)
+  isOnline Boolean    @default(false)
+  lastSeen DateTime?
 
-  role      UserRole @default(OWNER)  
-  status    UserStatus @default(PENDING_VERIFICATION)
-  isOnline  Boolean @default(false)
-  lastSeen  DateTime?
-  
   // User preferences
-  language      Language @default(ENGLISH)
-  calendarType  CalendarType @default(AD)
-  
+  language     Language     @default(ENGLISH)
+  calendarType CalendarType @default(AD)
+
   // Push notification settings
-  pushSubscription    Json?     // Web Push subscription object
-  notificationEnabled Boolean   @default(true)
-  notificationSettings Json?    // User preferences for notification types
-  
+  pushSubscription     Json? // Web Push subscription object
+  notificationEnabled  Boolean @default(true)
+  notificationSettings Json? // User preferences for notification types
+
   // Relationships
   // Farms this user owns
   ownedFarms Farm[]
 
-
   // Farms this user manages
   managedFarms Farm[] @relation("FarmManagers")
 
-
-  customers Customer[]
+  customers     Customer[]
   notifications Notification[]
-  reminders Reminder[]
-  vaccinations Vaccination[]
-  auditLogs AuditLog[]
+  reminders     Reminder[]
+  vaccinations  Vaccination[]
+  auditLogs     AuditLog[]
 
-  
   // Categories (unified)
   categories Category[]
-  
+
   // Suppliers (simplified - no balance fields)
-  dealers   Dealer[] @relation("DealerCreator")
+  dealers    Dealer[]   @relation("DealerCreator")
   hatcheries Hatchery[]
 
   medicineSuppliers MedicineSupplier[]
 
-  dealer     Dealer? @relation("DealerOwner")
+  dealer Dealer? @relation("DealerOwner")
 
   managedDealers Dealer[] @relation("DealerManagers")
 
-  company    Company? @relation("CompanyOwner")
-  
+  company Company? @relation("CompanyOwner")
+
   managedCompanies Company[] @relation("CompanyManagedBy")
   suppliedProducts Product[] @relation("ProductSupplier")
-  
+
   // Inventory
   inventoryItems InventoryItem[]
 
   // Chat relationships
   farmerConversations Conversation[] @relation("FarmerConversations")
   doctorConversations Conversation[] @relation("DoctorConversations")
-  sentMessages Message[]
+  sentMessages        Message[]
 
   // Batch share relationships
-  batchSharesOwned     BatchShare[]      @relation("BatchShareOwner")
-  batchSharesReceived  BatchShare[]      @relation("BatchShareRecipient")
-  batchShareViews      BatchShareView[]  @relation("BatchShareViewer")
+  batchSharesOwned    BatchShare[]     @relation("BatchShareOwner")
+  batchSharesReceived BatchShare[]     @relation("BatchShareRecipient")
+  batchShareViews     BatchShareView[] @relation("BatchShareViewer")
+
+  // Dealer sales relationships
+  dealerSalesReceived DealerSale[] @relation("DealerSalesToFarmer")
+
+  // Company sales relationships
+  companySalesMade CompanySale[]
+
+  // Consignment relationships
+  consignmentsReceived ConsignmentRequest[] @relation("FarmerConsignments")
+  dispatchedConsignments ConsignmentRequest[] @relation("DispatchedConsignments")
+  receivedConsignments ConsignmentRequest[] @relation("ReceivedConsignments")
+  consignmentAuditLogs ConsignmentAuditLog[] @relation("ConsignmentAuditLogs")
+
+  // Payment Request relationships
+  paymentRequestsCreated   PaymentRequest[] @relation("PaymentRequestCreatedBy")
+  paymentRequestsAccepted  PaymentRequest[] @relation("PaymentRequestAcceptedBy")
+  paymentRequestsSubmitted PaymentRequest[] @relation("PaymentRequestSubmittedBy")
+  paymentRequestsReviewed  PaymentRequest[] @relation("PaymentRequestReviewedBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-
-
 model Company {
-  id          String   @id @default(cuid())
-  name        String
-  address     String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  ownerId     String   @unique
-  owner       User     @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  managedBy User[]   @relation("CompanyManagedBy")
-  dealers   Dealer[]
+  ownerId String @unique
+  owner   User   @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  managedBy       User[]               @relation("CompanyManagedBy")
+  dealers         Dealer[]
+  consignments    ConsignmentRequest[] @relation("CompanyConsignments")
+  companySales    CompanySale[]
+  ledgerEntries   CompanyLedgerEntry[]
+  paymentRequests PaymentRequest[]
 
   @@index([ownerId])
 }
 
 model Farm {
-  id          String   @id @default(cuid())
-  name        String
+  id   String @id @default(cuid())
+  name String
 
   capacity    Int
   description String?
-  
+
   // Relationships
   // Owner (one-to-many)
-  ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
   // Managers (many-to-many)
-  managers    User[]   @relation("FarmManagers")
+  managers User[] @relation("FarmManagers")
 
-  batches     Batch[]
-  expenses    Expense[]
-  sales       Sale[]
+  batches         Batch[]
+  expenses        Expense[]
+  sales           Sale[]
   inventoryUsages InventoryUsage[]
-  notifications Notification[]
-  reminders   Reminder[]
-  vaccinations Vaccination[]
+  notifications   Notification[]
+  reminders       Reminder[]
+  vaccinations    Vaccination[]
 
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Batch {
-  id          String      @id @default(cuid())
-  batchNumber String
-  startDate   DateTime
-  endDate     DateTime?
-  status      BatchStatus @default(ACTIVE)
+  id            String      @id @default(cuid())
+  batchNumber   String
+  startDate     DateTime
+  endDate       DateTime?
+  status        BatchStatus @default(ACTIVE)
   initialChicks Int
-  notes       String?
+  notes         String?
 
   // Removed currentChicks - will be computed from mortalities
   // Removed initialChickWeight - replaced with currentWeight
-  
+
   // Current average weight per bird (denormalized from latest BirdWeight for quick access)
   // This is automatically updated when a new BirdWeight record is added or a sale is recorded
   currentWeight Decimal? @db.Decimal(6, 2) // kg per bird, nullable initially
-  
+
   // Relationships
-  farmId      String
-  farm        Farm        @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  expenses    Expense[]
-  sales       Sale[]
-  mortalities Mortality[]
-  vaccinations Vaccination[]
+  farmId           String
+  farm             Farm              @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  expenses         Expense[]
+  sales            Sale[]
+  mortalities      Mortality[]
+  vaccinations     Vaccination[]
   feedConsumptions FeedConsumption[]
-  birdWeights BirdWeight[]
-  inventoryUsages InventoryUsage[]
-  notifications Notification[]
-  reminders   Reminder[]
+  birdWeights      BirdWeight[]
+  inventoryUsages  InventoryUsage[]
+  notifications    Notification[]
+  reminders        Reminder[]
 
   // Shares referencing this batch
   batchShares BatchShare[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([farmId, batchNumber])
   @@index([farmId, startDate])
 }
 
 // ==================== UNIFIED CATEGORY MODEL ====================
-
 
 // category enum
 
@@ -313,49 +367,53 @@ enum CategoryType {
 
 // 🔗 NEW: Inventory item types based on supplier
 enum InventoryItemType {
-  FEED           // From Dealers
-  CHICKS         // From Hatcheries  
-  MEDICINE       // From Medicine Suppliers
-  EQUIPMENT      // General equipment
-  OTHER          // Other items
+  FEED // From Dealers
+  CHICKS // From Hatcheries  
+  MEDICINE // From Medicine Suppliers
+  EQUIPMENT // General equipment
+  OTHER // Other items
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  type        InventoryItemType
-  unit        String
-  price       Decimal  @db.Decimal(10, 2)
-  quantity    Decimal  @db.Decimal(10, 2)
-  totalPrice  Decimal  @db.Decimal(10, 2)
-  supplierId String?
-  supplier    User? @relation("ProductSupplier", fields: [supplierId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String            @id @default(cuid())
+  name         String
+  description  String?
+  type         InventoryItemType
+  unit         String
+  price        Decimal           @db.Decimal(10, 2)
+  quantity     Decimal           @db.Decimal(10, 2)
+  currentStock Decimal           @default(0) @db.Decimal(10, 2)
+  totalPrice   Decimal           @db.Decimal(10, 2)
+  supplierId   String?
+  supplier     User?             @relation("ProductSupplier", fields: [supplierId], references: [id], onDelete: Cascade)
+
+  dealerProducts   DealerProduct[]
+  consignmentItems ConsignmentItem[]
+  companySaleItems CompanySaleItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Category {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   name        String
   type        CategoryType
   description String?
-  
+
   // Relationships
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expenses    Expense[]
-  sales       Sale[]
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses       Expense[]
+  sales          Sale[]
   inventoryItems InventoryItem[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([userId, type, name])
   @@index([userId, type])
 }
-
-
 
 // ==================== EXPENSES & SALES ====================
 
@@ -367,27 +425,26 @@ model Expense {
   quantity    Decimal? @db.Decimal(10, 2)
   weight      Decimal? @db.Decimal(10, 2)
   unitPrice   Decimal? @db.Decimal(10, 2)
-  
+
   // Relationships
-  farmId      String?
-  farm        Farm?     @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  
-  batchId     String?
-  batch       Batch?   @relation(fields: [batchId], references: [id], onDelete: SetNull)
-  categoryId  String
-  category    Category @relation(fields: [categoryId], references: [id])
+  farmId String?
+  farm   Farm?   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  batchId         String?
+  batch           Batch?           @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  categoryId      String
+  category        Category         @relation(fields: [categoryId], references: [id])
   inventoryUsages InventoryUsage[]
-  
+
   // 🔗 NEW: Connect to supplier transactions
   entityTransactions EntityTransaction[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([farmId, date])
   @@index([batchId])
 }
-
 
 enum SalesItemType {
   EGGS
@@ -404,34 +461,34 @@ model Sale {
   date        DateTime
   amount      Decimal  @db.Decimal(10, 2)
   quantity    Decimal  @db.Decimal(10, 2)
-  weight      Decimal?  @db.Decimal(10, 2)
+  weight      Decimal? @db.Decimal(10, 2)
   unitPrice   Decimal  @db.Decimal(10, 2)
   description String?
 
-  itemType    SalesItemType @default(Chicken_Meat) 
+  itemType    SalesItemType @default(Chicken_Meat)
   // Credit tracking (simplified)
-  isCredit    Boolean  @default(false)
-  paidAmount  Decimal  @db.Decimal(10, 2) @default(0)
-  dueAmount   Decimal?  @db.Decimal(10, 2) @default(0)
+  isCredit    Boolean       @default(false)
+  paidAmount  Decimal       @default(0) @db.Decimal(10, 2)
+  dueAmount   Decimal?      @default(0) @db.Decimal(10, 2)
   // Relationships
   farmId      String?
-  farm        Farm?     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  farm        Farm?         @relation(fields: [farmId], references: [id], onDelete: Cascade)
   batchId     String?
-  batch       Batch?   @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  batch       Batch?        @relation(fields: [batchId], references: [id], onDelete: SetNull)
   categoryId  String
-  category    Category @relation(fields: [categoryId], references: [id])
+  category    Category      @relation(fields: [categoryId], references: [id])
   customerId  String?
-  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customer    Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
   payments    SalePayment[]
-  mortality   Mortality? @relation(fields: [mortalityId], references: [id], onDelete: Cascade)
-  mortalityId String? @unique
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  mortality   Mortality?    @relation(fields: [mortalityId], references: [id], onDelete: Cascade)
+  mortalityId String?       @unique
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   @@index([farmId, date])
   @@index([customerId])
   @@index([mortalityId])
-  }
+}
 
 // Track partial payments for credit sales
 model SalePayment {
@@ -439,42 +496,42 @@ model SalePayment {
   amount      Decimal  @db.Decimal(10, 2)
   date        DateTime @default(now())
   description String?
-  
-  saleId      String
-  sale        Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime @default(now())
-  
+
+  saleId String
+  sale   Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
   @@index([saleId, date])
 }
 
 // ==================== INVENTORY SYSTEM (FIXED) ====================
 
 model InventoryItem {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  currentStock Decimal @db.Decimal(10, 2) @default(0)
-  unit        String
-  minStock    Decimal? @db.Decimal(10, 2)
-  
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  currentStock Decimal  @default(0) @db.Decimal(10, 2)
+  unit         String
+  minStock     Decimal? @db.Decimal(10, 2)
+
   // 🔗 NEW: Item type based on supplier
-  itemType    InventoryItemType @default(OTHER)
-  
+  itemType InventoryItemType @default(OTHER)
+
   // Relationships
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  categoryId  String
-  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId   String
+  category     Category               @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   transactions InventoryTransaction[]
-  usages      InventoryUsage[]
-  
+  usages       InventoryUsage[]
+
   // 🔗 NEW: Connect to supplier transactions
   entityTransactions EntityTransaction[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([userId, categoryId, name])
 }
 
@@ -486,13 +543,13 @@ model InventoryTransaction {
   totalAmount Decimal         @db.Decimal(10, 2)
   date        DateTime
   description String?
-  
+
   // Relationships
-  itemId      String
-  item        InventoryItem   @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  itemId String
+  item   InventoryItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([itemId, date])
 }
@@ -505,19 +562,19 @@ model InventoryUsage {
   unitPrice   Decimal? @db.Decimal(10, 2)
   totalAmount Decimal? @db.Decimal(10, 2)
   notes       String?
-  
+
   // Relationships
-  itemId      String
-  item        InventoryItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  expenseId   String?
-  expense     Expense?      @relation(fields: [expenseId], references: [id], onDelete: SetNull)
-  batchId     String?
-  batch       Batch?        @relation(fields: [batchId], references: [id], onDelete: SetNull)
-  farmId      String
-  farm        Farm          @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  itemId    String
+  item      InventoryItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  expenseId String?
+  expense   Expense?      @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  batchId   String?
+  batch     Batch?        @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  farmId    String
+  farm      Farm          @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([farmId, date])
   @@index([batchId])
@@ -527,49 +584,49 @@ model InventoryUsage {
 // ==================== UNIFIED TRANSACTION MODEL ====================
 
 model EntityTransaction {
-  id          String          @id @default(cuid())
-  type        TransactionType
-  amount      Decimal         @db.Decimal(10, 2)
-  quantity    Int?            // Paid quantity (for hatchery chicks, medicine units)
+  id           String          @id @default(cuid())
+  type         TransactionType
+  amount       Decimal         @db.Decimal(10, 2)
+  quantity     Int? // Paid quantity (for hatchery chicks, medicine units)
   // Free quantity provided at zero cost (e.g., free chicks from hatchery)
   freeQuantity Int?
-  itemName    String?         // For medicine names
-  date        DateTime
-  description String?
-  reference   String?         // Invoice/receipt number
-  
+  itemName     String? // For medicine names
+  date         DateTime
+  description  String?
+  reference    String? // Invoice/receipt number
+
   // ✅ Proper foreign key relationships
-  dealerId    String?
-  dealer      Dealer?         @relation(fields: [dealerId], references: [id], onDelete: Cascade)
-  
-  hatcheryId  String?
-  hatchery    Hatchery?       @relation(fields: [hatcheryId], references: [id], onDelete: Cascade)
-  
+  dealerId String?
+  dealer   Dealer? @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
+  hatcheryId String?
+  hatchery   Hatchery? @relation(fields: [hatcheryId], references: [id], onDelete: Cascade)
+
   medicineSupplierId String?
   medicineSupplier   MedicineSupplier? @relation(fields: [medicineSupplierId], references: [id], onDelete: Cascade)
-  
-  customerId  String?
-  customer    Customer?       @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
   // 🔗 NEW: Connect to inventory system
   inventoryItemId String?
   inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
-  
+
   // 🔗 NEW: Connect to expense system
   expenseId String?
   expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
-  
+
   // 🔗 NEW: Payment-to-Purchase relationship
   paymentToPurchaseId String?
-  paymentToPurchase   EntityTransaction? @relation("PaymentToPurchase", fields: [paymentToPurchaseId], references: [id], onDelete: SetNull)
+  paymentToPurchase   EntityTransaction?  @relation("PaymentToPurchase", fields: [paymentToPurchaseId], references: [id], onDelete: SetNull)
   paymentsForPurchase EntityTransaction[] @relation("PaymentToPurchase")
-  
+
   // Keep generic fields for backward compatibility and flexibility
-  entityType  String?         // "DEALER", "HATCHERY", "MEDICINE_SUPPLIER", "CUSTOMER"
-  entityId    String?         // The actual entity ID (for custom entities)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  entityType String? // "DEALER", "HATCHERY", "MEDICINE_SUPPLIER", "CUSTOMER"
+  entityId   String? // The actual entity ID (for custom entities)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([dealerId, date])
   @@index([hatcheryId, date])
@@ -583,95 +640,103 @@ model EntityTransaction {
 // ==================== SUPPLIERS (SIMPLIFIED) ====================
 
 model Dealer {
-  id          String   @id @default(cuid())
-  name        String
-  contact     String
-  address     String?
+  id      String  @id @default(cuid())
+  name    String
+  contact String
+  address String?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Farmer who created this dealer (for local/offline dealers)
-  userId      String?
-  user        User?    @relation("DealerCreator", fields: [userId], references: [id], onDelete: Cascade)
+  userId String?
+  user   User?   @relation("DealerCreator", fields: [userId], references: [id], onDelete: Cascade)
 
   // Owner (dealer authentication / access control)
-  ownerId     String?  @unique
-  owner       User?    @relation("DealerOwner", fields: [ownerId], references: [id])
+  ownerId String? @unique
+  owner   User?   @relation("DealerOwner", fields: [ownerId], references: [id])
 
   // NEW: Managers of this dealer (many-to-many)
-  managers    User[]   @relation("DealerManagers")
+  managers User[] @relation("DealerManagers")
 
   // Optional dealer-company link
-  companyId   String?
-  company     Company? @relation(fields: [companyId], references: [id])
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
 
-
-  transactions EntityTransaction[]
+  transactions     EntityTransaction[]
+  products         DealerProduct[]
+  sales            DealerSale[]
+  consignmentsFrom ConsignmentRequest[] @relation("DealerConsignmentsFrom")
+  consignmentsTo   ConsignmentRequest[] @relation("DealerConsignmentsTo")
+  ledgerEntries    DealerLedgerEntry[]
+  companySales     CompanySale[]
+  paymentRequests  PaymentRequest[]
 
   @@unique([userId, name])
   @@index([ownerId])
 }
 
-
 model Hatchery {
-  id          String   @id @default(cuid())
-  name        String
-  contact     String
-  address     String?
+  id      String  @id @default(cuid())
+  name    String
+  contact String
+  address String?
   // Removed balance field - computed from EntityTransaction
-  
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // ✅ Direct relationship to transactions
   transactions EntityTransaction[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([userId, name])
 }
 
 model MedicineSupplier {
-  id          String   @id @default(cuid())
-  name        String
-  contact     String
-  address     String?
+  id      String  @id @default(cuid())
+  name    String
+  contact String
+  address String?
   // Removed balance field - computed from EntityTransaction
-  
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // ✅ Direct relationship to transactions
   transactions EntityTransaction[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([userId, name])
 }
 
 model Customer {
-  id          String   @id @default(cuid())
-  name        String
-  phone       String
-  category    String?
-  address     String?
-  balance     Decimal  @db.Decimal(10, 2) @default(0) // Positive: they owe us
-  
+  id       String  @id @default(cuid())
+  name     String
+  phone    String
+  category String?
+  address  String?
+  balance  Decimal @default(0) @db.Decimal(10, 2) // Positive: they owe us
+
   // Relationships
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sales       Sale[]
+  userId       String
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sales        Sale[]
   transactions CustomerTransaction[]
-  
+
   // ✅ Direct relationship to entity transactions
   entityTransactions EntityTransaction[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+
+  // Dealer sales relationships
+  dealerSales DealerSale[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([userId, name])
 }
 
@@ -682,13 +747,13 @@ model CustomerTransaction {
   date        DateTime
   description String?
   reference   String?
-  
+
   // Relationships
-  customerId  String
-  customer    Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([customerId, date])
 }
@@ -696,60 +761,60 @@ model CustomerTransaction {
 // ==================== BATCH TRACKING ====================
 
 model Mortality {
-  id          String   @id @default(cuid())
-  date        DateTime
-  count       Int
-  reason      String?
+  id     String   @id @default(cuid())
+  date   DateTime
+  count  Int
+  reason String?
 
-  saleId     String?
-  sale       Sale?     @relation
-  
-  batchId     String
-  batch       Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  saleId String?
+  sale   Sale?   @relation
+
+  batchId String
+  batch   Batch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([batchId, date])
   @@index([saleId, date])
 }
 
 model Vaccination {
-  id          String            @id @default(cuid())
-  vaccineName String
+  id            String            @id @default(cuid())
+  vaccineName   String
   scheduledDate DateTime
   completedDate DateTime?
-  status      VaccinationStatus @default(PENDING) // Fixed: proper enum
-  notes       String?
-  
+  status        VaccinationStatus @default(PENDING) // Fixed: proper enum
+  notes         String?
+
   // NEW: Reminder integration
-  reminderCreated Boolean           @default(false)  // Track if reminder was created
-  reminderId      String?           @unique          // Link to reminder
+  reminderCreated Boolean   @default(false) // Track if reminder was created
+  reminderId      String?   @unique // Link to reminder
   reminder        Reminder?
-  
+
   // NEW: Multi-dose support
-  doseNumber      Int               @default(1)      // 1st dose, 2nd dose, etc.
-  totalDoses      Int               @default(1)      // Total doses required
-  daysBetweenDoses Int?                              // Days between doses
-  
+  doseNumber       Int  @default(1) // 1st dose, 2nd dose, etc.
+  totalDoses       Int  @default(1) // Total doses required
+  daysBetweenDoses Int? // Days between doses
+
   // NEW: Standard vaccination schedule integration
-  standardScheduleId String?                         // Link to standard schedule
+  standardScheduleId String? // Link to standard schedule
   standardSchedule   StandardVaccinationSchedule? @relation(fields: [standardScheduleId], references: [id])
-  batchAge           Int?                            // Age of batch when vaccination was due
-  retryCount         Int             @default(0)     // Number of retry attempts
-  
+  batchAge           Int? // Age of batch when vaccination was due
+  retryCount         Int                          @default(0) // Number of retry attempts
+
   // NEW: Flexible context relationships (can be tied to batch, farm, or neither)
-  batchId         String?
-  batch           Batch?            @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  farmId          String?
-  farm            Farm?             @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  
+  batchId String?
+  batch   Batch?  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  farmId  String?
+  farm    Farm?   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
   // NEW: User ownership for farm-level or general vaccinations
-  userId          String
-  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([batchId, scheduledDate])
   @@index([farmId, scheduledDate])
@@ -761,60 +826,60 @@ model Vaccination {
 
 // Standard vaccination schedule for systematic batch-age-based vaccinations
 model StandardVaccinationSchedule {
-  id            String   @id @default(cuid())
-  vaccineName   String   // e.g., "IB (Infectious Bronchitis)"
-  dayFrom       Int      // Start day (e.g., 1)
-  dayTo         Int      // End day (e.g., 1) 
-  isOptional    Boolean  @default(false) // e.g., IBH/HPS is optional
-  description   String?  // Additional details
-  isActive      Boolean  @default(true)  // Can be disabled by admin
-  
+  id          String  @id @default(cuid())
+  vaccineName String // e.g., "IB (Infectious Bronchitis)"
+  dayFrom     Int // Start day (e.g., 1)
+  dayTo       Int // End day (e.g., 1) 
+  isOptional  Boolean @default(false) // e.g., IBH/HPS is optional
+  description String? // Additional details
+  isActive    Boolean @default(true) // Can be disabled by admin
+
   // Related vaccinations
-  vaccinations  Vaccination[]
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  vaccinations Vaccination[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([dayFrom, dayTo])
   @@index([isActive])
 }
 
 model FeedConsumption {
-  id          String   @id @default(cuid())
-  date        DateTime
-  quantity    Decimal  @db.Decimal(10, 2)
-  feedType    String
-  
-  batchId     String
-  batch       Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id       String   @id @default(cuid())
+  date     DateTime
+  quantity Decimal  @db.Decimal(10, 2)
+  feedType String
+
+  batchId String
+  batch   Batch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([batchId, date])
 }
 
 model BirdWeight {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   date        DateTime
-  avgWeight   Decimal  @db.Decimal(6, 2)  // Average weight per bird in kg
-  sampleCount Int      // Number of birds weighed for this average
+  avgWeight   Decimal      @db.Decimal(6, 2) // Average weight per bird in kg
+  sampleCount Int // Number of birds weighed for this average
   source      WeightSource @default(MANUAL) // How this weight was recorded
-  notes       String?  // Optional notes about the weighing
-  
-  batchId     String
-  batch       Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  notes       String? // Optional notes about the weighing
+
+  batchId String
+  batch   Batch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([batchId, date])
 }
 
 enum WeightSource {
-  MANUAL       // Farmer manually entered
-  SALE         // Computed from sales data
-  SYSTEM       // System calculated
+  MANUAL // Farmer manually entered
+  SALE // Computed from sales data
+  SYSTEM // System calculated
 }
 
 // ==================== REMINDERS ====================
@@ -846,38 +911,38 @@ enum RecurrencePattern {
 }
 
 model Reminder {
-  id          String            @id @default(cuid())
+  id          String         @id @default(cuid())
   title       String
   description String?
   type        ReminderType
-  status      ReminderStatus    @default(PENDING)
-  
+  status      ReminderStatus @default(PENDING)
+
   // Scheduling
-  dueDate     DateTime
-  isRecurring Boolean           @default(false)
-  recurrencePattern RecurrencePattern @default(NONE)
-  recurrenceInterval Int?       // Every X days/weeks/months
-  lastTriggered DateTime?       // Last time this reminder was triggered
-  
+  dueDate            DateTime
+  isRecurring        Boolean           @default(false)
+  recurrencePattern  RecurrencePattern @default(NONE)
+  recurrenceInterval Int? // Every X days/weeks/months
+  lastTriggered      DateTime? // Last time this reminder was triggered
+
   // Optional context relationships
-  farmId      String?
-  farm        Farm?             @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  batchId     String?
-  batch       Batch?            @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  
+  farmId  String?
+  farm    Farm?   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  batchId String?
+  batch   Batch?  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
   // NEW: Vaccination integration
-  vaccinationId   String?           @unique
-  vaccination     Vaccination?      @relation(fields: [vaccinationId], references: [id])
-  
+  vaccinationId String?      @unique
+  vaccination   Vaccination? @relation(fields: [vaccinationId], references: [id])
+
   // Additional data for specific reminder types
-  data        Json?             // Store specific data like supplier ID, customer ID, etc.
-  
-  userId      String
-  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  data Json? // Store specific data like supplier ID, customer ID, etc.
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([userId, dueDate])
   @@index([userId, status])
   @@index([farmId, dueDate])
@@ -889,87 +954,81 @@ model Reminder {
 // ==================== NOTIFICATIONS ====================
 
 model Notification {
-  id          String            @id @default(cuid())
-  type        NotificationType
-  title       String
-  body        String            // Changed from 'message' to 'body' for consistency
-  data        Json?             // Additional data for the notification
-  read        Boolean           @default(false) // For push notifications
-  
+  id    String           @id @default(cuid())
+  type  NotificationType
+  title String
+  body  String // Changed from 'message' to 'body' for consistency
+  data  Json? // Additional data for the notification
+  read  Boolean          @default(false) // For push notifications
+
   // Optional context relationships
-  farmId      String?
-  farm        Farm?             @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  batchId     String?
-  batch       Batch?            @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  
-  userId      String
-  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  farmId  String?
+  farm    Farm?   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  batchId String?
+  batch   Batch?  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ==================== AUDIT TRAIL ====================
 
 model AuditLog {
-  id          String      @id @default(cuid())
-  action      AuditAction
-  tableName   String
-  recordId    String
-  oldValues   Json?
-  newValues   Json?
-  ipAddress   String?
-  userAgent   String?
-  
-  userId      String
-  user        User        @relation(fields: [userId], references: [id])
-  
-  createdAt   DateTime @default(now())
+  id        String      @id @default(cuid())
+  action    AuditAction
+  tableName String
+  recordId  String
+  oldValues Json?
+  newValues Json?
+  ipAddress String?
+  userAgent String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
 }
 
 // ==================== COMPUTED ANALYTICS (REMOVED STORED MODELS) ====================
 // BatchAnalytics and FarmAnalytics models removed - compute on demand
 // LifetimeData model removed - compute on demand
 
-/*
-COMPUTED VALUES TO CALCULATE IN APPLICATION:
-
-1. Current Chicks in Batch:
-   batch.initialChicks - sum(mortalities.count)
-
-2. Balance for any Entity:
-   sum(EntityTransaction where type in [PURCHASE, ADJUSTMENT] and amount > 0) - 
-   sum(EntityTransaction where type in [PAYMENT, RECEIPT])
-
-3. Inventory currentStock:
-   sum(InventoryTransaction where type = PURCHASE) - 
-   sum(InventoryUsage.quantity)
-
-4. FCR (Feed Conversion Ratio):
-   Total Feed Consumed / Current Live Weight
-   (not weight gain)
-
-5. Outstanding Credit Sales:
-   sale.amount - sale.paidAmount (or sum of SalePayments)
-
-6. Farm/Batch Analytics:
-   Compute from related expenses, sales, mortalities, etc.
-*/
+/**
+ * COMPUTED VALUES TO CALCULATE IN APPLICATION:
+ * 1. Current Chicks in Batch:
+ * batch.initialChicks - sum(mortalities.count)
+ * 2. Balance for any Entity:
+ * sum(EntityTransaction where type in [PURCHASE, ADJUSTMENT] and amount > 0) -
+ * sum(EntityTransaction where type in [PAYMENT, RECEIPT])
+ * 3. Inventory currentStock:
+ * sum(InventoryTransaction where type = PURCHASE) -
+ * sum(InventoryUsage.quantity)
+ * 4. FCR (Feed Conversion Ratio):
+ * Total Feed Consumed / Current Live Weight
+ * (not weight gain)
+ * 5. Outstanding Credit Sales:
+ * sale.amount - sale.paidAmount (or sum of SalePayments)
+ * 6. Farm/Batch Analytics:
+ * Compute from related expenses, sales, mortalities, etc.
+ */
 
 // ==================== CHAT MODELS ====================
 
 model Conversation {
-  id         String              @id @default(cuid())
-  farmerId   String
-  doctorId   String
-  status     ConversationStatus  @default(ACTIVE)
-  subject    String?             // Optional subject/topic
-  createdAt  DateTime            @default(now())
-  updatedAt  DateTime            @updatedAt
+  id        String             @id @default(cuid())
+  farmerId  String
+  doctorId  String
+  status    ConversationStatus @default(ACTIVE)
+  subject   String? // Optional subject/topic
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
 
-  messages   Message[]
-  farmer     User                @relation("FarmerConversations", fields: [farmerId], references: [id])
-  doctor     User                @relation("DoctorConversations", fields: [doctorId], references: [id])
+  messages Message[]
+  farmer   User      @relation("FarmerConversations", fields: [farmerId], references: [id])
+  doctor   User      @relation("DoctorConversations", fields: [doctorId], references: [id])
 
   // Shares linked to this conversation
   batchShares BatchShare[]
@@ -978,35 +1037,35 @@ model Conversation {
 }
 
 model Message {
-  id              String      @id @default(cuid())
-  conversationId  String
-  senderId        String
+  id             String      @id @default(cuid())
+  conversationId String
+  senderId       String
   // Optional textual content (e.g., message body or caption for attachments)
-  text            String?
-  messageType     MessageType @default(TEXT)
-  createdAt       DateTime    @default(now())
-  read            Boolean     @default(false)
-  edited          Boolean     @default(false)
+  text           String?
+  messageType    MessageType @default(TEXT)
+  createdAt      DateTime    @default(now())
+  read           Boolean     @default(false)
+  edited         Boolean     @default(false)
   // Soft delete flag
-  isDeleted       Boolean     @default(false)
+  isDeleted      Boolean     @default(false)
 
   // Attachment metadata (for IMAGE/VIDEO/AUDIO/PDF/DOC/FILE/OTHER)
-  attachmentUrl   String?
-  attachmentKey   String?      // Storage key/path in R2 (or other store)
-  fileName        String?
-  contentType     String?
-  fileSize        Int?
-  durationMs      Int?         // for audio/video
-  width           Int?         // for images/videos
-  height          Int?
-  thumbnailUrl    String?
+  attachmentUrl String?
+  attachmentKey String? // Storage key/path in R2 (or other store)
+  fileName      String?
+  contentType   String?
+  fileSize      Int?
+  durationMs    Int? // for audio/video
+  width         Int? // for images/videos
+  height        Int?
+  thumbnailUrl  String?
 
-  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender          User         @relation(fields: [senderId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id])
 
   // Optional reference to a shared batch snapshot
-  batchShareId    String?
-  batchShare      BatchShare?  @relation("MessageToBatchShare", fields: [batchShareId], references: [id])
+  batchShareId String?
+  batchShare   BatchShare? @relation("MessageToBatchShare", fields: [batchShareId], references: [id])
 
   @@index([conversationId, createdAt]) // Optimize message queries
 }
@@ -1014,8 +1073,8 @@ model Message {
 // ==================== BATCH/FARM SHARING ====================
 
 model BatchShare {
-  id             String        @id @default(cuid())
-  shareToken     String        @unique @default(cuid())
+  id         String @id @default(cuid())
+  shareToken String @unique @default(cuid())
 
   // Ownership and context
   batchId        String
@@ -1024,26 +1083,26 @@ model BatchShare {
   conversationId String?
 
   // Snapshot payload (immutable JSON)
-  snapshotData   Json
+  snapshotData Json
 
   // Metadata
-  title          String?
-  description    String?
-  isPublic       Boolean       @default(false)
-  expiresAt      DateTime?
-  viewCount      Int           @default(0)
+  title       String?
+  description String?
+  isPublic    Boolean   @default(false)
+  expiresAt   DateTime?
+  viewCount   Int       @default(0)
 
   // Relations
-  batch          Batch         @relation(fields: [batchId], references: [id])
-  farmer         User          @relation("BatchShareOwner", fields: [farmerId], references: [id])
-  sharedWith     User?         @relation("BatchShareRecipient", fields: [sharedWithId], references: [id])
-  conversation   Conversation? @relation(fields: [conversationId], references: [id])
-  views          BatchShareView[]
+  batch        Batch            @relation(fields: [batchId], references: [id])
+  farmer       User             @relation("BatchShareOwner", fields: [farmerId], references: [id])
+  sharedWith   User?            @relation("BatchShareRecipient", fields: [sharedWithId], references: [id])
+  conversation Conversation?    @relation(fields: [conversationId], references: [id])
+  views        BatchShareView[]
   // Reverse relation to messages if embedded in chat
-  messages       Message[]       @relation("MessageToBatchShare")
+  messages     Message[]        @relation("MessageToBatchShare")
 
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([shareToken])
   @@index([batchId])
@@ -1051,15 +1110,431 @@ model BatchShare {
 }
 
 model BatchShareView {
-  id         String      @id @default(cuid())
-  shareId    String
-  viewerId   String?
-  ipAddress  String?
-  userAgent  String?
-  viewedAt   DateTime    @default(now())
+  id        String   @id @default(cuid())
+  shareId   String
+  viewerId  String?
+  ipAddress String?
+  userAgent String?
+  viewedAt  DateTime @default(now())
 
-  share      BatchShare  @relation(fields: [shareId], references: [id], onDelete: Cascade)
-  viewer     User?       @relation("BatchShareViewer", fields: [viewerId], references: [id])
+  share  BatchShare @relation(fields: [shareId], references: [id], onDelete: Cascade)
+  viewer User?      @relation("BatchShareViewer", fields: [viewerId], references: [id])
 
   @@index([shareId])
+}
+
+// ==================== DEALER MODULE MODELS ====================
+
+model DealerProduct {
+  id           String            @id @default(cuid())
+  name         String
+  description  String?
+  type         InventoryItemType
+  unit         String
+  costPrice    Decimal           @db.Decimal(10, 2)
+  sellingPrice Decimal           @db.Decimal(10, 2)
+  currentStock Decimal           @default(0) @db.Decimal(10, 2)
+  minStock     Decimal?          @db.Decimal(10, 2)
+  sku          String?
+
+  dealerId String
+  dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
+  companyProductId String?
+  companyProduct   Product? @relation(fields: [companyProductId], references: [id], onDelete: SetNull)
+
+  transactions     DealerProductTransaction[]
+  saleItems        DealerSaleItem[]
+  consignmentItems ConsignmentItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dealerId, name])
+  @@index([dealerId])
+  @@index([companyProductId])
+}
+
+model DealerProductTransaction {
+  id          String          @id @default(cuid())
+  type        TransactionType
+  quantity    Decimal         @db.Decimal(10, 2)
+  unitPrice   Decimal         @db.Decimal(10, 2)
+  totalAmount Decimal         @db.Decimal(10, 2)
+  date        DateTime
+  description String?
+  reference   String?
+
+  productId String
+  product   DealerProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  dealerSaleId String?
+  dealerSale   DealerSale? @relation(fields: [dealerSaleId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId, date])
+  @@index([dealerSaleId])
+}
+
+model DealerSale {
+  id            String   @id @default(cuid())
+  invoiceNumber String?  @unique
+  date          DateTime
+  totalAmount   Decimal  @db.Decimal(10, 2)
+  paidAmount    Decimal  @default(0) @db.Decimal(10, 2)
+  dueAmount     Decimal? @db.Decimal(10, 2)
+  isCredit      Boolean  @default(false)
+  notes         String?
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  farmerId String?
+  farmer   User?   @relation("DealerSalesToFarmer", fields: [farmerId], references: [id], onDelete: SetNull)
+
+  dealerId String
+  dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
+  items         DealerSaleItem[]
+  transactions  DealerProductTransaction[]
+  payments      DealerSalePayment[]
+  ledgerEntries DealerLedgerEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dealerId, date])
+  @@index([customerId])
+  @@index([farmerId])
+  @@index([invoiceNumber])
+}
+
+model DealerSaleItem {
+  id          String  @id @default(cuid())
+  quantity    Decimal @db.Decimal(10, 2)
+  unitPrice   Decimal @db.Decimal(10, 2)
+  totalAmount Decimal @db.Decimal(10, 2)
+
+  saleId String
+  sale   DealerSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   DealerProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([saleId])
+  @@index([productId])
+}
+
+model DealerSalePayment {
+  id            String   @id @default(cuid())
+  amount        Decimal  @db.Decimal(10, 2)
+  date          DateTime @default(now())
+  description   String?
+  paymentMethod String?
+
+  saleId String
+  sale   DealerSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([saleId, date])
+}
+
+model ConsignmentRequest {
+  id            String               @id @default(cuid())
+  requestNumber String               @unique
+  direction     ConsignmentDirection
+  status        ConsignmentStatus    @default(CREATED)
+  totalAmount   Decimal              @db.Decimal(10, 2)
+  notes         String?
+
+  // Quantity tracking (prepare for partial receipt)
+  requestedQuantity  Decimal?  @db.Decimal(10, 2)
+  approvedQuantity   Decimal?  @db.Decimal(10, 2)
+  dispatchedQuantity Decimal?  @db.Decimal(10, 2)
+  receivedQuantity   Decimal?  @db.Decimal(10, 2)
+
+  // Dispatch & Receipt documentation
+  dispatchRef     String?
+  trackingInfo    String?
+  grnRef          String?    // Goods Received Note
+  dispatchedAt    DateTime?
+  receivedAt      DateTime?
+  dispatchedById  String?
+  dispatchedBy    User?     @relation("DispatchedConsignments", fields: [dispatchedById], references: [id])
+  receivedById    String?
+  receivedBy      User?     @relation("ReceivedConsignments", fields: [receivedById], references: [id])
+
+  // Link to created sale (S3)
+  companySaleId   String?   @unique
+  companySale     CompanySale? @relation(fields: [companySaleId], references: [id])
+
+  fromCompanyId String?
+  fromCompany   Company? @relation("CompanyConsignments", fields: [fromCompanyId], references: [id], onDelete: Cascade)
+
+  fromDealerId String?
+  fromDealer   Dealer? @relation("DealerConsignmentsFrom", fields: [fromDealerId], references: [id], onDelete: Cascade)
+
+  toDealerId String?
+  toDealer   Dealer? @relation("DealerConsignmentsTo", fields: [toDealerId], references: [id], onDelete: Cascade)
+
+  toFarmerId String?
+  toFarmer   User?   @relation("FarmerConsignments", fields: [toFarmerId], references: [id], onDelete: Cascade)
+
+  items         ConsignmentItem[]
+  ledgerEntries DealerLedgerEntry[]
+  auditLogs     ConsignmentAuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([fromCompanyId, status])
+  @@index([fromDealerId, status])
+  @@index([toDealerId, status])
+  @@index([toFarmerId, status])
+  @@index([requestNumber])
+  @@index([dispatchedById])
+  @@index([receivedById])
+  @@index([companySaleId])
+}
+
+model ConsignmentItem {
+  id               String   @id @default(cuid())
+  quantity         Decimal  @db.Decimal(10, 2)
+  acceptedQuantity Decimal? @db.Decimal(10, 2)
+  receivedQuantity Decimal? @db.Decimal(10, 2)
+  unitPrice        Decimal  @db.Decimal(10, 2)
+  totalAmount      Decimal  @db.Decimal(10, 2)
+  isAccepted       Boolean  @default(false)
+  rejectionReason  String?
+
+  consignmentId String
+  consignment   ConsignmentRequest @relation(fields: [consignmentId], references: [id], onDelete: Cascade)
+
+  companyProductId String?
+  companyProduct   Product? @relation(fields: [companyProductId], references: [id], onDelete: SetNull)
+
+  dealerProductId String?
+  dealerProduct   DealerProduct? @relation(fields: [dealerProductId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([consignmentId])
+}
+
+model ConsignmentAuditLog {
+  id              String   @id @default(cuid())
+  consignmentId   String
+  consignment     ConsignmentRequest @relation(fields: [consignmentId], references: [id], onDelete: Cascade)
+  
+  action          String   // CREATED, ACCEPTED, DISPATCHED, RECEIVED, etc.
+  statusFrom      ConsignmentStatus?
+  statusTo        ConsignmentStatus
+  
+  actorId         String
+  actor           User     @relation("ConsignmentAuditLogs", fields: [actorId], references: [id])
+  
+  quantityChange  Decimal? @db.Decimal(10, 2)
+  documentRef     String?  // dispatch_ref, grn_ref, etc.
+  notes           String?
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([consignmentId])
+  @@index([actorId])
+}
+
+model DealerLedgerEntry {
+  id          String          @id @default(cuid())
+  type        LedgerEntryType
+  amount      Decimal         @db.Decimal(10, 2)
+  balance     Decimal         @db.Decimal(10, 2)
+  date        DateTime
+  description String?
+  reference   String?
+
+  dealerId String
+  dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
+  saleId String?
+  sale   DealerSale? @relation(fields: [saleId], references: [id], onDelete: SetNull)
+
+  consignmentId String?
+  consignment   ConsignmentRequest? @relation(fields: [consignmentId], references: [id], onDelete: SetNull)
+
+  partyId   String?
+  partyType String?
+
+  createdAt DateTime @default(now())
+
+  @@index([dealerId, date])
+  @@index([partyId, partyType])
+  @@index([saleId])
+  @@index([consignmentId])
+}
+
+// ==================== COMPANY SALES ====================
+model CompanySale {
+  id            String   @id @default(cuid())
+  invoiceNumber String?  @unique
+  date          DateTime @default(now())
+  totalAmount   Decimal  @db.Decimal(10, 2)
+  paidAmount    Decimal  @default(0) @db.Decimal(10, 2)
+  dueAmount     Decimal? @db.Decimal(10, 2)
+  isCredit      Boolean  @default(false)
+  paymentMethod String   @default("CASH")
+  notes         String?
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  dealerId String
+  dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
+  soldById String
+  soldBy   User   @relation(fields: [soldById], references: [id], onDelete: Cascade)
+
+  // Link to consignment (if created from consignment receipt)
+  consignmentId   String?   @unique
+  consignment     ConsignmentRequest?
+
+  items           CompanySaleItem[]
+  payments        CompanySalePayment[]
+  ledgerEntries   CompanyLedgerEntry[]
+  paymentRequests PaymentRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, date])
+  @@index([dealerId, date])
+  @@index([soldById])
+  @@index([invoiceNumber])
+  @@index([consignmentId])
+}
+
+model CompanySaleItem {
+  id          String  @id @default(cuid())
+  quantity    Decimal @db.Decimal(10, 2)
+  unitPrice   Decimal @db.Decimal(10, 2)
+  totalAmount Decimal @db.Decimal(10, 2)
+
+  saleId String
+  sale   CompanySale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([saleId])
+  @@index([productId])
+}
+
+model CompanySalePayment {
+  id          String   @id @default(cuid())
+  amount      Decimal  @db.Decimal(10, 2)
+  method      String   @default("CASH")
+  paymentDate DateTime @default(now())
+  notes       String?
+
+  companySaleId String
+  companySale   CompanySale @relation(fields: [companySaleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([companySaleId, paymentDate])
+}
+
+model CompanyLedgerEntry {
+  id             String          @id @default(cuid())
+  type           LedgerEntryType
+  amount         Decimal         @db.Decimal(10, 2)
+  runningBalance Decimal         @db.Decimal(10, 2)
+  date           DateTime
+  description    String?
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  companySaleId String?
+  companySale   CompanySale? @relation(fields: [companySaleId], references: [id], onDelete: SetNull)
+
+  partyId         String?
+  partyType       String?
+  transactionId   String?
+  transactionType TransactionType?
+  entryType       LedgerEntryType
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, date])
+  @@index([partyId, partyType])
+  @@index([companySaleId])
+  @@index([transactionId])
+}
+
+// ==================== PAYMENT REQUEST MODEL ====================
+
+model PaymentRequest {
+  id            String                  @id @default(cuid())
+  requestNumber String                  @unique
+  direction     PaymentRequestDirection
+  status        PaymentRequestStatus    @default(PENDING)
+  amount        Decimal                 @db.Decimal(10, 2)
+  description   String?
+
+  // Payment proof details (for dealer-initiated or company-initiated after dealer accepts)
+  paymentMethod     String?
+  paymentReference  String?
+  paymentReceiptUrl String?
+  paymentDate       DateTime?
+
+  // Company initiating or receiving the request
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Dealer initiating or receiving the request
+  dealerId String
+  dealer   Dealer  @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
+  // Optional link to a specific CompanySale if the request is for an outstanding balance
+  companySaleId String?
+  companySale   CompanySale? @relation(fields: [companySaleId], references: [id], onDelete: SetNull)
+
+  // User who created the request
+  requestedById String
+  requestedBy   User   @relation("PaymentRequestCreatedBy", fields: [requestedById], references: [id])
+
+  // User who accepted the request (dealer side)
+  acceptedById String?
+  acceptedBy   User?   @relation("PaymentRequestAcceptedBy", fields: [acceptedById], references: [id])
+  acceptedAt   DateTime?
+
+  // User who submitted payment proof (dealer side)
+  submittedById String?
+  submittedBy   User?   @relation("PaymentRequestSubmittedBy", fields: [submittedById], references: [id])
+  submittedAt   DateTime?
+
+  // User who reviewed/verified the payment (company side)
+  reviewedById String?
+  reviewedBy   User?   @relation("PaymentRequestReviewedBy", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  reviewNotes  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, status])
+  @@index([dealerId, status])
+  @@index([companySaleId])
+  @@index([requestedById])
+  @@index([acceptedById])
+  @@index([submittedById])
+  @@index([reviewedById])
 }

@@ -23,7 +23,7 @@ export const getAllDealers = async (
     // Build where clause
     const where: any = {
       userId: currentUserId,
-    };
+  }
 
     if (search) {
       where.OR = [

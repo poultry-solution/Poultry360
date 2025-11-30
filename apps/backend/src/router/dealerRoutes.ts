@@ -16,7 +16,7 @@ const router = express.Router();
 
 // Apply authentication middleware to all routes
 router.use((req, res, next) => {
-  authMiddleware(req, res, next, ["OWNER"]); // Allow all authenticated users
+  authMiddleware(req, res, next, ["OWNER", "COMPANY"]); // Allow owners and companies
 });
 
 

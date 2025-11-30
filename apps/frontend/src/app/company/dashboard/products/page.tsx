@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { Plus, Search, Filter, Edit, Trash2, Package } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -8,11 +10,132 @@ import {
   CardTitle,
 } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
-import { Plus, Package, Loader2 } from "lucide-react";
+import { Input } from "@/common/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/common/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/common/components/ui/label";
+import { toast } from "sonner";
+import {
+  useGetCompanyProducts,
+  useCreateCompanyProduct,
+  useUpdateCompanyProduct,
+  useDeleteCompanyProduct,
+  type CreateCompanyProductInput,
+} from "@/fetchers/company/companyProductQueries";
 
 export default function CompanyProductsPage() {
-  const isLoading = false;
-  const products: any[] = [];
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+
+  // Form state
+  const [formData, setFormData] = useState<CreateCompanyProductInput>({
+    name: "",
+    description: "",
+    type: "FEED",
+    unit: "kg",
+    price: 0,
+    quantity: 0,
+  });
+
+  // Queries
+  const { data: productsData, isLoading } = useGetCompanyProducts({
+    page,
+    limit: 10,
+    search,
+    type: typeFilter || undefined,
+  });
+
+  const createMutation = useCreateCompanyProduct();
+  const updateMutation = useUpdateCompanyProduct();
+  const deleteMutation = useDeleteCompanyProduct();
+
+  const handleOpenDialog = (product?: any) => {
+    if (product) {
+      setEditingProduct(product);
+      setFormData({
+        name: product.name,
+        description: product.description || "",
+        type: product.type,
+        unit: product.unit,
+        price: Number(product.price),
+        quantity: Number(product.quantity),
+      });
+    } else {
+      setEditingProduct(null);
+      setFormData({
+        name: "",
+        description: "",
+        type: "FEED",
+        unit: "kg",
+        price: 0,
+        quantity: 0,
+      });
+    }
+    setIsDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setEditingProduct(null);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      if (editingProduct) {
+        await updateMutation.mutateAsync({
+          id: editingProduct.id,
+          ...formData,
+        });
+        toast.success("Product updated successfully");
+      } else {
+        await createMutation.mutateAsync(formData);
+        toast.success("Product created successfully");
+      }
+      handleCloseDialog();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "An error occurred");
+    }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+
+    try {
+      await deleteMutation.mutateAsync(id);
+      toast.success("Product deleted successfully");
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to delete product");
+    }
+  };
+
+  const products = productsData?.data || [];
+  const pagination = productsData?.pagination;
 
   return (
     <div className="space-y-6">
@@ -21,29 +144,59 @@ export default function CompanyProductsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Product Catalog</h1>
           <p className="text-muted-foreground">
-            Manage your product catalog and pricing.
+            Manage your products available for dealers
           </p>
         </div>
-        <Button className="bg-primary hover:bg-primary/90">
+        <Button onClick={() => handleOpenDialog()} className="bg-primary">
           <Plus className="mr-2 h-4 w-4" />
           Add Product
         </Button>
       </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search products..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <Select value={typeFilter || "ALL"} onValueChange={(value) => setTypeFilter(value === "ALL" ? "" : value)}>
+              <SelectTrigger className="w-[180px]">
+                <Filter className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Types</SelectItem>
+                <SelectItem value="FEED">Feed</SelectItem>
+                <SelectItem value="CHICKS">Chicks</SelectItem>
+                <SelectItem value="MEDICINE">Medicine</SelectItem>
+                <SelectItem value="EQUIPMENT">Equipment</SelectItem>
+                <SelectItem value="OTHER">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Products Table */}
       <Card>
         <CardHeader>
           <CardTitle>Products</CardTitle>
           <CardDescription>
-            {products.length} products in catalog
+            {pagination?.total || 0} total products in catalog
           </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin" />
-              <span className="ml-2">Loading products...</span>
-            </div>
+            <div className="text-center py-8">Loading products...</div>
           ) : products.length === 0 ? (
             <div className="text-center py-8">
               <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -51,19 +204,237 @@ export default function CompanyProductsPage() {
               <p className="text-muted-foreground mb-4">
                 Get started by adding your first product to the catalog.
               </p>
-              <Button>
+              <Button onClick={() => handleOpenDialog()}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Product
               </Button>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              Product table will be implemented here.
-            </p>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Unit</TableHead>
+                    <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="text-right">Quantity</TableHead>
+                    <TableHead className="text-right">Total Value</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {products.map((product: any) => (
+                    <TableRow key={product.id}>
+                      <TableCell className="font-medium">
+                        {product.name}
+                      </TableCell>
+                      <TableCell>{product.type}</TableCell>
+                      <TableCell>{product.unit}</TableCell>
+                      <TableCell className="text-right">
+                        रू {Number(product.price).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {Number(product.quantity).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        रू {Number(product.totalPrice).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenDialog(product)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(product.id, product.name)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              {/* Pagination */}
+              {pagination && pagination.totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Page {pagination.page} of {pagination.totalPages}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(page - 1)}
+                      disabled={page === 1}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(page + 1)}
+                      disabled={page === pagination.totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
+
+      {/* Create/Edit Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <form onSubmit={handleSubmit}>
+            <DialogHeader>
+              <DialogTitle>
+                {editingProduct ? "Edit Product" : "Add New Product"}
+              </DialogTitle>
+              <DialogDescription>
+                {editingProduct
+                  ? "Update product details in your catalog"
+                  : "Add a new product to your catalog"}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Product Name *</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Input
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="type">Type *</Label>
+                  <Select
+                    value={formData.type}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, type: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FEED">Feed</SelectItem>
+                      <SelectItem value="CHICKS">Chicks</SelectItem>
+                      <SelectItem value="MEDICINE">Medicine</SelectItem>
+                      <SelectItem value="EQUIPMENT">Equipment</SelectItem>
+                      <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="unit">Unit *</Label>
+                  <Input
+                    id="unit"
+                    value={formData.unit}
+                    onChange={(e) =>
+                      setFormData({ ...formData, unit: e.target.value })
+                    }
+                    placeholder="e.g., kg, pcs, liters"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="price">Unit Price *</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    step="0.01"
+                    value={formData.price}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        price: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="quantity">Quantity *</Label>
+                  <Input
+                    id="quantity"
+                    type="number"
+                    step="0.01"
+                    value={formData.quantity}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        quantity: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              {formData.price > 0 && formData.quantity > 0 && (
+                <div className="p-4 bg-muted rounded-lg">
+                  <div className="text-sm font-medium">Total Value</div>
+                  <div className="text-2xl font-bold">
+                    रू {(formData.price * formData.quantity).toFixed(2)}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCloseDialog}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={createMutation.isPending || updateMutation.isPending}
+              >
+                {createMutation.isPending || updateMutation.isPending
+                  ? "Saving..."
+                  : editingProduct
+                  ? "Update Product"
+                  : "Add Product"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
