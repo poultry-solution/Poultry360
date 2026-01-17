@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, Filter, Edit, Trash2, Package } from "lucide-react";
+import { Plus, Search, Filter, Edit, Trash2, Package, PackagePlus } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -41,6 +41,7 @@ import {
   useCreateCompanyProduct,
   useUpdateCompanyProduct,
   useDeleteCompanyProduct,
+  useAdjustCompanyProductStock,
   type CreateCompanyProductInput,
 } from "@/fetchers/company/companyProductQueries";
 
@@ -50,6 +51,9 @@ export default function CompanyProductsPage() {
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [isInventoryDialogOpen, setIsInventoryDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [inventoryQuantity, setInventoryQuantity] = useState<number>(0);
 
   // Form state
   const [formData, setFormData] = useState<CreateCompanyProductInput>({
@@ -72,6 +76,7 @@ export default function CompanyProductsPage() {
   const createMutation = useCreateCompanyProduct();
   const updateMutation = useUpdateCompanyProduct();
   const deleteMutation = useDeleteCompanyProduct();
+  const adjustStockMutation = useAdjustCompanyProductStock();
 
   const handleOpenDialog = (product?: any) => {
     if (product) {
@@ -131,6 +136,38 @@ export default function CompanyProductsPage() {
       toast.success("Product deleted successfully");
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to delete product");
+    }
+  };
+
+  const handleOpenInventoryDialog = (product: any) => {
+    setSelectedProduct(product);
+    setInventoryQuantity(0);
+    setIsInventoryDialogOpen(true);
+  };
+
+  const handleCloseInventoryDialog = () => {
+    setIsInventoryDialogOpen(false);
+    setSelectedProduct(null);
+    setInventoryQuantity(0);
+  };
+
+  const handleAddInventory = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!selectedProduct || inventoryQuantity <= 0) {
+      toast.error("Please enter a valid quantity");
+      return;
+    }
+
+    try {
+      await adjustStockMutation.mutateAsync({
+        id: selectedProduct.id,
+        quantity: inventoryQuantity,
+      });
+      toast.success(`Added ${inventoryQuantity} ${selectedProduct.unit} to inventory`);
+      handleCloseInventoryDialog();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to add inventory");
     }
   };
 
@@ -245,7 +282,16 @@ export default function CompanyProductsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => handleOpenInventoryDialog(product)}
+                            title="Add Inventory"
+                          >
+                            <PackagePlus className="h-4 w-4 text-blue-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => handleOpenDialog(product)}
+                            title="Edit Product"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -253,6 +299,7 @@ export default function CompanyProductsPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDelete(product.id, product.name)}
+                            title="Delete Product"
                           >
                             <Trash2 className="h-4 w-4 text-red-600" />
                           </Button>
@@ -430,6 +477,88 @@ export default function CompanyProductsPage() {
                   : editingProduct
                   ? "Update Product"
                   : "Add Product"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Inventory Dialog */}
+      <Dialog open={isInventoryDialogOpen} onOpenChange={setIsInventoryDialogOpen}>
+        <DialogContent className="max-w-md">
+          <form onSubmit={handleAddInventory}>
+            <DialogHeader>
+              <DialogTitle>Add Inventory</DialogTitle>
+              <DialogDescription>
+                Add more inventory to "{selectedProduct?.name}"
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="currentQuantity">Current Quantity</Label>
+                <Input
+                  id="currentQuantity"
+                  value={
+                    selectedProduct
+                      ? `${Number(selectedProduct.quantity).toFixed(2)} ${selectedProduct.unit}`
+                      : ""
+                  }
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="inventoryQuantity">
+                  Quantity to Add ({selectedProduct?.unit}) *
+                </Label>
+                <Input
+                  id="inventoryQuantity"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={inventoryQuantity || ""}
+                  onChange={(e) =>
+                    setInventoryQuantity(parseFloat(e.target.value) || 0)
+                  }
+                  placeholder="Enter quantity"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              {selectedProduct && inventoryQuantity > 0 && (
+                <div className="p-4 bg-muted rounded-lg">
+                  <div className="text-sm font-medium mb-1">New Total Quantity</div>
+                  <div className="text-2xl font-bold">
+                    {(Number(selectedProduct.quantity) + inventoryQuantity).toFixed(2)}{" "}
+                    {selectedProduct.unit}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-2">
+                    New Total Value: रू{" "}
+                    {(
+                      (Number(selectedProduct.quantity) + inventoryQuantity) *
+                      Number(selectedProduct.price)
+                    ).toFixed(2)}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCloseInventoryDialog}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={adjustStockMutation.isPending || inventoryQuantity <= 0}
+              >
+                {adjustStockMutation.isPending ? "Adding..." : "Add Inventory"}
               </Button>
             </DialogFooter>
           </form>

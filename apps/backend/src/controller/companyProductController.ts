@@ -361,6 +361,7 @@ export const adjustCompanyProductStock = async (
 
     // Calculate new quantity and total price
     const newQuantity = Number(product.quantity) + Number(quantity);
+    const newCurrentStock = Number(product.currentStock || product.quantity) + Number(quantity);
     const newTotalPrice = newQuantity * Number(product.price);
 
     // Update product
@@ -368,6 +369,7 @@ export const adjustCompanyProductStock = async (
       where: { id },
       data: {
         quantity: new Prisma.Decimal(newQuantity),
+        currentStock: new Prisma.Decimal(newCurrentStock),
         totalPrice: new Prisma.Decimal(newTotalPrice),
       },
     });

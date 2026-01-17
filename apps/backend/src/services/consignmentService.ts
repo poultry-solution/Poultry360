@@ -363,7 +363,7 @@ export class ConsignmentService {
     tx: Prisma.TransactionClient,
     companyId: string,
     dealerId: string,
-    saleId: string
+    sale: { id: string; dueAmount: Prisma.Decimal | null; paidAmount: Prisma.Decimal; totalAmount: Prisma.Decimal }
   ): Promise<number> {
     // Get all ADVANCE_RECEIVED entries for this dealer
     const advanceEntries = await tx.companyLedgerEntry.findMany({
@@ -403,12 +403,8 @@ export class ConsignmentService {
       return 0;
     }
 
-    // Get sale due amount
-    const sale = await tx.companySale.findUnique({
-      where: { id: saleId },
-    });
-
-    if (!sale || !sale.dueAmount) {
+    // Use sale due amount from passed object
+    if (!sale.dueAmount) {
       return 0;
     }
 
@@ -422,7 +418,7 @@ export class ConsignmentService {
     // Create payment record
     await tx.companySalePayment.create({
       data: {
-        companySaleId: saleId,
+        companySaleId: sale.id,
         amount: new Prisma.Decimal(amountToApply),
         method: "ADVANCE",
         paymentDate: new Date(),
@@ -435,7 +431,7 @@ export class ConsignmentService {
     const newDueAmount = Number(sale.totalAmount) - newPaidAmount;
 
     await tx.companySale.update({
-      where: { id: saleId },
+      where: { id: sale.id },
       data: {
         paidAmount: new Prisma.Decimal(newPaidAmount),
         dueAmount: newDueAmount > 0 ? new Prisma.Decimal(newDueAmount) : null,
@@ -457,22 +453,22 @@ export class ConsignmentService {
       : 0;
     const newBalance = currentBalance - amountToApply;
 
-    await tx.companyLedgerEntry.create({
-      data: {
-        companyId,
-        companySaleId: saleId,
-        type: LedgerEntryType.PAYMENT_RECEIVED,
-        entryType: LedgerEntryType.PAYMENT_RECEIVED,
-        amount: new Prisma.Decimal(amountToApply),
-        runningBalance: new Prisma.Decimal(newBalance),
-        date: new Date(),
-        description: "Advance payment applied to consignment sale",
-        partyId: dealerId,
-        partyType: "DEALER",
-        transactionId: saleId,
-        transactionType: "SALE",
-      },
-    });
+        await tx.companyLedgerEntry.create({
+          data: {
+            companyId,
+            companySaleId: sale.id,
+            type: LedgerEntryType.PAYMENT_RECEIVED,
+            entryType: LedgerEntryType.PAYMENT_RECEIVED,
+            amount: new Prisma.Decimal(amountToApply),
+            runningBalance: new Prisma.Decimal(newBalance),
+            date: new Date(),
+            description: "Advance payment applied to consignment sale",
+            partyId: dealerId,
+            partyType: "DEALER",
+            transactionId: sale.id,
+            transactionType: "SALE",
+          },
+        });
 
     return amountToApply;
   }
@@ -616,7 +612,12 @@ export class ConsignmentService {
         tx,
         consignment.fromCompanyId!,
         consignment.toDealerId!,
-        sale.id
+        {
+          id: sale.id,
+          dueAmount: sale.dueAmount,
+          paidAmount: sale.paidAmount,
+          totalAmount: sale.totalAmount,
+        }
       );
 
       // 4. Create CONSIGNMENT_INVOICE ledger entry
@@ -697,7 +698,7 @@ export class ConsignmentService {
       });
 
       return updated;
-    });
+    }, { timeout: 30000 }); // 30 seconds timeout for complex operations
   }
 
   /**
