@@ -299,7 +299,7 @@ export default function AdminCompanyPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {companies.reduce((sum, c) => sum + c._count.dealers, 0)}
+              {companies.reduce((sum, c) => sum + c._count.dealerCompanies, 0)}
             </div>
           </CardContent>
         </Card>
@@ -412,7 +412,7 @@ export default function AdminCompanyPage() {
                       <TableCell>{company.owner.name}</TableCell>
                       <TableCell>{company.owner.phone}</TableCell>
                       <TableCell>{getStatusBadge(company.owner.status)}</TableCell>
-                      <TableCell>{company._count.dealers}</TableCell>
+                      <TableCell>{company._count.dealerCompanies}</TableCell>
                       <TableCell>{company._count.companySales}</TableCell>
                       <TableCell>{company._count.consignments}</TableCell>
                       <TableCell className="text-right">
@@ -701,7 +701,7 @@ export default function AdminCompanyPage() {
                     <Label className="text-muted-foreground">Dealers</Label>
                   </div>
                   <p className="text-2xl font-bold">
-                    {companyDetails.data._count.dealers}
+                    {companyDetails.data._count.dealerCompanies}
                   </p>
                 </div>
 

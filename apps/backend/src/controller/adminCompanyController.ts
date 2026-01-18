@@ -41,33 +41,36 @@ export const getAllCompanies = async (
       ];
     }
 
-    const [companies, total] = await Promise.all([
-      prisma.company.findMany({
-        where,
-        skip,
-        take: Number(limit),
-        include: {
-          owner: {
-            select: {
-              id: true,
-              name: true,
-              phone: true,
-              status: true,
-              createdAt: true,
-            },
-          },
-          _count: {
-            select: {
-              companySales: true,
-              consignments: true,
-              ledgerEntries: true,
-            },
-          },
+  const [companies, total] = await Promise.all([
+  prisma.company.findMany({
+    where,
+    skip,
+    take: Number(limit),
+    orderBy: { createdAt: "desc" },
+    include: {
+      owner: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          status: true,
+          createdAt: true,
         },
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.company.count({ where }),
-    ]);
+      },
+      _count: {
+        select: {
+          dealerCompanies: true,
+          companySales: true,
+          consignments: true,
+          ledgerEntries: true,
+        },
+      },
+    },
+  }),
+  prisma.company.count({ where }),
+]);
+
+
 
     return res.json({
       success: true,

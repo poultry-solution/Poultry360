@@ -26,8 +26,8 @@ export interface AdminCompany {
     createdAt: Date;
   };
   _count: {
+    dealerCompanies: number;
     companySales: number;
-    dealers: number;
     consignments: number;
     ledgerEntries: number;
     paymentRequests?: number;
@@ -107,10 +107,9 @@ export const useGetAdminCompanies = (
       );
       return data;
     },
-    staleTime: 30000, // Cache for 30 seconds to prevent flickering
+    staleTime: 3000, // Cache for 5 seconds to prevent flickering
     enabled: shouldFetch, // Only fetch when explicitly enabled and conditions are met
     refetchOnWindowFocus: false, // Prevent refetch on window focus
-    refetchOnMount: false, // Prevent refetch on mount if data exists
   });
 };
 

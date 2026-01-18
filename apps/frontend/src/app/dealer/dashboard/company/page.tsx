@@ -61,10 +61,15 @@ export default function DealerCompanyPage() {
   const createRequestMutation = useCreateDealerVerificationRequest();
 
   const requests = requestsData?.data || [];
-  const approvedCompanies = companiesData?.data || [];
+  const connectedCompanies = companiesData?.data || [];
 
-  // Filter requests based on status filter and search
-  const filteredRequests = requests.filter((request) => {
+  // Filter out APPROVED requests from verification requests (they're shown in connected companies)
+  const verificationRequests = requests.filter(
+    (request) => request.status === "PENDING" || request.status === "REJECTED"
+  );
+
+  // Filter verification requests based on status filter and search
+  const filteredVerificationRequests = verificationRequests.filter((request) => {
     const matchesStatus =
       statusFilter === "ALL" || request.status === statusFilter;
     const matchesSearch = search
@@ -79,10 +84,19 @@ export default function DealerCompanyPage() {
     return matchesStatus && matchesSearch;
   });
 
-  // Group requests by status
-  const pendingRequests = filteredRequests.filter((r) => r.status === "PENDING");
-  const approvedRequests = filteredRequests.filter((r) => r.status === "APPROVED");
-  const rejectedRequests = filteredRequests.filter((r) => r.status === "REJECTED");
+  // Filter connected companies based on search
+  const filteredConnectedCompanies = connectedCompanies.filter((company) => {
+    const matchesSearch = search
+      ? company.name?.toLowerCase().includes(search.toLowerCase()) ||
+        company.address?.toLowerCase().includes(search.toLowerCase())
+      : true;
+
+    return matchesSearch;
+  });
+
+  // Group verification requests by status
+  const pendingRequests = verificationRequests.filter((r) => r.status === "PENDING");
+  const rejectedRequests = verificationRequests.filter((r) => r.status === "REJECTED");
 
   const handleApply = async () => {
     if (!selectedCompanyId) {
@@ -216,20 +230,20 @@ export default function DealerCompanyPage() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
-            <Building2 className="h-4 w-4 text-blue-600" />
+            <CardTitle className="text-sm font-medium">Connected Companies</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{requests.length}</div>
+            <div className="text-2xl font-bold">{connectedCompanies.length}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+            <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
             <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
@@ -239,17 +253,7 @@ export default function DealerCompanyPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Approved</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{approvedRequests.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+            <CardTitle className="text-sm font-medium">Rejected Requests</CardTitle>
             <XCircle className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
@@ -283,7 +287,6 @@ export default function DealerCompanyPage() {
               <SelectContent>
                 <SelectItem value="ALL">All Status</SelectItem>
                 <SelectItem value="PENDING">Pending</SelectItem>
-                <SelectItem value="APPROVED">Approved</SelectItem>
                 <SelectItem value="REJECTED">Rejected</SelectItem>
               </SelectContent>
             </Select>
@@ -291,25 +294,25 @@ export default function DealerCompanyPage() {
         </CardContent>
       </Card>
 
-      {/* Company Requests */}
+      {/* Connected Companies Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Company Verification Requests</CardTitle>
+          <CardTitle>My Connected Companies</CardTitle>
           <CardDescription>
-            {filteredRequests.length} request(s) found
+            {filteredConnectedCompanies.length} company(ies) connected
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {filteredRequests.length === 0 ? (
+          {filteredConnectedCompanies.length === 0 ? (
             <div className="text-center py-8">
               <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No company requests</h3>
+              <h3 className="text-lg font-semibold mb-2">No connected companies</h3>
               <p className="text-muted-foreground mb-4">
-                {search || statusFilter !== "ALL"
-                  ? "No requests match your filters."
-                  : "Get started by applying to a company."}
+                {search
+                  ? "No companies match your search."
+                  : "Apply to a company to get started and once approved, you'll see them here."}
               </p>
-              {!search && statusFilter === "ALL" && (
+              {!search && (
                 <Button onClick={() => setIsApplyDialogOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Apply to Company
@@ -318,7 +321,90 @@ export default function DealerCompanyPage() {
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredRequests.map((request) => (
+              {filteredConnectedCompanies.map((company) => (
+                <Card key={company.id} className="relative border-green-200 bg-green-50/30">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg">{company.name}</CardTitle>
+                        {company.address && (
+                          <CardDescription className="mt-1">
+                            {company.address}
+                          </CardDescription>
+                        )}
+                      </div>
+                      <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                        <CheckCircle className="mr-1 h-3 w-3" />
+                        Connected
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 text-sm">
+                      {company.owner && (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Owner:</span>
+                            <span className="font-medium">{company.owner.name}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Contact:</span>
+                            <span className="font-medium">{company.owner.phone}</span>
+                          </div>
+                        </>
+                      )}
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Connected:</span>
+                        <span className="font-medium text-green-600">
+                          {new Date(company.connectedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          // Navigate to company details page - to be implemented later
+                          toast.info("Company interaction features coming soon!");
+                        }}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        View Details
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Verification Requests Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Verification Requests</CardTitle>
+          <CardDescription>
+            {filteredVerificationRequests.length} pending/rejected request(s)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {filteredVerificationRequests.length === 0 ? (
+            <div className="text-center py-8">
+              <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No verification requests</h3>
+              <p className="text-muted-foreground mb-4">
+                {search || statusFilter !== "ALL"
+                  ? "No requests match your filters."
+                  : "You don't have any pending or rejected verification requests."}
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filteredVerificationRequests.map((request) => (
                 <Card key={request.id} className="relative">
                   <CardHeader>
                     <div className="flex items-start justify-between">
@@ -365,31 +451,9 @@ export default function DealerCompanyPage() {
                           )}
                         </>
                       )}
-                      {request.status === "APPROVED" && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Connected:</span>
-                          <span className="font-medium text-green-600">
-                            {new Date(request.updatedAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                      )}
                     </div>
 
                     <div className="mt-4 flex gap-2">
-                      {request.status === "APPROVED" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => {
-                            // Navigate to company details page - to be implemented later
-                            toast.info("Company interaction features coming soon!");
-                          }}
-                        >
-                          <Eye className="mr-2 h-4 w-4" />
-                          View Company
-                        </Button>
-                      )}
                       {request.status === "REJECTED" && canRetry(request) && (
                         <Button
                           variant="outline"
@@ -406,6 +470,13 @@ export default function DealerCompanyPage() {
                         <div className="flex-1">
                           <p className="text-xs text-red-600 text-center">
                             {getRetryMessage(request)}
+                          </p>
+                        </div>
+                      )}
+                      {request.status === "PENDING" && (
+                        <div className="flex-1">
+                          <p className="text-xs text-yellow-600 text-center font-medium">
+                            Waiting for company approval
                           </p>
                         </div>
                       )}

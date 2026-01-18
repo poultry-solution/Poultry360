@@ -690,11 +690,10 @@ export const getDealerCompanies = async (
       });
     }
 
-    // Get all APPROVED verification requests (approved companies)
-    const approvedRequests = await prismaWithVerification.dealerVerificationRequest.findMany({
+    // Get all companies connected to this dealer via DealerCompany relationship
+    const dealerCompanies = await (prisma as any).dealerCompany.findMany({
       where: {
         dealerId: dealer.id,
-        status: "APPROVED" as any,
       },
       include: {
         company: {
@@ -711,14 +710,15 @@ export const getDealerCompanies = async (
           },
         },
       },
-      orderBy: { updatedAt: "desc" },
+      orderBy: { connectedAt: "desc" },
     });
 
-    // Extract companies from requests
-    const companies = approvedRequests.map((request: any) => ({
-      ...request.company,
-      connectedAt: request.updatedAt,
-      verificationRequestId: request.id,
+    // Extract companies with connection info
+    const companies = dealerCompanies.map((dc: any) => ({
+      ...dc.company,
+      connectedAt: dc.connectedAt,
+      connectedVia: dc.connectedVia,
+      dealerCompanyId: dc.id,
     }));
 
     return res.json({
@@ -764,19 +764,20 @@ export const getCompanyDetailsForDealer = async (
       });
     }
 
-    // Verify dealer has approved request for this company
-    const approvedRequest = await prismaWithVerification.dealerVerificationRequest.findFirst({
+    // Verify dealer has connection to this company via DealerCompany relationship
+    const dealerCompanyLink = await (prisma as any).dealerCompany.findUnique({
       where: {
-        dealerId: dealer.id,
-        companyId: companyId,
-        status: "APPROVED" as any,
+        dealerId_companyId: {
+          dealerId: dealer.id,
+          companyId: companyId,
+        },
       },
     });
 
-    if (!approvedRequest) {
+    if (!dealerCompanyLink) {
       return res.status(403).json({
         success: false,
-        message: "You are not approved to access this company",
+        message: "You are not connected to this company",
       });
     }
 

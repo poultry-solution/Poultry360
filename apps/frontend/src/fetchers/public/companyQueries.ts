@@ -58,7 +58,7 @@ export const useSearchPublicCompanies = (
       );
       return data;
     },
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: 5000, // Cache for 3 seconds
     enabled: shouldFetch,
     refetchOnWindowFocus: false,
     refetchOnMount: false,

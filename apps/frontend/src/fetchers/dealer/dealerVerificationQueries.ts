@@ -41,7 +41,8 @@ export interface DealerCompany {
   name: string;
   address?: string;
   connectedAt: string;
-  verificationRequestId: string;
+  connectedVia: "VERIFICATION" | "MANUAL";
+  dealerCompanyId: string;
   owner?: {
     name: string;
     phone: string;

@@ -28,8 +28,10 @@ export interface AdminDealer {
     createdAt: Date;
   };
   companies?: Array<{
-    id: string;
-    name: string;
+    company: {
+      id: string;
+      name: string;
+    };
   }>;
   _count: {
     products: number;

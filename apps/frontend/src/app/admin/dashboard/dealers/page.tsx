@@ -121,7 +121,7 @@ export default function AdminDealerPage() {
         dealerContact: displayPhone,
         dealerAddress: dealer.address || "",
         // Use first company ID if available (for editing, admin can manually manage multiple via backend)
-        companyId: dealer.companies && dealer.companies.length > 0 ? dealer.companies[0].id : null,
+        companyId: dealer.companies && dealer.companies.length > 0 ? dealer.companies.map((company:{company: {id: string}}) => company.company.id).join(", ") : null,
         ownerStatus: dealer.owner.status as
           | "ACTIVE"
           | "INACTIVE"
@@ -434,14 +434,10 @@ export default function AdminDealerPage() {
                       <TableCell>{dealer.contact}</TableCell>
                       <TableCell>
                         {dealer.companies && dealer.companies.length > 0 ? (
-                          dealer.companies.length === 1 ? (
-                            <span className="text-sm">{dealer.companies[0].name}</span>
-                          ) : (
+                         (
                             <span className="text-sm">
-                              {dealer.companies[0].name}
-                              <span className="text-muted-foreground ml-1">
-                                +{dealer.companies.length - 1} more
-                              </span>
+                                {dealer.companies.map((company:{company: {name: string}}) => company.company.name).join(", ")}
+                        
                             </span>
                           )
                         ) : (

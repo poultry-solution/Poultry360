@@ -56,6 +56,7 @@ export const getAllDealers = async (
         where,
         skip,
         take: Number(limit),
+        orderBy: { createdAt: "desc" },
         include: {
           owner: {
             select: {
@@ -64,6 +65,16 @@ export const getAllDealers = async (
               phone: true,
               status: true,
               createdAt: true,
+            },
+          },
+          companies: {
+            select: {
+              company: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
             },
           },
           _count: {
@@ -77,10 +88,10 @@ export const getAllDealers = async (
             },
           },
         },
-        orderBy: { createdAt: "desc" },
       }),
       prisma.dealer.count({ where }),
     ]);
+    
 
     return res.json({
       success: true,
