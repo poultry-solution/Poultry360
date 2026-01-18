@@ -43,6 +43,7 @@ const farmerNavigation: NavigationItem[] = [
   { name: "Home", href: "/farmer/dashboard/home", icon: Home },
   { name: "Farms", href: "/farmer/dashboard/farms", icon: Building2 },
   { name: "Batches", href: "/farmer/dashboard/batches", icon: Layers },
+  { name: "Dealers", href: "/farmer/dashboard/dealers", icon: Users },
   { name: "Sales Ledger", href: "/farmer/dashboard/sales-ledger", icon: Receipt },
   { name: "Feed Ledger", href: "/farmer/dashboard/dealer-ledger", icon: Users },
   {
@@ -70,6 +71,7 @@ const doctorNavigation: NavigationItem[] = [
 const dealerNavigation: NavigationItem[] = [
   { name: "Home", href: "/dealer/dashboard/home", icon: Home },
   { name: "Companies", href: "/dealer/dashboard/company", icon: Building2 },
+  { name: "Farmers", href: "/dealer/dashboard/farmers", icon: Users },
   { name: "Inventory", href: "/dealer/dashboard/inventory", icon: Package },
   { name: "Customers", href: "/dealer/dashboard/customers", icon: Users },
   { name: "Sales", href: "/dealer/dashboard/sales", icon: Receipt },

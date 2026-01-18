@@ -271,6 +271,10 @@ model User {
   paymentRequestsSubmitted PaymentRequest[] @relation("PaymentRequestSubmittedBy")
   paymentRequestsReviewed  PaymentRequest[] @relation("PaymentRequestReviewedBy")
 
+  // Dealer-Farmer relationships
+  dealerConnections          DealerFarmer[]                @relation("FarmerDealers")
+  dealerVerificationRequests FarmerVerificationRequest[] @relation("FarmerVerificationRequests")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -669,6 +673,10 @@ model Dealer {
   // Many-to-many relationship with companies
   companies DealerCompany[]
 
+  // Many-to-many relationship with farmers
+  farmerConnections DealerFarmer[]
+  farmerRequests    FarmerVerificationRequest[] @relation("DealerFarmerRequests")
+
   transactions         EntityTransaction[]
   products             DealerProduct[]
   sales                DealerSale[]
@@ -1003,6 +1011,28 @@ model DealerCompany {
   @@index([companyId, dealerId])
 }
 
+// ==================== DEALER-FARMER RELATIONSHIP ====================
+
+model DealerFarmer {
+  id       String @id @default(cuid())
+  dealerId String
+  dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  farmerId String
+  farmer   User   @relation("FarmerDealers", fields: [farmerId], references: [id], onDelete: Cascade)
+
+  // Metadata
+  connectedAt  DateTime @default(now()) // When relationship was established
+  connectedVia String? // "VERIFICATION" | "MANUAL" | "MIGRATION"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dealerId, farmerId]) // One relationship per dealer-farmer pair
+  @@index([dealerId])
+  @@index([farmerId])
+  @@index([farmerId, dealerId])
+}
+
 // ==================== DEALER VERIFICATION REQUESTS ====================
 
 model DealerVerificationRequest {
@@ -1024,6 +1054,29 @@ model DealerVerificationRequest {
   @@index([dealerId])
   @@index([companyId])
   @@index([companyId, status]) // For company filtering pending requests
+}
+
+// ==================== FARMER VERIFICATION REQUESTS ====================
+
+model FarmerVerificationRequest {
+  id       String @id @default(cuid())
+  farmerId String
+  farmer   User   @relation("FarmerVerificationRequests", fields: [farmerId], references: [id], onDelete: Cascade)
+  dealerId String
+  dealer   Dealer @relation("DealerFarmerRequests", fields: [dealerId], references: [id], onDelete: Cascade)
+
+  status         DealerVerificationStatus @default(PENDING)
+  rejectedCount  Int                      @default(0) // Track rejection count per dealer
+  lastRejectedAt DateTime? // For 1-hour cooldown
+  acknowledgedAt DateTime? // Track if farmer saw message
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([farmerId, dealerId, status]) // One pending request per farmer-dealer
+  @@index([farmerId])
+  @@index([dealerId])
+  @@index([dealerId, status]) // For dealer filtering pending requests
 }
 
 // ==================== AUDIT TRAIL ====================

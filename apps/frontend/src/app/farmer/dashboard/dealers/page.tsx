@@ -4,11 +4,10 @@ import { useState } from "react";
 import {
   Plus,
   Search,
-  Building2,
+  Store,
   CheckCircle,
   XCircle,
   Clock,
-  AlertCircle,
   Eye,
   RefreshCw,
 } from "lucide-react";
@@ -39,32 +38,31 @@ import {
 } from "@/common/components/ui/select";
 import { toast } from "sonner";
 import {
-  useGetDealerVerificationRequests,
-  useGetDealerCompanies,
-  useCreateDealerVerificationRequest,
-  type DealerVerificationRequest,
-} from "@/fetchers/dealer/dealerVerificationQueries";
-import { PublicCompanySearchSelect } from "@/common/components/forms/PublicCompanySearchSelect";
+  useGetFarmerVerificationRequests,
+  useGetFarmerDealers,
+  useCreateFarmerVerificationRequest,
+  type FarmerVerificationRequest,
+} from "@/fetchers/farmer/farmerVerificationQueries";
+import { PublicDealerSearchSelect } from "@/common/components/forms/PublicDealerSearchSelect";
 
-export default function DealerCompanyPage() {
+export default function FarmerDealersPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [isApplyDialogOpen, setIsApplyDialogOpen] = useState(false);
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  const [selectedDealerId, setSelectedDealerId] = useState<string | null>(null);
 
   // Queries
   const { data: requestsData, isLoading: requestsLoading } =
-    useGetDealerVerificationRequests();
-  const { data: companiesData, isLoading: companiesLoading } = useGetDealerCompanies();
+    useGetFarmerVerificationRequests();
+  const { data: dealersData, isLoading: dealersLoading } = useGetFarmerDealers();
 
   // Mutations
-  const createRequestMutation = useCreateDealerVerificationRequest();
+  const createRequestMutation = useCreateFarmerVerificationRequest();
 
   const requests = requestsData?.data || [];
-  const connectedCompanies = companiesData?.data || [];
+  const connectedDealers = dealersData?.data || [];
 
-  // Filter out APPROVED requests from verification requests (they're shown in connected companies)
-  // Note: REJECTED requests can be retried and will become PENDING, so we show both
+  // Filter out APPROVED requests from verification requests (they're shown in connected dealers)
   const verificationRequests = requests.filter(
     (request) => request.status === "PENDING" || request.status === "REJECTED"
   );
@@ -74,10 +72,13 @@ export default function DealerCompanyPage() {
     const matchesStatus =
       statusFilter === "ALL" || request.status === statusFilter;
     const matchesSearch = search
-      ? request.company?.name
+      ? request.dealer?.name
           ?.toLowerCase()
           .includes(search.toLowerCase()) ||
-        request.company?.address
+        request.dealer?.contact
+          ?.toLowerCase()
+          .includes(search.toLowerCase()) ||
+        request.dealer?.address
           ?.toLowerCase()
           .includes(search.toLowerCase())
       : true;
@@ -85,11 +86,12 @@ export default function DealerCompanyPage() {
     return matchesStatus && matchesSearch;
   });
 
-  // Filter connected companies based on search
-  const filteredConnectedCompanies = connectedCompanies.filter((company) => {
+  // Filter connected dealers based on search
+  const filteredConnectedDealers = connectedDealers.filter((dealer) => {
     const matchesSearch = search
-      ? company.name?.toLowerCase().includes(search.toLowerCase()) ||
-        company.address?.toLowerCase().includes(search.toLowerCase())
+      ? dealer.name?.toLowerCase().includes(search.toLowerCase()) ||
+        dealer.contact?.toLowerCase().includes(search.toLowerCase()) ||
+        dealer.address?.toLowerCase().includes(search.toLowerCase())
       : true;
 
     return matchesSearch;
@@ -100,18 +102,18 @@ export default function DealerCompanyPage() {
   const rejectedRequests = verificationRequests.filter((r) => r.status === "REJECTED");
 
   const handleApply = async () => {
-    if (!selectedCompanyId) {
-      toast.error("Please select a company");
+    if (!selectedDealerId) {
+      toast.error("Please select a dealer");
       return;
     }
 
     try {
       await createRequestMutation.mutateAsync({
-        companyId: selectedCompanyId,
+        dealerId: selectedDealerId,
       });
       toast.success("Verification request sent successfully");
       setIsApplyDialogOpen(false);
-      setSelectedCompanyId(null);
+      setSelectedDealerId(null);
     } catch (error: any) {
       toast.error(
         error.response?.data?.message ||
@@ -120,15 +122,15 @@ export default function DealerCompanyPage() {
     }
   };
 
-  const handleRetry = async (request: DealerVerificationRequest) => {
-    if (!request.companyId) {
-      toast.error("Company ID not found");
+  const handleRetry = async (request: FarmerVerificationRequest) => {
+    if (!request.dealerId) {
+      toast.error("Dealer ID not found");
       return;
     }
 
     try {
       await createRequestMutation.mutateAsync({
-        companyId: request.companyId,
+        dealerId: request.dealerId,
       });
       toast.success("Retry request sent successfully");
     } catch (error: any) {
@@ -139,7 +141,7 @@ export default function DealerCompanyPage() {
     }
   };
 
-  const canRetry = (request: DealerVerificationRequest): boolean => {
+  const canRetry = (request: FarmerVerificationRequest): boolean => {
     if (request.status !== "REJECTED") return false;
     if (request.rejectedCount >= 3) return false;
     if (!request.lastRejectedAt) return true;
@@ -177,7 +179,7 @@ export default function DealerCompanyPage() {
     }
   };
 
-  const getRetryMessage = (request: DealerVerificationRequest): string => {
+  const getRetryMessage = (request: FarmerVerificationRequest): string => {
     if (request.rejectedCount >= 3) {
       return "Cannot retry - 3 rejections reached";
     }
@@ -194,14 +196,14 @@ export default function DealerCompanyPage() {
     return "";
   };
 
-  if (requestsLoading || companiesLoading) {
+  if (requestsLoading || dealersLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">My Companies</h1>
+            <h1 className="text-3xl font-bold tracking-tight">My Dealers</h1>
             <p className="text-muted-foreground">
-              Manage your company connections and verification requests
+              Manage your dealer connections and verification requests
             </p>
           </div>
         </div>
@@ -219,14 +221,14 @@ export default function DealerCompanyPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Companies</h1>
+          <h1 className="text-3xl font-bold tracking-tight">My Dealers</h1>
           <p className="text-muted-foreground">
-            Manage your company connections and verification requests
+            Manage your dealer connections and verification requests
           </p>
         </div>
         <Button onClick={() => setIsApplyDialogOpen(true)} className="bg-primary">
           <Plus className="mr-2 h-4 w-4" />
-          Apply to Company
+          Apply to Dealer
         </Button>
       </div>
 
@@ -234,11 +236,11 @@ export default function DealerCompanyPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Connected Companies</CardTitle>
+            <CardTitle className="text-sm font-medium">Connected Dealers</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{connectedCompanies.length}</div>
+            <div className="text-2xl font-bold">{connectedDealers.length}</div>
           </CardContent>
         </Card>
 
@@ -271,7 +273,7 @@ export default function DealerCompanyPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search by company name or address..."
+                  placeholder="Search by dealer name, contact, or address..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-10"
@@ -295,42 +297,47 @@ export default function DealerCompanyPage() {
         </CardContent>
       </Card>
 
-      {/* Connected Companies Section */}
+      {/* Connected Dealers Section */}
       <Card>
         <CardHeader>
-          <CardTitle>My Connected Companies</CardTitle>
+          <CardTitle>My Connected Dealers</CardTitle>
           <CardDescription>
-            {filteredConnectedCompanies.length} company(ies) connected
+            {filteredConnectedDealers.length} dealer(s) connected
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {filteredConnectedCompanies.length === 0 ? (
+          {filteredConnectedDealers.length === 0 ? (
             <div className="text-center py-8">
-              <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No connected companies</h3>
+              <Store className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No connected dealers</h3>
               <p className="text-muted-foreground mb-4">
                 {search
-                  ? "No companies match your search."
-                  : "Apply to a company to get started and once approved, you'll see them here."}
+                  ? "No dealers match your search."
+                  : "Apply to a dealer to get started and once approved, you'll see them here."}
               </p>
               {!search && (
                 <Button onClick={() => setIsApplyDialogOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Apply to Company
+                  Apply to Dealer
                 </Button>
               )}
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredConnectedCompanies.map((company) => (
-                <Card key={company.id} className="relative border-green-200 bg-green-50/30">
+              {filteredConnectedDealers.map((dealer) => (
+                <Card key={dealer.id} className="relative border-green-200 bg-green-50/30">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <CardTitle className="text-lg">{company.name}</CardTitle>
-                        {company.address && (
+                        <CardTitle className="text-lg">{dealer.name}</CardTitle>
+                        {dealer.contact && (
                           <CardDescription className="mt-1">
-                            {company.address}
+                            {dealer.contact}
+                          </CardDescription>
+                        )}
+                        {dealer.address && (
+                          <CardDescription className="mt-1">
+                            {dealer.address}
                           </CardDescription>
                         )}
                       </div>
@@ -342,22 +349,22 @@ export default function DealerCompanyPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2 text-sm">
-                      {company.owner && (
+                      {dealer.owner && (
                         <>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Owner:</span>
-                            <span className="font-medium">{company.owner.name}</span>
+                            <span className="font-medium">{dealer.owner.name}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Contact:</span>
-                            <span className="font-medium">{company.owner.phone}</span>
+                            <span className="text-muted-foreground">Phone:</span>
+                            <span className="font-medium">{dealer.owner.phone}</span>
                           </div>
                         </>
                       )}
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Connected:</span>
                         <span className="font-medium text-green-600">
-                          {new Date(company.connectedAt).toLocaleDateString()}
+                          {new Date(dealer.connectedAt).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
@@ -368,8 +375,8 @@ export default function DealerCompanyPage() {
                         size="sm"
                         className="w-full"
                         onClick={() => {
-                          // Navigate to company details page - to be implemented later
-                          toast.info("Company interaction features coming soon!");
+                          // Navigate to dealer details page - to be implemented later
+                          toast.info("Dealer interaction features coming soon!");
                         }}
                       >
                         <Eye className="mr-2 h-4 w-4" />
@@ -411,11 +418,16 @@ export default function DealerCompanyPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <CardTitle className="text-lg">
-                          {request.company?.name || "Unknown Company"}
+                          {request.dealer?.name || "Unknown Dealer"}
                         </CardTitle>
-                        {request.company?.address && (
+                        {request.dealer?.contact && (
                           <CardDescription className="mt-1">
-                            {request.company.address}
+                            {request.dealer.contact}
+                          </CardDescription>
+                        )}
+                        {request.dealer?.address && (
+                          <CardDescription className="mt-1">
+                            {request.dealer.address}
                           </CardDescription>
                         )}
                       </div>
@@ -477,7 +489,7 @@ export default function DealerCompanyPage() {
                       {request.status === "PENDING" && (
                         <div className="flex-1">
                           <p className="text-xs text-yellow-600 text-center font-medium">
-                            Waiting for company approval
+                            Waiting for dealer approval
                           </p>
                         </div>
                       )}
@@ -490,27 +502,27 @@ export default function DealerCompanyPage() {
         </CardContent>
       </Card>
 
-      {/* Apply to Company Dialog */}
+      {/* Apply to Dealer Dialog */}
       <Dialog open={isApplyDialogOpen} onOpenChange={setIsApplyDialogOpen}>
         <DialogContent className="max-w-2xl bg-white">
           <DialogHeader>
-            <DialogTitle>Apply to Company</DialogTitle>
+            <DialogTitle>Apply to Dealer</DialogTitle>
             <DialogDescription>
-              Search and select a company to send a verification request
+              Search and select a dealer to send a verification request
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Select Company</label>
-              <PublicCompanySearchSelect
-                value={selectedCompanyId || undefined}
-                onValueChange={(companyId) => setSelectedCompanyId(companyId || null)}
-                placeholder="Search for a company..."
+              <label className="text-sm font-medium">Select Dealer</label>
+              <PublicDealerSearchSelect
+                value={selectedDealerId || undefined}
+                onValueChange={(dealerId) => setSelectedDealerId(dealerId || null)}
+                placeholder="Search for a dealer..."
               />
-              {selectedCompanyId && (
+              {selectedDealerId && (
                 <p className="text-xs text-muted-foreground">
-                  You can only have one pending request per company. If already approved,
+                  You can only have one pending request per dealer. If already approved,
                   you&apos;re connected. If rejected, wait 1 hour before retrying (max 3
                   retries).
                 </p>
@@ -523,7 +535,7 @@ export default function DealerCompanyPage() {
               variant="outline"
               onClick={() => {
                 setIsApplyDialogOpen(false);
-                setSelectedCompanyId(null);
+                setSelectedDealerId(null);
               }}
               disabled={createRequestMutation.isPending}
             >
@@ -531,10 +543,10 @@ export default function DealerCompanyPage() {
             </Button>
             <Button
               onClick={handleApply}
-              disabled={!selectedCompanyId || createRequestMutation.isPending}
+              disabled={!selectedDealerId || createRequestMutation.isPending}
               className="bg-primary"
             >
-              {createRequestMutation.isPending ? "Sending..." : "Apply to Company"}
+              {createRequestMutation.isPending ? "Sending..." : "Apply to Dealer"}
             </Button>
           </DialogFooter>
         </DialogContent>

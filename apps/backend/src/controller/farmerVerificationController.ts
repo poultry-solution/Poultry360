@@ -5,81 +5,67 @@ import { UserRole } from "@prisma/client";
 // Use type assertion for Prisma client until Prisma client is regenerated
 const prismaWithVerification = prisma as any;
 
-// ==================== CREATE VERIFICATION REQUEST ====================
-// Used during dealer signup and retry
-export const createVerificationRequest = async (
+// ==================== CREATE FARMER VERIFICATION REQUEST ====================
+// Used by farmers to request connection to a dealer
+export const createFarmerVerificationRequest = async (
   req: Request,
   res: Response
 ): Promise<any> => {
   try {
-    const { companyId } = req.body;
+    const { dealerId } = req.body;
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
     // Validation
-    if (!companyId) {
+    if (!dealerId) {
       return res.status(400).json({
         success: false,
-        message: "Company ID is required",
+        message: "Dealer ID is required",
       });
     }
 
-    // Get dealer for current user
+    // Only farmers (OWNER role) can create verification requests
+    if (currentUserRole !== UserRole.OWNER) {
+      return res.status(403).json({
+        success: false,
+        message: "Only farmers can create verification requests",
+      });
+    }
+
+    // Verify dealer exists
     const dealer = await prisma.dealer.findUnique({
-      where: { ownerId: currentUserId },
-      include: {
-        owner: true,
-      },
+      where: { id: dealerId },
     });
 
     if (!dealer) {
       return res.status(404).json({
         success: false,
-        message: "Dealer account not found",
+        message: "Dealer not found",
       });
     }
 
-    // Only dealers can create verification requests
-    if (currentUserRole !== UserRole.DEALER) {
-      return res.status(403).json({
-        success: false,
-        message: "Only dealers can create verification requests",
-      });
-    }
-
-    // Verify company exists
-    const company = await prisma.company.findUnique({
-      where: { id: companyId },
-    });
-
-    if (!company) {
-      return res.status(404).json({
-        success: false,
-        message: "Company not found",
-      });
-    }
-
-    // Check if dealer already has an approved request for this company
-    const approvedRequest = await prismaWithVerification.dealerVerificationRequest.findFirst({
+    // Check if farmer already has a connection to this dealer
+    const existingConnection = await prismaWithVerification.dealerFarmer.findUnique({
       where: {
-        dealerId: dealer.id,
-        companyId: companyId,
-        status: "APPROVED",
+        dealerId_farmerId: {
+          dealerId: dealerId,
+          farmerId: currentUserId,
+        },
       },
     });
 
-    if (approvedRequest) {
+    if (existingConnection) {
       return res.status(400).json({
         success: false,
-        message: "You are already approved and connected to this company",
+        message: "You are already connected to this dealer",
       });
     }
 
     // Check if there's a pending request
-    const pendingRequest = await prismaWithVerification.dealerVerificationRequest.findFirst({
+    const pendingRequest = await prismaWithVerification.farmerVerificationRequest.findFirst({
       where: {
-        dealerId: dealer.id,
-        companyId: companyId,
+        farmerId: currentUserId,
+        dealerId: dealerId,
         status: "PENDING" as any,
       },
     });
@@ -87,15 +73,15 @@ export const createVerificationRequest = async (
     if (pendingRequest) {
       return res.status(400).json({
         success: false,
-        message: "You already have a pending request for this company",
+        message: "You already have a pending request for this dealer",
       });
     }
 
     // Check for existing rejected request
-    const rejectedRequest = await prismaWithVerification.dealerVerificationRequest.findFirst({
+    const rejectedRequest = await prismaWithVerification.farmerVerificationRequest.findFirst({
       where: {
-        dealerId: dealer.id,
-        companyId: companyId,
+        farmerId: currentUserId,
+        dealerId: dealerId,
         status: "REJECTED" as any,
       },
       orderBy: { updatedAt: "desc" },
@@ -107,7 +93,7 @@ export const createVerificationRequest = async (
       if (rejectedRequest.rejectedCount >= 3) {
         return res.status(400).json({
           success: false,
-          message: "You have been rejected 3 times by this company and cannot apply again",
+          message: "You have been rejected 3 times by this dealer and cannot apply again",
         });
       }
 
@@ -127,33 +113,26 @@ export const createVerificationRequest = async (
       }
 
       // Update the rejected request to pending (retry)
-      const verificationRequest = await prismaWithVerification.dealerVerificationRequest.update({
+      const verificationRequest = await prismaWithVerification.farmerVerificationRequest.update({
         where: { id: rejectedRequest.id },
         data: {
           status: "PENDING" as any,
           // Keep the rejectedCount for tracking purposes
         },
         include: {
-          company: {
-            select: {
-              id: true,
-              name: true,
-              address: true,
-            },
-          },
           dealer: {
             select: {
               id: true,
               name: true,
               contact: true,
               address: true,
-              owner: {
-                select: {
-                  id: true,
-                  name: true,
-                  phone: true,
-                },
-              },
+            },
+          },
+          farmer: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
             },
           },
         },
@@ -167,34 +146,27 @@ export const createVerificationRequest = async (
     }
 
     // Create new verification request (first time)
-    const verificationRequest = await prismaWithVerification.dealerVerificationRequest.create({
+    const verificationRequest = await prismaWithVerification.farmerVerificationRequest.create({
       data: {
-        dealerId: dealer.id,
-        companyId: companyId,
+        farmerId: currentUserId,
+        dealerId: dealerId,
         status: "PENDING" as any,
         rejectedCount: 0,
       },
       include: {
-        company: {
-          select: {
-            id: true,
-            name: true,
-            address: true,
-          },
-        },
         dealer: {
           select: {
             id: true,
             name: true,
             contact: true,
             address: true,
-            owner: {
-              select: {
-                id: true,
-                name: true,
-                phone: true,
-              },
-            },
+          },
+        },
+        farmer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
           },
         },
       },
@@ -206,7 +178,7 @@ export const createVerificationRequest = async (
       message: "Verification request created successfully",
     });
   } catch (error: any) {
-    console.error("Create verification request error:", error);
+    console.error("Create farmer verification request error:", error);
     return res.status(500).json({
       success: false,
       message: error.message || "Internal server error",
@@ -214,8 +186,8 @@ export const createVerificationRequest = async (
   }
 };
 
-// ==================== GET DEALER'S VERIFICATION REQUESTS ====================
-export const getDealerVerificationRequests = async (
+// ==================== GET FARMER'S VERIFICATION REQUESTS ====================
+export const getFarmerVerificationRequests = async (
   req: Request,
   res: Response
 ): Promise<any> => {
@@ -223,36 +195,25 @@ export const getDealerVerificationRequests = async (
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    // Only dealers can view their own requests
-    if (currentUserRole !== UserRole.DEALER) {
+    // Only farmers can view their own requests
+    if (currentUserRole !== UserRole.OWNER) {
       return res.status(403).json({
         success: false,
-        message: "Only dealers can view their verification requests",
+        message: "Only farmers can view their verification requests",
       });
     }
 
-    // Get dealer for current user
-    const dealer = await prisma.dealer.findUnique({
-      where: { ownerId: currentUserId },
-    });
-
-    if (!dealer) {
-      return res.status(404).json({
-        success: false,
-        message: "Dealer account not found",
-      });
-    }
-
-    // Get all verification requests for this dealer
-    const requests = await prismaWithVerification.dealerVerificationRequest.findMany({
+    // Get all verification requests for this farmer
+    const requests = await prismaWithVerification.farmerVerificationRequest.findMany({
       where: {
-        dealerId: dealer.id,
+        farmerId: currentUserId,
       },
       include: {
-        company: {
+        dealer: {
           select: {
             id: true,
             name: true,
+            contact: true,
             address: true,
             owner: {
               select: {
@@ -271,7 +232,7 @@ export const getDealerVerificationRequests = async (
       data: requests,
     });
   } catch (error: any) {
-    console.error("Get dealer verification requests error:", error);
+    console.error("Get farmer verification requests error:", error);
     return res.status(500).json({
       success: false,
       message: error.message || "Internal server error",
@@ -279,8 +240,8 @@ export const getDealerVerificationRequests = async (
   }
 };
 
-// ==================== GET COMPANY'S VERIFICATION REQUESTS ====================
-export const getCompanyVerificationRequests = async (
+// ==================== GET DEALER'S FARMER VERIFICATION REQUESTS ====================
+export const getDealerFarmerRequests = async (
   req: Request,
   res: Response
 ): Promise<any> => {
@@ -289,23 +250,23 @@ export const getCompanyVerificationRequests = async (
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    // Only company admins can view verification requests
-    if (currentUserRole !== UserRole.COMPANY) {
+    // Only dealers can view farmer verification requests
+    if (currentUserRole !== UserRole.DEALER) {
       return res.status(403).json({
         success: false,
-        message: "Only company admins can view verification requests",
+        message: "Only dealers can view farmer verification requests",
       });
     }
 
-    // Get company for current user
-    const company = await prisma.company.findUnique({
+    // Get dealer for current user
+    const dealer = await prisma.dealer.findUnique({
       where: { ownerId: currentUserId },
     });
 
-    if (!company) {
+    if (!dealer) {
       return res.status(404).json({
         success: false,
-        message: "Company account not found",
+        message: "Dealer account not found",
       });
     }
 
@@ -313,7 +274,7 @@ export const getCompanyVerificationRequests = async (
 
     // Build where clause
     const where: any = {
-      companyId: company.id,
+      dealerId: dealer.id,
     };
 
     // Filter by status if provided
@@ -321,64 +282,44 @@ export const getCompanyVerificationRequests = async (
       where.status = status as any;
     }
 
-    // Search by dealer name or owner name
+    // Search by farmer name or phone
     if (search) {
-      where.OR = [
-        {
-          dealer: {
+      where.farmer = {
+        OR: [
+          {
             name: {
               contains: search as string,
               mode: "insensitive",
             },
           },
-        },
-        {
-          dealer: {
-            owner: {
-              name: {
-                contains: search as string,
-                mode: "insensitive",
-              },
-            },
-          },
-        },
-        {
-          dealer: {
-            contact: {
+          {
+            phone: {
               contains: search as string,
               mode: "insensitive",
             },
           },
-        },
-      ];
+        ],
+      };
     }
 
     const [requests, total] = await Promise.all([
-      prismaWithVerification.dealerVerificationRequest.findMany({
+      prismaWithVerification.farmerVerificationRequest.findMany({
         where,
         skip,
         take: Number(limit),
         include: {
-          dealer: {
+          farmer: {
             select: {
               id: true,
               name: true,
-              contact: true,
-              address: true,
-              owner: {
-                select: {
-                  id: true,
-                  name: true,
-                  phone: true,
-                  status: true,
-                },
-              },
+              phone: true,
+              status: true,
             },
           },
         },
         orderBy: { createdAt: "desc" },
       }),
-      prismaWithVerification.dealerVerificationRequest.count({ where }),
+      prismaWithVerification.farmerVerificationRequest.count({ where }),
     ]);
 
     return res.json({
@@ -392,7 +333,7 @@ export const getCompanyVerificationRequests = async (
       },
     });
   } catch (error: any) {
-    console.error("Get company verification requests error:", error);
+    console.error("Get dealer farmer requests error:", error);
     return res.status(500).json({
       success: false,
       message: error.message || "Internal server error",
@@ -400,8 +341,8 @@ export const getCompanyVerificationRequests = async (
   }
 };
 
-// ==================== APPROVE VERIFICATION REQUEST ====================
-export const approveVerificationRequest = async (
+// ==================== APPROVE FARMER VERIFICATION REQUEST ====================
+export const approveFarmerRequest = async (
   req: Request,
   res: Response
 ): Promise<any> => {
@@ -410,32 +351,32 @@ export const approveVerificationRequest = async (
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    // Only company admins can approve
-    if (currentUserRole !== UserRole.COMPANY) {
+    // Only dealers can approve
+    if (currentUserRole !== UserRole.DEALER) {
       return res.status(403).json({
         success: false,
-        message: "Only company admins can approve verification requests",
+        message: "Only dealers can approve verification requests",
       });
     }
 
-    // Get company for current user
-    const company = await prisma.company.findUnique({
+    // Get dealer for current user
+    const dealer = await prisma.dealer.findUnique({
       where: { ownerId: currentUserId },
     });
 
-    if (!company) {
+    if (!dealer) {
       return res.status(404).json({
         success: false,
-        message: "Company account not found",
+        message: "Dealer account not found",
       });
     }
 
     // Get verification request
-    const verificationRequest = await prismaWithVerification.dealerVerificationRequest.findUnique({
+    const verificationRequest = await prismaWithVerification.farmerVerificationRequest.findUnique({
       where: { id },
       include: {
         dealer: true,
-        company: true,
+        farmer: true,
       },
     });
 
@@ -446,11 +387,11 @@ export const approveVerificationRequest = async (
       });
     }
 
-    // Verify request belongs to this company
-    if (verificationRequest.companyId !== company.id) {
+    // Verify request belongs to this dealer
+    if (verificationRequest.dealerId !== dealer.id) {
       return res.status(403).json({
         success: false,
-        message: "You can only approve requests for your own company",
+        message: "You can only approve requests for your own dealership",
       });
     }
 
@@ -462,10 +403,10 @@ export const approveVerificationRequest = async (
       });
     }
 
-    // Update request to APPROVED and create DealerCompany relationship
+    // Update request to APPROVED and create DealerFarmer relationship
     const updatedRequest = await prismaWithVerification.$transaction(async (tx: any) => {
       // Update verification status
-      const request = await tx.dealerVerificationRequest.update({
+      const request = await tx.farmerVerificationRequest.update({
         where: { id },
         data: {
           status: "APPROVED" as any,
@@ -474,21 +415,21 @@ export const approveVerificationRequest = async (
         },
       });
 
-      // Create or update DealerCompany relationship
-      const existingLink = await tx.dealerCompany.findUnique({
+      // Create or update DealerFarmer relationship
+      const existingLink = await tx.dealerFarmer.findUnique({
         where: {
-          dealerId_companyId: {
+          dealerId_farmerId: {
             dealerId: verificationRequest.dealerId,
-            companyId: verificationRequest.companyId,
+            farmerId: verificationRequest.farmerId,
           },
         },
       });
 
       if (!existingLink) {
-        await tx.dealerCompany.create({
+        await tx.dealerFarmer.create({
           data: {
             dealerId: verificationRequest.dealerId,
-            companyId: verificationRequest.companyId,
+            farmerId: verificationRequest.farmerId,
             connectedVia: "VERIFICATION",
             connectedAt: new Date(),
           },
@@ -504,7 +445,7 @@ export const approveVerificationRequest = async (
       message: "Verification request approved successfully",
     });
   } catch (error: any) {
-    console.error("Approve verification request error:", error);
+    console.error("Approve farmer verification request error:", error);
     return res.status(500).json({
       success: false,
       message: error.message || "Internal server error",
@@ -512,8 +453,8 @@ export const approveVerificationRequest = async (
   }
 };
 
-// ==================== REJECT VERIFICATION REQUEST ====================
-export const rejectVerificationRequest = async (
+// ==================== REJECT FARMER VERIFICATION REQUEST ====================
+export const rejectFarmerRequest = async (
   req: Request,
   res: Response
 ): Promise<any> => {
@@ -522,128 +463,11 @@ export const rejectVerificationRequest = async (
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    // Only company admins can reject
-    if (currentUserRole !== UserRole.COMPANY) {
-      return res.status(403).json({
-        success: false,
-        message: "Only company admins can reject verification requests",
-      });
-    }
-
-    // Get company for current user
-    const company = await prisma.company.findUnique({
-      where: { ownerId: currentUserId },
-    });
-
-    if (!company) {
-      return res.status(404).json({
-        success: false,
-        message: "Company account not found",
-      });
-    }
-
-    // Get verification request
-    const verificationRequest = await prismaWithVerification.dealerVerificationRequest.findUnique({
-      where: { id },
-    });
-
-    if (!verificationRequest) {
-      return res.status(404).json({
-        success: false,
-        message: "Verification request not found",
-      });
-    }
-
-    // Verify request belongs to this company
-    if (verificationRequest.companyId !== company.id) {
-      return res.status(403).json({
-        success: false,
-        message: "You can only reject requests for your own company",
-      });
-    }
-
-    // Check if already rejected
-    if (verificationRequest.status === "REJECTED") {
-      return res.status(400).json({
-        success: false,
-        message: "Request is already rejected",
-      });
-    }
-
-    // Get all previous rejections for this dealer-company pair
-    const previousRejections = await prismaWithVerification.dealerVerificationRequest.findMany({
-      where: {
-        dealerId: verificationRequest.dealerId,
-        companyId: verificationRequest.companyId,
-        status: "REJECTED" as any,
-      },
-    });
-
-    const newRejectedCount = previousRejections.length + 1;
-
-    // Update request to REJECTED
-    const updatedRequest = await prismaWithVerification.dealerVerificationRequest.update({
-      where: { id },
-      data: {
-        status: "REJECTED" as any,
-        rejectedCount: newRejectedCount,
-        lastRejectedAt: new Date(),
-      },
-      include: {
-        dealer: {
-          select: {
-            id: true,
-            name: true,
-            contact: true,
-            address: true,
-            owner: {
-              select: {
-                id: true,
-                name: true,
-                phone: true,
-              },
-            },
-          },
-        },
-        company: {
-          select: {
-            id: true,
-            name: true,
-            address: true,
-          },
-        },
-      },
-    });
-
-    return res.json({
-      success: true,
-      data: updatedRequest,
-      message: "Verification request rejected",
-    });
-  } catch (error: any) {
-    console.error("Reject verification request error:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Internal server error",
-    });
-  }
-};
-
-// ==================== ACKNOWLEDGE VERIFICATION REQUEST ====================
-export const acknowledgeVerificationRequest = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
-  try {
-    const { id } = req.params;
-    const currentUserId = req.userId;
-    const currentUserRole = req.role;
-
-    // Only dealers can acknowledge
+    // Only dealers can reject
     if (currentUserRole !== UserRole.DEALER) {
       return res.status(403).json({
         success: false,
-        message: "Only dealers can acknowledge verification requests",
+        message: "Only dealers can reject verification requests",
       });
     }
 
@@ -660,7 +484,7 @@ export const acknowledgeVerificationRequest = async (
     }
 
     // Get verification request
-    const verificationRequest = await prismaWithVerification.dealerVerificationRequest.findUnique({
+    const verificationRequest = await prismaWithVerification.farmerVerificationRequest.findUnique({
       where: { id },
     });
 
@@ -675,12 +499,82 @@ export const acknowledgeVerificationRequest = async (
     if (verificationRequest.dealerId !== dealer.id) {
       return res.status(403).json({
         success: false,
-        message: "You can only acknowledge your own verification requests",
+        message: "You can only reject requests for your own dealership",
       });
     }
 
-    // Update acknowledgedAt
-    const updatedRequest = await prismaWithVerification.dealerVerificationRequest.update({
+    // Check if already rejected
+    if (verificationRequest.status === "REJECTED") {
+      return res.status(400).json({
+        success: false,
+        message: "Request is already rejected",
+      });
+    }
+
+    // Update request to REJECTED
+    const updatedRequest = await prismaWithVerification.farmerVerificationRequest.update({
+      where: { id },
+      data: {
+        status: "REJECTED" as any,
+        rejectedCount: verificationRequest.rejectedCount + 1,
+        lastRejectedAt: new Date(),
+      },
+    });
+
+    return res.json({
+      success: true,
+      data: updatedRequest,
+      message: "Verification request rejected",
+    });
+  } catch (error: any) {
+    console.error("Reject farmer verification request error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+// ==================== ACKNOWLEDGE FARMER VERIFICATION REQUEST ====================
+export const acknowledgeFarmerRequest = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // Only farmers can acknowledge their own requests
+    if (currentUserRole !== UserRole.OWNER) {
+      return res.status(403).json({
+        success: false,
+        message: "Only farmers can acknowledge verification requests",
+      });
+    }
+
+    // Get verification request
+    const verificationRequest = await prismaWithVerification.farmerVerificationRequest.findUnique({
+      where: { id },
+    });
+
+    if (!verificationRequest) {
+      return res.status(404).json({
+        success: false,
+        message: "Verification request not found",
+      });
+    }
+
+    // Verify request belongs to this farmer
+    if (verificationRequest.farmerId !== currentUserId) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only acknowledge your own requests",
+      });
+    }
+
+    // Update acknowledgedAt timestamp
+    const updatedRequest = await prismaWithVerification.farmerVerificationRequest.update({
       where: { id },
       data: {
         acknowledgedAt: new Date(),
@@ -690,10 +584,10 @@ export const acknowledgeVerificationRequest = async (
     return res.json({
       success: true,
       data: updatedRequest,
-      message: "Verification request acknowledged",
+      message: "Request acknowledged",
     });
   } catch (error: any) {
-    console.error("Acknowledge verification request error:", error);
+    console.error("Acknowledge farmer verification request error:", error);
     return res.status(500).json({
       success: false,
       message: error.message || "Internal server error",
@@ -701,8 +595,8 @@ export const acknowledgeVerificationRequest = async (
   }
 };
 
-// ==================== GET DEALER'S APPROVED COMPANIES ====================
-export const getDealerCompanies = async (
+// ==================== GET FARMER'S CONNECTED DEALERS ====================
+export const getFarmerDealers = async (
   req: Request,
   res: Response
 ): Promise<any> => {
@@ -710,36 +604,25 @@ export const getDealerCompanies = async (
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    // Only dealers can view their companies
-    if (currentUserRole !== UserRole.DEALER) {
+    // Only farmers can view their dealers
+    if (currentUserRole !== UserRole.OWNER) {
       return res.status(403).json({
         success: false,
-        message: "Only dealers can view their companies",
+        message: "Only farmers can view their connected dealers",
       });
     }
 
-    // Get dealer for current user
-    const dealer = await prisma.dealer.findUnique({
-      where: { ownerId: currentUserId },
-    });
-
-    if (!dealer) {
-      return res.status(404).json({
-        success: false,
-        message: "Dealer account not found",
-      });
-    }
-
-    // Get all companies connected to this dealer via DealerCompany relationship
-    const dealerCompanies = await (prisma as any).dealerCompany.findMany({
+    // Get all dealers connected to this farmer via DealerFarmer relationship
+    const dealerFarmers = await prismaWithVerification.dealerFarmer.findMany({
       where: {
-        dealerId: dealer.id,
+        farmerId: currentUserId,
       },
       include: {
-        company: {
+        dealer: {
           select: {
             id: true,
             name: true,
+            contact: true,
             address: true,
             owner: {
               select: {
@@ -753,20 +636,20 @@ export const getDealerCompanies = async (
       orderBy: { connectedAt: "desc" },
     });
 
-    // Extract companies with connection info
-    const companies = dealerCompanies.map((dc: any) => ({
-      ...dc.company,
-      connectedAt: dc.connectedAt,
-      connectedVia: dc.connectedVia,
-      dealerCompanyId: dc.id,
+    // Extract dealers with connection info
+    const dealers = dealerFarmers.map((df: any) => ({
+      ...df.dealer,
+      connectedAt: df.connectedAt,
+      connectedVia: df.connectedVia,
+      dealerFarmerId: df.id,
     }));
 
     return res.json({
       success: true,
-      data: companies,
+      data: dealers,
     });
   } catch (error: any) {
-    console.error("Get dealer companies error:", error);
+    console.error("Get farmer dealers error:", error);
     return res.status(500).json({
       success: false,
       message: error.message || "Internal server error",
@@ -774,21 +657,20 @@ export const getDealerCompanies = async (
   }
 };
 
-// ==================== GET COMPANY DETAILS FOR DEALER ====================
-export const getCompanyDetailsForDealer = async (
+// ==================== GET DEALER'S CONNECTED FARMERS ====================
+export const getDealerFarmers = async (
   req: Request,
   res: Response
 ): Promise<any> => {
   try {
-    const { companyId } = req.params;
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    // Only dealers can access
+    // Only dealers can view their farmers
     if (currentUserRole !== UserRole.DEALER) {
       return res.status(403).json({
         success: false,
-        message: "Only dealers can view company details",
+        message: "Only dealers can view their connected farmers",
       });
     }
 
@@ -804,29 +686,87 @@ export const getCompanyDetailsForDealer = async (
       });
     }
 
-    // Verify dealer has connection to this company via DealerCompany relationship
-    const dealerCompanyLink = await (prisma as any).dealerCompany.findUnique({
+    // Get all farmers connected to this dealer via DealerFarmer relationship
+    const dealerFarmers = await prismaWithVerification.dealerFarmer.findMany({
       where: {
-        dealerId_companyId: {
-          dealerId: dealer.id,
-          companyId: companyId,
+        dealerId: dealer.id,
+      },
+      include: {
+        farmer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: { connectedAt: "desc" },
+    });
+
+    // Extract farmers with connection info
+    const farmers = dealerFarmers.map((df: any) => ({
+      ...df.farmer,
+      connectedAt: df.connectedAt,
+      connectedVia: df.connectedVia,
+      dealerFarmerId: df.id,
+    }));
+
+    return res.json({
+      success: true,
+      data: farmers,
+    });
+  } catch (error: any) {
+    console.error("Get dealer farmers error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+// ==================== GET DEALER DETAILS FOR FARMER ====================
+export const getDealerDetailsForFarmer = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { dealerId } = req.params;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // Only farmers can access
+    if (currentUserRole !== UserRole.OWNER) {
+      return res.status(403).json({
+        success: false,
+        message: "Only farmers can view dealer details",
+      });
+    }
+
+    // Verify farmer has connection to this dealer via DealerFarmer relationship
+    const dealerFarmerLink = await prismaWithVerification.dealerFarmer.findUnique({
+      where: {
+        dealerId_farmerId: {
+          dealerId: dealerId,
+          farmerId: currentUserId,
         },
       },
     });
 
-    if (!dealerCompanyLink) {
+    if (!dealerFarmerLink) {
       return res.status(403).json({
         success: false,
-        message: "You are not connected to this company",
+        message: "You are not connected to this dealer",
       });
     }
 
-    // Get company details
-    const company = await prisma.company.findUnique({
-      where: { id: companyId },
+    // Get dealer details
+    const dealer = await prisma.dealer.findUnique({
+      where: { id: dealerId },
       select: {
         id: true,
         name: true,
+        contact: true,
         address: true,
         owner: {
           select: {
@@ -836,26 +776,26 @@ export const getCompanyDetailsForDealer = async (
         },
         _count: {
           select: {
-            companySales: true,
-            consignments: true,
+            products: true,
+            sales: true,
           },
         },
       },
     });
 
-    if (!company) {
+    if (!dealer) {
       return res.status(404).json({
         success: false,
-        message: "Company not found",
+        message: "Dealer not found",
       });
     }
 
     return res.json({
       success: true,
-      data: company,
+      data: dealer,
     });
   } catch (error: any) {
-    console.error("Get company details for dealer error:", error);
+    console.error("Get dealer details for farmer error:", error);
     return res.status(500).json({
       success: false,
       message: error.message || "Internal server error",

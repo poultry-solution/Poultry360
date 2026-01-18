@@ -39,6 +39,7 @@ import adminCompanyRoutes from "./adminCompanyRoutes";
 import adminDealerRoutes from "./adminDealerRoutes";
 import publicRoutes from "./publicRoutes";
 import dealerVerificationRoutes from "./dealerVerificationRoutes";
+import farmerVerificationRoutes from "./farmerVerificationRoutes";
 
 const router = express.Router();
 
@@ -51,6 +52,7 @@ router.use("/dealer/products", dealerProductRoutes);
 router.use("/dealer/sales", dealerSaleRoutes);
 router.use("/consignments", consignmentRoutes);
 router.use("/verification", dealerVerificationRoutes);
+router.use("/verification", farmerVerificationRoutes);
 router.use("/dealer/ledger", dealerLedgerRoutes);
 router.use("/company/products", companyProductRoutes);
 router.use("/company/sales", companySaleRoutes);
