@@ -434,12 +434,23 @@ export default function SignupPage() {
             </>
           )}
 
-          <p className="text-sm text-muted-foreground mt-6 text-center">
-            Already have an account?{" "}
-            <Link href="/auth/login" className="text-primary hover:underline">
-              Log in
-            </Link>
-          </p>
+          <div className="mt-6 space-y-2">
+            <p className="text-sm text-muted-foreground text-center">
+              Already have an account?{" "}
+              <Link href="/auth/login" className="text-primary hover:underline">
+                Log in
+              </Link>
+            </p>
+            <p className="text-sm text-muted-foreground text-center">
+              Want to register as a dealer?{" "}
+              <Link
+                href="/auth/signup/dealer"
+                className="text-primary hover:underline"
+              >
+                Sign up as Dealer
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

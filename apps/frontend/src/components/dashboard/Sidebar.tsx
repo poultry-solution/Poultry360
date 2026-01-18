@@ -21,12 +21,25 @@ import {
   TrendingUp,
   FileText,
   CreditCard,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
+import { Badge } from "@/common/components/ui/badge";
 import { useAuth } from "@/common/store/store";
+import { useGetCompanyVerificationRequests } from "@/fetchers/company/companyVerificationQueries";
+import { LucideIcon } from "lucide-react";
+import { useGetDealerVerificationRequests } from "@/fetchers/dealer/dealerVerificationQueries";
+
+// Navigation item type
+interface NavigationItem {
+  name: string;
+  href: string;
+  icon: LucideIcon;
+  badge?: string;
+}
 
 // Role-based navigation configurations
-const farmerNavigation = [
+const farmerNavigation: NavigationItem[] = [
   { name: "Home", href: "/farmer/dashboard/home", icon: Home },
   { name: "Farms", href: "/farmer/dashboard/farms", icon: Building2 },
   { name: "Batches", href: "/farmer/dashboard/batches", icon: Layers },
@@ -48,14 +61,15 @@ const farmerNavigation = [
   { name: "Vaccinations", href: "/farmer/dashboard/vaccinations", icon: Syringe },
 ];
 
-const doctorNavigation = [
+const doctorNavigation: NavigationItem[] = [
   { name: "Dashboard", href: "/doctor/dashboard", icon: Home },
   { name: "Chat", href: "/doctor/dashboard/chat", icon: MessageCircle },
   { name: "Ledger", href: "/doctor/dashboard/ledger", icon: Receipt },
 ];
 
-const dealerNavigation = [
+const dealerNavigation: NavigationItem[] = [
   { name: "Home", href: "/dealer/dashboard/home", icon: Home },
+  { name: "Companies", href: "/dealer/dashboard/company", icon: Building2 },
   { name: "Inventory", href: "/dealer/dashboard/inventory", icon: Package },
   { name: "Customers", href: "/dealer/dashboard/customers", icon: Users },
   { name: "Sales", href: "/dealer/dashboard/sales", icon: Receipt },
@@ -64,10 +78,11 @@ const dealerNavigation = [
   { name: "Payments", href: "/dealer/dashboard/payments", icon: CreditCard },
 ];
 
-const companyNavigation = [
+const companyNavigation: NavigationItem[] = [
   { name: "Home", href: "/company/dashboard/home", icon: Home },
   { name: "Products", href: "/company/dashboard/products", icon: Package },
   { name: "Dealers", href: "/company/dashboard/dealers", icon: Users },
+  { name: "Verification Requests", href: "/company/dashboard/verification", icon: CheckCircle2, badge: "verification" },
   { name: "Sales", href: "/company/dashboard/sales", icon: Receipt },
   { name: "Ledger", href: "/company/dashboard/ledger", icon: FileText },
   { name: "Consignments", href: "/company/dashboard/consignments", icon: Truck },
@@ -75,7 +90,7 @@ const companyNavigation = [
   { name: "Analytics", href: "/company/dashboard/analytics", icon: BarChart3 },
 ];
 
-const adminNavigation = [
+const adminNavigation: NavigationItem[] = [
   { name: "Overview", href: "/admin/dashboard", icon: BarChart3 },
   { name: "Users", href: "/admin/dashboard/users", icon: Users },
   { name: "Farms", href: "/admin/dashboard/farms", icon: Building2 },
@@ -84,6 +99,8 @@ const adminNavigation = [
   { name: "Suppliers", href: "/admin/dashboard/suppliers", icon: Truck },
   { name: "Performance", href: "/admin/dashboard/performance", icon: TrendingUp },
   { name: "Reports", href: "/admin/dashboard/reports", icon: FileText },
+  { name: "Companies", href: "/admin/dashboard/company", icon: Building2 },
+  { name: "Dealers", href: "/admin/dashboard/dealers", icon: Users },
 ];
 
 interface SidebarProps {
@@ -96,6 +113,16 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
   const pathname = usePathname();
   const { user } = useAuth();
 
+  // Get pending verification count for company role (only fetch for COMPANY role)
+  const { data: companyPendingData } = useGetCompanyVerificationRequests(
+    { status: "PENDING", limit: 1 },
+    { enabled: role === "COMPANY" }
+  );
+
+  // Get dealer verification requests (only fetch for DEALER role)
+  const { data: dealerRequestsData } = useGetDealerVerificationRequests({
+    enabled: role === "DEALER",
+  });
   // Get navigation based on role
   const getNavigation = () => {
     if (role === "DOCTOR") return doctorNavigation;
@@ -237,7 +264,24 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
                     : "text-muted-foreground group-hover:text-foreground"
                 )}
               />
-              {item.name}
+              <span className="flex-1">{item.name}</span>
+              {item.badge === "verification" && (() => {
+                // Get pending count based on role
+                let pendingCount = 0;
+                if (role === "COMPANY" && companyPendingData?.pagination?.total) {
+                  pendingCount = companyPendingData.pagination.total;
+                } else if (role === "DEALER" && dealerRequestsData?.data) {
+                  // Dealer requests return array, count PENDING items
+                  pendingCount = dealerRequestsData.data.filter(
+                    (req: any) => req.status === "PENDING"
+                  ).length;
+                }
+                return pendingCount > 0 ? (
+                  <Badge className="ml-auto bg-yellow-500 text-white text-xs">
+                    {pendingCount}
+                  </Badge>
+                ) : null;
+              })()}
             </Link>
           );
         })}

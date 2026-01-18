@@ -35,6 +35,10 @@ import feedNotificationRoutes from "./feedNotificationRoutes";
 import expenseNotificationRoutes from "./expenseNotificationRoutes";
 import inventoryNotificationRoutes from "./inventoryNotificationRoutes";
 import accountRoutes from "./accountRoutes";
+import adminCompanyRoutes from "./adminCompanyRoutes";
+import adminDealerRoutes from "./adminDealerRoutes";
+import publicRoutes from "./publicRoutes";
+import dealerVerificationRoutes from "./dealerVerificationRoutes";
 
 const router = express.Router();
 
@@ -46,6 +50,7 @@ router.use("/dealers", dealerRoutes);
 router.use("/dealer/products", dealerProductRoutes);
 router.use("/dealer/sales", dealerSaleRoutes);
 router.use("/consignments", consignmentRoutes);
+router.use("/verification", dealerVerificationRoutes);
 router.use("/dealer/ledger", dealerLedgerRoutes);
 router.use("/company/products", companyProductRoutes);
 router.use("/company/sales", companySaleRoutes);
@@ -74,5 +79,8 @@ router.use("/feed-notifications", feedNotificationRoutes);
 router.use("/expense-notifications", expenseNotificationRoutes);
 router.use("/inventory-notifications", inventoryNotificationRoutes);
 router.use("/account", accountRoutes);
+router.use("/admin/companies", adminCompanyRoutes);
+router.use("/admin/dealers", adminDealerRoutes);
+router.use("/public", publicRoutes);
 
 export default router;

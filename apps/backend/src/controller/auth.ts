@@ -599,6 +599,7 @@ export const registerEntity = async (
       entityName,
       entityContact,
       entityAddress,
+      companyId,
     } = req.body;
 
     // Validation
@@ -650,6 +651,20 @@ export const registerEntity = async (
       });
     }
 
+    // Validate company exists if companyId is provided
+    if (companyId) {
+      const company = await prisma.company.findUnique({
+        where: { id: companyId },
+      });
+
+      if (!company) {
+        return res.status(400).json({
+          success: false,
+          message: "Company not found",
+        });
+      }
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -691,6 +706,18 @@ export const registerEntity = async (
             ownerId: user.id,
           },
         });
+
+        // If companyId provided, create verification request instead of direct link
+        if (companyId) {
+          await (tx as any).dealerVerificationRequest.create({
+            data: {
+              dealerId: dealer.id,
+              companyId: companyId,
+              status: "PENDING",
+              rejectedCount: 0,
+            },
+          });
+        }
 
         return { user, entity: dealer, entityType: "DEALER" };
       } else {
