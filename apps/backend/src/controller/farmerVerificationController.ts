@@ -436,6 +436,27 @@ export const approveFarmerRequest = async (
         });
       }
 
+3      // Auto-create Customer for connected farmer
+      const existingCustomer = await tx.customer.findFirst({
+        where: {
+          userId: dealer.ownerId,
+          farmerId: verificationRequest.farmerId,
+        },
+      });
+
+      if (!existingCustomer) {
+        await tx.customer.create({
+          data: {
+            userId: dealer.ownerId, // Link to dealer owner
+            farmerId: verificationRequest.farmerId, // Link to farmer
+            name: verificationRequest.farmer.name,
+            phone: verificationRequest.farmer.phone,
+            source: "CONNECTED",
+            balance: 0,
+          },
+        });
+      }
+
       return request;
     });
 

@@ -1334,6 +1334,8 @@ export const getCustomersForSales = async (
         category: true,
         address: true,
         balance: true,
+        source: true, // Include source ("MANUAL" | "CONNECTED")
+        farmerId: true, // Include farmerId for connected customers
       },
       orderBy: { name: "asc" },
       take: 50, // Limit results for performance

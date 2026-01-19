@@ -44,6 +44,7 @@ export const getAllDealers = async (
 
     // Build where clause
     let where: any;
+    let dealerFarmerConnections: Map<string, { connectionId: string; connectionType: string }> = new Map();
 
     // For company users, get dealers linked via DealerCompany relationship OR manually created
     if (currentUserRole === UserRole.COMPANY && company) {
@@ -69,10 +70,40 @@ export const getAllDealers = async (
         ],
       };
     } else {
-      // For other roles (OWNER, DEALER), use userId as before
+      // For farmers (OWNER role), fetch both manual and connected dealers
+      const dealerFarmers = await prisma.dealerFarmer.findMany({
+        where: {
+          farmerId: currentUserId,
+          archivedByFarmer: false,
+        },
+        include: {
+          dealer: true,
+        },
+      });
+
+      const connectedDealerIds = dealerFarmers.map((df) => df.dealerId);
+      
+      // Store connection metadata for later use
+      dealerFarmers.forEach((df) => {
+        dealerFarmerConnections.set(df.dealerId, {
+          connectionId: df.id,
+          connectionType: "CONNECTED",
+        });
+      });
+
+      // Include dealers where:
+      // 1. Manually created by farmer (userId = farmerId)
+      // 2. OR connected via DealerFarmer (archivedByFarmer = false)
       where = {
-        userId: currentUserId,
+        OR: [
+          { userId: currentUserId },
+        ],
       };
+
+      // Only add connected dealers condition if there are any
+      if (connectedDealerIds.length > 0) {
+        where.OR.push({ id: { in: connectedDealerIds } });
+      }
     }
 
     // Add search filter
@@ -193,12 +224,21 @@ export const getAllDealers = async (
           recentTransactions = transactions.slice(0, 5);
         }
 
+        // Determine connection type
+        const isManualDealer = dealer.userId === currentUserId;
+        const connectionInfo = dealerFarmerConnections.get(dealer.id);
+        const connectionType = connectionInfo ? "CONNECTED" : "MANUAL";
+        const isOwnedDealer = !!dealer.ownerId;
+
         return {
           ...dealer,
           balance: Math.max(0, balance), // Only show positive balance (amount due)
           thisMonthAmount,
           totalTransactions,
           recentTransactions,
+          connectionType, // NEW: "MANUAL" | "CONNECTED"
+          connectionId: connectionInfo?.connectionId, // NEW: DealerFarmer.id if connected
+          isOwnedDealer, // NEW: true if dealer has ownerId (registered dealer)
         };
       })
     );
@@ -228,16 +268,32 @@ export const getDealerById = async (
     const { id } = req.params;
     const currentUserId = req.userId;
 
-    const dealer = await prisma.dealer.findFirst({
-      where: {
-        id,
-        userId: currentUserId,
-      },
+    // Check if dealer is manually created OR connected via DealerFarmer
+    const dealer = await prisma.dealer.findUnique({
+      where: { id },
     });
 
     if (!dealer) {
       return res.status(404).json({ message: "Dealer not found" });
     }
+
+    // Verify access: either manually created or connected
+    const isManualDealer = dealer.userId === currentUserId;
+    const dealerFarmerConnection = await prisma.dealerFarmer.findFirst({
+      where: {
+        dealerId: id,
+        farmerId: currentUserId,
+        archivedByFarmer: false,
+      },
+    });
+
+    if (!isManualDealer && !dealerFarmerConnection) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    // Determine connection type
+    const connectionType = dealerFarmerConnection ? "CONNECTED" : "MANUAL";
+    const isOwnedDealer = !!dealer.ownerId;
 
     // Get transactions directly from entityTransaction table
     const transactions = await prisma.entityTransaction.findMany({
@@ -338,6 +394,9 @@ export const getDealerById = async (
         thisMonthAmount,
         totalTransactions: transactions.length,
         transactionTable,
+        connectionType, // NEW: "MANUAL" | "CONNECTED"
+        connectionId: dealerFarmerConnection?.id, // NEW: DealerFarmer.id if connected
+        isOwnedDealer, // NEW: true if dealer has ownerId
         summary: {
           totalPurchases: transactions.filter((t) => t.type === "PURCHASE")
             .length,
@@ -370,18 +429,39 @@ export const createDealer = async (
       return res.status(400).json({ message: error?.message });
     }
 
-    // Check if dealer with same name already exists for this user
-    const existingDealer = await prisma.dealer.findFirst({
+    // Check if dealer with same name already exists for this user (manually created)
+    const existingManualDealer = await prisma.dealer.findFirst({
       where: {
         userId: currentUserId,
         name: data.name,
       },
     });
 
-    if (existingDealer) {
+    if (existingManualDealer) {
       return res
         .status(400)
         .json({ message: "Dealer with this name already exists" });
+    }
+
+    // Check if a connected dealer with the same name exists
+    const connectedDealers = await prisma.dealerFarmer.findMany({
+      where: {
+        farmerId: currentUserId,
+        archivedByFarmer: false,
+      },
+      include: {
+        dealer: true,
+      },
+    });
+
+    const connectedDealerWithSameName = connectedDealers.find(
+      (df) => df.dealer.name.toLowerCase() === data.name.toLowerCase()
+    );
+
+    if (connectedDealerWithSameName) {
+      return res.status(400).json({
+        message: "A connected dealer with this name already exists. You cannot create a duplicate dealer.",
+      });
     }
 
     // Create dealer
@@ -475,16 +555,42 @@ export const deleteDealer = async (
     const { id } = req.params;
     const currentUserId = req.userId;
 
-    // Check if dealer exists and belongs to user
-    const existingDealer = await prisma.dealer.findFirst({
-      where: {
-        id,
-        userId: currentUserId,
-      },
+    // Check if dealer exists
+    const existingDealer = await prisma.dealer.findUnique({
+      where: { id },
     });
 
     if (!existingDealer) {
       return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    // Check if dealer is manually created or connected
+    const isManualDealer = existingDealer.userId === currentUserId;
+    const dealerFarmerConnection = await prisma.dealerFarmer.findFirst({
+      where: {
+        dealerId: id,
+        farmerId: currentUserId,
+        archivedByFarmer: false,
+      },
+    });
+
+    // Verify access
+    if (!isManualDealer && !dealerFarmerConnection) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    // Prevent deletion of connected dealers
+    if (dealerFarmerConnection && !isManualDealer) {
+      return res.status(400).json({
+        message: "Cannot delete connected dealers. Please archive the connection instead from your Connected Dealers page.",
+      });
+    }
+
+    // Only allow deletion of manually created dealers
+    if (!isManualDealer) {
+      return res.status(403).json({
+        message: "You can only delete dealers you created manually.",
+      });
     }
 
     // Check if dealer has transactions by directly querying entityTransaction table
@@ -587,15 +693,26 @@ export const addDealerTransaction = async (
       return res.status(400).json({ message: "Amount must be a positive number" });
     }
 
-    // Check if dealer exists and belongs to user
-    const dealer = await prisma.dealer.findFirst({
-      where: {
-        id,
-        userId: currentUserId,
-      },
+    // Check if dealer exists
+    const dealer = await prisma.dealer.findUnique({
+      where: { id },
     });
 
     if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    // Verify access: either manually created or connected
+    const isManualDealer = dealer.userId === currentUserId;
+    const dealerFarmerConnection = await prisma.dealerFarmer.findFirst({
+      where: {
+        dealerId: id,
+        farmerId: currentUserId,
+        archivedByFarmer: false,
+      },
+    });
+
+    if (!isManualDealer && !dealerFarmerConnection) {
       return res.status(404).json({ message: "Dealer not found" });
     }
 
@@ -739,11 +856,26 @@ export const deleteDealerTransaction = async (
       });
     }
 
-    // Verify dealer belongs to user
-    const dealer = await prisma.dealer.findFirst({
-      where: { id, userId: currentUserId },
+    // Check if dealer exists
+    const dealer = await prisma.dealer.findUnique({
+      where: { id },
     });
+
     if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    // Verify access: either manually created or connected
+    const isManualDealer = dealer.userId === currentUserId;
+    const dealerFarmerConnection = await prisma.dealerFarmer.findFirst({
+      where: {
+        dealerId: id,
+        farmerId: currentUserId,
+        archivedByFarmer: false,
+      },
+    });
+
+    if (!isManualDealer && !dealerFarmerConnection) {
       return res.status(404).json({ message: "Dealer not found" });
     }
 
@@ -891,9 +1023,30 @@ export const getDealerStatistics = async (
   try {
     const currentUserId = req.userId;
 
-    // Get all dealers for the user
+    // Get connected dealers via DealerFarmer
+    const dealerFarmers = await prisma.dealerFarmer.findMany({
+      where: {
+        farmerId: currentUserId,
+        archivedByFarmer: false,
+      },
+    });
+
+    const connectedDealerIds = dealerFarmers.map((df) => df.dealerId);
+
+    // Get all dealers for the user (manual + connected)
+    const dealerWhere: any = {
+      OR: [
+        { userId: currentUserId },
+      ],
+    };
+
+    // Only add connected dealers condition if there are any
+    if (connectedDealerIds.length > 0) {
+      dealerWhere.OR.push({ id: { in: connectedDealerIds } });
+    }
+
     const dealers = await prisma.dealer.findMany({
-      where: { userId: currentUserId },
+      where: dealerWhere,
     });
 
     // Calculate statistics

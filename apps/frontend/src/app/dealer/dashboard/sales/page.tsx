@@ -73,7 +73,7 @@ export default function DealerSalesPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Sales Management</h1>
           <p className="text-muted-foreground">
-            Track and manage sales to your customers and farmers
+            Track and manage sales to your customers
           </p>
         </div>
         <Button

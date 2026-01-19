@@ -12,7 +12,6 @@ export const createDealerSale = async (
 
     const {
       customerId,
-      farmerId,
       items,
       paidAmount,
       paymentMethod,
@@ -27,9 +26,9 @@ export const createDealerSale = async (
       });
     }
 
-    if (!customerId && !farmerId) {
+    if (!customerId) {
       return res.status(400).json({
-        message: "Either customerId or farmerId is required",
+        message: "Customer ID is required",
       });
     }
 
@@ -52,7 +51,6 @@ export const createDealerSale = async (
     const sale = await DealerService.createDealerSale({
       dealerId: dealer.id,
       customerId,
-      farmerId,
       items,
       paidAmount: Number(paidAmount),
       paymentMethod,
@@ -86,7 +84,6 @@ export const getDealerSales = async (
       endDate,
       isPaid,
       customerId,
-      farmerId,
     } = req.query;
 
     // Get the dealer record
@@ -128,10 +125,6 @@ export const getDealerSales = async (
       where.customerId = customerId;
     }
 
-    if (farmerId) {
-      where.farmerId = farmerId;
-    }
-
     const [sales, total] = await Promise.all([
       prisma.dealerSale.findMany({
         where,
@@ -140,13 +133,6 @@ export const getDealerSales = async (
         orderBy: { date: "desc" },
         include: {
           customer: true,
-          farmer: {
-            select: {
-              id: true,
-              name: true,
-              phone: true,
-            },
-          },
           items: {
             include: {
               product: true,
@@ -199,14 +185,6 @@ export const getDealerSaleById = async (
       },
       include: {
         customer: true,
-        farmer: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            companyName: true,
-          },
-        },
         items: {
           include: {
             product: true,
@@ -340,14 +318,14 @@ export const searchCompanies = async (
   }
 };
 
-// ==================== SEARCH CUSTOMERS/FARMERS ====================
+// ==================== SEARCH CUSTOMERS ====================
 export const searchCustomers = async (
   req: Request,
   res: Response
 ): Promise<any> => {
   try {
     const userId = req.userId;
-    const { search, type = "all" } = req.query;
+    const { search } = req.query;
 
     if (!search) {
       return res.status(400).json({
@@ -355,52 +333,31 @@ export const searchCustomers = async (
       });
     }
 
-    const results: any = {
-      customers: [],
-      farmers: [],
-    };
-
-    // Search customers
-    if (type === "all" || type === "customer") {
-      const customers = await prisma.customer.findMany({
-        where: {
-          userId,
-          OR: [
-            { name: { contains: search as string, mode: "insensitive" } },
-            { phone: { contains: search as string, mode: "insensitive" } },
-          ],
-        },
-        take: 10,
-      });
-      results.customers = customers;
-    }
-
-    // Search farmers (registered users)
-    if (type === "all" || type === "farmer") {
-      const farmers = await prisma.user.findMany({
-        where: {
-          role: "OWNER",
-          OR: [
-            { name: { contains: search as string, mode: "insensitive" } },
-            { phone: { contains: search as string, mode: "insensitive" } },
-            { companyName: { contains: search as string, mode: "insensitive" } },
-          ],
-        },
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          companyName: true,
-          CompanyFarmLocation: true,
-        },
-        take: 10,
-      });
-      results.farmers = farmers;
-    }
+    // Search customers only (includes both manual and connected customers)
+    const customers = await prisma.customer.findMany({
+      where: {
+        userId,
+        OR: [
+          { name: { contains: search as string, mode: "insensitive" } },
+          { phone: { contains: search as string, mode: "insensitive" } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        category: true,
+        address: true,
+        balance: true,
+        source: true, // Include source to distinguish manual vs connected
+        farmerId: true, // Include farmerId for connected customers
+      },
+      take: 10,
+    });
 
     return res.status(200).json({
       success: true,
-      data: results,
+      data: customers,
     });
   } catch (error: any) {
     console.error("Search customers error:", error);
