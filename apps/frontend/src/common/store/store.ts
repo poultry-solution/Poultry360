@@ -53,6 +53,9 @@ export interface RegisterData {
   role: "OWNER" | "MANAGER" | "DOCTOR" | "DEALER" | "COMPANY" | "SUPER_ADMIN";
   companyName?: string;
   companyFarmLocation?: string;
+  language?: "ENGLISH" | "NEPALI";
+  calendarType?: "AD" | "BS";
+  dealerId?: string; // Optional dealer linking for farmers
 }
 
 interface AuthState {

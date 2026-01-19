@@ -124,6 +124,9 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       calendarType,
     } = data;
 
+    // Get optional dealerId from request body (not in schema validation)
+    const { dealerId } = req.body;
+
     // Check if phone number already exists (phone must be unique)
     const existingUser = await prisma.user.findUnique({
       where: {
@@ -137,38 +140,71 @@ export const register = async (req: Request, res: Response): Promise<any> => {
         .json({ message: "Phone number already registered" });
     }
 
+    // Validate dealer exists if dealerId is provided
+    if (dealerId) {
+      const dealer = await prisma.dealer.findUnique({
+        where: { id: dealerId },
+      });
+
+      if (!dealer) {
+        return res.status(400).json({
+          success: false,
+          message: "Dealer not found",
+        });
+      }
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        name: name,
-        phone: phone,
-        password: hashedPassword,
-        // if user is owner then marked as verified else pending verification
-        status:
-          role === UserRole.OWNER
-            ? UserStatus.ACTIVE
-            : UserStatus.PENDING_VERIFICATION,
-        role: role || UserRole.OWNER,
-        companyName: companyName,
-        CompanyFarmLocation: companyFarmLocation,
-        language: language || "ENGLISH",
-        calendarType: calendarType || "AD",
-      },
-      include: {
-        managedFarms: {
-          select: {
-            id: true,
-            name: true,
-            capacity: true,
-            description: true,
-          },
+    // Create user and verification request in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Create user
+      const user = await tx.user.create({
+        data: {
+          name: name,
+          phone: phone,
+          password: hashedPassword,
+          // if user is owner then marked as verified else pending verification
+          status:
+            role === UserRole.OWNER
+              ? UserStatus.ACTIVE
+              : UserStatus.PENDING_VERIFICATION,
+          role: role || UserRole.OWNER,
+          companyName: companyName,
+          CompanyFarmLocation: companyFarmLocation,
+          language: language || "ENGLISH",
+          calendarType: calendarType || "AD",
         },
-        ownedFarms: true,
-      },
+        include: {
+          managedFarms: {
+            select: {
+              id: true,
+              name: true,
+              capacity: true,
+              description: true,
+            },
+          },
+          ownedFarms: true,
+        },
+      });
+
+      // If dealerId provided and user is owner/farmer, create verification request
+      if (dealerId && (role === UserRole.OWNER || !role)) {
+        await (tx as any).farmerVerificationRequest.create({
+          data: {
+            farmerId: user.id,
+            dealerId: dealerId,
+            status: "PENDING",
+            rejectedCount: 0,
+          },
+        });
+      }
+
+      return user;
     });
+
+    const user = result;
 
     // Generate tokens
     const tokens = generateTokens(user.id, user.role);
@@ -599,6 +635,7 @@ export const registerEntity = async (
       entityName,
       entityContact,
       entityAddress,
+      companyId,
     } = req.body;
 
     // Validation
@@ -650,6 +687,20 @@ export const registerEntity = async (
       });
     }
 
+    // Validate company exists if companyId is provided
+    if (companyId) {
+      const company = await prisma.company.findUnique({
+        where: { id: companyId },
+      });
+
+      if (!company) {
+        return res.status(400).json({
+          success: false,
+          message: "Company not found",
+        });
+      }
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -691,6 +742,18 @@ export const registerEntity = async (
             ownerId: user.id,
           },
         });
+
+        // If companyId provided, create verification request instead of direct link
+        if (companyId) {
+          await (tx as any).dealerVerificationRequest.create({
+            data: {
+              dealerId: dealer.id,
+              companyId: companyId,
+              status: "PENDING",
+              rejectedCount: 0,
+            },
+          });
+        }
 
         return { user, entity: dealer, entityType: "DEALER" };
       } else {

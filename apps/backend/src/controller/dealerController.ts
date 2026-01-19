@@ -20,17 +20,78 @@ export const getAllDealers = async (
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    // Build where clause
-    const where: any = {
-      userId: currentUserId,
-  }
+    // Get company for company users (needed for both query and balance calculation)
+    let company: { id: string } | null = null;
+    if (currentUserRole === UserRole.COMPANY) {
+      company = await prisma.company.findUnique({
+        where: { ownerId: currentUserId },
+        select: { id: true },
+      });
 
+      if (!company) {
+        return res.json({
+          success: true,
+          data: [],
+          pagination: {
+            page: Number(page),
+            limit: Number(limit),
+            total: 0,
+            totalPages: 0,
+          },
+        });
+      }
+    }
+
+    // Build where clause
+    let where: any;
+
+    // For company users, get dealers linked via DealerCompany relationship OR manually created
+    if (currentUserRole === UserRole.COMPANY && company) {
+      // Get dealer IDs linked to this company via DealerCompany table
+      const dealerCompanies = await (prisma as any).dealerCompany.findMany({
+        where: {
+          companyId: company.id,
+        },
+        select: {
+          dealerId: true,
+        },
+      });
+
+      const linkedDealerIds = dealerCompanies.map((dc: any) => dc.dealerId);
+
+      // Include dealers where:
+      // 1. Has DealerCompany relationship with this company
+      // 2. OR userId matches current user (manually created dealers)
+      where = {
+        OR: [
+          { id: { in: linkedDealerIds.length > 0 ? linkedDealerIds : [null] } },
+          { userId: currentUserId },
+        ],
+      };
+    } else {
+      // For other roles (OWNER, DEALER), use userId as before
+      where = {
+        userId: currentUserId,
+      };
+    }
+
+    // Add search filter
     if (search) {
-      where.OR = [
-        { name: { contains: search as string, mode: "insensitive" } },
-        { contact: { contains: search as string, mode: "insensitive" } },
-        { address: { contains: search as string, mode: "insensitive" } },
-      ];
+      const searchFilter = {
+        OR: [
+          { name: { contains: search as string, mode: "insensitive" } },
+          { contact: { contains: search as string, mode: "insensitive" } },
+          { address: { contains: search as string, mode: "insensitive" } },
+        ],
+      };
+
+      // Combine with existing where clause
+      where = {
+        AND: [
+          where,
+          searchFilter,
+        ],
+      };
     }
 
     const [dealers, total] = await Promise.all([
@@ -46,49 +107,98 @@ export const getAllDealers = async (
     // Calculate balance for each dealer
     const dealersWithBalance = await Promise.all(
       dealers.map(async (dealer) => {
-        // Get transactions directly from entityTransaction table
-        const transactions = await prisma.entityTransaction.findMany({
-          where: {
-            dealerId: dealer.id,
-          },
-          orderBy: { date: "desc" },
-        });
+        let balance = 0;
+        let thisMonthAmount = 0;
+        let totalTransactions = 0;
+        let recentTransactions: any[] = [];
 
-        // Calculate balance: PURCHASE/ADJUSTMENT (positive) - PAYMENT/RECEIPT (negative)
-        const balance = transactions.reduce((sum, transaction) => {
-          if (
-            transaction.type === "PURCHASE" ||
-            transaction.type === "ADJUSTMENT"
-          ) {
-            return sum + Number(transaction.amount);
-          } else if (
-            transaction.type === "PAYMENT" ||
-            transaction.type === "RECEIPT"
-          ) {
-            return sum - Number(transaction.amount);
-          }
-          return sum;
-        }, 0);
+        // For company users, calculate balance from CompanySale
+        if (currentUserRole === UserRole.COMPANY && company) {
+          const sales = await prisma.companySale.findMany({
+            where: {
+              companyId: company.id,
+              dealerId: dealer.id,
+            },
+            select: {
+              totalAmount: true,
+              paidAmount: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: "desc" },
+          });
 
-        // Get recent transactions for this month
-        const currentMonth = new Date();
-        currentMonth.setDate(1);
-        currentMonth.setHours(0, 0, 0, 0);
+          const totalSales = sales.reduce(
+            (sum, sale) => sum + Number(sale.totalAmount),
+            0
+          );
+          const totalPaid = sales.reduce(
+            (sum, sale) => sum + Number(sale.paidAmount),
+            0
+          );
+          balance = Math.max(0, totalSales - totalPaid);
 
-        const thisMonthTransactions = transactions.filter(
-          (t) => new Date(t.date) >= currentMonth
-        );
+          // Calculate this month amount
+          const currentMonth = new Date();
+          currentMonth.setDate(1);
+          currentMonth.setHours(0, 0, 0, 0);
 
-        const thisMonthAmount = thisMonthTransactions
-          .filter((t) => t.type === "PURCHASE")
-          .reduce((sum, t) => sum + Number(t.amount), 0);
+          const thisMonthSales = sales.filter(
+            (s) => new Date(s.createdAt) >= currentMonth
+          );
+          thisMonthAmount = thisMonthSales.reduce(
+            (sum, s) => sum + Number(s.totalAmount),
+            0
+          );
+          totalTransactions = sales.length;
+          recentTransactions = sales.slice(0, 5);
+        } else {
+          // For other users, calculate from EntityTransaction (as before)
+          const transactions = await prisma.entityTransaction.findMany({
+            where: {
+              dealerId: dealer.id,
+            },
+            orderBy: { date: "desc" },
+          });
+
+          // Calculate balance: PURCHASE/ADJUSTMENT (positive) - PAYMENT/RECEIPT (negative)
+          balance = transactions.reduce((sum, transaction) => {
+            if (
+              transaction.type === "PURCHASE" ||
+              transaction.type === "ADJUSTMENT"
+            ) {
+              return sum + Number(transaction.amount);
+            } else if (
+              transaction.type === "PAYMENT" ||
+              transaction.type === "RECEIPT"
+            ) {
+              return sum - Number(transaction.amount);
+            }
+            return sum;
+          }, 0);
+
+          // Get recent transactions for this month
+          const currentMonth = new Date();
+          currentMonth.setDate(1);
+          currentMonth.setHours(0, 0, 0, 0);
+
+          const thisMonthTransactions = transactions.filter(
+            (t) => new Date(t.date) >= currentMonth
+          );
+
+          thisMonthAmount = thisMonthTransactions
+            .filter((t) => t.type === "PURCHASE")
+            .reduce((sum, t) => sum + Number(t.amount), 0);
+
+          totalTransactions = transactions.length;
+          recentTransactions = transactions.slice(0, 5);
+        }
 
         return {
           ...dealer,
           balance: Math.max(0, balance), // Only show positive balance (amount due)
           thisMonthAmount,
-          totalTransactions: transactions.length,
-          recentTransactions: transactions.slice(0, 5), // Last 5 transactions
+          totalTransactions,
+          recentTransactions,
         };
       })
     );

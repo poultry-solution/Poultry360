@@ -7,6 +7,7 @@ import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Button } from "@/common/components/ui/button";
 import { useAuth, useAuthStore } from "@/common/store/store";
+import { PublicDealerSearchSelect } from "@/common/components/forms/PublicDealerSearchSelect";
 // import { crossPortAuth } from "@myapp/shared-auth"; // Removed - no longer using shared packages
 import { Eye, EyeOff, CheckCircle } from "lucide-react";
 
@@ -30,6 +31,7 @@ export default function SignupPage() {
     confirmPassword: "",
     language: "ENGLISH",
     calendarType: "AD",
+    dealerId: null as string | null,
   });
 
   const handleInputChange = (
@@ -96,6 +98,7 @@ export default function SignupPage() {
         companyFarmLocation,
         language: formData.language as "ENGLISH" | "NEPALI",
         calendarType: formData.calendarType as "AD" | "BS",
+        dealerId: formData.dealerId || undefined,
       };
 
       await register(registerData);
@@ -150,6 +153,7 @@ export default function SignupPage() {
       confirmPassword: "test123",
       language: "ENGLISH",
       calendarType: "AD",
+      dealerId: null,
     });
   };
 
@@ -311,6 +315,20 @@ export default function SignupPage() {
                 </div>
 
                 <div className="space-y-2">
+                  <PublicDealerSearchSelect
+                    value={formData.dealerId}
+                    onValueChange={(value: string | null) =>
+                      setFormData({ ...formData, dealerId: value })
+                    }
+                    placeholder="Search and select dealer (optional)..."
+                    label="Dealer (Optional)"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Link your account to a dealer for purchasing supplies (optional)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="password">Password *</Label>
                   <div className="relative">
                     <Input
@@ -434,12 +452,23 @@ export default function SignupPage() {
             </>
           )}
 
-          <p className="text-sm text-muted-foreground mt-6 text-center">
-            Already have an account?{" "}
-            <Link href="/auth/login" className="text-primary hover:underline">
-              Log in
-            </Link>
-          </p>
+          <div className="mt-6 space-y-2">
+            <p className="text-sm text-muted-foreground text-center">
+              Already have an account?{" "}
+              <Link href="/auth/login" className="text-primary hover:underline">
+                Log in
+              </Link>
+            </p>
+            <p className="text-sm text-muted-foreground text-center">
+              Want to register as a dealer?{" "}
+              <Link
+                href="/auth/signup/dealer"
+                className="text-primary hover:underline"
+              >
+                Sign up as Dealer
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

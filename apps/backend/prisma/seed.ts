@@ -149,12 +149,25 @@ async function main() {
           name: 'Sita Feed Center',
           contact: '+9779800000003',
           address: 'Suryabinayak, Bhaktapur',
-          companyId: companyUser.company?.id,
+          // Don't set companyId - use DealerCompany relationship instead
         },
       },
     },
     include: { dealer: true },
   });
+
+  // Link dealer 1 to company via DealerCompany relationship
+  if (dealerUser1.dealer && companyUser.company) {
+    await prisma.dealerCompany.create({
+      data: {
+        dealerId: dealerUser1.dealer.id,
+        companyId: companyUser.company.id,
+        connectedVia: 'MANUAL',
+        connectedAt: new Date(),
+      },
+    });
+    console.log('Linked Dealer 1 to Company via DealerCompany');
+  }
 
   // Dealer 2: Independent dealer
   const dealerUser2 = await prisma.user.create({
