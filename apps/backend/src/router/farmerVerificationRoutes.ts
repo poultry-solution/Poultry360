@@ -9,6 +9,13 @@ import {
   getFarmerDealers,
   getDealerFarmers,
   getDealerDetailsForFarmer,
+  cancelFarmerVerificationRequest,
+  archiveFarmerDealerConnection,
+  unarchiveFarmerDealerConnection,
+  archiveDealerFarmerConnection,
+  unarchiveDealerFarmerConnection,
+  getArchivedFarmerDealers,
+  getArchivedDealerFarmers,
 } from "../controller/farmerVerificationController";
 import { authMiddleware } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
@@ -44,6 +51,15 @@ router.get(
   getFarmerDealers
 );
 
+// Get archived dealers (MUST be before /:dealerId to avoid route collision)
+router.get(
+  "/farmers/dealers/archived",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.OWNER]);
+  },
+  getArchivedFarmerDealers
+);
+
 // Get dealer details (if farmer is connected)
 router.get(
   "/farmers/dealers/:dealerId",
@@ -60,6 +76,33 @@ router.post(
     authMiddleware(req, res, next, [UserRole.OWNER]);
   },
   acknowledgeFarmerRequest
+);
+
+// Cancel farmer verification request
+router.delete(
+  "/farmers/verification-requests/:requestId",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.OWNER]);
+  },
+  cancelFarmerVerificationRequest
+);
+
+// Archive farmer-dealer connection
+router.post(
+  "/farmers/dealers/:connectionId/archive",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.OWNER]);
+  },
+  archiveFarmerDealerConnection
+);
+
+// Unarchive farmer-dealer connection
+router.post(
+  "/farmers/dealers/:connectionId/unarchive",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.OWNER]);
+  },
+  unarchiveFarmerDealerConnection
 );
 
 // ==================== DEALER ROUTES (AUTHENTICATED DEALERS) ====================
@@ -98,6 +141,33 @@ router.get(
     authMiddleware(req, res, next, [UserRole.DEALER]);
   },
   getDealerFarmers
+);
+
+// Get archived farmers (MUST be before /:connectionId to avoid route collision)
+router.get(
+  "/dealers/farmers/archived",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.DEALER]);
+  },
+  getArchivedDealerFarmers
+);
+
+// Archive dealer-farmer connection
+router.post(
+  "/dealers/farmers/:connectionId/archive",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.DEALER]);
+  },
+  archiveDealerFarmerConnection
+);
+
+// Unarchive dealer-farmer connection
+router.post(
+  "/dealers/farmers/:connectionId/unarchive",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.DEALER]);
+  },
+  unarchiveDealerFarmerConnection
 );
 
 export default router;

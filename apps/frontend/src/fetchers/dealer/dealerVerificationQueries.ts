@@ -75,6 +75,7 @@ export const dealerVerificationKeys = {
   all: ["dealer-verification"] as const,
   requests: () => [...dealerVerificationKeys.all, "requests"] as const,
   companies: () => [...dealerVerificationKeys.all, "companies"] as const,
+  archivedCompanies: () => [...dealerVerificationKeys.all, "archived-companies"] as const,
   request: (id: string) => [...dealerVerificationKeys.all, "request", id] as const,
 };
 
@@ -119,6 +120,19 @@ export const useGetCompanyDetailsForDealer = (companyId: string, enabled = true)
   });
 };
 
+// Get archived companies
+export const useGetArchivedDealerCompanies = () => {
+  return useQuery<DealerCompaniesResponse>({
+    queryKey: dealerVerificationKeys.archivedCompanies(),
+    queryFn: async () => {
+      const { data } = await axiosInstance.get<DealerCompaniesResponse>(
+        "/verification/dealers/companies/archived"
+      );
+      return data;
+    },
+  });
+};
+
 // ==================== MUTATIONS ====================
 
 // Create verification request
@@ -153,6 +167,59 @@ export const useAcknowledgeVerificationRequest = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dealerVerificationKeys.requests() });
+    },
+  });
+};
+
+// Cancel verification request
+export const useCancelDealerVerificationRequest = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (requestId: string) => {
+      const { data } = await axiosInstance.delete(
+        `/verification/dealers/verification-requests/${requestId}`
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealerVerificationKeys.requests() });
+    },
+  });
+};
+
+// Archive dealer-company connection
+export const useArchiveDealerCompany = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (connectionId: string) => {
+      const { data } = await axiosInstance.post(
+        `/verification/dealers/companies/${connectionId}/archive`
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealerVerificationKeys.companies() });
+      queryClient.invalidateQueries({ queryKey: dealerVerificationKeys.archivedCompanies() });
+    },
+  });
+};
+
+// Unarchive dealer-company connection
+export const useUnarchiveDealerCompany = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (connectionId: string) => {
+      const { data } = await axiosInstance.post(
+        `/verification/dealers/companies/${connectionId}/unarchive`
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealerVerificationKeys.companies() });
+      queryClient.invalidateQueries({ queryKey: dealerVerificationKeys.archivedCompanies() });
     },
   });
 };

@@ -1001,6 +1001,10 @@ model DealerCompany {
   // Metadata
   connectedAt  DateTime @default(now()) // When relationship was established
   connectedVia String? // "VERIFICATION" | "MANUAL" | "MIGRATION"
+  
+  // Archive flags (independent per party)
+  archivedByDealer  Boolean @default(false) // Dealer archived this connection
+  archivedByCompany Boolean @default(false) // Company archived this connection
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1009,6 +1013,8 @@ model DealerCompany {
   @@index([dealerId])
   @@index([companyId])
   @@index([companyId, dealerId])
+  @@index([dealerId, archivedByDealer]) // For filtering dealer's archived/active
+  @@index([companyId, archivedByCompany]) // For filtering company's archived/active
 }
 
 // ==================== DEALER-FARMER RELATIONSHIP ====================
@@ -1023,6 +1029,10 @@ model DealerFarmer {
   // Metadata
   connectedAt  DateTime @default(now()) // When relationship was established
   connectedVia String? // "VERIFICATION" | "MANUAL" | "MIGRATION"
+  
+  // Archive flags (independent per party)
+  archivedByDealer Boolean @default(false) // Dealer archived this connection
+  archivedByFarmer Boolean @default(false) // Farmer archived this connection
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1031,6 +1041,8 @@ model DealerFarmer {
   @@index([dealerId])
   @@index([farmerId])
   @@index([farmerId, dealerId])
+  @@index([dealerId, archivedByDealer]) // For filtering dealer's archived/active
+  @@index([farmerId, archivedByFarmer]) // For filtering farmer's archived/active
 }
 
 // ==================== DEALER VERIFICATION REQUESTS ====================

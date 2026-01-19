@@ -65,6 +65,7 @@ export const farmerVerificationKeys = {
   all: ["farmer-verification"] as const,
   requests: () => [...farmerVerificationKeys.all, "requests"] as const,
   dealers: () => [...farmerVerificationKeys.all, "dealers"] as const,
+  archivedDealers: () => [...farmerVerificationKeys.all, "archived-dealers"] as const,
   dealer: (id: string) => [...farmerVerificationKeys.all, "dealer", id] as const,
 };
 
@@ -109,6 +110,19 @@ export const useGetDealerDetailsForFarmer = (dealerId: string, enabled = true) =
   });
 };
 
+// Get archived dealers
+export const useGetArchivedFarmerDealers = () => {
+  return useQuery<ConnectedDealersResponse>({
+    queryKey: farmerVerificationKeys.archivedDealers(),
+    queryFn: async () => {
+      const { data } = await axiosInstance.get<ConnectedDealersResponse>(
+        "/verification/farmers/dealers/archived"
+      );
+      return data;
+    },
+  });
+};
+
 // ==================== MUTATIONS ====================
 
 // Create verification request
@@ -143,6 +157,59 @@ export const useAcknowledgeFarmerVerificationRequest = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: farmerVerificationKeys.requests() });
+    },
+  });
+};
+
+// Cancel farmer verification request
+export const useCancelFarmerVerificationRequest = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (requestId: string) => {
+      const { data } = await axiosInstance.delete(
+        `/verification/farmers/verification-requests/${requestId}`
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: farmerVerificationKeys.requests() });
+    },
+  });
+};
+
+// Archive farmer-dealer connection
+export const useArchiveFarmerDealer = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (connectionId: string) => {
+      const { data } = await axiosInstance.post(
+        `/verification/farmers/dealers/${connectionId}/archive`
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: farmerVerificationKeys.dealers() });
+      queryClient.invalidateQueries({ queryKey: farmerVerificationKeys.archivedDealers() });
+    },
+  });
+};
+
+// Unarchive farmer-dealer connection
+export const useUnarchiveFarmerDealer = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (connectionId: string) => {
+      const { data } = await axiosInstance.post(
+        `/verification/farmers/dealers/${connectionId}/unarchive`
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: farmerVerificationKeys.dealers() });
+      queryClient.invalidateQueries({ queryKey: farmerVerificationKeys.archivedDealers() });
     },
   });
 };

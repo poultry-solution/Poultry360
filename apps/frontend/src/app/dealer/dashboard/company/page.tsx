@@ -11,6 +11,9 @@ import {
   AlertCircle,
   Eye,
   RefreshCw,
+  Archive,
+  ArchiveRestore,
+  X,
 } from "lucide-react";
 import {
   Card,
@@ -42,6 +45,10 @@ import {
   useGetDealerVerificationRequests,
   useGetDealerCompanies,
   useCreateDealerVerificationRequest,
+  useCancelDealerVerificationRequest,
+  useArchiveDealerCompany,
+  useUnarchiveDealerCompany,
+  useGetArchivedDealerCompanies,
   type DealerVerificationRequest,
 } from "@/fetchers/dealer/dealerVerificationQueries";
 import { PublicCompanySearchSelect } from "@/common/components/forms/PublicCompanySearchSelect";
@@ -49,19 +56,27 @@ import { PublicCompanySearchSelect } from "@/common/components/forms/PublicCompa
 export default function DealerCompanyPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [viewTab, setViewTab] = useState<"active" | "archived">("active");
   const [isApplyDialogOpen, setIsApplyDialogOpen] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [cancelConfirm, setCancelConfirm] = useState<{ id: string; companyName: string } | null>(null);
 
   // Queries
   const { data: requestsData, isLoading: requestsLoading } =
     useGetDealerVerificationRequests();
   const { data: companiesData, isLoading: companiesLoading } = useGetDealerCompanies();
+  const { data: archivedCompaniesData, isLoading: archivedLoading } = useGetArchivedDealerCompanies();
 
   // Mutations
   const createRequestMutation = useCreateDealerVerificationRequest();
+  const cancelRequestMutation = useCancelDealerVerificationRequest();
+  const archiveMutation = useArchiveDealerCompany();
+  const unarchiveMutation = useUnarchiveDealerCompany();
 
   const requests = requestsData?.data || [];
   const connectedCompanies = companiesData?.data || [];
+  const archivedCompanies = archivedCompaniesData?.data || [];
 
   // Filter out APPROVED requests from verification requests (they're shown in connected companies)
   // Note: REJECTED requests can be retried and will become PENDING, so we show both
@@ -147,6 +162,35 @@ export default function DealerCompanyPage() {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     const lastRejected = new Date(request.lastRejectedAt);
     return lastRejected < oneHourAgo;
+  };
+
+  const handleCancelRequest = async (requestId: string) => {
+    try {
+      await cancelRequestMutation.mutateAsync(requestId);
+      toast.success("Verification request cancelled successfully");
+      setCancelConfirm(null);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to cancel request");
+    }
+  };
+
+  const handleArchive = async (connectionId: string) => {
+    try {
+      await archiveMutation.mutateAsync(connectionId);
+      toast.success("Connection archived successfully");
+      setArchiveConfirm(null);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to archive connection");
+    }
+  };
+
+  const handleUnarchive = async (connectionId: string, companyName: string) => {
+    try {
+      await unarchiveMutation.mutateAsync(connectionId);
+      toast.success(`${companyName} restored successfully`);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to restore connection");
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -238,7 +282,17 @@ export default function DealerCompanyPage() {
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{connectedCompanies.length}</div>
+            <div className="flex items-baseline gap-2">
+              <div className="text-2xl font-bold">{connectedCompanies.length}</div>
+              <span className="text-sm text-muted-foreground">Active</span>
+              {archivedCompanies.length > 0 && (
+                <>
+                  <span className="text-sm text-muted-foreground">/</span>
+                  <div className="text-xl font-semibold text-muted-foreground">{archivedCompanies.length}</div>
+                  <span className="text-sm text-muted-foreground">Archived</span>
+                </>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -278,24 +332,52 @@ export default function DealerCompanyPage() {
                 />
               </div>
             </div>
-            <Select
-              value={statusFilter}
-              onValueChange={(value) => setStatusFilter(value)}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Status</SelectItem>
-                <SelectItem value="PENDING">Pending</SelectItem>
-                <SelectItem value="REJECTED">Rejected</SelectItem>
-              </SelectContent>
-            </Select>
+            {viewTab === "active" && (
+              <Select
+                value={statusFilter}
+                onValueChange={(value) => setStatusFilter(value)}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Status</SelectItem>
+                  <SelectItem value="PENDING">Pending</SelectItem>
+                  <SelectItem value="REJECTED">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Connected Companies Section */}
+      {/* Tab Selector */}
+      <div className="flex gap-2 border-b">
+        <button
+          onClick={() => setViewTab("active")}
+          className={`px-4 py-2 font-medium transition-colors ${
+            viewTab === "active"
+              ? "border-b-2 border-primary text-primary"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Active
+        </button>
+        <button
+          onClick={() => setViewTab("archived")}
+          className={`px-4 py-2 font-medium transition-colors ${
+            viewTab === "archived"
+              ? "border-b-2 border-primary text-primary"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Archived ({archivedCompanies.length})
+        </button>
+      </div>
+
+      {viewTab === "active" ? (
+        <>
+          {/* Connected Companies Section */}
       <Card>
         <CardHeader>
           <CardTitle>My Connected Companies</CardTitle>
@@ -362,11 +444,11 @@ export default function DealerCompanyPage() {
                       </div>
                     </div>
 
-                    <div className="mt-4">
+                    <div className="mt-4 flex gap-2">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full"
+                        className="flex-1"
                         onClick={() => {
                           // Navigate to company details page - to be implemented later
                           toast.info("Company interaction features coming soon!");
@@ -374,6 +456,14 @@ export default function DealerCompanyPage() {
                       >
                         <Eye className="mr-2 h-4 w-4" />
                         View Details
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setArchiveConfirm({ id: company.dealerCompanyId, name: company.name })}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <Archive className="h-4 w-4" />
                       </Button>
                     </div>
                   </CardContent>
@@ -475,11 +565,22 @@ export default function DealerCompanyPage() {
                         </div>
                       )}
                       {request.status === "PENDING" && (
-                        <div className="flex-1">
-                          <p className="text-xs text-yellow-600 text-center font-medium">
-                            Waiting for company approval
-                          </p>
-                        </div>
+                        <>
+                          <div className="flex-1">
+                            <p className="text-xs text-yellow-600 text-center font-medium">
+                              Waiting for company approval
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setCancelConfirm({ id: request.id, companyName: request.company?.name || "this company" })}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <X className="mr-1 h-4 w-4" />
+                            Cancel
+                          </Button>
+                        </>
                       )}
                     </div>
                   </CardContent>
@@ -489,6 +590,139 @@ export default function DealerCompanyPage() {
           )}
         </CardContent>
       </Card>
+        </>
+      ) : (
+        /* Archived Companies Tab */
+        <Card>
+          <CardHeader>
+            <CardTitle>Archived Companies</CardTitle>
+            <CardDescription>
+              {archivedCompanies.length} archived company(ies)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {archivedCompanies.length === 0 ? (
+              <div className="text-center py-8">
+                <Archive className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No archived companies</h3>
+                <p className="text-muted-foreground">
+                  Connections you archive will appear here and can be restored anytime.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {archivedCompanies.map((company) => (
+                  <Card key={company.id} className="relative border-gray-300 bg-gray-50/30">
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle className="text-lg">{company.name}</CardTitle>
+                          {company.address && (
+                            <CardDescription className="mt-1">
+                              {company.address}
+                            </CardDescription>
+                          )}
+                        </div>
+                        <Badge className="bg-gray-200 text-gray-700 hover:bg-gray-200">
+                          <Archive className="mr-1 h-3 w-3" />
+                          Archived
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm">
+                        {company.owner && (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Owner:</span>
+                              <span className="font-medium">{company.owner.name}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Contact:</span>
+                              <span className="font-medium">{company.owner.phone}</span>
+                            </div>
+                          </>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Connected:</span>
+                          <span className="font-medium">
+                            {new Date(company.connectedAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => handleUnarchive(company.dealerCompanyId, company.name)}
+                          disabled={unarchiveMutation.isPending}
+                        >
+                          <ArchiveRestore className="mr-2 h-4 w-4" />
+                          Restore Connection
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Archive Confirmation Dialog */}
+      {archiveConfirm && (
+        <Dialog open={!!archiveConfirm} onOpenChange={() => setArchiveConfirm(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Archive Connection</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to archive your connection with {archiveConfirm.name}? 
+                You can restore it later from the Archived tab.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setArchiveConfirm(null)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => handleArchive(archiveConfirm.id)}
+                disabled={archiveMutation.isPending}
+              >
+                Archive
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Cancel Request Confirmation Dialog */}
+      {cancelConfirm && (
+        <Dialog open={!!cancelConfirm} onOpenChange={() => setCancelConfirm(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Cancel Verification Request</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to cancel your verification request to {cancelConfirm.companyName}?
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCancelConfirm(null)}>
+                No, Keep It
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => handleCancelRequest(cancelConfirm.id)}
+                disabled={cancelRequestMutation.isPending}
+              >
+                Yes, Cancel Request
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Apply to Company Dialog */}
       <Dialog open={isApplyDialogOpen} onOpenChange={setIsApplyDialogOpen}>

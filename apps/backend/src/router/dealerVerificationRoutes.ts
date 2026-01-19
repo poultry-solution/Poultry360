@@ -8,6 +8,12 @@ import {
   acknowledgeVerificationRequest,
   getDealerCompanies,
   getCompanyDetailsForDealer,
+  cancelVerificationRequest,
+  archiveDealerCompanyConnection,
+  unarchiveDealerCompanyConnection,
+  archiveCompanyDealerConnection,
+  unarchiveCompanyDealerConnection,
+  getArchivedDealerCompanies,
 } from "../controller/dealerVerificationController";
 import { authMiddleware } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
@@ -43,6 +49,15 @@ router.get(
   getDealerCompanies
 );
 
+// Get archived companies (MUST be before /:companyId to avoid route collision)
+router.get(
+  "/dealers/companies/archived",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.DEALER]);
+  },
+  getArchivedDealerCompanies
+);
+
 // Get company details (if dealer is approved)
 router.get(
   "/dealers/companies/:companyId",
@@ -59,6 +74,33 @@ router.post(
     authMiddleware(req, res, next, [UserRole.DEALER]);
   },
   acknowledgeVerificationRequest
+);
+
+// Cancel verification request
+router.delete(
+  "/dealers/verification-requests/:requestId",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.DEALER]);
+  },
+  cancelVerificationRequest
+);
+
+// Archive dealer-company connection
+router.post(
+  "/dealers/companies/:connectionId/archive",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.DEALER]);
+  },
+  archiveDealerCompanyConnection
+);
+
+// Unarchive dealer-company connection
+router.post(
+  "/dealers/companies/:connectionId/unarchive",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.DEALER]);
+  },
+  unarchiveDealerCompanyConnection
 );
 
 // ==================== COMPANY ROUTES (AUTHENTICATED COMPANIES) ====================
@@ -88,6 +130,24 @@ router.post(
     authMiddleware(req, res, next, [UserRole.COMPANY]);
   },
   rejectVerificationRequest
+);
+
+// Archive company-dealer connection
+router.post(
+  "/companies/dealers/:connectionId/archive",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.COMPANY]);
+  },
+  archiveCompanyDealerConnection
+);
+
+// Unarchive company-dealer connection
+router.post(
+  "/companies/dealers/:connectionId/unarchive",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.COMPANY]);
+  },
+  unarchiveCompanyDealerConnection
 );
 
 export default router;
