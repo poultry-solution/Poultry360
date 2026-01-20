@@ -93,16 +93,16 @@ export const getAllFarms = async (
         status: true,
       },
     });
-    
+
     const farmsWithBatches = farms.map((farm) => {
       const activeBatches = batches
         .filter((b) => b.farmId === farm.id && b.status === "ACTIVE")
         .reduce((acc, b) => acc + b._count.status, 0);
-    
+
       const closedBatches = batches
         .filter((b) => b.farmId === farm.id && b.status === "COMPLETED")
         .reduce((acc, b) => acc + b._count.status, 0);
-    
+
       return {
         ...farm,
         _count: {
@@ -114,7 +114,7 @@ export const getAllFarms = async (
     });
 
     console.log(farmsWithBatches);
-    
+
 
 
     return res.json({
@@ -313,11 +313,11 @@ export const getUserFarms = async (
       const activeBatches = batches
         .filter((b) => b.farmId === farm.id && b.status === "ACTIVE")
         .reduce((acc, b) => acc + b._count.status, 0);
-        
+
       const closedBatches = batches
         .filter((b) => b.farmId === farm.id && b.status === "COMPLETED")
         .reduce((acc, b) => acc + b._count.status, 0);
-        
+
       return {
         ...farm,
         _count: {

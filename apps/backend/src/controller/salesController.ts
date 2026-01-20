@@ -351,8 +351,8 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
     if (!categoryId) {
       return res.status(400).json({ message: "categoryId is required" });
     }
-    
-  
+
+
     // Validate farm access if provided
     if (farmId) {
       const farm = await prisma.farm.findUnique({
@@ -413,12 +413,12 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
         // Calculate current birds in batch
         const totalMortality = batch.mortalities.reduce((sum, m) => sum + m.count, 0);
         const currentBirds = batch.initialChicks - totalMortality;
-        
+
         const requestedBirds = Number(quantity || 0);
-        
+
         if (requestedBirds > currentBirds) {
-          return res.status(400).json({ 
-            message: `Cannot sell ${requestedBirds} birds. Only ${currentBirds} birds available in batch (Initial: ${batch.initialChicks}, Mortality: ${totalMortality})` 
+          return res.status(400).json({
+            message: `Cannot sell ${requestedBirds} birds. Only ${currentBirds} birds available in batch (Initial: ${batch.initialChicks}, Mortality: ${totalMortality})`
           });
         }
       }
@@ -604,7 +604,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
         if (weight && numericBirdsCount > 0) {
           const avgWeight = Number(weight) / numericBirdsCount;
           console.log("Creating weight record from sale:", avgWeight, "kg per bird");
-          
+
           await tx.birdWeight.create({
             data: {
               batchId: batchId,
@@ -1412,8 +1412,8 @@ export const createCustomer = async (
     const { name, phone, category, address } = req.body;
 
     if (!name || !phone) {
-      return res.status(400).json({ 
-        message: "Customer name and phone are required" 
+      return res.status(400).json({
+        message: "Customer name and phone are required"
       });
     }
 

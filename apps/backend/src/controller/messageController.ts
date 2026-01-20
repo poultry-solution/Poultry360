@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 // Helper function to get notification content based on message type
 const getNotificationContent = (message: any) => {
   const senderName = message.sender.name;
-  
+
   switch (message.messageType) {
     case 'TEXT':
       return {
@@ -75,9 +75,9 @@ export const messageController = {
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
-      const { 
-        conversationId, 
-        text, 
+      const {
+        conversationId,
+        text,
         messageType = 'TEXT',
         attachmentKey,
         fileName,
@@ -193,7 +193,7 @@ export const messageController = {
             }
           }
         );
-        
+
         console.log(`📱 Sent ${result.sentCount} push notifications for message ${message.id}`);
       } catch (notificationError) {
         console.error('Failed to send push notifications:', notificationError);
@@ -376,7 +376,7 @@ export const messageController = {
       const userId = req.userId;
 
       console.log("userId", userId);
-      
+
       if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' });
       }

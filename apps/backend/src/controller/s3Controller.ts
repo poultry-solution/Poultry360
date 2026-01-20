@@ -1,9 +1,9 @@
 import { Request, Response } from "express";
-import { 
-  s3, 
-  generatePresignedUploadUrl, 
-  generatePresignedViewUrl, 
-  deleteFile, 
+import {
+  s3,
+  generatePresignedUploadUrl,
+  generatePresignedViewUrl,
+  deleteFile,
   fileExists,
   getFileTypeFromMime,
   formatFileSize
@@ -23,16 +23,16 @@ export const generateChatUploadUrl = async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const { 
-      conversationId, 
-      fileName, 
-      contentType, 
+    const {
+      conversationId,
+      fileName,
+      contentType,
       fileSize
     } = req.body;
 
     if (!conversationId || !fileName || !contentType) {
-      return res.status(400).json({ 
-        error: "Missing required fields: conversationId, fileName, contentType" 
+      return res.status(400).json({
+        error: "Missing required fields: conversationId, fileName, contentType"
       });
     }
 
@@ -77,8 +77,8 @@ export const verifyChatUpload = async (req: Request, res: Response) => {
     const { attachmentKey, fileSize, durationMs, width, height } = req.body;
 
     if (!attachmentKey) {
-      return res.status(400).json({ 
-        error: "Missing required field: attachmentKey" 
+      return res.status(400).json({
+        error: "Missing required field: attachmentKey"
       });
     }
 
@@ -136,7 +136,7 @@ export const getAttachmentViewUrl = async (req: Request, res: Response) => {
 
     // Generate fresh view URL
     const viewUrl = await generatePresignedViewUrl(
-      attachmentKey, 
+      attachmentKey,
       parseInt(expires as string)
     );
 
@@ -178,7 +178,7 @@ export const deleteUploadedFile = async (req: Request, res: Response) => {
 
     // Delete file from R2
     const deleted = await deleteFile(attachmentKey);
-    
+
     if (deleted) {
       res.json({ success: true, message: "File deleted successfully" });
     } else {

@@ -94,13 +94,13 @@ export class SocketService {
     this.io.use(async (socket: AuthenticatedSocket, next) => {
       try {
         const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
-        
+
         if (!token) {
           return next(new Error('Authentication error: No token provided'));
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
-        
+
         // Verify user exists and is active
         const user = await prisma.user.findUnique({
           where: { id: decoded.userId },
@@ -130,7 +130,7 @@ export class SocketService {
       // Mark presence on connect
       if (socket.userId) {
         // Use async version for database sync
-        this.roomService.markUserOnline(socket.userId).catch((error: any)=> {
+        this.roomService.markUserOnline(socket.userId).catch((error: any) => {
           console.error('Error marking user online:', error);
         });
       }
@@ -147,7 +147,7 @@ export class SocketService {
           }
 
           const { conversationId } = data;
-          
+
           // Determine user role for this conversation
           const conversation = await prisma.conversation.findFirst({
             where: {
@@ -167,7 +167,7 @@ export class SocketService {
 
           const userRole = conversation.farmerId === socket.userId ? 'FARMER' : 'DOCTOR';
           console.log(`👤 User ${socket.userId} is ${userRole} in conversation ${conversationId}`);
-          
+
           const result = await this.roomService.joinRoom(
             socket.id,
             socket.userId,
@@ -178,7 +178,7 @@ export class SocketService {
           if (result.success) {
             console.log(`✅ User ${socket.userId} successfully joined conversation ${conversationId}`);
             socket.emit('joined_conversation', { conversationId });
-            
+
             // Send recent messages to the user
             const messages = await messageService.getMessages(conversationId, socket.userId, 1, 50);
             console.log(`📜 Sending ${messages.messages?.length || 0} messages to user ${socket.userId}`);
@@ -258,7 +258,7 @@ export class SocketService {
                 }
               }
             );
-            
+
             console.log(`📱 Sent ${result.sentCount} push notifications for socket message ${message.id}`);
           } catch (notificationError) {
             console.error('Failed to send push notifications for socket message:', notificationError);
@@ -304,11 +304,11 @@ export class SocketService {
 
           const { conversationId, messageIds } = data;
           console.log(`📖 [Mark as Read] User ${socket.userId} marking messages in conversation ${conversationId}`);
-          
+
           const readCount = await messageService.markMessagesAsRead(conversationId, socket.userId, messageIds);
-          
+
           console.log(`✅ [Mark as Read] Marked ${readCount} messages as read`);
-          
+
           // Broadcast to all users in the conversation that messages were read
           const roomId = `conversation_${conversationId}`;
           this.io.to(roomId).emit('messages_read', {
@@ -316,7 +316,7 @@ export class SocketService {
             userId: socket.userId,
             readCount
           });
-          
+
           console.log(`📡 [Mark as Read] Broadcasted messages_read event to room ${roomId}`);
         } catch (error) {
           console.error('Error marking messages as read:', error);
@@ -335,7 +335,7 @@ export class SocketService {
         console.log(`User ${socket.userId} (${socket.userName}) disconnected`);
         this.roomService.leaveRoom(socket.id);
         // Use async version for database sync
-        this.roomService.markUserOffline(socket.userId).catch((error: any)=> {
+        this.roomService.markUserOffline(socket.userId).catch((error: any) => {
           console.error('Error marking user offline:', error);
         });
       });
@@ -409,11 +409,11 @@ export const getSocketService = (server?: HTTPServer): SocketService => {
   if (!socketServiceInstance && server) {
     socketServiceInstance = new SocketService(server);
   }
-  
+
   if (!socketServiceInstance) {
     throw new Error('SocketService not initialized. Call getSocketService(server) first.');
   }
-  
+
   return socketServiceInstance;
 };
 

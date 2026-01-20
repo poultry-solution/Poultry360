@@ -18,17 +18,17 @@ export interface CreateReminderData {
 export interface CustomReminderData {
   // Specific time reminders (e.g., "10 PM daily")
   specificTime?: string; // Format: "22:00" for 10 PM
-  
+
   // Custom interval reminders (e.g., "every 3 hours")
   customInterval?: {
     unit: 'minutes' | 'hours' | 'days' | 'weeks' | 'months';
     value: number;
   };
-  
+
   // Day-of-week specific reminders (e.g., "every Monday at 10 PM")
   dayOfWeek?: number; // 0 = Sunday, 1 = Monday, etc.
   timeOfDay?: string; // Format: "22:00" for 10 PM
-  
+
   // Additional custom data
   customFields?: Record<string, any>;
 }
@@ -114,7 +114,7 @@ export class ReminderService {
    */
   async getDueReminders(): Promise<Reminder[]> {
     const now = new Date();
-    
+
     return await prisma.reminder.findMany({
       where: {
         status: 'PENDING',
@@ -147,7 +147,7 @@ export class ReminderService {
    */
   async getOverdueReminders(): Promise<Reminder[]> {
     const now = new Date();
-    
+
     return await prisma.reminder.findMany({
       where: {
         status: 'OVERDUE',
@@ -306,7 +306,7 @@ export class ReminderService {
    */
   async markAsTriggered(reminder: Reminder): Promise<Reminder> {
     const now = new Date();
-    
+
     // Move from PENDING to OVERDUE (time has come, waiting for user acknowledgment)
     return await prisma.reminder.update({
       where: { id: reminder.id },
@@ -339,19 +339,19 @@ export class ReminderService {
     switch (reminder.recurrencePattern) {
       case 'DAILY':
         return new Date(now.getTime() + (interval * 24 * 60 * 60 * 1000));
-      
+
       case 'WEEKLY':
         return new Date(now.getTime() + (interval * 7 * 24 * 60 * 60 * 1000));
-      
+
       case 'MONTHLY':
         const nextMonth = new Date(now);
         nextMonth.setMonth(nextMonth.getMonth() + interval);
         return nextMonth;
-      
+
       case 'CUSTOM':
         // Handle custom patterns stored in the data field
         return this.calculateCustomNextOccurrence(reminder, now);
-      
+
       case 'NONE':
       default:
         return null;
@@ -367,7 +367,7 @@ export class ReminderService {
     }
 
     const customData = reminder.data as any;
-    
+
     // Handle specific time-based custom reminders
     if (customData.specificTime) {
       return this.calculateSpecificTimeNextOccurrence(customData.specificTime, now);
@@ -394,14 +394,14 @@ export class ReminderService {
   private calculateSpecificTimeNextOccurrence(specificTime: string, now: Date): Date {
     const [hours, minutes] = specificTime.split(':').map(Number);
     const nextOccurrence = new Date(now);
-    
+
     nextOccurrence.setHours(hours, minutes || 0, 0, 0);
-    
+
     // If the time has already passed today, schedule for tomorrow
     if (nextOccurrence <= now) {
       nextOccurrence.setDate(nextOccurrence.getDate() + 1);
     }
-    
+
     return nextOccurrence;
   }
 
@@ -410,7 +410,7 @@ export class ReminderService {
    */
   private calculateCustomIntervalNextOccurrence(unit: string, value: number, now: Date): Date {
     const nextOccurrence = new Date(now);
-    
+
     switch (unit.toLowerCase()) {
       case 'minutes':
         nextOccurrence.setMinutes(nextOccurrence.getMinutes() + value);
@@ -431,7 +431,7 @@ export class ReminderService {
         // Default to days
         nextOccurrence.setDate(nextOccurrence.getDate() + value);
     }
-    
+
     return nextOccurrence;
   }
 
@@ -441,21 +441,21 @@ export class ReminderService {
   private calculateDayOfWeekNextOccurrence(dayOfWeek: number, timeOfDay: string, now: Date): Date {
     const [hours, minutes] = timeOfDay.split(':').map(Number);
     const nextOccurrence = new Date(now);
-    
+
     // Set the time
     nextOccurrence.setHours(hours, minutes || 0, 0, 0);
-    
+
     // Calculate days until the target day of week
     const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
     let daysUntilTarget = dayOfWeek - currentDay;
-    
+
     // If the target day has passed this week or it's the same day but time has passed
     if (daysUntilTarget <= 0 || (daysUntilTarget === 0 && nextOccurrence <= now)) {
       daysUntilTarget += 7; // Schedule for next week
     }
-    
+
     nextOccurrence.setDate(nextOccurrence.getDate() + daysUntilTarget);
-    
+
     return nextOccurrence;
   }
 
@@ -468,7 +468,7 @@ export class ReminderService {
     interval: number
   ): Date {
     const nextDate = new Date(currentDueDate);
-    
+
     switch (pattern) {
       case 'DAILY':
         nextDate.setDate(nextDate.getDate() + interval);
@@ -488,7 +488,7 @@ export class ReminderService {
         // Default to daily
         nextDate.setDate(nextDate.getDate() + 1);
     }
-    
+
     return nextDate;
   }
 
@@ -508,7 +508,7 @@ export class ReminderService {
     const [hours, minutes] = specificTime.split(':').map(Number);
     const dueDate = new Date(now);
     dueDate.setHours(hours, minutes || 0, 0, 0);
-    
+
     // If the time has already passed today, schedule for tomorrow
     if (dueDate <= now) {
       dueDate.setDate(dueDate.getDate() + 1);
@@ -792,7 +792,7 @@ export class ReminderService {
 
     for (const reminder of recurringReminders) {
       const key = `${reminder.title}-${reminder.type}-${reminder.farmId || 'null'}-${reminder.batchId || 'null'}`;
-      
+
       if (seen.has(key)) {
         // This is a duplicate, remove it
         await prisma.reminder.delete({
@@ -821,12 +821,12 @@ export class ReminderService {
       prisma.reminder.count({ where: { userId } }),
       prisma.reminder.count({ where: { userId, status: 'PENDING' } }),
       prisma.reminder.count({ where: { userId, status: 'COMPLETED' } }),
-      prisma.reminder.count({ 
-        where: { 
-          userId, 
+      prisma.reminder.count({
+        where: {
+          userId,
           status: 'PENDING',
           dueDate: { lt: new Date() }
-        } 
+        }
       }),
       prisma.reminder.groupBy({
         by: ['type'],

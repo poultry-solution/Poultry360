@@ -427,36 +427,24 @@ export const getDealerCustomers = async (
         skip,
         take: Number(limit),
         orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          address: true,
+          category: true,
+          balance: true,
+          source: true,
+          farmerId: true,
+          createdAt: true,
+        },
       }),
       prisma.customer.count({ where }),
     ]);
 
-    // Calculate balance for each customer
-    const customersWithBalance = await Promise.all(
-      customers.map(async (customer) => {
-        // Get total sales amount for this customer
-        const sales = await prisma.dealerSale.findMany({
-          where: { customerId: customer.id },
-          select: {
-            totalAmount: true,
-            paidAmount: true,
-          },
-        });
-
-        const totalSales = sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0);
-        const totalPaid = sales.reduce((sum, sale) => sum + Number(sale.paidAmount), 0);
-        const balance = totalSales - totalPaid;
-
-        return {
-          ...customer,
-          balance,
-        };
-      })
-    );
-
     return res.status(200).json({
       success: true,
-      data: customersWithBalance,
+      data: customers,
       pagination: {
         page: Number(page),
         limit: Number(limit),

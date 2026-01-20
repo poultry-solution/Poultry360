@@ -76,7 +76,7 @@ export class FeedNotificationService {
 
       // Determine threshold level
       let thresholdExceeded: 'none' | 'low' | 'high' | 'no_consumption' = 'none';
-      
+
       if (stats.thresholdStatus === 'no_consumption') {
         thresholdExceeded = 'no_consumption';
       } else if (stats.thresholdStatus === 'low') {
@@ -156,7 +156,7 @@ export class FeedNotificationService {
    */
   private async calculateFeedStats(batch: any, currentBirds: number): Promise<FeedConsumptionStats> {
     const feedConsumptions = batch.feedConsumptions;
-    
+
     if (feedConsumptions.length === 0) {
       return {
         batchNumber: batch.batchNumber,
@@ -183,7 +183,7 @@ export class FeedNotificationService {
 
     // Calculate days since last consumption
     const lastConsumptionDate = feedConsumptions[0]?.date;
-    const daysSinceLastConsumption = lastConsumptionDate 
+    const daysSinceLastConsumption = lastConsumptionDate
       ? Math.floor((Date.now() - lastConsumptionDate.getTime()) / (1000 * 60 * 60 * 24))
       : daysSinceStart;
 
@@ -192,7 +192,7 @@ export class FeedNotificationService {
 
     // Determine threshold status
     let thresholdStatus: 'normal' | 'low' | 'high' | 'no_consumption' = 'normal';
-    
+
     if (daysSinceLastConsumption >= FeedNotificationService.DEFAULT_CONFIG.noConsumptionDays) {
       thresholdStatus = 'no_consumption';
     } else if (consumptionTrend === 'decreasing' && averageDailyConsumption > 0) {
@@ -200,7 +200,7 @@ export class FeedNotificationService {
       const recentConsumption = this.getRecentConsumption(feedConsumptions, 7);
       const recentAverage = recentConsumption / 7;
       const deviation = ((averageDailyConsumption - recentAverage) / averageDailyConsumption) * 100;
-      
+
       if (deviation >= FeedNotificationService.DEFAULT_CONFIG.lowConsumptionThreshold) {
         thresholdStatus = 'low';
       }
@@ -209,7 +209,7 @@ export class FeedNotificationService {
       const recentConsumption = this.getRecentConsumption(feedConsumptions, 7);
       const recentAverage = recentConsumption / 7;
       const deviation = ((recentAverage - averageDailyConsumption) / averageDailyConsumption) * 100;
-      
+
       if (deviation >= FeedNotificationService.DEFAULT_CONFIG.highConsumptionThreshold) {
         thresholdStatus = 'high';
       }
@@ -277,19 +277,19 @@ export class FeedNotificationService {
           title: `🚨 No Feed Consumption - Batch ${batchNumber}`,
           body: `No feed consumption recorded for ${stats.daysSinceLastConsumption} days. Check feed availability and bird health.`,
         };
-      
+
       case 'low':
         return {
           title: `⚠️ Low Feed Consumption - Batch ${batchNumber}`,
           body: `Feed consumption is ${stats.averageDailyConsumption.toFixed(1)}kg/day (${stats.consumptionPerBird.toFixed(2)}kg/bird). Monitor bird health and feeding schedule.`,
         };
-      
+
       case 'high':
         return {
           title: `📈 High Feed Consumption - Batch ${batchNumber}`,
           body: `Feed consumption is ${stats.averageDailyConsumption.toFixed(1)}kg/day (${stats.consumptionPerBird.toFixed(2)}kg/bird). Check for feed waste or increased bird activity.`,
         };
-      
+
       default:
         return {
           title: `Feed Alert - Batch ${batchNumber}`,
@@ -323,7 +323,7 @@ export class FeedNotificationService {
         try {
           const result = await this.checkBatchFeedConsumption(batch.id);
           totalNotificationsSent += result.notificationsSent;
-          
+
           if (result.thresholdExceeded !== 'none') {
             batchesWithAlerts++;
             console.log(`Feed alert triggered for batch ${batch.batchNumber}: ${result.thresholdExceeded}`);

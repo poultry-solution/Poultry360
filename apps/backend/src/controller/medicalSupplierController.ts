@@ -684,9 +684,9 @@ export const deleteMedicalSupplierTransaction = async (
 
     // Verify password is provided
     if (!password) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Password confirmation is required for deletion" 
+        message: "Password confirmation is required for deletion"
       });
     }
 
@@ -701,11 +701,11 @@ export const deleteMedicalSupplierTransaction = async (
 
     const bcrypt = require('bcrypt');
     const isValidPassword = await bcrypt.compare(password, user.password);
-    
+
     if (!isValidPassword) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Invalid password. Deletion cancelled." 
+        message: "Invalid password. Deletion cancelled."
       });
     }
 
@@ -768,7 +768,7 @@ export const deleteMedicalSupplierTransaction = async (
         });
 
         console.log("🔍 Found related payment transactions:", relatedPaymentTxns);
-        
+
         // Delete related payment transactions
         for (const paymentTxn of relatedPaymentTxns) {
           console.log("🗑️ Deleting related payment transaction:", paymentTxn.id);
@@ -832,7 +832,7 @@ export const deleteMedicalSupplierTransaction = async (
     const verifyDeleted = await prisma.entityTransaction.findFirst({
       where: { id: transactionId },
     });
-    
+
     if (verifyDeleted) {
       console.error("❌ Transaction still exists after deletion attempt:", verifyDeleted);
       return res.status(500).json({ message: "Transaction deletion failed" });

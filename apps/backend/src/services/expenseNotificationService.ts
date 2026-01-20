@@ -67,7 +67,7 @@ export class ExpenseNotificationService {
 
       // Determine threshold level
       let thresholdExceeded: 'none' | 'high_daily' | 'high_monthly' | 'unusual_spending' | 'high_single' = 'none';
-      
+
       if (stats.thresholdStatus === 'high_single') {
         thresholdExceeded = 'high_single';
       } else if (stats.thresholdStatus === 'high_daily') {
@@ -232,7 +232,7 @@ export class ExpenseNotificationService {
 
     // Determine threshold status
     let thresholdStatus: 'normal' | 'high_daily' | 'high_monthly' | 'unusual_spending' | 'high_single' = 'normal';
-    
+
     // Check for high single expense
     const maxRecentExpense = Math.max(...recentExpenses.map(e => Number(e.amount)));
     if (maxRecentExpense >= ExpenseNotificationService.DEFAULT_CONFIG.highExpenseThreshold) {
@@ -285,25 +285,25 @@ export class ExpenseNotificationService {
           title: `💰 High Single Expense - ${stats.farmName}`,
           body: `A single expense of Rs. ${maxExpense.toLocaleString()} was recorded. Review recent transactions.`,
         };
-      
+
       case 'high_daily':
         return {
           title: `📊 High Daily Expenses - ${stats.farmName}`,
           body: `Daily expenses reached Rs. ${stats.dailyExpenses.toLocaleString()} (avg: Rs. ${stats.averageDailyExpense.toLocaleString()}/day). Monitor spending.`,
         };
-      
+
       case 'high_monthly':
         return {
           title: `📈 High Monthly Expenses - ${stats.farmName}`,
           body: `Monthly expenses reached Rs. ${stats.monthlyExpenses.toLocaleString()} (avg: Rs. ${stats.averageMonthlyExpense.toLocaleString()}/month). Review budget.`,
         };
-      
+
       case 'unusual_spending':
         return {
           title: `⚠️ Unusual Spending Pattern - ${stats.farmName}`,
           body: `Today's expenses (Rs. ${stats.dailyExpenses.toLocaleString()}) are ${(stats.dailyExpenses / stats.averageDailyExpense).toFixed(1)}x higher than average.`,
         };
-      
+
       default:
         return {
           title: `Expense Alert - ${stats.farmName}`,
@@ -336,7 +336,7 @@ export class ExpenseNotificationService {
         try {
           const result = await this.checkFarmExpensePatterns(farm.id);
           totalNotificationsSent += result.notificationsSent;
-          
+
           if (result.thresholdExceeded !== 'none') {
             farmsWithAlerts++;
             console.log(`Expense alert triggered for farm ${farm.name}: ${result.thresholdExceeded}`);

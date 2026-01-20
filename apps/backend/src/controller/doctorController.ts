@@ -76,10 +76,10 @@ export const updateOnlineStatus = async (
     // Broadcast status change to all connected clients via socket
     try {
       const socketService = getSocketService();
-      
+
       // Broadcast to all users in conversations with this doctor
       const doctorConversations = await prisma.conversation.findMany({
-        where: { 
+        where: {
           doctorId: userId,
           status: 'ACTIVE'
         },
