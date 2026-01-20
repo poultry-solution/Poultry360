@@ -7,8 +7,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/common/components/ui/card";
-import { Users, Plus, TrendingUp, Loader2, Trash2, X } from "lucide-react";
+import { Users, Plus, TrendingUp, Loader2, Trash2, X, Link2 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
+import { Badge } from "@/common/components/ui/badge";
 import { useState, useEffect } from "react";
 import { getNowLocalDateTime } from "@/common/lib/utils";
 import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
@@ -542,24 +543,37 @@ export default function DealerLedgerPage() {
       >
         <ModalContent>
           <div className="space-y-4">
-            <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-              <p className="text-sm text-red-800">
-                <strong>Warning:</strong> This will permanently delete dealer{" "}
-                <strong>
-                  {activeDealer?.name ? ` ${activeDealer.name}` : ""}
-                </strong>
-                .
-              </p>
-              {activeDealer?.transactions?.length > 0 && (
-                <p className="text-sm text-red-700 mt-2">
-                  This dealer has {activeDealer.transactions.length}{" "}
-                  transaction(s). You must delete all transactions first.
+            {activeDealer?.connectionType === "CONNECTED" ? (
+              <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <p className="text-sm text-yellow-800">
+                  <strong>Notice:</strong> This is a connected dealer and cannot be deleted.
                 </p>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Are you sure you want to proceed?
-            </p>
+                <p className="text-sm text-yellow-700 mt-2">
+                  You can archive this connection from your Connected Dealers page instead.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                  <p className="text-sm text-red-800">
+                    <strong>Warning:</strong> This will permanently delete dealer{" "}
+                    <strong>
+                      {activeDealer?.name ? ` ${activeDealer.name}` : ""}
+                    </strong>
+                    .
+                  </p>
+                  {activeDealer?.transactions?.length > 0 && (
+                    <p className="text-sm text-red-700 mt-2">
+                      This dealer has {activeDealer.transactions.length}{" "}
+                      transaction(s). You must delete all transactions first.
+                    </p>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Are you sure you want to proceed?
+                </p>
+              </>
+            )}
           </div>
         </ModalContent>
         <ModalFooter>
@@ -567,57 +581,59 @@ export default function DealerLedgerPage() {
             variant="outline"
             onClick={() => setIsDeleteDealerOpen(false)}
           >
-            Cancel
+            {activeDealer?.connectionType === "CONNECTED" ? "Close" : "Cancel"}
           </Button>
-          <Button
-            className="bg-red-600 hover:bg-red-700 text-white"
-            onClick={async () => {
-              if (!activeDealerId) return;
-              const dealerIdToDelete = activeDealerId;
+          {activeDealer?.connectionType !== "CONNECTED" && (
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={async () => {
+                if (!activeDealerId) return;
+                const dealerIdToDelete = activeDealerId;
 
-              try {
-                // Clear active dealer ID immediately to prevent further queries
-                setActiveDealerId("");
+                try {
+                  // Clear active dealer ID immediately to prevent further queries
+                  setActiveDealerId("");
 
-                await deleteDealerMutation.mutateAsync(dealerIdToDelete);
+                  await deleteDealerMutation.mutateAsync(dealerIdToDelete);
 
-                // Invalidate the specific dealer query to remove it from cache
-                queryClient.removeQueries({
-                  queryKey: ["dealers", "detail", dealerIdToDelete],
-                });
+                  // Invalidate the specific dealer query to remove it from cache
+                  queryClient.removeQueries({
+                    queryKey: ["dealers", "detail", dealerIdToDelete],
+                  });
 
-                // Invalidate the dealers list to get fresh data
-                queryClient.invalidateQueries({
-                  queryKey: ["dealers", "list"],
-                });
+                  // Invalidate the dealers list to get fresh data
+                  queryClient.invalidateQueries({
+                    queryKey: ["dealers", "list"],
+                  });
 
-                toast.success("Dealer deleted successfully");
-                setIsDeleteDealerOpen(false);
-                setSelectedIds(new Set());
-                setIsDeleteMode(false);
+                  toast.success("Dealer deleted successfully");
+                  setIsDeleteDealerOpen(false);
+                  setSelectedIds(new Set());
+                  setIsDeleteMode(false);
 
-                // Don't set activeDealerId here - let the useEffect handle it
-                // when the fresh dealers data comes in
-              } catch (e) {
-                // Restore the activeDealerId if deletion failed
-                setActiveDealerId(dealerIdToDelete);
-                // Error toast likely handled by interceptor
+                  // Don't set activeDealerId here - let the useEffect handle it
+                  // when the fresh dealers data comes in
+                } catch (e) {
+                  // Restore the activeDealerId if deletion failed
+                  setActiveDealerId(dealerIdToDelete);
+                  // Error toast likely handled by interceptor
+                }
+              }}
+              disabled={
+                !activeDealerId ||
+                deleteDealerMutation.isPending ||
+                (activeDealer?.transactions?.length || 0) > 0
               }
-            }}
-            disabled={
-              !activeDealerId ||
-              deleteDealerMutation.isPending ||
-              (activeDealer?.transactions?.length || 0) > 0
-            }
-          >
-            {deleteDealerMutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
-              </>
-            ) : (
-              "Delete Dealer"
-            )}
-          </Button>
+            >
+              {deleteDealerMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+                </>
+              ) : (
+                "Delete Dealer"
+              )}
+            </Button>
+          )}
         </ModalFooter>
       </Modal>
 
@@ -1099,7 +1115,18 @@ export default function DealerLedgerPage() {
                 }
                 onClick={() => setActiveDealerId(dealer.id)}
               >
-                {dealer.name}
+                <span className="flex items-center gap-2">
+                  {dealer.name}
+                  {dealer.connectionType === "CONNECTED" && (
+                    <Badge 
+                      variant="secondary"
+                      className="ml-1 bg-blue-100 text-blue-800 hover:bg-blue-100 text-xs"
+                    >
+                      <Link2 className="h-3 w-3 mr-1" />
+                      Connected
+                    </Badge>
+                  )}
+                </span>
               </Button>
             ))}
             <Button variant="outline" onClick={() => setIsAddDealerOpen(true)}>

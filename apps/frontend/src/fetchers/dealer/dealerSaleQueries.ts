@@ -53,8 +53,7 @@ export interface DealerSalePayment {
 }
 
 export interface CreateDealerSaleInput {
-  customerId?: string;
-  farmerId?: string;
+  customerId: string;
   items: Array<{
     productId: string;
     quantity: number;
@@ -141,14 +140,14 @@ export const useGetSalesStatistics = (params?: {
 };
 
 // Search customers/farmers
-export const useSearchCustomers = (search: string, type: string = "all") => {
+export const useSearchCustomers = (search: string) => {
   return useQuery({
-    queryKey: ["dealer-customer-search", search, type],
+    queryKey: ["dealer-customer-search", search],
     queryFn: async () => {
       const { data } = await axiosInstance.get(
         `/dealer/sales/customers/search`,
         {
-          params: { search, type },
+          params: { search },
         }
       );
       return data;

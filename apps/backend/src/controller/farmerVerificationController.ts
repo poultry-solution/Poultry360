@@ -436,6 +436,27 @@ export const approveFarmerRequest = async (
         });
       }
 
+3      // Auto-create Customer for connected farmer
+      const existingCustomer = await tx.customer.findFirst({
+        where: {
+          userId: dealer.ownerId,
+          farmerId: verificationRequest.farmerId,
+        },
+      });
+
+      if (!existingCustomer) {
+        await tx.customer.create({
+          data: {
+            userId: dealer.ownerId, // Link to dealer owner
+            farmerId: verificationRequest.farmerId, // Link to farmer
+            name: verificationRequest.farmer.name,
+            phone: verificationRequest.farmer.phone,
+            source: "CONNECTED",
+            balance: 0,
+          },
+        });
+      }
+
       return request;
     });
 
@@ -612,10 +633,11 @@ export const getFarmerDealers = async (
       });
     }
 
-    // Get all dealers connected to this farmer via DealerFarmer relationship
+    // Get all active (non-archived) dealers connected to this farmer via DealerFarmer relationship
     const dealerFarmers = await prismaWithVerification.dealerFarmer.findMany({
       where: {
         farmerId: currentUserId,
+        archivedByFarmer: false, // Only show active connections
       },
       include: {
         dealer: {
@@ -686,10 +708,11 @@ export const getDealerFarmers = async (
       });
     }
 
-    // Get all farmers connected to this dealer via DealerFarmer relationship
+    // Get all active (non-archived) farmers connected to this dealer via DealerFarmer relationship
     const dealerFarmers = await prismaWithVerification.dealerFarmer.findMany({
       where: {
         dealerId: dealer.id,
+        archivedByDealer: false, // Only show active connections
       },
       include: {
         farmer: {
@@ -796,6 +819,467 @@ export const getDealerDetailsForFarmer = async (
     });
   } catch (error: any) {
     console.error("Get dealer details for farmer error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+// ==================== CANCEL FARMER VERIFICATION REQUEST ====================
+export const cancelFarmerVerificationRequest = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { requestId } = req.params;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // Only farmers can cancel their own requests
+    if (currentUserRole !== UserRole.OWNER) {
+      return res.status(403).json({
+        success: false,
+        message: "Only farmers can cancel verification requests",
+      });
+    }
+
+    // Get the request
+    const request = await prismaWithVerification.farmerVerificationRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: "Verification request not found",
+      });
+    }
+
+    // Check ownership
+    if (request.farmerId !== currentUserId) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only cancel your own verification requests",
+      });
+    }
+
+    // Only pending requests can be cancelled
+    if (request.status !== "PENDING") {
+      return res.status(400).json({
+        success: false,
+        message: "Only pending requests can be cancelled",
+      });
+    }
+
+    // Delete the request
+    await prismaWithVerification.farmerVerificationRequest.delete({
+      where: { id: requestId },
+    });
+
+    return res.json({
+      success: true,
+      message: "Verification request cancelled successfully",
+    });
+  } catch (error: any) {
+    console.error("Cancel farmer verification request error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+// ==================== ARCHIVE FARMER-DEALER CONNECTION ====================
+export const archiveFarmerDealerConnection = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { connectionId } = req.params;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // Only farmers can archive from their side
+    if (currentUserRole !== UserRole.OWNER) {
+      return res.status(403).json({
+        success: false,
+        message: "Only farmers can archive dealer connections",
+      });
+    }
+
+    // Get the connection
+    const connection = await prismaWithVerification.dealerFarmer.findUnique({
+      where: { id: connectionId },
+    });
+
+    if (!connection) {
+      return res.status(404).json({
+        success: false,
+        message: "Connection not found",
+      });
+    }
+
+    // Check ownership
+    if (connection.farmerId !== currentUserId) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only archive your own connections",
+      });
+    }
+
+    // Archive the connection
+    await prismaWithVerification.dealerFarmer.update({
+      where: { id: connectionId },
+      data: { archivedByFarmer: true },
+    });
+
+    return res.json({
+      success: true,
+      message: "Connection archived successfully",
+    });
+  } catch (error: any) {
+    console.error("Archive farmer-dealer connection error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+// ==================== UNARCHIVE FARMER-DEALER CONNECTION ====================
+export const unarchiveFarmerDealerConnection = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { connectionId } = req.params;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // Only farmers can unarchive from their side
+    if (currentUserRole !== UserRole.OWNER) {
+      return res.status(403).json({
+        success: false,
+        message: "Only farmers can unarchive dealer connections",
+      });
+    }
+
+    // Get the connection
+    const connection = await prismaWithVerification.dealerFarmer.findUnique({
+      where: { id: connectionId },
+    });
+
+    if (!connection) {
+      return res.status(404).json({
+        success: false,
+        message: "Connection not found",
+      });
+    }
+
+    // Check ownership
+    if (connection.farmerId !== currentUserId) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only unarchive your own connections",
+      });
+    }
+
+    // Unarchive the connection
+    await prismaWithVerification.dealerFarmer.update({
+      where: { id: connectionId },
+      data: { archivedByFarmer: false },
+    });
+
+    return res.json({
+      success: true,
+      message: "Connection restored successfully",
+    });
+  } catch (error: any) {
+    console.error("Unarchive farmer-dealer connection error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+// ==================== ARCHIVE DEALER-FARMER CONNECTION ====================
+export const archiveDealerFarmerConnection = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { connectionId } = req.params;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // Only dealers can archive from their side
+    if (currentUserRole !== UserRole.DEALER) {
+      return res.status(403).json({
+        success: false,
+        message: "Only dealers can archive farmer connections",
+      });
+    }
+
+    // Get dealer for current user
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: currentUserId },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({
+        success: false,
+        message: "Dealer account not found",
+      });
+    }
+
+    // Get the connection
+    const connection = await prismaWithVerification.dealerFarmer.findUnique({
+      where: { id: connectionId },
+    });
+
+    if (!connection) {
+      return res.status(404).json({
+        success: false,
+        message: "Connection not found",
+      });
+    }
+
+    // Check ownership
+    if (connection.dealerId !== dealer.id) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only archive your own connections",
+      });
+    }
+
+    // Archive the connection
+    await prismaWithVerification.dealerFarmer.update({
+      where: { id: connectionId },
+      data: { archivedByDealer: true },
+    });
+
+    return res.json({
+      success: true,
+      message: "Connection archived successfully",
+    });
+  } catch (error: any) {
+    console.error("Archive dealer-farmer connection error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+// ==================== UNARCHIVE DEALER-FARMER CONNECTION ====================
+export const unarchiveDealerFarmerConnection = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { connectionId } = req.params;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // Only dealers can unarchive from their side
+    if (currentUserRole !== UserRole.DEALER) {
+      return res.status(403).json({
+        success: false,
+        message: "Only dealers can unarchive farmer connections",
+      });
+    }
+
+    // Get dealer for current user
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: currentUserId },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({
+        success: false,
+        message: "Dealer account not found",
+      });
+    }
+
+    // Get the connection
+    const connection = await prismaWithVerification.dealerFarmer.findUnique({
+      where: { id: connectionId },
+    });
+
+    if (!connection) {
+      return res.status(404).json({
+        success: false,
+        message: "Connection not found",
+      });
+    }
+
+    // Check ownership
+    if (connection.dealerId !== dealer.id) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only unarchive your own connections",
+      });
+    }
+
+    // Unarchive the connection
+    await prismaWithVerification.dealerFarmer.update({
+      where: { id: connectionId },
+      data: { archivedByDealer: false },
+    });
+
+    return res.json({
+      success: true,
+      message: "Connection restored successfully",
+    });
+  } catch (error: any) {
+    console.error("Unarchive dealer-farmer connection error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+// ==================== GET ARCHIVED FARMER DEALERS ====================
+export const getArchivedFarmerDealers = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // Only farmers can access
+    if (currentUserRole !== UserRole.OWNER) {
+      return res.status(403).json({
+        success: false,
+        message: "Only farmers can view archived dealers",
+      });
+    }
+
+    // Get archived dealers
+    const archivedConnections = await prismaWithVerification.dealerFarmer.findMany({
+      where: {
+        farmerId: currentUserId,
+        archivedByFarmer: true,
+      },
+      include: {
+        dealer: {
+          select: {
+            id: true,
+            name: true,
+            contact: true,
+            address: true,
+            owner: {
+              select: {
+                name: true,
+                phone: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        updatedAt: "desc",
+      },
+    });
+
+    // Format the response
+    const dealers = archivedConnections.map((connection: any) => ({
+      id: connection.dealer.id,
+      name: connection.dealer.name,
+      contact: connection.dealer.contact,
+      address: connection.dealer.address,
+      connectedAt: connection.connectedAt,
+      connectedVia: connection.connectedVia,
+      dealerFarmerId: connection.id,
+      owner: connection.dealer.owner,
+    }));
+
+    return res.json({
+      success: true,
+      data: dealers,
+    });
+  } catch (error: any) {
+    console.error("Get archived farmer dealers error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+// ==================== GET ARCHIVED DEALER FARMERS ====================
+export const getArchivedDealerFarmers = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // Only dealers can access
+    if (currentUserRole !== UserRole.DEALER) {
+      return res.status(403).json({
+        success: false,
+        message: "Only dealers can view archived farmers",
+      });
+    }
+
+    // Get dealer for current user
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: currentUserId },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({
+        success: false,
+        message: "Dealer account not found",
+      });
+    }
+
+    // Get archived farmers
+    const archivedConnections = await prismaWithVerification.dealerFarmer.findMany({
+      where: {
+        dealerId: dealer.id,
+        archivedByDealer: true,
+      },
+      include: {
+        farmer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            companyName: true,
+            CompanyFarmLocation: true,
+          },
+        },
+      },
+      orderBy: {
+        updatedAt: "desc",
+      },
+    });
+
+    // Format the response
+    const farmers = archivedConnections.map((connection: any) => ({
+      id: connection.farmer.id,
+      name: connection.farmer.name,
+      phone: connection.farmer.phone,
+      farmName: connection.farmer.companyName,
+      location: connection.farmer.CompanyFarmLocation,
+      connectedAt: connection.connectedAt,
+      connectedVia: connection.connectedVia,
+      dealerFarmerId: connection.id,
+    }));
+
+    return res.json({
+      success: true,
+      data: farmers,
+    });
+  } catch (error: any) {
+    console.error("Get archived dealer farmers error:", error);
     return res.status(500).json({
       success: false,
       message: error.message || "Internal server error",

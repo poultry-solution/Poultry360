@@ -730,10 +730,11 @@ export const getDealerCompanies = async (
       });
     }
 
-    // Get all companies connected to this dealer via DealerCompany relationship
+    // Get all active (non-archived) companies connected to this dealer via DealerCompany relationship
     const dealerCompanies = await (prisma as any).dealerCompany.findMany({
       where: {
         dealerId: dealer.id,
+        archivedByDealer: false, // Only show active connections
       },
       include: {
         company: {
@@ -856,6 +857,437 @@ export const getCompanyDetailsForDealer = async (
     });
   } catch (error: any) {
     console.error("Get company details for dealer error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+// ==================== CANCEL VERIFICATION REQUEST ====================
+export const cancelVerificationRequest = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { requestId } = req.params;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // Only dealers can cancel their own requests
+    if (currentUserRole !== UserRole.DEALER) {
+      return res.status(403).json({
+        success: false,
+        message: "Only dealers can cancel verification requests",
+      });
+    }
+
+    // Get dealer for current user
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: currentUserId },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({
+        success: false,
+        message: "Dealer account not found",
+      });
+    }
+
+    // Get the request
+    const request = await prismaWithVerification.dealerVerificationRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: "Verification request not found",
+      });
+    }
+
+    // Check ownership
+    if (request.dealerId !== dealer.id) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only cancel your own verification requests",
+      });
+    }
+
+    // Only pending requests can be cancelled
+    if (request.status !== "PENDING") {
+      return res.status(400).json({
+        success: false,
+        message: "Only pending requests can be cancelled",
+      });
+    }
+
+    // Delete the request
+    await prismaWithVerification.dealerVerificationRequest.delete({
+      where: { id: requestId },
+    });
+
+    return res.json({
+      success: true,
+      message: "Verification request cancelled successfully",
+    });
+  } catch (error: any) {
+    console.error("Cancel verification request error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+// ==================== ARCHIVE DEALER-COMPANY CONNECTION ====================
+export const archiveDealerCompanyConnection = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { connectionId } = req.params;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // Only dealers can archive from their side
+    if (currentUserRole !== UserRole.DEALER) {
+      return res.status(403).json({
+        success: false,
+        message: "Only dealers can archive company connections",
+      });
+    }
+
+    // Get dealer for current user
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: currentUserId },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({
+        success: false,
+        message: "Dealer account not found",
+      });
+    }
+
+    // Get the connection
+    const connection = await prismaWithVerification.dealerCompany.findUnique({
+      where: { id: connectionId },
+    });
+
+    if (!connection) {
+      return res.status(404).json({
+        success: false,
+        message: "Connection not found",
+      });
+    }
+
+    // Check ownership
+    if (connection.dealerId !== dealer.id) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only archive your own connections",
+      });
+    }
+
+    // Archive the connection
+    await prismaWithVerification.dealerCompany.update({
+      where: { id: connectionId },
+      data: { archivedByDealer: true },
+    });
+
+    return res.json({
+      success: true,
+      message: "Connection archived successfully",
+    });
+  } catch (error: any) {
+    console.error("Archive dealer-company connection error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+// ==================== UNARCHIVE DEALER-COMPANY CONNECTION ====================
+export const unarchiveDealerCompanyConnection = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { connectionId } = req.params;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // Only dealers can unarchive from their side
+    if (currentUserRole !== UserRole.DEALER) {
+      return res.status(403).json({
+        success: false,
+        message: "Only dealers can unarchive company connections",
+      });
+    }
+
+    // Get dealer for current user
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: currentUserId },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({
+        success: false,
+        message: "Dealer account not found",
+      });
+    }
+
+    // Get the connection
+    const connection = await prismaWithVerification.dealerCompany.findUnique({
+      where: { id: connectionId },
+    });
+
+    if (!connection) {
+      return res.status(404).json({
+        success: false,
+        message: "Connection not found",
+      });
+    }
+
+    // Check ownership
+    if (connection.dealerId !== dealer.id) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only unarchive your own connections",
+      });
+    }
+
+    // Unarchive the connection
+    await prismaWithVerification.dealerCompany.update({
+      where: { id: connectionId },
+      data: { archivedByDealer: false },
+    });
+
+    return res.json({
+      success: true,
+      message: "Connection restored successfully",
+    });
+  } catch (error: any) {
+    console.error("Unarchive dealer-company connection error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+// ==================== ARCHIVE COMPANY-DEALER CONNECTION ====================
+export const archiveCompanyDealerConnection = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { connectionId } = req.params;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // Only companies can archive from their side
+    if (currentUserRole !== UserRole.COMPANY) {
+      return res.status(403).json({
+        success: false,
+        message: "Only companies can archive dealer connections",
+      });
+    }
+
+    // Get company for current user
+    const company = await prisma.company.findUnique({
+      where: { ownerId: currentUserId },
+    });
+
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: "Company account not found",
+      });
+    }
+
+    // Get the connection
+    const connection = await prismaWithVerification.dealerCompany.findUnique({
+      where: { id: connectionId },
+    });
+
+    if (!connection) {
+      return res.status(404).json({
+        success: false,
+        message: "Connection not found",
+      });
+    }
+
+    // Check ownership
+    if (connection.companyId !== company.id) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only archive your own connections",
+      });
+    }
+
+    // Archive the connection
+    await prismaWithVerification.dealerCompany.update({
+      where: { id: connectionId },
+      data: { archivedByCompany: true },
+    });
+
+    return res.json({
+      success: true,
+      message: "Connection archived successfully",
+    });
+  } catch (error: any) {
+    console.error("Archive company-dealer connection error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+// ==================== UNARCHIVE COMPANY-DEALER CONNECTION ====================
+export const unarchiveCompanyDealerConnection = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { connectionId } = req.params;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // Only companies can unarchive from their side
+    if (currentUserRole !== UserRole.COMPANY) {
+      return res.status(403).json({
+        success: false,
+        message: "Only companies can unarchive dealer connections",
+      });
+    }
+
+    // Get company for current user
+    const company = await prisma.company.findUnique({
+      where: { ownerId: currentUserId },
+    });
+
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: "Company account not found",
+      });
+    }
+
+    // Get the connection
+    const connection = await prismaWithVerification.dealerCompany.findUnique({
+      where: { id: connectionId },
+    });
+
+    if (!connection) {
+      return res.status(404).json({
+        success: false,
+        message: "Connection not found",
+      });
+    }
+
+    // Check ownership
+    if (connection.companyId !== company.id) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only unarchive your own connections",
+      });
+    }
+
+    // Unarchive the connection
+    await prismaWithVerification.dealerCompany.update({
+      where: { id: connectionId },
+      data: { archivedByCompany: false },
+    });
+
+    return res.json({
+      success: true,
+      message: "Connection restored successfully",
+    });
+  } catch (error: any) {
+    console.error("Unarchive company-dealer connection error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+// ==================== GET ARCHIVED DEALER COMPANIES ====================
+export const getArchivedDealerCompanies = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // Only dealers can access
+    if (currentUserRole !== UserRole.DEALER) {
+      return res.status(403).json({
+        success: false,
+        message: "Only dealers can view archived companies",
+      });
+    }
+
+    // Get dealer for current user
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: currentUserId },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({
+        success: false,
+        message: "Dealer account not found",
+      });
+    }
+
+    // Get archived companies
+    const archivedConnections = await prismaWithVerification.dealerCompany.findMany({
+      where: {
+        dealerId: dealer.id,
+        archivedByDealer: true,
+      },
+      include: {
+        company: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            owner: {
+              select: {
+                name: true,
+                phone: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        updatedAt: "desc",
+      },
+    });
+
+    // Format the response
+    const companies = archivedConnections.map((connection: any) => ({
+      id: connection.company.id,
+      name: connection.company.name,
+      address: connection.company.address,
+      connectedAt: connection.connectedAt,
+      connectedVia: connection.connectedVia,
+      dealerCompanyId: connection.id,
+      owner: connection.company.owner,
+    }));
+
+    return res.json({
+      success: true,
+      data: companies,
+    });
+  } catch (error: any) {
+    console.error("Get archived dealer companies error:", error);
     return res.status(500).json({
       success: false,
       message: error.message || "Internal server error",

@@ -67,6 +67,7 @@ export const dealerFarmerKeys = {
   requests: (params?: GetFarmerRequestsParams) => 
     [...dealerFarmerKeys.all, "requests", params] as const,
   farmers: () => [...dealerFarmerKeys.all, "farmers"] as const,
+  archivedFarmers: () => [...dealerFarmerKeys.all, "archived-farmers"] as const,
   farmer: (id: string) => [...dealerFarmerKeys.all, "farmer", id] as const,
 };
 
@@ -98,6 +99,19 @@ export const useGetConnectedFarmers = () => {
     queryFn: async () => {
       const { data } = await axiosInstance.get<ConnectedFarmersResponse>(
         "/verification/dealers/farmers"
+      );
+      return data;
+    },
+  });
+};
+
+// Get archived farmers
+export const useGetArchivedDealerFarmers = () => {
+  return useQuery<ConnectedFarmersResponse>({
+    queryKey: dealerFarmerKeys.archivedFarmers(),
+    queryFn: async () => {
+      const { data } = await axiosInstance.get<ConnectedFarmersResponse>(
+        "/verification/dealers/farmers/archived"
       );
       return data;
     },
@@ -136,6 +150,42 @@ export const useRejectFarmerRequest = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dealerFarmerKeys.all });
+    },
+  });
+};
+
+// Archive dealer-farmer connection
+export const useArchiveDealerFarmer = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (connectionId: string) => {
+      const { data } = await axiosInstance.post(
+        `/verification/dealers/farmers/${connectionId}/archive`
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealerFarmerKeys.farmers() });
+      queryClient.invalidateQueries({ queryKey: dealerFarmerKeys.archivedFarmers() });
+    },
+  });
+};
+
+// Unarchive dealer-farmer connection
+export const useUnarchiveDealerFarmer = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (connectionId: string) => {
+      const { data } = await axiosInstance.post(
+        `/verification/dealers/farmers/${connectionId}/unarchive`
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealerFarmerKeys.farmers() });
+      queryClient.invalidateQueries({ queryKey: dealerFarmerKeys.archivedFarmers() });
     },
   });
 };

@@ -40,10 +40,10 @@ export const useGetAllDealers = (params?: {
     queryKey: dealerKeys.list(params || {}),
     queryFn: async () => {
       const response = await axiosInstance.get("/dealers", { params });
-      console.log(response.data);
+      console.log("📦 Dealers Response:", response.data);
       return response.data;
     },
-    enabled: options?.enabled === true,
+    enabled: options?.enabled !== false, // Default to enabled unless explicitly disabled
   });
 };
 
@@ -56,9 +56,10 @@ export const useGetDealerStatistics = (options?: { enabled?: boolean }) => {
     queryKey: dealerKeys.statistics(),
     queryFn: async () => {
       const response = await axiosInstance.get("/dealers/statistics");
+      console.log("📊 Statistics Response:", response.data);
       return response.data;
     },
-    enabled: options?.enabled === true,
+    enabled: options?.enabled !== false, // Default to enabled unless explicitly disabled
   });
 };
 

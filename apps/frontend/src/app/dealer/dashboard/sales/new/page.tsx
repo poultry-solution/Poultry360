@@ -56,9 +56,7 @@ interface SaleItem {
 export default function NewSalePage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
-  const [customerType, setCustomerType] = useState<"customer" | "farmer" | null>(null);
   const [customerId, setCustomerId] = useState<string>("");
-  const [farmerId, setFarmerId] = useState<string>("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [items, setItems] = useState<SaleItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState("");
@@ -76,30 +74,20 @@ export default function NewSalePage() {
 
   // Queries
   const { data: productsData } = useGetProducts();
-  const { data: searchResults } = useSearchCustomers(
-    customerSearch,
-    customerType || "all"
-  );
+  const { data: searchResults } = useSearchCustomers(customerSearch);
   const createSaleMutation = useCreateDealerSale();
   const createCustomerMutation = useCreateCustomer();
 
   const products = productsData?.data || [];
-  const customers = searchResults?.data?.customers || [];
-  const farmers = searchResults?.data?.farmers || [];
+  const customers = searchResults?.data || [];
 
   // Calculate totals
   const totalAmount = items.reduce((sum, item) => sum + item.totalAmount, 0);
   const dueAmount = totalAmount - paidAmount;
 
-  // Step 1: Select Customer/Farmer
-  const handleCustomerSelect = (id: string, type: "customer" | "farmer") => {
-    if (type === "customer") {
-      setCustomerId(id);
-      setFarmerId("");
-    } else {
-      setFarmerId(id);
-      setCustomerId("");
-    }
+  // Step 1: Select Customer
+  const handleCustomerSelect = (id: string) => {
+    setCustomerId(id);
     setStep(2);
   };
 
@@ -112,7 +100,6 @@ export default function NewSalePage() {
     try {
       const result = await createCustomerMutation.mutateAsync(newCustomerData);
       setCustomerId(result.data.id);
-      setFarmerId("");
       setIsCreateCustomerOpen(false);
       setNewCustomerData({ name: "", phone: "", address: "", category: "" });
       setStep(2);
@@ -199,8 +186,8 @@ export default function NewSalePage() {
       return;
     }
 
-    if (!customerId && !farmerId) {
-      toast.error("Please select a customer or farmer");
+    if (!customerId) {
+      toast.error("Please select a customer");
       return;
     }
 
@@ -211,8 +198,7 @@ export default function NewSalePage() {
 
     try {
       await createSaleMutation.mutateAsync({
-        customerId: customerId || undefined,
-        farmerId: farmerId || undefined,
+        customerId,
         items: items.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
@@ -301,88 +287,42 @@ export default function NewSalePage() {
       {step === 1 && (
         <Card>
           <CardHeader>
-            <CardTitle>Select Customer or Farmer</CardTitle>
+            <CardTitle>Select Customer</CardTitle>
             <CardDescription>
-              Search for an existing customer or farmer, or create a new one
+              Search for an existing customer or create a new one
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search by name or phone..."
-                  value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select
-                value={customerType || "ALL"}
-                onValueChange={(value) =>
-                  setCustomerType(value === "ALL" ? null : (value as "customer" | "farmer"))
-                }
-              >
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All</SelectItem>
-                  <SelectItem value="customer">Customers</SelectItem>
-                  <SelectItem value="farmer">Farmers</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or phone..."
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                className="pl-10"
+              />
             </div>
 
             {/* Customer Results */}
             {customerSearch.length >= 2 && (
-              <div className="space-y-4">
-                {customers.length > 0 && (
-                  <div>
-                    <h3 className="font-medium mb-2">Customers</h3>
-                    <div className="space-y-2">
-                      {customers.map((customer: any) => (
-                        <div
-                          key={customer.id}
-                          className="p-3 border rounded-lg hover:bg-accent cursor-pointer"
-                          onClick={() => handleCustomerSelect(customer.id, "customer")}
-                        >
-                          <div className="font-medium">{customer.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {customer.phone}
-                            {customer.address && ` • ${customer.address}`}
-                          </div>
-                        </div>
-                      ))}
+              <div className="space-y-2">
+                {customers.length > 0 ? (
+                  customers.map((customer: any) => (
+                    <div
+                      key={customer.id}
+                      className="p-3 border rounded-lg hover:bg-accent cursor-pointer"
+                      onClick={() => handleCustomerSelect(customer.id)}
+                    >
+                      <div className="font-medium">{customer.name}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {customer.phone}
+                        {customer.address && ` • ${customer.address}`}
+                      </div>
                     </div>
-                  </div>
-                )}
-
-                {/* Farmer Results */}
-                {farmers.length > 0 && (
-                  <div>
-                    <h3 className="font-medium mb-2">Farmers</h3>
-                    <div className="space-y-2">
-                      {farmers.map((farmer: any) => (
-                        <div
-                          key={farmer.id}
-                          className="p-3 border rounded-lg hover:bg-accent cursor-pointer"
-                          onClick={() => handleCustomerSelect(farmer.id, "farmer")}
-                        >
-                          <div className="font-medium">{farmer.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {farmer.phone}
-                            {farmer.companyName && ` • ${farmer.companyName}`}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {customers.length === 0 && farmers.length === 0 && customerSearch.length >= 2 && (
+                  ))
+                ) : (
                   <div className="text-center py-8 text-muted-foreground">
-                    No results found
+                    No customers found
                   </div>
                 )}
               </div>

@@ -7,8 +7,7 @@ export class DealerService {
    */
   static async createDealerSale(data: {
     dealerId: string;
-    customerId?: string;
-    farmerId?: string;
+    customerId: string;
     items: Array<{
       productId: string;
       quantity: number;
@@ -22,7 +21,6 @@ export class DealerService {
     const {
       dealerId,
       customerId,
-      farmerId,
       items,
       paidAmount,
       paymentMethod,
@@ -30,9 +28,9 @@ export class DealerService {
       date,
     } = data;
 
-    // Validate that either customerId or farmerId is provided
-    if (!customerId && !farmerId) {
-      throw new Error("Either customerId or farmerId must be provided");
+    // Validate that customerId is provided
+    if (!customerId) {
+      throw new Error("Customer ID is required");
     }
 
     return await prisma.$transaction(async (tx) => {
@@ -76,7 +74,6 @@ export class DealerService {
           notes,
           dealerId,
           customerId,
-          farmerId,
         },
       });
 
@@ -153,8 +150,8 @@ export class DealerService {
           reference: invoiceNumber,
           dealerId,
           saleId: sale.id,
-          partyId: customerId || farmerId,
-          partyType: customerId ? "CUSTOMER" : "FARMER",
+          partyId: customerId,
+          partyType: "CUSTOMER",
         },
       });
 
@@ -171,8 +168,8 @@ export class DealerService {
             reference: invoiceNumber,
             dealerId,
             saleId: sale.id,
-            partyId: customerId || farmerId,
-            partyType: customerId ? "CUSTOMER" : "FARMER",
+            partyId: customerId,
+            partyType: "CUSTOMER",
           },
         });
       }
@@ -188,7 +185,6 @@ export class DealerService {
           },
           payments: true,
           customer: true,
-          farmer: true,
         },
       });
     });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, Users, Edit, Trash2, Phone, MapPin } from "lucide-react";
+import { Plus, Search, Users, Edit, Trash2, Phone, MapPin, Link2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -28,6 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/common/components/ui/label";
+import { Badge } from "@/common/components/ui/badge";
 import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -39,6 +40,8 @@ interface Customer {
   address?: string;
   category?: string;
   balance: number;
+  source?: string; // "MANUAL" | "CONNECTED"
+  farmerId?: string; // Link to farmer for connected customers
   createdAt: Date;
 }
 
@@ -223,7 +226,20 @@ export default function DealerCustomersPage() {
               <TableBody>
                 {customers.map((customer) => (
                   <TableRow key={customer.id}>
-                    <TableCell className="font-medium">{customer.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {customer.name}
+                        {customer.source === "CONNECTED" && (
+                          <Badge
+                            variant="secondary"
+                            className="bg-blue-100 text-blue-800 hover:bg-blue-100 text-xs"
+                          >
+                            <Link2 className="h-3 w-3 mr-1" />
+                            Connected
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Phone className="h-4 w-4 text-muted-foreground" />
