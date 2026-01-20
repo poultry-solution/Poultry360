@@ -980,7 +980,7 @@ export const closeBatch = async (req: Request, res: Response): Promise<any> => {
 
       // Calculate final summary after accounting for remaining chicks
       const finalNaturalMortality = totalDeadChicks + remainingChicks;
-      
+
       return {
         batch: closedBatch,
         summary: {
@@ -999,7 +999,7 @@ export const closeBatch = async (req: Request, res: Response): Promise<any> => {
           totalSalesWeight: Number(totalSales._sum.weight || 0),
           daysActive: Math.ceil(
             (batchEndDate.getTime() - existingBatch.startDate.getTime()) /
-              (1000 * 60 * 60 * 24)
+            (1000 * 60 * 60 * 24)
           ),
         },
       };
@@ -1133,8 +1133,8 @@ export const getBatchClosureSummary = async (
 
     // Only provide closure summary for completed batches
     if (batch.status !== BatchStatus.COMPLETED) {
-      return res.status(400).json({ 
-        message: "Batch closure summary is only available for completed batches" 
+      return res.status(400).json({
+        message: "Batch closure summary is only available for completed batches"
       });
     }
 
@@ -1199,23 +1199,23 @@ export const getBatchClosureSummary = async (
     const birdsSold = Number(totalSaleMortality._sum.count || 0);
     const remainingAtClosure = Number(closureMortality._sum.count || 0);
     const totalMortality = naturalDeaths + remainingAtClosure;
-    
+
     const revenue = Number(totalSales._sum.amount || 0);
     const expenses = Number(totalExpenses._sum.amount || 0);
     const profit = revenue - expenses;
-    
-    const daysActive = batch.endDate && batch.startDate 
+
+    const daysActive = batch.endDate && batch.startDate
       ? Math.ceil((batch.endDate.getTime() - batch.startDate.getTime()) / (1000 * 60 * 60 * 24))
       : 0;
 
     // Calculate efficiency metrics
-    const mortalityRate = batch.initialChicks > 0 
-      ? (naturalDeaths / batch.initialChicks) * 100 
+    const mortalityRate = batch.initialChicks > 0
+      ? (naturalDeaths / batch.initialChicks) * 100
       : 0;
-    
+
     const profitMargin = revenue > 0 ? (profit / revenue) * 100 : 0;
     const roi = expenses > 0 ? (profit / expenses) * 100 : 0;
-    
+
     const revenuePerBird = batch.initialChicks > 0 ? revenue / batch.initialChicks : 0;
     const costPerBird = batch.initialChicks > 0 ? expenses / batch.initialChicks : 0;
     const profitPerBird = batch.initialChicks > 0 ? profit / batch.initialChicks : 0;
@@ -1226,12 +1226,12 @@ export const getBatchClosureSummary = async (
         batchId: id,
         batchNumber: batch.batchNumber,
         status: batch.status,
-        
+
         // Timeline
         startDate: batch.startDate,
         endDate: batch.endDate,
         daysActive,
-        
+
         // Bird tracking
         initialChicks: batch.initialChicks,
         birdsSold,
@@ -1239,24 +1239,24 @@ export const getBatchClosureSummary = async (
         remainingAtClosure,
         totalMortality,
         mortalityRate,
-        
+
         // Financial summary
         totalRevenue: revenue,
         totalExpenses: expenses,
         netProfit: profit,
         profitMargin,
         roi,
-        
+
         // Per-bird metrics
         revenuePerBird,
         costPerBird,
         profitPerBird,
-        
+
         // Sales details
         totalSalesCount: totalSales._count,
         totalSalesQuantity: Number(totalSales._sum.quantity || 0),
         totalSalesWeight: Number(totalSales._sum.weight || 0),
-        
+
         // Expense breakdown
         totalExpenseCount: totalExpenses._count,
         expensesByCategory: await Promise.all(
@@ -1273,7 +1273,7 @@ export const getBatchClosureSummary = async (
             };
           })
         ),
-        
+
         // Closure notes
         closureNotes: batch.notes,
       },
@@ -1420,23 +1420,23 @@ export const getBatchAnalytics = async (
     // Initial total weight = Initial chicks * Initial average weight (assume 0.05kg per chick)
     const initialWeightPerChick = 0.05; // 50g average weight of day-old chick
     const initialTotalWeight = batch.initialChicks * initialWeightPerChick;
-    
+
     const currentTotalWeight = latestWeight && currentChicks > 0
       ? Number(latestWeight.avgWeight) * currentChicks
       : 0;
-    
+
     const totalWeightGained = Math.max(0, currentTotalWeight - initialTotalWeight);
-    
+
     // FCR can only be calculated if we have both feed consumption and weight gain
     const fcr = (totalWeightGained > 0 && totalFeedConsumptionAmount > 0)
-      ? totalFeedConsumptionAmount / totalWeightGained 
+      ? totalFeedConsumptionAmount / totalWeightGained
       : null;
 
     // Calculate days active and batch age
     const daysActive = Math.ceil(
       (new Date().getTime() - batch.startDate.getTime()) / (1000 * 60 * 60 * 24)
     );
-    
+
     // Calculate batch age (same as days active for now, but can be different if needed)
     const standardVaccinationService = getStandardVaccinationService();
     const batchAge = standardVaccinationService.calculateBatchAge(batch.startDate);
@@ -1468,13 +1468,13 @@ export const getBatchAnalytics = async (
           currentTotalWeight,
           totalWeightGained,
           initialWeightPerChick,
-          status: fcr ? 'calculated' : 
-                  totalWeightGained <= 0 ? 'no_weight_data' :
-                  totalFeedConsumptionAmount <= 0 ? 'no_feed_data' : 'insufficient_data',
+          status: fcr ? 'calculated' :
+            totalWeightGained <= 0 ? 'no_weight_data' :
+              totalFeedConsumptionAmount <= 0 ? 'no_feed_data' : 'insufficient_data',
           message: fcr ? 'FCR calculated successfully' :
-                  totalWeightGained <= 0 ? 'Weight data required - record bird weights to calculate FCR' :
-                  totalFeedConsumptionAmount <= 0 ? 'Feed consumption data required - record feed usage to calculate FCR' :
-                  'Insufficient data to calculate FCR',
+            totalWeightGained <= 0 ? 'Weight data required - record bird weights to calculate FCR' :
+              totalFeedConsumptionAmount <= 0 ? 'Feed consumption data required - record feed usage to calculate FCR' :
+                'Insufficient data to calculate FCR',
         },
         daysActive,
         batchAge,

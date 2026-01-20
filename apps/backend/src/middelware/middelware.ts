@@ -54,6 +54,6 @@ export const authMiddleware = (
   if (allowedRoles.length > 0 && !allowedRoles.includes(role)) {
     return res.status(403).json({ error: "Access denied for this role" });
   }
-  
+
   next();
 };

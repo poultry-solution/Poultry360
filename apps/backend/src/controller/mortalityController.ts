@@ -250,7 +250,7 @@ export const getBatchMortalities = async (
 
     // Get only natural deaths for display (excluding sales)
     const mortalities = await prisma.mortality.findMany({
-      where: { 
+      where: {
         batchId,
         NOT: {
           reason: "SLAUGHTERED_FOR_SALE", // Exclude sale-related mortality from display
@@ -273,7 +273,7 @@ export const getBatchMortalities = async (
     // Calculate statistics using ALL mortalities (including sales for accurate current birds)
     const totalAllMortality = allMortalities.reduce((sum, m) => sum + m.count, 0);
     const currentBirds = batch.initialChicks - totalAllMortality;
-    
+
     // Calculate natural mortality stats (excluding sales)
     const totalNaturalMortality = mortalities.reduce((sum, m) => sum + m.count, 0);
     const mortalityRate = (totalNaturalMortality / batch.initialChicks) * 100;
@@ -318,13 +318,13 @@ export const createMortality = async (
 
     // Validate request body
     console.log("Received mortality data:", req.body);
-    
+
     // Handle date conversion if it's a string
     const requestData = {
       ...req.body,
       date: req.body.date ? new Date(req.body.date) : req.body.date
     };
-    
+
     const { success, data, error } = CreateMortalitySchema.safeParse(requestData);
     if (!success) {
       console.log("Validation error:", error);
@@ -402,7 +402,7 @@ export const createMortality = async (
       try {
         const { mortalityNotificationService } = await import('../services/mortalityNotificationService');
         const result = await mortalityNotificationService.checkBatchMortalityThresholds(batchId);
-        
+
         if (result.thresholdExceeded !== 'none') {
           console.log(`Mortality threshold ${result.thresholdExceeded} exceeded for batch ${mortality.batch.batchNumber}: ${result.mortalityRate.toFixed(2)}%`);
         }
@@ -439,7 +439,7 @@ export const updateMortality = async (
       ...req.body,
       date: req.body.date ? new Date(req.body.date) : req.body.date
     };
-    
+
     const { date, count, reason } = requestData;
 
     // Check if mortality exists and user has access

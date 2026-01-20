@@ -82,7 +82,7 @@ export const getAllDealers = async (
       });
 
       const connectedDealerIds = dealerFarmers.map((df) => df.dealerId);
-      
+
       // Store connection metadata for later use
       dealerFarmers.forEach((df) => {
         dealerFarmerConnections.set(df.dealerId, {
@@ -656,7 +656,7 @@ export const addDealerTransaction = async (
         message: "No User found in COntrooler",
       });
     }
-  
+
     const {
       type,
       amount,
@@ -805,7 +805,7 @@ export const addDealerTransaction = async (
           if (dealerSale && dealerSale.customer?.farmerId === currentUserId) {
             // This is a linked sale - create payment request instead of direct payment
             const { DealerSalePaymentRequestService } = await import("../services/dealerSalePaymentRequestService");
-            
+
             const paymentRequest = await DealerSalePaymentRequestService.createPaymentRequest({
               dealerSaleId: dealerSale.id,
               farmerId: currentUserId,
@@ -867,9 +867,9 @@ export const deleteDealerTransaction = async (
 
     // Verify password is provided
     if (!password) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Password confirmation is required for deletion" 
+        message: "Password confirmation is required for deletion"
       });
     }
 
@@ -884,11 +884,11 @@ export const deleteDealerTransaction = async (
 
     const bcrypt = require('bcrypt');
     const isValidPassword = await bcrypt.compare(password, user.password);
-    
+
     if (!isValidPassword) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Invalid password. Deletion cancelled." 
+        message: "Invalid password. Deletion cancelled."
       });
     }
 
@@ -966,7 +966,7 @@ export const deleteDealerTransaction = async (
         });
 
         console.log("🔍 Found related payment transactions:", relatedPaymentTxns);
-        
+
         // Delete related payment transactions
         for (const paymentTxn of relatedPaymentTxns) {
           console.log("🗑️ Deleting related payment transaction:", paymentTxn.id);
@@ -1030,7 +1030,7 @@ export const deleteDealerTransaction = async (
     const verifyDeleted = await prisma.entityTransaction.findFirst({
       where: { id: transactionId },
     });
-    
+
     if (verifyDeleted) {
       console.error("❌ Transaction still exists after deletion attempt:", verifyDeleted);
       return res.status(500).json({ message: "Transaction deletion failed" });

@@ -227,7 +227,7 @@ export const updateReminder = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Error updating reminder:', error);
-    
+
     if (error.message === 'Reminder not found or access denied') {
       return res.status(404).json({
         success: false,
@@ -258,7 +258,7 @@ export const deleteReminder = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Error deleting reminder:', error);
-    
+
     if (error.message === 'Reminder not found or access denied') {
       return res.status(404).json({
         success: false,
@@ -344,7 +344,7 @@ export const markReminderAsCompleted = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Error marking reminder as completed:', error);
-    
+
     if (error.message === 'Reminder not found or access denied') {
       return res.status(404).json({
         success: false,
@@ -367,7 +367,7 @@ export const markReminderAsNotDone = async (req: Request, res: Response) => {
     const userId = req.userId as string;
     const { id } = req.params;
 
-    const reschedule_minutes =  60;
+    const reschedule_minutes = 60;
 
     const reminder = await reminderService.markAsNotDone(id, userId, reschedule_minutes);
 
@@ -378,7 +378,7 @@ export const markReminderAsNotDone = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Error marking reminder as not done:', error);
-    
+
     if (error.message === 'Reminder not found or access denied') {
       return res.status(404).json({
         success: false,

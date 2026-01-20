@@ -86,11 +86,11 @@ export class MortalityNotificationService {
           continue;
         }
 
-        const notificationType = thresholdExceeded === 'critical' 
-          ? NotificationType.MORTALITY_ALERT 
+        const notificationType = thresholdExceeded === 'critical'
+          ? NotificationType.MORTALITY_ALERT
           : NotificationType.MORTALITY_ALERT;
 
-        const title = thresholdExceeded === 'critical' 
+        const title = thresholdExceeded === 'critical'
           ? `🚨 Critical Mortality Alert - Batch ${batch.batchNumber}`
           : `⚠️ High Mortality Warning - Batch ${batch.batchNumber}`;
 
@@ -160,7 +160,7 @@ export class MortalityNotificationService {
         try {
           const result = await this.checkBatchMortalityThresholds(batch.id);
           totalNotificationsSent += result.notificationsSent;
-          
+
           if (result.thresholdExceeded !== 'none') {
             batchesWithAlerts++;
             console.log(`Alert triggered for batch ${batch.batchNumber}: ${result.thresholdExceeded} (${result.mortalityRate.toFixed(2)}%)`);

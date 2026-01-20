@@ -24,7 +24,7 @@ export class ReminderOrchestrator {
     errors: string[];
   }> {
     console.log('🔔 Starting reminder processing...');
-    
+
     const results = {
       processed: 0,
       successful: 0,
@@ -43,12 +43,12 @@ export class ReminderOrchestrator {
 
       // Get newly due reminders (PENDING -> OVERDUE)
       const dueReminders = await this.reminderService.getDueReminders();
-      
+
       // Get already overdue reminders (keep sending notifications)
       const overdueReminders = await this.reminderService.getOverdueReminders();
-      
+
       const allReminders = [...dueReminders, ...overdueReminders];
-      
+
       if (allReminders.length === 0) {
         console.log('✅ No due or overdue reminders found');
         return results;
@@ -59,7 +59,7 @@ export class ReminderOrchestrator {
       // Process each reminder
       for (const reminder of allReminders) {
         results.processed++;
-        
+
         try {
           await this.processReminder(reminder);
           results.successful++;
@@ -73,7 +73,7 @@ export class ReminderOrchestrator {
       }
 
       console.log(`🎯 Reminder processing completed: ${results.successful}/${results.processed} successful`);
-      
+
     } catch (error: any) {
       const errorMsg = `Failed to fetch due reminders: ${error.message}`;
       results.errors.push(errorMsg);
@@ -103,7 +103,7 @@ export class ReminderOrchestrator {
 
     // Get notification type for this reminder
     const notificationType = getNotificationTypeForReminder(reminder.type);
-    
+
     // Create notification payload - special handling for vaccination reminders
     const payload = this.createNotificationPayload(reminder, notificationType);
 
@@ -173,12 +173,12 @@ export class ReminderOrchestrator {
     // Check if this is a standard vaccination with custom notification payload
     if (reminder.data?.notificationPayload) {
       const payload = reminder.data.notificationPayload;
-      
+
       // Update vaccinationId in the payload if it's available
       if (reminder.data?.vaccinationId) {
         payload.vaccinationId = reminder.data.vaccinationId;
       }
-      
+
       return {
         title: reminder.title,
         body: reminder.description,
@@ -195,9 +195,9 @@ export class ReminderOrchestrator {
 
     // Fallback for custom vaccinations (existing logic)
     const isTomorrowReminder = reminder.data?.reminderType === 'vaccination_tomorrow';
-    
+
     // Different titles and bodies for tomorrow vs due vaccinations
-    const title = isTomorrowReminder 
+    const title = isTomorrowReminder
       ? `🩺 Vaccination Tomorrow: ${reminder.data?.vaccineName || 'Vaccination'}`
       : `🩺 Vaccination Due: ${reminder.data?.vaccineName || 'Vaccination'}`;
 
@@ -206,7 +206,7 @@ export class ReminderOrchestrator {
       : `${reminder.data?.vaccineName || 'Vaccination'} is due now${reminder.batch ? ` for Batch ${reminder.batch.batchNumber}` : ''}`;
 
     // Add dose information if available
-    const doseInfo = reminder.data?.totalDoses > 1 
+    const doseInfo = reminder.data?.totalDoses > 1
       ? ` (Dose ${reminder.data?.doseNumber}/${reminder.data?.totalDoses})`
       : '';
 
@@ -250,11 +250,11 @@ export class ReminderOrchestrator {
     if (reminder.batchId) {
       return `/dashboard/batches/${reminder.batchId}`;
     }
-    
+
     if (reminder.farmId) {
       return `/dashboard/farms/${reminder.farmId}`;
     }
-    
+
     return '/dashboard/reminders';
   }
 
@@ -266,11 +266,11 @@ export class ReminderOrchestrator {
     if (reminder.batchId) {
       return `/dashboard/batches/${reminder.batchId}?tab=vaccinations`;
     }
-    
+
     if (reminder.farmId) {
       return `/dashboard/farms/${reminder.farmId}?tab=vaccinations`;
     }
-    
+
     return '/dashboard/vaccinations';
   }
 
@@ -284,7 +284,7 @@ export class ReminderOrchestrator {
     errors: string[];
   }> {
     console.log(`🔔 Processing reminders for user ${userId}...`);
-    
+
     const results = {
       processed: 0,
       successful: 0,
@@ -298,7 +298,7 @@ export class ReminderOrchestrator {
         status: 'PENDING'
       });
 
-      const dueReminders = userReminders.reminders.filter((reminder: any) => 
+      const dueReminders = userReminders.reminders.filter((reminder: any) =>
         new Date(reminder.dueDate) <= new Date()
       );
 
@@ -312,7 +312,7 @@ export class ReminderOrchestrator {
       // Process each reminder
       for (const reminder of dueReminders) {
         results.processed++;
-        
+
         try {
           await this.processReminder(reminder);
           results.successful++;
@@ -326,7 +326,7 @@ export class ReminderOrchestrator {
       }
 
       console.log(`🎯 User reminder processing completed: ${results.successful}/${results.processed} successful`);
-      
+
     } catch (error: any) {
       const errorMsg = `Failed to fetch user reminders: ${error.message}`;
       results.errors.push(errorMsg);
@@ -345,9 +345,9 @@ export class ReminderOrchestrator {
   }> {
     try {
       console.log(`🔔 Processing specific reminder ${reminderId} for user ${userId}...`);
-      
+
       const reminder = await this.reminderService.getReminderById(reminderId, userId);
-      
+
       if (!reminder) {
         return {
           success: false,
@@ -370,11 +370,11 @@ export class ReminderOrchestrator {
       }
 
       await this.processReminder(reminder);
-      
+
       console.log(`✅ Successfully processed reminder: ${reminder.title}`);
-      
+
       return { success: true };
-      
+
     } catch (error: any) {
       const errorMsg = `Failed to process reminder: ${error.message}`;
       console.error(`❌ ${errorMsg}`);
@@ -395,24 +395,24 @@ export class ReminderOrchestrator {
   }> {
     try {
       const dueReminders = await this.reminderService.getDueReminders();
-      
+
       const byType: Record<string, number> = {};
       const byUser: Record<string, number> = {};
-      
+
       dueReminders.forEach((reminder: any) => {
         // Count by type
         byType[reminder.type] = (byType[reminder.type] || 0) + 1;
-        
+
         // Count by user
         byUser[reminder.userId] = (byUser[reminder.userId] || 0) + 1;
       });
-      
+
       return {
         totalDue: dueReminders.length,
         byType,
         byUser
       };
-      
+
     } catch (error: any) {
       console.error('Failed to get due reminder stats:', error);
       return {
@@ -433,7 +433,7 @@ export class ReminderOrchestrator {
     errors: string[];
   }> {
     console.log('🩺 Starting vaccination reminder processing...');
-    
+
     const results = {
       processed: 0,
       successful: 0,
@@ -447,7 +447,7 @@ export class ReminderOrchestrator {
 
       // Get vaccination reminders specifically
       const vaccinationReminders = await this.reminderService.getDueReminders();
-      const filteredReminders = vaccinationReminders.filter((reminder: any) => 
+      const filteredReminders = vaccinationReminders.filter((reminder: any) =>
         reminder.type === 'VACCINATION'
       );
 
@@ -461,7 +461,7 @@ export class ReminderOrchestrator {
       // Process each vaccination reminder
       for (const reminder of filteredReminders) {
         results.processed++;
-        
+
         try {
           await this.processReminder(reminder);
           results.successful++;
@@ -475,7 +475,7 @@ export class ReminderOrchestrator {
       }
 
       console.log(`🎯 Vaccination reminder processing completed: ${results.successful}/${results.processed} successful`);
-      
+
     } catch (error: any) {
       const errorMsg = `Failed to process vaccination reminders: ${error.message}`;
       results.errors.push(errorMsg);
@@ -491,7 +491,7 @@ export class ReminderOrchestrator {
   private async processStandardVaccinationReminders(): Promise<void> {
     try {
       console.log('🩺 Processing standard vaccination reminders for all active batches...');
-      
+
       // Get all active batches
       const activeBatches = await prisma.batch.findMany({
         where: { status: 'ACTIVE' },
@@ -504,7 +504,7 @@ export class ReminderOrchestrator {
         try {
           // Calculate batch age
           const currentAge = this.standardVaccinationService.calculateBatchAge(batch.startDate);
-          
+
           // Create batch info
           const batchInfo = {
             batchId: batch.id,
@@ -517,7 +517,7 @@ export class ReminderOrchestrator {
 
           // Create standard vaccination reminders for this batch
           await this.standardVaccinationService.createStandardVaccinationReminders(batchInfo);
-          
+
           console.log(`✅ Processed standard vaccination reminders for batch ${batch.batchNumber} (age: ${currentAge} days)`);
         } catch (batchError: any) {
           console.error(`❌ Failed to process standard vaccination reminders for batch ${batch.batchNumber}:`, batchError.message);

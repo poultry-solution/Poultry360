@@ -24,7 +24,7 @@ export class RoomService {
   private socketUsers: Map<string, string> = new Map(); // socketId -> userId
   private onlineUserIds: Set<string> = new Set(); // presence by connection, independent of rooms
 
-  constructor(private io: SocketIOServer) {}
+  constructor(private io: SocketIOServer) { }
 
   /**
    * Create or get a conversation room
@@ -199,7 +199,7 @@ export class RoomService {
    */
   async markUserOnline(userId: string): Promise<void> {
     this.onlineUserIds.add(userId);
-    
+
     // Update database status
     try {
       await prisma.user.update({
@@ -223,7 +223,7 @@ export class RoomService {
   async markUserOffline(userId: string | undefined): Promise<void> {
     if (!userId) return;
     this.onlineUserIds.delete(userId);
-    
+
     // Update database status
     try {
       await prisma.user.update({
@@ -318,7 +318,7 @@ export class RoomService {
     // If room doesn't exist, create it (happens when users haven't joined yet or after server restart)
     if (!room) {
       console.log(`🔄 Room not in memory, creating it for conversation ${conversationId}`);
-      
+
       // Fetch conversation details from DB
       const conversation = await prisma.conversation.findUnique({
         where: { id: conversationId },
@@ -351,7 +351,7 @@ export class RoomService {
 
     // Mark message as delivered to online users
     const onlineUserIds = Array.from(room.users.values()).map(user => user.userId);
-    
+
     // Update message read status for online users (except sender)
     if (onlineUserIds.length > 1) {
       await prisma.message.updateMany({
@@ -448,10 +448,10 @@ export const getRoomService = (io?: SocketIOServer): RoomService => {
   if (!roomServiceInstance && io) {
     roomServiceInstance = new RoomService(io);
   }
-  
+
   if (!roomServiceInstance) {
     throw new Error('RoomService not initialized. Call getRoomService(io) first.');
   }
-  
+
   return roomServiceInstance;
 };

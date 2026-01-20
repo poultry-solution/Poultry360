@@ -57,7 +57,7 @@ export const sendTestReminderNotification = async (req: Request, res: Response) 
 export const triggerAllDueReminders = async (req: Request, res: Response) => {
   try {
     console.log('🔔 [MANUAL] Triggering all due reminders...');
-    
+
     const results = await reminderOrchestrator.triggerReminders();
 
     res.json({

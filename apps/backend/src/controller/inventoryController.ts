@@ -337,7 +337,7 @@ export const createInventoryItem = async (
     try {
       const { inventoryNotificationService } = await import('../services/inventoryNotificationService');
       const result = await inventoryNotificationService.checkUserInventoryLevels(currentUserId as string);
-      
+
       if (result.thresholdExceeded !== 'none') {
         console.log(`Inventory threshold ${result.thresholdExceeded} exceeded for user ${currentUserId}`);
       }
@@ -423,7 +423,7 @@ export const updateInventoryItem = async (
     try {
       const { inventoryNotificationService } = await import('../services/inventoryNotificationService');
       const result = await inventoryNotificationService.checkUserInventoryLevels(currentUserId as string);
-      
+
       if (result.thresholdExceeded !== 'none') {
         console.log(`Inventory threshold ${result.thresholdExceeded} exceeded for user ${currentUserId}`);
       }
@@ -560,7 +560,7 @@ export const addInventoryTransaction = async (
     try {
       const { inventoryNotificationService } = await import('../services/inventoryNotificationService');
       const notificationResult = await inventoryNotificationService.checkUserInventoryLevels(currentUserId as string);
-      
+
       if (notificationResult.thresholdExceeded !== 'none') {
         console.log(`Inventory threshold ${notificationResult.thresholdExceeded} exceeded for user ${currentUserId}`);
       }

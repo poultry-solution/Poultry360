@@ -456,6 +456,20 @@ export class DealerService {
         remainingPayment -= allocationAmount;
       }
 
+      // 3b. If there's remaining payment (advance), sync it to EntityTransaction
+      if (remainingPayment > 0 && customer.farmerId) {
+        await tx.entityTransaction.create({
+          data: {
+            type: "PAYMENT",
+            amount: new Prisma.Decimal(remainingPayment),
+            date,
+            description: description || `Advance payment - रू ${remainingPayment.toFixed(2)} credit`,
+            dealerId,
+            reference: "ADVANCE",
+          },
+        });
+      }
+
       // 4. Update Customer.balance with the full payment
       // Positive balance = customer owes dealer
       // Negative balance = dealer owes customer (advance)

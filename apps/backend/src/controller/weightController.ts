@@ -160,13 +160,13 @@ export const getBirdWeights = async (
     if (weights.length >= 2) {
       const latestWeight = weights[0];
       const earliestWeight = weights[weights.length - 1];
-      
+
       const days = Math.floor(
         (new Date(latestWeight.date).getTime() -
           new Date(earliestWeight.date).getTime()) /
-          (1000 * 60 * 60 * 24)
+        (1000 * 60 * 60 * 24)
       );
-      
+
       if (days > 0) {
         totalGrowth = Number(latestWeight.avgWeight) - Number(earliestWeight.avgWeight);
         growthRate = totalGrowth / days;

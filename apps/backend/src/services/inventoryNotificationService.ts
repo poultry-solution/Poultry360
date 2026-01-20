@@ -69,7 +69,7 @@ export class InventoryNotificationService {
 
       // Determine threshold level
       let thresholdExceeded: 'none' | 'low_stock' | 'critical_stock' | 'out_of_stock' = 'none';
-      
+
       if (stats.outOfStockItems > 0) {
         thresholdExceeded = 'out_of_stock';
       } else if (stats.criticalStockItems > 0) {
@@ -224,7 +224,7 @@ export class InventoryNotificationService {
 
           const totalUsage = Number(recentUsage._sum.quantity || 0);
           const dailyUsage = totalUsage / 30;
-          
+
           if (dailyUsage > 0) {
             daysUntilEmpty = Math.floor(currentStock / dailyUsage);
           }
@@ -268,19 +268,19 @@ export class InventoryNotificationService {
           title: `🚨 Out of Stock Alert`,
           body: `${stats.outOfStockItems} item(s) are completely out of stock. Restock immediately to avoid operational delays.`,
         };
-      
+
       case 'critical_stock':
         return {
           title: `⚠️ Critical Stock Alert`,
           body: `${stats.criticalStockItems} item(s) are critically low on stock. Consider reordering soon to prevent stockouts.`,
         };
-      
+
       case 'low_stock':
         return {
           title: `📦 Low Stock Warning`,
           body: `${stats.lowStockItems} item(s) are running low on stock. Plan your next purchase to maintain adequate inventory levels.`,
         };
-      
+
       default:
         return {
           title: `Inventory Alert`,
@@ -313,7 +313,7 @@ export class InventoryNotificationService {
         try {
           const result = await this.checkUserInventoryLevels(user.id);
           totalNotificationsSent += result.notificationsSent;
-          
+
           if (result.thresholdExceeded !== 'none') {
             usersWithAlerts++;
             console.log(`Inventory alert triggered for user ${user.name}: ${result.thresholdExceeded}`);
