@@ -1,5 +1,7 @@
 import { ApiHelper } from '../helpers/api.helper';
 import { AuthHelper } from '../helpers/auth.helper';
+import { DatabaseHelper } from '../helpers/database.helper';
+import { TEST_USERS } from '../fixtures/users';
 
 describe('Payment Workflow', () => {
   let apiHelper: ApiHelper;
@@ -15,6 +17,12 @@ describe('Payment Workflow', () => {
     apiHelper = new ApiHelper();
     authHelper = new AuthHelper(apiHelper);
 
+    // Setup test users (create if missing, connect, and clean data)
+    await DatabaseHelper.setupTestUsers(
+      TEST_USERS.dealer,
+      TEST_USERS.farmer
+    );
+
     // Login and setup
     await authHelper.loginDealer();
     authHelper.setDealerAuth();
@@ -29,7 +37,7 @@ describe('Payment Workflow', () => {
     // Get product
     const productsResponse = await apiHelper.get('/dealer/products');
     productId = productsResponse.body.data[0].id;
-  });
+  }, 60000); // Increase timeout for database setup/cleanup
 
   describe('Setup: Create Multiple Unpaid Sales', () => {
     it('should create sale 1 (रू 1000, unpaid)', async () => {

@@ -2,10 +2,14 @@ export const TEST_USERS = {
   dealer: {
     phone: '+9779800000004',
     password: 'password123',
+    name: 'Test Dealer',
+    role: 'DEALER' as const,
   },
   farmer: {
-    phone: '+9779800000006',  // This farmer is connected to the dealer
+    phone: '+9779800000006',  // Auto-created and connected to dealer
     password: 'password123',
+    name: 'Test Farmer',
+    role: 'OWNER' as const,
   },
 };
 

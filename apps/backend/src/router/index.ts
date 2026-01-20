@@ -44,6 +44,12 @@ import farmerSaleRequestRoutes from "./farmerSaleRequestRoutes";
 import dealerPaymentRequestRoutes from "./dealerPaymentRequestRoutes";
 import farmerPaymentRequestRoutes from "./farmerPaymentRequestRoutes";
 
+// Test routes (only in test environment)
+let testRoutes: express.Router | null = null;
+if (process.env.NODE_ENV === 'test') {
+  testRoutes = require('../routes/test.routes').default;
+}
+
 const router = express.Router();
 
 router.use("/auth", authRoutes);
@@ -90,5 +96,10 @@ router.use("/account", accountRoutes);
 router.use("/admin/companies", adminCompanyRoutes);
 router.use("/admin/dealers", adminDealerRoutes);
 router.use("/public", publicRoutes);
+
+// Test routes (only in test environment)
+if (testRoutes) {
+  router.use("/test", testRoutes);
+}
 
 export default router;

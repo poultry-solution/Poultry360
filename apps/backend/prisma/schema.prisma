@@ -1404,9 +1404,12 @@ model DealerSalePaymentRequest {
   proofOfPaymentUrl String? // Future: S3 file key or URL
   paymentDate       DateTime?
 
-  // Linked sale
-  dealerSaleId String
-  dealerSale   DealerSale @relation(fields: [dealerSaleId], references: [id], onDelete: Cascade)
+  // Linked sale (optional for ledger-level payments)
+  dealerSaleId String?
+  dealerSale   DealerSale? @relation(fields: [dealerSaleId], references: [id], onDelete: Cascade)
+
+  // Payment type flag
+  isLedgerLevel Boolean @default(false) // true = general payment, false = bill-wise
 
   // Relationships
   dealerId String

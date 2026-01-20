@@ -285,6 +285,26 @@ export class DealerSaleRequestService {
         });
       }
 
+      // Update customer balance (if customer exists)
+      if (request.customerId) {
+        const customer = await tx.customer.findUnique({
+          where: { id: request.customerId },
+        });
+
+        if (customer) {
+          const currentCustomerBalance = Number(customer.balance || 0);
+          // Add the due amount to customer balance
+          const newCustomerBalance = currentCustomerBalance + dueAmount;
+
+          await tx.customer.update({
+            where: { id: request.customerId },
+            data: {
+              balance: new Prisma.Decimal(newCustomerBalance),
+            },
+          });
+        }
+      }
+
       // Update request status and link to sale
       await tx.dealerSaleRequest.update({
         where: { id: requestId },

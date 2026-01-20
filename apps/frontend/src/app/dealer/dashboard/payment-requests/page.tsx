@@ -224,7 +224,7 @@ export default function DealerPaymentRequestsPage() {
                 <TableRow>
                   <TableHead>Request #</TableHead>
                   <TableHead>Farmer</TableHead>
-                  <TableHead>Invoice #</TableHead>
+                  <TableHead>Type / Invoice</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Status</TableHead>
@@ -245,7 +245,18 @@ export default function DealerPaymentRequestsPage() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>{request.dealerSale?.invoiceNumber}</TableCell>
+                    <TableCell>
+                      {request.isLedgerLevel ? (
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                          <DollarSign className="h-3 w-3 mr-1" />
+                          General Payment
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">
+                          Bill: {request.dealerSale?.invoiceNumber || "N/A"}
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="font-semibold">
                       {formatCurrency(request.amount)}
                     </TableCell>
