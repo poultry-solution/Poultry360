@@ -115,7 +115,7 @@ export default function AccountsPage() {
   }, [activeTab, transactionTypeFilter, startDate, endDate, search]);
 
   const { data, isLoading, error } = useGetAllAccountTransactions(filters);
-  
+
   console.log("Account query state:", { isLoading, error, dataLength: data?.data?.length }); // Debug log
 
   const transactions = data?.data || [];
@@ -403,7 +403,7 @@ export default function AccountsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-red-600">
-                  {formatCurrency(dealers.reduce((sum, d) => sum + Math.max(0, d.balance || 0), 0))}
+                  {formatCurrency(dealers.reduce((sum: number, d: any) => sum + Math.max(0, d.balance || 0), 0))}
                 </div>
                 <p className="text-xs text-muted-foreground">Amount due to dealers</p>
               </CardContent>
@@ -464,10 +464,16 @@ export default function AccountsPage() {
                             className={
                               dealer.balance > 0
                                 ? "font-bold text-red-600"
-                                : "text-muted-foreground"
+                                : dealer.balance < 0
+                                  ? "font-bold text-green-600"
+                                  : "text-muted-foreground"
                             }
                           >
-                            {formatCurrency(dealer.balance)}
+                            {dealer.balance > 0
+                              ? `${formatCurrency(dealer.balance)} (Due)`
+                              : dealer.balance < 0
+                                ? `${formatCurrency(Math.abs(dealer.balance))} (Advance)`
+                                : formatCurrency(0)}
                           </span>
                         </TableCell>
                         <TableCell>
@@ -476,7 +482,7 @@ export default function AccountsPage() {
                             : "N/A"}
                         </TableCell>
                         <TableCell className="text-right">
-                          {dealer.balance > 0 && (
+                          {dealer.balance > 0 ? (
                             <Button
                               size="sm"
                               onClick={() => openPaymentDialog(dealer)}
@@ -484,7 +490,11 @@ export default function AccountsPage() {
                               <Plus className="h-4 w-4 mr-1" />
                               Pay
                             </Button>
-                          )}
+                          ) : dealer.balance < 0 ? (
+                            <span className="text-sm text-green-600 font-medium">
+                              Credit Available
+                            </span>
+                          ) : null}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -692,7 +702,7 @@ export default function AccountsPage() {
               Submit a general payment to {selectedDealer?.name}
             </DialogDescription>
           </DialogHeader>
-          
+
           <form onSubmit={handleCreatePaymentRequest}>
             <div className="space-y-4 py-4">
               {/* Dealer Info Display */}
@@ -702,7 +712,7 @@ export default function AccountsPage() {
                   <p className="text-sm"><strong>Current Balance:</strong> {formatCurrency(selectedDealer.balance)}</p>
                 </div>
               )}
-              
+
               {/* Form Fields */}
               <div className="space-y-2">
                 <Label htmlFor="amount">Amount *</Label>
@@ -717,7 +727,7 @@ export default function AccountsPage() {
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="paymentMethod">Payment Method</Label>
                 <Select value={paymentMethod} onValueChange={setPaymentMethod}>
@@ -733,7 +743,7 @@ export default function AccountsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="reference">Reference / Bill ID</Label>
                 <Input
@@ -743,7 +753,7 @@ export default function AccountsPage() {
                   placeholder="Transaction ID / Bill #"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="paymentDate">Payment Date</Label>
                 <Input
@@ -753,7 +763,7 @@ export default function AccountsPage() {
                   onChange={(e) => setPaymentDate(e.target.value)}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes (Optional)</Label>
                 <Input
@@ -764,7 +774,7 @@ export default function AccountsPage() {
                 />
               </div>
             </div>
-            
+
             <DialogFooter>
               <Button
                 type="button"

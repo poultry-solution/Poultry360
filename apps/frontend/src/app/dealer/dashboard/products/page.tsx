@@ -184,9 +184,6 @@ export default function DealerProductsPage() {
               <SelectContent>
                 <SelectItem value="ALL">All Types</SelectItem>
                 <SelectItem value="FEED">Feed</SelectItem>
-                <SelectItem value="CHICKS">Chicks</SelectItem>
-                <SelectItem value="MEDICINE">Medicine</SelectItem>
-                <SelectItem value="EQUIPMENT">Equipment</SelectItem>
                 <SelectItem value="OTHER">Other</SelectItem>
               </SelectContent>
             </Select>
@@ -255,7 +252,7 @@ export default function DealerProductsPage() {
                         <span
                           className={
                             product.minStock &&
-                            Number(product.currentStock) <= Number(product.minStock)
+                              Number(product.currentStock) <= Number(product.minStock)
                               ? "text-red-600 font-semibold"
                               : ""
                           }
@@ -322,7 +319,7 @@ export default function DealerProductsPage() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
           <form onSubmit={handleSubmit}>
             <DialogHeader>
               <DialogTitle>
@@ -371,7 +368,7 @@ export default function DealerProductsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 ">
                 <div className="space-y-2">
                   <Label htmlFor="type">Type *</Label>
                   <Select
@@ -380,14 +377,11 @@ export default function DealerProductsPage() {
                       setFormData({ ...formData, type: value })
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       <SelectItem value="FEED">Feed</SelectItem>
-                      <SelectItem value="CHICKS">Chicks</SelectItem>
-                      <SelectItem value="MEDICINE">Medicine</SelectItem>
-                      <SelectItem value="EQUIPMENT">Equipment</SelectItem>
                       <SelectItem value="OTHER">Other</SelectItem>
                     </SelectContent>
                   </Select>
@@ -492,8 +486,8 @@ export default function DealerProductsPage() {
                 {createMutation.isPending || updateMutation.isPending
                   ? "Saving..."
                   : editingProduct
-                  ? "Update Product"
-                  : "Add Product"}
+                    ? "Update Product"
+                    : "Add Product"}
               </Button>
             </DialogFooter>
           </form>

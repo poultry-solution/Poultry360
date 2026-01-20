@@ -166,7 +166,7 @@ export const getAllDealers = async (
             (sum, sale) => sum + Number(sale.paidAmount),
             0
           );
-          balance = Math.max(0, totalSales - totalPaid);
+          balance = totalSales - totalPaid; // Preserve negative balance for advances
 
           // Calculate this month amount
           const currentMonth = new Date();
@@ -232,7 +232,7 @@ export const getAllDealers = async (
 
         return {
           ...dealer,
-          balance: Math.max(0, balance), // Only show positive balance (amount due)
+          balance: balance, // Preserve negative balance for advances
           thisMonthAmount,
           totalTransactions,
           recentTransactions,
