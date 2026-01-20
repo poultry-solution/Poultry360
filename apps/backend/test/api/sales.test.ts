@@ -1,5 +1,7 @@
 import { ApiHelper } from '../helpers/api.helper';
 import { AuthHelper } from '../helpers/auth.helper';
+import { DatabaseHelper } from '../helpers/database.helper';
+import { TEST_USERS } from '../fixtures/users';
 
 describe('Dealer Sales Workflow', () => {
   let apiHelper: ApiHelper;
@@ -14,18 +16,20 @@ describe('Dealer Sales Workflow', () => {
     apiHelper = new ApiHelper();
     authHelper = new AuthHelper(apiHelper);
 
-    // Login dealer
+    // Setup test users (create if missing, connect, and clean data)
+    const { farmerId: setupFarmerId } = await DatabaseHelper.setupTestUsers(
+      TEST_USERS.dealer,
+      TEST_USERS.farmer
+    );
+    farmerId = setupFarmerId;
+
+    // Login both dealer and farmer to get auth tokens
     await authHelper.loginDealer();
-    authHelper.setDealerAuth();
-
-    // Login farmer to get farmer ID
     await authHelper.loginFarmer();
-    const farmerInfo = await apiHelper.get('/users/me');
-    farmerId = farmerInfo.body.data.id;
-
-    // Switch back to dealer auth
+    
+    // Start with dealer auth
     authHelper.setDealerAuth();
-  });
+  }, 60000); // Increase timeout for database setup/cleanup
 
   afterEach(() => {
     // Clear auth after each test to avoid conflicts
@@ -302,16 +306,21 @@ describe('Dealer Sales Workflow', () => {
 
       expect(response.status).toBe(200);
       
-      const customer = response.body.data.find((c: any) => c.id === customerId);
+      console.log('📊 All parties:', JSON.stringify(response.body.data?.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        balance: c.balance,
+        source: c.source
+      })), null, 2));
+      console.log('🔍 Looking for customerId:', customerId);
       
-      if (customer) {
-        console.log('✓ Customer balance:', customer.balance);
-        // Just verify customer exists and has a balance (not checking exact value due to existing data)
-        expect(customer).toHaveProperty('balance');
-        console.log('✓ Customer found with balance:', customer.balance);
-      } else {
-        console.log('⚠ Customer not found in parties list');
-      }
+      const customer = response.body.data.find((c: any) => c.id === customerId);
+      expect(customer).toBeDefined();
+      
+      console.log('💰 Customer balance:', customer.balance, 'Expected: 400');
+      
+      // With clean state: 500 total - 100 paid = 400 due
+      expect(Number(customer.balance)).toBe(400);
     });
 
     it('should show ledger entries created', async () => {

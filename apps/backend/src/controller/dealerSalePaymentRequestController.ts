@@ -272,6 +272,7 @@ export const getFarmerPaymentRequestById = async (
 
 /**
  * Create a payment request (farmer side)
+ * Supports both bill-wise (with dealerSaleId) and ledger-level (with dealerId) payments
  */
 export const createPaymentRequest = async (
   req: Request,
@@ -280,6 +281,7 @@ export const createPaymentRequest = async (
   try {
     const farmerId = req.userId;
     const {
+      dealerId,
       dealerSaleId,
       amount,
       paymentDate,
@@ -289,21 +291,75 @@ export const createPaymentRequest = async (
     } = req.body;
 
     // Validation
-    if (!dealerSaleId || !amount || amount <= 0) {
+    if (!amount || amount <= 0) {
       return res.status(400).json({
-        message: "Dealer sale ID and valid amount are required",
+        message: "Valid amount is required",
       });
     }
 
-    const result = await DealerSalePaymentRequestService.createPaymentRequest({
-      dealerSaleId,
-      farmerId: farmerId!,
-      amount: Number(amount),
-      paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
-      paymentReference,
-      paymentMethod,
-      description,
-    });
+    // Route to appropriate service method based on presence of dealerSaleId
+    let result;
+
+    if (dealerSaleId) {
+      // Bill-wise payment request (existing logic)
+      result = await DealerSalePaymentRequestService.createPaymentRequest({
+        dealerSaleId,
+        farmerId: farmerId!,
+        amount: Number(amount),
+        paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
+        paymentReference,
+        paymentMethod,
+        description,
+      });
+    } else {
+      // Ledger-level payment request (new logic)
+      if (!dealerId) {
+        return res.status(400).json({
+          message: "Dealer ID is required for ledger-level payment",
+        });
+      }
+
+      // Find dealer and get their ownerId
+      const dealer = await prisma.dealer.findUnique({
+        where: { id: dealerId },
+      });
+
+      if (!dealer) {
+        return res.status(404).json({ message: "Dealer not found" });
+      }
+
+      if (!dealer.ownerId) {
+        return res.status(400).json({ 
+          message: "This dealer is not registered and cannot receive payment requests" 
+        });
+      }
+
+      // Find customer record where farmer is linked
+      // Customer.userId = dealer's ownerId, Customer.farmerId = current farmer
+      const customer = await prisma.customer.findFirst({
+        where: {
+          userId: dealer.ownerId,
+          farmerId: farmerId!,
+        },
+      });
+
+      if (!customer) {
+        return res.status(404).json({
+          message: "No customer record found for this dealer-farmer connection",
+        });
+      }
+
+      result = await DealerSalePaymentRequestService.createLedgerLevelPaymentRequest({
+        dealerId,
+        farmerId: farmerId!,
+        customerId: customer.id,
+        amount: Number(amount),
+        paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
+        paymentReference,
+        paymentMethod,
+        description,
+      });
+    }
 
     return res.status(201).json({
       success: true,

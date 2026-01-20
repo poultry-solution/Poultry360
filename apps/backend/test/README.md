@@ -65,22 +65,52 @@ test/
 ├── fixtures/
 │   └── users.ts         # Test user credentials
 ├── helpers/
-│   ├── api.helper.ts    # Axios HTTP client wrapper
-│   └── auth.helper.ts   # Authentication utilities
+│   ├── api.helper.ts    # SuperTest wrapper for API calls
+│   ├── auth.helper.ts   # Authentication utilities
+│   └── database.helper.ts # Database cleanup utilities
 └── api/
     ├── auth.test.ts     # Login & authentication tests
-    ├── sales.test.ts    # Sales creation tests (TODO)
-    └── payments.test.ts # Payment & balance tests (TODO)
+    ├── sales.test.ts    # Sales workflow tests (request → approve → verify)
+    └── payments.test.ts # Payment workflow tests (FIFO, overpay, advances)
 ```
 
 ## Test Users
 
-The following test users are pre-configured:
+The following test users are automatically managed:
 
-- **Dealer**: `+9779800000004` / `password123`
-- **Farmer**: `+9779800000007` / `password123`
+- **Dealer**: `+9779800000004` / `password123` / "Test Dealer"
+- **Farmer**: `+9779800000006` / `password123` / "Test Farmer"
 
-Both users are already connected in the system.
+**Automatic Setup:**
+- ✅ Users are created if they don't exist (signup via API)
+- ✅ Dealer and farmer are connected automatically
+- ✅ Database reset BEFORE tests run (clean slate)
+- ✅ Database left intact AFTER tests (for inspection)
+- ✅ Product stock reset to 1000 units
+- ✅ Customer balances reset to 0
+- ✅ Tests are fully self-contained and repeatable
+
+**No manual database setup required!**
+
+### Cleanup Behavior
+
+- **Before Tests:** Entire database is reset (like `prisma migrate reset`)
+- **After Tests:** Data is preserved so you can inspect it
+- **Next Run:** Fresh reset before running again
+
+### What Gets Cleaned Up
+
+The test setup automatically cleans:
+- Sale payment requests
+- Sale payments
+- Product transactions (ALL, including adjustments)
+- Sale request items
+- Sale requests
+- Sale items
+- Sales
+- Ledger entries
+- Customer balances → 0
+- Product stock → 1000 units
 
 ## Writing Tests
 

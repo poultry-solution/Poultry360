@@ -100,8 +100,120 @@ export class DealerSalePaymentRequestService {
   }
 
   /**
+   * Farmer creates a ledger-level payment request (not tied to specific sale)
+   */
+  static async createLedgerLevelPaymentRequest(data: {
+    dealerId: string;
+    farmerId: string;
+    customerId: string;
+    amount: number;
+    paymentDate: Date;
+    paymentReference?: string;
+    paymentMethod?: string;
+    description?: string;
+  }) {
+    const {
+      dealerId,
+      farmerId,
+      customerId,
+      amount,
+      paymentDate,
+      paymentReference,
+      paymentMethod,
+      description,
+    } = data;
+
+    return await prisma.$transaction(async (tx) => {
+      // 1. Validate dealer-farmer connection exists
+      const dealerFarmerConnection = await tx.dealerFarmer.findFirst({
+        where: {
+          dealerId,
+          farmerId,
+          archivedByFarmer: false,
+          archivedByDealer: false,
+        },
+      });
+
+      if (!dealerFarmerConnection) {
+        throw new Error(
+          "No active connection found between you and this dealer"
+        );
+      }
+
+      // 2. Validate customer belongs to this dealer
+      const dealer = await tx.dealer.findUnique({
+        where: { id: dealerId },
+      });
+
+      if (!dealer || !dealer.ownerId) {
+        throw new Error("Invalid dealer or dealer not registered");
+      }
+
+      const customer = await tx.customer.findUnique({
+        where: { id: customerId },
+      });
+
+      if (!customer || customer.userId !== dealer.ownerId || customer.farmerId !== farmerId) {
+        throw new Error("Invalid customer record or customer not linked to this dealer-farmer pair");
+      }
+
+      // 3. Validate amount
+      if (amount <= 0) {
+        throw new Error("Payment amount must be greater than zero");
+      }
+
+      // 4. Generate request number
+      const requestNumber = `LPR-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+      // 5. Create ledger-level payment request
+      const paymentRequest = await tx.dealerSalePaymentRequest.create({
+        data: {
+          requestNumber,
+          amount: new Prisma.Decimal(amount),
+          description: description || "General payment",
+          paymentMethod,
+          paymentReference,
+          paymentDate,
+          dealerId,
+          farmerId,
+          customerId,
+          status: "PENDING",
+          isLedgerLevel: true,
+          dealerSaleId: null, // No specific sale
+        },
+        include: {
+          dealer: {
+            select: {
+              id: true,
+              name: true,
+              contact: true,
+              address: true,
+            },
+          },
+          farmer: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+            },
+          },
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+            },
+          },
+        },
+      });
+
+      return paymentRequest;
+    });
+  }
+
+  /**
    * Dealer approves a payment request
-   * This will call addSalePayment which now auto-syncs to farmer side
+   * This will call addSalePayment (bill-wise) or addGeneralPayment (ledger-level)
    */
   static async approvePaymentRequest(data: {
     requestId: string;
@@ -109,61 +221,76 @@ export class DealerSalePaymentRequestService {
   }) {
     const { requestId, dealerId } = data;
 
-    // 1. First transaction: validate and update request status
-    await prisma.$transaction(async (tx) => {
-      // Get the request
-      const request = await tx.dealerSalePaymentRequest.findUnique({
-        where: { id: requestId },
-        include: {
-          dealerSale: true,
-        },
-      });
-
-      if (!request) {
-        throw new Error("Payment request not found");
-      }
-
-      // Verify this request belongs to the dealer
-      if (request.dealerId !== dealerId) {
-        throw new Error("You can only approve requests sent to you");
-      }
-
-      // Check if already processed
-      if (request.status !== "PENDING") {
-        throw new Error(
-          `Request is already ${request.status.toLowerCase()}`
-        );
-      }
-
-      // Mark request as approved
-      await tx.dealerSalePaymentRequest.update({
-        where: { id: requestId },
-        data: {
-          status: "APPROVED",
-          reviewedAt: new Date(),
-        },
-      });
-    });
-
-    // 2. Fetch the approved request to get payment details
+    // 1. Validate and fetch the request (no transaction yet)
     const request = await prisma.dealerSalePaymentRequest.findUnique({
       where: { id: requestId },
+      include: {
+        dealerSale: true,
+      },
     });
 
     if (!request) {
-      throw new Error("Payment request not found after approval");
+      throw new Error("Payment request not found");
     }
 
-    // 3. Process payment using existing addSalePayment service
-    // (which now auto-syncs to farmer side for linked sales)
-    // We do this OUTSIDE the transaction to avoid timeout
-    await DealerService.addSalePayment({
-      saleId: request.dealerSaleId,
-      amount: Number(request.amount),
-      date: request.paymentDate || new Date(),
-      description: request.description || `Payment request approved - ${request.requestNumber}`,
-      paymentMethod: request.paymentMethod || undefined,
+    // Verify this request belongs to the dealer
+    if (request.dealerId !== dealerId) {
+      throw new Error("You can only approve requests sent to you");
+    }
+
+    // Check if already processed
+    if (request.status !== "PENDING") {
+      throw new Error(
+        `Request is already ${request.status.toLowerCase()}`
+      );
+    }
+
+    // 2. Mark request as approved
+    await prisma.dealerSalePaymentRequest.update({
+      where: { id: requestId },
+      data: {
+        status: "APPROVED",
+        reviewedAt: new Date(),
+      },
     });
+
+    // 3. Process payment based on type
+    // These service methods handle their own transactions
+    try {
+      if (request.isLedgerLevel) {
+        // Ledger-level: auto-allocate from oldest → newest sale
+        await DealerService.addGeneralPayment({
+          customerId: request.customerId,
+          dealerId,
+          amount: Number(request.amount),
+          date: request.paymentDate || new Date(),
+          description: request.description || `Ledger payment - ${request.requestNumber}`,
+          paymentMethod: request.paymentMethod || undefined,
+        });
+      } else {
+        // Bill-wise: apply to specific sale
+        if (!request.dealerSaleId) {
+          throw new Error("Bill-wise payment request must have dealerSaleId");
+        }
+        await DealerService.addSalePayment({
+          saleId: request.dealerSaleId,
+          amount: Number(request.amount),
+          date: request.paymentDate || new Date(),
+          description: request.description || `Payment request approved - ${request.requestNumber}`,
+          paymentMethod: request.paymentMethod || undefined,
+        });
+      }
+    } catch (error) {
+      // If payment processing fails, revert the approval status
+      await prisma.dealerSalePaymentRequest.update({
+        where: { id: requestId },
+        data: {
+          status: "PENDING",
+          reviewedAt: null,
+        },
+      });
+      throw error;
+    }
 
     // 4. Return the updated request with all details
     return await prisma.dealerSalePaymentRequest.findUnique({
