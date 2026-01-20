@@ -258,13 +258,30 @@ export const getLedgerSummary = async (
       _sum: {
         totalAmount: true,
         paidAmount: true,
-        dueAmount: true,
       },
     });
 
     const totalSalesAmount = Number(salesSummary._sum.totalAmount || 0);
     const totalPaidAmount = Number(salesSummary._sum.paidAmount || 0);
-    const totalDueAmount = Number(salesSummary._sum.dueAmount || 0);
+
+    // Calculate total due from Customer.balance field (consistent with party balances)
+    const customers = await prisma.customer.findMany({
+      where: { userId },
+      select: { balance: true },
+    });
+
+    // Sum only positive balances (customers who owe dealer)
+    // Negative balances are advances (dealer owes customer)
+    const totalDueAmount = customers.reduce((sum, customer) => {
+      const balance = Number(customer.balance || 0);
+      return sum + (balance > 0 ? balance : 0); // Only count positive balances as "due"
+    }, 0);
+
+    // Calculate total advances (negative balances)
+    const totalAdvances = customers.reduce((sum, customer) => {
+      const balance = Number(customer.balance || 0);
+      return sum + (balance < 0 ? Math.abs(balance) : 0); // Sum absolute value of negative balances
+    }, 0);
 
     // Get entries grouped by type for other stats
     const entriesByType = await prisma.dealerLedgerEntry.groupBy({
@@ -305,7 +322,8 @@ export const getLedgerSummary = async (
         currentBalance,
         totalSales: totalSalesAmount,
         totalPaidAmount,
-        totalDueAmount,
+        totalDueAmount, // Only positive balances (customers owe dealer)
+        totalAdvances, // Negative balances (dealer owes customers)
         totalPurchases,
         totalPaymentsReceived,
         totalPaymentsMade,
@@ -405,7 +423,12 @@ export const getDealerLedgerParties = async (
             }
           : {}),
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        address: true,
+        balance: true, // Include the balance field!
         dealerSales: {
           where: { dealerId: dealer.id },
           select: {
@@ -451,10 +474,9 @@ export const getDealerLedgerParties = async (
     // Combine and calculate balances
     const partiesWithBalance = [
       ...staticCustomers.map((customer) => {
-        const balance = customer.dealerSales.reduce((sum, sale) => {
-          const due = Number(sale.dueAmount || 0);
-          return sum + due;
-        }, 0);
+        // Use the Customer.balance field directly (includes advances)
+        // Positive = customer owes dealer, Negative = dealer owes customer (advance)
+        const balance = Number(customer.balance || 0);
 
         const lastSale = customer.dealerSales
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
@@ -464,7 +486,7 @@ export const getDealerLedgerParties = async (
           name: customer.name,
           contact: customer.phone,
           address: customer.address,
-          balance: Math.max(0, balance),
+          balance: balance, // Show actual balance (can be negative for advances)
           lastTransactionDate: lastSale?.date || null,
           totalSales: customer.dealerSales.length,
           partyType: "CUSTOMER",
@@ -493,8 +515,9 @@ export const getDealerLedgerParties = async (
     ];
 
     // Filter out parties with no balance and no sales
+    // Keep parties with balance != 0 (positive or negative) or those with sales history
     const activeParties = partiesWithBalance.filter(
-      (p) => p.balance > 0 || p.totalSales > 0
+      (p) => p.balance !== 0 || p.totalSales > 0
     );
 
     return res.status(200).json({
@@ -514,11 +537,16 @@ export const addDealerPayment = async (
 ): Promise<any> => {
   try {
     const userId = req.userId;
-    const { saleId, amount, paymentMethod, date, notes } = req.body;
+    const { saleId, customerId, amount, paymentMethod, date, notes } = req.body;
 
     // Validation
-    if (!saleId || !amount || amount <= 0) {
-      return res.status(400).json({ message: "Sale ID and valid amount are required" });
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: "Valid amount is required" });
+    }
+
+    // Either saleId OR customerId must be provided
+    if (!saleId && !customerId) {
+      return res.status(400).json({ message: "Either sale ID or customer ID is required" });
     }
 
     // Get dealer
@@ -530,29 +558,60 @@ export const addDealerPayment = async (
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    // Verify sale belongs to dealer
-    const sale = await prisma.dealerSale.findUnique({
-      where: { id: saleId },
-      select: { dealerId: true },
-    });
+    // Route to appropriate payment method
+    if (saleId) {
+      // Bill-wise payment - existing flow
+      // Verify sale belongs to dealer
+      const sale = await prisma.dealerSale.findUnique({
+        where: { id: saleId },
+        select: { dealerId: true },
+      });
 
-    if (!sale || sale.dealerId !== dealer.id) {
-      return res.status(403).json({ message: "Sale not found or access denied" });
+      if (!sale || sale.dealerId !== dealer.id) {
+        return res.status(403).json({ message: "Sale not found or access denied" });
+      }
+
+      // Use DealerService to add payment to specific sale
+      await DealerService.addSalePayment({
+        saleId,
+        amount: Number(amount),
+        paymentMethod: paymentMethod || "CASH",
+        date: date ? new Date(date) : new Date(),
+        description: notes || `Payment received`,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Payment added successfully",
+      });
+    } else {
+      // General payment - auto-allocate using FIFO
+      // Verify customer belongs to dealer
+      const customer = await prisma.customer.findUnique({
+        where: { id: customerId },
+        select: { userId: true },
+      });
+
+      if (!customer || customer.userId !== userId) {
+        return res.status(403).json({ message: "Customer not found or access denied" });
+      }
+
+      // Use DealerService to add general payment
+      const result = await DealerService.addGeneralPayment({
+        customerId,
+        dealerId: dealer.id,
+        amount: Number(amount),
+        paymentMethod: paymentMethod || "CASH",
+        date: date ? new Date(date) : new Date(),
+        description: notes || `General payment`,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Payment added successfully",
+        data: result,
+      });
     }
-
-    // Use DealerService to add payment
-    await DealerService.addSalePayment({
-      saleId,
-      amount: Number(amount),
-      paymentMethod: paymentMethod || "CASH",
-      date: date ? new Date(date) : new Date(),
-      description: notes || `Payment received`,
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Payment added successfully",
-    });
   } catch (error: any) {
     console.error("Add dealer payment error:", error);
     return res.status(500).json({ message: error.message || "Internal server error" });

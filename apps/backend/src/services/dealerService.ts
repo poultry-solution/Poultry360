@@ -174,7 +174,26 @@ export class DealerService {
         });
       }
 
-      // 12. Return sale with items
+      // 12. Update Customer.balance to reflect the sale and payment
+      const customer = await tx.customer.findUnique({
+        where: { id: customerId },
+        select: { balance: true },
+      });
+
+      if (customer) {
+        const currentCustomerBalance = Number(customer.balance || 0);
+        // Add the due amount (total - paid) to customer balance
+        const newCustomerBalance = currentCustomerBalance + dueAmount;
+
+        await tx.customer.update({
+          where: { id: customerId },
+          data: {
+            balance: new Prisma.Decimal(newCustomerBalance),
+          },
+        });
+      }
+
+      // 13. Return sale with items
       return await tx.dealerSale.findUnique({
         where: { id: sale.id },
         include: {
@@ -301,12 +320,192 @@ export class DealerService {
         }
       }
 
+      // 7. Update Customer.balance to reflect the payment
+      if (sale.customerId) {
+        const customer = await tx.customer.findUnique({
+          where: { id: sale.customerId },
+          select: { balance: true },
+        });
+
+        if (customer) {
+          const currentCustomerBalance = Number(customer.balance || 0);
+          // Subtract payment from customer balance
+          const newCustomerBalance = currentCustomerBalance - amount;
+
+          await tx.customer.update({
+            where: { id: sale.customerId },
+            data: {
+              balance: new Prisma.Decimal(newCustomerBalance),
+            },
+          });
+        }
+      }
+
       return await tx.dealerSale.findUnique({
         where: { id: saleId },
         include: {
           payments: true,
         },
       });
+    });
+  }
+
+  /**
+   * Add general payment without specific sale - auto-allocates to oldest unpaid sales using FIFO
+   */
+  static async addGeneralPayment(data: {
+    customerId: string;
+    dealerId: string;
+    amount: number;
+    date: Date;
+    description?: string;
+    paymentMethod?: string;
+  }) {
+    const { customerId, dealerId, amount, date, description, paymentMethod } = data;
+
+    return await prisma.$transaction(async (tx) => {
+      // 1. Get customer with current balance
+      const customer = await tx.customer.findUnique({
+        where: { id: customerId },
+        select: { id: true, name: true, balance: true, farmerId: true },
+      });
+
+      if (!customer) {
+        throw new Error("Customer not found");
+      }
+
+      // 2. Fetch all unpaid sales for this customer, ordered by date (FIFO)
+      const unpaidSales = await tx.dealerSale.findMany({
+        where: {
+          dealerId,
+          customerId,
+          dueAmount: { gt: 0 },
+        },
+        orderBy: { date: "asc" }, // Oldest first (FIFO)
+        include: {
+          customer: true,
+        },
+      });
+
+      let remainingPayment = amount;
+      const allocations: Array<{ saleId: string; amount: number; invoiceNumber: string | null }> = [];
+
+      // 3. Allocate payment to sales using FIFO
+      for (const sale of unpaidSales) {
+        if (remainingPayment <= 0) break;
+
+        const saleDue = Number(sale.dueAmount || 0);
+        const allocationAmount = Math.min(remainingPayment, saleDue);
+
+        // Create payment record for this sale
+        await tx.dealerSalePayment.create({
+          data: {
+            amount: new Prisma.Decimal(allocationAmount),
+            date,
+            description: description || `General payment allocation - Invoice ${sale.invoiceNumber}`,
+            paymentMethod,
+            saleId: sale.id,
+          },
+        });
+
+        // Update sale amounts
+        const newPaidAmount = Number(sale.paidAmount) + allocationAmount;
+        const newDueAmount = Number(sale.totalAmount) - newPaidAmount;
+
+        await tx.dealerSale.update({
+          where: { id: sale.id },
+          data: {
+            paidAmount: new Prisma.Decimal(newPaidAmount),
+            dueAmount: newDueAmount > 0 ? new Prisma.Decimal(newDueAmount) : null,
+          },
+        });
+
+        // Track allocation for ledger entry
+        allocations.push({
+          saleId: sale.id,
+          amount: allocationAmount,
+          invoiceNumber: sale.invoiceNumber,
+        });
+
+        // Sync to farmer side if this is a linked sale
+        if (sale.customer?.farmerId) {
+          const purchaseTxn = await tx.entityTransaction.findFirst({
+            where: {
+              dealerId,
+              reference: sale.invoiceNumber,
+              type: "PURCHASE",
+            },
+            orderBy: { createdAt: "desc" },
+          });
+
+          if (purchaseTxn) {
+            await tx.entityTransaction.create({
+              data: {
+                type: "PAYMENT",
+                amount: new Prisma.Decimal(allocationAmount),
+                date,
+                description: description || `Payment - Invoice ${sale.invoiceNumber}`,
+                reference: sale.invoiceNumber || undefined,
+                dealerId,
+                paymentToPurchaseId: purchaseTxn.id,
+              },
+            });
+          }
+        }
+
+        remainingPayment -= allocationAmount;
+      }
+
+      // 4. Update Customer.balance with the full payment
+      // Positive balance = customer owes dealer
+      // Negative balance = dealer owes customer (advance)
+      const currentBalance = Number(customer.balance);
+      const newBalance = currentBalance - amount; // Subtract FULL payment amount
+
+      await tx.customer.update({
+        where: { id: customerId },
+        data: {
+          balance: new Prisma.Decimal(newBalance),
+        },
+      });
+
+      // 5. Get current ledger balance
+      const lastLedgerEntry = await tx.dealerLedgerEntry.findFirst({
+        where: { dealerId },
+        orderBy: { createdAt: "desc" },
+      });
+
+      const currentLedgerBalance = lastLedgerEntry ? Number(lastLedgerEntry.balance) : 0;
+
+      // 6. Create ledger entry for the overall payment
+      const ledgerBalance = currentLedgerBalance - amount;
+      const allocationSummary = allocations.length > 0
+        ? `Allocated to ${allocations.length} sale(s)` + 
+          (remainingPayment > 0 ? ` + रू ${remainingPayment.toFixed(2)} advance` : "")
+        : `Advance payment: रू ${amount.toFixed(2)}`;
+
+      await tx.dealerLedgerEntry.create({
+        data: {
+          type: "PAYMENT_RECEIVED",
+          amount: new Prisma.Decimal(amount),
+          balance: new Prisma.Decimal(ledgerBalance),
+          date,
+          description: description || `General payment from ${customer.name} - ${allocationSummary}`,
+          reference: allocations.map(a => a.invoiceNumber).filter(Boolean).join(", ") || undefined,
+          dealerId,
+          partyId: customerId,
+          partyType: "CUSTOMER",
+        },
+      });
+
+      return {
+        success: true,
+        totalAmount: amount,
+        allocatedToSales: amount - remainingPayment,
+        advanceAmount: remainingPayment,
+        newCustomerBalance: newBalance,
+        allocations,
+      };
     });
   }
 

@@ -42,6 +42,9 @@ export interface LedgerSummaryResponse {
   data: {
     currentBalance: number;
     totalSales: number;
+    totalPaidAmount: number;
+    totalDueAmount: number;
+    totalAdvances: number;
     totalPurchases: number;
     totalPaymentsReceived: number;
     totalPaymentsMade: number;
@@ -184,7 +187,8 @@ export const useAddDealerPayment = () => {
 
   return useMutation({
     mutationFn: async (input: {
-      saleId: string;
+      saleId?: string;      // Optional now - for bill-wise payment
+      customerId?: string;  // Optional - for general payment (auto-allocate)
       amount: number;
       paymentMethod?: string;
       date?: string;

@@ -122,21 +122,45 @@ export default function DealerLedgerPage() {
   };
 
   const handleAddPayment = async () => {
-    if (!selectedSaleId || !paymentAmount || paymentAmount <= 0) {
-      toast.error("Please select a sale and enter a valid amount");
+    // Validation
+    if (!paymentAmount || paymentAmount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    // Must have either a sale or a party selected
+    if (!selectedSaleId && !selectedPartyId) {
+      toast.error("Please select a customer or sale");
       return;
     }
 
     try {
-      await addPaymentMutation.mutateAsync({
-        saleId: selectedSaleId,
+      const paymentData: any = {
         amount: paymentAmount,
         paymentMethod,
         date: paymentDate,
         notes: paymentNotes || undefined,
-      });
+      };
 
-      toast.success("Payment added successfully");
+      // Add either saleId (bill-wise) or customerId (general payment)
+      if (selectedSaleId && selectedSaleId !== "GENERAL") {
+        paymentData.saleId = selectedSaleId;
+      } else {
+        paymentData.customerId = selectedPartyId;
+      }
+
+      const result = await addPaymentMutation.mutateAsync(paymentData);
+
+      // Show appropriate success message
+      if (result.data?.allocations) {
+        const msg = result.data.allocations.length > 0
+          ? `Payment allocated to ${result.data.allocations.length} sale(s)`
+          : "Advance payment recorded";
+        toast.success(msg);
+      } else {
+        toast.success("Payment added successfully");
+      }
+
       setIsAddPaymentOpen(false);
       setSelectedPartyId("");
       setSelectedSaleId("");
@@ -150,7 +174,7 @@ export default function DealerLedgerPage() {
 
   // Get payments from entries
   const payments = entries.filter(
-    (e) => e.type === "PAYMENT_RECEIVED" && e.saleId
+    (e: any) => e.type === "PAYMENT_RECEIVED" && e.saleId
   );
 
   return (
@@ -521,9 +545,46 @@ export default function DealerLedgerPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {selectedPartyId && partySales.length > 0 ? (
+            {/* Customer Info */}
+            {selectedPartyId && (
               <div className="space-y-2">
-                <Label htmlFor="sale">Sale *</Label>
+                <Label>Customer</Label>
+                <div className="p-3 bg-muted rounded-md">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium">
+                        {parties.find((p: any) => p.id === selectedPartyId)?.name || "Unknown"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {parties.find((p: any) => p.id === selectedPartyId)?.contact || ""}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Current Balance</p>
+                      <p className={`font-bold ${
+                        Number(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0) > 0
+                          ? "text-red-600"
+                          : Number(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0) < 0
+                          ? "text-green-600"
+                          : ""
+                      }`}>
+                        {formatCurrency(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sale Selection - Optional */}
+            <div className="space-y-2">
+              <Label htmlFor="sale">
+                Sale (Optional)
+                <span className="text-xs text-muted-foreground ml-2">
+                  Leave as "General Payment" to auto-allocate
+                </span>
+              </Label>
+              {selectedPartyId && partySales.length > 0 ? (
                 <Select
                   value={selectedSaleId || "GENERAL"}
                   onValueChange={(value) => {
@@ -531,9 +592,12 @@ export default function DealerLedgerPage() {
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select sale" />
+                    <SelectValue placeholder="Select payment type" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="GENERAL">
+                      General Payment (Auto-allocate to oldest sales)
+                    </SelectItem>
                     {partySales.map((sale: any) => (
                       <SelectItem key={sale.id} value={sale.id}>
                         {sale.invoiceNumber || sale.id.slice(0, 8)} - Due:{" "}
@@ -542,10 +606,7 @@ export default function DealerLedgerPage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="sale">Sale *</Label>
+              ) : (
                 <Select
                   value={selectedSaleId || "GENERAL"}
                   onValueChange={(value) => {
@@ -553,9 +614,12 @@ export default function DealerLedgerPage() {
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select sale" />
+                    <SelectValue placeholder="Select payment type" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="GENERAL">
+                      General Payment (Auto-allocate to oldest sales)
+                    </SelectItem>
                     {sales
                       .filter((s: any) => Number(s.dueAmount || 0) > 0)
                       .map((sale: any) => (
@@ -566,8 +630,8 @@ export default function DealerLedgerPage() {
                       ))}
                   </SelectContent>
                 </Select>
-              </div>
-            )}
+              )}
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="amount">Amount *</Label>
