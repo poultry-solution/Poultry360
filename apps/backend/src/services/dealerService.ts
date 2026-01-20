@@ -203,9 +203,12 @@ export class DealerService {
     const { saleId, amount, date, description, paymentMethod } = data;
 
     return await prisma.$transaction(async (tx) => {
-      // 1. Get the sale
+      // 1. Get the sale with customer relation to check if linked
       const sale = await tx.dealerSale.findUnique({
         where: { id: saleId },
+        include: {
+          customer: true,
+        },
       });
 
       if (!sale) {
@@ -269,6 +272,34 @@ export class DealerService {
           partyType: sale.customerId ? "CUSTOMER" : "FARMER",
         },
       });
+
+      // 6. Sync payment to farmer side if this is a linked sale
+      if (sale.customer?.farmerId) {
+        // This is a linked sale - find the farmer's purchase transaction
+        const purchaseTxn = await tx.entityTransaction.findFirst({
+          where: {
+            dealerId: sale.dealerId,
+            reference: sale.invoiceNumber,
+            type: "PURCHASE",
+          },
+          orderBy: { createdAt: "desc" },
+        });
+
+        if (purchaseTxn) {
+          // Create PAYMENT EntityTransaction for farmer
+          await tx.entityTransaction.create({
+            data: {
+              type: "PAYMENT",
+              amount: new Prisma.Decimal(amount),
+              date,
+              description: description || `Payment - Invoice ${sale.invoiceNumber}`,
+              reference: sale.invoiceNumber || undefined,
+              dealerId: sale.dealerId,
+              paymentToPurchaseId: purchaseTxn.id,
+            },
+          });
+        }
+      }
 
       return await tx.dealerSale.findUnique({
         where: { id: saleId },

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { DealerService } from "../services/dealerService";
+import { DealerSaleRequestService } from "../services/dealerSaleRequestService";
 
 // ==================== CREATE DEALER SALE ====================
 export const createDealerSale = async (
@@ -47,7 +48,38 @@ export const createDealerSale = async (
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    // Create sale using service
+    // Check if customer is a connected farmer
+    const customer = await prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { id: true, farmerId: true, name: true },
+    });
+
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    // If customer has farmerId (connected farmer), create sale request instead
+    if (customer.farmerId) {
+      const request = await DealerSaleRequestService.createSaleRequest({
+        dealerId: dealer.id,
+        customerId,
+        farmerId: customer.farmerId,
+        items,
+        paidAmount: Number(paidAmount),
+        paymentMethod,
+        notes,
+        date: date ? new Date(date) : new Date(),
+      });
+
+      return res.status(201).json({
+        success: true,
+        data: request,
+        message: `Sale request created successfully and sent to ${customer.name}. Waiting for farmer approval.`,
+        isRequest: true,
+      });
+    }
+
+    // Otherwise, create direct sale (manual customer)
     const sale = await DealerService.createDealerSale({
       dealerId: dealer.id,
       customerId,
@@ -62,6 +94,7 @@ export const createDealerSale = async (
       success: true,
       data: sale,
       message: "Sale created successfully",
+      isRequest: false,
     });
   } catch (error: any) {
     console.error("Create dealer sale error:", error);

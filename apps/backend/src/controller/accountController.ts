@@ -25,6 +25,9 @@ export const getAllAccountTransactions = async (
     // Build where clause for EntityTransaction
     const entityTransactionWhere: any = {
       OR: [
+        // Farmer's purchases/payments (via inventory)
+        { inventoryItem: { userId: currentUserId } },
+        // Dealer's own transactions (entities they own)
         { dealer: { userId: currentUserId } },
         { hatchery: { userId: currentUserId } },
         { medicineSupplier: { userId: currentUserId } },
@@ -36,17 +39,30 @@ export const getAllAccountTransactions = async (
     if (entityType) {
       const entityTypeStr = entityType as string;
       if (entityTypeStr === "DEALER") {
+        // Show DEALER transactions: farmer's purchases OR dealer's own operations
         entityTransactionWhere.dealerId = { not: null };
-        entityTransactionWhere.dealer = { userId: currentUserId };
+        entityTransactionWhere.OR = [
+          { inventoryItem: { userId: currentUserId } },
+          { dealer: { userId: currentUserId } },
+        ];
       } else if (entityTypeStr === "HATCHERY") {
+        // Show HATCHERY transactions: farmer's purchases OR hatchery's own operations
         entityTransactionWhere.hatcheryId = { not: null };
-        entityTransactionWhere.hatchery = { userId: currentUserId };
+        entityTransactionWhere.OR = [
+          { inventoryItem: { userId: currentUserId } },
+          { hatchery: { userId: currentUserId } },
+        ];
       } else if (entityTypeStr === "CUSTOMER") {
+        // Show CUSTOMER transactions (dealer's sales to customers)
         entityTransactionWhere.customerId = { not: null };
         entityTransactionWhere.customer = { userId: currentUserId };
       } else if (entityTypeStr === "MEDICINE_SUPPLIER") {
+        // Show MEDICINE_SUPPLIER transactions: farmer's purchases OR supplier's own operations
         entityTransactionWhere.medicineSupplierId = { not: null };
-        entityTransactionWhere.medicineSupplier = { userId: currentUserId };
+        entityTransactionWhere.OR = [
+          { inventoryItem: { userId: currentUserId } },
+          { medicineSupplier: { userId: currentUserId } },
+        ];
       }
     }
 
@@ -66,17 +82,26 @@ export const getAllAccountTransactions = async (
       }
     }
 
-    // Search filter
+    // Search filter - use AND with existing conditions to avoid overwriting OR clauses
     if (search) {
-      entityTransactionWhere.OR = [
-        { description: { contains: search as string, mode: "insensitive" } },
-        { itemName: { contains: search as string, mode: "insensitive" } },
-        { reference: { contains: search as string, mode: "insensitive" } },
-        { dealer: { name: { contains: search as string, mode: "insensitive" } } },
-        { hatchery: { name: { contains: search as string, mode: "insensitive" } } },
-        { customer: { name: { contains: search as string, mode: "insensitive" } } },
-        { medicineSupplier: { name: { contains: search as string, mode: "insensitive" } } },
-      ];
+      const searchConditions = {
+        OR: [
+          { description: { contains: search as string, mode: "insensitive" } },
+          { itemName: { contains: search as string, mode: "insensitive" } },
+          { reference: { contains: search as string, mode: "insensitive" } },
+          { dealer: { name: { contains: search as string, mode: "insensitive" } } },
+          { hatchery: { name: { contains: search as string, mode: "insensitive" } } },
+          { customer: { name: { contains: search as string, mode: "insensitive" } } },
+          { medicineSupplier: { name: { contains: search as string, mode: "insensitive" } } },
+        ],
+      };
+      
+      // Combine existing conditions with search using AND
+      const existingConditions = { ...entityTransactionWhere };
+      entityTransactionWhere.AND = [existingConditions, searchConditions];
+      
+      // Clear the top-level OR to avoid conflicts (now handled in AND)
+      delete entityTransactionWhere.OR;
     }
 
     // Build where clause for Sales
@@ -161,6 +186,12 @@ export const getAllAccountTransactions = async (
               id: true,
               name: true,
               contact: true,
+            },
+          },
+          inventoryItem: {
+            select: {
+              id: true,
+              userId: true,
             },
           },
         },

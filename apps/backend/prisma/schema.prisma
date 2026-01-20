@@ -152,6 +152,18 @@ enum ConsignmentDirection {
   DEALER_TO_FARMER
 }
 
+enum DealerSaleRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DealerSalePaymentRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum LedgerEntryType {
   SALE
   PURCHASE
@@ -273,8 +285,10 @@ model User {
   paymentRequestsReviewed  PaymentRequest[] @relation("PaymentRequestReviewedBy")
 
   // Dealer-Farmer relationships
-  dealerConnections          DealerFarmer[]                @relation("FarmerDealers")
-  dealerVerificationRequests FarmerVerificationRequest[] @relation("FarmerVerificationRequests")
+  dealerConnections           DealerFarmer[]                 @relation("FarmerDealers")
+  dealerVerificationRequests  FarmerVerificationRequest[]    @relation("FarmerVerificationRequests")
+  saleRequestsReceived        DealerSaleRequest[]            @relation("FarmerSaleRequests")
+  salePaymentRequestsAsFarmer DealerSalePaymentRequest[]     @relation("FarmerPaymentRequests")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -681,6 +695,8 @@ model Dealer {
   transactions         EntityTransaction[]
   products             DealerProduct[]
   sales                DealerSale[]
+  saleRequests         DealerSaleRequest[]
+  salePaymentRequests  DealerSalePaymentRequest[]
   consignmentsFrom     ConsignmentRequest[]        @relation("DealerConsignmentsFrom")
   consignmentsTo       ConsignmentRequest[]        @relation("DealerConsignmentsTo")
   ledgerEntries        DealerLedgerEntry[]
@@ -753,7 +769,9 @@ model Customer {
   entityTransactions EntityTransaction[]
 
   // Dealer sales relationships
-  dealerSales DealerSale[]
+  dealerSales         DealerSale[]
+  saleRequests        DealerSaleRequest[]
+  salePaymentRequests DealerSalePaymentRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1270,6 +1288,7 @@ model DealerProduct {
   transactions     DealerProductTransaction[]
   saleItems        DealerSaleItem[]
   consignmentItems ConsignmentItem[]
+  saleRequestItems DealerSaleRequestItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1321,10 +1340,12 @@ model DealerSale {
   dealerId String
   dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
 
-  items         DealerSaleItem[]
-  transactions  DealerProductTransaction[]
-  payments      DealerSalePayment[]
-  ledgerEntries DealerLedgerEntry[]
+  items           DealerSaleItem[]
+  transactions    DealerProductTransaction[]
+  payments        DealerSalePayment[]
+  paymentRequests DealerSalePaymentRequest[]
+  ledgerEntries   DealerLedgerEntry[]
+  saleRequest     DealerSaleRequest?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1366,6 +1387,110 @@ model DealerSalePayment {
   createdAt DateTime @default(now())
 
   @@index([saleId, date])
+}
+
+// ==================== DEALER SALE PAYMENT REQUEST MODELS ====================
+
+model DealerSalePaymentRequest {
+  id            String                          @id @default(cuid())
+  requestNumber String                          @unique
+  status        DealerSalePaymentRequestStatus @default(PENDING)
+  amount        Decimal                         @db.Decimal(10, 2)
+  description   String?
+
+  // Payment proof details (for future S3 integration)
+  paymentMethod     String?
+  paymentReference  String? // Bill ID / Transaction ID
+  proofOfPaymentUrl String? // Future: S3 file key or URL
+  paymentDate       DateTime?
+
+  // Linked sale
+  dealerSaleId String
+  dealerSale   DealerSale @relation(fields: [dealerSaleId], references: [id], onDelete: Cascade)
+
+  // Relationships
+  dealerId String
+  dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
+  farmerId String
+  farmer   User @relation("FarmerPaymentRequests", fields: [farmerId], references: [id], onDelete: Cascade)
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  // Approval tracking
+  reviewedAt      DateTime?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dealerSaleId, status])
+  @@index([dealerId, status])
+  @@index([farmerId, status])
+}
+
+// ==================== DEALER SALE REQUEST MODELS ====================
+
+model DealerSaleRequest {
+  id            String                   @id @default(cuid())
+  requestNumber String                   @unique
+  status        DealerSaleRequestStatus @default(PENDING)
+  
+  // Amounts
+  totalAmount   Decimal  @db.Decimal(10, 2)
+  paidAmount    Decimal  @default(0) @db.Decimal(10, 2)
+  
+  // Payment details
+  paymentMethod String?
+  notes         String?
+  date          DateTime @default(now())
+  
+  // Approval/Rejection
+  reviewedAt      DateTime?
+  rejectionReason String?
+  
+  // Relationships
+  dealerId      String
+  dealer        Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  
+  farmerId      String   // Connected farmer who must approve
+  farmer        User @relation("FarmerSaleRequests", fields: [farmerId], references: [id], onDelete: Cascade)
+  
+  customerId    String   // The customer record (connected farmer as customer)
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // Linked records (created on approval)
+  dealerSaleId  String?  @unique
+  dealerSale    DealerSale? @relation(fields: [dealerSaleId], references: [id])
+  
+  items         DealerSaleRequestItem[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([dealerId, status])
+  @@index([farmerId, status])
+  @@index([customerId])
+}
+
+model DealerSaleRequestItem {
+  id          String  @id @default(cuid())
+  quantity    Decimal @db.Decimal(10, 2)
+  unitPrice   Decimal @db.Decimal(10, 2)
+  totalAmount Decimal @db.Decimal(10, 2)
+  
+  requestId   String
+  request     DealerSaleRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  
+  productId   String
+  product     DealerProduct @relation(fields: [productId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([requestId])
+  @@index([productId])
 }
 
 model ConsignmentRequest {

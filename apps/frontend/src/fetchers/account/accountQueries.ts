@@ -59,15 +59,29 @@ export const useGetAllAccountTransactions = (
   filters: AccountTransactionsFilters = {},
   options?: { enabled?: boolean }
 ) => {
+  // Clean up filters to remove empty values
+  const cleanFilters = Object.entries(filters).reduce((acc, [key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      acc[key] = value;
+    }
+    return acc;
+  }, {} as AccountTransactionsFilters);
+
+  console.log("Query params being sent:", cleanFilters); // Debug log
+
   return useQuery<AccountTransactionsResponse>({
-    queryKey: accountKeys.transactions(filters),
+    queryKey: accountKeys.transactions(cleanFilters),
     queryFn: async () => {
       const response = await axiosInstance.get("/account/transactions", {
-        params: filters,
+        params: cleanFilters,
       });
+      console.log("Query response:", response.data); // Debug log
       return response.data;
     },
-    enabled: options?.enabled !== false,
+    enabled: options?.enabled ?? true,
+    staleTime: 0, // Don't cache - always fetch fresh data
+    refetchOnMount: true, // Always refetch on mount
+    refetchOnWindowFocus: false,
   });
 };
 

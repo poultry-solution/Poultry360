@@ -773,7 +773,7 @@ export const addDealerTransaction = async (
         }
         const purchaseTxn = await prisma.entityTransaction.findFirst({
           where: { id: paymentToPurchaseId, dealerId: id, type: TransactionType.PURCHASE },
-          select: { id: true, amount: true },
+          select: { id: true, amount: true, reference: true },
         });
         if (!purchaseTxn) {
           return res.status(400).json({ message: "Invalid paymentToPurchaseId: target purchase not found" });
@@ -787,6 +787,42 @@ export const addDealerTransaction = async (
         const remainingDue = Math.max(0, purchaseTotal - alreadyPaid);
         if (numericAmount > remainingDue) {
           return res.status(400).json({ message: `Payment exceeds remaining due. Remaining: ${remainingDue}` });
+        }
+
+        // 🔗 NEW: Check if this is a connected dealer - create payment request instead
+        if (dealerFarmerConnection && purchaseTxn.reference) {
+          // Find the DealerSale that corresponds to this purchase (by invoice number)
+          const dealerSale = await prisma.dealerSale.findFirst({
+            where: {
+              dealerId: id,
+              invoiceNumber: purchaseTxn.reference,
+            },
+            include: {
+              customer: true,
+            },
+          });
+
+          if (dealerSale && dealerSale.customer?.farmerId === currentUserId) {
+            // This is a linked sale - create payment request instead of direct payment
+            const { DealerSalePaymentRequestService } = await import("../services/dealerSalePaymentRequestService");
+            
+            const paymentRequest = await DealerSalePaymentRequestService.createPaymentRequest({
+              dealerSaleId: dealerSale.id,
+              farmerId: currentUserId,
+              amount: numericAmount,
+              paymentDate: new Date(date),
+              paymentReference: reference || undefined,
+              paymentMethod: undefined,
+              description: description || undefined,
+            });
+
+            return res.status(201).json({
+              success: true,
+              data: paymentRequest,
+              message: "Payment request created and sent to dealer for approval",
+              isPaymentRequest: true,
+            });
+          }
         }
       }
 

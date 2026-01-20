@@ -47,30 +47,33 @@ export default function AccountsPage() {
       limit: 100,
     };
 
-    if (activeTab !== "ALL") {
+    if (activeTab !== "ALL" && activeTab) {
       apiFilters.entityType = activeTab;
     }
 
-    if (transactionTypeFilter) {
+    if (transactionTypeFilter && transactionTypeFilter.trim() !== "") {
       apiFilters.transactionType = transactionTypeFilter;
     }
 
-    if (startDate) {
+    if (startDate && startDate.trim() !== "") {
       apiFilters.startDate = startDate;
     }
 
-    if (endDate) {
+    if (endDate && endDate.trim() !== "") {
       apiFilters.endDate = endDate;
     }
 
-    if (search) {
+    if (search && search.trim() !== "") {
       apiFilters.search = search;
     }
 
+    console.log("Account filters:", apiFilters); // Debug log
     return apiFilters;
   }, [activeTab, transactionTypeFilter, startDate, endDate, search]);
 
   const { data, isLoading, error } = useGetAllAccountTransactions(filters);
+  
+  console.log("Account query state:", { isLoading, error, dataLength: data?.data?.length }); // Debug log
 
   const transactions = data?.data || [];
   const pagination = data?.pagination;
@@ -305,6 +308,7 @@ export default function AccountsPage() {
               <Button
                 variant="outline"
                 onClick={() => {
+                  setActiveTab("ALL");
                   setTransactionTypeFilter("");
                   setStartDate("");
                   setEndDate("");
