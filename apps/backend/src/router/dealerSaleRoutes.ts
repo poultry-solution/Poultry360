@@ -10,6 +10,11 @@ import {
   getDealerCustomers,
   getSalesStatistics,
 } from "../controller/dealerSaleController";
+import {
+  getSaleRequests,
+  getSaleRequestById,
+  getSaleRequestStatistics,
+} from "../controller/dealerSaleRequestController";
 import { authMiddleware } from "../middelware/middelware";
 
 const router = express.Router();
@@ -41,6 +46,19 @@ router.get("/companies/search", searchCompanies);
 // Create customer on-the-fly
 router.post("/customers", createCustomer);
 
+// ==================== SALE REQUEST ROUTES ====================
+// IMPORTANT: These must come BEFORE /:id route to avoid conflicts
+// Get sale request statistics
+router.get("/requests/statistics", getSaleRequestStatistics);
+
+// Get all sale requests
+router.get("/requests", getSaleRequests);
+
+// Get sale request by ID
+router.get("/requests/:id", getSaleRequestById);
+
+// ==================== SALE ID ROUTES ====================
+// IMPORTANT: This must come AFTER specific routes like /requests, /statistics, etc.
 // Get dealer sale by ID
 router.get("/:id", getDealerSaleById);
 

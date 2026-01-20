@@ -22,6 +22,7 @@ import {
   FileText,
   CreditCard,
   CheckCircle2,
+  FileCheck,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
@@ -59,6 +60,8 @@ const farmerNavigation: NavigationItem[] = [
     icon: MessageCircle,
   },
   { name: "Accounts", href: "/farmer/dashboard/accounts", icon: CreditCard },
+  { name: "Sale Requests", href: "/farmer/dashboard/sale-requests", icon: FileCheck },
+  { name: "Payment Requests", href: "/farmer/dashboard/payment-requests", icon: DollarSign },
   { name: "Vaccinations", href: "/farmer/dashboard/vaccinations", icon: Syringe },
 ];
 
@@ -75,6 +78,8 @@ const dealerNavigation: NavigationItem[] = [
   { name: "Inventory", href: "/dealer/dashboard/inventory", icon: Package },
   { name: "Customers", href: "/dealer/dashboard/customers", icon: Users },
   { name: "Sales", href: "/dealer/dashboard/sales", icon: Receipt },
+  { name: "Sale Requests", href: "/dealer/dashboard/sale-requests", icon: FileCheck },
+  { name: "Payment Requests", href: "/dealer/dashboard/payment-requests", icon: DollarSign },
   { name: "Ledger", href: "/dealer/dashboard/ledger", icon: FileText },
   { name: "Consignments", href: "/dealer/dashboard/consignments", icon: Truck },
   { name: "Payments", href: "/dealer/dashboard/payments", icon: CreditCard },
