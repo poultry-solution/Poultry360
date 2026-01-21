@@ -10,7 +10,7 @@ export const createCompanyProduct = async (
   try {
     const userId = req.userId;
 
-    const { name, description, type, unit, price, quantity } = req.body;
+    const { name, description, type, unit, price, quantity, imageUrl } = req.body;
 
     // Validation
     if (!name || !type || !unit || !price || !quantity) {
@@ -42,6 +42,7 @@ export const createCompanyProduct = async (
         quantity: new Prisma.Decimal(quantity),
         currentStock: new Prisma.Decimal(quantity), // Set initial stock
         totalPrice: new Prisma.Decimal(totalPrice),
+        imageUrl: imageUrl || null,
         supplierId: userId as string,
       },
     });
@@ -162,7 +163,7 @@ export const updateCompanyProduct = async (
     const userId = req.userId;
     const { id } = req.params;
 
-    const { name, description, type, unit, price, quantity } = req.body;
+    const { name, description, type, unit, price, quantity, imageUrl } = req.body;
 
     // Check if product exists and belongs to company
     const existingProduct = await prisma.product.findFirst({
@@ -193,6 +194,7 @@ export const updateCompanyProduct = async (
         quantity: quantity !== undefined ? new Prisma.Decimal(quantity) : undefined,
         currentStock: quantity !== undefined ? new Prisma.Decimal(quantity) : undefined, // Update stock when quantity changes
         totalPrice: new Prisma.Decimal(totalPrice),
+        imageUrl: imageUrl !== undefined ? imageUrl : undefined,
       },
     });
 

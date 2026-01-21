@@ -63,6 +63,7 @@ export default function CompanyProductsPage() {
     unit: "kg",
     price: 0,
     quantity: 0,
+    imageUrl: "",
   });
 
   // Queries
@@ -88,6 +89,7 @@ export default function CompanyProductsPage() {
         unit: product.unit,
         price: Number(product.price),
         quantity: Number(product.quantity),
+        imageUrl: product.imageUrl || "",
       });
     } else {
       setEditingProduct(null);
@@ -98,6 +100,7 @@ export default function CompanyProductsPage() {
         unit: "kg",
         price: 0,
         quantity: 0,
+        imageUrl: "",
       });
     }
     setIsDialogOpen(true);
@@ -344,7 +347,7 @@ export default function CompanyProductsPage() {
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} >
             <DialogHeader>
               <DialogTitle>
                 {editingProduct ? "Edit Product" : "Add New Product"}
@@ -356,7 +359,7 @@ export default function CompanyProductsPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-4 py-4 ">
               <div className="space-y-2">
                 <Label htmlFor="name">Product Name *</Label>
                 <Input
@@ -378,6 +381,21 @@ export default function CompanyProductsPage() {
                     setFormData({ ...formData, description: e.target.value })
                   }
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="imageUrl">Product Image URL</Label>
+                <Input
+                  id="imageUrl"
+                  value={formData.imageUrl}
+                  onChange={(e) =>
+                    setFormData({ ...formData, imageUrl: e.target.value })
+                  }
+                  placeholder="https://example.com/product-image.jpg"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter a URL for the product image (for testing purposes)
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
