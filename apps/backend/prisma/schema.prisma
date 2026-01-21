@@ -311,6 +311,7 @@ model Company {
   ledgerEntries        CompanyLedgerEntry[]
   paymentRequests      PaymentRequest[]
   verificationRequests DealerVerificationRequest[]
+  dealerCarts          DealerCart[]
 
   @@index([ownerId])
 }
@@ -410,12 +411,14 @@ model Product {
   quantity     Decimal           @db.Decimal(10, 2)
   currentStock Decimal           @default(0) @db.Decimal(10, 2)
   totalPrice   Decimal           @db.Decimal(10, 2)
+  imageUrl     String?           // Product image URL (static URL for now, designed for future file uploads)
   supplierId   String?
   supplier     User?             @relation("ProductSupplier", fields: [supplierId], references: [id], onDelete: Cascade)
 
   dealerProducts   DealerProduct[]
   consignmentItems ConsignmentItem[]
   companySaleItems CompanySaleItem[]
+  cartItems        DealerCartItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -703,9 +706,45 @@ model Dealer {
   companySales         CompanySale[]
   paymentRequests      PaymentRequest[]
   verificationRequests DealerVerificationRequest[]
+  carts                DealerCart[]
 
   @@unique([userId, name])
   @@index([ownerId])
+}
+
+// ==================== DEALER CART MODELS ====================
+
+model DealerCart {
+  id        String   @id @default(cuid())
+  dealerId  String
+  dealer    Dealer   @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  items     DealerCartItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dealerId, companyId]) // One cart per dealer-company pair
+  @@index([dealerId])
+  @@index([companyId])
+}
+
+model DealerCartItem {
+  id        String     @id @default(cuid())
+  cartId    String
+  cart      DealerCart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Decimal    @db.Decimal(10, 2)
+  unitPrice Decimal    @db.Decimal(10, 2) // Frozen price at time of adding to cart
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, productId]) // One entry per product per cart
+  @@index([cartId])
+  @@index([productId])
 }
 
 model Hatchery {

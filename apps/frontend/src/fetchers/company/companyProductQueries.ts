@@ -22,6 +22,7 @@ export interface CompanyProduct {
   quantity: number;
   currentStock: number;
   totalPrice: number;
+  imageUrl?: string;
   supplierId?: string;
   companyId?: string;
   createdAt: Date;
@@ -35,6 +36,7 @@ export interface CreateCompanyProductInput {
   unit: string;
   price: number;
   quantity: number;
+  imageUrl?: string;
 }
 
 export interface UpdateCompanyProductInput extends Partial<CreateCompanyProductInput> {}

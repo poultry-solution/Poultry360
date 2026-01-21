@@ -450,12 +450,11 @@ export default function DealerCompanyPage() {
                         size="sm"
                         className="flex-1"
                         onClick={() => {
-                          // Navigate to company details page - to be implemented later
-                          toast.info("Company interaction features coming soon!");
+                          window.location.href = `/dealer/dashboard/company/${company.id}/catalog`;
                         }}
                       >
                         <Eye className="mr-2 h-4 w-4" />
-                        View Details
+                        View Catalog
                       </Button>
                       <Button
                         variant="ghost"

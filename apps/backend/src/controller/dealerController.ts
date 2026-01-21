@@ -1216,3 +1216,112 @@ export const getDealerTransactions = async (
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+// ==================== GET COMPANY PRODUCTS FOR DEALER ====================
+export const getCompanyProducts = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { companyId } = req.params;
+    const { page = 1, limit = 20, search, type } = req.query;
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // Get dealer
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    // Verify dealer has connection to company
+    const connection = await (prisma as any).dealerCompany.findUnique({
+      where: {
+        dealerId_companyId: {
+          dealerId: dealer.id,
+          companyId: companyId,
+        },
+        archivedByDealer: false,
+      },
+    });
+
+    if (!connection) {
+      return res.status(403).json({
+        message: "You are not connected to this company",
+      });
+    }
+
+    // Get company owner ID
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { ownerId: true, name: true, address: true },
+    });
+
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    // Build where clause for products
+    const where: any = {
+      supplierId: company.ownerId,
+      currentStock: { gt: 0 }, // Only show products with available stock
+    };
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search as string, mode: "insensitive" } },
+        { description: { contains: search as string, mode: "insensitive" } },
+      ];
+    }
+
+    if (type) {
+      where.type = type;
+    }
+
+    // Get products
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        skip,
+        take: Number(limit),
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          type: true,
+          unit: true,
+          price: true,
+          currentStock: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      prisma.product.count({ where }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: products,
+      company: {
+        id: companyId,
+        name: company.name,
+        address: company.address,
+      },
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        totalPages: Math.ceil(total / Number(limit)),
+      },
+    });
+  } catch (error: any) {
+    console.error("Get company products for dealer error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
