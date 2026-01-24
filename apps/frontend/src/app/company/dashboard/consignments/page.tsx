@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Package,
@@ -65,30 +66,19 @@ import {
   type Consignment,
   type AuditLog,
 } from "@/fetchers/company/consignmentQueries";
-import { useGetCompanyDealers } from "@/fetchers/company/companyDealerQueries";
-import { useGetCompanyProducts } from "@/fetchers/company/companyProductQueries";
 
 export default function CompanyConsignmentsPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("sent");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [selectedConsignment, setSelectedConsignment] = useState<Consignment | null>(null);
   
   // Dialogs
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isDispatchDialogOpen, setIsDispatchDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
-
-  // Form state for create consignment
-  const [createDealerId, setCreateDealerId] = useState("");
-  const [createItems, setCreateItems] = useState<Array<{
-    productId: string;
-    quantity: number;
-    unitPrice: number;
-  }>>([]);
-  const [createNotes, setCreateNotes] = useState("");
 
   // Form state for approve
   const [approveItems, setApproveItems] = useState<Array<{
@@ -118,11 +108,7 @@ export default function CompanyConsignmentsPage() {
     search: search || undefined,
   });
 
-  const { data: dealersData } = useGetCompanyDealers({ limit: 100 });
-  const { data: productsData } = useGetCompanyProducts({ limit: 100 });
-
   // Mutations
-  const createMutation = useCreateCompanyConsignment();
   const approveMutation = useApproveConsignment();
   const dispatchMutation = useDispatchConsignment();
   const rejectMutation = useRejectConsignment();
@@ -130,8 +116,6 @@ export default function CompanyConsignmentsPage() {
 
   const sentConsignments = sentData?.data || [];
   const receivedConsignments = receivedData?.data || [];
-  const dealers = dealersData?.data || [];
-  const products = productsData?.data || [];
 
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString("en-US", {
@@ -200,26 +184,6 @@ export default function CompanyConsignmentsPage() {
         );
       default:
         return <Badge>{status}</Badge>;
-    }
-  };
-
-  const handleCreateConsignment = async () => {
-    if (!createDealerId || createItems.length === 0) {
-      toast.error("Please select dealer and add items");
-      return;
-    }
-
-    try {
-      await createMutation.mutateAsync({
-        dealerId: createDealerId,
-        items: createItems,
-        notes: createNotes || undefined,
-      });
-      toast.success("Consignment created successfully");
-      setIsCreateDialogOpen(false);
-      resetCreateForm();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to create consignment");
     }
   };
 
@@ -292,30 +256,10 @@ export default function CompanyConsignmentsPage() {
     }
   };
 
-  const resetCreateForm = () => {
-    setCreateDealerId("");
-    setCreateItems([]);
-    setCreateNotes("");
-  };
-
   const resetDispatchForm = () => {
     setDispatchRef("");
     setTrackingInfo("");
     setDispatchNotes("");
-  };
-
-  const addCreateItem = () => {
-    setCreateItems([...createItems, { productId: "", quantity: 0, unitPrice: 0 }]);
-  };
-
-  const removeCreateItem = (index: number) => {
-    setCreateItems(createItems.filter((_, i) => i !== index));
-  };
-
-  const updateCreateItem = (index: number, field: string, value: any) => {
-    const updated = [...createItems];
-    updated[index] = { ...updated[index], [field]: value };
-    setCreateItems(updated);
   };
 
   return (
@@ -330,7 +274,7 @@ export default function CompanyConsignmentsPage() {
             Manage product consignments to dealers
           </p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-primary">
+        <Button onClick={() => router.push("/company/dashboard/consignments/new")} className="bg-primary">
           <Plus className="mr-2 h-4 w-4" />
           New Consignment
         </Button>
@@ -399,7 +343,7 @@ export default function CompanyConsignmentsPage() {
                   <p className="text-muted-foreground mb-4">
                     Create your first consignment to a dealer.
                   </p>
-                  <Button onClick={() => setIsCreateDialogOpen(true)}>
+                  <Button onClick={() => router.push("/company/dashboard/consignments/new")}>
                     <Plus className="mr-2 h-4 w-4" />
                     New Consignment
                   </Button>
@@ -571,6 +515,19 @@ export default function CompanyConsignmentsPage() {
                                 </Button>
                               </>
                             )}
+                            {consignment.status === "ACCEPTED_PENDING_DISPATCH" && (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedConsignment(consignment);
+                                  setIsDispatchDialogOpen(true);
+                                }}
+                              >
+                                <Truck className="h-4 w-4 mr-1" />
+                                Dispatch
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -582,164 +539,6 @@ export default function CompanyConsignmentsPage() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Create Consignment Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create New Consignment</DialogTitle>
-            <DialogDescription>
-              Send products to a dealer on consignment
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="dealer">Select Dealer *</Label>
-              <Select value={createDealerId} onValueChange={setCreateDealerId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select dealer..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {dealers.map((dealer) => (
-                    <SelectItem key={dealer.id} value={dealer.id}>
-                      {dealer.name} - {dealer.contact}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>Products *</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addCreateItem}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Product
-                </Button>
-              </div>
-              {createItems.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex gap-2 items-end p-3 border rounded-md"
-                >
-                  <div className="flex-1 space-y-2">
-                    <Label htmlFor={`product-${index}`}>Product</Label>
-                    <Select
-                      value={item.productId}
-                      onValueChange={(value) =>
-                        updateCreateItem(index, "productId", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select product..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {products.map((product) => (
-                          <SelectItem key={product.id} value={product.id}>
-                            {product.name} (Stock: {product.currentStock})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="w-24 space-y-2">
-                    <Label htmlFor={`quantity-${index}`}>Quantity</Label>
-                    <Input
-                      id={`quantity-${index}`}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={item.quantity}
-                      onChange={(e) =>
-                        updateCreateItem(index, "quantity", parseFloat(e.target.value) || 0)
-                      }
-                    />
-                  </div>
-                  <div className="w-32 space-y-2">
-                    <Label htmlFor={`unitPrice-${index}`}>Unit Price</Label>
-                    <Input
-                      id={`unitPrice-${index}`}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={item.unitPrice}
-                      onChange={(e) =>
-                        updateCreateItem(index, "unitPrice", parseFloat(e.target.value) || 0)
-                      }
-                    />
-                  </div>
-                  <div className="w-32">
-                    <p className="text-sm font-medium">Total</p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatCurrency(item.quantity * item.unitPrice)}
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeCreateItem(index)}
-                  >
-                    <XCircle className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              ))}
-              {createItems.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No items added yet. Click "Add Product" to get started.
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes (Optional)</Label>
-              <Textarea
-                id="notes"
-                value={createNotes}
-                onChange={(e) => setCreateNotes(e.target.value)}
-                placeholder="Add any notes or special instructions..."
-                rows={3}
-              />
-            </div>
-
-            {createItems.length > 0 && (
-              <div className="bg-muted p-4 rounded-md">
-                <p className="text-sm font-medium">Total Amount</p>
-                <p className="text-2xl font-bold">
-                  {formatCurrency(
-                    createItems.reduce(
-                      (sum, item) => sum + item.quantity * item.unitPrice,
-                      0
-                    )
-                  )}
-                </p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsCreateDialogOpen(false);
-                resetCreateForm();
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateConsignment}
-              disabled={createMutation.isPending}
-            >
-              {createMutation.isPending ? "Creating..." : "Create Consignment"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Approve Consignment Dialog */}
       <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
@@ -1061,12 +860,14 @@ export default function CompanyConsignmentsPage() {
                         {formatCurrency(selectedConsignment.companySale.totalAmount)}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Due</p>
-                      <p className="font-medium">
-                        {formatCurrency(selectedConsignment.companySale.dueAmount)}
-                      </p>
-                    </div>
+                    {(selectedConsignment.companySale as any)?.account && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Account Balance</p>
+                        <p className={`font-medium ${Number((selectedConsignment.companySale as any).account.balance) > 0 ? "text-red-600" : Number((selectedConsignment.companySale as any).account.balance) < 0 ? "text-green-600" : ""}`}>
+                          {formatCurrency((selectedConsignment.companySale as any).account.balance)}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

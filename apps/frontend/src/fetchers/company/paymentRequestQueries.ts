@@ -51,7 +51,10 @@ export interface PaymentRequest {
     id: string;
     invoiceNumber?: string;
     totalAmount: number;
-    dueAmount?: number;
+    account?: {
+      id: string;
+      balance: number;
+    };
   };
   requestedBy?: {
     id: string;
@@ -163,6 +166,7 @@ export const useVerifyCompanyPaymentRequest = () => {
       });
       queryClient.invalidateQueries({ queryKey: ["company-ledger"] });
       queryClient.invalidateQueries({ queryKey: ["company-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["company-dealer-account"] });
     },
   });
 };

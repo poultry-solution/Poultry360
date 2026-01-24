@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Search,
@@ -14,6 +15,7 @@ import {
   Archive,
   ArchiveRestore,
   X,
+  Wallet,
 } from "lucide-react";
 import {
   Card,
@@ -51,9 +53,11 @@ import {
   useGetArchivedDealerCompanies,
   type DealerVerificationRequest,
 } from "@/fetchers/dealer/dealerVerificationQueries";
+import { useGetAllCompanyAccounts } from "@/fetchers/dealer/dealerCompanyAccountQueries";
 import { PublicCompanySearchSelect } from "@/common/components/forms/PublicCompanySearchSelect";
 
 export default function DealerCompanyPage() {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [viewTab, setViewTab] = useState<"active" | "archived">("active");
@@ -67,6 +71,8 @@ export default function DealerCompanyPage() {
     useGetDealerVerificationRequests();
   const { data: companiesData, isLoading: companiesLoading } = useGetDealerCompanies();
   const { data: archivedCompaniesData, isLoading: archivedLoading } = useGetArchivedDealerCompanies();
+  const { data: accountsData } = useGetAllCompanyAccounts();
+  const accounts = accountsData || [];
 
   // Mutations
   const createRequestMutation = useCreateDealerVerificationRequest();
@@ -238,6 +244,17 @@ export default function DealerCompanyPage() {
     return "";
   };
 
+  // Get balance for a specific company
+  const getCompanyBalance = (companyId: string) => {
+    const account = accounts.find((a) => a.companyId === companyId);
+    return account?.balance || 0;
+  };
+
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    return `रू ${Math.abs(amount).toFixed(2)}`;
+  };
+
   if (requestsLoading || companiesLoading) {
     return (
       <div className="space-y-6">
@@ -274,48 +291,89 @@ export default function DealerCompanyPage() {
         </Button>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Connected Companies</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline gap-2">
-              <div className="text-2xl font-bold">{connectedCompanies.length}</div>
-              <span className="text-sm text-muted-foreground">Active</span>
-              {archivedCompanies.length > 0 && (
-                <>
-                  <span className="text-sm text-muted-foreground">/</span>
-                  <div className="text-xl font-semibold text-muted-foreground">{archivedCompanies.length}</div>
-                  <span className="text-sm text-muted-foreground">Archived</span>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      {/* Account Summary Cards */}
+      {(() => {
+        const totalOwed = accounts
+          .filter((a) => a.balance > 0)
+          .reduce((sum, a) => sum + a.balance, 0);
+        const totalAdvance = accounts
+          .filter((a) => a.balance < 0)
+          .reduce((sum, a) => sum + Math.abs(a.balance), 0);
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{pendingRequests.length}</div>
-          </CardContent>
-        </Card>
+        return (
+          <div className="grid gap-4 md:grid-cols-5">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Connected Companies</CardTitle>
+                <CheckCircle className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-baseline gap-2">
+                  <div className="text-2xl font-bold">{connectedCompanies.length}</div>
+                  <span className="text-sm text-muted-foreground">Active</span>
+                  {archivedCompanies.length > 0 && (
+                    <>
+                      <span className="text-sm text-muted-foreground">/</span>
+                      <div className="text-xl font-semibold text-muted-foreground">{archivedCompanies.length}</div>
+                      <span className="text-sm text-muted-foreground">Archived</span>
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rejected Requests</CardTitle>
-            <XCircle className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{rejectedRequests.length}</div>
-          </CardContent>
-        </Card>
-      </div>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Balance Owed</CardTitle>
+                <Wallet className="h-4 w-4 text-red-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">
+                  {formatCurrency(totalOwed)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Amount you owe to companies
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Advance</CardTitle>
+                <Wallet className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {formatCurrency(totalAdvance)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Your advance/credit balance
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
+                <Clock className="h-4 w-4 text-yellow-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{pendingRequests.length}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Rejected Requests</CardTitle>
+                <XCircle className="h-4 w-4 text-red-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{rejectedRequests.length}</div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
       {/* Filters */}
       <Card>
@@ -423,48 +481,83 @@ export default function DealerCompanyPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2 text-sm">
-                      {company.owner && (
+                    {(() => {
+                      const balance = getCompanyBalance(company.id);
+                      return (
                         <>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Owner:</span>
-                            <span className="font-medium">{company.owner.name}</span>
+                          <div className="space-y-2 text-sm">
+                            {/* Balance Display */}
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Balance:</span>
+                              <span
+                                className={`font-bold ${
+                                  balance > 0
+                                    ? "text-red-600"
+                                    : balance < 0
+                                    ? "text-green-600"
+                                    : ""
+                                }`}
+                              >
+                                {balance > 0
+                                  ? `${formatCurrency(balance)} (Owed)`
+                                  : balance < 0
+                                  ? `${formatCurrency(balance)} (Advance)`
+                                  : "रू 0.00"}
+                              </span>
+                            </div>
+                            {company.owner && (
+                              <>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Owner:</span>
+                                  <span className="font-medium">{company.owner.name}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Contact:</span>
+                                  <span className="font-medium">{company.owner.phone}</span>
+                                </div>
+                              </>
+                            )}
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Connected:</span>
+                              <span className="font-medium text-green-600">
+                                {new Date(company.connectedAt).toLocaleDateString()}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Contact:</span>
-                            <span className="font-medium">{company.owner.phone}</span>
+
+                          <div className="mt-4 flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => router.push(`/dealer/dashboard/companies/${company.id}/account`)}
+                            >
+                              <Wallet className="mr-2 h-4 w-4" />
+                              View Account
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => {
+                                window.location.href = `/dealer/dashboard/company/${company.id}/catalog`;
+                              }}
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Catalog
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setArchiveConfirm({ id: company.dealerCompanyId, name: company.name })}
+                              className="text-muted-foreground hover:text-foreground"
+                            >
+                              <Archive className="h-4 w-4" />
+                            </Button>
                           </div>
                         </>
-                      )}
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Connected:</span>
-                        <span className="font-medium text-green-600">
-                          {new Date(company.connectedAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => {
-                          window.location.href = `/dealer/dashboard/company/${company.id}/catalog`;
-                        }}
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        View Catalog
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setArchiveConfirm({ id: company.dealerCompanyId, name: company.name })}
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        <Archive className="h-4 w-4" />
-                      </Button>
-                    </div>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               ))}

@@ -172,6 +172,10 @@ export const useCreateDealerPaymentRequest = () => {
       amount: number;
       companySaleId?: string;
       description?: string;
+      paymentMethod: string;
+      paymentReference?: string;
+      paymentReceiptUrl?: string;
+      paymentDate?: string;
     }) => {
       const { data } = await axiosInstance.post(
         "/payment-requests/dealer",
@@ -185,6 +189,7 @@ export const useCreateDealerPaymentRequest = () => {
       });
       queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["dealer-company-account"] });
     },
   });
 };

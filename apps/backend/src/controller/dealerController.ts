@@ -45,23 +45,34 @@ export const getAllDealers = async (
     // Build where clause
     let where: any;
     let dealerFarmerConnections: Map<string, { connectionId: string; connectionType: string }> = new Map();
+    let dealerCompanyConnections: Map<string, { connectionId: string; connectionType: string }> = new Map();
 
     // For company users, get dealers linked via DealerCompany relationship OR manually created
     if (currentUserRole === UserRole.COMPANY && company) {
-      // Get dealer IDs linked to this company via DealerCompany table
+      // Get dealer IDs linked to this company via DealerCompany table (exclude archived)
       const dealerCompanies = await (prisma as any).dealerCompany.findMany({
         where: {
           companyId: company.id,
+          archivedByCompany: false, // Filter out archived connections
         },
         select: {
+          id: true,
           dealerId: true,
         },
       });
 
       const linkedDealerIds = dealerCompanies.map((dc: any) => dc.dealerId);
 
+      // Store connection metadata for later use
+      dealerCompanies.forEach((dc: any) => {
+        dealerCompanyConnections.set(dc.dealerId, {
+          connectionId: dc.id,
+          connectionType: "CONNECTED",
+        });
+      });
+
       // Include dealers where:
-      // 1. Has DealerCompany relationship with this company
+      // 1. Has DealerCompany relationship with this company (not archived)
       // 2. OR userId matches current user (manually created dealers)
       where = {
         OR: [
@@ -143,45 +154,59 @@ export const getAllDealers = async (
         let totalTransactions = 0;
         let recentTransactions: any[] = [];
 
-        // For company users, calculate balance from CompanySale
+        // For company users, fetch balance from CompanyDealerAccount
         if (currentUserRole === UserRole.COMPANY && company) {
-          const sales = await prisma.companySale.findMany({
+          // Get account balance (account-based system)
+          const account = await prisma.companyDealerAccount.findUnique({
             where: {
-              companyId: company.id,
-              dealerId: dealer.id,
+              companyId_dealerId: {
+                companyId: company.id,
+                dealerId: dealer.id,
+              },
             },
             select: {
-              totalAmount: true,
-              paidAmount: true,
-              createdAt: true,
+              balance: true,
+              totalSales: true,
+              totalPayments: true,
             },
-            orderBy: { createdAt: "desc" },
           });
 
-          const totalSales = sales.reduce(
-            (sum, sale) => sum + Number(sale.totalAmount),
-            0
-          );
-          const totalPaid = sales.reduce(
-            (sum, sale) => sum + Number(sale.paidAmount),
-            0
-          );
-          balance = totalSales - totalPaid; // Preserve negative balance for advances
+          balance = account ? Number(account.balance) : 0;
 
-          // Calculate this month amount
+          // Get sales for this month statistics
           const currentMonth = new Date();
           currentMonth.setDate(1);
           currentMonth.setHours(0, 0, 0, 0);
 
-          const thisMonthSales = sales.filter(
-            (s) => new Date(s.createdAt) >= currentMonth
-          );
-          thisMonthAmount = thisMonthSales.reduce(
+          const sales = await prisma.companySale.findMany({
+            where: {
+              companyId: company.id,
+              dealerId: dealer.id,
+              createdAt: { gte: currentMonth },
+            },
+            select: {
+              totalAmount: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 5,
+          });
+
+          thisMonthAmount = sales.reduce(
             (sum, s) => sum + Number(s.totalAmount),
             0
           );
-          totalTransactions = sales.length;
-          recentTransactions = sales.slice(0, 5);
+
+          // Get total transaction count
+          const totalSalesCount = await prisma.companySale.count({
+            where: {
+              companyId: company.id,
+              dealerId: dealer.id,
+            },
+          });
+
+          totalTransactions = totalSalesCount;
+          recentTransactions = sales;
         } else {
           // For other users, calculate from EntityTransaction (as before)
           const transactions = await prisma.entityTransaction.findMany({
@@ -226,7 +251,12 @@ export const getAllDealers = async (
 
         // Determine connection type
         const isManualDealer = dealer.userId === currentUserId;
-        const connectionInfo = dealerFarmerConnections.get(dealer.id);
+        let connectionInfo;
+        if (currentUserRole === UserRole.COMPANY) {
+          connectionInfo = dealerCompanyConnections.get(dealer.id);
+        } else {
+          connectionInfo = dealerFarmerConnections.get(dealer.id);
+        }
         const connectionType = connectionInfo ? "CONNECTED" : "MANUAL";
         const isOwnedDealer = !!dealer.ownerId;
 
@@ -237,7 +267,7 @@ export const getAllDealers = async (
           totalTransactions,
           recentTransactions,
           connectionType, // NEW: "MANUAL" | "CONNECTED"
-          connectionId: connectionInfo?.connectionId, // NEW: DealerFarmer.id if connected
+          connectionId: connectionInfo?.connectionId, // NEW: DealerCompany.id or DealerFarmer.id if connected
           isOwnedDealer, // NEW: true if dealer has ownerId (registered dealer)
         };
       })
@@ -554,6 +584,7 @@ export const deleteDealer = async (
   try {
     const { id } = req.params;
     const currentUserId = req.userId;
+    const currentUserRole = req.role;
 
     // Check if dealer exists
     const existingDealer = await prisma.dealer.findUnique({
@@ -564,7 +595,108 @@ export const deleteDealer = async (
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    // Check if dealer is manually created or connected
+    // Handle company users
+    if (currentUserRole === UserRole.COMPANY) {
+      // Get company
+      const company = await prisma.company.findUnique({
+        where: { ownerId: currentUserId },
+        select: { id: true },
+      });
+
+      if (!company) {
+        return res.status(404).json({ message: "Company not found" });
+      }
+
+      // Check if dealer is connected via DealerCompany
+      const dealerCompanyConnection = await (prisma as any).dealerCompany.findUnique({
+        where: {
+          dealerId_companyId: {
+            dealerId: id,
+            companyId: company.id,
+          },
+        },
+      });
+
+      // Check if dealer is manually created by company
+      const isManualDealer = existingDealer.userId === currentUserId;
+
+      // Verify access
+      if (!isManualDealer && !dealerCompanyConnection) {
+        return res.status(404).json({ message: "Dealer not found" });
+      }
+
+      // For connected dealers, archive the connection instead of deleting
+      if (dealerCompanyConnection && !isManualDealer) {
+        // Archive the connection
+        await (prisma as any).dealerCompany.update({
+          where: {
+            dealerId_companyId: {
+              dealerId: id,
+              companyId: company.id,
+            },
+          },
+          data: { archivedByCompany: true },
+        });
+
+        return res.json({
+          success: true,
+          message: "Dealer connection archived successfully",
+        });
+      }
+
+      // Only allow deletion of manually created dealers
+      if (!isManualDealer) {
+        return res.status(403).json({
+          message: "You can only delete dealers you created manually.",
+        });
+      }
+
+      // Check dependencies for self-created dealers
+      const [salesCount, account] = await Promise.all([
+        prisma.companySale.count({
+          where: {
+            companyId: company.id,
+            dealerId: id,
+          },
+        }),
+        prisma.companyDealerAccount.findUnique({
+          where: {
+            companyId_dealerId: {
+              companyId: company.id,
+              dealerId: id,
+            },
+          },
+          select: {
+            balance: true,
+          },
+        }),
+      ]);
+
+      // Check if dealer has sales or account balance
+      if (salesCount > 0) {
+        return res.status(400).json({
+          message: "Cannot delete dealer with existing sales. Please remove all sales first.",
+        });
+      }
+
+      if (account && Number(account.balance) !== 0) {
+        return res.status(400).json({
+          message: `Cannot delete dealer with account balance of रू ${Math.abs(Number(account.balance)).toFixed(2)}. Please settle the account first.`,
+        });
+      }
+
+      // Safe to delete
+      await prisma.dealer.delete({
+        where: { id },
+      });
+
+      return res.json({
+        success: true,
+        message: "Dealer deleted successfully",
+      });
+    }
+
+    // Handle farmer users (existing logic)
     const isManualDealer = existingDealer.userId === currentUserId;
     const dealerFarmerConnection = await prisma.dealerFarmer.findFirst({
       where: {
@@ -599,24 +731,6 @@ export const deleteDealer = async (
         dealerId: id,
       },
     });
-
-    console.log("Existing dealer:", existingDealer);
-    console.log("Transaction count for dealer:", transactionCount);
-
-    // Let's also check what transactions actually exist
-    const actualTransactions = await prisma.entityTransaction.findMany({
-      where: {
-        dealerId: id,
-      },
-      select: {
-        id: true,
-        type: true,
-        amount: true,
-        itemName: true,
-        date: true,
-      }
-    });
-    console.log("Actual transactions found:", actualTransactions);
 
     // Check if dealer has transactions
     if (transactionCount > 0) {

@@ -8,6 +8,7 @@ import dealerProductRoutes from "./dealerProductRoutes";
 import dealerSaleRoutes from "./dealerSaleRoutes";
 import dealerCartRoutes from "./dealerCartRoutes";
 import dealerCompanyRoutes from "./dealerCompanyRoutes";
+import companyDealerAccountRoutes from "./companyDealerAccountRoutes";
 import consignmentRoutes from "./consignmentRoutes";
 import dealerLedgerRoutes from "./dealerLedgerRoutes";
 import companyProductRoutes from "./companyProductRoutes";
@@ -63,6 +64,7 @@ router.use("/dealer/products", dealerProductRoutes);
 router.use("/dealer/sales", dealerSaleRoutes);
 router.use("/dealer/cart", dealerCartRoutes);
 router.use("/dealer/companies", dealerCompanyRoutes);
+router.use("/", companyDealerAccountRoutes); // Account routes for both company and dealer
 router.use("/consignments", consignmentRoutes);
 router.use("/verification", dealerVerificationRoutes);
 router.use("/verification", farmerVerificationRoutes);

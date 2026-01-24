@@ -29,6 +29,7 @@ import {
   TableRow,
 } from "@/common/components/ui/table";
 import { toast } from "sonner";
+import { useCreateCompanyConsignment } from "@/fetchers/company/consignmentQueries";
 import { useCreateCompanySale } from "@/fetchers/company/companySaleQueries";
 import { useGetCompanyProducts, type CompanyProduct } from "@/fetchers/company/companyProductQueries";
 import { useSearchCompanyDealers } from "@/fetchers/company/companyDealerQueries";
@@ -46,17 +47,17 @@ export default function NewCompanySalePage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [dealerId, setDealerId] = useState<string>("");
+  const [selectedDealer, setSelectedDealer] = useState<any>(null); // Store dealer metadata
   const [dealerSearch, setDealerSearch] = useState("");
   const [items, setItems] = useState<SaleItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState("");
   const [productQuantity, setProductQuantity] = useState(1);
-  const [paymentMethod, setPaymentMethod] = useState("CASH");
-  const [paidAmount, setPaidAmount] = useState(0);
   const [notes, setNotes] = useState("");
 
   // Queries
   const { data: productsData } = useGetCompanyProducts({ limit: 100 });
   const { data: dealersData } = useSearchCompanyDealers(dealerSearch);
+  const createConsignmentMutation = useCreateCompanyConsignment();
   const createSaleMutation = useCreateCompanySale();
 
   const products = productsData?.data || [];
@@ -64,11 +65,12 @@ export default function NewCompanySalePage() {
 
   // Calculate totals
   const totalAmount = items.reduce((sum, item) => sum + item.totalAmount, 0);
-  const dueAmount = totalAmount - paidAmount;
 
   // Step 1: Select Dealer
   const handleDealerSelect = (id: string) => {
+    const dealer = dealers.find((d: any) => d.id === id);
     setDealerId(id);
+    setSelectedDealer(dealer); // Store dealer metadata for later use
     setStep(2);
   };
 
@@ -142,41 +144,62 @@ export default function NewCompanySalePage() {
     setItems(updatedItems);
   };
 
-  // Step 3: Payment & Review
+  // Step 3: Review & Submit
   const handleSubmit = async () => {
     if (items.length === 0) {
       toast.error("Please add at least one product");
       return;
     }
 
-    if (!dealerId) {
+    if (!dealerId || !selectedDealer) {
       toast.error("Please select a dealer");
       return;
     }
 
-    if (paidAmount < 0 || paidAmount > totalAmount) {
-      toast.error("Paid amount must be between 0 and total amount");
-      return;
-    }
+    // Determine if dealer is self-created (MANUAL + isOwnedDealer) or connected
+    const isSelfCreatedDealer = 
+      selectedDealer.connectionType === "MANUAL" && selectedDealer.isOwnedDealer;
+    const isConnectedDealer = selectedDealer.connectionType === "CONNECTED";
 
     try {
-      await createSaleMutation.mutateAsync({
-        dealerId,
-        items: items.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-        })),
-        paidAmount,
-        paymentMethod,
-        notes: notes || undefined,
-        date: new Date(),
-      });
+      if (isSelfCreatedDealer) {
+        // Direct sale flow for self-created dealers (no approval needed)
+        await createSaleMutation.mutateAsync({
+          dealerId,
+          items: items.map((item) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+          })),
+          paymentMethod: "CREDIT", // Default for account-based system
+          notes: notes || undefined,
+          date: new Date(),
+        });
 
-      toast.success("Sale created successfully!");
-      router.push("/company/dashboard/sales");
+        toast.success("Sale created successfully!");
+        router.push("/company/dashboard/sales");
+      } else if (isConnectedDealer) {
+        // Consignment flow for connected dealers (requires approval)
+        await createConsignmentMutation.mutateAsync({
+          dealerId,
+          items: items.map((item) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+          })),
+          notes: notes || undefined,
+        });
+
+        toast.success("Consignment request created successfully!");
+        router.push("/company/dashboard/consignments");
+      } else {
+        toast.error("Invalid dealer type. Please select a valid dealer.");
+      }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to create sale");
+      const errorMessage = isSelfCreatedDealer
+        ? error.response?.data?.message || "Failed to create sale"
+        : error.response?.data?.message || "Failed to create consignment request";
+      toast.error(errorMessage);
     }
   };
 
@@ -189,8 +212,8 @@ export default function NewCompanySalePage() {
           Back
         </Button>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">New Sale</h1>
-          <p className="text-muted-foreground">Create a new sale transaction</p>
+          <h1 className="text-3xl font-bold tracking-tight">New Sale Request</h1>
+          <p className="text-muted-foreground">Create a consignment request that requires dealer approval</p>
         </div>
       </div>
 
@@ -233,7 +256,7 @@ export default function NewCompanySalePage() {
                 3
               </div>
               <span className={step >= 3 ? "font-medium" : "text-muted-foreground"}>
-                Payment
+                Review
               </span>
             </div>
           </div>
@@ -302,7 +325,7 @@ export default function NewCompanySalePage() {
                 <SelectTrigger className="flex-1">
                   <SelectValue placeholder="Select a product" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white">
                   {products
                     .filter((p: CompanyProduct) => Number(p.currentStock) > 0)
                     .map((product: CompanyProduct) => (
@@ -380,78 +403,45 @@ export default function NewCompanySalePage() {
                 Back
               </Button>
               <Button onClick={() => setStep(3)} disabled={items.length === 0}>
-                Continue to Payment
+                Continue to Review
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Step 3: Payment & Review */}
+      {/* Step 3: Review & Submit */}
       {step === 3 && (
         <Card>
           <CardHeader>
-            <CardTitle>Payment & Review</CardTitle>
+            <CardTitle>Review & Submit</CardTitle>
             <CardDescription>
-              Review sale details and enter payment information
+              {selectedDealer?.connectionType === "CONNECTED"
+                ? "Review consignment request details before submitting"
+                : "Review sale details before submitting"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Sale Summary */}
+            {/* Request Summary */}
             <div className="p-4 bg-muted rounded-lg space-y-2">
               <div className="flex justify-between">
                 <span>Total Amount:</span>
                 <span className="font-bold text-lg">रू {totalAmount.toFixed(2)}</span>
               </div>
-            </div>
-
-            {/* Payment Method */}
-            <div className="space-y-2">
-              <Label>Payment Method</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CASH">Cash</SelectItem>
-                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                  <SelectItem value="CHEQUE">Cheque</SelectItem>
-                  <SelectItem value="OTHER">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Paid Amount */}
-            <div className="space-y-2">
-              <Label>Paid Amount</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                max={totalAmount}
-                value={paidAmount}
-                onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
-                placeholder="Enter paid amount"
-              />
-              <p className="text-sm text-muted-foreground">
-                Leave 0 for full credit sale
-              </p>
-            </div>
-
-            {/* Due Amount Display */}
-            {dueAmount > 0 && (
-              <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">Due Amount:</span>
-                  <span className="font-bold text-lg text-orange-600">
-                    रू {dueAmount.toFixed(2)}
-                  </span>
+              {selectedDealer && (
+                <div className="mt-2">
+                  {selectedDealer.connectionType === "CONNECTED" ? (
+                    <p className="text-sm text-muted-foreground">
+                      This will create a consignment request. The dealer will need to accept it before you can dispatch.
+                    </p>
+                  ) : selectedDealer.isOwnedDealer ? (
+                    <p className="text-sm text-muted-foreground">
+                      This will create a direct sale. Inventory will be updated immediately and balance will be tracked in the dealer's account.
+                    </p>
+                  ) : null}
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  This will be recorded as a credit sale
-                </p>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Notes */}
             <div className="space-y-2">
@@ -469,15 +459,21 @@ export default function NewCompanySalePage() {
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={createSaleMutation.isPending}
+                disabled={
+                  createConsignmentMutation.isPending || createSaleMutation.isPending
+                }
                 className="bg-primary"
               >
-                {createSaleMutation.isPending ? (
-                  "Creating Sale..."
+                {createConsignmentMutation.isPending || createSaleMutation.isPending ? (
+                  selectedDealer?.connectionType === "CONNECTED" 
+                    ? "Creating Request..."
+                    : "Creating Sale..."
                 ) : (
                   <>
                     <Check className="mr-2 h-4 w-4" />
-                    Create Sale
+                    {selectedDealer?.connectionType === "CONNECTED"
+                      ? "Create Consignment Request"
+                      : "Create Sale"}
                   </>
                 )}
               </Button>

@@ -75,8 +75,10 @@ export interface Consignment {
     id: string;
     invoiceNumber: string;
     totalAmount: number;
-    paidAmount: number;
-    dueAmount?: number;
+    account?: {
+      id: string;
+      balance: number;
+    };
   };
   dispatchedBy?: {
     id: string;

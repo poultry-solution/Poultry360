@@ -12,7 +12,6 @@ import {
   getDealerConsignmentById,
   acceptDealerConsignment,
   confirmDealerConsignmentReceipt,
-  recordDealerAdvancePayment,
   rejectDealerConsignment,
   cancelDealerConsignment,
   getConsignmentAuditLogs,
@@ -46,7 +45,6 @@ dealerRouter.get("/", getDealerConsignments);
 dealerRouter.get("/:id", getDealerConsignmentById);
 dealerRouter.post("/:id/accept", acceptDealerConsignment);
 dealerRouter.post("/:id/confirm-receipt", confirmDealerConsignmentReceipt);
-dealerRouter.post("/:id/advance-payment", recordDealerAdvancePayment);
 dealerRouter.post("/:id/reject", rejectDealerConsignment);
 dealerRouter.post("/:id/cancel", cancelDealerConsignment);
 

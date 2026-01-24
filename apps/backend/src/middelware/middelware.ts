@@ -28,13 +28,11 @@ export const authMiddleware = (
   let decoded: any;
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET || "mysupersecretkey");
-    console.log("decoded", decoded);
   } catch (err) {
     console.log("error", err);
     return res.status(403).json({ error: "Access denied" });
   }
 
-  console.log("decoded", decoded);
 
   const userId = (decoded as any).userId;
   const role = (decoded as any).role;

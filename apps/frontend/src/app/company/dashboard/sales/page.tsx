@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Receipt, Search, Filter, Eye, CreditCard, Calendar } from "lucide-react";
+import { Plus, Receipt, Search, Eye, Calendar } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -37,7 +37,6 @@ export default function CompanySalesPage() {
   const router = useRouter();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [isPaidFilter, setIsPaidFilter] = useState<string>("ALL");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -46,7 +45,6 @@ export default function CompanySalesPage() {
     page,
     limit: 10,
     search,
-    isPaid: isPaidFilter !== "ALL" ? isPaidFilter === "PAID" : undefined,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
   });
@@ -88,8 +86,8 @@ export default function CompanySalesPage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="md:col-span-2">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="md:col-span-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -100,21 +98,7 @@ export default function CompanySalesPage() {
                 />
               </div>
             </div>
-            <Select
-              value={isPaidFilter}
-              onValueChange={setIsPaidFilter}
-            >
-              <SelectTrigger>
-                <Filter className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="Payment Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Sales</SelectItem>
-                <SelectItem value="PAID">Paid</SelectItem>
-                <SelectItem value="UNPAID">Unpaid</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="flex gap-2">
+            <div className="flex gap-2 md:col-span-2">
               <Input
                 type="date"
                 placeholder="Start Date"
@@ -166,9 +150,7 @@ export default function CompanySalesPage() {
                     <TableHead>Date</TableHead>
                     <TableHead>Dealer</TableHead>
                     <TableHead className="text-right">Total Amount</TableHead>
-                    <TableHead className="text-right">Paid</TableHead>
-                    <TableHead className="text-right">Due</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Payment Method</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -199,52 +181,21 @@ export default function CompanySalesPage() {
                       <TableCell className="text-right font-medium">
                         {formatCurrency(Number(sale.totalAmount))}
                       </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(Number(sale.paidAmount))}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {sale.dueAmount && Number(sale.dueAmount) > 0 ? (
-                          <span className="text-red-600 font-semibold">
-                            {formatCurrency(Number(sale.dueAmount))}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
                       <TableCell>
-                        {sale.isCredit && sale.dueAmount && Number(sale.dueAmount) > 0 ? (
-                          <Badge variant="destructive">Credit</Badge>
-                        ) : sale.isCredit ? (
-                          <Badge variant="secondary">Paid</Badge>
-                        ) : (
-                          <Badge variant="default">Cash</Badge>
-                        )}
+                        <Badge variant={sale.isCredit ? "secondary" : "default"}>
+                          {sale.isCredit ? "Credit" : sale.paymentMethod || "Cash"}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              router.push(`/company/dashboard/sales/${sale.id}`)
-                            }
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {sale.isCredit &&
-                            sale.dueAmount &&
-                            Number(sale.dueAmount) > 0 && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  router.push(`/company/dashboard/sales/${sale.id}`)
-                                }
-                              >
-                                <CreditCard className="h-4 w-4" />
-                              </Button>
-                            )}
-                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            router.push(`/company/dashboard/sales/${sale.id}`)
+                          }
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}

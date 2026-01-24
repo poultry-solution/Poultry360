@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 import type { Consignment, ConsignmentsResponse, AuditLog } from "../company/consignmentQueries";
 
+export type { Consignment, ConsignmentsResponse, AuditLog };
+
 export const dealerConsignmentKeys = {
   all: ["dealer-consignments"] as const,
   lists: () => [...dealerConsignmentKeys.all, "list"] as const,
@@ -137,41 +139,6 @@ export const useConfirmReceipt = () => {
       queryClient.invalidateQueries({ queryKey: ["dealer-sales"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
       queryClient.invalidateQueries({ queryKey: ["company-products"] });
-    },
-  });
-};
-
-// Record advance payment
-export const useRecordAdvancePayment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input: {
-      id: string;
-      amount: number;
-      paymentMethod: string;
-      paymentReference?: string;
-      paymentDate?: string;
-      notes?: string;
-    }) => {
-      const { data } = await axiosInstance.post(
-        `/consignments/dealer/${input.id}/advance-payment`,
-        {
-          amount: input.amount,
-          paymentMethod: input.paymentMethod,
-          paymentReference: input.paymentReference,
-          paymentDate: input.paymentDate,
-          notes: input.notes,
-        }
-      );
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: dealerConsignmentKeys.lists(),
-      });
-      queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
-      queryClient.invalidateQueries({ queryKey: ["company-ledger"] });
     },
   });
 };

@@ -17,8 +17,6 @@ export interface CompanySale {
   invoiceNumber: string;
   date: Date;
   totalAmount: number;
-  paidAmount: number;
-  dueAmount?: number;
   isCredit: boolean;
   paymentMethod?: string;
   notes?: string;
@@ -26,7 +24,7 @@ export interface CompanySale {
   dealerId: string;
   dealer?: any;
   items: CompanySaleItem[];
-  payments: CompanySalePayment[];
+  account?: any; // Link to CompanyDealerAccount
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,13 +38,7 @@ export interface CompanySaleItem {
   product?: any;
 }
 
-export interface CompanySalePayment {
-  id: string;
-  amount: number;
-  paymentDate: Date;
-  method?: string;
-  notes?: string;
-}
+// CompanySalePayment removed - using account-based payment system
 
 export interface CreateCompanySaleInput {
   dealerId: string;
@@ -55,18 +47,12 @@ export interface CreateCompanySaleInput {
     quantity: number;
     unitPrice: number;
   }>;
-  paidAmount: number;
   paymentMethod?: string;
   notes?: string;
   date?: Date;
 }
 
-export interface AddSalePaymentInput {
-  amount: number;
-  paymentDate?: Date;
-  description?: string;
-  paymentMethod?: string;
-}
+// AddSalePaymentInput removed - payments recorded at account level via CompanyDealerPayment
 
 // Get company sales with filters
 export const useGetCompanySales = (params?: {
@@ -144,23 +130,6 @@ export const useCreateCompanySale = () => {
   });
 };
 
-// Add sale payment
-export const useAddCompanySalePayment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ id, ...input }: AddSalePaymentInput & { id: string }) => {
-      const { data } = await axiosInstance.post(
-        `/company/sales/${id}/payments`,
-        input
-      );
-      return data;
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: companySaleKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: companySaleKeys.detail(variables.id) });
-      queryClient.invalidateQueries({ queryKey: companySaleKeys.statistics() });
-    },
-  });
-};
+// useAddCompanySalePayment removed - use CompanyDealerPayment for account-based payments
+// Payments are now recorded at the dealer account level, not per-sale
 
