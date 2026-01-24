@@ -41,13 +41,7 @@ app.get("/", (req, res) => {
   res.send("Hello World");
 });
 
-// req middleware for debug
-app.use((req, res, next) => {
-  console.log("--------------------------------");
-  console.log(`${req.method} ${req.url}`);
-  console.log("--------------------------------");
-  next();
-});
+
 
 app.use("/api/v1", routes);
 

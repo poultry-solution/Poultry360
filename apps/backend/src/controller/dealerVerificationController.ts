@@ -1294,3 +1294,107 @@ export const getArchivedDealerCompanies = async (
     });
   }
 };
+
+// ==================== GET ARCHIVED COMPANY DEALERS ====================
+export const getArchivedCompanyDealers = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // Only companies can access
+    if (currentUserRole !== UserRole.COMPANY) {
+      return res.status(403).json({
+        success: false,
+        message: "Only companies can view archived dealers",
+      });
+    }
+
+    // Get company for current user
+    const company = await prisma.company.findUnique({
+      where: { ownerId: currentUserId },
+    });
+
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: "Company account not found",
+      });
+    }
+
+    // Get archived dealers
+    const archivedConnections = await prismaWithVerification.dealerCompany.findMany({
+      where: {
+        companyId: company.id,
+        archivedByCompany: true,
+      },
+      include: {
+        dealer: {
+          select: {
+            id: true,
+            name: true,
+            contact: true,
+            address: true,
+            owner: {
+              select: {
+                name: true,
+                phone: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        updatedAt: "desc",
+      },
+    });
+
+    // Calculate balance for each dealer
+    const dealersWithBalance = await Promise.all(
+      archivedConnections.map(async (connection: any) => {
+        const account = await prisma.companyDealerAccount.findUnique({
+          where: {
+            companyId_dealerId: {
+              companyId: company.id,
+              dealerId: connection.dealer.id,
+            },
+          },
+          select: {
+            balance: true,
+            totalSales: true,
+            totalPayments: true,
+          },
+        });
+
+        return {
+          id: connection.dealer.id,
+          name: connection.dealer.name,
+          contact: connection.dealer.contact,
+          address: connection.dealer.address,
+          balance: account ? Number(account.balance) : 0,
+          totalSales: account ? Number(account.totalSales) : 0,
+          totalPayments: account ? Number(account.totalPayments) : 0,
+          connectedAt: connection.connectedAt,
+          connectedVia: connection.connectedVia,
+          connectionId: connection.id,
+          connectionType: "CONNECTED" as const,
+          isOwnedDealer: !!connection.dealer.owner,
+          owner: connection.dealer.owner,
+        };
+      })
+    );
+
+    return res.json({
+      success: true,
+      data: dealersWithBalance,
+    });
+  } catch (error: any) {
+    console.error("Get archived company dealers error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};

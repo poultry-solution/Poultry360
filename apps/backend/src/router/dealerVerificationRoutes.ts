@@ -14,6 +14,7 @@ import {
   archiveCompanyDealerConnection,
   unarchiveCompanyDealerConnection,
   getArchivedDealerCompanies,
+  getArchivedCompanyDealers,
 } from "../controller/dealerVerificationController";
 import { authMiddleware } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
@@ -148,6 +149,15 @@ router.post(
     authMiddleware(req, res, next, [UserRole.COMPANY]);
   },
   unarchiveCompanyDealerConnection
+);
+
+// Get archived dealers for company
+router.get(
+  "/companies/dealers/archived",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.COMPANY]);
+  },
+  getArchivedCompanyDealers
 );
 
 export default router;

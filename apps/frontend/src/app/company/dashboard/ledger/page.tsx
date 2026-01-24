@@ -546,13 +546,11 @@ export default function CompanyLedgerPage() {
                     <SelectValue placeholder="Select sale (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="GENERAL">General Payment</SelectItem>
-                    {dealerSales
-                      .filter((s: any) => Number(s.dueAmount || 0) > 0)
-                      .map((sale: any) => (
+                    <SelectItem value="GENERAL">Account Level Payment</SelectItem>
+                    {dealerSales.map((sale: any) => (
                         <SelectItem key={sale.id} value={sale.id}>
-                          {sale.invoiceNumber || sale.id.slice(0, 8)} - Due:{" "}
-                          {formatCurrency(Number(sale.dueAmount || 0))}
+                          {sale.invoiceNumber || sale.id.slice(0, 8)} - Total:{" "}
+                          {formatCurrency(Number(sale.totalAmount || 0))}
                         </SelectItem>
                       ))}
                   </SelectContent>

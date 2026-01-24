@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, Users, Edit, Trash2, Phone, MapPin } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Plus, Search, Users, Edit, Trash2, Archive, ArchiveRestore, Phone, MapPin } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -31,6 +32,12 @@ import { Label } from "@/common/components/ui/label";
 import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useArchiveCompanyDealer,
+  useUnarchiveCompanyDealer,
+  useGetArchivedCompanyDealers,
+} from "@/fetchers/company/companyDealerQueries";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
 
 interface Dealer {
   id: string;
@@ -39,9 +46,14 @@ interface Dealer {
   address: string;
   balance: number;
   createdAt: Date;
+  connectionType?: "CONNECTED" | "MANUAL";
+  connectionId?: string;
+  isOwnedDealer?: boolean;
 }
 
 export default function CompanyDealersPage() {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState("active");
   const [search, setSearch] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDealer, setEditingDealer] = useState<Dealer | null>(null);
@@ -113,6 +125,15 @@ export default function CompanyDealersPage() {
     },
   });
 
+  // Archive dealer connection mutation
+  const archiveMutation = useArchiveCompanyDealer();
+  
+  // Unarchive dealer connection mutation
+  const unarchiveMutation = useUnarchiveCompanyDealer();
+  
+  // Get archived dealers
+  const { data: archivedDealersData, isLoading: archivedLoading } = useGetArchivedCompanyDealers();
+
   const handleOpenDialog = (dealer?: Dealer) => {
     if (dealer) {
       setEditingDealer(dealer);
@@ -158,11 +179,32 @@ export default function CompanyDealersPage() {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+    if (!confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) return;
     deleteMutation.mutate(id);
   };
 
+  const handleArchive = async (connectionId: string, name: string) => {
+    if (!confirm(`Archive connection with "${name}"?`)) return;
+    try {
+      await archiveMutation.mutateAsync(connectionId);
+      toast.success("Dealer connection archived successfully");
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to archive dealer connection");
+    }
+  };
+
+  const handleUnarchive = async (connectionId: string, name: string) => {
+    if (!confirm(`Unarchive connection with "${name}"?`)) return;
+    try {
+      await unarchiveMutation.mutateAsync(connectionId);
+      toast.success("Dealer connection unarchived successfully");
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to unarchive dealer connection");
+    }
+  };
+
   const dealers: Dealer[] = dealersData?.data || [];
+  const archivedDealers: Dealer[] = archivedDealersData?.data || [];
 
   return (
     <div className="space-y-6">
@@ -195,102 +237,225 @@ export default function CompanyDealersPage() {
         </CardContent>
       </Card>
 
-      {/* Dealers Table */}
+      {/* Dealers Table with Tabs */}
       <Card>
         <CardHeader>
           <CardTitle>Dealers</CardTitle>
           <CardDescription>
-            {dealers.length} {dealers.length === 1 ? "dealer" : "dealers"} registered
+            Manage your active and archived dealer connections
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8">Loading dealers...</div>
-          ) : dealers.length === 0 ? (
-            <div className="text-center py-8">
-              <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No dealers found</h3>
-              <p className="text-muted-foreground mb-4">
-                Get started by adding your first dealer.
-              </p>
-              <Button onClick={() => handleOpenDialog()}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Dealer
-              </Button>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Address</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dealers.map((dealer) => (
-                  <TableRow key={dealer.id}>
-                    <TableCell className="font-medium">{dealer.name}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        {dealer.contact}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {dealer.address ? (
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-muted-foreground" />
-                          <span className="max-w-[200px] truncate">
-                            {dealer.address}
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="active">
+                Active ({dealers.length})
+              </TabsTrigger>
+              <TabsTrigger value="archived">
+                Archived ({archivedDealers.length})
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Active Dealers Tab */}
+            <TabsContent value="active" className="mt-4">
+              {isLoading ? (
+                <div className="text-center py-8">Loading dealers...</div>
+              ) : dealers.length === 0 ? (
+                <div className="text-center py-8">
+                  <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No dealers found</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Get started by adding your first dealer.
+                  </p>
+                  <Button onClick={() => handleOpenDialog()}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Dealer
+                  </Button>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Address</TableHead>
+                      <TableHead className="text-right">Account Balance</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {dealers.map((dealer) => (
+                      <TableRow key={dealer.id}>
+                        <TableCell className="font-medium">{dealer.name}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            {dealer.contact}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {dealer.address ? (
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-4 w-4 text-muted-foreground" />
+                              <span className="max-w-[200px] truncate">
+                                {dealer.address}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span
+                            className={
+                              dealer.balance > 0
+                                ? "text-red-600 font-semibold"
+                                : dealer.balance < 0
+                                ? "text-green-600 font-semibold"
+                                : ""
+                            }
+                          >
+                            {dealer.balance > 0
+                              ? `रू ${Math.abs(dealer.balance).toFixed(2)} (Due)`
+                              : dealer.balance < 0
+                              ? `रू ${Math.abs(dealer.balance).toFixed(2)} (Advance)`
+                              : "रू 0.00"}
                           </span>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span
-                        className={
-                          dealer.balance > 0
-                            ? "text-green-600 font-semibold"
-                            : dealer.balance < 0
-                            ? "text-red-600 font-semibold"
-                            : ""
-                        }
-                      >
-                        {dealer.balance > 0
-                          ? `रू ${Math.abs(dealer.balance).toFixed(2)} (Advance)`
-                          : dealer.balance < 0
-                          ? `रू ${Math.abs(dealer.balance).toFixed(2)} (Due)`
-                          : "रू 0.00"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenDialog(dealer)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(dealer.id, dealer.name)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => router.push(`/company/dashboard/dealers/${dealer.id}/account`)}
+                            >
+                              View Account
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenDialog(dealer)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            {dealer.connectionType === "CONNECTED" && dealer.connectionId ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleArchive(dealer.connectionId!, dealer.name)}
+                                disabled={archiveMutation.isPending}
+                              >
+                                <Archive className="h-4 w-4 text-orange-600" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(dealer.id, dealer.name)}
+                                disabled={deleteMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
+
+            {/* Archived Dealers Tab */}
+            <TabsContent value="archived" className="mt-4">
+              {archivedLoading ? (
+                <div className="text-center py-8">Loading archived dealers...</div>
+              ) : archivedDealers.length === 0 ? (
+                <div className="text-center py-8">
+                  <Archive className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No archived dealers</h3>
+                  <p className="text-muted-foreground">
+                    Archived dealer connections will appear here.
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Address</TableHead>
+                      <TableHead className="text-right">Account Balance</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {archivedDealers.map((dealer) => (
+                      <TableRow key={dealer.id}>
+                        <TableCell className="font-medium">{dealer.name}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            {dealer.contact}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {dealer.address ? (
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-4 w-4 text-muted-foreground" />
+                              <span className="max-w-[200px] truncate">
+                                {dealer.address}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span
+                            className={
+                              dealer.balance > 0
+                                ? "text-red-600 font-semibold"
+                                : dealer.balance < 0
+                                ? "text-green-600 font-semibold"
+                                : ""
+                            }
+                          >
+                            {dealer.balance > 0
+                              ? `रू ${Math.abs(dealer.balance).toFixed(2)} (Due)`
+                              : dealer.balance < 0
+                              ? `रू ${Math.abs(dealer.balance).toFixed(2)} (Advance)`
+                              : "रू 0.00"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => router.push(`/company/dashboard/dealers/${dealer.id}/account`)}
+                            >
+                              View Account
+                            </Button>
+                            {dealer.connectionId && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleUnarchive(dealer.connectionId!, dealer.name)}
+                                disabled={unarchiveMutation.isPending}
+                              >
+                                <ArchiveRestore className="h-4 w-4 text-green-600" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 

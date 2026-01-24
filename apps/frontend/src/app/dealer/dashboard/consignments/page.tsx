@@ -57,7 +57,6 @@ import {
   useRequestConsignment,
   useAcceptConsignment,
   useConfirmReceipt,
-  useRecordAdvancePayment,
   useRejectDealerConsignment,
   useCancelDealerConsignment,
   type Consignment,
@@ -76,7 +75,6 @@ export default function DealerConsignmentsPage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
   const [isConfirmReceiptDialogOpen, setIsConfirmReceiptDialogOpen] = useState(false);
-  const [isAdvancePaymentDialogOpen, setIsAdvancePaymentDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
 
   // Form state for request consignment
@@ -100,13 +98,6 @@ export default function DealerConsignmentsPage() {
   // Form state for confirm receipt
   const [grnRef, setGrnRef] = useState("");
   const [receiptNotes, setReceiptNotes] = useState("");
-
-  // Form state for advance payment
-  const [advanceAmount, setAdvanceAmount] = useState("");
-  const [advanceMethod, setAdvanceMethod] = useState("CASH");
-  const [advanceReference, setAdvanceReference] = useState("");
-  const [advanceDate, setAdvanceDate] = useState("");
-  const [advanceNotes, setAdvanceNotes] = useState("");
 
   // Form state for reject
   const [rejectReason, setRejectReason] = useState("");
@@ -132,7 +123,6 @@ export default function DealerConsignmentsPage() {
   const requestMutation = useRequestConsignment();
   const acceptMutation = useAcceptConsignment();
   const confirmReceiptMutation = useConfirmReceipt();
-  const advancePaymentMutation = useRecordAdvancePayment();
   const rejectMutation = useRejectDealerConsignment();
   const cancelMutation = useCancelDealerConsignment();
 
@@ -272,30 +262,6 @@ export default function DealerConsignmentsPage() {
     }
   };
 
-  const handleRecordAdvancePayment = async () => {
-    if (!selectedConsignment || !advanceAmount || parseFloat(advanceAmount) <= 0) {
-      toast.error("Please enter a valid payment amount");
-      return;
-    }
-
-    try {
-      await advancePaymentMutation.mutateAsync({
-        id: selectedConsignment.id,
-        amount: parseFloat(advanceAmount),
-        paymentMethod: advanceMethod,
-        paymentReference: advanceReference || undefined,
-        paymentDate: advanceDate || undefined,
-        notes: advanceNotes || undefined,
-      });
-      toast.success("Advance payment recorded successfully");
-      setIsAdvancePaymentDialogOpen(false);
-      setSelectedConsignment(null);
-      resetAdvanceForm();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to record payment");
-    }
-  };
-
   const handleRejectConsignment = async () => {
     if (!selectedConsignment) return;
 
@@ -330,14 +296,6 @@ export default function DealerConsignmentsPage() {
     setRequestCompanyId("");
     setRequestItems([]);
     setRequestNotes("");
-  };
-
-  const resetAdvanceForm = () => {
-    setAdvanceAmount("");
-    setAdvanceMethod("CASH");
-    setAdvanceReference("");
-    setAdvanceDate("");
-    setAdvanceNotes("");
   };
 
   const addRequestItem = (product: { id: string; name: string }) => {
@@ -531,21 +489,6 @@ export default function DealerConsignmentsPage() {
                               </Button>
                             )}
 
-                            {/* Record Advance Payment for pre-receipt statuses */}
-                            {["CREATED", "ACCEPTED_PENDING_DISPATCH", "DISPATCHED"].includes(consignment.status) && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedConsignment(consignment);
-                                  setIsAdvancePaymentDialogOpen(true);
-                                }}
-                              >
-                                <DollarSign className="h-4 w-4 mr-1" />
-                                Pay Advance
-                              </Button>
-                            )}
-
                             {/* Cancel for CREATED or ACCEPTED_PENDING_DISPATCH */}
                             {(consignment.status === "CREATED" || consignment.status === "ACCEPTED_PENDING_DISPATCH") && (
                               <Button
@@ -646,6 +589,22 @@ export default function DealerConsignmentsPage() {
                                 Cancel
                               </Button>
                             )}
+
+                            {/* Confirm Receipt for DISPATCHED status */}
+                            {consignment.status === "DISPATCHED" && (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700"
+                                onClick={() => {
+                                  setSelectedConsignment(consignment);
+                                  setIsConfirmReceiptDialogOpen(true);
+                                }}
+                              >
+                                <Receipt className="h-4 w-4 mr-1" />
+                                Confirm Receipt
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -685,9 +644,9 @@ export default function DealerConsignmentsPage() {
                 </div>
               </div>
               
-              {requestItems.length > 0 && (
-                <div className="space-y-2">
-                  {requestItems.map((item, index) => (
+                  {requestItems.length > 0 && (
+                    <div className="space-y-2">
+                      {requestItems.map((item: any, index: number) => (
                     <div
                       key={index}
                       className="flex gap-2 items-end p-3 border rounded-md"
@@ -991,96 +950,6 @@ export default function DealerConsignmentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Advance Payment Dialog */}
-      <Dialog open={isAdvancePaymentDialogOpen} onOpenChange={setIsAdvancePaymentDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Record Advance Payment</DialogTitle>
-            <DialogDescription>
-              Record a prepayment for {selectedConsignment?.requestNumber}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="advance-amount">Amount *</Label>
-              <Input
-                id="advance-amount"
-                type="number"
-                min="0"
-                step="0.01"
-                value={advanceAmount}
-                onChange={(e) => setAdvanceAmount(e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="advance-method">Payment Method</Label>
-              <Select value={advanceMethod} onValueChange={setAdvanceMethod}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CASH">Cash</SelectItem>
-                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                  <SelectItem value="CHEQUE">Cheque</SelectItem>
-                  <SelectItem value="UPI">UPI</SelectItem>
-                  <SelectItem value="OTHER">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="advance-reference">Payment Reference</Label>
-              <Input
-                id="advance-reference"
-                value={advanceReference}
-                onChange={(e) => setAdvanceReference(e.target.value)}
-                placeholder="Transaction ID, cheque number, etc."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="advance-date">Payment Date</Label>
-              <Input
-                id="advance-date"
-                type="date"
-                value={advanceDate}
-                onChange={(e) => setAdvanceDate(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="advance-notes">Notes (Optional)</Label>
-              <Textarea
-                id="advance-notes"
-                value={advanceNotes}
-                onChange={(e) => setAdvanceNotes(e.target.value)}
-                placeholder="Additional notes about this payment..."
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsAdvancePaymentDialogOpen(false);
-                resetAdvanceForm();
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleRecordAdvancePayment}
-              disabled={advancePaymentMutation.isPending}
-            >
-              {advancePaymentMutation.isPending ? "Recording..." : "Record Payment"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Reject Dialog */}
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
         <DialogContent>
@@ -1173,7 +1042,7 @@ export default function DealerConsignmentsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {selectedConsignment.items.map((item) => (
+                    {selectedConsignment.items.map((item: any) => (
                       <TableRow key={item.id}>
                         <TableCell>{item.companyProduct?.name || "N/A"}</TableCell>
                         <TableCell className="text-right">{item.quantity}</TableCell>
@@ -1260,12 +1129,14 @@ export default function DealerConsignmentsPage() {
                         {formatCurrency(selectedConsignment.companySale.totalAmount)}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Due</p>
-                      <p className="font-medium">
-                        {formatCurrency(selectedConsignment.companySale.dueAmount)}
-                      </p>
-                    </div>
+                    {(selectedConsignment.companySale as any)?.account && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Account Balance</p>
+                        <p className={`font-medium ${Number((selectedConsignment.companySale as any).account.balance) > 0 ? "text-red-600" : Number((selectedConsignment.companySale as any).account.balance) < 0 ? "text-green-600" : ""}`}>
+                          {formatCurrency((selectedConsignment.companySale as any).account.balance)}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

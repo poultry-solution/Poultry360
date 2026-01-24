@@ -64,7 +64,7 @@ import {
   type PaymentRequest,
 } from "@/fetchers/company/paymentRequestQueries";
 import { useGetCompanyDealers } from "@/fetchers/company/companyDealerQueries";
-import { useGetCompanySales } from "@/fetchers/company/companySaleQueries";
+import { useGetDealerAccount } from "@/fetchers/company/companyDealerAccountQueries";
 
 export default function CompanyPaymentsPage() {
   const router = useRouter();
@@ -82,7 +82,6 @@ export default function CompanyPaymentsPage() {
 
   // Form state for creating request
   const [selectedDealerId, setSelectedDealerId] = useState("");
-  const [selectedSaleId, setSelectedSaleId] = useState("");
   const [requestAmount, setRequestAmount] = useState<number>(0);
   const [requestDescription, setRequestDescription] = useState("");
 
@@ -98,7 +97,9 @@ export default function CompanyPaymentsPage() {
       status: statusFilter !== "ALL" ? statusFilter : undefined,
     });
   const { data: dealersData } = useGetCompanyDealers({ limit: 100 });
-  const { data: salesData } = useGetCompanySales({ limit: 1000 });
+
+  // Fetch dealer account when dealer is selected
+  const { data: dealerAccount } = useGetDealerAccount(selectedDealerId);
 
   const createRequestMutation = useCreateCompanyPaymentRequest();
   const acceptRequestMutation = useAcceptCompanyPaymentRequest();
@@ -108,13 +109,6 @@ export default function CompanyPaymentsPage() {
   const receivedRequests = receivedData?.data || [];
   const sentRequests = sentData?.data || [];
   const dealers = dealersData?.data || [];
-  const sales = salesData?.data || [];
-
-  // Filter sales for selected dealer
-  const dealerSales =
-    selectedDealerId && sales
-      ? sales.filter((s: any) => s.dealerId === selectedDealerId)
-      : [];
 
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString("en-US", {
@@ -193,14 +187,12 @@ export default function CompanyPaymentsPage() {
       await createRequestMutation.mutateAsync({
         dealerId: selectedDealerId,
         amount: requestAmount,
-        companySaleId: selectedSaleId || undefined,
         description: requestDescription || undefined,
       });
 
       toast.success("Payment request created successfully");
       setIsCreateRequestOpen(false);
       setSelectedDealerId("");
-      setSelectedSaleId("");
       setRequestAmount(0);
       setRequestDescription("");
     } catch (error: any) {
@@ -416,7 +408,7 @@ export default function CompanyPaymentsPage() {
                           {request.dealer?.name || "N/A"}
                         </TableCell>
                         <TableCell>
-                          {request.companySale?.invoiceNumber || "General"}
+                          {request.companySale?.invoiceNumber || "Account Payment"}
                         </TableCell>
                         <TableCell className="text-right font-semibold">
                           {formatCurrency(request.amount)}
@@ -588,7 +580,7 @@ export default function CompanyPaymentsPage() {
                           {request.dealer?.name || "N/A"}
                         </TableCell>
                         <TableCell>
-                          {request.companySale?.invoiceNumber || "General"}
+                          {request.companySale?.invoiceNumber || "Account Payment"}
                         </TableCell>
                         <TableCell className="text-right font-semibold">
                           {formatCurrency(request.amount)}
@@ -673,7 +665,9 @@ export default function CompanyPaymentsPage() {
                 value={selectedDealerId}
                 onValueChange={(value) => {
                   setSelectedDealerId(value);
-                  setSelectedSaleId("");
+                  if (dealerAccount) {
+                    setRequestAmount(Math.max(0, Number(dealerAccount.balance)));
+                  }
                 }}
               >
                 <SelectTrigger>
@@ -689,39 +683,27 @@ export default function CompanyPaymentsPage() {
               </Select>
             </div>
 
-            {selectedDealerId && dealerSales.length > 0 && (
-              <div className="space-y-2">
-                <Label htmlFor="sale">Sale (Optional)</Label>
-                <Select
-                  value={selectedSaleId || "GENERAL"}
-                  onValueChange={(value) => {
-                    if (value === "GENERAL") {
-                      setSelectedSaleId("");
-                    } else {
-                      setSelectedSaleId(value);
-                      const sale = dealerSales.find((s: any) => s.id === value);
-                      if (sale) {
-                        setRequestAmount(Number(sale.dueAmount || 0));
-                      }
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select sale (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="GENERAL">General Balance</SelectItem>
-                    {dealerSales
-                      .filter((s: any) => Number(s.dueAmount || 0) > 0)
-                      .map((sale: any) => (
-                        <SelectItem key={sale.id} value={sale.id}>
-                          {sale.invoiceNumber || sale.id.slice(0, 8)} - Due:{" "}
-                          {formatCurrency(Number(sale.dueAmount || 0))}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {selectedDealerId && (
+              <>
+                {dealerAccount && (
+                  <div className="p-3 bg-muted rounded-lg space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Account Balance:</span>
+                      <span className={`font-bold ${Number(dealerAccount.balance) > 0 ? "text-red-600" : Number(dealerAccount.balance) < 0 ? "text-green-600" : ""}`}>
+                        {formatCurrency(dealerAccount.balance)}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {Number(dealerAccount.balance) > 0 
+                        ? "Dealer owes company" 
+                        : Number(dealerAccount.balance) < 0 
+                        ? "Company owes dealer (advance)" 
+                        : "No balance"}
+                    </div>
+                  </div>
+                )}
+
+              </>
             )}
 
             <div className="space-y-2">
@@ -810,13 +792,23 @@ export default function CompanyPaymentsPage() {
                       </p>
                     </div>
                     <div>
-                      <Label>Due Amount</Label>
+                      <Label>Sale Total Amount</Label>
                       <p className="font-medium">
                         {formatCurrency(
-                          Number(selectedRequest.companySale.dueAmount || 0)
+                          Number(selectedRequest.companySale.totalAmount || 0)
                         )}
                       </p>
                     </div>
+                    {selectedRequest.companySale.account && (
+                      <div>
+                        <Label>Current Account Balance</Label>
+                        <p className={`font-medium ${Number(selectedRequest.companySale.account.balance) > 0 ? "text-red-600" : Number(selectedRequest.companySale.account.balance) < 0 ? "text-green-600" : ""}`}>
+                          {formatCurrency(
+                            Number(selectedRequest.companySale.account.balance || 0)
+                          )}
+                        </p>
+                      </div>
+                    )}
                   </>
                 )}
                 {selectedRequest.paymentMethod && (

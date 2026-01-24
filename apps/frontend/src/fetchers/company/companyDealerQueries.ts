@@ -122,3 +122,52 @@ export const useDeleteCompanyDealer = () => {
   });
 };
 
+// Archive company-dealer connection
+export const useArchiveCompanyDealer = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (connectionId: string) => {
+      const { data } = await axiosInstance.post(
+        `/verification/companies/dealers/${connectionId}/archive`
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: companyDealerKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ["company-dealers"] });
+      queryClient.invalidateQueries({ queryKey: ["company-dealers-archived"] });
+    },
+  });
+};
+
+// Unarchive company-dealer connection
+export const useUnarchiveCompanyDealer = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (connectionId: string) => {
+      const { data } = await axiosInstance.post(
+        `/verification/companies/dealers/${connectionId}/unarchive`
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: companyDealerKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ["company-dealers"] });
+      queryClient.invalidateQueries({ queryKey: ["company-dealers-archived"] });
+    },
+  });
+};
+
+// Get archived dealers for company
+export const useGetArchivedCompanyDealers = () => {
+  return useQuery({
+    queryKey: ["company-dealers-archived"],
+    queryFn: async () => {
+      const { data } = await axiosInstance.get("/verification/companies/dealers/archived");
+      return data;
+    },
+  });
+};
+

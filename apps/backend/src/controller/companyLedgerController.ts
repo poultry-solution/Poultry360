@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { CompanyService } from "../services/companyService";
+import { CompanyDealerAccountService } from "../services/companyDealerAccountService";
 import { Prisma } from "@prisma/client";
 
 // ==================== GET COMPANY LEDGER ENTRIES ====================
@@ -74,7 +75,7 @@ export const getCompanyLedgerParties = async (
       return res.status(404).json({ message: "Company not found" });
     }
 
-    // Get all dealers with sales
+    // Get all dealers with accounts
     const dealers = await prisma.dealer.findMany({
       where: {
         OR: [
@@ -91,45 +92,36 @@ export const getCompanyLedgerParties = async (
           : {}),
       },
       include: {
-        companySales: {
+        companyAccounts: {
           where: { companyId: company.id },
           select: {
-            id: true,
-            totalAmount: true,
-            paidAmount: true,
-            dueAmount: true,
-            date: true,
+            balance: true,
+            totalSales: true,
+            lastSaleDate: true,
+            lastPaymentDate: true,
           },
         },
       },
     });
 
-    // Calculate balance for each dealer from actual sales
+    // Map dealers with their account balances
     const partiesWithBalance = dealers.map((dealer) => {
-      // Calculate balance from actual sales (sum of dueAmount)
-      const balance = dealer.companySales.reduce((sum, sale) => {
-        const due = Number(sale.dueAmount || 0);
-        return sum + due;
-      }, 0);
-
-      // Get last transaction date
-      const lastSale = dealer.companySales
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-
+      const account = dealer.companyAccounts[0]; // One account per company-dealer pair
+      
       return {
         id: dealer.id,
         name: dealer.name,
         contact: dealer.contact,
         address: dealer.address,
-        balance: Math.max(0, balance),
-        lastTransactionDate: lastSale?.date || null,
-        totalSales: dealer.companySales.length,
+        balance: account ? Number(account.balance) : 0,
+        lastTransactionDate: account?.lastSaleDate || account?.lastPaymentDate || null,
+        totalSales: account ? Number(account.totalSales) : 0,
       };
     });
 
     // Filter out dealers with no balance and no sales
     const activeParties = partiesWithBalance.filter(
-      (p) => p.balance > 0 || p.totalSales > 0
+      (p) => p.balance !== 0 || p.totalSales > 0
     );
 
     return res.status(200).json({
@@ -175,20 +167,26 @@ export const getCompanyLedgerSummary = async (
       },
     });
 
-    // Get total received (from payments)
-    const totalReceived = await prisma.companySalePayment.aggregate({
+    // Get total outstanding from all dealer accounts
+    const accountsBalance = await prisma.companyDealerAccount.aggregate({
+      where: { companyId: company.id },
+      _sum: { balance: true },
+    });
+
+    // Get total payments received
+    const totalPayments = await prisma.companyDealerPayment.aggregate({
       where: {
-        companySale: {
+        account: {
           companyId: company.id,
-          ...(startDate || endDate
-            ? {
-                date: {
-                  ...(startDate ? { gte: new Date(startDate as string) } : {}),
-                  ...(endDate ? { lte: new Date(endDate as string) } : {}),
-                },
-              }
-            : {}),
         },
+        ...(startDate || endDate
+          ? {
+              paymentDate: {
+                ...(startDate ? { gte: new Date(startDate as string) } : {}),
+                ...(endDate ? { lte: new Date(endDate as string) } : {}),
+              },
+            }
+          : {}),
       },
       _sum: {
         amount: true,
@@ -200,8 +198,8 @@ export const getCompanyLedgerSummary = async (
       data: {
         totalSales: stats.totalSales,
         totalRevenue: stats.totalRevenue,
-        totalDue: stats.totalDue,
-        totalReceived: Number(totalReceived._sum.amount || 0),
+        totalOutstanding: Number(accountsBalance._sum.balance || 0),
+        totalReceived: Number(totalPayments._sum.amount || 0),
         pendingRequests,
         activeConsignments: stats.activeConsignments,
       },
@@ -238,55 +236,20 @@ export const addCompanyPayment = async (
       return res.status(404).json({ message: "Company not found" });
     }
 
-    // If saleId is provided, use existing payment flow
-    if (saleId) {
-      const updatedSale = await CompanyService.addSalePayment({
-        saleId,
-        companyId: company.id,
-        amount: Number(amount),
-        date: date ? new Date(date) : new Date(),
-        description: notes,
-        paymentMethod,
-      });
-
-      return res.status(201).json({
-        success: true,
-        data: updatedSale,
-        message: "Payment added successfully",
-      });
-    }
-
-    // For general payments (not linked to a specific sale)
-    // We need to find the most recent sale with due amount and apply payment
-    const saleWithDue = await prisma.companySale.findFirst({
-      where: {
-        companyId: company.id,
-        dealerId,
-        dueAmount: { gt: 0 },
-      },
-      orderBy: { date: "asc" }, // Oldest first (FIFO)
+    // Record payment to dealer's account (account-based system only)
+    await CompanyDealerAccountService.recordPayment({
+      companyId: company.id,
+      dealerId,
+      amount: Number(amount),
+      paymentMethod: paymentMethod || "CASH",
+      paymentDate: date ? new Date(date) : new Date(),
+      notes,
+      recordedById: userId as string,
     });
 
-    if (saleWithDue) {
-      const updatedSale = await CompanyService.addSalePayment({
-        saleId: saleWithDue.id,
-        companyId: company.id,
-        amount: Number(amount),
-        date: date ? new Date(date) : new Date(),
-        description: notes || "General payment",
-        paymentMethod,
-      });
-
-      return res.status(201).json({
-        success: true,
-        data: updatedSale,
-        message: "Payment added successfully",
-      });
-    }
-
-    // No sale with due amount found
-    return res.status(400).json({
-      message: "No outstanding balance found for this dealer",
+    return res.status(201).json({
+      success: true,
+      message: "Payment recorded successfully",
     });
   } catch (error: any) {
     console.error("Add company payment error:", error);

@@ -25,13 +25,25 @@ export const searchDealersForCompany = async (
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    // Build where clause to include:
-    // 1. Static dealers created by company (userId = currentUserId)
-    // 2. ALL independent/platform-registered dealers (ownerId IS NOT NULL)
+    // First, get dealer IDs that are connected to this company via DealerCompany
+    const dealerCompanies = await (prisma as any).dealerCompany.findMany({
+      where: {
+        companyId: company.id,
+      },
+      select: {
+        dealerId: true,
+      },
+    });
+
+    const connectedDealerIds = dealerCompanies.map((dc: any) => dc.dealerId);
+
+    // Build where clause to include ONLY:
+    // 1. Dealers manually created by this company (userId = currentUserId)
+    // 2. Dealers connected to this company via DealerCompany relationship
     const where: any = {
       OR: [
         { userId: userId }, // Static dealers created by company
-        { ownerId: { not: null } }, // ALL platform-registered independent dealers
+        { id: { in: connectedDealerIds.length > 0 ? connectedDealerIds : [] } }, // Connected dealers only
       ],
     };
 
@@ -65,27 +77,36 @@ export const searchDealersForCompany = async (
       prisma.dealer.count({ where }),
     ]);
 
-    // Calculate balance for each dealer from CompanySale
+    // Calculate balance and add connection metadata for each dealer
     const dealersWithBalance = await Promise.all(
       dealers.map(async (dealer) => {
-        const sales = await prisma.companySale.findMany({
+        // Check if dealer is connected via DealerCompany relationship
+        const dealerCompany = await (prisma as any).dealerCompany.findUnique({
           where: {
-            companyId: company.id,
-            dealerId: dealer.id,
-          },
-          select: {
-            totalAmount: true,
-            paidAmount: true,
+            dealerId_companyId: {
+              dealerId: dealer.id,
+              companyId: company.id,
+            },
           },
         });
 
-        const totalSales = sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0);
-        const totalPaid = sales.reduce((sum, sale) => sum + Number(sale.paidAmount), 0);
-        const balance = totalSales - totalPaid;
+        const account = await prisma.companyDealerAccount.findUnique({
+          where: {
+            companyId_dealerId: {
+              companyId: company.id,
+              dealerId: dealer.id,
+            },
+          },
+          select: {
+            balance: true,
+          },
+        });
 
         return {
           ...dealer,
-          balance: Math.max(0, balance),
+          balance: account ? Number(account.balance) : 0,
+          connectionType: dealerCompany ? "CONNECTED" : "MANUAL",
+          isOwnedDealer: dealer.userId === userId, // Company-created dealer
         };
       })
     );
@@ -115,7 +136,7 @@ export const createCompanySale = async (
 ): Promise<any> => {
   try {
     const userId = req.userId;
-    const { dealerId, items, paidAmount, paymentMethod, notes, date } = req.body;
+    const { dealerId, items, paymentMethod, notes, date } = req.body;
 
     // Validation
     if (!dealerId) {
@@ -124,10 +145,6 @@ export const createCompanySale = async (
 
     if (!items || items.length === 0) {
       return res.status(400).json({ message: "At least one item is required" });
-    }
-
-    if (paidAmount < 0) {
-      return res.status(400).json({ message: "Paid amount cannot be negative" });
     }
 
     // Get company
@@ -139,13 +156,12 @@ export const createCompanySale = async (
       return res.status(404).json({ message: "Company not found" });
     }
 
-    // Create sale using service
+    // Create sale using service (account-based system)
     const sale = await CompanyService.createCompanySale({
       companyId: company.id,
       dealerId,
       soldById: userId as string,
       items,
-      paidAmount: Number(paidAmount),
       paymentMethod,
       notes,
       date: date ? new Date(date) : new Date(),
@@ -209,11 +225,12 @@ export const getCompanySales = async (
       if (endDate) where.date.lte = new Date(endDate as string);
     }
 
-    if (isPaid === "true") {
-      where.dueAmount = null;
-    } else if (isPaid === "false") {
-      where.dueAmount = { not: null };
-    }
+    // Note: isPaid filter removed - use account-based balance checking instead
+    // if (isPaid === "true") {
+    //   where.dueAmount = null;
+    // } else if (isPaid === "false") {
+    //   where.dueAmount = { not: null };
+    // }
 
     if (dealerId) {
       where.dealerId = dealerId;
@@ -231,7 +248,7 @@ export const getCompanySales = async (
               product: true,
             },
           },
-          payments: true,
+          account: true,
         },
         orderBy: { date: "desc" },
       }),
@@ -284,11 +301,7 @@ export const getCompanySaleById = async (
             product: true,
           },
         },
-        payments: {
-          orderBy: {
-            paymentDate: "desc",
-          },
-        },
+        account: true,
         ledgerEntries: {
           orderBy: {
             date: "desc",
@@ -312,6 +325,7 @@ export const getCompanySaleById = async (
 };
 
 // ==================== ADD COMPANY SALE PAYMENT ====================
+// Redirected to account-based payment system
 export const addCompanySalePayment = async (
   req: Request,
   res: Response
@@ -337,20 +351,31 @@ export const addCompanySalePayment = async (
       return res.status(404).json({ message: "Company not found" });
     }
 
-    // Add payment using service
-    const updatedSale = await CompanyService.addSalePayment({
-      saleId: id,
+    // Get sale to find dealerId
+    const sale = await prisma.companySale.findFirst({
+      where: { id, companyId: company.id },
+      select: { dealerId: true },
+    });
+
+    if (!sale) {
+      return res.status(404).json({ message: "Sale not found" });
+    }
+
+    // Record payment to dealer's account (account-based system)
+    const { CompanyDealerAccountService } = await import("../services/companyDealerAccountService");
+    await CompanyDealerAccountService.recordPayment({
       companyId: company.id,
+      dealerId: sale.dealerId,
       amount: Number(amount),
-      date: date ? new Date(date) : new Date(),
-      description,
-      paymentMethod,
+      paymentMethod: paymentMethod || "CASH",
+      paymentDate: date ? new Date(date) : new Date(),
+      notes: description,
+      recordedById: userId as string,
     });
 
     return res.status(200).json({
       success: true,
-      data: updatedSale,
-      message: "Payment added successfully",
+      message: "Payment recorded to dealer account",
     });
   } catch (error: any) {
     console.error("Add company sale payment error:", error);
@@ -398,14 +423,6 @@ export const getCompanySalesStatistics = async (
       (sum, sale) => sum + Number(sale.totalAmount),
       0
     );
-    const totalPaid = sales.reduce(
-      (sum, sale) => sum + Number(sale.paidAmount),
-      0
-    );
-    const totalDue = sales.reduce(
-      (sum, sale) => sum + Number(sale.dueAmount || 0),
-      0
-    );
     const creditSales = sales.filter((sale) => sale.isCredit).length;
 
     // Get top dealers
@@ -441,13 +458,18 @@ export const getCompanySalesStatistics = async (
       })
     );
 
+    // Get total outstanding from dealer accounts
+    const accountsBalance = await prisma.companyDealerAccount.aggregate({
+      where: { companyId: company.id },
+      _sum: { balance: true },
+    });
+
     return res.status(200).json({
       success: true,
       data: {
         totalSales,
         totalRevenue,
-        totalPaid,
-        totalDue,
+        totalOutstanding: Number(accountsBalance._sum.balance || 0),
         creditSales,
         topDealers: topDealersWithDetails,
       },

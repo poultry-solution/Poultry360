@@ -356,128 +356,14 @@ export class ConsignmentService {
     });
   }
 
-  /**
-   * Payment allocation helper - apply prepayment to sale
-   */
-  private static async allocatePrepaymentToSale(
-    tx: Prisma.TransactionClient,
-    companyId: string,
-    dealerId: string,
-    sale: { id: string; dueAmount: Prisma.Decimal | null; paidAmount: Prisma.Decimal; totalAmount: Prisma.Decimal }
-  ): Promise<number> {
-    // Get all ADVANCE_RECEIVED entries for this dealer
-    const advanceEntries = await tx.companyLedgerEntry.findMany({
-      where: {
-        companyId,
-        partyId: dealerId,
-        partyType: "DEALER",
-        type: LedgerEntryType.ADVANCE_RECEIVED,
-      },
-      orderBy: { createdAt: "asc" }, // FIFO
-    });
-
-    // Calculate available prepayment balance
-    const totalAdvances = advanceEntries.reduce(
-      (sum, entry) => sum + Number(entry.amount),
-      0
-    );
-
-    // Get already allocated amounts (payments linked to sales)
-    const allocatedPayments = await tx.companySalePayment.findMany({
-      where: {
-        companySale: {
-          companyId,
-          dealerId,
-        },
-      },
-    });
-
-    const totalAllocated = allocatedPayments.reduce(
-      (sum, payment) => sum + Number(payment.amount),
-      0
-    );
-
-    const availablePrepayment = totalAdvances - totalAllocated;
-
-    if (availablePrepayment <= 0) {
-      return 0;
-    }
-
-    // Use sale due amount from passed object
-    if (!sale.dueAmount) {
-      return 0;
-    }
-
-    const saleDue = Number(sale.dueAmount);
-    const amountToApply = Math.min(availablePrepayment, saleDue);
-
-    if (amountToApply <= 0) {
-      return 0;
-    }
-
-    // Create payment record
-    await tx.companySalePayment.create({
-      data: {
-        companySaleId: sale.id,
-        amount: new Prisma.Decimal(amountToApply),
-        method: "ADVANCE",
-        paymentDate: new Date(),
-        notes: "Auto-applied from advance payment",
-      },
-    });
-
-    // Update sale
-    const newPaidAmount = Number(sale.paidAmount) + amountToApply;
-    const newDueAmount = Number(sale.totalAmount) - newPaidAmount;
-
-    await tx.companySale.update({
-      where: { id: sale.id },
-      data: {
-        paidAmount: new Prisma.Decimal(newPaidAmount),
-        dueAmount: newDueAmount > 0 ? new Prisma.Decimal(newDueAmount) : null,
-      },
-    });
-
-    // Create ledger entry for the allocation
-    const lastLedgerEntry = await tx.companyLedgerEntry.findFirst({
-      where: {
-        companyId,
-        partyId: dealerId,
-        partyType: "DEALER",
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    const currentBalance = lastLedgerEntry
-      ? Number(lastLedgerEntry.runningBalance)
-      : 0;
-    const newBalance = currentBalance - amountToApply;
-
-        await tx.companyLedgerEntry.create({
-          data: {
-            companyId,
-            companySaleId: sale.id,
-            type: LedgerEntryType.PAYMENT_RECEIVED,
-            entryType: LedgerEntryType.PAYMENT_RECEIVED,
-            amount: new Prisma.Decimal(amountToApply),
-            runningBalance: new Prisma.Decimal(newBalance),
-            date: new Date(),
-            description: "Advance payment applied to consignment sale",
-            partyId: dealerId,
-            partyType: "DEALER",
-            transactionId: sale.id,
-            transactionType: "SALE",
-          },
-        });
-
-    return amountToApply;
-  }
+  // allocatePrepaymentToSale method removed - using account-based system
+  // Prepayments are now tracked in CompanyDealerAccount balance, not allocated to individual sales
 
   /**
    * Confirm receipt (Dealer confirms - CRITICAL S3 transition)
    * - Transfers inventory
    * - Creates CompanySale
-   * - Applies prepayments
+   * - Updates account balance
    * - Creates ledger entries
    */
   static async confirmReceipt(data: {
@@ -573,7 +459,29 @@ export class ConsignmentService {
         });
       }
 
-      // 2. Create CompanySale record
+      // 2. Get or create account for company-dealer pair
+      let account = await tx.companyDealerAccount.findUnique({
+        where: {
+          companyId_dealerId: {
+            companyId: consignment.fromCompanyId!,
+            dealerId: consignment.toDealerId!,
+          },
+        },
+      });
+
+      if (!account) {
+        account = await tx.companyDealerAccount.create({
+          data: {
+            companyId: consignment.fromCompanyId!,
+            dealerId: consignment.toDealerId!,
+            balance: new Prisma.Decimal(0),
+            totalSales: new Prisma.Decimal(0),
+            totalPayments: new Prisma.Decimal(0),
+          },
+        });
+      }
+
+      // 3. Create CompanySale record
       const invoiceNumber = `CINV-${Date.now()}-${Math.random()
         .toString(36)
         .substring(2, 7)
@@ -586,12 +494,11 @@ export class ConsignmentService {
           dealerId: consignment.toDealerId!,
           soldById: data.receivedById,
           totalAmount: consignment.totalAmount,
-          paidAmount: 0,
-          dueAmount: consignment.totalAmount,
           isCredit: true,
           paymentMethod: "CREDIT",
           notes: `Consignment sale from ${consignment.requestNumber}`,
           consignmentId: consignment.id,
+          accountId: account.id,
           items: {
             create: consignment.items
               .filter((item) => Number(item.acceptedQuantity || 0) > 0)
@@ -607,18 +514,19 @@ export class ConsignmentService {
         },
       });
 
-      // 3. Apply prepayments from ledger
-      const appliedAmount = await this.allocatePrepaymentToSale(
-        tx,
-        consignment.fromCompanyId!,
-        consignment.toDealerId!,
-        {
-          id: sale.id,
-          dueAmount: sale.dueAmount,
-          paidAmount: sale.paidAmount,
-          totalAmount: sale.totalAmount,
-        }
-      );
+      // 3. Update account balance with sale amount
+      await tx.companyDealerAccount.update({
+        where: { id: account.id },
+        data: {
+          balance: {
+            increment: consignment.totalAmount,
+          },
+          totalSales: {
+            increment: consignment.totalAmount,
+          },
+          lastSaleDate: new Date(),
+        },
+      });
 
       // 4. Create CONSIGNMENT_INVOICE ledger entry
       const lastLedgerEntry = await tx.companyLedgerEntry.findFirst({
@@ -634,29 +542,26 @@ export class ConsignmentService {
         ? Number(lastLedgerEntry.runningBalance)
         : 0;
 
-      // If no prepayment was applied, add the full amount to balance
-      if (appliedAmount === 0) {
-        const newBalance = currentBalance + Number(consignment.totalAmount);
+      const newLedgerBalance = currentBalance + Number(consignment.totalAmount);
 
-        await tx.companyLedgerEntry.create({
-          data: {
-            companyId: consignment.fromCompanyId!,
-            companySaleId: sale.id,
-            type: LedgerEntryType.CONSIGNMENT_INVOICE,
-            entryType: LedgerEntryType.CONSIGNMENT_INVOICE,
-            amount: consignment.totalAmount,
-            runningBalance: new Prisma.Decimal(newBalance),
-            date: new Date(),
-            description: `Consignment invoice ${invoiceNumber}`,
-            partyId: consignment.toDealerId,
-            partyType: "DEALER",
-            transactionId: sale.id,
-            transactionType: "SALE",
-          },
-        });
-      }
+      await tx.companyLedgerEntry.create({
+        data: {
+          companyId: consignment.fromCompanyId!,
+          companySaleId: sale.id,
+          type: LedgerEntryType.CONSIGNMENT_INVOICE,
+          entryType: LedgerEntryType.CONSIGNMENT_INVOICE,
+          amount: consignment.totalAmount,
+          runningBalance: new Prisma.Decimal(newLedgerBalance),
+          date: new Date(),
+          description: `Consignment invoice ${invoiceNumber}`,
+          partyId: consignment.toDealerId,
+          partyType: "DEALER",
+          transactionId: sale.id,
+          transactionType: "SALE",
+        },
+      });
 
-      // 5. Update consignment status to RECEIVED
+      // 6. Update consignment status to RECEIVED
       const updated = await tx.consignmentRequest.update({
         where: { id: data.consignmentId },
         data: {
@@ -679,13 +584,13 @@ export class ConsignmentService {
           companySale: {
             include: {
               items: true,
-              payments: true,
+              account: true,
             },
           },
         },
       });
 
-      // 6. Create audit log
+      // 7. Create audit log
       await this.createAuditLog(tx, {
         consignmentId: data.consignmentId,
         action: "RECEIVED",
@@ -699,90 +604,6 @@ export class ConsignmentService {
 
       return updated;
     }, { timeout: 30000 }); // 30 seconds timeout for complex operations
-  }
-
-  /**
-   * Record advance payment (before S3)
-   */
-  static async recordAdvancePayment(data: {
-    consignmentId: string;
-    dealerId: string;
-    companyId: string;
-    amount: number;
-    paymentMethod: string;
-    paymentReference?: string;
-    paymentDate?: Date;
-    notes?: string;
-    recordedById: string;
-  }) {
-    return await prisma.$transaction(async (tx) => {
-      const consignment = await tx.consignmentRequest.findUnique({
-        where: { id: data.consignmentId },
-      });
-
-      if (!consignment) {
-        throw new Error("Consignment not found");
-      }
-
-      const advancePaymentStatuses: ConsignmentStatus[] = [
-        ConsignmentStatus.CREATED,
-        ConsignmentStatus.ACCEPTED_PENDING_DISPATCH,
-        ConsignmentStatus.DISPATCHED,
-      ];
-      if (!advancePaymentStatuses.includes(consignment.status)) {
-        throw new Error(
-          "Advance payment can only be recorded before receipt confirmation"
-        );
-      }
-
-      // Get current ledger balance
-      const lastLedgerEntry = await tx.companyLedgerEntry.findFirst({
-        where: {
-          companyId: data.companyId,
-          partyId: data.dealerId,
-          partyType: "DEALER",
-        },
-        orderBy: { createdAt: "desc" },
-      });
-
-      const currentBalance = lastLedgerEntry
-        ? Number(lastLedgerEntry.runningBalance)
-        : 0;
-
-      // Advance reduces the dealer's payable (negative balance)
-      const newBalance = currentBalance - data.amount;
-
-      // Create ADVANCE_RECEIVED ledger entry
-      const ledgerEntry = await tx.companyLedgerEntry.create({
-        data: {
-          companyId: data.companyId,
-          type: LedgerEntryType.ADVANCE_RECEIVED,
-          entryType: LedgerEntryType.ADVANCE_RECEIVED,
-          amount: new Prisma.Decimal(data.amount),
-          runningBalance: new Prisma.Decimal(newBalance),
-          date: data.paymentDate || new Date(),
-          description: `Advance payment for consignment ${consignment.requestNumber}`,
-          partyId: data.dealerId,
-          partyType: "DEALER",
-          transactionId: data.consignmentId,
-          transactionType: "RECEIPT",
-        },
-      });
-
-      // Create audit log
-      await this.createAuditLog(tx, {
-        consignmentId: data.consignmentId,
-        action: "ADVANCE_PAYMENT",
-        statusFrom: consignment.status,
-        statusTo: consignment.status,
-        actorId: data.recordedById,
-        quantityChange: data.amount,
-        documentRef: data.paymentReference,
-        notes: data.notes,
-      });
-
-      return ledgerEntry;
-    });
   }
 
   /**
@@ -857,7 +678,7 @@ export class ConsignmentService {
         companySale: {
           include: {
             items: true,
-            payments: true,
+            account: true,
           },
         },
         dispatchedBy: {
@@ -957,8 +778,12 @@ export class ConsignmentService {
               id: true,
               invoiceNumber: true,
               totalAmount: true,
-              paidAmount: true,
-              dueAmount: true,
+              account: {
+                select: {
+                  id: true,
+                  balance: true,
+                },
+              },
             },
           },
         },
