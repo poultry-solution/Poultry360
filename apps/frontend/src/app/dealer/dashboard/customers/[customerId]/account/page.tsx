@@ -60,34 +60,33 @@ export default function CustomerAccountPage() {
     notes: "",
   });
 
-  // Get customer details from ledger parties (includes both customers and farmers)
+  // Get customer details (prefer direct customer lookup, then fall back to ledger parties)
   const { data: customerData, isLoading: customerLoading } = useQuery({
     queryKey: ["dealer-customer", customerId],
     queryFn: async () => {
-      // Get from ledger parties which includes both customers and farmers
-      const { data } = await axiosInstance.get("/dealer/ledger/parties");
-      const party = data?.data?.find((p: any) => p.id === customerId);
-      
-      if (party) {
-        return {
-          success: true,
-          data: {
-            id: party.id,
-            name: party.name,
-            phone: party.contact || "",
-            address: party.address,
-            balance: party.balance || 0,
-            source: party.partyType === "FARMER" ? "CONNECTED" : "MANUAL",
-            farmerId: party.partyType === "FARMER" ? party.id : undefined,
-          },
-        };
-      }
-      
-      // Fallback: try to get from customers endpoint
       try {
         const { data: customerRes } = await axiosInstance.get(`/sales/customers/${customerId}`);
         return customerRes;
       } catch (error) {
+        // If direct customer lookup fails, fall back to ledger parties
+        const { data } = await axiosInstance.get("/dealer/ledger/parties");
+        const party = data?.data?.find((p: any) => p.id === customerId);
+
+        if (party) {
+          return {
+            success: true,
+            data: {
+              id: party.id,
+              name: party.name,
+              phone: party.contact || "",
+              address: party.address,
+              balance: party.balance || 0,
+              source: party.partyType === "FARMER" ? "CONNECTED" : "MANUAL",
+              farmerId: party.partyType === "FARMER" ? party.id : undefined,
+            },
+          };
+        }
+
         throw new Error("Customer not found");
       }
     },

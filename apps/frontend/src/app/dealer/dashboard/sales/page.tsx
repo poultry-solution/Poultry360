@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Receipt, Search, Filter, Eye, CreditCard, Calendar } from "lucide-react";
+import { Plus, Receipt, Search, Filter, Eye, CreditCard, Calendar, FileCheck } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -76,13 +76,22 @@ export default function DealerSalesPage() {
             Track and manage sales to your customers
           </p>
         </div>
-        <Button
-          onClick={() => router.push("/dealer/dashboard/sales/new")}
-          className="bg-primary"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          New Sale
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => router.push("/dealer/dashboard/sale-requests")}
+            variant="outline"
+          >
+            <FileCheck className="mr-2 h-4 w-4" />
+            Sale Requests
+          </Button>
+          <Button
+            onClick={() => router.push("/dealer/dashboard/sales/new")}
+            className="bg-primary"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            New Sale
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}

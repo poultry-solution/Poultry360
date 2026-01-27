@@ -13,6 +13,7 @@ import {
   Plus,
   FileText,
   Upload,
+  ArrowLeft,
 } from "lucide-react";
 import {
   Card,
@@ -289,6 +290,16 @@ export default function DealerPaymentsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/dealer/dashboard/company")}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Companies
+            </Button>
+          </div>
           <h1 className="text-3xl font-bold tracking-tight">
             Payment Requests
           </h1>

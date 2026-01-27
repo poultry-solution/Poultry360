@@ -33,179 +33,200 @@ export class DealerService {
       throw new Error("Customer ID is required");
     }
 
-    return await prisma.$transaction(async (tx) => {
-      // 1. Validate stock availability for all items
-      for (const item of items) {
-        const product = await tx.dealerProduct.findUnique({
-          where: { id: item.productId },
-        });
+    // Calculate totals before transaction
+    const totalAmount = items.reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice,
+      0
+    );
+    const dueAmount = totalAmount - paidAmount;
+    const isCredit = dueAmount > 0;
+    const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
-        if (!product) {
-          throw new Error(`Product ${item.productId} not found`);
+    // Use a single, optimized transaction for all side effects
+    const saleId = await prisma.$transaction(async (tx) => {
+        // 1. Validate stock availability for all items in parallel
+        const productChecks = await Promise.all(
+          items.map((item) =>
+            tx.dealerProduct.findUnique({
+              where: { id: item.productId },
+            })
+          )
+        );
+
+        for (let i = 0; i < items.length; i++) {
+          const product = productChecks[i];
+          if (!product) {
+            throw new Error(`Product ${items[i].productId} not found`);
+          }
+          if (Number(product.currentStock) < items[i].quantity) {
+            throw new Error(
+              `Insufficient stock for product ${product.name}. Available: ${product.currentStock}, Requested: ${items[i].quantity}`
+            );
+          }
         }
 
-        if (Number(product.currentStock) < item.quantity) {
-          throw new Error(
-            `Insufficient stock for product ${product.name}. Available: ${product.currentStock}, Requested: ${item.quantity}`
-          );
-        }
-      }
-
-      // 2. Calculate totals
-      const totalAmount = items.reduce(
-        (sum, item) => sum + item.quantity * item.unitPrice,
-        0
-      );
-      const dueAmount = totalAmount - paidAmount;
-      const isCredit = dueAmount > 0;
-
-      // 3. Generate invoice number
-      const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-
-      // 4. Create the sale
-      const sale = await tx.dealerSale.create({
-        data: {
-          invoiceNumber,
-          date,
-          totalAmount: new Prisma.Decimal(totalAmount),
-          paidAmount: new Prisma.Decimal(paidAmount),
-          dueAmount: dueAmount > 0 ? new Prisma.Decimal(dueAmount) : null,
-          isCredit,
-          notes,
-          dealerId,
-          customerId,
-        },
-      });
-
-      // 5. Create sale items
-      for (const item of items) {
-        await tx.dealerSaleItem.create({
+        // 2. Create the sale
+        const sale = await tx.dealerSale.create({
           data: {
-            saleId: sale.id,
-            productId: item.productId,
-            quantity: new Prisma.Decimal(item.quantity),
-            unitPrice: new Prisma.Decimal(item.unitPrice),
-            totalAmount: new Prisma.Decimal(item.quantity * item.unitPrice),
-          },
-        });
-
-        // 6. Update product stock
-        await tx.dealerProduct.update({
-          where: { id: item.productId },
-          data: {
-            currentStock: {
-              decrement: new Prisma.Decimal(item.quantity),
-            },
-          },
-        });
-
-        // 7. Create product transaction
-        await tx.dealerProductTransaction.create({
-          data: {
-            type: "SALE",
-            quantity: new Prisma.Decimal(item.quantity),
-            unitPrice: new Prisma.Decimal(item.unitPrice),
-            totalAmount: new Prisma.Decimal(item.quantity * item.unitPrice),
+            invoiceNumber,
             date,
-            description: `Sale - Invoice ${invoiceNumber}`,
-            reference: invoiceNumber,
-            productId: item.productId,
-            dealerSaleId: sale.id,
+            totalAmount: new Prisma.Decimal(totalAmount),
+            paidAmount: new Prisma.Decimal(paidAmount),
+            dueAmount: dueAmount > 0 ? new Prisma.Decimal(dueAmount) : null,
+            isCredit,
+            notes,
+            dealerId,
+            customerId,
           },
         });
-      }
 
-      // 8. Create payment record if paidAmount > 0
-      if (paidAmount > 0) {
-        await tx.dealerSalePayment.create({
-          data: {
-            amount: new Prisma.Decimal(paidAmount),
-            date,
-            description: "Initial payment",
-            paymentMethod,
-            saleId: sale.id,
-          },
-        });
-      }
+        // 3. Prepare bulk operations
+        const saleItemsData = items.map((item) => ({
+          saleId: sale.id,
+          productId: item.productId,
+          quantity: new Prisma.Decimal(item.quantity),
+          unitPrice: new Prisma.Decimal(item.unitPrice),
+          totalAmount: new Prisma.Decimal(item.quantity * item.unitPrice),
+        }));
 
-      // 9. Get current ledger balance
-      const lastLedgerEntry = await tx.dealerLedgerEntry.findFirst({
-        where: { dealerId },
-        orderBy: { createdAt: "desc" },
-      });
-
-      const currentBalance = lastLedgerEntry
-        ? Number(lastLedgerEntry.balance)
-        : 0;
-
-      // 10. Create ledger entry for sale
-      const newBalance = currentBalance + totalAmount;
-      await tx.dealerLedgerEntry.create({
-        data: {
-          type: "SALE",
-          amount: new Prisma.Decimal(totalAmount),
-          balance: new Prisma.Decimal(newBalance),
+        const productTransactionsData = items.map((item) => ({
+          type: "SALE" as const,
+          quantity: new Prisma.Decimal(item.quantity),
+          unitPrice: new Prisma.Decimal(item.unitPrice),
+          totalAmount: new Prisma.Decimal(item.quantity * item.unitPrice),
           date,
           description: `Sale - Invoice ${invoiceNumber}`,
           reference: invoiceNumber,
-          dealerId,
-          saleId: sale.id,
-          partyId: customerId,
-          partyType: "CUSTOMER",
-        },
-      });
+          productId: item.productId,
+          dealerSaleId: sale.id,
+        }));
 
-      // 11. Create ledger entry for payment if paidAmount > 0
-      if (paidAmount > 0) {
-        const balanceAfterPayment = newBalance - paidAmount;
-        await tx.dealerLedgerEntry.create({
-          data: {
-            type: "PAYMENT_RECEIVED",
-            amount: new Prisma.Decimal(paidAmount),
-            balance: new Prisma.Decimal(balanceAfterPayment),
-            date,
-            description: `Payment received - Invoice ${invoiceNumber}`,
-            reference: invoiceNumber,
-            dealerId,
-            saleId: sale.id,
-            partyId: customerId,
-            partyType: "CUSTOMER",
-          },
-        });
-      }
+        // 4. Execute bulk operations in parallel
+        await Promise.all([
+          // Create all sale items
+          Promise.all(
+            saleItemsData.map((data) => tx.dealerSaleItem.create({ data }))
+          ),
+          // Update all product stocks in parallel
+          Promise.all(
+            items.map((item) =>
+              tx.dealerProduct.update({
+                where: { id: item.productId },
+                data: {
+                  currentStock: {
+                    decrement: new Prisma.Decimal(item.quantity),
+                  },
+                },
+              })
+            )
+          ),
+          // Create all product transactions
+          Promise.all(
+            productTransactionsData.map((data) =>
+              tx.dealerProductTransaction.create({ data })
+            )
+          ),
+        ]);
 
-      // 12. Update Customer.balance to reflect the sale and payment
-      const customer = await tx.customer.findUnique({
-        where: { id: customerId },
-        select: { balance: true },
-      });
-
-      if (customer) {
-        const currentCustomerBalance = Number(customer.balance || 0);
-        // Add the due amount (total - paid) to customer balance
-        const newCustomerBalance = currentCustomerBalance + dueAmount;
-
-        await tx.customer.update({
-          where: { id: customerId },
-          data: {
-            balance: new Prisma.Decimal(newCustomerBalance),
-          },
-        });
-      }
-
-      // 13. Return sale with items
-      return await tx.dealerSale.findUnique({
-        where: { id: sale.id },
-        include: {
-          items: {
-            include: {
-              product: true,
+        // 5. Create payment record if paidAmount > 0
+        if (paidAmount > 0) {
+          await tx.dealerSalePayment.create({
+            data: {
+              amount: new Prisma.Decimal(paidAmount),
+              date,
+              description: "Initial payment",
+              paymentMethod,
+              saleId: sale.id,
             },
+          });
+        }
+
+        // 6. Get current ledger balance (single query)
+        const lastLedgerEntry = await tx.dealerLedgerEntry.findFirst({
+          where: { dealerId },
+          orderBy: { createdAt: "desc" },
+        });
+
+        const currentBalance = lastLedgerEntry
+          ? Number(lastLedgerEntry.balance)
+          : 0;
+
+        // 7. Create ledger entries
+        const newBalance = currentBalance + totalAmount;
+        const ledgerEntries = [
+          tx.dealerLedgerEntry.create({
+            data: {
+              type: "SALE",
+              amount: new Prisma.Decimal(totalAmount),
+              balance: new Prisma.Decimal(newBalance),
+              date,
+              description: `Sale - Invoice ${invoiceNumber}`,
+              reference: invoiceNumber,
+              dealerId,
+              saleId: sale.id,
+              partyId: customerId,
+              partyType: "CUSTOMER",
+            },
+          }),
+        ];
+
+        if (paidAmount > 0) {
+          const balanceAfterPayment = newBalance - paidAmount;
+          ledgerEntries.push(
+            tx.dealerLedgerEntry.create({
+              data: {
+                type: "PAYMENT_RECEIVED",
+                amount: new Prisma.Decimal(paidAmount),
+                balance: new Prisma.Decimal(balanceAfterPayment),
+                date,
+                description: `Payment received - Invoice ${invoiceNumber}`,
+                reference: invoiceNumber,
+                dealerId,
+                saleId: sale.id,
+                partyId: customerId,
+                partyType: "CUSTOMER",
+              },
+            })
+          );
+        }
+
+        await Promise.all(ledgerEntries);
+
+        // 8. Update Customer.balance
+        const customer = await tx.customer.findUnique({
+          where: { id: customerId },
+          select: { balance: true },
+        });
+
+        if (customer) {
+          const currentCustomerBalance = Number(customer.balance || 0);
+          const newCustomerBalance = currentCustomerBalance + dueAmount;
+
+          await tx.customer.update({
+            where: { id: customerId },
+            data: {
+              balance: new Prisma.Decimal(newCustomerBalance),
+            },
+          });
+        }
+
+        // Return sale ID - fetch full details outside transaction
+        return sale.id;
+      }
+    );
+
+    // Fetch complete sale details outside transaction to avoid timeout
+    return await prisma.dealerSale.findUnique({
+      where: { id: saleId },
+      include: {
+        items: {
+          include: {
+            product: true,
           },
-          payments: true,
-          customer: true,
         },
-      });
+        payments: true,
+        customer: true,
+      },
     });
   }
 

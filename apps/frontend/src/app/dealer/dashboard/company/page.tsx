@@ -16,6 +16,7 @@ import {
   ArchiveRestore,
   X,
   Wallet,
+  CreditCard,
 } from "lucide-react";
 import {
   Card,
@@ -285,10 +286,19 @@ export default function DealerCompanyPage() {
             Manage your company connections and verification requests
           </p>
         </div>
-        <Button onClick={() => setIsApplyDialogOpen(true)} className="bg-primary">
-          <Plus className="mr-2 h-4 w-4" />
-          Apply to Company
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => router.push("/dealer/dashboard/payments")}
+          >
+            <CreditCard className="mr-2 h-4 w-4" />
+            Company Payment Request
+          </Button>
+          <Button onClick={() => setIsApplyDialogOpen(true)} className="bg-primary">
+            <Plus className="mr-2 h-4 w-4" />
+            Apply to Company
+          </Button>
+        </div>
       </div>
 
       {/* Account Summary Cards */}

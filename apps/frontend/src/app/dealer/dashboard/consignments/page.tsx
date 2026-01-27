@@ -54,15 +54,12 @@ import { Textarea } from "@/common/components/ui/textarea";
 import { toast } from "sonner";
 import {
   useGetDealerConsignments,
-  useRequestConsignment,
   useAcceptConsignment,
   useConfirmReceipt,
   useRejectDealerConsignment,
   useCancelDealerConsignment,
   type Consignment,
 } from "@/fetchers/dealer/consignmentQueries";
-import { useSearchCompanies } from "@/fetchers/dealer/companyQueries";
-import { CompanySearchSelect } from "@/common/components/forms/CompanySearchSelect";
 
 export default function DealerConsignmentsPage() {
   const [activeTab, setActiveTab] = useState("received");
@@ -71,22 +68,10 @@ export default function DealerConsignmentsPage() {
   const [selectedConsignment, setSelectedConsignment] = useState<Consignment | null>(null);
 
   // Dialogs
-  const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
   const [isConfirmReceiptDialogOpen, setIsConfirmReceiptDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
-
-  // Form state for request consignment
-  const [requestCompanyId, setRequestCompanyId] = useState("");
-  const [requestProductSearch, setRequestProductSearch] = useState("");
-  const [requestItems, setRequestItems] = useState<Array<{
-    productId: string;
-    productName: string;
-    quantity: number;
-    unitPrice: number;
-  }>>([]);
-  const [requestNotes, setRequestNotes] = useState("");
 
   // Form state for accept
   const [acceptItems, setAcceptItems] = useState<Array<{
@@ -102,10 +87,6 @@ export default function DealerConsignmentsPage() {
   // Form state for reject
   const [rejectReason, setRejectReason] = useState("");
 
-  // Company search for products
-  const [companyProductSearch, setCompanyProductSearch] = useState("");
-  const { data: companyProductsData } = useSearchCompanies(companyProductSearch);
-
   // Queries
   const { data: receivedData, isLoading: receivedLoading } = useGetDealerConsignments({
     direction: "COMPANY_TO_DEALER",
@@ -120,7 +101,6 @@ export default function DealerConsignmentsPage() {
   });
 
   // Mutations
-  const requestMutation = useRequestConsignment();
   const acceptMutation = useAcceptConsignment();
   const confirmReceiptMutation = useConfirmReceipt();
   const rejectMutation = useRejectDealerConsignment();
@@ -199,30 +179,6 @@ export default function DealerConsignmentsPage() {
     }
   };
 
-  const handleRequestConsignment = async () => {
-    if (!requestCompanyId || requestItems.length === 0) {
-      toast.error("Please select company and add items");
-      return;
-    }
-
-    try {
-      await requestMutation.mutateAsync({
-        companyId: requestCompanyId,
-        items: requestItems.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-        })),
-        notes: requestNotes || undefined,
-      });
-      toast.success("Consignment request sent successfully");
-      setIsRequestDialogOpen(false);
-      resetRequestForm();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to request consignment");
-    }
-  };
-
   const handleAcceptConsignment = async () => {
     if (!selectedConsignment || acceptItems.length === 0) {
       toast.error("Please specify accepted quantities");
@@ -292,30 +248,6 @@ export default function DealerConsignmentsPage() {
     }
   };
 
-  const resetRequestForm = () => {
-    setRequestCompanyId("");
-    setRequestItems([]);
-    setRequestNotes("");
-  };
-
-  const addRequestItem = (product: { id: string; name: string }) => {
-    setRequestItems([
-      ...requestItems,
-      { productId: product.id, productName: product.name, quantity: 0, unitPrice: 0 },
-    ]);
-    setCompanyProductSearch("");
-  };
-
-  const removeRequestItem = (index: number) => {
-    setRequestItems(requestItems.filter((_, i) => i !== index));
-  };
-
-  const updateRequestItem = (index: number, field: string, value: any) => {
-    const updated = [...requestItems];
-    updated[index] = { ...updated[index], [field]: value };
-    setRequestItems(updated);
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -328,10 +260,6 @@ export default function DealerConsignmentsPage() {
             Manage consignments from companies
           </p>
         </div>
-        <Button onClick={() => setIsRequestDialogOpen(true)} className="bg-primary">
-          <Plus className="mr-2 h-4 w-4" />
-          Request Consignment
-        </Button>
       </div>
 
       {/* Filters */}
@@ -397,7 +325,7 @@ export default function DealerConsignmentsPage() {
                     No consignments received
                   </h3>
                   <p className="text-muted-foreground">
-                    Companies can send you consignments or you can request them.
+                    Companies can send you consignments through catalog orders.
                   </p>
                 </div>
               ) : (
@@ -532,13 +460,9 @@ export default function DealerConsignmentsPage() {
                   <h3 className="text-lg font-semibold mb-2">
                     No requests sent
                   </h3>
-                  <p className="text-muted-foreground mb-4">
-                    Request products from companies on consignment.
+                  <p className="text-muted-foreground">
+                    Consignment requests are created when you place orders through company catalogs.
                   </p>
-                  <Button onClick={() => setIsRequestDialogOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Request Consignment
-                  </Button>
                 </div>
               ) : (
                 <Table>
@@ -616,175 +540,6 @@ export default function DealerConsignmentsPage() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Request Consignment Dialog */}
-      <Dialog open={isRequestDialogOpen} onOpenChange={setIsRequestDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Request Consignment from Company</DialogTitle>
-            <DialogDescription>
-              Request products from a company on consignment
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="company">Select Company *</Label>
-              <CompanySearchSelect
-                value={requestCompanyId}
-                onValueChange={setRequestCompanyId}
-                placeholder="Search for company..."
-              />
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>Products *</Label>
-                <div className="text-sm text-muted-foreground">
-                  Add products with quantities and expected prices
-                </div>
-              </div>
-              
-                  {requestItems.length > 0 && (
-                    <div className="space-y-2">
-                      {requestItems.map((item: any, index: number) => (
-                    <div
-                      key={index}
-                      className="flex gap-2 items-end p-3 border rounded-md"
-                    >
-                      <div className="flex-1">
-                        <Label>Product</Label>
-                        <p className="font-medium mt-1">{item.productName}</p>
-                      </div>
-                      <div className="w-24 space-y-2">
-                        <Label htmlFor={`quantity-${index}`}>Quantity</Label>
-                        <Input
-                          id={`quantity-${index}`}
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.quantity}
-                          onChange={(e) =>
-                            updateRequestItem(
-                              index,
-                              "quantity",
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="w-32 space-y-2">
-                        <Label htmlFor={`unitPrice-${index}`}>Unit Price</Label>
-                        <Input
-                          id={`unitPrice-${index}`}
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.unitPrice}
-                          onChange={(e) =>
-                            updateRequestItem(
-                              index,
-                              "unitPrice",
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="w-32">
-                        <p className="text-sm font-medium">Total</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatCurrency(item.quantity * item.unitPrice)}
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeRequestItem(index)}
-                      >
-                        <XCircle className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label>Add Product</Label>
-                <Input
-                  placeholder="Type product name to search..."
-                  value={companyProductSearch}
-                  onChange={(e) => setCompanyProductSearch(e.target.value)}
-                />
-                {companyProductSearch && companyProductsData?.data && (
-                  <div className="border rounded-md max-h-[200px] overflow-y-auto">
-                    {companyProductsData.data.map((company: any) => (
-                      <button
-                        key={company.id}
-                        type="button"
-                        className="w-full text-left px-3 py-2 hover:bg-muted"
-                        onClick={() => addRequestItem({ id: company.id, name: company.name })}
-                      >
-                        <p className="font-medium">{company.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {company.address || "Company"}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {requestItems.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No items added yet. Search and select products above.
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="request-notes">Notes (Optional)</Label>
-              <Textarea
-                id="request-notes"
-                value={requestNotes}
-                onChange={(e) => setRequestNotes(e.target.value)}
-                placeholder="Add any notes or special requirements..."
-                rows={3}
-              />
-            </div>
-
-            {requestItems.length > 0 && (
-              <div className="bg-muted p-4 rounded-md">
-                <p className="text-sm font-medium">Total Requested Amount</p>
-                <p className="text-2xl font-bold">
-                  {formatCurrency(
-                    requestItems.reduce(
-                      (sum, item) => sum + item.quantity * item.unitPrice,
-                      0
-                    )
-                  )}
-                </p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsRequestDialogOpen(false);
-                resetRequestForm();
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleRequestConsignment}
-              disabled={requestMutation.isPending}
-            >
-              {requestMutation.isPending ? "Sending..." : "Send Request"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Accept Consignment Dialog */}
       <Dialog open={isAcceptDialogOpen} onOpenChange={setIsAcceptDialogOpen}>

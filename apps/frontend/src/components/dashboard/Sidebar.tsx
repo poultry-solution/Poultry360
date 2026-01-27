@@ -72,11 +72,8 @@ const dealerNavigation: NavigationItem[] = [
   { name: "Inventory", href: "/dealer/dashboard/inventory", icon: Package },
   { name: "Customers", href: "/dealer/dashboard/customers", icon: Users },
   { name: "Sales", href: "/dealer/dashboard/sales", icon: Receipt },
-  { name: "Sale Requests", href: "/dealer/dashboard/sale-requests", icon: FileCheck },
-  { name: "Payment Requests", href: "/dealer/dashboard/payment-requests", icon: DollarSign },
   { name: "Ledger", href: "/dealer/dashboard/ledger", icon: FileText },
   { name: "Consignments", href: "/dealer/dashboard/consignments", icon: Truck },
-  { name: "Payments", href: "/dealer/dashboard/payments", icon: CreditCard },
 ];
 
 const companyNavigation: NavigationItem[] = [

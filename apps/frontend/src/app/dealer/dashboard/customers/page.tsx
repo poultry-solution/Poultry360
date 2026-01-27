@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Users, Edit, Trash2, Phone, MapPin, Link2, CheckCircle2 } from "lucide-react";
+import { Plus, Search, Users, Edit, Trash2, Phone, MapPin, Link2, CheckCircle2, DollarSign } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -230,6 +230,13 @@ export default function DealerCustomersPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => router.push("/dealer/dashboard/payment-requests")}
+          >
+            <DollarSign className="mr-2 h-4 w-4" />
+            Customer Payment Request
+          </Button>
           <Button
             variant="outline"
             onClick={() => router.push("/dealer/dashboard/customers/verification")}
