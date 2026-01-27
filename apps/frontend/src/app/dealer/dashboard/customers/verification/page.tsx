@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   UserCircle,
@@ -11,6 +12,8 @@ import {
   ChevronRight,
   Archive,
   ArchiveRestore,
+  ArrowLeft,
+  Loader2,
 } from "lucide-react";
 import {
   Card,
@@ -48,7 +51,8 @@ import {
   useGetArchivedDealerFarmers,
 } from "@/fetchers/dealer/dealerFarmerQueries";
 
-export default function DealerFarmersPage() {
+export default function DealerVerificationPage() {
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("PENDING");
@@ -168,32 +172,20 @@ export default function DealerFarmersPage() {
     }
   };
 
-  if (requestsLoading && page === 1) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Farmer Verification Requests
-            </h1>
-            <p className="text-muted-foreground">
-              Review and manage farmer connection requests
-            </p>
-          </div>
-        </div>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center py-8">Loading...</div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
+        <div className="flex items-center gap-2 mb-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/dealer/dashboard/customers")}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Customers
+          </Button>
+        </div>
         <h1 className="text-3xl font-bold tracking-tight">
           Farmer Verification Requests
         </h1>
@@ -388,7 +380,12 @@ export default function DealerFarmersPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {requests.length === 0 ? (
+            {requestsLoading ? (
+              <div className="text-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Loading requests...</p>
+              </div>
+            ) : requests.length === 0 ? (
               <div className="text-center py-8">
                 <UserCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No farmer requests</h3>

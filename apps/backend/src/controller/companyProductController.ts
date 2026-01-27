@@ -275,6 +275,12 @@ export const getCompanyProductSummary = async (
   try {
     const userId = req.userId;
 
+    // Get the company for this user
+    const company = await prisma.company.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+
     // Get total products
     const totalProducts = await prisma.product.count({
       where: { supplierId: userId },
@@ -300,24 +306,35 @@ export const getCompanyProductSummary = async (
       return sum + Number(product.totalPrice);
     }, 0);
 
-    // Get dealers using company products
-    const dealersCount = await prisma.dealerProduct.findMany({
-      where: {
-        companyProductId: { not: null },
-        companyProduct: {
-          supplierId: userId,
+    // Get connected dealers count from DealerCompany relationship
+    // Also count manually created dealers (those with userId = current user)
+    let dealersCount = 0;
+    
+    if (company) {
+      // Count connected dealers (active, not archived by company)
+      const connectedDealers = await (prisma as any).dealerCompany.count({
+        where: {
+          companyId: company.id,
+          archivedByCompany: false,
         },
-      },
-      distinct: ["dealerId"],
-      select: { dealerId: true },
-    });
+      });
+      
+      // Count manually created dealers
+      const manualDealers = await prisma.dealer.count({
+        where: {
+          userId: userId,
+        },
+      });
+      
+      dealersCount = connectedDealers + manualDealers;
+    }
 
     return res.status(200).json({
       success: true,
       data: {
         totalProducts,
         totalInventoryValue,
-        dealersCount: dealersCount.length,
+        dealersCount,
         productsByType: productsByType.map((item) => ({
           type: item.type,
           count: item._count,

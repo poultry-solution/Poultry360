@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, Filter, Edit, Trash2, Package, PackagePlus } from "lucide-react";
+import { Plus, Search, Filter, Edit, Trash2, Package, PackagePlus, AlertTriangle } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -54,6 +54,8 @@ export default function CompanyProductsPage() {
   const [isInventoryDialogOpen, setIsInventoryDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [inventoryQuantity, setInventoryQuantity] = useState<number>(0);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<{ id: string; name: string } | null>(null);
 
   // Form state
   const [formData, setFormData] = useState<CreateCompanyProductInput>({
@@ -131,12 +133,23 @@ export default function CompanyProductsPage() {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+  const handleOpenDeleteDialog = (id: string, name: string) => {
+    setProductToDelete({ id, name });
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setIsDeleteDialogOpen(false);
+    setProductToDelete(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!productToDelete) return;
 
     try {
-      await deleteMutation.mutateAsync(id);
+      await deleteMutation.mutateAsync(productToDelete.id);
       toast.success("Product deleted successfully");
+      handleCloseDeleteDialog();
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to delete product");
     }
@@ -216,9 +229,6 @@ export default function CompanyProductsPage() {
               <SelectContent>
                 <SelectItem value="ALL">All Types</SelectItem>
                 <SelectItem value="FEED">Feed</SelectItem>
-                <SelectItem value="CHICKS">Chicks</SelectItem>
-                <SelectItem value="MEDICINE">Medicine</SelectItem>
-                <SelectItem value="EQUIPMENT">Equipment</SelectItem>
                 <SelectItem value="OTHER">Other</SelectItem>
               </SelectContent>
             </Select>
@@ -301,7 +311,7 @@ export default function CompanyProductsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDelete(product.id, product.name)}
+                            onClick={() => handleOpenDeleteDialog(product.id, product.name)}
                             title="Delete Product"
                           >
                             <Trash2 className="h-4 w-4 text-red-600" />
@@ -412,9 +422,6 @@ export default function CompanyProductsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="FEED">Feed</SelectItem>
-                      <SelectItem value="CHICKS">Chicks</SelectItem>
-                      <SelectItem value="MEDICINE">Medicine</SelectItem>
-                      <SelectItem value="EQUIPMENT">Equipment</SelectItem>
                       <SelectItem value="OTHER">Other</SelectItem>
                     </SelectContent>
                   </Select>
@@ -580,6 +587,51 @@ export default function CompanyProductsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Product
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete{" "}
+              <span className="font-semibold text-foreground">
+                "{productToDelete?.name}"
+              </span>
+              ? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 my-4">
+            <p className="text-sm text-red-800">
+              Deleting this product will remove it from your catalog permanently.
+              Any existing sales records will be preserved but the product will no longer be available.
+            </p>
+          </div>
+
+          <DialogFooter className="gap-3 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCloseDeleteDialog}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="bg-red-600 mx-2 hover:bg-red-700 text-white"
+              onClick={handleConfirmDelete}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -21,22 +21,17 @@ import {
   TrendingUp,
   FileText,
   CreditCard,
-  CheckCircle2,
   FileCheck,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
-import { Badge } from "@/common/components/ui/badge";
 import { useAuth } from "@/common/store/store";
-import { useGetCompanyVerificationRequests } from "@/fetchers/company/companyVerificationQueries";
 import { LucideIcon } from "lucide-react";
-import { useGetDealerVerificationRequests } from "@/fetchers/dealer/dealerVerificationQueries";
 
 // Navigation item type
 interface NavigationItem {
   name: string;
   href: string;
   icon: LucideIcon;
-  badge?: string;
 }
 
 // Role-based navigation configurations
@@ -74,7 +69,6 @@ const doctorNavigation: NavigationItem[] = [
 const dealerNavigation: NavigationItem[] = [
   { name: "Home", href: "/dealer/dashboard/home", icon: Home },
   { name: "Companies", href: "/dealer/dashboard/company", icon: Building2 },
-  { name: "Farmers", href: "/dealer/dashboard/farmers", icon: Users },
   { name: "Inventory", href: "/dealer/dashboard/inventory", icon: Package },
   { name: "Customers", href: "/dealer/dashboard/customers", icon: Users },
   { name: "Sales", href: "/dealer/dashboard/sales", icon: Receipt },
@@ -89,7 +83,6 @@ const companyNavigation: NavigationItem[] = [
   { name: "Home", href: "/company/dashboard/home", icon: Home },
   { name: "Products", href: "/company/dashboard/products", icon: Package },
   { name: "Dealers", href: "/company/dashboard/dealers", icon: Users },
-  { name: "Verification Requests", href: "/company/dashboard/verification", icon: CheckCircle2, badge: "verification" },
   { name: "Sales", href: "/company/dashboard/sales", icon: Receipt },
   { name: "Ledger", href: "/company/dashboard/ledger", icon: FileText },
   { name: "Consignments", href: "/company/dashboard/consignments", icon: Truck },
@@ -120,16 +113,6 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
   const pathname = usePathname();
   const { user } = useAuth();
 
-  // Get pending verification count for company role (only fetch for COMPANY role)
-  const { data: companyPendingData } = useGetCompanyVerificationRequests(
-    { status: "PENDING", limit: 1 },
-    { enabled: role === "COMPANY" }
-  );
-
-  // Get dealer verification requests (only fetch for DEALER role)
-  const { data: dealerRequestsData } = useGetDealerVerificationRequests({
-    enabled: role === "DEALER",
-  });
   // Get navigation based on role
   const getNavigation = () => {
     if (role === "DOCTOR") return doctorNavigation;
@@ -272,23 +255,6 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
                 )}
               />
               <span className="flex-1">{item.name}</span>
-              {item.badge === "verification" && (() => {
-                // Get pending count based on role
-                let pendingCount = 0;
-                if (role === "COMPANY" && companyPendingData?.pagination?.total) {
-                  pendingCount = companyPendingData.pagination.total;
-                } else if (role === "DEALER" && dealerRequestsData?.data) {
-                  // Dealer requests return array, count PENDING items
-                  pendingCount = dealerRequestsData.data.filter(
-                    (req: any) => req.status === "PENDING"
-                  ).length;
-                }
-                return pendingCount > 0 ? (
-                  <Badge className="ml-auto bg-yellow-500 text-white text-xs">
-                    {pendingCount}
-                  </Badge>
-                ) : null;
-              })()}
             </Link>
           );
         })}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, Users, Edit, Trash2, Phone, MapPin, Link2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Plus, Search, Users, Edit, Trash2, Phone, MapPin, Link2, CheckCircle2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -32,6 +33,7 @@ import { Badge } from "@/common/components/ui/badge";
 import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useGetDealerFarmerRequests, useGetConnectedFarmers } from "@/fetchers/dealer/dealerFarmerQueries";
 
 interface Customer {
   id: string;
@@ -43,9 +45,11 @@ interface Customer {
   source?: string; // "MANUAL" | "CONNECTED"
   farmerId?: string; // Link to farmer for connected customers
   createdAt: Date;
+  partyType?: "CUSTOMER" | "FARMER"; // For farmers from ledger parties
 }
 
 export default function DealerCustomersPage() {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -59,7 +63,7 @@ export default function DealerCustomersPage() {
   });
 
   // Get customers
-  const { data: customersData, isLoading } = useQuery({
+  const { data: customersData, isLoading: customersLoading } = useQuery({
     queryKey: ["dealer-customers", search],
     queryFn: async () => {
       const { data } = await axiosInstance.get("/dealer/sales/customers", {
@@ -67,6 +71,64 @@ export default function DealerCustomersPage() {
       });
       return data;
     },
+  });
+
+  // Get connected farmers (to show farmers who might not have Customer records yet)
+  const { data: connectedFarmersData, isLoading: farmersLoading } = useGetConnectedFarmers();
+
+  // Get ledger parties (includes both customers and farmers with transactions)
+  const { data: ledgerPartiesData, isLoading: ledgerLoading } = useQuery({
+    queryKey: ["dealer-ledger-parties", search],
+    queryFn: async () => {
+      const { data } = await axiosInstance.get("/dealer/ledger/parties", {
+        params: search ? { search } : {},
+      });
+      return data;
+    },
+  });
+
+  // Get pending verification requests count
+  const { data: verificationData } = useGetDealerFarmerRequests({
+    status: "PENDING",
+    limit: 1,
+  });
+  const pendingVerificationCount = verificationData?.pagination?.total || 0;
+
+  const isLoading = customersLoading || farmersLoading || ledgerLoading;
+
+  // Combine customers and farmers
+  const manualCustomers: Customer[] = customersData?.data || [];
+  const ledgerParties: any[] = ledgerPartiesData?.data || [];
+  const connectedFarmers = connectedFarmersData?.data || [];
+
+  // Create a map of existing customers by ID
+  const customerMap = new Map<string, Customer>();
+  manualCustomers.forEach((c) => customerMap.set(c.id, c));
+
+  // Add farmers from ledger parties who aren't already customers
+  ledgerParties.forEach((party) => {
+    if (party.partyType === "FARMER" && !customerMap.has(party.id)) {
+      // Check if this farmer is connected
+      const isConnected = connectedFarmers.some((f) => f.id === party.id);
+      if (isConnected) {
+        customerMap.set(party.id, {
+          id: party.id,
+          name: party.name,
+          phone: party.contact || "",
+          address: party.address,
+          balance: party.balance || 0,
+          source: "CONNECTED",
+          farmerId: party.id,
+          partyType: "FARMER",
+          createdAt: new Date(),
+        });
+      }
+    }
+  });
+
+  // Convert map to array and sort
+  const allCustomers = Array.from(customerMap.values()).sort((a, b) => {
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
   const queryClient = useQueryClient();
@@ -155,7 +217,7 @@ export default function DealerCustomersPage() {
     deleteMutation.mutate(id);
   };
 
-  const customers: Customer[] = customersData?.data || [];
+  const customers = allCustomers;
 
   return (
     <div className="space-y-6">
@@ -167,10 +229,25 @@ export default function DealerCustomersPage() {
             Manage your customers and farmers
           </p>
         </div>
-        <Button onClick={() => handleOpenDialog()} className="bg-primary">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Customer
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => router.push("/dealer/dashboard/customers/verification")}
+            className="relative"
+          >
+            <CheckCircle2 className="mr-2 h-4 w-4" />
+            Verification Requests
+            {pendingVerificationCount > 0 && (
+              <Badge className="ml-2 bg-yellow-500 text-white text-xs px-1.5 py-0.5 min-w-[20px] h-5">
+                {pendingVerificationCount}
+              </Badge>
+            )}
+          </Button>
+          <Button onClick={() => handleOpenDialog()} className="bg-primary">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Customer
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
@@ -229,7 +306,7 @@ export default function DealerCustomersPage() {
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         {customer.name}
-                        {customer.source === "CONNECTED" && (
+                        {(customer.source === "CONNECTED" || customer.partyType === "FARMER") && (
                           <Badge
                             variant="secondary"
                             className="bg-blue-100 text-blue-800 hover:bg-blue-100 text-xs"
@@ -286,6 +363,13 @@ export default function DealerCustomersPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => router.push(`/dealer/dashboard/customers/${customer.id}/account`)}
+                        >
+                          View Account
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
