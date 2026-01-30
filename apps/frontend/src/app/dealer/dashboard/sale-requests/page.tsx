@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileCheck, Search, Eye, Clock, CheckCircle, XCircle } from "lucide-react";
+import { FileCheck, Search, Eye, Clock, CheckCircle, XCircle, ArrowLeft } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -146,6 +146,16 @@ export default function DealerSaleRequestsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
+        <div className="flex items-center gap-2 mb-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/dealer/dashboard/sales")}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Sales
+          </Button>
+        </div>
         <h1 className="text-3xl font-bold tracking-tight">Sale Requests</h1>
         <p className="text-muted-foreground">
           Track sale requests sent to connected farmers

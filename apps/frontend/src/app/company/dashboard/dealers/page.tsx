@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Users, Edit, Trash2, Archive, ArchiveRestore, Phone, MapPin } from "lucide-react";
+import { Plus, Search, Users, Edit, Trash2, Archive, ArchiveRestore, Phone, MapPin, CheckCircle2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -37,7 +37,9 @@ import {
   useUnarchiveCompanyDealer,
   useGetArchivedCompanyDealers,
 } from "@/fetchers/company/companyDealerQueries";
+import { useGetCompanyVerificationRequests } from "@/fetchers/company/companyVerificationQueries";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
+import { Badge } from "@/common/components/ui/badge";
 
 interface Dealer {
   id: string;
@@ -134,6 +136,10 @@ export default function CompanyDealersPage() {
   // Get archived dealers
   const { data: archivedDealersData, isLoading: archivedLoading } = useGetArchivedCompanyDealers();
 
+  // Get pending verification requests count
+  const { data: verificationData } = useGetCompanyVerificationRequests({ status: "PENDING", limit: 1 });
+  const pendingVerificationCount = verificationData?.pagination?.total || 0;
+
   const handleOpenDialog = (dealer?: Dealer) => {
     if (dealer) {
       setEditingDealer(dealer);
@@ -216,10 +222,25 @@ export default function CompanyDealersPage() {
             Manage dealers you supply products to
           </p>
         </div>
-        <Button onClick={() => handleOpenDialog()} className="bg-primary">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Dealer
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => router.push("/company/dashboard/verification")}
+            className="relative"
+          >
+            <CheckCircle2 className="mr-2 h-4 w-4" />
+            Verification Requests
+            {pendingVerificationCount > 0 && (
+              <Badge className="ml-2 bg-yellow-500 text-white text-xs px-1.5 py-0.5 min-w-[20px] h-5">
+                {pendingVerificationCount}
+              </Badge>
+            )}
+          </Button>
+          <Button onClick={() => handleOpenDialog()} className="bg-primary">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Dealer
+          </Button>
+        </div>
       </div>
 
       {/* Search */}

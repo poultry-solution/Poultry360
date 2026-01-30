@@ -26,5 +26,6 @@ export function useSearchableDealerSelect() {
     options,
     isLoading,
     onSearch: setSearch,
+    dealers,
   };
 }

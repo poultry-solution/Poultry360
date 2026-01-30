@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Plus,
   Package,
   Search,
   Filter,
@@ -16,6 +15,7 @@ import {
   Calendar,
   DollarSign,
   Ban,
+  Plus,
 } from "lucide-react";
 import {
   Card,
@@ -274,9 +274,9 @@ export default function CompanyConsignmentsPage() {
             Manage product consignments to dealers
           </p>
         </div>
-        <Button onClick={() => router.push("/company/dashboard/consignments/new")} className="bg-primary">
+        <Button onClick={() => router.push("/company/dashboard/sales/new")} className="bg-primary">
           <Plus className="mr-2 h-4 w-4" />
-          New Consignment
+          New Sale
         </Button>
       </div>
 
@@ -341,11 +341,11 @@ export default function CompanyConsignmentsPage() {
                   <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No consignments yet</h3>
                   <p className="text-muted-foreground mb-4">
-                    Create your first consignment to a dealer.
+                    Create a sale to a connected dealer to start a consignment.
                   </p>
-                  <Button onClick={() => router.push("/company/dashboard/consignments/new")}>
+                  <Button onClick={() => router.push("/company/dashboard/sales/new")}>
                     <Plus className="mr-2 h-4 w-4" />
-                    New Consignment
+                    Create Sale
                   </Button>
                 </div>
               ) : (

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { DollarSign, Search, Eye, Clock, CheckCircle, XCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { DollarSign, Search, Eye, Clock, CheckCircle, XCircle, ArrowLeft } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -130,6 +131,16 @@ export default function DealerPaymentRequestsPage() {
   return (
     <div className="space-y-6">
       <div>
+        <div className="flex items-center gap-2 mb-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/dealer/dashboard/customers")}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Customers
+          </Button>
+        </div>
         <h1 className="text-3xl font-bold">Payment Requests</h1>
         <p className="text-muted-foreground">
           Manage payment requests from connected farmers

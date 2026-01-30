@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Receipt, Search, Filter, Eye, CreditCard, Calendar } from "lucide-react";
+import { Plus, Receipt, Search, Filter, Eye, CreditCard, Calendar, FileCheck } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -76,20 +76,29 @@ export default function DealerSalesPage() {
             Track and manage sales to your customers
           </p>
         </div>
-        <Button
-          onClick={() => router.push("/dealer/dashboard/sales/new")}
-          className="bg-primary"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          New Sale
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => router.push("/dealer/dashboard/sale-requests")}
+            variant="outline"
+          >
+            <FileCheck className="mr-2 h-4 w-4" />
+            Sale Requests
+          </Button>
+          <Button
+            onClick={() => router.push("/dealer/dashboard/sales/new")}
+            className="bg-primary"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            New Sale
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="md:col-span-2">
+          <div className="grid gap-4 md:grid-cols-12">
+            <div className="md:col-span-5">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -100,34 +109,36 @@ export default function DealerSalesPage() {
                 />
               </div>
             </div>
-            <Select
-              value={isPaidFilter}
-              onValueChange={setIsPaidFilter}
-            >
-              <SelectTrigger>
-                <Filter className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="Payment Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Sales</SelectItem>
-                <SelectItem value="PAID">Paid</SelectItem>
-                <SelectItem value="UNPAID">Unpaid</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="flex gap-2">
+            <div className="md:col-span-2">
+              <Select
+                value={isPaidFilter}
+                onValueChange={setIsPaidFilter}
+              >
+                <SelectTrigger className="w-full">
+                  <Filter className="mr-2 h-4 w-4" />
+                  <SelectValue placeholder="Payment Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Sales</SelectItem>
+                  <SelectItem value="PAID">Paid</SelectItem>
+                  <SelectItem value="UNPAID">Unpaid</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-5 flex gap-2 min-w-0">
               <Input
                 type="date"
                 placeholder="Start Date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="flex-1"
+                className="flex-1 min-w-0"
               />
               <Input
                 type="date"
                 placeholder="End Date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="flex-1"
+                className="flex-1 min-w-0"
               />
             </div>
           </div>

@@ -362,7 +362,7 @@ export default function DealerLedgerPage() {
                               }}
                             >
                               <Plus className="h-4 w-4 mr-1" />
-                              Pay
+                              Add Payment
                             </Button>
                           </div>
                         </TableCell>
