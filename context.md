@@ -209,6 +209,8 @@ Services handle transactions, state machines, and domain logic. Controllers hand
 | Service | Purpose |
 |---------|---------|
 | `ConsignmentService` | State machine, inventory transfer, ledger entries |
+| `CompanyDealerAccountService` | Company-dealer account-based ledger (see [Ledger Architecture](#ledger-system-architecture-critical)) |
+| `DealerService` | Dealer operations, farmer/customer balance-based ledger |
 | `SocketService` | JWT socket auth, room management, real-time events |
 | `webpushService` | Web Push notifications |
 | `ReminderCronService` | Cron job for vaccination/reminder notifications |
@@ -371,6 +373,67 @@ sequenceDiagram
         Frontend->>Backend: Retry
     end
 ```
+
+---
+
+## Ledger System Architecture (Critical)
+
+The system uses **two different ledger architectures** depending on the tier relationship. Do not mix these approaches.
+
+### Company ↔ Dealer: Account-Based Ledger
+
+Uses `CompanyDealerAccount` as a running account between each company-dealer pair.
+
+```
+CompanyDealerAccount (one per company-dealer pair)
+├── balance         → Running balance (positive = dealer owes, negative = advance)
+├── totalSales      → Cumulative sales amount
+├── totalPayments   → Cumulative payments amount
+└── CompanyDealerPayment[] → Individual payment records with balanceAfter snapshots
+```
+
+**Key characteristics:**
+- Payments are **NOT tied to specific sales** — they reduce the account balance directly
+- Sales increment account balance, payments decrement it
+- Account is upserted atomically to prevent race conditions
+- `CompanyDealerAccountService` handles all account operations
+
+**Do NOT:**
+- Try to allocate payments to specific company sales (bill-wise)
+- Add `paidAmount`/`dueAmount` fields to `CompanySale` — use account balance only
+
+### Dealer ↔ Farmer/Customer: Balance-Based Ledger
+
+Uses a `balance` field on the `Customer` model (and aggregated `dueAmount` for farmers).
+
+```
+Customer
+└── balance → Single field (positive = owes dealer, negative = advance/prepayment)
+
+DealerSale
+├── totalAmount
+├── paidAmount
+└── dueAmount   → Used for farmer balance calculation
+```
+
+**Key characteristics:**
+- For **static customers**: `Customer.balance` is the source of truth
+- For **farmers (User)**: balance is calculated by summing `DealerSale.dueAmount`
+- Supports both general payments (account-based via balance field) and bill-wise payments
+- `DealerService.addGeneralPayment()` updates `Customer.balance` directly using FIFO allocation
+- `DealerService.addSalePayment()` updates specific sale's `paidAmount`/`dueAmount`
+
+**Do NOT:**
+- Create a separate `DealerCustomerAccount` model — use `Customer.balance` field
+- Assume farmer ledger works the same as customer ledger (farmers use sale aggregation)
+
+### Summary Table
+
+| Relationship | Ledger Type | Balance Source | Payment Allocation |
+|--------------|-------------|----------------|-------------------|
+| Company → Dealer | Account-based | `CompanyDealerAccount.balance` | Account-level only |
+| Dealer → Customer | Balance field | `Customer.balance` | FIFO to sales + balance field |
+| Dealer → Farmer | Sale aggregation | Sum of `DealerSale.dueAmount` | Bill-wise to individual sales |
 
 ---
 
