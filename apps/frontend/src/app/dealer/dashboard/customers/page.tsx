@@ -233,6 +233,7 @@ export default function DealerCustomersPage() {
           <Button
             variant="outline"
             onClick={() => router.push("/dealer/dashboard/payment-requests")}
+            className="hover:bg-green-50 hover:text-green-700 border-green-200"
           >
             <DollarSign className="mr-2 h-4 w-4" />
             Customer Payment Request
@@ -240,7 +241,7 @@ export default function DealerCustomersPage() {
           <Button
             variant="outline"
             onClick={() => router.push("/dealer/dashboard/customers/verification")}
-            className="relative"
+            className="relative hover:bg-green-50 hover:text-green-700 border-green-200"
           >
             <CheckCircle2 className="mr-2 h-4 w-4" />
             Verification Requests
@@ -250,7 +251,11 @@ export default function DealerCustomersPage() {
               </Badge>
             )}
           </Button>
-          <Button onClick={() => handleOpenDialog()} className="bg-primary">
+          <Button
+            variant="outline"
+            onClick={() => handleOpenDialog()}
+            className="hover:bg-green-50 hover:text-green-700 border-green-200"
+          >
             <Plus className="mr-2 h-4 w-4" />
             Add Customer
           </Button>
@@ -357,15 +362,15 @@ export default function DealerCustomersPage() {
                           customer.balance > 0
                             ? "text-red-600 font-semibold"
                             : customer.balance < 0
-                            ? "text-green-600 font-semibold"
-                            : ""
+                              ? "text-green-600 font-semibold"
+                              : ""
                         }
                       >
                         {customer.balance > 0
                           ? `रू ${Math.abs(customer.balance).toFixed(2)} (Due)`
                           : customer.balance < 0
-                          ? `रू ${Math.abs(customer.balance).toFixed(2)} (Advance)`
-                          : "रू 0.00"}
+                            ? `रू ${Math.abs(customer.balance).toFixed(2)} (Advance)`
+                            : "रू 0.00"}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
@@ -484,8 +489,8 @@ export default function DealerCustomersPage() {
                 {createMutation.isPending
                   ? "Saving..."
                   : editingCustomer
-                  ? "Update Customer"
-                  : "Add Customer"}
+                    ? "Update Customer"
+                    : "Add Customer"}
               </Button>
             </DialogFooter>
           </form>

@@ -84,10 +84,10 @@ export default function DealerHomePage() {
           variant: "destructive" as const,
           title: "Request Rejected",
           description: `Your request to join ${companyName} was rejected. ${request.rejectedCount >= 3
-              ? "You have reached the maximum rejection limit (3) and cannot apply again."
-              : request.rejectedCount === 2
-                ? "This is your 2nd rejection. One more rejection and you won't be able to apply again."
-                : "You can retry after 1 hour from the Companies page."
+            ? "You have reached the maximum rejection limit (3) and cannot apply again."
+            : request.rejectedCount === 2
+              ? "This is your 2nd rejection. One more rejection and you won't be able to apply again."
+              : "You can retry after 1 hour from the Companies page."
             }`,
           icon: XCircle,
           className: "bg-red-50 border-red-200 text-red-900",
@@ -200,13 +200,13 @@ export default function DealerHomePage() {
 
         <div className="flex gap-4">
           <Link href="/dealer/dashboard/sales/new">
-            <Button className="gap-2 bg-background text-foreground border border-input hover:bg-primary hover:text-primary-foreground">
+            <Button variant="outline" className="gap-2 hover:bg-green-50 hover:text-green-700 border-green-200">
               <Plus className="h-4 w-4" />
               Add Sale
             </Button>
           </Link>
           <Link href="/dealer/dashboard/consignments">
-            <Button variant="outline" className="gap-2 hover:bg-primary hover:text-primary-foreground">
+            <Button variant="outline" className="gap-2 hover:bg-green-50 hover:text-green-700 border-green-200">
               <Truck className="h-4 w-4" />
               Consignments
             </Button>

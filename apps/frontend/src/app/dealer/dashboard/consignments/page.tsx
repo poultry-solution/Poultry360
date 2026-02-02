@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Package,
@@ -14,6 +15,8 @@ import {
   DollarSign,
   Ban,
   Receipt,
+  AlertCircle,
+  ArrowLeft,
 } from "lucide-react";
 import {
   Card,
@@ -57,10 +60,12 @@ import {
   useAcceptConsignment,
   useConfirmReceipt,
   useRejectDealerConsignment,
+  useGetDealerConsignmentAuditLogs,
   type Consignment,
 } from "@/fetchers/dealer/consignmentQueries";
 
 export default function DealerConsignmentsPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("received");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -71,6 +76,7 @@ export default function DealerConsignmentsPage() {
   const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
   const [isConfirmReceiptDialogOpen, setIsConfirmReceiptDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [isRejectionInfoOpen, setIsRejectionInfoOpen] = useState(false);
 
   // Form state for accept
   const [acceptItems, setAcceptItems] = useState<Array<{
@@ -248,6 +254,13 @@ export default function DealerConsignmentsPage() {
             Manage consignments from companies
           </p>
         </div>
+        <Button
+          variant="outline"
+          onClick={() => router.push("/dealer/dashboard/company")}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
       </div>
 
       {/* Filters */}
@@ -480,6 +493,20 @@ export default function DealerConsignmentsPage() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
+                            {consignment.status === "REJECTED" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                                onClick={() => {
+                                  setSelectedConsignment(consignment);
+                                  setIsRejectionInfoOpen(true);
+                                }}
+                              >
+                                <AlertCircle className="h-4 w-4 mr-1" />
+                                Reason
+                              </Button>
+                            )}
 
 
                             {/* Confirm Receipt for DISPATCHED status */}
@@ -716,6 +743,12 @@ export default function DealerConsignmentsPage() {
         </DialogContent>
       </Dialog>
 
+      <RejectionReasonDialog
+        consignmentId={selectedConsignment?.id || null}
+        open={isRejectionInfoOpen}
+        onOpenChange={setIsRejectionInfoOpen}
+      />
+
       {/* View Dialog - Reusing same structure as company page */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -882,6 +915,55 @@ export default function DealerConsignmentsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function RejectionReasonDialog({
+  consignmentId,
+  open,
+  onOpenChange,
+}: {
+  consignmentId: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { data: auditLogs, isLoading } = useGetDealerConsignmentAuditLogs(
+    consignmentId || ""
+  );
+
+  const rejectionLog = auditLogs?.find((log) => log.action === "REJECTED");
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Rejection Reason</DialogTitle>
+          <DialogDescription>
+            Reason provided for rejection
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          {isLoading ? (
+            <div className="flex justify-center py-4">
+              <p className="text-muted-foreground">Loading details...</p>
+            </div>
+          ) : rejectionLog ? (
+            <div className="bg-red-50 p-4 rounded-md border border-red-100 text-red-800">
+              <p className="font-medium mb-1">Reason:</p>
+              <p>{rejectionLog.notes || "No specific reason provided."}</p>
+              <p className="text-xs text-red-600 mt-2 pt-2 border-t border-red-200">
+                Rejected by {rejectionLog.actor?.name} on {new Date(rejectionLog.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-center py-4">No rejection details found.</p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

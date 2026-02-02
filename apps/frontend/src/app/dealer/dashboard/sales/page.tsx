@@ -80,13 +80,15 @@ export default function DealerSalesPage() {
           <Button
             onClick={() => router.push("/dealer/dashboard/sale-requests")}
             variant="outline"
+            className="hover:bg-green-50 hover:text-green-700 border-green-200"
           >
             <FileCheck className="mr-2 h-4 w-4" />
             Sale Requests
           </Button>
           <Button
             onClick={() => router.push("/dealer/dashboard/sales/new")}
-            className="bg-primary"
+            variant="outline"
+            className="hover:bg-green-50 hover:text-green-700 border-green-200"
           >
             <Plus className="mr-2 h-4 w-4" />
             New Sale

@@ -524,6 +524,7 @@ export default function CompanyConsignmentsPage() {
                                 </Button>
                                 <Button
                                   variant="destructive"
+                                  className="text-black"
                                   size="sm"
                                   onClick={() => {
                                     setSelectedConsignment(consignment);
@@ -733,6 +734,7 @@ export default function CompanyConsignmentsPage() {
               Cancel
             </Button>
             <Button
+              className="text-black hover:bg-red-500 hover:text-white"
               variant="destructive"
               onClick={handleRejectConsignment}
               disabled={rejectMutation.isPending || !rejectReason}
