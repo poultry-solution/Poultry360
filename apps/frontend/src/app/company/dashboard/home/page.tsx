@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import { Button } from "@/common/components/ui/button";
+
 import {
   Card,
   CardContent,
@@ -19,6 +22,7 @@ import {
   CreditCard,
   ArrowUpRight,
   Clock,
+  Plus,
 } from "lucide-react";
 import { useGetCompanyLedgerSummary } from "@/fetchers/company/companyLedgerQueries";
 import { useGetCompanyProductSummary } from "@/fetchers/company/companyProductQueries";
@@ -72,12 +76,35 @@ export default function CompanyHomePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Company Dashboard</h1>
-        <p className="text-muted-foreground">
-          Manage your products, dealers, and distribution network.
-        </p>
+      {/* Header & Quick Actions */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Company Dashboard</h1>
+          <p className="text-muted-foreground">
+            Manage your products, dealers, and distribution network.
+          </p>
+        </div>
+
+        <div className="flex gap-4">
+          <Link href="/company/dashboard/sales/new">
+            <Button className="gap-2 bg-background text-foreground border border-input hover:bg-primary hover:text-primary-foreground">
+              <Plus className="h-4 w-4" />
+              Add Sale
+            </Button>
+          </Link>
+          <Link href="/company/dashboard/consignments">
+            <Button variant="outline" className="gap-2 hover:bg-primary hover:text-primary-foreground">
+              <Truck className="h-4 w-4" />
+              Consignments
+            </Button>
+          </Link>
+          <Link href="/company/dashboard/payments">
+            <Button variant="outline" className="gap-2 hover:bg-primary hover:text-primary-foreground">
+              <CreditCard className="h-4 w-4" />
+              Payments
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Statistics Cards - Row 1 */}

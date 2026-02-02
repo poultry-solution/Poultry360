@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import {
+  ArrowLeft,
   Search,
   Filter,
   Eye,
@@ -179,7 +181,12 @@ export default function CompanyVerificationPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-4">
+        <Link href="/company/dashboard/dealers">
+          <Button variant="outline" size="icon" className="h-9 w-9">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        </Link>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Verification Requests</h1>
           <p className="text-muted-foreground">
@@ -286,8 +293,8 @@ export default function CompanyVerificationPage() {
                     {activeTab === "PENDING"
                       ? "No pending verification requests at this time."
                       : activeTab === "APPROVED"
-                      ? "No approved requests yet."
-                      : "No rejected requests."}
+                        ? "No approved requests yet."
+                        : "No rejected requests."}
                   </p>
                 </div>
               ) : (

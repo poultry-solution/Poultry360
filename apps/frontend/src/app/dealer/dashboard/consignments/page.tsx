@@ -57,7 +57,6 @@ import {
   useAcceptConsignment,
   useConfirmReceipt,
   useRejectDealerConsignment,
-  useCancelDealerConsignment,
   type Consignment,
 } from "@/fetchers/dealer/consignmentQueries";
 
@@ -104,7 +103,7 @@ export default function DealerConsignmentsPage() {
   const acceptMutation = useAcceptConsignment();
   const confirmReceiptMutation = useConfirmReceipt();
   const rejectMutation = useRejectDealerConsignment();
-  const cancelMutation = useCancelDealerConsignment();
+
 
   const receivedConsignments = receivedData?.data || [];
   const requestedConsignments = requestedData?.data || [];
@@ -162,7 +161,7 @@ export default function DealerConsignmentsPage() {
         );
       case "REJECTED":
         return (
-          <Badge variant="destructive">
+          <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
             <XCircle className="h-3 w-3 mr-1" />
             Rejected
           </Badge>
@@ -235,18 +234,7 @@ export default function DealerConsignmentsPage() {
     }
   };
 
-  const handleCancelConsignment = async (consignmentId: string) => {
-    if (!confirm("Are you sure you want to cancel this consignment?")) {
-      return;
-    }
 
-    try {
-      await cancelMutation.mutateAsync({ id: consignmentId });
-      toast.success("Consignment cancelled");
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to cancel consignment");
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -366,7 +354,7 @@ export default function DealerConsignmentsPage() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            
+
                             {/* Accept action for CREATED status */}
                             {consignment.status === "CREATED" && (
                               <>
@@ -389,13 +377,14 @@ export default function DealerConsignmentsPage() {
                                 </Button>
                                 <Button
                                   variant="destructive"
+                                  className="text-black"
                                   size="sm"
                                   onClick={() => {
                                     setSelectedConsignment(consignment);
                                     setIsRejectDialogOpen(true);
                                   }}
                                 >
-                                  <XCircle className="h-4 w-4 mr-1" />
+                                  <XCircle className="h-4 w-4 mr-1 text-black" />
                                   Reject
                                 </Button>
                               </>
@@ -417,18 +406,7 @@ export default function DealerConsignmentsPage() {
                               </Button>
                             )}
 
-                            {/* Cancel for CREATED or ACCEPTED_PENDING_DISPATCH */}
-                            {(consignment.status === "CREATED" || consignment.status === "ACCEPTED_PENDING_DISPATCH") && (
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleCancelConsignment(consignment.id)}
-                                disabled={cancelMutation.isPending}
-                              >
-                                <XCircle className="h-4 w-4 mr-1" />
-                                Cancel
-                              </Button>
-                            )}
+
                           </div>
                         </TableCell>
                       </TableRow>
@@ -502,17 +480,7 @@ export default function DealerConsignmentsPage() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            {consignment.status === "CREATED" && (
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleCancelConsignment(consignment.id)}
-                                disabled={cancelMutation.isPending}
-                              >
-                                <XCircle className="h-4 w-4 mr-1" />
-                                Cancel
-                              </Button>
-                            )}
+
 
                             {/* Confirm Receipt for DISPATCHED status */}
                             {consignment.status === "DISPATCHED" && (
@@ -738,6 +706,7 @@ export default function DealerConsignmentsPage() {
             </Button>
             <Button
               variant="destructive"
+              className="text-black hover:bg-red-600 hover:text-white"
               onClick={handleRejectConsignment}
               disabled={rejectMutation.isPending || !rejectReason}
             >

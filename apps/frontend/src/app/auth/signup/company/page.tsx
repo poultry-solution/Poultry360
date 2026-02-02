@@ -85,7 +85,6 @@ export default function CompanySignupPage() {
                 entityType: "COMPANY",
                 entityName: formData.companyName,
                 entityAddress: formData.companyAddress || undefined,
-                // Company doesn't need contact or companyId
             });
 
             const { accessToken, user } = response.data;
@@ -111,9 +110,9 @@ export default function CompanySignupPage() {
                 isAuthenticated: true,
             });
 
-            // Redirect to company dashboard (assuming path)
+            // Redirect to company dashboard
             setTimeout(() => {
-                router.push("/admin/dashboard/company");
+                router.push("/company/dashboard/home");
             }, 1000);
         } catch (err: any) {
             setError(
@@ -152,7 +151,7 @@ export default function CompanySignupPage() {
                             Company Registration
                         </h1>
                         <p className="text-sm text-muted-foreground mt-1">
-                            Create your company account to manage operations
+                            Create your company account to start managing
                         </p>
                     </div>
 
@@ -194,7 +193,7 @@ export default function CompanySignupPage() {
                                 />
                             </div>
                             <p className="text-xs text-muted-foreground">
-                                This number will be used for login and contact.
+                                This number will be used for both owner and company contact.
                             </p>
                         </div>
 
@@ -207,6 +206,9 @@ export default function CompanySignupPage() {
                                 onChange={handleInputChange}
                                 required
                             />
+                            <p className="text-xs text-muted-foreground">
+                                Your business/company name
+                            </p>
                         </div>
 
                         <div className="space-y-2">
@@ -216,7 +218,7 @@ export default function CompanySignupPage() {
                                 name="companyAddress"
                                 value={formData.companyAddress}
                                 onChange={handleInputChange}
-                                placeholder="Optional company address"
+                                placeholder="Optional business address"
                             />
                         </div>
 
