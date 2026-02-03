@@ -164,7 +164,7 @@ export default function SalesLedgerPage() {
   });
 
   const { data: customers, isLoading: customersLoading } =
-    useGetCustomersForSales(partyFilters.search,{
+    useGetCustomersForSales(partyFilters.search, {
       enabled: true,
     });
 
@@ -744,118 +744,125 @@ export default function SalesLedgerPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Sales Ledger</h1>
-          <p className="text-muted-foreground">
-            Manage your sales, customers, and payments in one place.
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Sales Ledger</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
+            Manage sales, customers, and payments.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setIsPartyModalOpen(true)}>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Add Party
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs md:text-sm hover:bg-green-50 hover:text-green-700 border-green-200"
+            onClick={() => setIsPartyModalOpen(true)}
+          >
+            <UserPlus className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Add </span>Party
           </Button>
           <Button
-            className="bg-primary hover:bg-primary/90"
+            size="sm"
+            className="text-xs md:text-sm bg-primary hover:bg-primary/90"
             onClick={() => setIsSaleModalOpen(true)}
           >
-            <Plus className="mr-2 h-4 w-4" />
-            New Sale
+            <Plus className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">New </span>Sale
           </Button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-1 bg-muted p-1 rounded-lg w-fit">
+      <div className="flex gap-1 bg-muted p-1 rounded-lg overflow-x-auto">
         {[
-          { id: "overview", label: "Overview", icon: TrendingUp },
-          { id: "sales", label: "Sales", icon: Receipt },
-          { id: "parties", label: "Parties", icon: Users },
-          { id: "payments", label: "Payments", icon: CreditCard },
+          { id: "overview", label: "Overview", shortLabel: "Stats", icon: TrendingUp },
+          { id: "sales", label: "Sales", shortLabel: "Sales", icon: Receipt },
+          { id: "parties", label: "Parties", shortLabel: "Parties", icon: Users },
+          { id: "payments", label: "Payments", shortLabel: "Pay", icon: CreditCard },
         ].map((tab) => (
           <Button
             key={tab.id}
             variant={activeTab === tab.id ? "default" : "ghost"}
             size="sm"
             onClick={() => setActiveTab(tab.id as TabType)}
-            className="flex items-center gap-2"
+            className="flex items-center gap-1 md:gap-2 text-xs md:text-sm whitespace-nowrap"
           >
-            <tab.icon className="h-4 w-4" />
-            {tab.label}
+            <tab.icon className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">{tab.label}</span>
+            <span className="sm:hidden">{tab.shortLabel}</span>
           </Button>
         ))}
       </div>
 
       {/* Overview Tab */}
       {activeTab === "overview" && (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           {/* Sales Statistics */}
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-2 grid-cols-2 md:grid-cols-4">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Sales
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+                <CardTitle className="text-[10px] md:text-sm font-medium">
+                  Sales
                 </CardTitle>
-                <Receipt className="h-4 w-4 text-muted-foreground" />
+                <Receipt className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
+              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+                <div className="text-base md:text-2xl font-bold">
                   {salesStats.totalSales}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  ₹{salesStats.totalAmount.toLocaleString()} total value
+                <p className="text-[9px] md:text-xs text-muted-foreground">
+                  रू{salesStats.totalAmount.toLocaleString()}
                 </p>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Credit Sales
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+                <CardTitle className="text-[10px] md:text-sm font-medium">
+                  Credit
                 </CardTitle>
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                <CreditCard className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
+              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+                <div className="text-base md:text-2xl font-bold">
                   {salesStats.creditSales}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  ₹{salesStats.dueAmount.toLocaleString()} outstanding
+                <p className="text-[9px] md:text-xs text-muted-foreground">
+                  रू{salesStats.dueAmount.toLocaleString()} due
                 </p>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Parties
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+                <CardTitle className="text-[10px] md:text-sm font-medium">
+                  Parties
                 </CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+                <Users className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
+              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+                <div className="text-base md:text-2xl font-bold">
                   {partyStats.totalParties}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {partyStats.partiesWithBalance} with outstanding balance
+                <p className="text-[9px] md:text-xs text-muted-foreground">
+                  {partyStats.partiesWithBalance} owe
                 </p>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Outstanding
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+                <CardTitle className="text-[10px] md:text-sm font-medium">
+                  Due
                 </CardTitle>
-                <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                <AlertCircle className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">
-                  ₹{partyStats.totalBalance.toLocaleString()}
+              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+                <div className="text-base md:text-2xl font-bold text-red-600">
+                  <span className="hidden md:inline">रू</span>{partyStats.totalBalance.toLocaleString()}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Total outstanding amount
+                <p className="text-[9px] md:text-xs text-muted-foreground">
+                  Outstanding
                 </p>
               </CardContent>
             </Card>
@@ -863,16 +870,18 @@ export default function SalesLedgerPage() {
 
           {/* Recent Sales */}
           <Card>
-            <CardHeader>
-              <CardTitle>Recent Sales</CardTitle>
-              <CardDescription>Latest sales transactions</CardDescription>
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-base md:text-lg">Recent Sales</CardTitle>
+              <CardDescription className="text-xs md:text-sm">Latest transactions</CardDescription>
             </CardHeader>
-            <CardContent>
-              <DataTable
-                data={sales.slice(0, 5)}
-                columns={salesColumns.filter((col) => col.key !== "actions")}
-                showFooter={false}
-              />
+            <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
+              <div className="overflow-x-auto">
+                <DataTable
+                  data={sales.slice(0, 5)}
+                  columns={salesColumns.filter((col) => col.key !== "actions")}
+                  showFooter={false}
+                />
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -880,61 +889,59 @@ export default function SalesLedgerPage() {
 
       {/* Sales Tab */}
       {activeTab === "sales" && (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           {/* Filters */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                Sales Filters
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                <Filter className="h-4 w-4 md:h-5 md:w-5" />
+                Filters
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-                <div>
-                  <Label htmlFor="search">Search</Label>
+            <CardContent className="p-3 md:p-6 pt-0">
+              <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+                <div className="col-span-2 md:col-span-1">
+                  <Label htmlFor="search" className="text-xs md:text-sm">Search</Label>
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground" />
                     <Input
                       id="search"
-                      placeholder="Search sales..."
+                      placeholder="Search..."
                       value={salesFilters.search}
                       onChange={(e) =>
                         handleSalesFilterChange("search", e.target.value)
                       }
-                      className="pl-10"
+                      className="pl-9 h-8 md:h-10 text-xs md:text-sm"
                     />
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="itemType">Item Type</Label>
+                  <Label htmlFor="itemType" className="text-xs md:text-sm">Type</Label>
                   <select
                     id="itemType"
                     value={salesFilters.itemType}
                     onChange={(e) =>
                       handleSalesFilterChange("itemType", e.target.value)
                     }
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    className="w-full h-8 md:h-10 rounded-md border border-input bg-background px-2 md:px-3 text-xs md:text-sm"
                   >
-                    <option value="">All Types</option>
-                    <option value="Chicken_Meat">Chicken Meat</option>
+                    <option value="">All</option>
+                    <option value="Chicken_Meat">Meat</option>
                     <option value="EGGS">Eggs</option>
                     <option value="CHICKS">Chicks</option>
                     <option value="FEED">Feed</option>
-                    <option value="MEDICINE">Medicine</option>
-                    <option value="EQUIPMENT">Equipment</option>
                     <option value="OTHER">Other</option>
                   </select>
                 </div>
                 <div>
-                  <Label htmlFor="isCredit">Payment Type</Label>
+                  <Label htmlFor="isCredit" className="text-xs md:text-sm">Payment</Label>
                   <select
                     id="isCredit"
                     value={salesFilters.isCredit}
                     onChange={(e) =>
                       handleSalesFilterChange("isCredit", e.target.value)
                     }
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    className="w-full h-8 md:h-10 rounded-md border border-input bg-background px-2 md:px-3 text-xs md:text-sm"
                   >
                     <option value="">All</option>
                     <option value="false">Cash</option>
@@ -942,7 +949,7 @@ export default function SalesLedgerPage() {
                   </select>
                 </div>
                 <div>
-                  <Label htmlFor="startDate">Start Date</Label>
+                  <Label htmlFor="startDate" className="text-xs md:text-sm">From</Label>
                   <Input
                     id="startDate"
                     type="date"
@@ -950,10 +957,11 @@ export default function SalesLedgerPage() {
                     onChange={(e) =>
                       handleSalesFilterChange("startDate", e.target.value)
                     }
+                    className="h-8 md:h-10 text-xs md:text-sm"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="endDate">End Date</Label>
+                  <Label htmlFor="endDate" className="text-xs md:text-sm">To</Label>
                   <Input
                     id="endDate"
                     type="date"
@@ -961,11 +969,14 @@ export default function SalesLedgerPage() {
                     onChange={(e) =>
                       handleSalesFilterChange("endDate", e.target.value)
                     }
+                    className="h-8 md:h-10 text-xs md:text-sm"
                   />
                 </div>
                 <div className="flex items-end">
                   <Button
                     variant="outline"
+                    size="sm"
+                    className="h-8 md:h-10 text-xs"
                     onClick={() =>
                       setSalesFilters({
                         search: "",
@@ -986,26 +997,28 @@ export default function SalesLedgerPage() {
 
           {/* Sales Table */}
           <Card>
-            <CardHeader>
-              <CardTitle>Sales Records</CardTitle>
-              <CardDescription>
-                {pagination?.total || 0} total sales found
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-base md:text-lg">Sales Records</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                {pagination?.total || 0} total
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <DataTable
-                data={sales}
-                columns={salesColumns}
-                showFooter={true}
-                footerContent={
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>Total Sales: {salesStats.totalSales}</span>
-                    <span>
-                      Total Amount: ₹{salesStats.totalAmount.toLocaleString()}
-                    </span>
-                  </div>
-                }
-              />
+            <CardContent className="p-3 md:p-6 pt-0">
+              <div className="overflow-x-auto">
+                <DataTable
+                  data={sales}
+                  columns={salesColumns}
+                  showFooter={true}
+                  footerContent={
+                    <div className="flex items-center justify-between text-xs md:text-sm text-muted-foreground">
+                      <span>Total: {salesStats.totalSales}</span>
+                      <span>
+                        रू{salesStats.totalAmount.toLocaleString()}
+                      </span>
+                    </div>
+                  }
+                />
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -1013,65 +1026,67 @@ export default function SalesLedgerPage() {
 
       {/* Parties Tab */}
       {activeTab === "parties" && (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           {/* Party Filters */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                Party Filters
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                <Filter className="h-4 w-4 md:h-5 md:w-5" />
+                Filters
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-4">
-                <div>
-                  <Label htmlFor="partySearch">Search</Label>
+            <CardContent className="p-3 md:p-6 pt-0">
+              <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+                <div className="col-span-2 md:col-span-1">
+                  <Label htmlFor="partySearch" className="text-xs md:text-sm">Search</Label>
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground" />
                     <Input
                       id="partySearch"
-                      placeholder="Search parties..."
+                      placeholder="Search..."
                       value={partyFilters.search}
                       onChange={(e) =>
                         handlePartyFilterChange("search", e.target.value)
                       }
-                      className="pl-10"
+                      className="pl-9 h-8 md:h-10 text-xs md:text-sm"
                     />
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="category">Category</Label>
+                  <Label htmlFor="category" className="text-xs md:text-sm">Category</Label>
                   <select
                     id="category"
                     value={partyFilters.category}
                     onChange={(e) =>
                       handlePartyFilterChange("category", e.target.value)
                     }
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    className="w-full h-8 md:h-10 rounded-md border border-input bg-background px-2 md:px-3 text-xs md:text-sm"
                   >
-                    <option value="">All Categories</option>
+                    <option value="">All</option>
                     <option value="Chicken">Chicken</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>
                 <div>
-                  <Label htmlFor="hasBalance">Balance Status</Label>
+                  <Label htmlFor="hasBalance" className="text-xs md:text-sm">Balance</Label>
                   <select
                     id="hasBalance"
                     value={partyFilters.hasBalance}
                     onChange={(e) =>
                       handlePartyFilterChange("hasBalance", e.target.value)
                     }
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    className="w-full h-8 md:h-10 rounded-md border border-input bg-background px-2 md:px-3 text-xs md:text-sm"
                   >
                     <option value="">All</option>
-                    <option value="true">Has Balance</option>
-                    <option value="false">No Balance</option>
+                    <option value="true">Has Due</option>
+                    <option value="false">Cleared</option>
                   </select>
                 </div>
                 <div className="flex items-end">
                   <Button
                     variant="outline"
+                    size="sm"
+                    className="h-8 md:h-10 text-xs"
                     onClick={() =>
                       setPartyFilters({
                         search: "",
@@ -1089,34 +1104,34 @@ export default function SalesLedgerPage() {
 
           {/* Parties Table */}
           <Card>
-            <CardHeader>
-              <CardTitle>Customer Parties</CardTitle>
-              <CardDescription>
-                {partyStats.totalParties} total parties,{" "}
-                {partyStats.partiesWithBalance} with outstanding balance
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-base md:text-lg">Parties</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                {partyStats.totalParties} total, {partyStats.partiesWithBalance} owe
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3 md:p-6 pt-0">
               {customersLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                  <span className="ml-2">Loading parties...</span>
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="ml-2 text-sm">Loading...</span>
                 </div>
               ) : (
-                <DataTable
-                  data={customers || []}
-                  columns={partyColumns}
-                  showFooter={true}
-                  footerContent={
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>Total Parties: {partyStats.totalParties}</span>
-                      <span>
-                        Total Outstanding: ₹
-                        {partyStats.totalBalance.toLocaleString()}
-                      </span>
-                    </div>
-                  }
-                />
+                <div className="overflow-x-auto">
+                  <DataTable
+                    data={customers || []}
+                    columns={partyColumns}
+                    showFooter={true}
+                    footerContent={
+                      <div className="flex items-center justify-between text-xs md:text-sm text-muted-foreground">
+                        <span>Total: {partyStats.totalParties}</span>
+                        <span>
+                          Due: रू{partyStats.totalBalance.toLocaleString()}
+                        </span>
+                      </div>
+                    }
+                  />
+                </div>
               )}
             </CardContent>
           </Card>
@@ -1291,33 +1306,33 @@ export default function SalesLedgerPage() {
               {["Chicken_Meat", "FEED", "MEDICINE"].includes(
                 saleForm.itemType
               ) && (
-                <div>
-                  <Label htmlFor="weight">Weight (kg)</Label>
-                  <Input
-                    id="weight"
-                    name="weight"
-                    type="number"
-                    step="0.01"
-                    value={saleForm.weight}
-                    onChange={updateSaleField}
-                    placeholder="Total weight in kg"
-                  />
-                  {errors.weight && (
-                    <p className="text-xs text-red-600 mt-1">{errors.weight}</p>
-                  )}
-                  {saleForm.itemType === "Chicken_Meat" &&
-                    saleForm.quantity &&
-                    saleForm.weight && (
-                      <p className="text-xs text-green-600 mt-1">
-                        Avg weight per bird:{" "}
-                        {(
-                          Number(saleForm.weight) / Number(saleForm.quantity)
-                        ).toFixed(2)}{" "}
-                        kg
-                      </p>
+                  <div>
+                    <Label htmlFor="weight">Weight (kg)</Label>
+                    <Input
+                      id="weight"
+                      name="weight"
+                      type="number"
+                      step="0.01"
+                      value={saleForm.weight}
+                      onChange={updateSaleField}
+                      placeholder="Total weight in kg"
+                    />
+                    {errors.weight && (
+                      <p className="text-xs text-red-600 mt-1">{errors.weight}</p>
                     )}
-                </div>
-              )}
+                    {saleForm.itemType === "Chicken_Meat" &&
+                      saleForm.quantity &&
+                      saleForm.weight && (
+                        <p className="text-xs text-green-600 mt-1">
+                          Avg weight per bird:{" "}
+                          {(
+                            Number(saleForm.weight) / Number(saleForm.quantity)
+                          ).toFixed(2)}{" "}
+                          kg
+                        </p>
+                      )}
+                  </div>
+                )}
 
               {/* Total Preview */}
               <div className="p-4 bg-gray-50 border border-gray-200 rounded-md">
@@ -1624,7 +1639,7 @@ export default function SalesLedgerPage() {
               }
             >
               {createCustomerMutation.isPending ||
-              updateCustomerMutation.isPending ? (
+                updateCustomerMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   {editingPartyId ? "Updating..." : "Creating..."}

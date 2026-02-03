@@ -99,11 +99,11 @@ export default function DealerLedgerPage() {
   const partySales =
     selectedPartyId && sales
       ? sales.filter(
-          (s: any) =>
-            (s.customerId === selectedPartyId ||
-              s.farmerId === selectedPartyId) &&
-            Number(s.dueAmount || 0) > 0
-        )
+        (s: any) =>
+          (s.customerId === selectedPartyId ||
+            s.farmerId === selectedPartyId) &&
+          Number(s.dueAmount || 0) > 0
+      )
       : [];
 
   const formatDate = (date: Date | string) => {
@@ -181,84 +181,84 @@ export default function DealerLedgerPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dealer Ledger</h1>
-        <p className="text-muted-foreground">
-          Track payments, balances, and transactions with customers
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Dealer Ledger</h1>
+        <p className="text-sm md:text-base text-muted-foreground">
+          Track payments, balances, and transactions
         </p>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Received</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-6 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Received</CardTitle>
             <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 md:p-6 pt-0">
             {summaryLoading ? (
-              <div className="text-2xl font-bold">...</div>
+              <div className="text-lg md:text-2xl font-bold">...</div>
             ) : (
-              <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(summary?.totalPaymentsReceived || 0)}
+              <div className="text-lg md:text-2xl font-bold text-green-600">
+                रू {Math.round(summary?.totalPaymentsReceived || 0)}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">
-              Total payments received
+            <p className="text-[10px] md:text-xs text-muted-foreground">
+              Total received
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Due</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-6 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Due</CardTitle>
             <TrendingDown className="h-4 w-4 text-red-600" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 md:p-6 pt-0">
             {summaryLoading ? (
-              <div className="text-2xl font-bold">...</div>
+              <div className="text-lg md:text-2xl font-bold">...</div>
             ) : (
-              <div className="text-2xl font-bold text-red-600">
-                {formatCurrency(summary?.totalDueAmount || 0)}
+              <div className="text-lg md:text-2xl font-bold text-red-600">
+                रू {Math.round(summary?.totalDueAmount || 0)}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">
-              Outstanding balances
+            <p className="text-[10px] md:text-xs text-muted-foreground">
+              Outstanding
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Customers</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-6 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Customers</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 md:p-6 pt-0">
             {partiesLoading ? (
-              <div className="text-2xl font-bold">...</div>
+              <div className="text-lg md:text-2xl font-bold">...</div>
             ) : (
-              <div className="text-2xl font-bold">{parties.length}</div>
+              <div className="text-lg md:text-2xl font-bold">{parties.length}</div>
             )}
-            <p className="text-xs text-muted-foreground">
-              Customers with transactions
+            <p className="text-[10px] md:text-xs text-muted-foreground">
+              Active
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Current Balance</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-6 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Balance</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 md:p-6 pt-0">
             {summaryLoading ? (
-              <div className="text-2xl font-bold">...</div>
+              <div className="text-lg md:text-2xl font-bold">...</div>
             ) : (
-              <div className="text-2xl font-bold">
-                {formatCurrency(summary?.currentBalance || 0)}
+              <div className="text-lg md:text-2xl font-bold">
+                रू {Math.round(summary?.currentBalance || 0)}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">
-              Net balance
+            <p className="text-[10px] md:text-xs text-muted-foreground">
+              Net
             </p>
           </CardContent>
         </Card>
@@ -266,15 +266,16 @@ export default function DealerLedgerPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="parties">Parties</TabsTrigger>
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
+        <TabsList className="w-full md:w-auto">
+          <TabsTrigger value="parties" className="flex-1 md:flex-none">Parties</TabsTrigger>
+          <TabsTrigger value="transactions" className="flex-1 md:flex-none">Transactions</TabsTrigger>
+          <TabsTrigger value="payments" className="flex-1 md:flex-none">Payments</TabsTrigger>
         </TabsList>
 
         {/* Parties Tab */}
         <TabsContent value="parties" className="space-y-4">
-          <Card>
+          {/* Desktop Card with Table */}
+          <Card className="hidden md:block">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -373,11 +374,81 @@ export default function DealerLedgerPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Mobile - Search and Button */}
+          <div className="md:hidden space-y-3">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Button size="sm" onClick={() => setIsAddPaymentOpen(true)}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Customers</h3>
+              <span className="text-sm text-muted-foreground">{parties.length} total</span>
+            </div>
+            {partiesLoading ? (
+              <div className="text-center py-8">Loading parties...</div>
+            ) : parties.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-sm text-muted-foreground">No customers found</p>
+                </CardContent>
+              </Card>
+            ) : (
+              parties.map((party: any) => (
+                <Card key={party.id}>
+                  <CardContent className="p-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-medium truncate">{party.name}</h4>
+                          <Badge variant="secondary" className="text-[10px] px-1.5">
+                            {party.partyType === "FARMER" ? "Farmer" : "Customer"}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{party.contact}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => {
+                          setSelectedPartyId(party.id);
+                          setIsAddPaymentOpen(true);
+                        }}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-xs text-muted-foreground">
+                        {party.lastTransactionDate ? formatDate(party.lastTransactionDate) : "No transactions"}
+                      </span>
+                      <span className={`text-sm font-bold ${party.balance > 0 ? "text-red-600" : ""}`}>
+                        रू {Math.round(party.balance || 0)}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
         </TabsContent>
 
         {/* Transactions Tab */}
         <TabsContent value="transactions" className="space-y-4">
-          <Card>
+          {/* Desktop Card with Table */}
+          <Card className="hidden md:block">
             <CardHeader>
               <CardTitle>All Transactions</CardTitle>
               <CardDescription>
@@ -419,8 +490,8 @@ export default function DealerLedgerPage() {
                               entry.type === "SALE"
                                 ? "default"
                                 : entry.type === "PAYMENT_RECEIVED"
-                                ? "secondary"
-                                : "outline"
+                                  ? "secondary"
+                                  : "outline"
                             }
                           >
                             {entry.type.replace("_", " ")}
@@ -461,11 +532,66 @@ export default function DealerLedgerPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Mobile - Transaction Cards */}
+          <div className="md:hidden space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Transactions</h3>
+              <span className="text-sm text-muted-foreground">{entries.length} total</span>
+            </div>
+            {entriesLoading ? (
+              <div className="text-center py-8">Loading transactions...</div>
+            ) : entries.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <FileText className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-sm text-muted-foreground">No transactions found</p>
+                </CardContent>
+              </Card>
+            ) : (
+              entries.map((entry: any) => (
+                <Card key={entry.id}>
+                  <CardContent className="p-3">
+                    <div className="flex items-start justify-between mb-1">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={
+                              entry.type === "SALE" ? "default" : entry.type === "PAYMENT_RECEIVED" ? "secondary" : "outline"
+                            }
+                            className="text-[10px] px-1.5 py-0"
+                          >
+                            {entry.type.replace("_", " ")}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">{formatDate(entry.date)}</span>
+                        </div>
+                        <p className="text-sm mt-1 truncate">
+                          {entry.description || entry.sale?.invoiceNumber || "Transaction"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {entry.sale?.customer?.name || entry.sale?.farmer?.name || "-"}
+                        </p>
+                      </div>
+                      <div className="text-right ml-2">
+                        <span className={`text-sm font-bold ${entry.type === "SALE" ? "text-red-600" : "text-green-600"}`}>
+                          {entry.type === "SALE" ? "+" : "-"}रू {Math.round(entry.amount || 0)}
+                        </span>
+                        <p className="text-xs text-muted-foreground">
+                          Bal: रू {Math.round(entry.balance || 0)}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
         </TabsContent>
 
         {/* Payments Tab */}
         <TabsContent value="payments" className="space-y-4">
-          <Card>
+          {/* Desktop Card with Table */}
+          <Card className="hidden md:block">
             <CardHeader>
               <CardTitle>Payment History</CardTitle>
               <CardDescription>
@@ -532,6 +658,53 @@ export default function DealerLedgerPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Mobile - Payment Cards */}
+          <div className="md:hidden space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Payment History</h3>
+              <span className="text-sm text-muted-foreground">{payments.length} total</span>
+            </div>
+            {payments.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <CreditCard className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-sm text-muted-foreground">No payments found</p>
+                </CardContent>
+              </Card>
+            ) : (
+              payments.map((entry: any) => (
+                <Card key={entry.id}>
+                  <CardContent className="p-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-sm">{entry.sale?.invoiceNumber || "Payment"}</h4>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {entry.sale?.customer?.name || entry.sale?.farmer?.name || "-"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{formatDate(entry.date)}</p>
+                      </div>
+                      <div className="flex items-center gap-2 ml-2">
+                        <span className="text-sm font-bold text-green-600">
+                          +रू {Math.round(entry.amount || 0)}
+                        </span>
+                        {entry.saleId && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => router.push(`/dealer/dashboard/sales/${entry.saleId}`)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -561,13 +734,12 @@ export default function DealerLedgerPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-muted-foreground">Current Balance</p>
-                      <p className={`font-bold ${
-                        Number(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0) > 0
+                      <p className={`font-bold ${Number(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0) > 0
                           ? "text-red-600"
                           : Number(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0) < 0
-                          ? "text-green-600"
-                          : ""
-                      }`}>
+                            ? "text-green-600"
+                            : ""
+                        }`}>
                         {formatCurrency(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0)}
                       </p>
                     </div>

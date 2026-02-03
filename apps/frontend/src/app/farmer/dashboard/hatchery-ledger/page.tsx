@@ -380,79 +380,80 @@ export default function HatcheryLedgerPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Hatchery Ledger</h1>
-          <p className="text-muted-foreground">
-            Manage chick purchases and hatchery balances.
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Hatchery Ledger</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
+            Manage chick purchases and balances.
           </p>
         </div>
         <div className="flex gap-2">
           <Button
-            className="bg-primary hover:bg-primary/90"
+            size="sm"
+            className="text-xs md:text-sm bg-primary hover:bg-primary/90"
             onClick={() => setIsAddHatcheryOpen(true)}
           >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Chicks Dealer
+            <Plus className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Add </span>Dealer
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-2 grid-cols-3">
         <Card
           onClick={() => setIsModalOpen(true)}
           className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white"
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Hatcheries
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">
+              Dealers
             </CardTitle>
-            <Egg className="h-4 w-4 text-muted-foreground" />
+            <Egg className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
             {statisticsLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <div className="text-2xl font-bold">
+              <div className="text-base md:text-2xl font-bold">
                 {statistics.totalHatcheries || 0}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">Chick suppliers</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">Chicks</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Due</CardTitle>
+            <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
             {statisticsLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <div className="text-2xl font-bold">
-                ₹{(statistics.outstandingAmount || 0).toLocaleString()}
+              <div className="text-base md:text-2xl font-bold">
+                <span className="hidden md:inline">रू</span>{(statistics.outstandingAmount || 0).toLocaleString()}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">Amount Due</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">Outstanding</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Month</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Month</CardTitle>
+            <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
             {statisticsLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <div className="text-2xl font-bold">
-                ₹{(statistics.thisMonthAmount || 0).toLocaleString()}
+              <div className="text-base md:text-2xl font-bold">
+                <span className="hidden md:inline">रू</span>{(statistics.thisMonthAmount || 0).toLocaleString()}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">New purchases</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">Purchases</p>
           </CardContent>
         </Card>
       </div>
@@ -1086,14 +1087,14 @@ export default function HatcheryLedgerPage() {
 
       {/* Tabs: one per hatchery */}
       <div className="space-y-3">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-1">
           {hatcheriesLoading ? (
             <div className="flex items-center">
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              <span>Loading hatcheries...</span>
+              <span className="text-sm">Loading...</span>
             </div>
           ) : hatcheriesError ? (
-            <div className="text-red-600">Failed to load hatcheries</div>
+            <div className="text-red-600 text-sm">Failed to load</div>
           ) : (
             hatcheries.map((hatchery: any) => (
               <Button
@@ -1101,26 +1102,32 @@ export default function HatcheryLedgerPage() {
                 variant={
                   activeHatcheryId === hatchery.id ? "default" : "outline"
                 }
-                className={
-                  activeHatcheryId === hatchery.id
+                size="sm"
+                className={`text-xs md:text-sm whitespace-nowrap ${activeHatcheryId === hatchery.id
                     ? "bg-primary hover:bg-primary/90"
                     : ""
-                }
+                  }`}
                 onClick={() => setActiveHatcheryId(hatchery.id)}
               >
                 {hatchery.name}
               </Button>
             ))
           )}
-          <Button variant="outline" onClick={() => setIsAddHatcheryOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" /> Add Chicks Dealer
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs md:text-sm whitespace-nowrap"
+            onClick={() => setIsAddHatcheryOpen(true)}
+          >
+            <Plus className="mr-1 h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Add </span>Dealer
           </Button>
         </div>
 
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>
+          <CardHeader className="p-3 md:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <CardTitle className="text-base md:text-lg truncate">
                 {activeHatcheryLoading ? (
                   <div className="flex items-center">
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -1130,133 +1137,146 @@ export default function HatcheryLedgerPage() {
                   activeHatchery?.name || "Select a hatchery"
                 )}
               </CardTitle>
-              <div className="flex gap-2">
+              <div className="flex gap-1 md:gap-2 flex-wrap">
                 {activeHatcheryId && !isDeleteMode && (
                   <Button
                     variant="outline"
-                    className="text-red-600 border-red-200 hover:bg-red-50"
+                    size="sm"
+                    className="text-xs text-red-600 border-red-200 hover:bg-red-50"
                     onClick={() => setIsDeleteHatcheryOpen(true)}
                     disabled={!activeHatcheryId}
                   >
-                    Delete Hatchery
+                    <Trash2 className="h-3.5 w-3.5 md:hidden" />
+                    <span className="hidden md:inline">Delete Hatchery</span>
                   </Button>
                 )}
                 {isDeleteMode ? (
                   <>
                     <Button
                       variant="outline"
+                      size="sm"
+                      className="text-xs"
                       onClick={() => {
                         setIsDeleteMode(false);
                         setSelectedIds(new Set());
                       }}
                     >
-                      <X className="mr-2 h-4 w-4" /> Cancel
+                      <X className="mr-1 h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Cancel</span>
                     </Button>
                     <Button
-                      className="bg-red-600 hover:bg-red-700 text-white"
+                      size="sm"
+                      className="text-xs bg-red-600 hover:bg-red-700 text-white"
                       disabled={selectedIds.size === 0 || deleteTxn.isPending}
                       onClick={() => setIsConfirmDeleteOpen(true)}
                     >
-                      <Trash2 className="mr-2 h-4 w-4" /> Delete (
-                      {selectedIds.size})
+                      <Trash2 className="mr-1 h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Delete </span>({selectedIds.size})
                     </Button>
                   </>
                 ) : (
                   <>
                     <Button
                       variant="outline"
+                      size="sm"
+                      className="text-xs"
                       onClick={() => setIsDeleteMode(true)}
                       disabled={!activeHatcheryId}
                     >
-                      <Trash2 className="mr-2 h-4 w-4" /> Delete Entries
+                      <Trash2 className="h-3.5 w-3.5 md:mr-1" />
+                      <span className="hidden md:inline">Delete</span>
                     </Button>
                     <Button
-                      className="bg-primary hover:bg-primary/90"
+                      size="sm"
+                      className="text-xs bg-primary hover:bg-primary/90"
                       onClick={() => setIsAddEntryOpen(true)}
                       disabled={!activeHatcheryId}
                     >
-                      <Plus className="mr-2 h-4 w-4" /> Add Entry
+                      <Plus className="mr-1 h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Add </span>Entry
                     </Button>
                   </>
                 )}
               </div>
             </div>
-            <CardDescription>Itemized ledger for this hatchery</CardDescription>
+            <CardDescription className="text-xs md:text-sm">Ledger for this hatchery</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {activeHatcheryLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin" />
-                <span className="ml-2">Loading hatchery data...</span>
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="ml-2 text-sm">Loading...</span>
               </div>
             ) : (
-              <DataTable
-                data={activeHatchery?.transactionTable || []}
-                columns={ledgerColumns}
-                selectable={isDeleteMode}
-                isAllSelected={
-                  !!activeHatchery?.transactionTable &&
-                  selectedIds.size > 0 &&
-                  selectedIds.size === activeHatchery.transactionTable.length
-                }
-                onToggleAll={() => {
-                  if (!activeHatchery?.transactionTable) return;
-                  if (
+              <div className="overflow-x-auto">
+                <DataTable
+                  data={activeHatchery?.transactionTable || []}
+                  columns={ledgerColumns}
+                  selectable={isDeleteMode}
+                  isAllSelected={
+                    !!activeHatchery?.transactionTable &&
+                    selectedIds.size > 0 &&
                     selectedIds.size === activeHatchery.transactionTable.length
-                  )
-                    setSelectedIds(new Set());
-                  else
-                    setSelectedIds(
-                      new Set(
-                        activeHatchery.transactionTable.map((r: any) => r.id)
-                      )
-                    );
-                }}
-                isRowSelected={(row: any) => selectedIds.has(row.id)}
-                onToggleRow={(row: any) => {
-                  setSelectedIds((prev) => {
-                    const next = new Set(prev);
-                    const key = row.id;
-                    if (next.has(key)) next.delete(key);
-                    else next.add(key);
-                    return next;
-                  });
-                }}
-                getRowKey={(row: any) => row.id}
-                showFooter={true}
-                footerContent={
-                  <div className="grid grid-cols-9 gap-4 text-sm">
-                    <div className="col-span-3 font-semibold text-gray-900">
-                      Total
-                    </div>
-                    <div className="text-right font-medium">
-                      ₹
-                      {activeHatchery?.transactionTable
-                        ?.reduce(
-                          (sum: number, r: any) => sum + r.totalAmount,
-                          0
+                  }
+                  onToggleAll={() => {
+                    if (!activeHatchery?.transactionTable) return;
+                    if (
+                      selectedIds.size === activeHatchery.transactionTable.length
+                    )
+                      setSelectedIds(new Set());
+                    else
+                      setSelectedIds(
+                        new Set(
+                          activeHatchery.transactionTable.map((r: any) => r.id)
                         )
-                        .toLocaleString() || "0"}
+                      );
+                  }}
+                  isRowSelected={(row: any) => selectedIds.has(row.id)}
+                  onToggleRow={(row: any) => {
+                    setSelectedIds((prev) => {
+                      const next = new Set(prev);
+                      const key = row.id;
+                      if (next.has(key)) next.delete(key);
+                      else next.add(key);
+                      return next;
+                    });
+                  }}
+                  getRowKey={(row: any) => row.id}
+                  showFooter={true}
+                  footerContent={
+                    <div className="grid grid-cols-9 gap-4 text-sm">
+                      <div className="col-span-3 font-semibold text-gray-900">
+                        Total
+                      </div>
+                      <div className="text-right font-medium">
+                        ₹
+                        {activeHatchery?.transactionTable
+                          ?.reduce(
+                            (sum: number, r: any) => sum + r.totalAmount,
+                            0
+                          )
+                          .toLocaleString() || "0"}
+                      </div>
+                      <div className="text-right font-medium">
+                        ₹
+                        {activeHatchery?.transactionTable
+                          ?.reduce((sum: number, r: any) => sum + r.amountPaid, 0)
+                          .toLocaleString() || "0"}
+                      </div>
+                      <div className="text-right font-medium">
+                        ₹
+                        {activeHatchery?.transactionTable
+                          ?.reduce((sum: number, r: any) => sum + r.amountDue, 0)
+                          .toLocaleString() || "0"}
+                      </div>
+                      <div></div>
+                      <div></div>
+                      <div></div>
                     </div>
-                    <div className="text-right font-medium">
-                      ₹
-                      {activeHatchery?.transactionTable
-                        ?.reduce((sum: number, r: any) => sum + r.amountPaid, 0)
-                        .toLocaleString() || "0"}
-                    </div>
-                    <div className="text-right font-medium">
-                      ₹
-                      {activeHatchery?.transactionTable
-                        ?.reduce((sum: number, r: any) => sum + r.amountDue, 0)
-                        .toLocaleString() || "0"}
-                    </div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                  </div>
-                }
-                emptyMessage="No entries for this hatchery"
-              />
+                  }
+                  emptyMessage="No entries for this hatchery"
+                />
+              </div>
             )}
           </CardContent>
         </Card>

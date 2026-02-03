@@ -190,23 +190,23 @@ export default function DealerHomePage() {
       })()}
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dealer Dashboard</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Dealer Dashboard</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
             Manage your inventory, customers, and sales.
           </p>
         </div>
 
-        <div className="flex gap-4">
-          <Link href="/dealer/dashboard/sales/new">
-            <Button variant="outline" className="gap-2 hover:bg-green-50 hover:text-green-700 border-green-200">
+        <div className="flex gap-2">
+          <Link href="/dealer/dashboard/sales/new" className="flex-1 md:flex-none">
+            <Button variant="outline" className="w-full md:w-auto gap-2 hover:bg-green-50 hover:text-green-700 border-green-200">
               <Plus className="h-4 w-4" />
-              Add Sale
+              <span className="hidden sm:inline">Add</span> Sale
             </Button>
           </Link>
-          <Link href="/dealer/dashboard/consignments">
-            <Button variant="outline" className="gap-2 hover:bg-green-50 hover:text-green-700 border-green-200">
+          <Link href="/dealer/dashboard/consignments" className="flex-1 md:flex-none">
+            <Button variant="outline" className="w-full md:w-auto gap-2 hover:bg-green-50 hover:text-green-700 border-green-200">
               <Truck className="h-4 w-4" />
               Consignments
             </Button>
@@ -215,70 +215,70 @@ export default function DealerHomePage() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Inventory</CardTitle>
+      <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+        <Card className="p-0">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Total Inventory</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 md:p-4 pt-0">
             {isLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <div className="text-2xl font-bold">{stats.totalInventory}</div>
+              <div className="text-xl md:text-2xl font-bold">{stats.totalInventory}</div>
             )}
-            <p className="text-xs text-muted-foreground">Items in stock</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Items in stock</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
+        <Card className="p-0">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Total Customers</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 md:p-4 pt-0">
             {isLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <div className="text-2xl font-bold">{stats.totalCustomers}</div>
+              <div className="text-xl md:text-2xl font-bold">{stats.totalCustomers}</div>
             )}
-            <p className="text-xs text-muted-foreground">Active customers</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Active customers</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
+        <Card className="p-0">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Total Sales</CardTitle>
             <Receipt className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 md:p-4 pt-0">
             {isLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <div className="text-2xl font-bold">{stats.totalSales}</div>
+              <div className="text-xl md:text-2xl font-bold">{stats.totalSales}</div>
             )}
-            <p className="text-xs text-muted-foreground">Transactions this month</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">This month</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
+        <Card className="p-0">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Revenue</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 md:p-4 pt-0">
             {isLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <div className="text-2xl font-bold">{formatCurrency(stats.monthlyRevenue)}</div>
+              <div className="text-lg md:text-2xl font-bold">{formatCurrency(stats.monthlyRevenue)}</div>
             )}
-            <p className="text-xs text-muted-foreground">Revenue this month</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">This month</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Recent Activity */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

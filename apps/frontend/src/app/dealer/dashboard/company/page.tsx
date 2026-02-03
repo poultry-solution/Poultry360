@@ -280,37 +280,40 @@ export default function DealerCompanyPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">My Companies</h1>
-                    <p className="text-muted-foreground">
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">My Companies</h1>
+                    <p className="text-sm md:text-base text-muted-foreground">
                         Manage your company connections and verification requests
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2">
                     <Button
                         variant="outline"
-                        className="hover:bg-green-50 hover:text-green-700 border-green-200"
+                        className="flex-1 sm:flex-none hover:bg-green-50 hover:text-green-700 border-green-200"
                         onClick={() => router.push("/dealer/dashboard/consignments")}
                     >
                         <Truck className="mr-2 h-4 w-4" />
-                        Consignments
+                        <span className="hidden sm:inline">Consignments</span>
+                        <span className="sm:hidden">Consign</span>
                     </Button>
                     <Button
                         variant="outline"
-                        className="hover:bg-green-50 hover:text-green-700 border-green-200"
+                        className="flex-1 sm:flex-none hover:bg-green-50 hover:text-green-700 border-green-200"
                         onClick={() => router.push("/dealer/dashboard/payments")}
                     >
                         <CreditCard className="mr-2 h-4 w-4" />
-                        Company Payment Request
+                        <span className="hidden sm:inline">Payment Request</span>
+                        <span className="sm:hidden">Payments</span>
                     </Button>
                     <Button
                         variant="outline"
                         onClick={() => setIsApplyDialogOpen(true)}
-                        className="hover:bg-green-50 hover:text-green-700 border-green-200"
+                        className="flex-1 sm:flex-none hover:bg-green-50 hover:text-green-700 border-green-200"
                     >
                         <Plus className="mr-2 h-4 w-4" />
-                        Apply to Company
+                        <span className="hidden sm:inline">Apply to Company</span>
+                        <span className="sm:hidden">Apply</span>
                     </Button>
                 </div>
             </div>
@@ -325,74 +328,63 @@ export default function DealerCompanyPage() {
                     .reduce((sum, a) => sum + Math.abs(a.balance), 0);
 
                 return (
-                    <div className="grid gap-4 md:grid-cols-5">
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Connected Companies</CardTitle>
+                    <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-5">
+                        <Card className="p-0">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+                                <CardTitle className="text-xs md:text-sm font-medium">Connected</CardTitle>
                                 <CheckCircle className="h-4 w-4 text-green-600" />
                             </CardHeader>
-                            <CardContent>
-                                <div className="flex items-baseline gap-2">
-                                    <div className="text-2xl font-bold">{connectedCompanies.length}</div>
-                                    <span className="text-sm text-muted-foreground">Active</span>
+                            <CardContent className="p-3 md:p-4 pt-0">
+                                <div className="flex items-baseline gap-1">
+                                    <div className="text-xl md:text-2xl font-bold">{connectedCompanies.length}</div>
                                     {archivedCompanies.length > 0 && (
-                                        <>
-                                            <span className="text-sm text-muted-foreground">/</span>
-                                            <div className="text-xl font-semibold text-muted-foreground">{archivedCompanies.length}</div>
-                                            <span className="text-sm text-muted-foreground">Archived</span>
-                                        </>
+                                        <span className="text-xs text-muted-foreground">/{archivedCompanies.length} archived</span>
                                     )}
                                 </div>
                             </CardContent>
                         </Card>
 
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Total Balance Owed</CardTitle>
+                        <Card className="p-0">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+                                <CardTitle className="text-xs md:text-sm font-medium">Balance Owed</CardTitle>
                                 <Wallet className="h-4 w-4 text-red-600" />
                             </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold text-red-600">
+                            <CardContent className="p-3 md:p-4 pt-0">
+                                <div className="text-lg md:text-2xl font-bold text-red-600">
                                     {formatCurrency(totalOwed)}
                                 </div>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Amount you owe to companies
-                                </p>
                             </CardContent>
                         </Card>
 
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Total Advance</CardTitle>
+                        <Card className="p-0">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+                                <CardTitle className="text-xs md:text-sm font-medium">Advance</CardTitle>
                                 <Wallet className="h-4 w-4 text-green-600" />
                             </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold text-green-600">
+                            <CardContent className="p-3 md:p-4 pt-0">
+                                <div className="text-lg md:text-2xl font-bold text-green-600">
                                     {formatCurrency(totalAdvance)}
                                 </div>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Your advance/credit balance
-                                </p>
                             </CardContent>
                         </Card>
 
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
+                        <Card className="p-0">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+                                <CardTitle className="text-xs md:text-sm font-medium">Pending</CardTitle>
                                 <Clock className="h-4 w-4 text-yellow-600" />
                             </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{pendingRequests.length}</div>
+                            <CardContent className="p-3 md:p-4 pt-0">
+                                <div className="text-xl md:text-2xl font-bold">{pendingRequests.length}</div>
                             </CardContent>
                         </Card>
 
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Rejected Requests</CardTitle>
+                        <Card className="p-0">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+                                <CardTitle className="text-xs md:text-sm font-medium">Rejected</CardTitle>
                                 <XCircle className="h-4 w-4 text-red-600" />
                             </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{rejectedRequests.length}</div>
+                            <CardContent className="p-3 md:p-4 pt-0">
+                                <div className="text-xl md:text-2xl font-bold">{rejectedRequests.length}</div>
                             </CardContent>
                         </Card>
                     </div>
@@ -401,13 +393,13 @@ export default function DealerCompanyPage() {
 
             {/* Filters */}
             <Card>
-                <CardContent className="pt-6">
-                    <div className="flex gap-4">
+                <CardContent className="pt-4 pb-4">
+                    <div className="flex flex-col sm:flex-row gap-3">
                         <div className="flex-1">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
-                                    placeholder="Search by company name or address..."
+                                    placeholder="Search companies..."
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                     className="pl-10"
@@ -419,7 +411,7 @@ export default function DealerCompanyPage() {
                                 value={statusFilter}
                                 onValueChange={(value) => setStatusFilter(value)}
                             >
-                                <SelectTrigger className="w-[180px]">
+                                <SelectTrigger className="w-full sm:w-[140px]">
                                     <SelectValue placeholder="All Status" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -485,7 +477,7 @@ export default function DealerCompanyPage() {
                             ) : (
                                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                                     {filteredConnectedCompanies.map((company) => (
-                                        <Card key={company.id} className="relative border-green-200 bg-green-50/30">
+                                        <Card key={company.id} className="relative overflow-hidden border-green-200 bg-green-50/30">
                                             <CardHeader>
                                                 <div className="flex items-start justify-between">
                                                     <div className="flex-1">

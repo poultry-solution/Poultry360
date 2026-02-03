@@ -152,83 +152,83 @@ export default function DealerInventoryPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Products</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Products</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
             Manage your product inventory and pricing
           </p>
         </div>
-        <Button onClick={() => handleOpenDialog()} className="bg-primary">
+        <Button variant="outline" onClick={() => handleOpenDialog()} className="w-full sm:w-auto hover:bg-green-50 hover:text-green-700 border-green-200">
           <Plus className="mr-2 h-4 w-4" />
           Add Product
         </Button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Products
+      <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+        <Card className="p-0">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">
+              Products
             </CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent className="p-3 md:p-4 pt-0">
+            <div className="text-xl md:text-2xl font-bold">
               {summaryLoading ? "..." : summary?.totalProducts || 0}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Active products in inventory
+            <p className="text-[10px] md:text-xs text-muted-foreground">
+              In inventory
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
+        <Card className="p-0">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Low Stock</CardTitle>
             <AlertTriangle className="h-4 w-4 text-orange-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
+          <CardContent className="p-3 md:p-4 pt-0">
+            <div className="text-xl md:text-2xl font-bold text-orange-600">
               {summaryLoading ? "..." : summary?.lowStockProducts || 0}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Products below minimum stock
+            <p className="text-[10px] md:text-xs text-muted-foreground">
+              Below minimum
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Out of Stock</CardTitle>
+        <Card className="p-0">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Out of Stock</CardTitle>
             <AlertTriangle className="h-4 w-4 text-red-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+          <CardContent className="p-3 md:p-4 pt-0">
+            <div className="text-xl md:text-2xl font-bold text-red-600">
               {summaryLoading ? "..." : summary?.outOfStockProducts || 0}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Products with zero stock
+            <p className="text-[10px] md:text-xs text-muted-foreground">
+              Zero stock
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Inventory Value
+        <Card className="p-0">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">
+              Value
             </CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent className="p-3 md:p-4 pt-0">
+            <div className="text-lg md:text-2xl font-bold">
               {summaryLoading
                 ? "..."
                 : `रू ${(summary?.totalInventoryValue || 0).toLocaleString()}`}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Total inventory value (cost)
+            <p className="text-[10px] md:text-xs text-muted-foreground">
+              Total cost
             </p>
           </CardContent>
         </Card>
@@ -236,8 +236,8 @@ export default function DealerInventoryPage() {
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex gap-4">
+        <CardContent className="pt-4 pb-4">
+          <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -250,7 +250,7 @@ export default function DealerInventoryPage() {
               </div>
             </div>
             <Select value={typeFilter || "ALL"} onValueChange={(value) => setTypeFilter(value === "ALL" ? "" : value)}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[140px]">
                 <Filter className="mr-2 h-4 w-4" />
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
@@ -264,8 +264,8 @@ export default function DealerInventoryPage() {
         </CardContent>
       </Card>
 
-      {/* Products Table */}
-      <Card>
+      {/* Products Table - Desktop */}
+      <Card className="hidden md:block">
         <CardHeader>
           <CardTitle>Products</CardTitle>
           <CardDescription>
@@ -389,6 +389,117 @@ export default function DealerInventoryPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Products List - Mobile */}
+      <div className="md:hidden space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold">Products</h3>
+          <span className="text-sm text-muted-foreground">{pagination?.total || 0} total</span>
+        </div>
+        {isLoading ? (
+          <div className="text-center py-8">Loading products...</div>
+        ) : products.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-8">
+              <Package className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+              <h3 className="font-semibold mb-2">No products found</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Add your first product to get started.
+              </p>
+              <Button size="sm" onClick={() => handleOpenDialog()}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Product
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {products.map((product: any) => (
+              <Card key={product.id} className="overflow-hidden">
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium truncate">{product.name}</h4>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{product.type}</span>
+                        <span>•</span>
+                        <span>{product.unit}</span>
+                        {product.sku && (
+                          <>
+                            <span>•</span>
+                            <span>{product.sku}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-1 ml-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handleOpenDialog(product)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handleDelete(product.id, product.name)}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground text-xs">Cost</span>
+                      <p className="font-medium">रू {Number(product.costPrice).toFixed(0)}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">Sell</span>
+                      <p className="font-medium">रू {Number(product.sellingPrice).toFixed(0)}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">Stock</span>
+                      <p className={`font-medium ${product.minStock && Number(product.currentStock) <= Number(product.minStock) ? "text-red-600" : ""}`}>
+                        {Number(product.currentStock).toFixed(0)}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+
+            {/* Mobile Pagination */}
+            {pagination && pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-sm text-muted-foreground">
+                  {pagination.page}/{pagination.totalPages}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(page - 1)}
+                    disabled={page === 1}
+                  >
+                    Prev
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(page + 1)}
+                    disabled={page === pagination.totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

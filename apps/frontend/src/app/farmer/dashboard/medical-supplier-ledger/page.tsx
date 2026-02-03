@@ -149,29 +149,29 @@ export default function MedicalSupplierLedgerPage() {
 
   async function handlePasswordConfirm() {
     if (!activeSupplierId || selectedIds.size === 0 || !passwordForm.password) return;
-    
+
     const ids = Array.from(selectedIds);
     let failed = 0;
-    
+
     try {
       await Promise.all(
         ids.map(async (entryId) => {
           try {
-            await deleteTxn.mutateAsync({ 
-              supplierId: activeSupplierId, 
+            await deleteTxn.mutateAsync({
+              supplierId: activeSupplierId,
               transactionId: entryId,
-              password: passwordForm.password 
+              password: passwordForm.password
             });
           } catch (e) {
             failed += 1;
           }
         })
       );
-      
+
       exitDeleteMode();
       setIsPasswordModalOpen(false);
       setPasswordForm({ password: "" });
-      
+
       if (failed === 0) {
         toast.success("Selected entries deleted successfully");
       } else {
@@ -372,82 +372,82 @@ export default function MedicalSupplierLedgerPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
             Medical Supplier Ledger
           </h1>
-          <p className="text-muted-foreground">
-            Track medicine purchases and supplier balances.
+          <p className="text-sm md:text-base text-muted-foreground">
+            Track medicine purchases and balances.
           </p>
         </div>
         <div className="flex gap-2">
-      
           <Button
-            className="bg-primary hover:bg-primary/90"
+            size="sm"
+            className="text-xs md:text-sm bg-primary hover:bg-primary/90"
             onClick={() => setIsAddSupplierOpen(true)}
           >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Supplier
+            <Plus className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Add </span>Supplier
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-2 grid-cols-3">
         <Card
           onClick={() => setIsSummaryOpen(true)}
           className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white"
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Suppliers
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">
+              Suppliers
             </CardTitle>
-            <Pill className="h-4 w-4 text-muted-foreground" />
+            <Pill className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
             {statisticsLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <div className="text-2xl font-bold">
+              <div className="text-base md:text-2xl font-bold">
                 {statistics.totalSuppliers || 0}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">Medicine suppliers</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">Medicine</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Due</CardTitle>
+            <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
             {statisticsLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <div className="text-2xl font-bold">
-                ₹{(statistics.outstandingAmount || 0).toLocaleString()}
+              <div className="text-base md:text-2xl font-bold">
+                <span className="hidden md:inline">रू</span>{(statistics.outstandingAmount || 0).toLocaleString()}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">Amount Due</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">Outstanding</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Month</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Month</CardTitle>
+            <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
             {statisticsLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <div className="text-2xl font-bold">
-                ₹{(statistics.thisMonthAmount || 0).toLocaleString()}
+              <div className="text-base md:text-2xl font-bold">
+                <span className="hidden md:inline">रू</span>{(statistics.thisMonthAmount || 0).toLocaleString()}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">New purchases</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">Purchases</p>
           </CardContent>
         </Card>
       </div>
@@ -612,8 +612,8 @@ export default function MedicalSupplierLedgerPage() {
           </div>
         </ModalContent>
         <ModalFooter>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => {
               setIsPasswordModalOpen(false);
               setPasswordForm({ password: "" });
@@ -888,7 +888,7 @@ export default function MedicalSupplierLedgerPage() {
             {selectedHistoryEntry &&
               activeSupplier &&
               (() => {
-    const entry = activeSupplier.transactionTable?.find(
+                const entry = activeSupplier.transactionTable?.find(
                   (e: any) => e.id === selectedHistoryEntry.entryId
                 );
                 const history = entry?.payments || [];
@@ -1006,18 +1006,18 @@ export default function MedicalSupplierLedgerPage() {
       {/* Tabs: one per supplier */}
       {!suppliersLoading && !suppliersError && (
         <div className="space-y-3">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2 overflow-x-auto pb-1">
             {suppliers.map((supplier: any) => (
               <Button
                 key={supplier.id}
                 variant={
                   activeSupplierId === supplier.id ? "default" : "outline"
                 }
-                className={
-                  activeSupplierId === supplier.id
-                    ? "bg-primary hover:bg-primary/90"
-                    : ""
-                }
+                size="sm"
+                className={`text-xs md:text-sm whitespace-nowrap ${activeSupplierId === supplier.id
+                  ? "bg-primary hover:bg-primary/90"
+                  : ""
+                  }`}
                 onClick={() => setActiveSupplierId(supplier.id)}
               >
                 {supplier.name}
@@ -1025,131 +1025,148 @@ export default function MedicalSupplierLedgerPage() {
             ))}
             <Button
               variant="outline"
+              size="sm"
+              className="text-xs md:text-sm whitespace-nowrap"
               onClick={() => setIsAddSupplierOpen(true)}
             >
-              <Plus className="mr-2 h-4 w-4" /> Add Supplier
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Add </span>Supplier
             </Button>
           </div>
 
           <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>
+            <CardHeader className="p-3 md:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <CardTitle className="text-base md:text-lg truncate">
                   {activeSupplier?.name || "Select a supplier"}
                 </CardTitle>
-                <div className="flex gap-2">
+                <div className="flex gap-1 md:gap-2 flex-wrap">
                   {activeSupplierId && !isDeleteMode && (
                     <Button
                       variant="outline"
-                      className="text-red-600 border-red-200 hover:bg-red-50"
+                      size="sm"
+                      className="text-xs text-red-600 border-red-200 hover:bg-red-50"
                       onClick={() => setIsDeleteSupplierOpen(true)}
                       disabled={!activeSupplierId}
                     >
-                      Delete Supplier
+                      <Trash2 className="h-3.5 w-3.5 md:hidden" />
+                      <span className="hidden md:inline">Delete Supplier</span>
                     </Button>
                   )}
                   {isDeleteMode ? (
                     <>
                       <Button
                         variant="outline"
+                        size="sm"
+                        className="text-xs"
                         onClick={exitDeleteMode}
                       >
-                        <X className="mr-2 h-4 w-4" /> Cancel
+                        <X className="mr-1 h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Cancel</span>
                       </Button>
                       <Button
-                        className="bg-red-600 hover:bg-red-700 text-white"
+                        size="sm"
+                        className="text-xs bg-red-600 hover:bg-red-700 text-white"
                         disabled={selectedIds.size === 0 || deleteTxn.isPending}
                         onClick={() => setIsConfirmDeleteOpen(true)}
                       >
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete ({selectedIds.size})
+                        <Trash2 className="mr-1 h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Delete </span>({selectedIds.size})
                       </Button>
                     </>
                   ) : (
                     <>
                       <Button
                         variant="outline"
+                        size="sm"
+                        className="text-xs"
                         onClick={() => setIsDeleteMode(true)}
                         disabled={!activeSupplierId}
                       >
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete Entries
+                        <Trash2 className="h-3.5 w-3.5 md:mr-1" />
+                        <span className="hidden md:inline">Delete</span>
                       </Button>
                       <Button
-                        className="bg-primary hover:bg-primary/90"
+                        size="sm"
+                        className="text-xs bg-primary hover:bg-primary/90"
                         onClick={() => setIsAddEntryOpen(true)}
                         disabled={!activeSupplierId}
                       >
-                        <Plus className="mr-2 h-4 w-4" /> Add Entry
+                        <Plus className="mr-1 h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Add </span>Entry
                       </Button>
                     </>
                   )}
                 </div>
               </div>
-              <CardDescription>
+              <CardDescription className="text-xs md:text-sm">
                 {activeSupplier
-                  ? `Itemized ledger for ${activeSupplier.name}`
-                  : "Select a supplier to view transactions"}
+                  ? `Ledger for ${activeSupplier.name}`
+                  : "Select a supplier"}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               {activeSupplierLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                  <span className="ml-2">Loading supplier data...</span>
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="ml-2 text-sm">Loading...</span>
                 </div>
               ) : (
-                <DataTable
-                  data={activeSupplier?.transactionTable || []}
-                  columns={ledgerColumns}
-                  selectable={isDeleteMode}
-                  isAllSelected={
-                    !!activeSupplier?.transactionTable &&
-                    selectedIds.size > 0 &&
-                    selectedIds.size === activeSupplier.transactionTable.length
-                  }
-                  onToggleAll={toggleAll}
-                  isRowSelected={(row: any) => selectedIds.has(row.id)}
-                  onToggleRow={toggleOne}
-                  getRowKey={(row: any) => row.id}
-                  showFooter={true}
-                  footerContent={
-                    <div className="grid grid-cols-9 gap-4 text-sm">
-                      <div className="col-span-3 font-semibold text-gray-900">
-                        Total
+                <div className="overflow-x-auto">
+                  <DataTable
+                    data={activeSupplier?.transactionTable || []}
+                    columns={ledgerColumns}
+                    selectable={isDeleteMode}
+                    isAllSelected={
+                      !!activeSupplier?.transactionTable &&
+                      selectedIds.size > 0 &&
+                      selectedIds.size === activeSupplier.transactionTable.length
+                    }
+                    onToggleAll={toggleAll}
+                    isRowSelected={(row: any) => selectedIds.has(row.id)}
+                    onToggleRow={toggleOne}
+                    getRowKey={(row: any) => row.id}
+                    showFooter={true}
+                    footerContent={
+                      <div className="grid grid-cols-9 gap-4 text-sm">
+                        <div className="col-span-3 font-semibold text-gray-900">
+                          Total
+                        </div>
+                        <div className="text-right font-medium">
+                          ₹
+                          {(
+                            activeSupplier?.transactionTable?.reduce(
+                              (sum: number, r: any) => sum + r.totalAmount,
+                              0
+                            ) || 0
+                          ).toLocaleString()}
+                        </div>
+                        <div className="text-right font-medium">
+                          ₹
+                          {(
+                            activeSupplier?.transactionTable?.reduce(
+                              (sum: number, r: any) => sum + r.amountPaid,
+                              0
+                            ) || 0
+                          ).toLocaleString()}
+                        </div>
+                        <div className="text-right font-medium">
+                          ₹
+                          {(
+                            activeSupplier?.transactionTable?.reduce(
+                              (sum: number, r: any) => sum + r.amountDue,
+                              0
+                            ) || 0
+                          ).toLocaleString()}
+                        </div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
                       </div>
-                      <div className="text-right font-medium">
-                        ₹
-                        {(
-                          activeSupplier?.transactionTable?.reduce(
-                            (sum: number, r: any) => sum + r.totalAmount,
-                            0
-                          ) || 0
-                        ).toLocaleString()}
-                      </div>
-                      <div className="text-right font-medium">
-                        ₹
-                        {(
-                          activeSupplier?.transactionTable?.reduce(
-                            (sum: number, r: any) => sum + r.amountPaid,
-                            0
-                          ) || 0
-                        ).toLocaleString()}
-                      </div>
-                      <div className="text-right font-medium">
-                        ₹
-                        {(
-                          activeSupplier?.transactionTable?.reduce(
-                            (sum: number, r: any) => sum + r.amountDue,
-                            0
-                          ) || 0
-                        ).toLocaleString()}
-                      </div>
-                      <div></div>
-                      <div></div>
-                      <div></div>
-                    </div>
-                  }
-                  emptyMessage="No entries for this supplier"
-                />
+                    }
+                    emptyMessage="No entries for this supplier"
+                  />
+                </div>
               )}
             </CardContent>
           </Card>

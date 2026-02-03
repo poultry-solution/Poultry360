@@ -77,26 +77,26 @@ export default function BatchesPage() {
   }
   function computeBatchName(startDateStr: string, farmId: string) {
     if (!startDateStr || !farmId) return "";
-  
+
     const farm = farms.find((f: any) => f.id === farmId);
     if (!farm) return "";
-  
+
     const d = new Date(startDateStr);
     if (isNaN(d.getTime())) return "";
-  
+
     // Format date as "Month-Day"
     const month = d.toLocaleString("en-US", { month: "long" });
     const day = d.getDate();
-  
+
     // Add current time (HH-MM-SS with dashes)
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, "0");
     const mm = String(now.getMinutes()).padStart(2, "0");
     const ss = String(now.getSeconds()).padStart(2, "0");
-  
+
     return `${month}-${day}-${farm.name}-${hh}-${mm}-${ss}`;
   }
-  
+
   function handleChange(
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -105,7 +105,7 @@ export default function BatchesPage() {
     const { name, value } = e.target;
     setFormData((prev) => {
       const next = { ...prev, [name]: value } as typeof prev;
-  
+
       if (name === "startDate" || name === "farmId") {
         const suggested = computeBatchName(
           name === "startDate" ? value : next.startDate,
@@ -113,11 +113,11 @@ export default function BatchesPage() {
         );
         if (suggested) next.batchNumber = suggested;
       }
-  
+
       return next;
     });
   }
-  
+
 
   // Reset to current date when modal opens
   useEffect(() => {
@@ -149,11 +149,11 @@ export default function BatchesPage() {
     // Build chicksInventory payload
     const builtAllocations = multiSource
       ? allocations
-          .filter((a) => a.itemId && Number(a.quantity) > 0)
-          .map((a) => ({ itemId: a.itemId, quantity: parseInt(a.quantity, 10), notes: a.notes }))
+        .filter((a) => a.itemId && Number(a.quantity) > 0)
+        .map((a) => ({ itemId: a.itemId, quantity: parseInt(a.quantity, 10), notes: a.notes }))
       : singleAlloc.itemId && Number(singleAlloc.quantity) > 0
-      ? [{ itemId: singleAlloc.itemId, quantity: parseInt(singleAlloc.quantity, 10), notes: singleAlloc.notes }]
-      : [];
+        ? [{ itemId: singleAlloc.itemId, quantity: parseInt(singleAlloc.quantity, 10), notes: singleAlloc.notes }]
+        : [];
 
     if (builtAllocations.length === 0) {
       toast.error("Please select chicks inventory and quantity");
@@ -212,15 +212,16 @@ export default function BatchesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Batches</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Batches</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
             Track your production batches and performance.
           </p>
         </div>
         <Button
-          className="bg-primary hover:bg-primary/90 cursor-pointer"
+          variant="outline"
+          className="border-green-200 hover:bg-green-50 hover:text-green-700 w-full sm:w-auto"
           onClick={() => setIsModalOpen(true)}
           disabled={farmsLoading}
         >
@@ -248,58 +249,58 @@ export default function BatchesPage() {
 
       {/* Batch Stats */}
       {!batchesLoading && !batchesError && (
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
           <Card
             className="group cursor-pointer transition-colors hover:bg-primary hover:text-primary-foreground hover:border-transparent"
             onClick={() => openCountModal("Active")}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium group-hover:text-primary-foreground">
-                Active Batches
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+              <CardTitle className="text-[11px] md:text-sm font-medium group-hover:text-primary-foreground">
+                Active
               </CardTitle>
-              <Layers className="h-4 w-4 text-muted-foreground group-hover:text-primary-foreground" />
+              <Layers className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground group-hover:text-primary-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold group-hover:text-primary-foreground">
+            <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+              <div className="text-base md:text-2xl font-bold group-hover:text-primary-foreground">
                 {activeBatches.length}
               </div>
-              <p className="text-xs text-muted-foreground group-hover:text-primary-foreground">
-                Currently running
+              <p className="text-[9px] md:text-xs text-muted-foreground group-hover:text-primary-foreground">
+                Running
               </p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Birds</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+              <CardTitle className="text-[11px] md:text-sm font-medium">Total Birds</CardTitle>
+              <Users className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+              <div className="text-base md:text-2xl font-bold">
                 {batches
                   .reduce((sum, b: BatchResponse) => sum + b.initialChicks, 0)
                   .toLocaleString()}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Across all batches
+              <p className="text-[9px] md:text-xs text-muted-foreground">
+                All batches
               </p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Current Birds
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+              <CardTitle className="text-[11px] md:text-sm font-medium">
+                Current
               </CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <TrendingUp className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+              <div className="text-base md:text-2xl font-bold">
                 {batches
                   .reduce((sum, b: BatchResponse) => sum + b.currentChicks, 0)
                   .toLocaleString()}
               </div>
-              <p className="text-xs text-muted-foreground">Currently alive</p>
+              <p className="text-[9px] md:text-xs text-muted-foreground">Alive</p>
             </CardContent>
           </Card>
 
@@ -307,18 +308,18 @@ export default function BatchesPage() {
             className="group cursor-pointer transition-colors hover:bg-primary hover:text-primary-foreground hover:border-transparent"
             onClick={() => openCountModal("Closed")}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium group-hover:text-primary-foreground">
-                Closed Batches
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+              <CardTitle className="text-[11px] md:text-sm font-medium group-hover:text-primary-foreground">
+                Closed
               </CardTitle>
-              <Layers className="h-4 w-4 text-muted-foreground group-hover:text-primary-foreground" />
+              <Layers className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground group-hover:text-primary-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold group-hover:text-primary-foreground">
+            <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+              <div className="text-base md:text-2xl font-bold group-hover:text-primary-foreground">
                 {closedBatches.length}
               </div>
-              <p className="text-xs text-muted-foreground group-hover:text-primary-foreground">
-                Till now
+              <p className="text-[9px] md:text-xs text-muted-foreground group-hover:text-primary-foreground">
+                Completed
               </p>
             </CardContent>
           </Card>
@@ -365,30 +366,29 @@ export default function BatchesPage() {
                 className="block"
               >
                 <Card className="hover:border-primary cursor-pointer">
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span>{b.batchNumber}</span>
+                  <CardHeader className="p-3 md:p-6">
+                    <CardTitle className="flex items-center justify-between text-sm md:text-base">
+                      <span className="truncate max-w-[180px] md:max-w-none">{b.batchNumber}</span>
                       <Badge
                         variant="default"
                         className={
                           b.status === "ACTIVE"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-gray-100 text-gray-800"
+                            ? "bg-green-100 text-green-800 text-[10px] md:text-xs"
+                            : "bg-gray-100 text-gray-800 text-[10px] md:text-xs"
                         }
                       >
                         {b.status}
                       </Badge>
                     </CardTitle>
-                    <CardDescription>
-                      {b.farm.name} • Started:{" "}
-                      <DateDisplay date={b.startDate} format="short" />
+                    <CardDescription className="text-xs md:text-sm">
+                      {b.farm.name} • <DateDisplay date={b.startDate} format="short" />
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <CardContent className="p-3 md:p-6 pt-0">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 text-xs md:text-sm">
                       <div>
                         <span className="text-muted-foreground">
-                          Initial Birds:
+                          Initial:
                         </span>
                         <p className="font-medium">
                           {b.initialChicks.toLocaleString()}
@@ -396,7 +396,7 @@ export default function BatchesPage() {
                       </div>
                       <div>
                         <span className="text-muted-foreground">
-                          Current Birds:
+                          Current:
                         </span>
                         <p className="font-medium">
                           {b.currentChicks.toLocaleString()}
@@ -408,12 +408,11 @@ export default function BatchesPage() {
                           {Math.floor(
                             (new Date().getTime() -
                               new Date(b.startDate).getTime()) /
-                              (1000 * 60 * 60 * 24)
-                          )}{" "}
-                          days
+                            (1000 * 60 * 60 * 24)
+                          )}d
                         </p>
                       </div>
-                      <div>
+                      <div className="hidden md:block">
                         <span className="text-muted-foreground">Status:</span>
                         <p
                           className={`font-medium ${b.status === "ACTIVE" ? "text-green-600" : "text-gray-600"}`}
@@ -702,10 +701,10 @@ export default function BatchesPage() {
             )}
             {(countFilter === "Active" ? activeBatches : closedBatches)
               .length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No {countFilter.toLowerCase()} batches.
-              </p>
-            )}
+                <p className="text-sm text-muted-foreground">
+                  No {countFilter.toLowerCase()} batches.
+                </p>
+              )}
           </div>
         </ModalContent>
         <ModalFooter>

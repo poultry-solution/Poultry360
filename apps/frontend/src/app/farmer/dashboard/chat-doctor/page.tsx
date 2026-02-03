@@ -25,7 +25,7 @@ export default function ChatDoctorPage() {
 
   // React Query client for cache invalidation
   const queryClient = useQueryClient();
-  
+
   // Real chat hooks
   const { isConnected, isLoading: connectionLoading, error: connectionError } = useChatConnection();
   const { conversations, isLoading: conversationsLoading, selectConversation } = useConversationsList();
@@ -41,7 +41,7 @@ export default function ChatDoctorPage() {
     if (!isConnected) return;
 
     const socketService = getSocketService();
-    
+
     const handleDoctorStatusChange = (data: {
       doctorId: string;
       doctorName: string;
@@ -49,18 +49,18 @@ export default function ChatDoctorPage() {
       lastSeen: string;
     }) => {
       console.log('Doctor status changed:', data);
-      
+
       // Invalidate and refetch all doctor-related queries
       queryClient.invalidateQueries({ queryKey: chatKeys.doctors() });
       queryClient.invalidateQueries({ queryKey: [...chatKeys.doctors(), 'online'] });
-      
+
       // Show toast notification
       toast.info(`Dr. ${data.doctorName} is now ${data.isOnline ? 'online' : 'offline'}`);
     };
 
     // Listen for doctor status changes
     socketService.onDoctorGlobalStatusChanged(handleDoctorStatusChange);
-    
+
     // Also listen for general user status changes
     socketService.onGlobalUserStatusChanged((data) => {
       if (data.userRole === 'DOCTOR') {
@@ -75,17 +75,17 @@ export default function ChatDoctorPage() {
 
     return () => {
       socketService.offDoctorGlobalStatusChanged(handleDoctorStatusChange);
-      socketService.offGlobalUserStatusChanged(() => {}); // Remove the listener
+      socketService.offGlobalUserStatusChanged(() => { }); // Remove the listener
     };
   }, [isConnected, queryClient]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!chatReason.trim()) {
       newErrors.reason = 'Please provide a reason for consultation';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -99,15 +99,15 @@ export default function ChatDoctorPage() {
         subject: chatReason,
         initialMessage: chatReason
       });
-      
+
       if (result.conversation) {
         toast.success('Conversation started successfully!');
         setIsChatModalOpen(false);
-        
+
         // Clean up modal state
         setChatReason('');
         setSelectedDoctor(null);
-        
+
         // Navigate to the conversation (initial message is already sent by backend)
         router.push(`/farmer/dashboard/chat-doctor/${result.conversation.id}`);
       }
@@ -128,7 +128,7 @@ export default function ChatDoctorPage() {
     const date = new Date(timestamp);
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
+
     if (diffInHours < 1) {
       return 'Just now';
     } else if (diffInHours < 24) {
@@ -139,16 +139,16 @@ export default function ChatDoctorPage() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 md:gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Chat with Doctor</h1>
-          <p className="text-muted-foreground">Get veterinary advice and consultation.</p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Chat with Doctor</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Get veterinary advice.</p>
         </div>
-        <Button className="bg-primary hover:bg-primary/90 w-full sm:w-auto">
-          <MessageCircle className="mr-2 h-4 w-4" />
-          New Consultation
+        <Button size="sm" className="text-xs md:text-sm bg-primary hover:bg-primary/90 w-full sm:w-auto">
+          <MessageCircle className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
+          <span className="hidden sm:inline">New </span>Consultation
         </Button>
       </div>
 
@@ -165,55 +165,55 @@ export default function ChatDoctorPage() {
       )}
 
       {/* Stats Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+      <div className="grid gap-2 grid-cols-3">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Available Doctors</CardTitle>
-            <MessageCircle className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Online</CardTitle>
+            <MessageCircle className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">
               {doctorsLoading ? '...' : (onlineDoctors?.length || 0)}
             </div>
-            <p className="text-xs text-muted-foreground">Online now</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">Doctors</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Chats</CardTitle>
-            <MessageCircle className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Active</CardTitle>
+            <MessageCircle className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">
               {conversationsLoading ? '...' : activeChats}
             </div>
-            <p className="text-xs text-muted-foreground">Ongoing consultations</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">Chats</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Unread Messages</CardTitle>
-            <MessageCircle className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Unread</CardTitle>
+            <MessageCircle className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">
               {totalUnread}
             </div>
-            <p className="text-xs text-muted-foreground">New messages</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">Messages</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         {/* Available Doctors */}
         <Card>
-          <CardHeader>
-            <CardTitle>Available Doctors</CardTitle>
-            <CardDescription>Veterinarians ready for consultation.</CardDescription>
+          <CardHeader className="p-3 md:p-6">
+            <CardTitle className="text-base md:text-lg">Doctors</CardTitle>
+            <CardDescription className="text-xs md:text-sm">Vets ready for consultation.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 md:p-6 pt-0">
             {doctorsLoading ? (
               <div className="space-y-4">
                 {[1, 2, 3].map((i) => (
@@ -227,55 +227,46 @@ export default function ChatDoctorPage() {
                 ))}
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-2">
                 {/* Show all doctors with proper status */}
                 {doctors?.map((doctor) => (
-                  <div 
-                    key={doctor.id} 
-                    className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
-                      doctor.isOnline ? 'bg-green-50 hover:bg-green-100' : 'bg-gray-50'
-                    }`}
+                  <div
+                    key={doctor.id}
+                    className={`flex items-center justify-between p-2 md:p-3 rounded-lg transition-colors ${doctor.isOnline ? 'bg-green-50 hover:bg-green-100' : 'bg-gray-50'
+                      }`}
                   >
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                        doctor.isOnline ? 'bg-primary' : 'bg-gray-400'
-                      }`}>
-                        <span className={`font-bold text-sm ${
-                          doctor.isOnline ? 'text-primary-foreground' : 'text-white'
+                    <div className="flex items-center space-x-2 md:space-x-3">
+                      <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center ${doctor.isOnline ? 'bg-primary' : 'bg-gray-400'
                         }`}>
+                        <span className={`font-bold text-xs md:text-sm ${doctor.isOnline ? 'text-primary-foreground' : 'text-white'
+                          }`}>
                           {doctor.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                         </span>
                       </div>
                       <div>
-                        <p className="font-medium">{doctor.name}</p>
-                        <p className="text-sm text-muted-foreground">{doctor.companyName || 'Veterinary Doctor'}</p>
-                        <div className="flex items-center space-x-1 mt-1">
-                          <div className={`w-2 h-2 rounded-full ${
-                            doctor.isOnline ? 'bg-green-500' : 'bg-gray-400'
-                          }`}></div>
-                          <span className="text-xs text-muted-foreground">
+                        <p className="font-medium text-sm md:text-base truncate max-w-[100px] md:max-w-none">{doctor.name}</p>
+                        <p className="text-xs text-muted-foreground hidden md:block">{doctor.companyName || 'Veterinary Doctor'}</p>
+                        <div className="flex items-center space-x-1 mt-0.5">
+                          <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${doctor.isOnline ? 'bg-green-500' : 'bg-gray-400'
+                            }`}></div>
+                          <span className="text-[10px] md:text-xs text-muted-foreground">
                             {doctor.isOnline ? 'Online' : 'Offline'}
                           </span>
-                          {!doctor.isOnline && doctor.lastSeen && (
-                            <span className="text-xs text-muted-foreground">
-                              • Last seen {new Date(doctor.lastSeen).toLocaleTimeString()}
-                            </span>
-                          )}
                         </div>
                       </div>
                     </div>
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       variant={doctor.isOnline ? "default" : "outline"}
-                      className={doctor.isOnline ? "bg-primary hover:bg-primary/90" : "text-gray-600"}
+                      className={`text-xs ${doctor.isOnline ? "bg-primary hover:bg-primary/90" : "text-gray-600"}`}
                       onClick={() => openChatModal(doctor)}
                     >
-                      <MessageCircle className="h-4 w-4 mr-1" />
-                      Chat
+                      <MessageCircle className="h-3.5 w-3.5 md:mr-1" />
+                      <span className="hidden md:inline">Chat</span>
                     </Button>
                   </div>
                 ))}
-                
+
                 {(doctors?.length || 0) === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
                     <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -289,11 +280,11 @@ export default function ChatDoctorPage() {
 
         {/* Recent Consultations */}
         <Card>
-          <CardHeader>
-            <CardTitle>Recent Consultations</CardTitle>
-            <CardDescription>Your latest veterinary consultations.</CardDescription>
+          <CardHeader className="p-3 md:p-6">
+            <CardTitle className="text-base md:text-lg">Recent Consultations</CardTitle>
+            <CardDescription className="text-xs md:text-sm">Your latest consultations.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 md:p-6 pt-0">
             {conversationsLoading ? (
               <div className="space-y-4">
                 {[1, 2, 3].map((i) => (
@@ -311,7 +302,7 @@ export default function ChatDoctorPage() {
                 {conversations?.slice(0, 5).map((conversation: any) => {
                   const unreadCount = getUnreadForConversation(conversation.id);
                   return (
-                    <div 
+                    <div
                       key={conversation.id}
                       className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
                       onClick={() => {
@@ -332,21 +323,20 @@ export default function ChatDoctorPage() {
                           {conversation.lastMessage?.text || conversation.subject || 'No messages yet'}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {conversation.lastMessage?.createdAt 
+                          {conversation.lastMessage?.createdAt
                             ? formatTime(conversation.lastMessage.createdAt)
                             : formatTime(conversation.createdAt)
                           }
                         </p>
                       </div>
-                      <Badge 
-                        variant="default" 
-                        className={`${
-                          conversation.status === 'ACTIVE' 
-                            ? 'bg-green-100 text-green-800' 
+                      <Badge
+                        variant="default"
+                        className={`${conversation.status === 'ACTIVE'
+                            ? 'bg-green-100 text-green-800'
                             : conversation.status === 'CLOSED'
-                            ? 'bg-gray-100 text-gray-800'
-                            : 'bg-blue-100 text-blue-800'
-                        }`}
+                              ? 'bg-gray-100 text-gray-800'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}
                       >
                         {conversation.status}
                       </Badge>
@@ -367,8 +357,8 @@ export default function ChatDoctorPage() {
       </div>
 
       {/* Chat Initiation Modal */}
-      <Modal 
-        isOpen={isChatModalOpen} 
+      <Modal
+        isOpen={isChatModalOpen}
         onClose={() => setIsChatModalOpen(false)}
         title="Start Consultation"
       >
@@ -384,7 +374,7 @@ export default function ChatDoctorPage() {
               <p className="text-sm text-muted-foreground">{selectedDoctor?.specialty}</p>
             </div>
           </div>
-          
+
           <div>
             <Label htmlFor="reason">Reason for Consultation *</Label>
             <Input
@@ -399,14 +389,14 @@ export default function ChatDoctorPage() {
 
           <div className="bg-blue-50 p-3 rounded-lg">
             <p className="text-sm text-blue-800">
-              <strong>Note:</strong> Please provide a clear description of your concern. 
+              <strong>Note:</strong> Please provide a clear description of your concern.
               This helps the doctor understand your situation better and provide more accurate advice.
             </p>
           </div>
 
           <div className="bg-green-50 p-3 rounded-lg">
             <p className="text-sm text-green-800">
-              <strong>Tip:</strong> If you already have an ongoing conversation with this doctor, 
+              <strong>Tip:</strong> If you already have an ongoing conversation with this doctor,
               you'll be redirected to that chat and your message will be sent there automatically.
             </p>
           </div>
@@ -414,22 +404,22 @@ export default function ChatDoctorPage() {
           {!selectedDoctor?.isOnline && (
             <div className="bg-yellow-50 p-3 rounded-lg">
               <p className="text-sm text-yellow-800">
-                <strong>Doctor is currently offline.</strong> Your message will be delivered when they come back online. 
+                <strong>Doctor is currently offline.</strong> Your message will be delivered when they come back online.
                 You can still start the conversation and send your initial message.
               </p>
             </div>
           )}
 
           <div className="flex justify-end space-x-2 pt-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setIsChatModalOpen(false)}
               disabled={createConversationMutation.isPending}
             >
               Cancel
             </Button>
-            <Button 
-              onClick={handleStartChat} 
+            <Button
+              onClick={handleStartChat}
               className="bg-primary hover:bg-primary/90"
               disabled={createConversationMutation.isPending}
             >

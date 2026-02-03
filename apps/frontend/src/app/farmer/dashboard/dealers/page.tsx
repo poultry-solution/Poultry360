@@ -248,10 +248,10 @@ export default function FarmerDealersPage() {
   if (requestsLoading || dealersLoading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">My Dealers</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">My Dealers</h1>
+            <p className="text-sm md:text-base text-muted-foreground">
               Manage your dealer connections and verification requests
             </p>
           </div>
@@ -268,96 +268,94 @@ export default function FarmerDealersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Dealers</h1>
-          <p className="text-muted-foreground">
-            Manage your dealer connections and verification requests
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">My Dealers</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
+            Manage your dealer connections
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button
             variant="outline"
-            className="hover:bg-green-50 hover:text-green-700 border-green-200"
+            size="sm"
+            className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm"
             onClick={() => router.push("/farmer/dashboard/dealer-ledger")}
           >
-            <Users className="mr-2 h-4 w-4" />
-            Feed Ledger
+            <Users className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Feed </span>Ledger
           </Button>
           <Button
             variant="outline"
-            className="hover:bg-green-50 hover:text-green-700 border-green-200"
+            size="sm"
+            className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm"
             onClick={() => router.push("/farmer/dashboard/sale-requests")}
           >
-            <FileCheck className="mr-2 h-4 w-4" />
-            Sale Requests
+            <FileCheck className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Sale </span>Requests
           </Button>
           <Button
             variant="outline"
-            className="hover:bg-green-50 hover:text-green-700 border-green-200"
+            size="sm"
+            className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm"
             onClick={() => router.push("/farmer/dashboard/payment-requests")}
           >
-            <DollarSign className="mr-2 h-4 w-4" />
-            Payment Requests
+            <DollarSign className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Payment </span>Requests
           </Button>
         </div>
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-2 grid-cols-3">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Connected Dealers</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Connected</CardTitle>
+            <CheckCircle className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
           </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline gap-2">
-              <div className="text-2xl font-bold">{connectedDealers.length}</div>
-              <span className="text-sm text-muted-foreground">Active</span>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="flex items-baseline gap-1">
+              <div className="text-base md:text-2xl font-bold">{connectedDealers.length}</div>
               {archivedDealers.length > 0 && (
-                <>
-                  <span className="text-sm text-muted-foreground">/</span>
-                  <div className="text-xl font-semibold text-muted-foreground">{archivedDealers.length}</div>
-                  <span className="text-sm text-muted-foreground">Archived</span>
-                </>
+                <span className="text-[9px] md:text-xs text-muted-foreground">+{archivedDealers.length} archived</span>
               )}
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Pending</CardTitle>
+            <Clock className="h-3 w-3 md:h-4 md:w-4 text-yellow-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{pendingRequests.length}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">{pendingRequests.length}</div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rejected Requests</CardTitle>
-            <XCircle className="h-4 w-4 text-red-600" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Rejected</CardTitle>
+            <XCircle className="h-3 w-3 md:h-4 md:w-4 text-red-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{rejectedRequests.length}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">{rejectedRequests.length}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex gap-4">
+        <CardContent className="pt-4 md:pt-6">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search by dealer name, contact, or address..."
+                  placeholder="Search dealers..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-sm"
                 />
               </div>
             </div>
@@ -366,7 +364,7 @@ export default function FarmerDealersPage() {
                 value={statusFilter}
                 onValueChange={(value) => setStatusFilter(value)}
               >
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[140px]">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -380,13 +378,12 @@ export default function FarmerDealersPage() {
         </CardContent>
       </Card>
 
-      {/* Tab Selector */}
       {/* Tab Selector and Action Button */}
-      <div className="flex items-center justify-between border-b pb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b pb-2">
         <div className="flex gap-2">
           <button
             onClick={() => setViewTab("active")}
-            className={`px-4 py-2 font-medium transition-colors ${viewTab === "active"
+            className={`px-3 py-1.5 text-sm font-medium transition-colors ${viewTab === "active"
               ? "border-b-2 border-primary text-primary"
               : "text-muted-foreground hover:text-foreground"
               }`}
@@ -395,7 +392,7 @@ export default function FarmerDealersPage() {
           </button>
           <button
             onClick={() => setViewTab("archived")}
-            className={`px-4 py-2 font-medium transition-colors ${viewTab === "archived"
+            className={`px-3 py-1.5 text-sm font-medium transition-colors ${viewTab === "archived"
               ? "border-b-2 border-primary text-primary"
               : "text-muted-foreground hover:text-foreground"
               }`}
@@ -403,7 +400,12 @@ export default function FarmerDealersPage() {
             Archived ({archivedDealers.length})
           </button>
         </div>
-        <Button onClick={() => setIsApplyDialogOpen(true)} className="bg-primary">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setIsApplyDialogOpen(true)}
+          className="w-full sm:w-auto border-green-200 hover:bg-green-50 hover:text-green-700"
+        >
           <Plus className="mr-2 h-4 w-4" />
           Apply to Dealer
         </Button>
@@ -413,13 +415,13 @@ export default function FarmerDealersPage() {
         <>
           {/* Connected Dealers Section */}
           <Card>
-            <CardHeader>
-              <CardTitle>My Connected Dealers</CardTitle>
-              <CardDescription>
-                {filteredConnectedDealers.length} dealer(s) connected
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-base md:text-lg">Connected Dealers</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                {filteredConnectedDealers.length} connected
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3 md:p-6 pt-0">
               {filteredConnectedDealers.length === 0 ? (
                 <div className="text-center py-8">
                   <Store className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -437,72 +439,67 @@ export default function FarmerDealersPage() {
                   )}
                 </div>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {filteredConnectedDealers.map((dealer) => (
                     <Card key={dealer.id} className="relative border-green-200 bg-green-50/30">
-                      <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="text-lg">{dealer.name}</CardTitle>
+                      <CardHeader className="p-3 md:p-6 pb-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-sm md:text-lg truncate">{dealer.name}</CardTitle>
                             {dealer.contact && (
-                              <CardDescription className="mt-1">
+                              <CardDescription className="text-xs mt-0.5">
                                 {dealer.contact}
                               </CardDescription>
                             )}
-                            {dealer.address && (
-                              <CardDescription className="mt-1">
-                                {dealer.address}
-                              </CardDescription>
-                            )}
                           </div>
-                          <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-                            <CheckCircle className="mr-1 h-3 w-3" />
-                            Connected
+                          <Badge className="bg-green-100 text-green-800 hover:bg-green-100 text-[10px] md:text-xs shrink-0">
+                            <CheckCircle className="mr-1 h-2.5 w-2.5 md:h-3 md:w-3" />
+                            <span className="hidden sm:inline">Connected</span>
+                            <span className="sm:hidden">✓</span>
                           </Badge>
                         </div>
                       </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2 text-sm">
+                      <CardContent className="p-3 md:p-6 pt-0">
+                        <div className="grid grid-cols-2 gap-1 text-xs md:text-sm">
                           {dealer.owner && (
                             <>
-                              <div className="flex justify-between">
+                              <div>
                                 <span className="text-muted-foreground">Owner:</span>
-                                <span className="font-medium">{dealer.owner.name}</span>
+                                <p className="font-medium truncate">{dealer.owner.name}</p>
                               </div>
-                              <div className="flex justify-between">
+                              <div>
                                 <span className="text-muted-foreground">Phone:</span>
-                                <span className="font-medium">{dealer.owner.phone}</span>
+                                <p className="font-medium">{dealer.owner.phone}</p>
                               </div>
                             </>
                           )}
-                          <div className="flex justify-between">
+                          <div className="col-span-2">
                             <span className="text-muted-foreground">Connected:</span>
-                            <span className="font-medium text-green-600">
+                            <span className="font-medium text-green-600 ml-1">
                               {new Date(dealer.connectedAt).toLocaleDateString()}
                             </span>
                           </div>
                         </div>
 
-                        <div className="mt-4 flex gap-2">
+                        <div className="mt-3 flex gap-2">
                           <Button
                             variant="outline"
                             size="sm"
-                            className="flex-1"
+                            className="flex-1 text-xs"
                             onClick={() => {
-                              // Navigate to dealer details page - to be implemented later
                               toast.info("Dealer interaction features coming soon!");
                             }}
                           >
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
+                            <Eye className="mr-1 h-3 w-3" />
+                            View
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => setArchiveConfirm({ id: dealer.dealerFarmerId, name: dealer.name })}
-                            className="text-muted-foreground hover:text-foreground"
+                            className="text-muted-foreground hover:text-foreground px-2"
                           >
-                            <Archive className="h-4 w-4" />
+                            <Archive className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       </CardContent>
@@ -515,95 +512,76 @@ export default function FarmerDealersPage() {
 
           {/* Verification Requests Section */}
           <Card>
-            <CardHeader>
-              <CardTitle>Verification Requests</CardTitle>
-              <CardDescription>
-                {filteredVerificationRequests.length} pending/rejected request(s)
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-base md:text-lg">Requests</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                {filteredVerificationRequests.length} pending/rejected
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3 md:p-6 pt-0">
               {filteredVerificationRequests.length === 0 ? (
-                <div className="text-center py-8">
-                  <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No verification requests</h3>
-                  <p className="text-muted-foreground mb-4">
+                <div className="text-center py-6">
+                  <Clock className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                  <h3 className="text-base font-semibold mb-2">No requests</h3>
+                  <p className="text-xs text-muted-foreground">
                     {search || statusFilter !== "ALL"
                       ? "No requests match your filters."
-                      : "You don't have any pending or rejected verification requests."}
+                      : "No pending or rejected requests."}
                   </p>
                 </div>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {filteredVerificationRequests.map((request) => (
                     <Card key={request.id} className="relative">
-                      <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="text-lg">
-                              {request.dealer?.name || "Unknown Dealer"}
+                      <CardHeader className="p-3 md:p-6 pb-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-sm md:text-lg truncate">
+                              {request.dealer?.name || "Unknown"}
                             </CardTitle>
                             {request.dealer?.contact && (
-                              <CardDescription className="mt-1">
+                              <CardDescription className="text-xs mt-0.5">
                                 {request.dealer.contact}
-                              </CardDescription>
-                            )}
-                            {request.dealer?.address && (
-                              <CardDescription className="mt-1">
-                                {request.dealer.address}
                               </CardDescription>
                             )}
                           </div>
                           {getStatusBadge(request.status)}
                         </div>
                       </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Status:</span>
-                            <span className="font-medium">{request.status}</span>
-                          </div>
-                          <div className="flex justify-between">
+                      <CardContent className="p-3 md:p-6 pt-0">
+                        <div className="grid grid-cols-2 gap-1 text-xs md:text-sm">
+                          <div>
                             <span className="text-muted-foreground">Applied:</span>
-                            <span className="font-medium">
+                            <p className="font-medium">
                               {new Date(request.createdAt).toLocaleDateString()}
-                            </span>
+                            </p>
                           </div>
                           {request.status === "REJECTED" && (
-                            <>
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Rejection Count:</span>
-                                <span className="font-medium text-red-600">
-                                  {request.rejectedCount}/3
-                                </span>
-                              </div>
-                              {request.lastRejectedAt && (
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Last Rejected:</span>
-                                  <span className="font-medium">
-                                    {new Date(request.lastRejectedAt).toLocaleDateString()}
-                                  </span>
-                                </div>
-                              )}
-                            </>
+                            <div>
+                              <span className="text-muted-foreground">Rejections:</span>
+                              <p className="font-medium text-red-600">
+                                {request.rejectedCount}/3
+                              </p>
+                            </div>
                           )}
                         </div>
 
-                        <div className="mt-4 flex gap-2">
+                        <div className="mt-3 flex gap-2">
                           {request.status === "REJECTED" && canRetry(request) && (
                             <Button
                               variant="outline"
                               size="sm"
-                              className="flex-1 text-blue-600 hover:text-blue-700"
+                              className="flex-1 text-xs text-blue-600 hover:text-blue-700"
                               onClick={() => handleRetry(request)}
                               disabled={createRequestMutation.isPending}
                             >
-                              <RefreshCw className="mr-2 h-4 w-4" />
+                              <RefreshCw className="mr-1 h-3 w-3" />
                               Retry
                             </Button>
                           )}
                           {request.status === "REJECTED" && !canRetry(request) && (
                             <div className="flex-1">
-                              <p className="text-xs text-red-600 text-center">
+                              <p className="text-[10px] text-red-600 text-center">
                                 {getRetryMessage(request)}
                               </p>
                             </div>
@@ -611,17 +589,17 @@ export default function FarmerDealersPage() {
                           {request.status === "PENDING" && (
                             <>
                               <div className="flex-1">
-                                <p className="text-xs text-yellow-600 text-center font-medium">
-                                  Waiting for dealer approval
+                                <p className="text-[10px] text-yellow-600 text-center font-medium">
+                                  Awaiting approval
                                 </p>
                               </div>
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setCancelConfirm({ id: request.id, dealerName: request.dealer?.name || "this dealer" })}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 px-2 text-xs"
                               >
-                                <X className="mr-1 h-4 w-4" />
+                                <X className="mr-1 h-3 w-3" />
                                 Cancel
                               </Button>
                             </>

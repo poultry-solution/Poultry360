@@ -258,104 +258,106 @@ export default function InventoryPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 md:gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
             Inventory
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm md:text-base text-muted-foreground">
             {activeTab === "other"
-              ? "Manage other supplies and equipment."
-              : "Track feed, medicine, and supplies from purchases."}
+              ? "Manage other supplies."
+              : "Track feed, medicine, supplies."}
           </p>
         </div>
         {activeTab === "other" ? (
           <Button
-            className="bg-primary hover:bg-primary/90 w-full sm:w-auto"
+            size="sm"
+            className="text-xs md:text-sm bg-primary hover:bg-primary/90 w-full sm:w-auto"
             onClick={openAddModal}
           >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Item
+            <Plus className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Add </span>Item
           </Button>
         ) : (
-          <div className="text-sm text-muted-foreground">
-            Items are automatically added when you make purchases in{" "}
-            {activeTab === "feed" ? "Dealer Ledger" : "Medical Supplier Ledger"}
+          <div className="text-xs md:text-sm text-muted-foreground">
+            <span className="hidden sm:inline">Items auto-added when you purchase in </span>
+            <span className="sm:hidden">Auto from </span>
+            {activeTab === "feed" ? "Dealer Ledger" : "Med Supplier Ledger"}
           </div>
         )}
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Items</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Items</CardTitle>
+            <Package className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">
               {stats?.totalItems || 0}
             </div>
-            <p className="text-xs text-muted-foreground">In stock</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">In stock</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-orange-500" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Low</CardTitle>
+            <AlertTriangle className="h-3 w-3 md:h-4 md:w-4 text-orange-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">
               {stats?.lowStockItems || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Need reorder</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">Reorder</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Value</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Value</CardTitle>
+            <Package className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">
-              ₹{(stats?.totalValue || 0).toLocaleString()}
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">
+              <span className="hidden md:inline">रू</span>{(stats?.totalValue || 0).toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">Inventory worth</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">Worth</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Categories</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Types</CardTitle>
+            <Package className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">
               {stats?.categories || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Item types</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">Categories</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Tabs */}
       <div className="border-b">
-        <nav className="flex space-x-8 overflow-x-auto">
+        <nav className="flex gap-1 md:space-x-8 overflow-x-auto pb-1">
           {[
-            { key: "feed", label: "Feed", icon: <Wheat className="h-4 w-4" /> },
+            { key: "feed", label: "Feed", icon: <Wheat className="h-3.5 w-3.5 md:h-4 md:w-4" /> },
             {
               key: "chicks",
               label: "Chicks",
-              icon: <Package className="h-4 w-4" />,
+              icon: <Package className="h-3.5 w-3.5 md:h-4 md:w-4" />,
             },
             {
               key: "medicine",
-              label: "Medicine",
-              icon: <Pill className="h-4 w-4" />,
+              label: "Meds",
+              icon: <Pill className="h-3.5 w-3.5 md:h-4 md:w-4" />,
             },
-            { key: "other", label: "Other", icon: <Box className="h-4 w-4" /> },
+            { key: "other", label: "Other", icon: <Box className="h-3.5 w-3.5 md:h-4 md:w-4" /> },
           ].map((tab) => {
             const getTabCount = () => {
               if (!tableData) return 0;
@@ -387,15 +389,14 @@ export default function InventoryPage() {
                 key={tab.key}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 onClick={() => setActiveTab(tab.key as any)}
-                className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                  activeTab === tab.key
+                className={`flex items-center gap-1 md:space-x-2 py-2 px-2 md:px-1 border-b-2 font-medium text-xs md:text-sm whitespace-nowrap ${activeTab === tab.key
                     ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground"
-                }`}
+                  }`}
               >
                 {tab.icon}
                 <span>{tab.label}</span>
-                <Badge variant="secondary" className="ml-1">
+                <Badge variant="secondary" className="ml-0.5 md:ml-1 text-[10px] md:text-xs px-1.5 md:px-2">
                   {getTabCount()}
                 </Badge>
               </button>
@@ -406,46 +407,49 @@ export default function InventoryPage() {
 
       {/* Inventory Table */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
+        <CardHeader className="p-3 md:p-6">
+          <CardTitle className="flex items-center gap-1 md:space-x-2 text-base md:text-lg">
             {getCategoryIcon(activeTab)}
             <span>
-              {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Inventory
+              {activeTab === "medicine" ? "Meds" : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Inventory
             </span>
           </CardTitle>
-          <CardDescription>
-            {filteredInventory.length} items in {activeTab} category
+          <CardDescription className="text-xs md:text-sm">
+            {filteredInventory.length} items in {activeTab === "medicine" ? "meds" : activeTab}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {filteredInventory.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No {activeTab} items found</p>
+            <div className="text-center py-6 text-muted-foreground">
+              <Package className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">No {activeTab} items found</p>
               {activeTab === "other" ? (
                 <Button
-                  className="mt-4 bg-primary hover:bg-primary/90"
+                  size="sm"
+                  className="mt-3 text-xs bg-primary hover:bg-primary/90"
                   onClick={openAddModal}
                 >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add First{" "}
-                  {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Item
+                  <Plus className="mr-1 h-3.5 w-3.5" />
+                  Add First Item
                 </Button>
               ) : (
-                <p className="text-sm mt-2">
-                  Items will appear here when you make purchases in{" "}
+                <p className="text-xs mt-2">
+                  <span className="hidden sm:inline">Items will appear when you purchase in </span>
+                  <span className="sm:hidden">Make purchases in </span>
                   {activeTab === "feed"
                     ? "Dealer Ledger"
-                    : "Medical Supplier Ledger"}
+                    : "Med Supplier Ledger"}
                 </p>
               )}
             </div>
           ) : (
-            <DataTable
-              data={filteredInventory}
-              columns={getInventoryColumns(activeTab)}
-              emptyMessage={`No ${activeTab} items found`}
-            />
+            <div className="overflow-x-auto">
+              <DataTable
+                data={filteredInventory}
+                columns={getInventoryColumns(activeTab)}
+                emptyMessage={`No ${activeTab} items found`}
+              />
+            </div>
           )}
         </CardContent>
       </Card>
