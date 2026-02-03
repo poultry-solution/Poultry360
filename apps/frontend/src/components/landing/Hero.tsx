@@ -16,23 +16,23 @@ export default function Hero() {
 
           {/* Main Heading */}
           <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 leading-tight">
-            Manage Your Poultry Farm
+            Manage Your Poultry Business
             <span className="text-primary"> Anytime, Anywhere</span>
           </h1>
 
           {/* Description */}
           <p className="text-lg text-gray-600 leading-relaxed">
-            Poultry360 makes your poultry business simple, smart, and stress-free. 
-            Easily track sales, manage expenses, maintain ledgers, control inventory & more 
-            so you can focus on growing your poultry business. 
+            Poultry360 makes your poultry business simple, smart, and stress-free.
+            Easily track sales, manage expenses, maintain ledgers, control inventory & more
+            so you can focus on growing your poultry business.
           </p>
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4">
             <a href="/auth/signup">
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-lg flex items-center">
-              <Monitor className="w-5 h-5 mr-2" />
-              Use Web Version
+                <Monitor className="w-5 h-5 mr-2" />
+                Use Web Version
               </Button>
             </a>
             <Button variant="outline" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground px-8 py-3 rounded-lg flex items-center">
@@ -46,7 +46,7 @@ export default function Hero() {
         <div className="relative">
           {/* Background Shape */}
           <div className="absolute inset-0 bg-primary rounded-[3rem] transform rotate-3 scale-105 opacity-10"></div>
-          
+
           {/* Main Illustration Container */}
           <div className="relative bg-white rounded-[2rem] p-8 shadow-2xl border border-gray-100">
             {/* Central Figure - Poultry Farmer */}

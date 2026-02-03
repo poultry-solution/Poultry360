@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Search,
@@ -13,6 +14,9 @@ import {
   Archive,
   ArchiveRestore,
   X,
+  Users,
+  FileCheck,
+  DollarSign,
 } from "lucide-react";
 import {
   Card,
@@ -53,6 +57,7 @@ import {
 import { PublicDealerSearchSelect } from "@/common/components/forms/PublicDealerSearchSelect";
 
 export default function FarmerDealersPage() {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [viewTab, setViewTab] = useState<"active" | "archived">("active");
@@ -88,14 +93,14 @@ export default function FarmerDealersPage() {
       statusFilter === "ALL" || request.status === statusFilter;
     const matchesSearch = search
       ? request.dealer?.name
-          ?.toLowerCase()
-          .includes(search.toLowerCase()) ||
-        request.dealer?.contact
-          ?.toLowerCase()
-          .includes(search.toLowerCase()) ||
-        request.dealer?.address
-          ?.toLowerCase()
-          .includes(search.toLowerCase())
+        ?.toLowerCase()
+        .includes(search.toLowerCase()) ||
+      request.dealer?.contact
+        ?.toLowerCase()
+        .includes(search.toLowerCase()) ||
+      request.dealer?.address
+        ?.toLowerCase()
+        .includes(search.toLowerCase())
       : true;
 
     return matchesStatus && matchesSearch;
@@ -105,8 +110,8 @@ export default function FarmerDealersPage() {
   const filteredConnectedDealers = connectedDealers.filter((dealer) => {
     const matchesSearch = search
       ? dealer.name?.toLowerCase().includes(search.toLowerCase()) ||
-        dealer.contact?.toLowerCase().includes(search.toLowerCase()) ||
-        dealer.address?.toLowerCase().includes(search.toLowerCase())
+      dealer.contact?.toLowerCase().includes(search.toLowerCase()) ||
+      dealer.address?.toLowerCase().includes(search.toLowerCase())
       : true;
 
     return matchesSearch;
@@ -132,7 +137,7 @@ export default function FarmerDealersPage() {
     } catch (error: any) {
       toast.error(
         error.response?.data?.message ||
-          "Failed to send verification request. Please check if you can retry (wait 1 hour after rejection, and ensure you haven't been rejected 3 times)."
+        "Failed to send verification request. Please check if you can retry (wait 1 hour after rejection, and ensure you haven't been rejected 3 times)."
       );
     }
   };
@@ -151,7 +156,7 @@ export default function FarmerDealersPage() {
     } catch (error: any) {
       toast.error(
         error.response?.data?.message ||
-          "Failed to retry verification request. Please check if you can retry (wait 1 hour after rejection, and ensure you haven't been rejected 3 times)."
+        "Failed to retry verification request. Please check if you can retry (wait 1 hour after rejection, and ensure you haven't been rejected 3 times)."
       );
     }
   };
@@ -270,10 +275,32 @@ export default function FarmerDealersPage() {
             Manage your dealer connections and verification requests
           </p>
         </div>
-        <Button onClick={() => setIsApplyDialogOpen(true)} className="bg-primary">
-          <Plus className="mr-2 h-4 w-4" />
-          Apply to Dealer
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="hover:bg-green-50 hover:text-green-700 border-green-200"
+            onClick={() => router.push("/farmer/dashboard/dealer-ledger")}
+          >
+            <Users className="mr-2 h-4 w-4" />
+            Feed Ledger
+          </Button>
+          <Button
+            variant="outline"
+            className="hover:bg-green-50 hover:text-green-700 border-green-200"
+            onClick={() => router.push("/farmer/dashboard/sale-requests")}
+          >
+            <FileCheck className="mr-2 h-4 w-4" />
+            Sale Requests
+          </Button>
+          <Button
+            variant="outline"
+            className="hover:bg-green-50 hover:text-green-700 border-green-200"
+            onClick={() => router.push("/farmer/dashboard/payment-requests")}
+          >
+            <DollarSign className="mr-2 h-4 w-4" />
+            Payment Requests
+          </Button>
+        </div>
       </div>
 
       {/* Statistics Cards */}
@@ -354,254 +381,259 @@ export default function FarmerDealersPage() {
       </Card>
 
       {/* Tab Selector */}
-      <div className="flex gap-2 border-b">
-        <button
-          onClick={() => setViewTab("active")}
-          className={`px-4 py-2 font-medium transition-colors ${
-            viewTab === "active"
+      {/* Tab Selector and Action Button */}
+      <div className="flex items-center justify-between border-b pb-2">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setViewTab("active")}
+            className={`px-4 py-2 font-medium transition-colors ${viewTab === "active"
               ? "border-b-2 border-primary text-primary"
               : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Active
-        </button>
-        <button
-          onClick={() => setViewTab("archived")}
-          className={`px-4 py-2 font-medium transition-colors ${
-            viewTab === "archived"
+              }`}
+          >
+            Active
+          </button>
+          <button
+            onClick={() => setViewTab("archived")}
+            className={`px-4 py-2 font-medium transition-colors ${viewTab === "archived"
               ? "border-b-2 border-primary text-primary"
               : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Archived ({archivedDealers.length})
-        </button>
+              }`}
+          >
+            Archived ({archivedDealers.length})
+          </button>
+        </div>
+        <Button onClick={() => setIsApplyDialogOpen(true)} className="bg-primary">
+          <Plus className="mr-2 h-4 w-4" />
+          Apply to Dealer
+        </Button>
       </div>
 
       {viewTab === "active" ? (
         <>
           {/* Connected Dealers Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>My Connected Dealers</CardTitle>
-          <CardDescription>
-            {filteredConnectedDealers.length} dealer(s) connected
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {filteredConnectedDealers.length === 0 ? (
-            <div className="text-center py-8">
-              <Store className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No connected dealers</h3>
-              <p className="text-muted-foreground mb-4">
-                {search
-                  ? "No dealers match your search."
-                  : "Apply to a dealer to get started and once approved, you'll see them here."}
-              </p>
-              {!search && (
-                <Button onClick={() => setIsApplyDialogOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Apply to Dealer
-                </Button>
-              )}
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredConnectedDealers.map((dealer) => (
-                <Card key={dealer.id} className="relative border-green-200 bg-green-50/30">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg">{dealer.name}</CardTitle>
-                        {dealer.contact && (
-                          <CardDescription className="mt-1">
-                            {dealer.contact}
-                          </CardDescription>
-                        )}
-                        {dealer.address && (
-                          <CardDescription className="mt-1">
-                            {dealer.address}
-                          </CardDescription>
-                        )}
-                      </div>
-                      <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-                        <CheckCircle className="mr-1 h-3 w-3" />
-                        Connected
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 text-sm">
-                      {dealer.owner && (
-                        <>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Owner:</span>
-                            <span className="font-medium">{dealer.owner.name}</span>
+          <Card>
+            <CardHeader>
+              <CardTitle>My Connected Dealers</CardTitle>
+              <CardDescription>
+                {filteredConnectedDealers.length} dealer(s) connected
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {filteredConnectedDealers.length === 0 ? (
+                <div className="text-center py-8">
+                  <Store className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No connected dealers</h3>
+                  <p className="text-muted-foreground mb-4">
+                    {search
+                      ? "No dealers match your search."
+                      : "Apply to a dealer to get started and once approved, you'll see them here."}
+                  </p>
+                  {!search && (
+                    <Button onClick={() => setIsApplyDialogOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Apply to Dealer
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {filteredConnectedDealers.map((dealer) => (
+                    <Card key={dealer.id} className="relative border-green-200 bg-green-50/30">
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <CardTitle className="text-lg">{dealer.name}</CardTitle>
+                            {dealer.contact && (
+                              <CardDescription className="mt-1">
+                                {dealer.contact}
+                              </CardDescription>
+                            )}
+                            {dealer.address && (
+                              <CardDescription className="mt-1">
+                                {dealer.address}
+                              </CardDescription>
+                            )}
                           </div>
+                          <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                            <CheckCircle className="mr-1 h-3 w-3" />
+                            Connected
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2 text-sm">
+                          {dealer.owner && (
+                            <>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Owner:</span>
+                                <span className="font-medium">{dealer.owner.name}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Phone:</span>
+                                <span className="font-medium">{dealer.owner.phone}</span>
+                              </div>
+                            </>
+                          )}
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Phone:</span>
-                            <span className="font-medium">{dealer.owner.phone}</span>
-                          </div>
-                        </>
-                      )}
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Connected:</span>
-                        <span className="font-medium text-green-600">
-                          {new Date(dealer.connectedAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => {
-                          // Navigate to dealer details page - to be implemented later
-                          toast.info("Dealer interaction features coming soon!");
-                        }}
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        View Details
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setArchiveConfirm({ id: dealer.dealerFarmerId, name: dealer.name })}
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        <Archive className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Verification Requests Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Verification Requests</CardTitle>
-          <CardDescription>
-            {filteredVerificationRequests.length} pending/rejected request(s)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {filteredVerificationRequests.length === 0 ? (
-            <div className="text-center py-8">
-              <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No verification requests</h3>
-              <p className="text-muted-foreground mb-4">
-                {search || statusFilter !== "ALL"
-                  ? "No requests match your filters."
-                  : "You don't have any pending or rejected verification requests."}
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredVerificationRequests.map((request) => (
-                <Card key={request.id} className="relative">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg">
-                          {request.dealer?.name || "Unknown Dealer"}
-                        </CardTitle>
-                        {request.dealer?.contact && (
-                          <CardDescription className="mt-1">
-                            {request.dealer.contact}
-                          </CardDescription>
-                        )}
-                        {request.dealer?.address && (
-                          <CardDescription className="mt-1">
-                            {request.dealer.address}
-                          </CardDescription>
-                        )}
-                      </div>
-                      {getStatusBadge(request.status)}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Status:</span>
-                        <span className="font-medium">{request.status}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Applied:</span>
-                        <span className="font-medium">
-                          {new Date(request.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      {request.status === "REJECTED" && (
-                        <>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Rejection Count:</span>
-                            <span className="font-medium text-red-600">
-                              {request.rejectedCount}/3
+                            <span className="text-muted-foreground">Connected:</span>
+                            <span className="font-medium text-green-600">
+                              {new Date(dealer.connectedAt).toLocaleDateString()}
                             </span>
                           </div>
-                          {request.lastRejectedAt && (
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Last Rejected:</span>
-                              <span className="font-medium">
-                                {new Date(request.lastRejectedAt).toLocaleDateString()}
-                              </span>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-
-                    <div className="mt-4 flex gap-2">
-                      {request.status === "REJECTED" && canRetry(request) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 text-blue-600 hover:text-blue-700"
-                          onClick={() => handleRetry(request)}
-                          disabled={createRequestMutation.isPending}
-                        >
-                          <RefreshCw className="mr-2 h-4 w-4" />
-                          Retry
-                        </Button>
-                      )}
-                      {request.status === "REJECTED" && !canRetry(request) && (
-                        <div className="flex-1">
-                          <p className="text-xs text-red-600 text-center">
-                            {getRetryMessage(request)}
-                          </p>
                         </div>
-                      )}
-                      {request.status === "PENDING" && (
-                        <>
-                          <div className="flex-1">
-                            <p className="text-xs text-yellow-600 text-center font-medium">
-                              Waiting for dealer approval
-                            </p>
-                          </div>
+
+                        <div className="mt-4 flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => {
+                              // Navigate to dealer details page - to be implemented later
+                              toast.info("Dealer interaction features coming soon!");
+                            }}
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Details
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setCancelConfirm({ id: request.id, dealerName: request.dealer?.name || "this dealer" })}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => setArchiveConfirm({ id: dealer.dealerFarmerId, name: dealer.name })}
+                            className="text-muted-foreground hover:text-foreground"
                           >
-                            <X className="mr-1 h-4 w-4" />
-                            Cancel
+                            <Archive className="h-4 w-4" />
                           </Button>
-                        </>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Verification Requests Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Verification Requests</CardTitle>
+              <CardDescription>
+                {filteredVerificationRequests.length} pending/rejected request(s)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {filteredVerificationRequests.length === 0 ? (
+                <div className="text-center py-8">
+                  <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No verification requests</h3>
+                  <p className="text-muted-foreground mb-4">
+                    {search || statusFilter !== "ALL"
+                      ? "No requests match your filters."
+                      : "You don't have any pending or rejected verification requests."}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {filteredVerificationRequests.map((request) => (
+                    <Card key={request.id} className="relative">
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <CardTitle className="text-lg">
+                              {request.dealer?.name || "Unknown Dealer"}
+                            </CardTitle>
+                            {request.dealer?.contact && (
+                              <CardDescription className="mt-1">
+                                {request.dealer.contact}
+                              </CardDescription>
+                            )}
+                            {request.dealer?.address && (
+                              <CardDescription className="mt-1">
+                                {request.dealer.address}
+                              </CardDescription>
+                            )}
+                          </div>
+                          {getStatusBadge(request.status)}
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Status:</span>
+                            <span className="font-medium">{request.status}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Applied:</span>
+                            <span className="font-medium">
+                              {new Date(request.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          {request.status === "REJECTED" && (
+                            <>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Rejection Count:</span>
+                                <span className="font-medium text-red-600">
+                                  {request.rejectedCount}/3
+                                </span>
+                              </div>
+                              {request.lastRejectedAt && (
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Last Rejected:</span>
+                                  <span className="font-medium">
+                                    {new Date(request.lastRejectedAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+
+                        <div className="mt-4 flex gap-2">
+                          {request.status === "REJECTED" && canRetry(request) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 text-blue-600 hover:text-blue-700"
+                              onClick={() => handleRetry(request)}
+                              disabled={createRequestMutation.isPending}
+                            >
+                              <RefreshCw className="mr-2 h-4 w-4" />
+                              Retry
+                            </Button>
+                          )}
+                          {request.status === "REJECTED" && !canRetry(request) && (
+                            <div className="flex-1">
+                              <p className="text-xs text-red-600 text-center">
+                                {getRetryMessage(request)}
+                              </p>
+                            </div>
+                          )}
+                          {request.status === "PENDING" && (
+                            <>
+                              <div className="flex-1">
+                                <p className="text-xs text-yellow-600 text-center font-medium">
+                                  Waiting for dealer approval
+                                </p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setCancelConfirm({ id: request.id, dealerName: request.dealer?.name || "this dealer" })}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <X className="mr-1 h-4 w-4" />
+                                Cancel
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </>
       ) : (
         /* Archived Dealers Tab */
@@ -696,7 +728,7 @@ export default function FarmerDealersPage() {
             <DialogHeader>
               <DialogTitle>Archive Connection</DialogTitle>
               <DialogDescription>
-                Are you sure you want to archive your connection with {archiveConfirm.name}? 
+                Are you sure you want to archive your connection with {archiveConfirm.name}?
                 You can restore it later from the Archived tab.
               </DialogDescription>
             </DialogHeader>

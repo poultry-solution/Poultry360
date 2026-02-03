@@ -468,6 +468,18 @@ export default function SignupPage() {
                 Sign up as Dealer
               </Link>
             </p>
+
+          </div>
+          <div className="mt-2 space-y-2">
+            <p className="text-sm text-muted-foreground text-center">
+              Want to register as a company?{" "}
+              <Link
+                href="/auth/signup/company"
+                className="text-primary hover:underline"
+              >
+                Sign up as Company
+              </Link>
+            </p>
           </div>
         </div>
       </div>

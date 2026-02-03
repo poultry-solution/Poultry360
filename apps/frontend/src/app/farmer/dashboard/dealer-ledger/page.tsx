@@ -7,9 +7,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/common/components/ui/card";
-import { Users, Plus, TrendingUp, Loader2, Trash2, X, Link2 } from "lucide-react";
+import { Users, Plus, TrendingUp, Loader2, Trash2, X, Link2, ArrowLeft } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
+import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { getNowLocalDateTime } from "@/common/lib/utils";
 import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
@@ -33,6 +34,7 @@ import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
 
 export default function DealerLedgerPage() {
+  const router = useRouter();
   const [activeDealerId, setActiveDealerId] = useState<string>("");
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isAddDealerOpen, setIsAddDealerOpen] = useState(false);
@@ -416,13 +418,23 @@ export default function DealerLedgerPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Feed Dealer Ledger
-          </h1>
-          <p className="text-muted-foreground">
-            Manage dealer purchases and balances.
-          </p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.push("/farmer/dashboard/dealers")}
+            className="h-8 w-8"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Feed Dealer Ledger
+            </h1>
+            <p className="text-muted-foreground">
+              Manage dealer purchases and balances.
+            </p>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button
@@ -1118,7 +1130,7 @@ export default function DealerLedgerPage() {
                 <span className="flex items-center gap-2">
                   {dealer.name}
                   {dealer.connectionType === "CONNECTED" && (
-                    <Badge 
+                    <Badge
                       variant="secondary"
                       className="ml-1 bg-blue-100 text-blue-800 hover:bg-blue-100 text-xs"
                     >

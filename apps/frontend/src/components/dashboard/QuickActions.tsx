@@ -1,6 +1,7 @@
 "use client";
 
-import { Plus, Clock } from "lucide-react";
+import { Plus } from "lucide-react";
+import { Button } from "@/common/components/ui/button";
 
 interface QuickActionsProps {
   onAddExpense: () => void;
@@ -17,34 +18,38 @@ export function QuickActions({
 }: QuickActionsProps) {
   return (
     <div className="hidden md:flex md:items-center md:gap-2 md:flex-wrap md:justify-end">
-      <button
-        className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted"
+      <Button
+        variant="outline"
+        className="hover:bg-green-50 hover:text-green-700 border-green-200 gap-2"
         onClick={onAddExpense}
       >
         <Plus className="h-4 w-4" />
-        <span className="truncate">Add Expense</span>
-      </button>
-      <button
-        className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted"
+        Add Expense
+      </Button>
+      <Button
+        variant="outline"
+        className="hover:bg-green-50 hover:text-green-700 border-green-200 gap-2"
         onClick={onAddSale}
       >
         <Plus className="h-4 w-4" />
-        <span className="truncate">Add Sales</span>
-      </button>
-      <button
-        className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted"
+        Add Sales
+      </Button>
+      <Button
+        variant="outline"
+        className="hover:bg-green-50 hover:text-green-700 border-green-200 gap-2"
         onClick={onAddMortality}
       >
         <Plus className="h-4 w-4" />
-        <span className="truncate">Add Mortality</span>
-      </button>
-      <button
-        className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted"
+        Add Mortality
+      </Button>
+      <Button
+        variant="outline"
+        className="hover:bg-green-50 hover:text-green-700 border-green-200 gap-2"
         onClick={onRecordWeight}
       >
         <Plus className="h-4 w-4" />
-        <span className="truncate">Record Weight</span>
-      </button>
+        Record Weight
+      </Button>
     </div>
   );
 }

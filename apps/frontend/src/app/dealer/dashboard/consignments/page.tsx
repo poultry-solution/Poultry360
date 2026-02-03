@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Package,
@@ -14,6 +15,8 @@ import {
   DollarSign,
   Ban,
   Receipt,
+  AlertCircle,
+  ArrowLeft,
 } from "lucide-react";
 import {
   Card,
@@ -57,11 +60,12 @@ import {
   useAcceptConsignment,
   useConfirmReceipt,
   useRejectDealerConsignment,
-  useCancelDealerConsignment,
+  useGetDealerConsignmentAuditLogs,
   type Consignment,
 } from "@/fetchers/dealer/consignmentQueries";
 
 export default function DealerConsignmentsPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("received");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -72,6 +76,7 @@ export default function DealerConsignmentsPage() {
   const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
   const [isConfirmReceiptDialogOpen, setIsConfirmReceiptDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [isRejectionInfoOpen, setIsRejectionInfoOpen] = useState(false);
 
   // Form state for accept
   const [acceptItems, setAcceptItems] = useState<Array<{
@@ -104,7 +109,7 @@ export default function DealerConsignmentsPage() {
   const acceptMutation = useAcceptConsignment();
   const confirmReceiptMutation = useConfirmReceipt();
   const rejectMutation = useRejectDealerConsignment();
-  const cancelMutation = useCancelDealerConsignment();
+
 
   const receivedConsignments = receivedData?.data || [];
   const requestedConsignments = requestedData?.data || [];
@@ -162,7 +167,7 @@ export default function DealerConsignmentsPage() {
         );
       case "REJECTED":
         return (
-          <Badge variant="destructive">
+          <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
             <XCircle className="h-3 w-3 mr-1" />
             Rejected
           </Badge>
@@ -235,18 +240,7 @@ export default function DealerConsignmentsPage() {
     }
   };
 
-  const handleCancelConsignment = async (consignmentId: string) => {
-    if (!confirm("Are you sure you want to cancel this consignment?")) {
-      return;
-    }
 
-    try {
-      await cancelMutation.mutateAsync({ id: consignmentId });
-      toast.success("Consignment cancelled");
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to cancel consignment");
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -260,6 +254,13 @@ export default function DealerConsignmentsPage() {
             Manage consignments from companies
           </p>
         </div>
+        <Button
+          variant="outline"
+          onClick={() => router.push("/dealer/dashboard/company")}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
       </div>
 
       {/* Filters */}
@@ -366,7 +367,7 @@ export default function DealerConsignmentsPage() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            
+
                             {/* Accept action for CREATED status */}
                             {consignment.status === "CREATED" && (
                               <>
@@ -389,13 +390,14 @@ export default function DealerConsignmentsPage() {
                                 </Button>
                                 <Button
                                   variant="destructive"
+                                  className="text-black"
                                   size="sm"
                                   onClick={() => {
                                     setSelectedConsignment(consignment);
                                     setIsRejectDialogOpen(true);
                                   }}
                                 >
-                                  <XCircle className="h-4 w-4 mr-1" />
+                                  <XCircle className="h-4 w-4 mr-1 text-black" />
                                   Reject
                                 </Button>
                               </>
@@ -417,18 +419,7 @@ export default function DealerConsignmentsPage() {
                               </Button>
                             )}
 
-                            {/* Cancel for CREATED or ACCEPTED_PENDING_DISPATCH */}
-                            {(consignment.status === "CREATED" || consignment.status === "ACCEPTED_PENDING_DISPATCH") && (
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleCancelConsignment(consignment.id)}
-                                disabled={cancelMutation.isPending}
-                              >
-                                <XCircle className="h-4 w-4 mr-1" />
-                                Cancel
-                              </Button>
-                            )}
+
                           </div>
                         </TableCell>
                       </TableRow>
@@ -502,17 +493,21 @@ export default function DealerConsignmentsPage() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            {consignment.status === "CREATED" && (
+                            {consignment.status === "REJECTED" && (
                               <Button
-                                variant="destructive"
+                                variant="outline"
                                 size="sm"
-                                onClick={() => handleCancelConsignment(consignment.id)}
-                                disabled={cancelMutation.isPending}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                                onClick={() => {
+                                  setSelectedConsignment(consignment);
+                                  setIsRejectionInfoOpen(true);
+                                }}
                               >
-                                <XCircle className="h-4 w-4 mr-1" />
-                                Cancel
+                                <AlertCircle className="h-4 w-4 mr-1" />
+                                Reason
                               </Button>
                             )}
+
 
                             {/* Confirm Receipt for DISPATCHED status */}
                             {consignment.status === "DISPATCHED" && (
@@ -738,6 +733,7 @@ export default function DealerConsignmentsPage() {
             </Button>
             <Button
               variant="destructive"
+              className="text-black hover:bg-red-600 hover:text-white"
               onClick={handleRejectConsignment}
               disabled={rejectMutation.isPending || !rejectReason}
             >
@@ -746,6 +742,12 @@ export default function DealerConsignmentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <RejectionReasonDialog
+        consignmentId={selectedConsignment?.id || null}
+        open={isRejectionInfoOpen}
+        onOpenChange={setIsRejectionInfoOpen}
+      />
 
       {/* View Dialog - Reusing same structure as company page */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
@@ -913,6 +915,55 @@ export default function DealerConsignmentsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function RejectionReasonDialog({
+  consignmentId,
+  open,
+  onOpenChange,
+}: {
+  consignmentId: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { data: auditLogs, isLoading } = useGetDealerConsignmentAuditLogs(
+    consignmentId || ""
+  );
+
+  const rejectionLog = auditLogs?.find((log) => log.action === "REJECTED");
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Rejection Reason</DialogTitle>
+          <DialogDescription>
+            Reason provided for rejection
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          {isLoading ? (
+            <div className="flex justify-center py-4">
+              <p className="text-muted-foreground">Loading details...</p>
+            </div>
+          ) : rejectionLog ? (
+            <div className="bg-red-50 p-4 rounded-md border border-red-100 text-red-800">
+              <p className="font-medium mb-1">Reason:</p>
+              <p>{rejectionLog.notes || "No specific reason provided."}</p>
+              <p className="text-xs text-red-600 mt-2 pt-2 border-t border-red-200">
+                Rejected by {rejectionLog.actor?.name} on {new Date(rejectionLog.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-center py-4">No rejection details found.</p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

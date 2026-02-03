@@ -16,6 +16,7 @@ import {
   DollarSign,
   Ban,
   Plus,
+  AlertCircle,
 } from "lucide-react";
 import {
   Card,
@@ -73,12 +74,13 @@ export default function CompanyConsignmentsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [selectedConsignment, setSelectedConsignment] = useState<Consignment | null>(null);
-  
+
   // Dialogs
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isDispatchDialogOpen, setIsDispatchDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [isRejectionInfoOpen, setIsRejectionInfoOpen] = useState(false);
 
   // Form state for approve
   const [approveItems, setApproveItems] = useState<Array<{
@@ -170,7 +172,7 @@ export default function CompanyConsignmentsPage() {
         );
       case "REJECTED":
         return (
-          <Badge variant="destructive">
+          <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
             <XCircle className="h-3 w-3 mr-1" />
             Rejected
           </Badge>
@@ -180,6 +182,9 @@ export default function CompanyConsignmentsPage() {
           <Badge variant="secondary" className="bg-gray-500">
             <Ban className="h-3 w-3 mr-1" />
             Cancelled
+
+
+
           </Badge>
         );
       default:
@@ -401,6 +406,7 @@ export default function CompanyConsignmentsPage() {
                             )}
                             {(consignment.status === "CREATED" || consignment.status === "ACCEPTED_PENDING_DISPATCH") && (
                               <Button
+                                className="text-black cursor-pointer hover:bg-red-600 hover:text-white"
                                 variant="destructive"
                                 size="sm"
                                 onClick={() => handleCancelConsignment(consignment.id)}
@@ -408,6 +414,20 @@ export default function CompanyConsignmentsPage() {
                               >
                                 <XCircle className="h-4 w-4 mr-1" />
                                 Cancel
+                              </Button>
+                            )}
+                            {consignment.status === "REJECTED" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                                onClick={() => {
+                                  setSelectedConsignment(consignment);
+                                  setIsRejectionInfoOpen(true);
+                                }}
+                              >
+                                <AlertCircle className="h-4 w-4 mr-1" />
+                                Reason
                               </Button>
                             )}
                           </div>
@@ -504,6 +524,7 @@ export default function CompanyConsignmentsPage() {
                                 </Button>
                                 <Button
                                   variant="destructive"
+                                  className="text-black"
                                   size="sm"
                                   onClick={() => {
                                     setSelectedConsignment(consignment);
@@ -713,6 +734,7 @@ export default function CompanyConsignmentsPage() {
               Cancel
             </Button>
             <Button
+              className="text-black hover:bg-red-500 hover:text-white"
               variant="destructive"
               onClick={handleRejectConsignment}
               disabled={rejectMutation.isPending || !rejectReason}
@@ -722,6 +744,15 @@ export default function CompanyConsignmentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+
+
+
+      <RejectionReasonDialog
+        consignmentId={selectedConsignment?.id || null}
+        open={isRejectionInfoOpen}
+        onOpenChange={setIsRejectionInfoOpen}
+      />
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
@@ -888,6 +919,55 @@ export default function CompanyConsignmentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
+  );
+}
+
+function RejectionReasonDialog({
+  consignmentId,
+  open,
+  onOpenChange,
+}: {
+  consignmentId: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { data: auditLogs, isLoading } = useGetConsignmentAuditLogs(
+    consignmentId || ""
+  );
+
+  const rejectionLog = auditLogs?.find((log) => log.action === "REJECTED");
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Rejection Reason</DialogTitle>
+          <DialogDescription>
+            Reason provided for rejection
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          {isLoading ? (
+            <div className="flex justify-center py-4">
+              <p className="text-muted-foreground">Loading details...</p>
+            </div>
+          ) : rejectionLog ? (
+            <div className="bg-red-50 p-4 rounded-md border border-red-100 text-red-800">
+              <p className="font-medium mb-1">Reason:</p>
+              <p>{rejectionLog.notes || "No specific reason provided."}</p>
+              <p className="text-xs text-red-600 mt-2 pt-2 border-t border-red-200">
+                Rejected by {rejectionLog.actor?.name} on {new Date(rejectionLog.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-center py-4">No rejection details found.</p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

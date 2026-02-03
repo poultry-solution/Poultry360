@@ -21,7 +21,7 @@ import {
   TrendingUp,
   FileText,
   CreditCard,
-  FileCheck,
+
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { useAuth } from "@/common/store/store";
@@ -41,7 +41,6 @@ const farmerNavigation: NavigationItem[] = [
   { name: "Batches", href: "/farmer/dashboard/batches", icon: Layers },
   { name: "Dealers", href: "/farmer/dashboard/dealers", icon: Users },
   { name: "Sales Ledger", href: "/farmer/dashboard/sales-ledger", icon: Receipt },
-  { name: "Feed Ledger", href: "/farmer/dashboard/dealer-ledger", icon: Users },
   {
     name: "Medical Supplier Ledger",
     href: "/farmer/dashboard/medical-supplier-ledger",
@@ -55,8 +54,6 @@ const farmerNavigation: NavigationItem[] = [
     icon: MessageCircle,
   },
   { name: "Accounts", href: "/farmer/dashboard/accounts", icon: CreditCard },
-  { name: "Sale Requests", href: "/farmer/dashboard/sale-requests", icon: FileCheck },
-  { name: "Payment Requests", href: "/farmer/dashboard/payment-requests", icon: DollarSign },
   { name: "Vaccinations", href: "/farmer/dashboard/vaccinations", icon: Syringe },
 ];
 
@@ -70,10 +67,10 @@ const dealerNavigation: NavigationItem[] = [
   { name: "Home", href: "/dealer/dashboard/home", icon: Home },
   { name: "Companies", href: "/dealer/dashboard/company", icon: Building2 },
   { name: "Inventory", href: "/dealer/dashboard/inventory", icon: Package },
-  { name: "Customers", href: "/dealer/dashboard/customers", icon: Users },
+  { name: "Farmers", href: "/dealer/dashboard/customers", icon: Users },
   { name: "Sales", href: "/dealer/dashboard/sales", icon: Receipt },
   { name: "Ledger", href: "/dealer/dashboard/ledger", icon: FileText },
-  { name: "Consignments", href: "/dealer/dashboard/consignments", icon: Truck },
+
 ];
 
 const companyNavigation: NavigationItem[] = [
@@ -211,7 +208,7 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
         {navigation.map((item) => {
           // More precise active state logic
           let isActive = false;
-          
+
           if (item.href === "/admin/dashboard") {
             // For admin overview, only active if exactly on /admin/dashboard
             isActive = pathname === "/admin/dashboard";
@@ -231,7 +228,7 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
             // For all other routes, use the original logic (exact match or sub-routes)
             isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           }
-          
+
           return (
             <Link
               key={item.name}
