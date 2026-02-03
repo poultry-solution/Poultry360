@@ -87,19 +87,19 @@ export default function CompanyHomePage() {
 
         <div className="flex gap-4">
           <Link href="/company/dashboard/sales/new">
-            <Button className="gap-2 bg-background text-foreground border border-input hover:bg-primary hover:text-primary-foreground">
+            <Button variant="outline" className="gap-2 hover:bg-green-50 hover:text-green-700 border-green-200">
               <Plus className="h-4 w-4" />
               Add Sale
             </Button>
           </Link>
           <Link href="/company/dashboard/consignments">
-            <Button variant="outline" className="gap-2 hover:bg-primary hover:text-primary-foreground">
+            <Button variant="outline" className="gap-2 hover:bg-green-50 hover:text-green-700 border-green-200">
               <Truck className="h-4 w-4" />
               Consignments
             </Button>
           </Link>
           <Link href="/company/dashboard/payments">
-            <Button variant="outline" className="gap-2 hover:bg-primary hover:text-primary-foreground">
+            <Button variant="outline" className="gap-2 hover:bg-green-50 hover:text-green-700 border-green-200">
               <CreditCard className="h-4 w-4" />
               Payments
             </Button>

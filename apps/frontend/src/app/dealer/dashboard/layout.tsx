@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Sidebar from "@/components/dashboard/Sidebar";
+import { useState } from "react";
+import Sidebar, { dealerNavigation } from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
-import { MobileBottomNav } from "@/components/dashboard/MobileBottomNav";
+import { MobileNavSheet } from "@/components/dashboard/MobileNavSheet";
 import { QuickActionsProvider } from "@/contexts/QuickActionsContext";
 import { useAuthStore } from "@/common/store/store";
 
@@ -15,34 +15,16 @@ export default function DealerDashboardLayout({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { user } = useAuthStore();
 
-  const role = user?.role as
-    | "DEALER";
+  const role = user?.role as "DEALER";
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
   };
 
-  // Lock body scroll on mobile when the sidebar (off-canvas) is open
-  useEffect(() => {
-    const isMobile =
-      typeof window !== "undefined" &&
-      window.matchMedia("(max-width: 767px)").matches;
-    if (isMobile) {
-      if (!isCollapsed) {
-        document.body.classList.add("overflow-hidden");
-      } else {
-        document.body.classList.remove("overflow-hidden");
-      }
-    }
-    return () => {
-      document.body.classList.remove("overflow-hidden");
-    };
-  }, [isCollapsed]);
-
   return (
     <QuickActionsProvider>
       <div className="flex h-screen bg-background relative">
-        {/* Sidebar - Hidden on mobile, shown on desktop */}
+        {/* Desktop Sidebar - Hidden on mobile */}
         <div className="hidden md:block">
           <Sidebar
             role={role}
@@ -50,15 +32,6 @@ export default function DealerDashboardLayout({
             onToggle={toggleSidebar}
           />
         </div>
-
-        {/* Mobile Backdrop - visible only when sidebar is open on mobile */}
-        {!isCollapsed && (
-          <div
-            onClick={toggleSidebar}
-            className="fixed inset-0 z-40 bg-black/30 md:hidden"
-            aria-hidden="true"
-          />
-        )}
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -69,14 +42,12 @@ export default function DealerDashboardLayout({
             role={role}
           />
 
-          {/* Page Content - Add padding-bottom on mobile for bottom nav */}
-          <main className="flex-1 overflow-y-auto p-6 pb-24 md:pb-6">
-            {children}
-          </main>
+          {/* Page Content */}
+          <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
         </div>
 
-        {/* Mobile Bottom Navigation */}
-        <MobileBottomNav />
+        {/* Mobile Navigation - FAB + Sheet */}
+        <MobileNavSheet navigation={dealerNavigation} title="Navigation" />
       </div>
     </QuickActionsProvider>
   );

@@ -28,14 +28,14 @@ import { useAuth } from "@/common/store/store";
 import { LucideIcon } from "lucide-react";
 
 // Navigation item type
-interface NavigationItem {
+export interface NavigationItem {
   name: string;
   href: string;
   icon: LucideIcon;
 }
 
 // Role-based navigation configurations
-const farmerNavigation: NavigationItem[] = [
+export const farmerNavigation: NavigationItem[] = [
   { name: "Home", href: "/farmer/dashboard/home", icon: Home },
   { name: "Farms", href: "/farmer/dashboard/farms", icon: Building2 },
   { name: "Batches", href: "/farmer/dashboard/batches", icon: Layers },
@@ -57,13 +57,13 @@ const farmerNavigation: NavigationItem[] = [
   { name: "Vaccinations", href: "/farmer/dashboard/vaccinations", icon: Syringe },
 ];
 
-const doctorNavigation: NavigationItem[] = [
+export const doctorNavigation: NavigationItem[] = [
   { name: "Dashboard", href: "/doctor/dashboard", icon: Home },
   { name: "Chat", href: "/doctor/dashboard/chat", icon: MessageCircle },
   { name: "Ledger", href: "/doctor/dashboard/ledger", icon: Receipt },
 ];
 
-const dealerNavigation: NavigationItem[] = [
+export const dealerNavigation: NavigationItem[] = [
   { name: "Home", href: "/dealer/dashboard/home", icon: Home },
   { name: "Companies", href: "/dealer/dashboard/company", icon: Building2 },
   { name: "Inventory", href: "/dealer/dashboard/inventory", icon: Package },
@@ -73,7 +73,7 @@ const dealerNavigation: NavigationItem[] = [
 
 ];
 
-const companyNavigation: NavigationItem[] = [
+export const companyNavigation: NavigationItem[] = [
   { name: "Home", href: "/company/dashboard/home", icon: Home },
   { name: "Products", href: "/company/dashboard/products", icon: Package },
   { name: "Dealers", href: "/company/dashboard/dealers", icon: Users },
@@ -84,7 +84,7 @@ const companyNavigation: NavigationItem[] = [
   { name: "Analytics", href: "/company/dashboard/analytics", icon: BarChart3 },
 ];
 
-const adminNavigation: NavigationItem[] = [
+export const adminNavigation: NavigationItem[] = [
   { name: "Overview", href: "/admin/dashboard", icon: BarChart3 },
   { name: "Users", href: "/admin/dashboard/users", icon: Users },
   { name: "Farms", href: "/admin/dashboard/farms", icon: Building2 },
@@ -160,7 +160,7 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
   return (
     <div
       className={cn(
-        "flex h-full flex-col bg-card border-r transition-all duration-300 ease-in-out",
+        "flex h-full flex-col bg-white border-r transition-all duration-300 ease-in-out",
         // Base positioning: off-canvas on mobile, static on desktop
         "fixed inset-y-0 left-0 z-50 w-64 md:static",
         // Mobile transform (slide in/out)
