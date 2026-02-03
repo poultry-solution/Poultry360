@@ -21,7 +21,7 @@ import {
   TrendingUp,
   FileText,
   CreditCard,
-  FileCheck,
+
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { useAuth } from "@/common/store/store";
@@ -41,7 +41,6 @@ const farmerNavigation: NavigationItem[] = [
   { name: "Batches", href: "/farmer/dashboard/batches", icon: Layers },
   { name: "Dealers", href: "/farmer/dashboard/dealers", icon: Users },
   { name: "Sales Ledger", href: "/farmer/dashboard/sales-ledger", icon: Receipt },
-  { name: "Feed Ledger", href: "/farmer/dashboard/dealer-ledger", icon: Users },
   {
     name: "Medical Supplier Ledger",
     href: "/farmer/dashboard/medical-supplier-ledger",
@@ -55,8 +54,6 @@ const farmerNavigation: NavigationItem[] = [
     icon: MessageCircle,
   },
   { name: "Accounts", href: "/farmer/dashboard/accounts", icon: CreditCard },
-  { name: "Sale Requests", href: "/farmer/dashboard/sale-requests", icon: FileCheck },
-  { name: "Payment Requests", href: "/farmer/dashboard/payment-requests", icon: DollarSign },
   { name: "Vaccinations", href: "/farmer/dashboard/vaccinations", icon: Syringe },
 ];
 

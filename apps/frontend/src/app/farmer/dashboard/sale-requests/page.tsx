@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Clock, CheckCircle, XCircle, ShoppingBag, AlertCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Clock, CheckCircle, XCircle, ShoppingBag, ArrowLeft } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -68,6 +69,7 @@ interface SaleRequest {
 }
 
 export default function FarmerSaleRequestsPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [selectedRequest, setSelectedRequest] = useState<SaleRequest | null>(null);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
@@ -205,11 +207,22 @@ export default function FarmerSaleRequestsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Sale Requests</h1>
-        <p className="text-muted-foreground">
-          Review and approve sale requests from your connected dealers
-        </p>
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => router.push("/farmer/dashboard/dealers")}
+          className="h-8 w-8"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Sale Requests</h1>
+          <p className="text-muted-foreground">
+            Review and approve sale requests from your connected dealers
+          </p>
+        </div>
       </div>
 
       {/* Statistics */}
