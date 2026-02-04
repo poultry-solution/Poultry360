@@ -287,6 +287,8 @@ model User {
   // Company-Dealer account payments
   companyDealerPaymentsRecorded CompanyDealerPayment[] @relation("CompanyDealerPaymentRecorder")
 
+  balanceLimitsSet CompanyDealerAccount[] @relation("BalanceLimitSetter")
+
   // Dealer-Farmer relationships
   dealerConnections           DealerFarmer[]                 @relation("FarmerDealers")
   dealerVerificationRequests  FarmerVerificationRequest[]    @relation("FarmerVerificationRequests")
@@ -1569,6 +1571,9 @@ model ConsignmentRequest {
   companySaleId String?      @unique
   companySale   CompanySale? @relation(fields: [companySaleId], references: [id])
 
+  // Balance limit override (company allowed consignment despite limit)
+  overrideBalanceLimit Boolean? @default(false)
+
   fromCompanyId String?
   fromCompany   Company? @relation("CompanyConsignments", fields: [fromCompanyId], references: [id], onDelete: Cascade)
 
@@ -1758,6 +1763,12 @@ model CompanyDealerAccount {
   // Timestamps
   lastSaleDate    DateTime?
   lastPaymentDate DateTime?
+  
+  // Balance limit feature
+  balanceLimit    Decimal?  @db.Decimal(10, 2) // Maximum allowed balance (null = no limit)
+  balanceLimitSetAt DateTime? // When the limit was last set/updated
+  balanceLimitSetBy String?   // User ID who set the limit
+  balanceLimitSetByUser User? @relation("BalanceLimitSetter", fields: [balanceLimitSetBy], references: [id])
   
   sales    CompanySale[]
   payments CompanyDealerPayment[]

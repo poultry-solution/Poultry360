@@ -598,7 +598,7 @@ export default function DealerConsignmentsPage() {
             >
               {acceptMutation.isPending ? "Accepting..." : "Accept"}
             </Button>
-          </DialogFooter>
+          </DialogFooter> 
         </DialogContent>
       </Dialog>
 

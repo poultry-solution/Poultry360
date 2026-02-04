@@ -45,6 +45,7 @@ import {
   useGetDealerAccount,
   useGetDealerAccountStatement,
   useRecordDealerPayment,
+  useSetDealerBalanceLimit,
 } from "@/fetchers/company/companyDealerAccountQueries";
 
 export default function DealerAccountPage() {
@@ -54,6 +55,8 @@ export default function DealerAccountPage() {
 
   const [activeTab, setActiveTab] = useState("sales");
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isEditingLimit, setIsEditingLimit] = useState(false);
+  const [newBalanceLimit, setNewBalanceLimit] = useState<string>("");
   const [paymentData, setPaymentData] = useState({
     amount: 0,
     paymentMethod: "CASH",
@@ -70,6 +73,20 @@ export default function DealerAccountPage() {
 
   // Mutations
   const recordPaymentMutation = useRecordDealerPayment();
+  const setBalanceLimitMutation = useSetDealerBalanceLimit();
+
+  const handleUpdateBalanceLimit = async () => {
+    try {
+      await setBalanceLimitMutation.mutateAsync({
+        dealerId,
+        balanceLimit: newBalanceLimit ? parseFloat(newBalanceLimit) : null,
+      });
+      toast.success("Balance limit updated successfully");
+      setIsEditingLimit(false);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to update balance limit");
+    }
+  };
 
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -241,6 +258,71 @@ export default function DealerAccountPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Balance Limit Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Balance Limit</CardTitle>
+          <CardDescription>
+            Set a maximum balance limit for this dealer
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isEditingLimit ? (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="balanceLimit">Balance Limit</Label>
+                <Input
+                  id="balanceLimit"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newBalanceLimit}
+                  onChange={(e) => setNewBalanceLimit(e.target.value)}
+                  placeholder="Enter limit (leave empty for no limit)"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleUpdateBalanceLimit}
+                  disabled={setBalanceLimitMutation.isPending}
+                >
+                  {setBalanceLimitMutation.isPending ? "Saving..." : "Save"}
+                </Button>
+                <Button variant="outline" onClick={() => setIsEditingLimit(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-bold">
+                  {account?.balanceLimit != null
+                    ? `रू ${Number(account.balanceLimit).toFixed(2)}`
+                    : "No Limit"}
+                </p>
+                {account?.balanceLimitSetAt && (
+                  <p className="text-xs text-muted-foreground">
+                    Last updated:{" "}
+                    {new Date(account.balanceLimitSetAt).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+              <Button
+                onClick={() => {
+                  setNewBalanceLimit(
+                    account?.balanceLimit?.toString() ?? ""
+                  );
+                  setIsEditingLimit(true);
+                }}
+              >
+                Edit Limit
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Account Statement with Tabs */}
       <Card>

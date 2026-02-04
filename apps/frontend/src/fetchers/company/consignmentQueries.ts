@@ -183,6 +183,7 @@ export const useCreateCompanyConsignment = () => {
         unitPrice: number;
       }>;
       notes?: string;
+      overrideBalanceLimit?: boolean;
     }) => {
       const { data } = await axiosInstance.post("/consignments/company", input);
       return data;

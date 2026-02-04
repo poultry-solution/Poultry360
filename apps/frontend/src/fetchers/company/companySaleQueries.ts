@@ -50,6 +50,7 @@ export interface CreateCompanySaleInput {
   paymentMethod?: string;
   notes?: string;
   date?: Date;
+  overrideBalanceLimit?: boolean;
 }
 
 // AddSalePaymentInput removed - payments recorded at account level via CompanyDealerPayment

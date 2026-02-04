@@ -194,7 +194,7 @@ export default function CompanyConsignmentsPage() {
 
   const handleApproveConsignment = async () => {
     if (!selectedConsignment || approveItems.length === 0) {
-      toast.error("Please specify accepted quantities");
+      toast.error("No items to approve");
       return;
     }
 
@@ -567,13 +567,13 @@ export default function CompanyConsignmentsPage() {
           <DialogHeader>
             <DialogTitle>Approve Consignment Request</DialogTitle>
             <DialogDescription>
-              Review and approve quantities for {selectedConsignment?.requestNumber}
+              Approve {selectedConsignment?.requestNumber} as requested by the dealer (quantities cannot be changed). You can accept or reject with a note.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-3">
-              <Label>Approve Quantities</Label>
-              {approveItems.map((item, index) => {
+              <Label>Requested items (quantities as requested by dealer)</Label>
+              {approveItems.map((item) => {
                 const originalItem = selectedConsignment?.items.find(
                   (i) => i.id === item.itemId
                 );
@@ -584,26 +584,12 @@ export default function CompanyConsignmentsPage() {
                         {originalItem?.companyProduct?.name || "Unknown Product"}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        Requested: {originalItem?.quantity || 0} • Unit Price:{" "}
+                        Quantity: {originalItem?.quantity || 0} • Unit Price:{" "}
                         {formatCurrency(originalItem?.unitPrice)}
                       </p>
                     </div>
-                    <div className="w-32">
-                      <Label htmlFor={`approve-qty-${index}`}>Accept Qty</Label>
-                      <Input
-                        id={`approve-qty-${index}`}
-                        type="number"
-                        min="0"
-                        max={Number(originalItem?.quantity || 0)}
-                        step="0.01"
-                        value={item.acceptedQuantity}
-                        onChange={(e) => {
-                          const updated = [...approveItems];
-                          updated[index].acceptedQuantity =
-                            parseFloat(e.target.value) || 0;
-                          setApproveItems(updated);
-                        }}
-                      />
+                    <div className="text-right font-medium">
+                      {originalItem?.quantity || 0}
                     </div>
                   </div>
                 );
@@ -616,7 +602,7 @@ export default function CompanyConsignmentsPage() {
                 id="approve-notes"
                 value={approveNotes}
                 onChange={(e) => setApproveNotes(e.target.value)}
-                placeholder="Add notes or reasons for quantity changes..."
+                placeholder="Add notes..."
                 rows={3}
               />
             </div>

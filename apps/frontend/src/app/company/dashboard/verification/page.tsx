@@ -22,6 +22,7 @@ import {
 } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -64,6 +65,7 @@ export default function CompanyVerificationPage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [balanceLimit, setBalanceLimit] = useState<string>("");
 
   // Queries
   const { data: pendingData, isLoading: pendingLoading } = useGetCompanyVerificationRequests({
@@ -128,10 +130,14 @@ export default function CompanyVerificationPage() {
     if (!selectedRequest) return;
 
     try {
-      await approveMutation.mutateAsync(selectedRequest.id);
+      await approveMutation.mutateAsync({
+        requestId: selectedRequest.id,
+        balanceLimit: balanceLimit ? parseFloat(balanceLimit) : null,
+      });
       toast.success("Verification request approved successfully");
       setIsApproveDialogOpen(false);
       setSelectedRequest(null);
+      setBalanceLimit("");
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to approve request");
     }
@@ -551,6 +557,23 @@ export default function CompanyVerificationPage() {
               )}
             </DialogDescription>
           </DialogHeader>
+
+          <div className="space-y-2 py-4">
+            <Label htmlFor="balanceLimit">Balance Limit (Optional)</Label>
+            <Input
+              id="balanceLimit"
+              type="number"
+              min="0"
+              step="0.01"
+              value={balanceLimit}
+              onChange={(e) => setBalanceLimit(e.target.value)}
+              placeholder="Enter maximum balance limit (leave empty for no limit)"
+            />
+            <p className="text-xs text-muted-foreground">
+              Set a maximum balance limit for this dealer. You can change this later.
+            </p>
+          </div>
+
           <DialogFooter>
             <Button
               variant="outline"

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
-import { UserRole } from "@prisma/client";
+import { Prisma, UserRole } from "@prisma/client";
 
 // Use type assertion for Prisma client until Prisma client is regenerated
 const prismaWithVerification = prisma as any;
@@ -407,6 +407,7 @@ export const approveVerificationRequest = async (
 ): Promise<any> => {
   try {
     const { id } = req.params;
+    const { balanceLimit } = req.body;
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
@@ -491,6 +492,35 @@ export const approveVerificationRequest = async (
             companyId: verificationRequest.companyId,
             connectedVia: "VERIFICATION",
             connectedAt: new Date(),
+          },
+        });
+      }
+
+      // Set balance limit if provided
+      if (balanceLimit !== undefined) {
+        const limitValue =
+          balanceLimit === null || balanceLimit === "" ? null : Number(balanceLimit);
+        await tx.companyDealerAccount.upsert({
+          where: {
+            companyId_dealerId: {
+              companyId: verificationRequest.companyId,
+              dealerId: verificationRequest.dealerId,
+            },
+          },
+          update: {
+            balanceLimit: limitValue !== null ? new Prisma.Decimal(limitValue) : null,
+            balanceLimitSetAt: new Date(),
+            balanceLimitSetBy: currentUserId,
+          },
+          create: {
+            companyId: verificationRequest.companyId,
+            dealerId: verificationRequest.dealerId,
+            balance: new Prisma.Decimal(0),
+            totalSales: new Prisma.Decimal(0),
+            totalPayments: new Prisma.Decimal(0),
+            balanceLimit: limitValue !== null ? new Prisma.Decimal(limitValue) : null,
+            balanceLimitSetAt: new Date(),
+            balanceLimitSetBy: currentUserId,
           },
         });
       }

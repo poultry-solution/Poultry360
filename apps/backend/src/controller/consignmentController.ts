@@ -10,7 +10,7 @@ export const createCompanyConsignment = async (
 ): Promise<any> => {
   try {
     const userId = req.userId;
-    const { dealerId, items, notes } = req.body;
+    const { dealerId, items, notes, overrideBalanceLimit } = req.body;
 
     if (!dealerId || !items || items.length === 0) {
       return res.status(400).json({
@@ -48,6 +48,7 @@ export const createCompanyConsignment = async (
         unitPrice: Number(item.unitPrice),
       })),
       notes,
+      overrideBalanceLimit: !!overrideBalanceLimit,
     });
 
     return res.status(201).json({

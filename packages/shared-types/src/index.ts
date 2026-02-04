@@ -1428,4 +1428,28 @@ export const PaginatedResponseSchema = <T extends z.ZodTypeAny>(
 
 // ==================== FARM API RESPONSE SCHEMAS ====================
 
+// ==================== COMPANY DEALER ACCOUNT ====================
+
+export interface CompanyDealerAccount {
+  id: string;
+  companyId: string;
+  dealerId: string;
+  balance: number;
+  totalSales: number;
+  totalPayments: number;
+  lastSaleDate?: Date | null;
+  lastPaymentDate?: Date | null;
+  balanceLimit?: number | null;
+  balanceLimitSetAt?: Date | null;
+  balanceLimitSetBy?: string | null;
+}
+
+export interface BalanceLimitCheckResult {
+  allowed: boolean;
+  currentBalance: number;
+  newBalance: number;
+  limit: number | null;
+  exceedsBy?: number;
+}
+
 // ==================== USER RESPONSE SCHEMAS ====================

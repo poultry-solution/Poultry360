@@ -24,6 +24,7 @@ export class CompanyService {
     paymentMethod?: string;
     notes?: string;
     date: Date;
+    overrideBalanceLimit?: boolean;
   }) {
     const {
       companyId,
@@ -33,6 +34,7 @@ export class CompanyService {
       paymentMethod,
       notes,
       date,
+      overrideBalanceLimit,
     } = data;
 
     return await prisma.$transaction(async (tx) => {
@@ -77,10 +79,15 @@ export class CompanyService {
             dealerId,
           },
         },
+        select: {
+          id: true,
+          balance: true,
+          balanceLimit: true,
+        },
       });
 
       if (!account) {
-        account = await tx.companyDealerAccount.create({
+        const created = await tx.companyDealerAccount.create({
           data: {
             companyId,
             dealerId,
@@ -89,6 +96,25 @@ export class CompanyService {
             totalPayments: new Prisma.Decimal(0),
           },
         });
+        account = {
+          id: created.id,
+          balance: created.balance,
+          balanceLimit: created.balanceLimit,
+        };
+      }
+
+      // Check balance limit before creating sale
+      if (account.balanceLimit) {
+        const currentBalance = Number(account.balance);
+        const newBalance = currentBalance + totalAmount;
+        const limit = Number(account.balanceLimit);
+
+        if (newBalance > limit && !overrideBalanceLimit) {
+          throw new Error(
+            `Balance limit exceeded. Current: ${currentBalance}, New: ${newBalance}, Limit: ${limit}. ` +
+              `Exceeds by: ${(newBalance - limit).toFixed(2)}`
+          );
+        }
       }
 
       // 5. Generate invoice number

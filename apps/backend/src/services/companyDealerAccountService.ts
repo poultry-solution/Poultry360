@@ -368,6 +368,83 @@ export class CompanyDealerAccountService {
   }
 
   /**
+   * Set or update balance limit for a dealer account
+   */
+  static async setBalanceLimit(params: {
+    companyId: string;
+    dealerId: string;
+    balanceLimit: number | null;
+    setById: string;
+  }) {
+    const { companyId, dealerId, balanceLimit, setById } = params;
+
+    const account = await prisma.companyDealerAccount.upsert({
+      where: {
+        companyId_dealerId: { companyId, dealerId },
+      },
+      update: {
+        balanceLimit: balanceLimit !== null ? new Prisma.Decimal(balanceLimit) : null,
+        balanceLimitSetAt: new Date(),
+        balanceLimitSetBy: setById,
+      },
+      create: {
+        companyId,
+        dealerId,
+        balance: new Prisma.Decimal(0),
+        totalSales: new Prisma.Decimal(0),
+        totalPayments: new Prisma.Decimal(0),
+        balanceLimit: balanceLimit !== null ? new Prisma.Decimal(balanceLimit) : null,
+        balanceLimitSetAt: new Date(),
+        balanceLimitSetBy: setById,
+      },
+      include: {
+        company: { select: { id: true, name: true, address: true } },
+        dealer: { select: { id: true, name: true, contact: true, address: true } },
+      },
+    });
+
+    return account;
+  }
+
+  /**
+   * Check if a sale would exceed the balance limit
+   * Returns { allowed: boolean, currentBalance: number, newBalance: number, limit: number | null, exceedsBy?: number }
+   */
+  static async checkBalanceLimit(params: {
+    companyId: string;
+    dealerId: string;
+    saleAmount: number;
+  }) {
+    const { companyId, dealerId, saleAmount } = params;
+
+    const account = await prisma.companyDealerAccount.findUnique({
+      where: {
+        companyId_dealerId: { companyId, dealerId },
+      },
+      select: { balance: true, balanceLimit: true },
+    });
+
+    const currentBalance = account ? Number(account.balance) : 0;
+    const newBalance = currentBalance + saleAmount;
+    const limit = account?.balanceLimit ? Number(account.balanceLimit) : null;
+
+    if (limit === null) {
+      return { allowed: true, currentBalance, newBalance, limit: null };
+    }
+
+    const allowed = newBalance <= limit;
+    const exceedsBy = !allowed ? newBalance - limit : undefined;
+
+    return {
+      allowed,
+      currentBalance,
+      newBalance,
+      limit,
+      ...(exceedsBy !== undefined && { exceedsBy }),
+    };
+  }
+
+  /**
    * Get all accounts for a dealer
    */
   static async getDealerAccounts(dealerId: string) {
