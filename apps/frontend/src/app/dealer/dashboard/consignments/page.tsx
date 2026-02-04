@@ -542,13 +542,13 @@ export default function DealerConsignmentsPage() {
           <DialogHeader>
             <DialogTitle>Accept Consignment</DialogTitle>
             <DialogDescription>
-              Review and accept quantities for {selectedConsignment?.requestNumber}
+              Accept {selectedConsignment?.requestNumber} as sent by the company (quantities cannot be changed).
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-3">
-              <Label>Accept Quantities</Label>
-              {acceptItems.map((item, index) => {
+              <Label>Items (quantities as sent by company)</Label>
+              {acceptItems.map((item) => {
                 const originalItem = selectedConsignment?.items.find(
                   (i) => i.id === item.itemId
                 );
@@ -559,26 +559,12 @@ export default function DealerConsignmentsPage() {
                         {originalItem?.companyProduct?.name || "Unknown Product"}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        Offered: {originalItem?.quantity || 0} • Unit Price:{" "}
+                        Quantity: {originalItem?.quantity || 0} • Unit Price:{" "}
                         {formatCurrency(originalItem?.unitPrice)}
                       </p>
                     </div>
-                    <div className="w-32">
-                      <Label htmlFor={`accept-qty-${index}`}>Accept Qty</Label>
-                      <Input
-                        id={`accept-qty-${index}`}
-                        type="number"
-                        min="0"
-                        max={Number(originalItem?.quantity || 0)}
-                        step="0.01"
-                        value={item.acceptedQuantity}
-                        onChange={(e) => {
-                          const updated = [...acceptItems];
-                          updated[index].acceptedQuantity =
-                            parseFloat(e.target.value) || 0;
-                          setAcceptItems(updated);
-                        }}
-                      />
+                    <div className="text-right font-medium">
+                      {originalItem?.quantity || 0}
                     </div>
                   </div>
                 );
@@ -591,7 +577,7 @@ export default function DealerConsignmentsPage() {
                 id="accept-notes"
                 value={acceptNotes}
                 onChange={(e) => setAcceptNotes(e.target.value)}
-                placeholder="Add notes or reasons for quantity changes..."
+                placeholder="Add notes..."
                 rows={3}
               />
             </div>
