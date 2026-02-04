@@ -43,6 +43,11 @@ import {
 import { toast } from "sonner";
 import { useGetDealerSales } from "@/fetchers/dealer/dealerSaleQueries";
 import { useGetPartyLedger, useAddDealerPayment } from "@/fetchers/dealer/dealerLedgerQueries";
+import {
+  useGetFarmerAccount,
+  useGetFarmerAccountStatement,
+  useRecordFarmerPayment,
+} from "@/fetchers/dealer/dealerFarmerQueries";
 import axiosInstance from "@/common/lib/axios";
 import { useQuery } from "@tanstack/react-query";
 
@@ -93,56 +98,80 @@ export default function CustomerAccountPage() {
     enabled: !!customerId,
   });
 
-  // Determine if this is a customer or farmer
+  // Determine if this is a connected farmer (use account API) or manual customer (use ledger)
   const customer = customerData?.data;
   const isFarmer = customer?.source === "CONNECTED" && customer?.farmerId;
-  const partyId = customerId; // Use customerId as partyId for ledger
+  const farmerId = customer?.farmerId;
+  const partyId = customerId;
 
-  // Get sales for this customer/farmer
+  // Farmer: use account API
+  const { data: accountData, isLoading: accountLoading } = useGetFarmerAccount(
+    farmerId ?? ""
+  );
+  const { data: statementData, isLoading: statementLoading } =
+    useGetFarmerAccountStatement(farmerId ?? "", { limit: 100 });
+  const recordFarmerPaymentMutation = useRecordFarmerPayment();
+
+  // Sales (for both: list by customerId)
   const { data: salesData, isLoading: salesLoading } = useGetDealerSales({
-    customerId: !isFarmer ? customerId : undefined,
-    farmerId: isFarmer ? customerId : undefined,
+    customerId,
     limit: 100,
   });
 
-  // Get ledger entries for this customer/farmer
-  const { data: ledgerData, isLoading: ledgerLoading } = useGetPartyLedger(partyId, {
-    limit: 100,
-  });
-
-  // Payment mutation
+  // Ledger (manual customers only)
+  const { data: ledgerData, isLoading: ledgerLoading } = useGetPartyLedger(
+    partyId,
+    { limit: 100 }
+  );
   const addPaymentMutation = useAddDealerPayment();
 
   const sales = salesData?.data || [];
   const ledgerEntries = ledgerData?.data || [];
+  const account = accountData;
+  const statement = statementData;
+  const transactions = statement?.transactions ?? [];
 
-  // Calculate totals
-  const totalSales = sales.reduce((sum: number, sale: any) => sum + Number(sale.totalAmount), 0);
-  const totalPaid = sales.reduce((sum: number, sale: any) => sum + Number(sale.paidAmount), 0);
-  const totalDue = sales.reduce((sum: number, sale: any) => sum + Number(sale.dueAmount || 0), 0);
-  const currentBalance = customer?.balance || totalDue;
+  // Totals: from account for farmer, from sales/ledger for manual
+  const totalSales = isFarmer && account
+    ? Number(account.totalSales)
+    : sales.reduce((sum: number, sale: any) => sum + Number(sale.totalAmount), 0);
+  const totalPaid = isFarmer && account
+    ? Number(account.totalPayments)
+    : sales.reduce((sum: number, sale: any) => sum + Number(sale.paidAmount), 0);
+  const currentBalance = isFarmer && account
+    ? Number(account.balance)
+    : (customer?.balance ?? sales.reduce((sum: number, sale: any) => sum + Number(sale.dueAmount || 0), 0));
 
-  // Get payments from ledger entries
-  const payments = ledgerEntries.filter((entry: any) => 
-    entry.type === "PAYMENT_RECEIVED" || entry.type === "PAYMENT"
-  );
+  const payments = isFarmer
+    ? transactions.filter((t: any) => t.type === "PAYMENT")
+    : ledgerEntries.filter((entry: any) =>
+        entry.type === "PAYMENT_RECEIVED" || entry.type === "PAYMENT"
+      );
 
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (paymentData.amount <= 0) {
       toast.error("Amount must be greater than 0");
       return;
     }
-
     try {
-      await addPaymentMutation.mutateAsync({
-        customerId,
-        amount: paymentData.amount,
-        paymentMethod: paymentData.paymentMethod,
-        date: paymentData.date,
-        notes: paymentData.notes,
-      });
+      if (isFarmer && farmerId) {
+        await recordFarmerPaymentMutation.mutateAsync({
+          farmerId,
+          amount: paymentData.amount,
+          paymentMethod: paymentData.paymentMethod,
+          paymentDate: paymentData.date,
+          notes: paymentData.notes || undefined,
+        });
+      } else {
+        await addPaymentMutation.mutateAsync({
+          customerId,
+          amount: paymentData.amount,
+          paymentMethod: paymentData.paymentMethod,
+          date: paymentData.date,
+          notes: paymentData.notes,
+        });
+      }
       toast.success("Payment recorded successfully");
       setIsPaymentDialogOpen(false);
       setPaymentData({
@@ -168,7 +197,10 @@ export default function CustomerAccountPage() {
     });
   };
 
-  if (customerLoading || salesLoading || ledgerLoading) {
+  const dataLoading = isFarmer
+    ? accountLoading || statementLoading || salesLoading
+    : salesLoading || ledgerLoading;
+  if (customerLoading || dataLoading) {
     return (
       <div className="space-y-6">
         <div className="text-center py-8">
@@ -431,9 +463,9 @@ export default function CustomerAccountPage() {
                           <p className="text-sm text-muted-foreground">
                             {formatDate(payment.date || payment.paymentDate)}
                           </p>
-                          {payment.description && (
+                          {(payment.description ?? payment.notes) && (
                             <p className="text-sm text-muted-foreground mt-1">
-                              {payment.description}
+                              {payment.description ?? payment.notes}
                             </p>
                           )}
                         </div>
@@ -442,9 +474,9 @@ export default function CustomerAccountPage() {
                         <p className="text-lg font-bold text-green-600">
                           -{formatCurrency(Number(payment.amount))}
                         </p>
-                        {payment.balance !== undefined && (
+                        {(payment.balance !== undefined || payment.balanceAfter !== undefined) && (
                           <p className="text-xs text-muted-foreground">
-                            Balance: {formatCurrency(Number(payment.balance))}
+                            Balance: {formatCurrency(Number(payment.balanceAfter ?? payment.balance))}
                           </p>
                         )}
                       </div>
@@ -582,12 +614,27 @@ export default function CustomerAccountPage() {
                 type="button"
                 variant="outline"
                 onClick={() => setIsPaymentDialogOpen(false)}
-                disabled={addPaymentMutation.isPending}
+                disabled={
+                  isFarmer
+                    ? recordFarmerPaymentMutation.isPending
+                    : addPaymentMutation.isPending
+                }
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={addPaymentMutation.isPending}>
-                {addPaymentMutation.isPending
+              <Button
+                type="submit"
+                disabled={
+                  isFarmer
+                    ? recordFarmerPaymentMutation.isPending
+                    : addPaymentMutation.isPending
+                }
+              >
+                {isFarmer
+                  ? recordFarmerPaymentMutation.isPending
+                    ? "Recording..."
+                    : "Record Payment"
+                  : addPaymentMutation.isPending
                   ? "Recording..."
                   : "Record Payment"}
               </Button>

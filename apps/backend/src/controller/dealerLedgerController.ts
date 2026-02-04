@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { Prisma } from "@prisma/client";
 import { DealerService } from "../services/dealerService";
+import { DealerFarmerAccountService } from "../services/dealerFarmerAccountService";
 
 // ==================== GET LEDGER ENTRIES ====================
 export const getLedgerEntries = async (
@@ -560,56 +561,84 @@ export const addDealerPayment = async (
 
     // Route to appropriate payment method
     if (saleId) {
-      // Bill-wise payment - existing flow
-      // Verify sale belongs to dealer
+      // Bill-wise payment - use account for farmer-linked sales
       const sale = await prisma.dealerSale.findUnique({
         where: { id: saleId },
-        select: { dealerId: true },
+        select: { dealerId: true, accountId: true, farmerId: true },
       });
 
       if (!sale || sale.dealerId !== dealer.id) {
         return res.status(403).json({ message: "Sale not found or access denied" });
       }
 
-      // Use DealerService to add payment to specific sale
-      await DealerService.addSalePayment({
-        saleId,
-        amount: Number(amount),
-        paymentMethod: paymentMethod || "CASH",
-        date: date ? new Date(date) : new Date(),
-        description: notes || `Payment received`,
-      });
+      if (sale.accountId && sale.farmerId) {
+        // Farmer-linked sale: record at account level
+        await DealerFarmerAccountService.recordPayment({
+          dealerId: dealer.id,
+          farmerId: sale.farmerId,
+          amount: Number(amount),
+          paymentMethod: paymentMethod || "CASH",
+          paymentDate: date ? new Date(date) : new Date(),
+          notes: notes || `Payment received`,
+          recordedById: userId as string,
+        });
+      } else {
+        // Manual customer: use bill-level payment
+        await DealerService.addSalePayment({
+          saleId,
+          amount: Number(amount),
+          paymentMethod: paymentMethod || "CASH",
+          date: date ? new Date(date) : new Date(),
+          description: notes || `Payment received`,
+        });
+      }
 
       return res.status(200).json({
         success: true,
         message: "Payment added successfully",
       });
     } else {
-      // General payment - auto-allocate using FIFO
-      // Verify customer belongs to dealer
+      // General payment - use account for connected farmers, FIFO for manual customers
       const customer = await prisma.customer.findUnique({
         where: { id: customerId },
-        select: { userId: true },
+        select: { userId: true, farmerId: true },
       });
 
       if (!customer || customer.userId !== userId) {
         return res.status(403).json({ message: "Customer not found or access denied" });
       }
 
-      // Use DealerService to add general payment
-      const result = await DealerService.addGeneralPayment({
-        customerId,
-        dealerId: dealer.id,
-        amount: Number(amount),
-        paymentMethod: paymentMethod || "CASH",
-        date: date ? new Date(date) : new Date(),
-        description: notes || `General payment`,
-      });
+      if (customer.farmerId) {
+        // Connected farmer: record at account level
+        await DealerFarmerAccountService.recordPayment({
+          dealerId: dealer.id,
+          farmerId: customer.farmerId,
+          amount: Number(amount),
+          paymentMethod: paymentMethod || "CASH",
+          paymentDate: date ? new Date(date) : new Date(),
+          notes: notes || `General payment`,
+          recordedById: userId as string,
+        });
+      } else {
+        // Manual customer: FIFO allocation
+        const result = await DealerService.addGeneralPayment({
+          customerId,
+          dealerId: dealer.id,
+          amount: Number(amount),
+          paymentMethod: paymentMethod || "CASH",
+          date: date ? new Date(date) : new Date(),
+          description: notes || `General payment`,
+        });
+        return res.status(200).json({
+          success: true,
+          message: "Payment added successfully",
+          data: result,
+        });
+      }
 
       return res.status(200).json({
         success: true,
         message: "Payment added successfully",
-        data: result,
       });
     }
   } catch (error: any) {

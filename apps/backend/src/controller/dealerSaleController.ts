@@ -278,10 +278,19 @@ export const addSalePayment = async (
         id,
         dealerId: dealer.id,
       },
+      select: { id: true, accountId: true },
     });
 
     if (!sale) {
       return res.status(404).json({ message: "Sale not found" });
+    }
+
+    // Payments for connected farmers are managed at account level
+    if (sale.accountId) {
+      return res.status(400).json({
+        message:
+          "Payments for connected farmers are managed at account level. Use the farmer's account page to record payments.",
+      });
     }
 
     // Add payment using service

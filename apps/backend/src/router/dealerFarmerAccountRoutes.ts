@@ -4,6 +4,8 @@ import {
   getDealerFarmerAccount,
   getDealerFarmerAccountStatement,
   recordDealerFarmerPayment,
+  setFarmerBalanceLimit,
+  checkFarmerBalanceLimit,
 } from "../controller/dealerFarmerAccountController";
 import { authMiddleware } from "../middelware/middelware";
 
@@ -19,6 +21,12 @@ router.get("/", getDealerFarmerAccounts);
 
 // Get a specific farmer account
 router.get("/:farmerId", getDealerFarmerAccount);
+
+// Set farmer balance limit
+router.put("/:farmerId/balance-limit", setFarmerBalanceLimit);
+
+// Check farmer balance limit (e.g. before creating sale)
+router.post("/:farmerId/check-balance-limit", checkFarmerBalanceLimit);
 
 // Get account statement for a farmer
 router.get("/:farmerId/statement", getDealerFarmerAccountStatement);
