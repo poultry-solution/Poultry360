@@ -45,16 +45,10 @@ export class DealerSalePaymentRequestService {
         );
       }
 
-      // 2. Validate amount
-      const currentDue = Number(sale.dueAmount || 0);
+      // 2. Validate amount (no cap on sale.dueAmount — account-linked sales use
+      // dealer-farmer account balance; amounts above balance allow advances)
       if (amount <= 0) {
         throw new Error("Payment amount must be greater than zero");
-      }
-
-      if (amount > currentDue) {
-        throw new Error(
-          `Payment amount (${amount}) exceeds due amount (${currentDue})`
-        );
       }
 
       // 3. Generate request number
@@ -255,7 +249,7 @@ export class DealerSalePaymentRequestService {
       },
     });
 
-    // 3. Record payment on dealer-farmer account (single source of truth for farmer payments)
+    // 3. Record payment on dealer-farmer account (account-only; no sale allocation).
     try {
       await DealerFarmerAccountService.recordPayment({
         dealerId,

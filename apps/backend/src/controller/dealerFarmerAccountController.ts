@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { DealerFarmerAccountService } from "../services/dealerFarmerAccountService";
+import { UserRole } from "@prisma/client";
 
 // ==================== LIST FARMER ACCOUNTS (DEALER SIDE) ====================
 export const getDealerFarmerAccounts = async (
@@ -217,7 +218,7 @@ export const setFarmerBalanceLimit = async (
     }
 
     const farmer = await prisma.user.findFirst({
-      where: { id: farmerId, role: "FARMER" },
+      where: { id: farmerId, role: UserRole.OWNER},
     });
 
     if (!farmer) {

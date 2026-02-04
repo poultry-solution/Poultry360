@@ -126,7 +126,9 @@ export default function CustomerAccountPage() {
   const addPaymentMutation = useAddDealerPayment();
 
   const sales = salesData?.data || [];
-  const ledgerEntries = ledgerData?.data || [];
+  const ledgerEntries = Array.isArray(ledgerData?.data)
+    ? ledgerData.data
+    : ledgerData?.data?.entries ?? [];
   const account = accountData;
   const statement = statementData;
   const transactions = statement?.transactions ?? [];
@@ -253,9 +255,10 @@ export default function CustomerAccountPage() {
             {customer.phone} {customer.address && `• ${customer.address}`}
           </p>
         </div>
+        {/* For connected farmers, only account-level payment (no bill-level) */}
         <Button onClick={() => setIsPaymentDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Record Payment
+          {isFarmer ? "Record payment (account)" : "Record Payment"}
         </Button>
       </div>
 
@@ -350,7 +353,9 @@ export default function CustomerAccountPage() {
         <CardHeader>
           <CardTitle>Account Statement</CardTitle>
           <CardDescription>
-            Sales and payment transaction history
+            {isFarmer
+              ? "Sales and payment history. Payments are recorded at account level only (no bill-level payment)."
+              : "Sales and payment transaction history"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -413,7 +418,8 @@ export default function CustomerAccountPage() {
                         <p className="text-lg font-bold text-red-600">
                           +{formatCurrency(Number(sale.totalAmount))}
                         </p>
-                        {sale.dueAmount && Number(sale.dueAmount) > 0 && (
+                        {/* Hide per-sale due for farmers; payments are account-level only */}
+                        {!isFarmer && sale.dueAmount && Number(sale.dueAmount) > 0 && (
                           <p className="text-xs text-muted-foreground">
                             Due: {formatCurrency(Number(sale.dueAmount))}
                           </p>
@@ -489,14 +495,16 @@ export default function CustomerAccountPage() {
         </CardContent>
       </Card>
 
-      {/* Record Payment Dialog */}
+      {/* Record Payment Dialog - account-level only for farmers, no sale selection */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent className="max-w-md">
           <form onSubmit={handleRecordPayment}>
             <DialogHeader>
               <DialogTitle>Record Payment</DialogTitle>
               <DialogDescription>
-                Record a payment received from {customer.name}
+                {isFarmer
+                  ? `Record a payment to ${customer.name}'s account (account-level only).`
+                  : `Record a payment received from ${customer.name}`}
               </DialogDescription>
             </DialogHeader>
 

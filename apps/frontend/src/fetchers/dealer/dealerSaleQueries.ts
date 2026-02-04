@@ -25,6 +25,7 @@ export interface DealerSale {
   dealerId: string;
   customerId?: string;
   farmerId?: string;
+  accountId?: string;
   customer?: any;
   farmer?: any;
   items: DealerSaleItem[];

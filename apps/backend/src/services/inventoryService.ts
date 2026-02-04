@@ -59,8 +59,9 @@ export class InventoryService {
     else if (medicineSupplierId) itemType = InventoryItemType.MEDICINE;
     else itemType = InventoryItemType.OTHER;
 
-    return await prisma.$transaction(async (tx) => {
-      // 1. Determine category name
+    return await prisma.$transaction(
+      async (tx) => {
+        // 1. Determine category name
       const categoryName =
         itemType === InventoryItemType.FEED
           ? "Feed"
@@ -231,7 +232,9 @@ export class InventoryService {
         paymentTransaction,
         purchaseTransactionId: entityTransaction.id, // 🔗 NEW: Return purchase transaction ID for payment linking
       };
-    });
+      },
+      { timeout: 20000 }
+    );
   }
 
   // ==================== RECORD INVENTORY USAGE (FARM/BATCH SPECIFIC) ====================

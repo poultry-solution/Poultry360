@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Receipt, Search, Filter, Eye, CreditCard, Calendar, FileCheck } from "lucide-react";
+import { Plus, Receipt, Search, Filter, Eye, CreditCard, Calendar, FileCheck, Wallet } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -179,9 +179,7 @@ export default function DealerSalesPage() {
                     <TableHead>Date</TableHead>
                     <TableHead>Customer</TableHead>
                     <TableHead className="text-right">Total Amount</TableHead>
-                    <TableHead className="text-right">Paid</TableHead>
-                    <TableHead className="text-right">Due</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -219,26 +217,10 @@ export default function DealerSalesPage() {
                       <TableCell className="text-right font-medium">
                         {formatCurrency(Number(sale.totalAmount))}
                       </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(Number(sale.paidAmount))}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {sale.dueAmount && Number(sale.dueAmount) > 0 ? (
-                          <span className="text-red-600 font-semibold">
-                            {formatCurrency(Number(sale.dueAmount))}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
                       <TableCell>
-                        {sale.isCredit && sale.dueAmount && Number(sale.dueAmount) > 0 ? (
-                          <Badge variant="destructive">Credit</Badge>
-                        ) : sale.isCredit ? (
-                          <Badge variant="secondary">Paid</Badge>
-                        ) : (
-                          <Badge variant="default">Cash</Badge>
-                        )}
+                        <Badge variant={sale.isCredit ? "secondary" : "default"}>
+                          {sale.isCredit ? "Credit" : "Cash"}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -251,7 +233,21 @@ export default function DealerSalesPage() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {sale.isCredit &&
+                          {sale.accountId ?? sale.farmerId ?? sale.customer?.farmerId ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                router.push(
+                                  `/dealer/dashboard/customers/${sale.customerId ?? sale.farmerId}/account`
+                                )
+                              }
+                              title="View farmer account"
+                            >
+                              <Wallet className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            sale.isCredit &&
                             sale.dueAmount &&
                             Number(sale.dueAmount) > 0 && (
                               <Button
@@ -265,7 +261,8 @@ export default function DealerSalesPage() {
                               >
                                 <CreditCard className="h-4 w-4" />
                               </Button>
-                            )}
+                            )
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

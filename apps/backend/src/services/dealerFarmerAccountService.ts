@@ -97,22 +97,30 @@ export class DealerFarmerAccountService {
   }
 
   /**
-   * Record payment and update account balance
+   * Record payment and update account balance.
+   * Payments only create DealerFarmerPayment and DealerLedgerEntry; they do not update
+   * any DealerSale row (account-only model; sales are history only).
+   * When tx is provided, runs inside the caller's transaction for atomicity.
    */
-  static async recordPayment(data: {
-    dealerId: string;
-    farmerId: string;
-    amount: number;
-    paymentMethod?: string;
-    paymentDate?: Date;
-    notes?: string;
-    reference?: string;
-    receiptImageUrl?: string;
-    proofImageUrl?: string;
-    recordedById: string;
-  }) {
-    return await prisma.$transaction(async (tx) => {
-      const account = await tx.dealerFarmerAccount.upsert({
+  static async recordPayment(
+    data: {
+      dealerId: string;
+      farmerId: string;
+      amount: number;
+      paymentMethod?: string;
+      paymentDate?: Date;
+      notes?: string;
+      reference?: string;
+      receiptImageUrl?: string;
+      proofImageUrl?: string;
+      recordedById: string;
+      /** Optional; kept for reference only — never used to mutate sale amounts */
+      dealerSaleId?: string | null;
+    },
+    tx?: Prisma.TransactionClient
+  ) {
+    const run = async (client: Prisma.TransactionClient) => {
+      const account = await client.dealerFarmerAccount.upsert({
         where: {
           dealerId_farmerId: {
             dealerId: data.dealerId,
@@ -136,7 +144,7 @@ export class DealerFarmerAccountService {
 
       const newBalance = Number(account.balance);
 
-      const payment = await tx.dealerFarmerPayment.create({
+      const payment = await client.dealerFarmerPayment.create({
         data: {
           accountId: account.id,
           amount: new Prisma.Decimal(data.amount),
@@ -151,11 +159,40 @@ export class DealerFarmerAccountService {
         },
       });
 
+      // Dealer ledger: record payment received from farmer so ledger balance stays aligned with account movements
+      const paymentDate = data.paymentDate || new Date();
+      const lastLedgerEntry = await client.dealerLedgerEntry.findFirst({
+        where: { dealerId: data.dealerId },
+        orderBy: { createdAt: "desc" },
+      });
+      const currentLedgerBalance = lastLedgerEntry
+        ? Number(lastLedgerEntry.balance)
+        : 0;
+      const newLedgerBalance = currentLedgerBalance - data.amount;
+      await client.dealerLedgerEntry.create({
+        data: {
+          type: "PAYMENT_RECEIVED",
+          amount: new Prisma.Decimal(data.amount),
+          balance: new Prisma.Decimal(newLedgerBalance),
+          date: paymentDate,
+          description: data.notes ?? "Payment received from farmer",
+          reference: data.reference ?? payment.id,
+          dealerId: data.dealerId,
+          partyId: data.farmerId,
+          partyType: "FARMER",
+        },
+      });
+
       return {
         payment,
         account,
       };
-    });
+    };
+
+    if (tx) {
+      return run(tx);
+    }
+    return await prisma.$transaction(run);
   }
 
   /**

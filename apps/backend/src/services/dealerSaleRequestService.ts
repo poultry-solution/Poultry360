@@ -33,83 +33,92 @@ export class DealerSaleRequestService {
       date,
     } = data;
 
-    return await prisma.$transaction(async (tx) => {
-      // 1. Validate stock availability for all items (but don't deduct yet)
-      for (const item of items) {
-        const product = await tx.dealerProduct.findUnique({
-          where: { id: item.productId },
-        });
+    const requestId = await prisma.$transaction(
+      async (tx) => {
+        // 1. Validate stock availability for all items (but don't deduct yet)
+        for (const item of items) {
+          const product = await tx.dealerProduct.findUnique({
+            where: { id: item.productId },
+          });
 
-        if (!product) {
-          throw new Error(`Product ${item.productId} not found`);
+          if (!product) {
+            throw new Error(`Product ${item.productId} not found`);
+          }
+
+          if (Number(product.currentStock) < item.quantity) {
+            throw new Error(
+              `Insufficient stock for product ${product.name}. Available: ${product.currentStock}, Requested: ${item.quantity}`
+            );
+          }
         }
 
-        if (Number(product.currentStock) < item.quantity) {
-          throw new Error(
-            `Insufficient stock for product ${product.name}. Available: ${product.currentStock}, Requested: ${item.quantity}`
-          );
-        }
-      }
+        // 2. Calculate totals
+        const totalAmount = items.reduce(
+          (sum, item) => sum + item.quantity * item.unitPrice,
+          0
+        );
 
-      // 2. Calculate totals
-      const totalAmount = items.reduce(
-        (sum, item) => sum + item.quantity * item.unitPrice,
-        0
-      );
+        // 3. Generate request number
+        const requestNumber = `SR-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
-      // 3. Generate request number
-      const requestNumber = `SR-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-
-      // 4. Create the sale request
-      const request = await tx.dealerSaleRequest.create({
-        data: {
-          requestNumber,
-          date,
-          totalAmount: new Prisma.Decimal(totalAmount),
-          paidAmount: new Prisma.Decimal(paidAmount),
-          paymentMethod,
-          notes,
-          dealerId,
-          farmerId,
-          customerId,
-          status: "PENDING",
-        },
-      });
-
-      // 5. Create request items
-      for (const item of items) {
-        await tx.dealerSaleRequestItem.create({
+        // 4. Create the sale request
+        const request = await tx.dealerSaleRequest.create({
           data: {
-            requestId: request.id,
-            productId: item.productId,
-            quantity: new Prisma.Decimal(item.quantity),
-            unitPrice: new Prisma.Decimal(item.unitPrice),
-            totalAmount: new Prisma.Decimal(item.quantity * item.unitPrice),
+            requestNumber,
+            date,
+            totalAmount: new Prisma.Decimal(totalAmount),
+            paidAmount: new Prisma.Decimal(paidAmount),
+            paymentMethod,
+            notes,
+            dealerId,
+            farmerId,
+            customerId,
+            status: "PENDING",
           },
         });
-      }
 
-      // 6. Return request with items
-      return await tx.dealerSaleRequest.findUnique({
-        where: { id: request.id },
-        include: {
-          items: {
-            include: {
-              product: true,
+        // 5. Create request items
+        for (const item of items) {
+          await tx.dealerSaleRequestItem.create({
+            data: {
+              requestId: request.id,
+              productId: item.productId,
+              quantity: new Prisma.Decimal(item.quantity),
+              unitPrice: new Prisma.Decimal(item.unitPrice),
+              totalAmount: new Prisma.Decimal(item.quantity * item.unitPrice),
             },
+          });
+        }
+
+        return request.id;
+      },
+      { timeout: 20000 }
+    );
+
+    // 6. Return request with items (outside transaction to avoid timeout; read is fast)
+    const result = await prisma.dealerSaleRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        items: {
+          include: {
+            product: true,
           },
-          dealer: true,
-          farmer: {
-            select: {
-              id: true,
-              name: true,
-              phone: true,
-            },
-          },
-          customer: true,
         },
-      });
+        dealer: true,
+        farmer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+          },
+        },
+        customer: true,
+      },
     });
+    if (!result) {
+      throw new Error("Sale request not found after create");
+    }
+    return result;
   }
 
   /**
@@ -127,7 +136,8 @@ export class DealerSaleRequestService {
   }) {
     const { requestId, farmerId } = data;
 
-    // 1. Fetch the request BEFORE transaction (to use data after transaction)
+    // 1. Fetch the request BEFORE transaction (to use data after transaction).
+    // Include dealer.ownerId so upfront payments can use a valid User ID for recordedById.
     const request = await prisma.dealerSaleRequest.findUnique({
       where: { id: requestId },
       include: {
@@ -136,7 +146,7 @@ export class DealerSaleRequestService {
             product: true,
           },
         },
-        dealer: true,
+        dealer: { select: { id: true, ownerId: true } },
         customer: true,
       },
     });
@@ -161,11 +171,22 @@ export class DealerSaleRequestService {
     const dueAmount = totalAmount - paidAmount;
     const isCredit = dueAmount > 0;
 
+    // Resolve dealer's user/owner ID for recording upfront payments (recordedById must be a valid User id)
+    const recordedByUserId =
+      paidAmount > 0
+        ? request.dealer?.ownerId ?? (() => {
+            throw new Error(
+              "Dealer has no owner; cannot record upfront payment. Please set the dealer's owner."
+            );
+          })()
+        : null;
+
     // 5. Generate invoice number
     const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
-    // 6. Execute dealer-side transaction
-    const saleId = await prisma.$transaction(async (tx) => {
+    // 6. Execute dealer-side transaction (long timeout: many items + ledger + account)
+    const saleId = await prisma.$transaction(
+      async (tx) => {
       // Re-validate stock availability
       for (const item of request.items) {
         const product = await tx.dealerProduct.findUnique({
@@ -194,14 +215,29 @@ export class DealerSaleRequestService {
         },
       });
 
-      // Account-based: link sale to dealer–farmer account and update running balance
+      // Account-based: record only net due so balance is not overstated for partially-paid sales.
+      // When paidAmount exists, record sale for dueAmount then record upfront payment in same tx.
+      const accountSaleAmount = paidAmount > 0 ? dueAmount : totalAmount;
       await DealerFarmerAccountService.recordSale(
         request.dealerId,
         request.farmerId,
-        totalAmount,
+        accountSaleAmount,
         sale.id,
         tx
       );
+      if (paidAmount > 0 && recordedByUserId) {
+        await DealerFarmerAccountService.recordPayment(
+          {
+            dealerId: request.dealerId,
+            farmerId: request.farmerId,
+            amount: paidAmount,
+            paymentDate: request.date,
+            reference: invoiceNumber,
+            recordedById: recordedByUserId,
+          },
+          tx
+        );
+      }
 
       // Create sale items and update product stock
       for (const requestItem of request.items) {
@@ -306,7 +342,9 @@ export class DealerSaleRequestService {
       });
 
       return sale.id;
-    });
+      },
+      { timeout: 20000 }
+    );
 
     // Process farmer-side inventory OUTSIDE main transaction (InventoryService).
     // No EntityTransaction PAYMENT is created here; payments are recorded via

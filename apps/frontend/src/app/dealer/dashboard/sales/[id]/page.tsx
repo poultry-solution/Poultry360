@@ -108,8 +108,8 @@ export default function SaleDetailPage() {
         )}
       </div>
 
-      {/* Sale Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      {/* Sale Summary Cards: for farmer-linked sales only total (account-only model); for manual sales show Paid/Due */}
+      <div className={`grid gap-4 ${isFarmerAccountSale ? "md:grid-cols-1" : "md:grid-cols-3"}`}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
@@ -117,30 +117,39 @@ export default function SaleDetailPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalAmount)}</div>
+            {isFarmerAccountSale && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Payment tracking is managed in farmer account
+              </p>
+            )}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Paid Amount</CardTitle>
-            <Check className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(paidAmount)}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Due Amount</CardTitle>
-            <X className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {formatCurrency(dueAmount)}
-            </div>
-          </CardContent>
-        </Card>
+        {!isFarmerAccountSale && (
+          <>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Paid Amount</CardTitle>
+                <Check className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {formatCurrency(paidAmount)}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Due Amount</CardTitle>
+                <X className="h-4 w-4 text-red-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">
+                  {formatCurrency(dueAmount)}
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Two Column Layout */}
@@ -182,30 +191,36 @@ export default function SaleDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Payment Status */}
+          {/* Payment Status: for farmer-linked sales no bill-level status; for manual sales show Paid/Due */}
           <Card>
             <CardHeader>
               <CardTitle>Payment Information</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Payment Type</span>
-                  <Badge variant={sale.isCredit ? "destructive" : "default"}>
-                    {sale.isCredit ? "Credit" : "Cash"}
-                  </Badge>
+              {isFarmerAccountSale ? (
+                <p className="text-sm text-muted-foreground">
+                  Payment tracking is managed in farmer account. Record and view payments from the farmer&apos;s account page.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Payment Type</span>
+                    <Badge variant={sale.isCredit ? "destructive" : "default"}>
+                      {sale.isCredit ? "Credit" : "Cash"}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Payment Method</span>
+                    <span className="font-medium text-sm">{sale.paymentMethod}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Status</span>
+                    <Badge variant={dueAmount > 0 ? "destructive" : "secondary"}>
+                      {dueAmount > 0 ? "Pending" : "Fully Paid"}
+                    </Badge>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Payment Method</span>
-                  <span className="font-medium text-sm">{sale.paymentMethod}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Status</span>
-                  <Badge variant={dueAmount > 0 ? "destructive" : "secondary"}>
-                    {dueAmount > 0 ? "Pending" : "Fully Paid"}
-                  </Badge>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
@@ -225,14 +240,14 @@ export default function SaleDetailPage() {
           )}
         </div>
 
-        {/* Right Column - Payment info (no bill-level payment UI; use account for farmers) */}
+        {/* Right Column - Payment: for farmer-linked sales only account CTA; for manual sales show bill-level payments */}
         <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Payment</CardTitle>
               <CardDescription>
                 {isFarmerAccountSale
-                  ? "Payments for this farmer are managed at account level."
+                  ? "Payment tracking is managed in farmer account."
                   : sale.payments && sale.payments.length > 0
                     ? `${sale.payments.length} payment${sale.payments.length > 1 ? "s" : ""} recorded`
                     : "No payments recorded for this sale."}
