@@ -288,70 +288,73 @@ export default function DealerPaymentsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push("/dealer/dashboard/company")}
+              className="text-xs md:text-sm"
             >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Companies
+              <ArrowLeft className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" />
+              <span className="hidden sm:inline">Back to Companies</span>
+              <span className="sm:hidden">Back</span>
             </Button>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
             Payment Requests
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm md:text-base text-muted-foreground">
             Manage payment requests with companies
           </p>
         </div>
-        <Button onClick={() => setIsCreateRequestOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Submit Payment
+        <Button onClick={() => setIsCreateRequestOpen(true)} size="sm" className="w-full md:w-auto">
+          <Plus className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
+          <span className="hidden sm:inline">Submit </span>Payment
         </Button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2 md:gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Pending</CardTitle>
+            <Clock className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{pendingReceived}</div>
-            <p className="text-xs text-muted-foreground">
-              Awaiting acceptance
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">{pendingReceived}</div>
+            <p className="text-[9px] md:text-xs text-muted-foreground">
+              Awaiting
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Accepted</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Accepted</CardTitle>
+            <CheckCircle className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold text-green-600">
               {acceptedRequests}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Ready for payment
+            <p className="text-[9px] md:text-xs text-muted-foreground">
+              Ready
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Amount</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Amount</CardTitle>
+            <DollarSign className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(pendingAmount)}
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold truncate">
+              <span className="hidden md:inline">{formatCurrency(pendingAmount)}</span>
+              <span className="md:hidden">रू{Math.round(pendingAmount).toLocaleString()}</span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Total pending
+            <p className="text-[9px] md:text-xs text-muted-foreground">
+              Pending
             </p>
           </CardContent>
         </Card>
@@ -359,44 +362,44 @@ export default function DealerPaymentsPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="received">Received Requests</TabsTrigger>
-          <TabsTrigger value="sent">Sent Requests</TabsTrigger>
+        <TabsList className="w-full md:w-auto">
+          <TabsTrigger value="received" className="flex-1 md:flex-none text-xs md:text-sm">Received</TabsTrigger>
+          <TabsTrigger value="sent" className="flex-1 md:flex-none text-xs md:text-sm">Sent</TabsTrigger>
         </TabsList>
 
         {/* Received Requests Tab */}
         <TabsContent value="received" className="space-y-4">
           <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
+            <CardHeader className="p-3 md:p-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div>
-                  <CardTitle>Received Payment Requests</CardTitle>
-                  <CardDescription>
-                    Payment requests from companies
+                  <CardTitle className="text-base md:text-lg">Received Requests</CardTitle>
+                  <CardDescription className="text-xs md:text-sm">
+                    From companies
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      placeholder="Search by company or invoice..."
+                      placeholder="Search..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="pl-10 w-[200px]"
+                      className="pl-8 h-8 text-xs w-full sm:w-[150px]"
                     />
                   </div>
                   <Select
                     value={statusFilter}
                     onValueChange={setStatusFilter}
                   >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Filter by status" />
+                    <SelectTrigger className="h-8 text-xs w-full sm:w-[130px]">
+                      <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ALL">All Statuses</SelectItem>
+                      <SelectItem value="ALL">All</SelectItem>
                       <SelectItem value="PENDING">Pending</SelectItem>
                       <SelectItem value="ACCEPTED">Accepted</SelectItem>
-                      <SelectItem value="PAYMENT_SUBMITTED">Payment Submitted</SelectItem>
+                      <SelectItem value="PAYMENT_SUBMITTED">Submitted</SelectItem>
                       <SelectItem value="VERIFIED">Verified</SelectItem>
                       <SelectItem value="REJECTED">Rejected</SelectItem>
                       <SelectItem value="CANCELLED">Cancelled</SelectItem>
@@ -405,95 +408,100 @@ export default function DealerPaymentsPage() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {receivedLoading ? (
-                <div className="text-center py-8">Loading requests...</div>
+                <div className="text-center py-6 text-sm">Loading...</div>
               ) : receivedRequests.length === 0 ? (
-                <div className="text-center py-8">
-                  <DollarSign className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">
-                    No payment requests
+                <div className="text-center py-6">
+                  <DollarSign className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                  <h3 className="text-base font-semibold mb-1">
+                    No requests
                   </h3>
-                  <p className="text-muted-foreground">
-                    Payment requests from companies will appear here.
+                  <p className="text-sm text-muted-foreground">
+                    Payment requests will appear here.
                   </p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Company</TableHead>
-                      <TableHead>Invoice #</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {receivedRequests.map((request) => (
-                      <TableRow key={request.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            {formatDate(request.createdAt)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {request.company?.name || "N/A"}
-                        </TableCell>
-                        <TableCell>
-                          {request.companySale?.invoiceNumber || "General"}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold">
-                          {formatCurrency(request.amount)}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(request.status)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedRequest(request);
-                                setIsViewRequestOpen(true);
-                              }}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {/* Company-initiated requests: Dealer must accept and submit proof */}
-                            {request.status === "PENDING" && request.direction === "COMPANY_TO_DEALER" && (
-                              <Button
-                                variant="default"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedRequest(request);
-                                  setIsAcceptDialogOpen(true);
-                                }}
-                              >
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Accept
-                              </Button>
-                            )}
-                            {request.status === "ACCEPTED" && request.direction === "COMPANY_TO_DEALER" && (
-                              <Button
-                                variant="default"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedRequest(request);
-                                  setIsSubmitProofOpen(true);
-                                }}
-                              >
-                                <Upload className="h-4 w-4 mr-1" />
-                                Submit Proof
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Date</TableHead>
+                        <TableHead className="text-xs">Company</TableHead>
+                        <TableHead className="text-xs hidden sm:table-cell">Invoice</TableHead>
+                        <TableHead className="text-xs text-right">Amount</TableHead>
+                        <TableHead className="text-xs">Status</TableHead>
+                        <TableHead className="text-xs text-right">Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {receivedRequests.map((request) => (
+                        <TableRow key={request.id}>
+                          <TableCell className="text-xs">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3 text-muted-foreground hidden sm:block" />
+                              {formatDate(request.createdAt)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-medium text-xs max-w-[80px] truncate">
+                            {request.company?.name || "N/A"}
+                          </TableCell>
+                          <TableCell className="text-xs hidden sm:table-cell">
+                            {request.companySale?.invoiceNumber || "General"}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold text-xs">
+                            <span className="hidden md:inline">{formatCurrency(request.amount)}</span>
+                            <span className="md:hidden">रू{Math.round(request.amount).toLocaleString()}</span>
+                          </TableCell>
+                          <TableCell>{getStatusBadge(request.status)}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                onClick={() => {
+                                  setSelectedRequest(request);
+                                  setIsViewRequestOpen(true);
+                                }}
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </Button>
+                              {request.status === "PENDING" && request.direction === "COMPANY_TO_DEALER" && (
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  className="h-7 text-xs px-2"
+                                  onClick={() => {
+                                    setSelectedRequest(request);
+                                    setIsAcceptDialogOpen(true);
+                                  }}
+                                >
+                                  <CheckCircle className="h-3.5 w-3.5 md:mr-1" />
+                                  <span className="hidden md:inline">Accept</span>
+                                </Button>
+                              )}
+                              {request.status === "ACCEPTED" && request.direction === "COMPANY_TO_DEALER" && (
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  className="h-7 text-xs px-2"
+                                  onClick={() => {
+                                    setSelectedRequest(request);
+                                    setIsSubmitProofOpen(true);
+                                  }}
+                                >
+                                  <Upload className="h-3.5 w-3.5 md:mr-1" />
+                                  <span className="hidden md:inline">Proof</span>
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -502,112 +510,109 @@ export default function DealerPaymentsPage() {
         {/* Sent Requests Tab */}
         <TabsContent value="sent" className="space-y-4">
           <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
+            <CardHeader className="p-3 md:p-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div>
-                  <CardTitle>Sent Payment Requests</CardTitle>
-                  <CardDescription>
-                    Payment requests submitted to companies
+                  <CardTitle className="text-base md:text-lg">Sent Requests</CardTitle>
+                  <CardDescription className="text-xs md:text-sm">
+                    Submitted to companies
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="Search..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="pl-10 w-[200px]"
-                    />
-                  </div>
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-8 h-8 text-xs w-full sm:w-[150px]"
+                  />
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {sentLoading ? (
-                <div className="text-center py-8">Loading requests...</div>
+                <div className="text-center py-6 text-sm">Loading...</div>
               ) : sentRequests.length === 0 ? (
-                <div className="text-center py-8">
-                  <DollarSign className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">
-                    No payment requests sent
+                <div className="text-center py-6">
+                  <DollarSign className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                  <h3 className="text-base font-semibold mb-1">
+                    No requests sent
                   </h3>
-                  <p className="text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     Submit a payment to get started.
                   </p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Company</TableHead>
-                      <TableHead>Invoice #</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead>Payment Method</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sentRequests.map((request) => {
-                      console.log('Dealer Sent Request:', {
-                        id: request.id,
-                        status: request.status,
-                        direction: request.direction,
-                        paymentMethod: request.paymentMethod
-                      });
-                      return (
-                      <TableRow key={request.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            {formatDate(request.createdAt)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {request.company?.name || "N/A"}
-                        </TableCell>
-                        <TableCell>
-                          {request.companySale?.invoiceNumber || "General"}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold">
-                          {formatCurrency(request.amount)}
-                        </TableCell>
-                        <TableCell>
-                          {formatPaymentMethod(request.paymentMethod)}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(request.status)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedRequest(request);
-                                setIsViewRequestOpen(true);
-                              }}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {request.status === "PENDING" && (
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleCancelRequest(request.id)}
-                                disabled={cancelRequestMutation.isPending}
-                              >
-                                <XCircle className="h-4 w-4 mr-1" />
-                                Cancel
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Date</TableHead>
+                        <TableHead className="text-xs">Company</TableHead>
+                        <TableHead className="text-xs hidden sm:table-cell">Invoice</TableHead>
+                        <TableHead className="text-xs text-right">Amount</TableHead>
+                        <TableHead className="text-xs hidden md:table-cell">Method</TableHead>
+                        <TableHead className="text-xs">Status</TableHead>
+                        <TableHead className="text-xs text-right">Actions</TableHead>
                       </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {sentRequests.map((request) => {
+                        return (
+                          <TableRow key={request.id}>
+                            <TableCell className="text-xs">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3 text-muted-foreground hidden sm:block" />
+                                {formatDate(request.createdAt)}
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-medium text-xs max-w-[80px] truncate">
+                              {request.company?.name || "N/A"}
+                            </TableCell>
+                            <TableCell className="text-xs hidden sm:table-cell">
+                              {request.companySale?.invoiceNumber || "General"}
+                            </TableCell>
+                            <TableCell className="text-right font-semibold text-xs">
+                              <span className="hidden md:inline">{formatCurrency(request.amount)}</span>
+                              <span className="md:hidden">रू{Math.round(request.amount).toLocaleString()}</span>
+                            </TableCell>
+                            <TableCell className="text-xs hidden md:table-cell">
+                              {formatPaymentMethod(request.paymentMethod)}
+                            </TableCell>
+                            <TableCell>{getStatusBadge(request.status)}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0"
+                                  onClick={() => {
+                                    setSelectedRequest(request);
+                                    setIsViewRequestOpen(true);
+                                  }}
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                                {request.status === "PENDING" && (
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    className="h-7 text-xs px-2"
+                                    onClick={() => handleCancelRequest(request.id)}
+                                    disabled={cancelRequestMutation.isPending}
+                                  >
+                                    <XCircle className="h-3.5 w-3.5 md:mr-1" />
+                                    <span className="hidden md:inline">Cancel</span>
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>

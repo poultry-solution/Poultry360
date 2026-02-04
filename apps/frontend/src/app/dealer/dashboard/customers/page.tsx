@@ -222,7 +222,7 @@ export default function DealerCustomersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Customer Management</h1>
           <p className="text-sm md:text-base text-muted-foreground">
@@ -482,10 +482,10 @@ export default function DealerCustomersPage() {
                 <div className="flex items-center justify-between">
                   <span
                     className={`text-sm font-medium ${customer.balance > 0
-                        ? "text-red-600"
-                        : customer.balance < 0
-                          ? "text-green-600"
-                          : ""
+                      ? "text-red-600"
+                      : customer.balance < 0
+                        ? "text-green-600"
+                        : ""
                       }`}
                   >
                     {customer.balance > 0

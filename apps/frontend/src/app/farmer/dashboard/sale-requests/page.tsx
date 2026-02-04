@@ -205,69 +205,69 @@ export default function FarmerSaleRequestsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 md:gap-4">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => router.push("/farmer/dashboard/dealers")}
-          className="h-8 w-8"
+          className="h-7 w-7 md:h-8 md:w-8 shrink-0"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-3.5 w-3.5 md:h-4 md:w-4" />
         </Button>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Sale Requests</h1>
-          <p className="text-muted-foreground">
-            Review and approve sale requests from your connected dealers
+          <h1 className="text-xl md:text-3xl font-bold tracking-tight">Sale Requests</h1>
+          <p className="text-xs md:text-sm text-muted-foreground">
+            Review dealer sale requests
           </p>
         </div>
       </div>
 
       {/* Statistics */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 md:gap-4 md:grid-cols-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Pending Review
+          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium text-muted-foreground">
+              Pending
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
-            <p className="text-xs text-muted-foreground">
-              {formatCurrency(stats.pendingAmount)}
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold text-yellow-600">{stats.pending}</div>
+            <p className="text-[9px] md:text-xs text-muted-foreground">
+              <span className="hidden md:inline">{formatCurrency(stats.pendingAmount)}</span>
+              <span className="md:hidden">रू{Math.round(stats.pendingAmount).toLocaleString()}</span>
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium text-muted-foreground">
               Approved
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold text-green-600">{stats.approved}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium text-muted-foreground">
               Rejected
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold text-red-600">{stats.rejected}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium text-muted-foreground">
               Total
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total || 0}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">{stats.total || 0}</div>
           </CardContent>
         </Card>
       </div>
@@ -275,119 +275,124 @@ export default function FarmerSaleRequestsPage() {
       {/* Requests List */}
       {isLoading ? (
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-center py-8">Loading...</div>
+          <CardContent className="p-4 md:p-6">
+            <div className="text-center py-6 text-sm">Loading...</div>
           </CardContent>
         </Card>
       ) : requests.length === 0 ? (
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-center py-8">
-              <ShoppingBag className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">No sale requests</h3>
-              <p className="text-muted-foreground">
-                When dealers send you sale requests, they'll appear here
+          <CardContent className="p-4 md:p-6">
+            <div className="text-center py-6">
+              <ShoppingBag className="mx-auto h-10 w-10 text-muted-foreground" />
+              <h3 className="mt-3 text-base font-semibold">No sale requests</h3>
+              <p className="text-sm text-muted-foreground">
+                Dealer requests will appear here
               </p>
             </div>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {requests.map((request) => (
             <Card key={request.id}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
+              <CardHeader className="p-3 md:p-6 pb-2 md:pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="text-sm md:text-lg flex flex-wrap items-center gap-2">
                       {request.requestNumber}
                       {getStatusBadge(request.status)}
                     </CardTitle>
-                    <CardDescription>
-                      From: {request.dealer.name} • {formatDate(request.date)}
+                    <CardDescription className="text-[10px] md:text-sm">
+                      {request.dealer.name} • {formatDate(request.date)}
                     </CardDescription>
                   </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold">
-                      {formatCurrency(request.totalAmount)}
+                  <div className="text-left sm:text-right">
+                    <div className="text-lg md:text-2xl font-bold">
+                      <span className="hidden md:inline">{formatCurrency(request.totalAmount)}</span>
+                      <span className="md:hidden">रू{Math.round(request.totalAmount).toLocaleString()}</span>
                     </div>
                     {request.paidAmount > 0 && (
-                      <div className="text-sm text-muted-foreground">
-                        Paid: {formatCurrency(request.paidAmount)}
+                      <div className="text-xs text-muted-foreground">
+                        Paid: रू{Math.round(request.paidAmount).toLocaleString()}
                       </div>
                     )}
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {/* Items */}
+              <CardContent className="p-3 md:p-6 pt-0">
+                <div className="space-y-3">
+                  {/* Items - scrollable on mobile */}
                   <div>
-                    <h4 className="font-medium mb-2">Items:</h4>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Product</TableHead>
-                          <TableHead>Quantity</TableHead>
-                          <TableHead>Unit Price</TableHead>
-                          <TableHead>Total</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {request.items.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell>
-                              <div>
-                                <div className="font-medium">{item.product.name}</div>
-                                <div className="text-sm text-muted-foreground">
-                                  {item.product.type}
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {item.quantity} {item.product.unit}
-                            </TableCell>
-                            <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
-                            <TableCell className="font-medium">
-                              {formatCurrency(item.totalAmount)}
-                            </TableCell>
+                    <h4 className="font-medium mb-2 text-xs md:text-sm">Items:</h4>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">Product</TableHead>
+                            <TableHead className="text-xs hidden sm:table-cell">Qty</TableHead>
+                            <TableHead className="text-xs hidden sm:table-cell">Price</TableHead>
+                            <TableHead className="text-xs">Total</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {request.items.map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell className="text-xs">
+                                <div className="max-w-[100px] md:max-w-none">
+                                  <div className="font-medium truncate">{item.product.name}</div>
+                                  <div className="text-[9px] text-muted-foreground sm:hidden">
+                                    {item.quantity} {item.product.unit}
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-xs hidden sm:table-cell">
+                                {item.quantity} {item.product.unit}
+                              </TableCell>
+                              <TableCell className="text-xs hidden sm:table-cell">
+                                रू{Math.round(item.unitPrice).toLocaleString()}
+                              </TableCell>
+                              <TableCell className="font-medium text-xs">
+                                रू{Math.round(item.totalAmount).toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
 
                   {/* Notes */}
                   {request.notes && (
                     <div>
-                      <h4 className="font-medium mb-1">Notes:</h4>
-                      <p className="text-sm text-muted-foreground">{request.notes}</p>
+                      <h4 className="font-medium mb-1 text-xs">Notes:</h4>
+                      <p className="text-xs text-muted-foreground">{request.notes}</p>
                     </div>
                   )}
 
                   {/* Rejection Reason */}
                   {request.status === "REJECTED" && request.rejectionReason && (
-                    <div className="bg-red-50 border border-red-200 rounded p-3">
-                      <h4 className="font-medium text-red-800 mb-1">Rejection Reason:</h4>
-                      <p className="text-sm text-red-700">{request.rejectionReason}</p>
+                    <div className="bg-red-50 border border-red-200 rounded p-2">
+                      <h4 className="font-medium text-red-800 mb-1 text-xs">Rejection:</h4>
+                      <p className="text-xs text-red-700">{request.rejectionReason}</p>
                     </div>
                   )}
 
                   {/* Actions */}
                   {request.status === "PENDING" && (
-                    <div className="flex gap-2 pt-2">
+                    <div className="flex gap-2 pt-1">
                       <Button
                         onClick={() => handleApprove(request)}
-                        className="bg-green-600 hover:bg-green-700"
+                        className="bg-green-600 hover:bg-green-700 flex-1 sm:flex-none h-8 text-xs"
                       >
-                        <CheckCircle className="mr-2 h-4 w-4" />
+                        <CheckCircle className="mr-1 h-3.5 w-3.5" />
                         Approve
                       </Button>
                       <Button
                         variant="outline"
                         onClick={() => handleReject(request)}
-                        className="border-red-300 text-red-600 hover:bg-red-50"
+                        className="border-red-300 text-red-600 hover:bg-red-50 flex-1 sm:flex-none h-8 text-xs"
                       >
-                        <XCircle className="mr-2 h-4 w-4" />
+                        <XCircle className="mr-1 h-3.5 w-3.5" />
                         Reject
                       </Button>
                     </div>

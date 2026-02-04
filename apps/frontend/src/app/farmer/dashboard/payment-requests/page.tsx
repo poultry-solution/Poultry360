@@ -79,68 +79,69 @@ export default function FarmerPaymentRequestsPage() {
   const requests = requestsData?.data || [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Payment Requests</h1>
-        <p className="text-muted-foreground">
-          View your payment request history and status
+        <h1 className="text-xl md:text-3xl font-bold">Payment Requests</h1>
+        <p className="text-xs md:text-sm text-muted-foreground">
+          View your payment request history
         </p>
-        <p className="text-sm text-muted-foreground mt-1">
-          To make a payment, go to Feed Ledger and click "Pay" on any purchase from a connected dealer
+        <p className="text-[10px] md:text-xs text-muted-foreground mt-1">
+          To make a payment, go to Feed Ledger and click "Pay"
         </p>
       </div>
 
       {/* Statistics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-4">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Pending</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.pending}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatCurrency(stats.pendingAmount)}
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">{stats.pending}</div>
+            <p className="text-[9px] md:text-xs text-muted-foreground mt-0.5">
+              <span className="hidden md:inline">{formatCurrency(stats.pendingAmount)}</span>
+              <span className="md:hidden">रू{Math.round(stats.pendingAmount).toLocaleString()}</span>
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Approved</CardTitle>
+          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Approved</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold text-green-600">{stats.approved}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Rejected</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold text-red-600">{stats.rejected}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Total</CardTitle>
+          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Total</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">{stats.total}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filter */}
       <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
+        <CardHeader className="p-3 md:p-6">
+          <CardTitle className="text-sm md:text-base">Filters</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 md:p-6 pt-0">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="h-8 text-xs w-full sm:w-[150px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">All Status</SelectItem>
+              <SelectItem value="ALL">All</SelectItem>
               <SelectItem value="PENDING">Pending</SelectItem>
               <SelectItem value="APPROVED">Approved</SelectItem>
               <SelectItem value="REJECTED">Rejected</SelectItem>
@@ -150,77 +151,78 @@ export default function FarmerPaymentRequestsPage() {
       </Card>
 
       {/* Requests List */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {isLoading ? (
           <Card>
-            <CardContent className="text-center py-8">Loading...</CardContent>
+            <CardContent className="text-center py-6 text-sm">Loading...</CardContent>
           </Card>
         ) : requests.length === 0 ? (
           <Card>
-            <CardContent className="text-center py-8 text-muted-foreground">
+            <CardContent className="text-center py-6 text-muted-foreground text-sm">
               <p>No payment requests found</p>
-              <p className="text-sm mt-2">
-                Go to Feed Ledger to make payments on your purchases
+              <p className="text-xs mt-1">
+                Go to Feed Ledger to make payments
               </p>
             </CardContent>
           </Card>
         ) : (
           requests.map((request: any) => (
             <Card key={request.id}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
+              <CardHeader className="p-3 md:p-6 pb-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
-                    <CardTitle className="text-lg">
+                    <CardTitle className="text-sm md:text-lg">
                       {request.requestNumber}
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-[10px] md:text-sm">
                       Invoice: {request.dealerSale?.invoiceNumber}
                     </CardDescription>
                   </div>
                   {getStatusBadge(request.status)}
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-2">
+              <CardContent className="p-3 md:p-6 pt-0">
+                <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
                   <div>
-                    <div className="text-sm text-muted-foreground">Dealer</div>
-                    <div className="font-medium">{request.dealer?.name}</div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-[10px] md:text-sm text-muted-foreground">Dealer</div>
+                    <div className="font-medium text-xs md:text-sm truncate">{request.dealer?.name}</div>
+                    <div className="text-[9px] md:text-xs text-muted-foreground hidden sm:block">
                       {request.dealer?.contact}
                     </div>
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground">Amount</div>
-                    <div className="text-2xl font-bold">
-                      {formatCurrency(request.amount)}
+                    <div className="text-[10px] md:text-sm text-muted-foreground">Amount</div>
+                    <div className="text-lg md:text-2xl font-bold">
+                      <span className="hidden md:inline">{formatCurrency(request.amount)}</span>
+                      <span className="md:hidden">रू{Math.round(request.amount).toLocaleString()}</span>
                     </div>
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground">Date</div>
-                    <div>{formatDate(request.createdAt)}</div>
+                    <div className="text-[10px] md:text-sm text-muted-foreground">Date</div>
+                    <div className="text-xs md:text-sm">{formatDate(request.createdAt)}</div>
                   </div>
                   {request.paymentReference && (
                     <div>
-                      <div className="text-sm text-muted-foreground">
-                        Reference
+                      <div className="text-[10px] md:text-sm text-muted-foreground">
+                        Ref
                       </div>
-                      <div>{request.paymentReference}</div>
+                      <div className="text-xs md:text-sm truncate">{request.paymentReference}</div>
                     </div>
                   )}
                   {request.description && (
-                    <div className="md:col-span-2">
-                      <div className="text-sm text-muted-foreground">
+                    <div className="col-span-2 md:col-span-4">
+                      <div className="text-[10px] md:text-sm text-muted-foreground">
                         Description
                       </div>
-                      <div>{request.description}</div>
+                      <div className="text-xs md:text-sm">{request.description}</div>
                     </div>
                   )}
                   {request.status === "REJECTED" && request.rejectionReason && (
-                    <div className="md:col-span-2">
-                      <div className="text-sm text-red-600 font-medium">
+                    <div className="col-span-2 md:col-span-4">
+                      <div className="text-[10px] md:text-sm text-red-600 font-medium">
                         Rejection Reason
                       </div>
-                      <div className="text-red-600">
+                      <div className="text-xs md:text-sm text-red-600">
                         {request.rejectionReason}
                       </div>
                     </div>
