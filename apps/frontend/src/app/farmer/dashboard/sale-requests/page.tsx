@@ -34,6 +34,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n/useI18n";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 interface SaleRequest {
   id: string;
@@ -140,14 +141,6 @@ export default function FarmerSaleRequestsPage() {
 
   const requests: SaleRequest[] = requestsData?.data || [];
   const stats = statsData?.data || { pending: 0, approved: 0, rejected: 0, pendingAmount: 0 };
-
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   const formatCurrency = (amount: number | string) => {
     return `रू ${Number(amount).toFixed(2)}`;
@@ -301,7 +294,8 @@ export default function FarmerSaleRequestsPage() {
                       {getStatusBadge(request.status)}
                     </CardTitle>
                     <CardDescription>
-                      {t("farmer.saleRequests.from")}: {request.dealer.name} • {formatDate(request.date)}
+                      {t("farmer.saleRequests.from")}: {request.dealer.name} •{" "}
+                      <DateDisplay date={request.date} format="long" />
                     </CardDescription>
                   </div>
                   <div className="text-left sm:text-right">

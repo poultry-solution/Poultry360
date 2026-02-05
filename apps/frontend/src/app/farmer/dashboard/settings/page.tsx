@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui
 import { Label } from "@/common/components/ui/label";
 import { Input } from "@/common/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/common/components/ui/select";
-import { useAuth } from "@/common/store/store";
+import { useAuth, useAuthStore } from "@/common/store/store";
 import { useState } from "react";
 import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
@@ -36,8 +36,14 @@ export default function SettingsPage() {
   
   const handleCalendarChange = async (newCalendar: string) => {
     try {
-      await axiosInstance.patch('/users/preferences', { calendarType: newCalendar });
-      setCalendarType(newCalendar as 'AD' | 'BS');
+      const { data } = await axiosInstance.patch<{ success: boolean; data: typeof user }>(
+        "/users/preferences",
+        { calendarType: newCalendar }
+      );
+      setCalendarType(newCalendar as "AD" | "BS");
+      if (user && data?.data) {
+        useAuthStore.getState().setUser({ ...user, ...data.data });
+      }
       toast.success(t("settings.calendarUpdated"));
     } catch (error) {
       toast.error(t("settings.calendarUpdateFailed"));

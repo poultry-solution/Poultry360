@@ -135,14 +135,12 @@ export default function DealerLedgerPage() {
     }
   }, [dealers, activeDealerId]);
 
-  // Helper functions for date formatting
-  function getRowDueDate(date: string) {
+  // Compute due date (30 days from purchase) for DateDisplay
+  function getRowDueDateDate(date: string): Date {
     const base = new Date(date);
-    const d = new Date(base.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days from purchase
-    const dd = String(d.getUTCDate()).padStart(2, "0");
-    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const yyyy = d.getUTCFullYear();
-    return `${dd}/${mm}/${yyyy}`;
+    const d = new Date(base);
+    d.setDate(d.getDate() + 30);
+    return d;
   }
 
   // Column configuration for DataTable
@@ -198,7 +196,12 @@ export default function DealerLedgerPage() {
       type: "date",
     }),
     createColumn("dueDate", "Due Date", {
-      render: (_, row) => getRowDueDate(row.date),
+      render: (_, row) =>
+        row.date ? (
+          <DateDisplay date={getRowDueDateDate(row.date)} format="short" />
+        ) : (
+          "—"
+        ),
     }),
     createColumn("payments", "Payment History", {
       render: (_, row) => {

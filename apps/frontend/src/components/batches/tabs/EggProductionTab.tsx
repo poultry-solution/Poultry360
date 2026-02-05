@@ -7,6 +7,7 @@ import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Plus, Loader2 } from "lucide-react";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { DateInput } from "@/common/components/ui/date-input";
 import {
   useGetEggProductionByBatch,
   useCreateEggProduction,
@@ -81,14 +82,10 @@ export function EggProductionTab({ batchId, isBatchClosed }: EggProductionTabPro
             <h4 className="font-medium">Add daily production</h4>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <Label htmlFor="ep-date">Date</Label>
-                <Input
-                  id="ep-date"
-                  type="date"
+                <DateInput
+                  label="Date"
                   value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  required
-                  className="mt-1"
+                  onChange={(v) => setDate(v.includes("T") ? v.split("T")[0] : v)}
                 />
               </div>
               <div>

@@ -28,6 +28,7 @@ import {
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Badge } from "@/common/components/ui/badge";
+import { DateDisplay } from "@/common/components/ui/date-display";
 import {
   Dialog,
   DialogContent,
@@ -482,7 +483,7 @@ export default function FarmerDealersPage() {
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">{t("farmer.dealers.labels.connected")}</span>
                             <span className="font-medium text-green-600">
-                              {new Date(dealer.connectedAt).toLocaleDateString()}
+                              <DateDisplay date={dealer.connectedAt} format="long" />
                             </span>
                           </div>
                         </div>
@@ -564,7 +565,7 @@ export default function FarmerDealersPage() {
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">{t("farmer.dealers.labels.applied")}</span>
                             <span className="font-medium">
-                              {new Date(request.createdAt).toLocaleDateString()}
+                              <DateDisplay date={request.createdAt} format="long" />
                             </span>
                           </div>
                           {request.status === "REJECTED" && (
@@ -579,7 +580,7 @@ export default function FarmerDealersPage() {
                                 <div className="flex justify-between">
                                   <span className="text-muted-foreground">{t("farmer.dealers.labels.lastRejected")}</span>
                                   <span className="font-medium">
-                                    {new Date(request.lastRejectedAt).toLocaleDateString()}
+                                    <DateDisplay date={request.lastRejectedAt} format="long" />
                                   </span>
                                 </div>
                               )}
@@ -692,7 +693,7 @@ export default function FarmerDealersPage() {
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">{t("farmer.dealers.labels.connected")}</span>
                           <span className="font-medium">
-                            {new Date(dealer.connectedAt).toLocaleDateString()}
+                            <DateDisplay date={dealer.connectedAt} format="long" />
                           </span>
                         </div>
                       </div>

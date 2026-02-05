@@ -22,6 +22,7 @@ import {
   useGetFarmerPaymentRequestStatistics,
 } from "@/fetchers/payment/paymentRequestQueries";
 import { useI18n } from "@/i18n/useI18n";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 export default function FarmerPaymentRequestsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -36,14 +37,6 @@ export default function FarmerPaymentRequestsPage() {
 
   const formatCurrency = (amount: number | string) => {
     return `रू ${Number(amount).toLocaleString()}`;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -198,7 +191,9 @@ export default function FarmerPaymentRequestsPage() {
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground">{t("farmer.paymentRequests.date")}</div>
-                    <div>{formatDate(request.createdAt)}</div>
+                    <div>
+                      <DateDisplay date={request.createdAt} format="long" />
+                    </div>
                   </div>
                   {request.paymentReference && (
                     <div>
