@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import Sidebar, { farmerNavigation } from "@/components/dashboard/Sidebar";
+import Sidebar from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
 import { MobileNavSheet } from "@/components/dashboard/MobileNavSheet";
 import { QuickActionsProvider } from "@/contexts/QuickActionsContext";
-
+import { farmerNavigation } from "@/components/dashboard/Sidebar";
 export default function DashboardLayout({
   children,
 }: {

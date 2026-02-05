@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import Sidebar, { companyNavigation } from "@/components/dashboard/Sidebar";
+import Sidebar from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
 import { MobileNavSheet } from "@/components/dashboard/MobileNavSheet";
 import { QuickActionsProvider } from "@/contexts/QuickActionsContext";
 import { useAuthStore } from "@/common/store/store";
-
-export default function CompanyDashboardLayout({
+import { companyNavigation } from "@/components/dashboard/Sidebar";
+  export default function CompanyDashboardLayout({
   children,
 }: {
   children: React.ReactNode;

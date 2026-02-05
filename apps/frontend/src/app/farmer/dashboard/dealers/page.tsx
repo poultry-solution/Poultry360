@@ -565,7 +565,7 @@ export default function FarmerDealersPage() {
                             <span className="text-muted-foreground">{t("farmer.dealers.labels.applied")}</span>
                             <span className="font-medium">
                               {new Date(request.createdAt).toLocaleDateString()}
-                            </p>
+                            </span>
                           </div>
                           {request.status === "REJECTED" && (
                             <>

@@ -12,20 +12,21 @@ import {
     SheetHeader,
     SheetTitle,
 } from "@/common/components/ui/sheet";
-import { NavigationItem } from "./Sidebar";
+import { NavigationItem } from "@/components/dashboard/Sidebar";
+import { useI18n } from "@/i18n/useI18n";
 
-interface MobileNavSheetProps {
-    navigation: NavigationItem[];
-    title?: string;
-}
+
 
 export function MobileNavSheet({
     navigation,
     title = "Menu",
-}: MobileNavSheetProps) {
+}: {
+    navigation: NavigationItem[];
+    title?: string;
+}) {
     const [isOpen, setIsOpen] = useState(false);
     const pathname = usePathname();
-
+    const { t } = useI18n();
     return (
         <>
             {/* Floating Action Button - Bottom Right */}
@@ -64,7 +65,7 @@ export function MobileNavSheet({
                                     )}
                                 >
                                     <Icon className="h-5 w-5 flex-shrink-0" />
-                                    <span>{item.name}</span>
+                                    <span>{t(item.nameKey)}</span>
                                 </Link>
                             );
                         })}
