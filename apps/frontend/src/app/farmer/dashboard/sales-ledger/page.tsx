@@ -45,6 +45,7 @@ import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
 import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
 import { toast } from "sonner";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { DateInput } from "@/common/components/ui/date-input";
 
 // Types
 type TabType = "overview" | "sales" | "parties" | "payments";
@@ -963,26 +964,28 @@ export default function SalesLedgerPage() {
                 </div>
                 <div>
                   <Label htmlFor="startDate" className="text-xs md:text-sm">From</Label>
-                  <Input
-                    id="startDate"
-                    type="date"
+                  <DateInput
                     value={salesFilters.startDate}
-                    onChange={(e) =>
-                      handleSalesFilterChange("startDate", e.target.value)
+                    onChange={(v) =>
+                      handleSalesFilterChange(
+                        "startDate",
+                        v.includes("T") ? v.split("T")[0] : v
+                      )
                     }
-                    className="h-8 md:h-10 text-xs md:text-sm"
+                    className="[&_input]:h-8 [&_input]:md:h-10 [&_input]:text-xs [&_input]:md:text-sm"
                   />
                 </div>
                 <div>
                   <Label htmlFor="endDate" className="text-xs md:text-sm">To</Label>
-                  <Input
-                    id="endDate"
-                    type="date"
+                  <DateInput
                     value={salesFilters.endDate}
-                    onChange={(e) =>
-                      handleSalesFilterChange("endDate", e.target.value)
+                    onChange={(v) =>
+                      handleSalesFilterChange(
+                        "endDate",
+                        v.includes("T") ? v.split("T")[0] : v
+                      )
                     }
-                    className="h-8 md:h-10 text-xs md:text-sm"
+                    className="[&_input]:h-8 [&_input]:md:h-10 [&_input]:text-xs [&_input]:md:text-sm"
                   />
                 </div>
                 <div className="flex items-end">
@@ -1407,13 +1410,15 @@ export default function SalesLedgerPage() {
               </div>
 
               <div>
-                <Label htmlFor="date">Date</Label>
-                <Input
-                  id="date"
-                  name="date"
-                  type="date"
+                <DateInput
+                  label="Date"
                   value={saleForm.date}
-                  onChange={updateSaleField}
+                  onChange={(v) =>
+                    setSaleForm((p) => ({
+                      ...p,
+                      date: v.includes("T") ? v.split("T")[0] : v,
+                    }))
+                  }
                 />
                 {errors.date && (
                   <p className="text-xs text-red-600 mt-1">{errors.date}</p>
@@ -1788,14 +1793,15 @@ export default function SalesLedgerPage() {
               </div>
 
               <div>
-                <Label htmlFor="date">Payment Date *</Label>
-                <Input
-                  id="date"
-                  name="date"
-                  type="date"
+                <DateInput
+                  label="Payment Date *"
                   value={paymentForm.date}
-                  onChange={updatePaymentField}
-                  required
+                  onChange={(v) =>
+                    setPaymentForm((prev) => ({
+                      ...prev,
+                      date: v.includes("T") ? v.split("T")[0] : v,
+                    }))
+                  }
                 />
                 {paymentErrors.date && (
                   <p className="text-xs text-red-600 mt-1">

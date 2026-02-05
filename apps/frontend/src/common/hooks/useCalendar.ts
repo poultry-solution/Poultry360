@@ -1,7 +1,14 @@
 import { useUser } from "@/common/store/store";
-import NepaliDate from "nepali-date-converter";
+import {
+  convertADtoBS,
+  convertBSToAD,
+  formatADShort,
+  formatBSLong,
+  parseDateStringLocal,
+  type CalendarType,
+} from "@/common/lib/nepali-date";
 
-export type CalendarType = "AD" | "BS";
+export type { CalendarType };
 
 /**
  * Hook for calendar operations based on user preference
@@ -14,37 +21,6 @@ export const useCalendar = () => {
   const isBS = calendarType === "BS";
 
   /**
-   * Convert AD date to BS format (YYYY-MM-DD)
-   */
-  const convertADtoBS = (adDate: Date | string): string => {
-    try {
-      const dateObj = typeof adDate === "string" ? new Date(adDate) : adDate;
-      const nepaliDate = new NepaliDate(dateObj);
-      const year = nepaliDate.getYear();
-      const month = nepaliDate.getMonth() + 1;
-      const day = nepaliDate.getDate();
-      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    } catch (error) {
-      console.error("AD to BS conversion error:", error);
-      return "";
-    }
-  };
-
-  /**
-   * Convert BS date string (YYYY-MM-DD) to AD Date
-   */
-  const convertBSToAD = (bsDateString: string): Date => {
-    try {
-      const [year, month, day] = bsDateString.split("-").map(Number);
-      const nepaliDate = new NepaliDate(year, month - 1, day);
-      return nepaliDate.toJsDate();
-    } catch (error) {
-      console.error("BS to AD conversion error:", error);
-      throw error;
-    }
-  };
-
-  /**
    * Display date in user's preferred calendar format
    * @param date - AD date (from database)
    * @param format - 'short' (YYYY-MM-DD) or 'long' (Month Day, Year)
@@ -53,36 +29,15 @@ export const useCalendar = () => {
     date: Date | string,
     format: "short" | "long" = "short"
   ): string => {
-    const dateObj = typeof date === "string" ? new Date(date) : date;
+    const dateObj =
+      typeof date === "string" ? parseDateStringLocal(date) : date;
+    if (isNaN(dateObj.getTime())) return "";
 
     if (calendarType === "BS") {
-      const nepaliDate = new NepaliDate(dateObj);
-      const year = nepaliDate.getYear();
-      const month = nepaliDate.getMonth() + 1;
-      const day = nepaliDate.getDate();
-
-      if (format === "long") {
-        const monthNames = [
-          "Baisakh",
-          "Jestha",
-          "Ashadh",
-          "Shrawan",
-          "Bhadra",
-          "Ashwin",
-          "Kartik",
-          "Mangsir",
-          "Poush",
-          "Magh",
-          "Falgun",
-          "Chaitra",
-        ];
-        return `${monthNames[month - 1]} ${day}, ${year}`;
-      }
-
-      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      if (format === "long") return formatBSLong(dateObj);
+      return convertADtoBS(dateObj);
     }
 
-    // AD format
     if (format === "long") {
       return dateObj.toLocaleDateString("en-US", {
         year: "numeric",
@@ -91,7 +46,7 @@ export const useCalendar = () => {
       });
     }
 
-    return dateObj.toISOString().split("T")[0];
+    return formatADShort(dateObj);
   };
 
   /**
@@ -103,20 +58,19 @@ export const useCalendar = () => {
     dateString: string,
     inputCalendarType?: CalendarType
   ): Date => {
-    // If input is BS, convert to AD
     if (inputCalendarType === "BS" || (!inputCalendarType && isBS)) {
       return convertBSToAD(dateString);
     }
-
-    // Otherwise, treat as AD
-    return new Date(dateString);
+    return parseDateStringLocal(dateString);
   };
 
   /**
    * Format relative date (Today, Yesterday, etc.) or full date
    */
   const formatRelativeDate = (date: Date | string): string => {
-    const dateObj = typeof date === "string" ? new Date(date) : date;
+    const dateObj =
+      typeof date === "string" ? parseDateStringLocal(date) : date;
+    if (isNaN(dateObj.getTime())) return "";
     const now = new Date();
     const diffMs = now.getTime() - dateObj.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -140,4 +94,3 @@ export const useCalendar = () => {
     formatRelativeDate,
   };
 };
-

@@ -204,14 +204,6 @@ export default function AccountsPage() {
     return `₹${numAmount.toFixed(2)}`;
   };
 
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
   const getStatusBadge = (status: string) => {
     const styles = {
       PENDING: "bg-yellow-100 text-yellow-800",
@@ -475,9 +467,14 @@ export default function AccountsPage() {
                             </span>
                           </TableCell>
                           <TableCell className="text-xs hidden sm:table-cell">
-                            {dealer.lastTransactionDate
-                              ? formatDate(dealer.lastTransactionDate)
-                              : "N/A"}
+                            {dealer.lastTransactionDate ? (
+                              <DateDisplay
+                                date={dealer.lastTransactionDate}
+                                format="long"
+                              />
+                            ) : (
+                              "N/A"
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
                             {dealer.balance > 0 ? (
@@ -561,7 +558,9 @@ export default function AccountsPage() {
                             </span>
                           </Badge>
                         </TableCell>
-                        <TableCell>{formatDate(request.createdAt)}</TableCell>
+                        <TableCell>
+                        <DateDisplay date={request.createdAt} format="long" />
+                      </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -757,12 +756,12 @@ export default function AccountsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="paymentDate">Payment Date</Label>
-                <Input
-                  id="paymentDate"
-                  type="date"
+                <DateInput
+                  label="Payment Date"
                   value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
+                  onChange={(v) =>
+                    setPaymentDate(v.includes("T") ? v.split("T")[0] : v)
+                  }
                 />
               </div>
 

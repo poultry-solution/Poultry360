@@ -3,6 +3,7 @@
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { useCalendar } from "@/common/hooks/useCalendar";
+import { parseDateStringLocal } from "@/common/lib/nepali-date";
 import { useState, useEffect } from "react";
 // @ts-ignore - Type definitions not available for this package
 import Calendar from "@sbmdkl/nepali-datepicker-reactjs";
@@ -10,7 +11,7 @@ import "@sbmdkl/nepali-datepicker-reactjs/dist/index.css";
 
 interface DateInputProps {
   label?: string;
-  value: string; // ISO date string (AD format) - always stored as AD
+  value: string | Date | null | undefined; // ISO date string or Date (AD format) - always stored as AD
   onChange: (value: string) => void; // Receives ISO date string
   min?: string; // ISO date string
   max?: string; // ISO date string
@@ -57,18 +58,14 @@ export function DateInput({
     }
   }, [valueStr]);
 
-  // Handle AD date input change
+  // Handle AD date input change - parse as local to avoid UTC-midnight edge cases
   const handleADChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const inputValue = e.target.value;
-    setInputValue(inputValue);
+    const raw = e.target.value;
+    setInputValue(raw);
 
     try {
-      const adDate = new Date(inputValue + "T00:00:00");
-      if (isNaN(adDate.getTime())) {
-        return; // Invalid date
-      }
-      
-      // Always save as AD (ISO format)
+      const adDate = parseDateStringLocal(raw);
+      if (isNaN(adDate.getTime())) return;
       onChange(adDate.toISOString());
     } catch (error) {
       console.error("Date conversion error:", error);
@@ -93,14 +90,11 @@ export function DateInput({
   };
 
   // Get default date for BS calendar (never pass undefined - package can crash)
+  // Use parseDateStringLocal to avoid UTC-midnight edge cases
   const getDefaultDate = (): Date => {
-    if (valueStr) {
-      try {
-        const d = new Date(valueStr);
-        if (!isNaN(d.getTime())) return d;
-      } catch {
-        // fall through to today
-      }
+    if (adValue) {
+      const d = parseDateStringLocal(adValue);
+      if (!isNaN(d.getTime())) return d;
     }
     return new Date();
   };
