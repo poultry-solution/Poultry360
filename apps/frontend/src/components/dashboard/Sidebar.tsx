@@ -29,14 +29,14 @@ import { LucideIcon } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
 
 // Navigation item type
-interface NavigationItem {
+export interface NavigationItem {
   nameKey: string;
   href: string;
   icon: LucideIcon;
 }
 
 // Role-based navigation configurations
-const farmerNavigation: NavigationItem[] = [
+export const farmerNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.home", href: "/farmer/dashboard/home", icon: Home },
   { nameKey: "sidebar.nav.farms", href: "/farmer/dashboard/farms", icon: Building2 },
   { nameKey: "sidebar.nav.batches", href: "/farmer/dashboard/batches", icon: Layers },
@@ -64,7 +64,7 @@ const doctorNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.ledger", href: "/doctor/dashboard/ledger", icon: Receipt },
 ];
 
-const dealerNavigation: NavigationItem[] = [
+export const dealerNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.home", href: "/dealer/dashboard/home", icon: Home },
   { nameKey: "sidebar.nav.companies", href: "/dealer/dashboard/company", icon: Building2 },
   { nameKey: "sidebar.nav.inventory", href: "/dealer/dashboard/inventory", icon: Package },
@@ -74,7 +74,7 @@ const dealerNavigation: NavigationItem[] = [
 
 ];
 
-const companyNavigation: NavigationItem[] = [
+export const companyNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.home", href: "/company/dashboard/home", icon: Home },
   { nameKey: "sidebar.nav.products", href: "/company/dashboard/products", icon: Package },
   { nameKey: "sidebar.nav.dealers", href: "/company/dashboard/dealers", icon: Users },
