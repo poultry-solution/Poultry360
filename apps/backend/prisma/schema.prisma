@@ -287,11 +287,18 @@ model User {
   // Company-Dealer account payments
   companyDealerPaymentsRecorded CompanyDealerPayment[] @relation("CompanyDealerPaymentRecorder")
 
+  balanceLimitsSet CompanyDealerAccount[] @relation("BalanceLimitSetter")
+
   // Dealer-Farmer relationships
   dealerConnections           DealerFarmer[]                 @relation("FarmerDealers")
   dealerVerificationRequests  FarmerVerificationRequest[]    @relation("FarmerVerificationRequests")
   saleRequestsReceived        DealerSaleRequest[]            @relation("FarmerSaleRequests")
   salePaymentRequestsAsFarmer DealerSalePaymentRequest[]     @relation("FarmerPaymentRequests")
+
+  // Dealer-Farmer account relationships
+  farmerAccounts                  DealerFarmerAccount[]          @relation("FarmerAccounts")
+  farmerPaymentsRecorded          DealerFarmerPayment[]          @relation("DealerFarmerPaymentRecorder")
+  dealerFarmerBalanceLimitsSet    DealerFarmerAccount[]          @relation("DealerFarmerBalanceLimitSetter")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -712,6 +719,7 @@ model Dealer {
   verificationRequests DealerVerificationRequest[]
   carts                DealerCart[]
   companyAccounts      CompanyDealerAccount[]
+  farmerAccounts       DealerFarmerAccount[]
 
   @@unique([userId, name])
   @@index([ownerId])
@@ -1114,6 +1122,70 @@ model DealerFarmer {
   @@index([farmerId, archivedByFarmer]) // For filtering farmer's archived/active
 }
 
+// ==================== DEALER-FARMER ACCOUNT SYSTEM ====================
+
+model DealerFarmerAccount {
+  id        String   @id @default(cuid())
+  dealerId  String
+  dealer    Dealer   @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  farmerId  String
+  farmer    User     @relation("FarmerAccounts", fields: [farmerId], references: [id], onDelete: Cascade)
+
+  // Running balance (positive = farmer owes dealer, negative = advance/credit)
+  balance         Decimal @default(0) @db.Decimal(10, 2)
+
+  // Totals for reference
+  totalSales      Decimal @default(0) @db.Decimal(10, 2)
+  totalPayments   Decimal @default(0) @db.Decimal(10, 2)
+
+  // Timestamps
+  lastSaleDate    DateTime?
+  lastPaymentDate DateTime?
+
+  // Balance limit feature (optional - for future use)
+  balanceLimit    Decimal?  @db.Decimal(10, 2)
+  balanceLimitSetAt DateTime?
+  balanceLimitSetBy String?
+  balanceLimitSetByUser User? @relation("DealerFarmerBalanceLimitSetter", fields: [balanceLimitSetBy], references: [id])
+
+  sales    DealerSale[]
+  payments DealerFarmerPayment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dealerId, farmerId])
+  @@index([dealerId])
+  @@index([farmerId])
+}
+
+model DealerFarmerPayment {
+  id          String   @id @default(cuid())
+  accountId   String
+  account     DealerFarmerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  amount          Decimal  @db.Decimal(10, 2)
+  paymentMethod   String   @default("CASH")
+  paymentDate     DateTime @default(now())
+  notes           String?
+  reference       String?
+
+  // Optional proof/receipt images
+  receiptImageUrl String?
+  proofImageUrl   String?
+
+  // Balance snapshot after this payment
+  balanceAfter    Decimal  @db.Decimal(10, 2)
+
+  // User who recorded the payment (dealer or farmer)
+  recordedById String
+  recordedBy   User   @relation("DealerFarmerPaymentRecorder", fields: [recordedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([accountId, paymentDate])
+}
+
 // ==================== DEALER VERIFICATION REQUESTS ====================
 
 model DealerVerificationRequest {
@@ -1384,6 +1456,10 @@ model DealerSale {
   dealerId String
   dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
 
+  // Account-based system - link to dealer-farmer account
+  accountId String?
+  account   DealerFarmerAccount? @relation(fields: [accountId], references: [id])
+
   items           DealerSaleItem[]
   transactions    DealerProductTransaction[]
   payments        DealerSalePayment[]
@@ -1398,6 +1474,7 @@ model DealerSale {
   @@index([customerId])
   @@index([farmerId])
   @@index([invoiceNumber])
+  @@index([accountId])
 }
 
 model DealerSaleItem {
@@ -1568,6 +1645,9 @@ model ConsignmentRequest {
   // Link to created sale (S3)
   companySaleId String?      @unique
   companySale   CompanySale? @relation(fields: [companySaleId], references: [id])
+
+  // Balance limit override (company allowed consignment despite limit)
+  overrideBalanceLimit Boolean? @default(false)
 
   fromCompanyId String?
   fromCompany   Company? @relation("CompanyConsignments", fields: [fromCompanyId], references: [id], onDelete: Cascade)
@@ -1758,6 +1838,12 @@ model CompanyDealerAccount {
   // Timestamps
   lastSaleDate    DateTime?
   lastPaymentDate DateTime?
+  
+  // Balance limit feature
+  balanceLimit    Decimal?  @db.Decimal(10, 2) // Maximum allowed balance (null = no limit)
+  balanceLimitSetAt DateTime? // When the limit was last set/updated
+  balanceLimitSetBy String?   // User ID who set the limit
+  balanceLimitSetByUser User? @relation("BalanceLimitSetter", fields: [balanceLimitSetBy], references: [id])
   
   sales    CompanySale[]
   payments CompanyDealerPayment[]

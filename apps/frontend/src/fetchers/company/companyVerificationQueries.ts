@@ -112,9 +112,13 @@ export const useApproveVerificationRequest = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (params: {
+      requestId: string;
+      balanceLimit?: number | null;
+    }) => {
       const { data } = await axiosInstance.post<VerificationRequestResponse>(
-        `/verification/companies/verification-requests/${id}/approve`
+        `/verification/companies/verification-requests/${params.requestId}/approve`,
+        { balanceLimit: params.balanceLimit }
       );
       return data;
     },

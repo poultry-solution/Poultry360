@@ -140,8 +140,8 @@ describe('Payment Workflow', () => {
     });
   });
 
-  describe('Test 1: General Payment - Full FIFO Allocation', () => {
-    it('should pay रू 1800 and clear all sales', async () => {
+  describe('Test 1: General Payment - Account-only (Dealer ↔ Farmer)', () => {
+    it('should pay रू 1800 to farmer account', async () => {
       authHelper.setDealerAuth();
 
       const response = await apiHelper.post('/dealer/ledger/payments', {
@@ -156,50 +156,36 @@ describe('Payment Workflow', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.message).toContain('successfully');
 
-      console.log('✓ General payment of रू 1800 applied');
+      console.log('✓ General payment of रू 1800 applied to account');
     });
 
-    it('should allocate to oldest sale first (sale 1)', async () => {
+    it('should NOT update sale paidAmount/dueAmount (account-only; sales are history)', async () => {
       authHelper.setDealerAuth();
 
-      const response = await apiHelper.get(`/dealer/sales/${sale1Id}`);
-      const sale = response.body.data;
+      const r1 = await apiHelper.get(`/dealer/sales/${sale1Id}`);
+      const r2 = await apiHelper.get(`/dealer/sales/${sale2Id}`);
+      const r3 = await apiHelper.get(`/dealer/sales/${sale3Id}`);
 
-      expect(Number(sale.paidAmount)).toBe(1000);
-      expect(sale.dueAmount).toBeNull(); // Fully paid
-      console.log('✓ Sale 1: Fully paid');
+      expect(Number(r1.body.data.paidAmount)).toBe(0);
+      expect(Number(r1.body.data.dueAmount || 0)).toBe(1000);
+      expect(Number(r2.body.data.paidAmount)).toBe(0);
+      expect(Number(r2.body.data.dueAmount || 0)).toBe(500);
+      expect(Number(r3.body.data.paidAmount)).toBe(0);
+      expect(Number(r3.body.data.dueAmount || 0)).toBe(300);
+      console.log('✓ Sale amounts unchanged (account-only model)');
     });
 
-    it('should allocate to second oldest (sale 2)', async () => {
+    it('should show farmer account balance as zero', async () => {
       authHelper.setDealerAuth();
 
-      const response = await apiHelper.get(`/dealer/sales/${sale2Id}`);
-      const sale = response.body.data;
+      const saleResponse = await apiHelper.get(`/dealer/sales/${sale1Id}`);
+      const farmerId = saleResponse.body.data.farmerId || saleResponse.body.data.customer?.farmerId;
+      expect(farmerId).toBeDefined();
 
-      expect(Number(sale.paidAmount)).toBe(500);
-      expect(sale.dueAmount).toBeNull(); // Fully paid
-      console.log('✓ Sale 2: Fully paid');
-    });
-
-    it('should allocate to newest (sale 3)', async () => {
-      authHelper.setDealerAuth();
-
-      const response = await apiHelper.get(`/dealer/sales/${sale3Id}`);
-      const sale = response.body.data;
-
-      expect(Number(sale.paidAmount)).toBe(300);
-      expect(sale.dueAmount).toBeNull(); // Fully paid
-      console.log('✓ Sale 3: Fully paid');
-    });
-
-    it('should show customer balance as zero', async () => {
-      authHelper.setDealerAuth();
-
-      const response = await apiHelper.get('/dealer/ledger/parties');
-      const customer = response.body.data.find((c: any) => c.id === customerId);
-
-      expect(Number(customer.balance)).toBe(0);
-      console.log('✓ Customer balance cleared: रू 0');
+      const accountResponse = await apiHelper.get(`/dealer/farmer-accounts/${farmerId}`);
+      expect(accountResponse.status).toBe(200);
+      expect(Number(accountResponse.body.data.balance)).toBe(0);
+      console.log('✓ Farmer account balance cleared: रू 0');
     });
   });
 

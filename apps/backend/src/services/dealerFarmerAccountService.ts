@@ -1,42 +1,43 @@
 import prisma from "../utils/prisma";
 import { Prisma } from "@prisma/client";
 
-export class CompanyDealerAccountService {
+export class DealerFarmerAccountService {
   /**
-   * Get or create account for company-dealer pair
+   * Get or create account for dealer-farmer pair
    * Uses upsert to prevent race conditions
    */
-  static async getOrCreateAccount(companyId: string, dealerId: string) {
-    // Use upsert to atomically get or create - prevents race conditions
-    const account = await prisma.companyDealerAccount.upsert({
+  static async getOrCreateAccount(dealerId: string, farmerId: string) {
+    const account = await prisma.dealerFarmerAccount.upsert({
       where: {
-        companyId_dealerId: {
-          companyId,
+        dealerId_farmerId: {
           dealerId,
+          farmerId,
         },
       },
-      update: {}, // Don't update if exists, just return it
+      update: {},
       create: {
-        companyId,
         dealerId,
+        farmerId,
         balance: new Prisma.Decimal(0),
         totalSales: new Prisma.Decimal(0),
         totalPayments: new Prisma.Decimal(0),
       },
       include: {
-        company: {
-          select: {
-            id: true,
-            name: true,
-            address: true,
-          },
-        },
         dealer: {
           select: {
             id: true,
             name: true,
             contact: true,
             address: true,
+          },
+        },
+        farmer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            companyName: true,
+            CompanyFarmLocation: true,
           },
         },
       },
@@ -46,40 +47,40 @@ export class CompanyDealerAccountService {
   }
 
   /**
-   * Record sale and update account balance
+   * Record sale and update account balance.
+   * When tx is provided, runs inside the caller's transaction for atomicity.
    */
   static async recordSale(
-    companyId: string,
     dealerId: string,
-    saleAmount: number,
-    saleId: string
+    farmerId: string,
+    amount: number,
+    saleId: string,
+    tx?: Prisma.TransactionClient
   ) {
-    return await prisma.$transaction(async (tx) => {
-      // Use upsert to ensure account exists (prevents race conditions)
-      const account = await tx.companyDealerAccount.upsert({
+    const run = async (client: Prisma.TransactionClient) => {
+      const account = await client.dealerFarmerAccount.upsert({
         where: {
-          companyId_dealerId: {
-            companyId,
+          dealerId_farmerId: {
             dealerId,
+            farmerId,
           },
         },
         update: {
-          balance: { increment: new Prisma.Decimal(saleAmount) },
-          totalSales: { increment: new Prisma.Decimal(saleAmount) },
+          balance: { increment: new Prisma.Decimal(amount) },
+          totalSales: { increment: new Prisma.Decimal(amount) },
           lastSaleDate: new Date(),
         },
         create: {
-          companyId,
           dealerId,
-          balance: new Prisma.Decimal(saleAmount),
-          totalSales: new Prisma.Decimal(saleAmount),
+          farmerId,
+          balance: new Prisma.Decimal(amount),
+          totalSales: new Prisma.Decimal(amount),
           totalPayments: new Prisma.Decimal(0),
           lastSaleDate: new Date(),
         },
       });
 
-      // Link the sale to the account
-      await tx.companySale.update({
+      await client.dealerSale.update({
         where: { id: saleId },
         data: {
           accountId: account.id,
@@ -87,31 +88,43 @@ export class CompanyDealerAccountService {
       });
 
       return account;
-    });
+    };
+
+    if (tx) {
+      return run(tx);
+    }
+    return await prisma.$transaction(run);
   }
 
   /**
-   * Record payment and update account balance
+   * Record payment and update account balance.
+   * Payments only create DealerFarmerPayment and DealerLedgerEntry; they do not update
+   * any DealerSale row (account-only model; sales are history only).
+   * When tx is provided, runs inside the caller's transaction for atomicity.
    */
-  static async recordPayment(data: {
-    companyId: string;
-    dealerId: string;
-    amount: number;
-    paymentMethod?: string;
-    paymentDate?: Date;
-    notes?: string;
-    reference?: string;
-    receiptImageUrl?: string;
-    proofImageUrl?: string;
-    recordedById: string;
-  }) {
-    return await prisma.$transaction(async (tx) => {
-      // Use upsert to ensure account exists (prevents race conditions)
-      const account = await tx.companyDealerAccount.upsert({
+  static async recordPayment(
+    data: {
+      dealerId: string;
+      farmerId: string;
+      amount: number;
+      paymentMethod?: string;
+      paymentDate?: Date;
+      notes?: string;
+      reference?: string;
+      receiptImageUrl?: string;
+      proofImageUrl?: string;
+      recordedById: string;
+      /** Optional; kept for reference only — never used to mutate sale amounts */
+      dealerSaleId?: string | null;
+    },
+    tx?: Prisma.TransactionClient
+  ) {
+    const run = async (client: Prisma.TransactionClient) => {
+      const account = await client.dealerFarmerAccount.upsert({
         where: {
-          companyId_dealerId: {
-            companyId: data.companyId,
+          dealerId_farmerId: {
             dealerId: data.dealerId,
+            farmerId: data.farmerId,
           },
         },
         update: {
@@ -120,20 +133,18 @@ export class CompanyDealerAccountService {
           lastPaymentDate: data.paymentDate || new Date(),
         },
         create: {
-          companyId: data.companyId,
           dealerId: data.dealerId,
-          balance: new Prisma.Decimal(-data.amount), // Negative = advance payment
+          farmerId: data.farmerId,
+          balance: new Prisma.Decimal(-data.amount),
           totalSales: new Prisma.Decimal(0),
           totalPayments: new Prisma.Decimal(data.amount),
           lastPaymentDate: data.paymentDate || new Date(),
         },
       });
 
-      // Get the updated balance after payment (already updated in upsert above)
       const newBalance = Number(account.balance);
 
-      // Create payment record
-      const payment = await tx.companyDealerPayment.create({
+      const payment = await client.dealerFarmerPayment.create({
         data: {
           accountId: account.id,
           amount: new Prisma.Decimal(data.amount),
@@ -148,22 +159,51 @@ export class CompanyDealerAccountService {
         },
       });
 
+      // Dealer ledger: record payment received from farmer so ledger balance stays aligned with account movements
+      const paymentDate = data.paymentDate || new Date();
+      const lastLedgerEntry = await client.dealerLedgerEntry.findFirst({
+        where: { dealerId: data.dealerId },
+        orderBy: { createdAt: "desc" },
+      });
+      const currentLedgerBalance = lastLedgerEntry
+        ? Number(lastLedgerEntry.balance)
+        : 0;
+      const newLedgerBalance = currentLedgerBalance - data.amount;
+      await client.dealerLedgerEntry.create({
+        data: {
+          type: "PAYMENT_RECEIVED",
+          amount: new Prisma.Decimal(data.amount),
+          balance: new Prisma.Decimal(newLedgerBalance),
+          date: paymentDate,
+          description: data.notes ?? "Payment received from farmer",
+          reference: data.reference ?? payment.id,
+          dealerId: data.dealerId,
+          partyId: data.farmerId,
+          partyType: "FARMER",
+        },
+      });
+
       return {
         payment,
         account,
       };
-    });
+    };
+
+    if (tx) {
+      return run(tx);
+    }
+    return await prisma.$transaction(run);
   }
 
   /**
    * Get account balance
    */
-  static async getAccountBalance(companyId: string, dealerId: string) {
-    const account = await prisma.companyDealerAccount.findUnique({
+  static async getAccountBalance(dealerId: string, farmerId: string) {
+    const account = await prisma.dealerFarmerAccount.findUnique({
       where: {
-        companyId_dealerId: {
-          companyId,
+        dealerId_farmerId: {
           dealerId,
+          farmerId,
         },
       },
       select: {
@@ -180,43 +220,41 @@ export class CompanyDealerAccountService {
   }
 
   /**
-   * Get account statement (sales and payments)
+   * Get account statement (sales and payments) with pagination
    */
   static async getAccountStatement(params: {
-    companyId: string;
     dealerId: string;
+    farmerId: string;
     startDate?: Date;
     endDate?: Date;
     page?: number;
     limit?: number;
   }) {
-    const { companyId, dealerId, startDate, endDate, page = 1, limit = 50 } = params;
+    const { dealerId, farmerId, startDate, endDate, page = 1, limit = 50 } =
+      params;
 
-    const account = await this.getOrCreateAccount(companyId, dealerId);
+    const account = await this.getOrCreateAccount(dealerId, farmerId);
 
     const skip = (page - 1) * limit;
 
-    // Build date filter
-    const dateFilter: any = {};
-    if (startDate) {
-      dateFilter.gte = startDate;
-    }
-    if (endDate) {
-      dateFilter.lte = endDate;
-    }
+    const dateFilter: { gte?: Date; lte?: Date } = {};
+    if (startDate) dateFilter.gte = startDate;
+    if (endDate) dateFilter.lte = endDate;
 
-    // Get sales
-    const salesWhere: any = {
-      companyId,
+    const salesWhere: {
+      dealerId: string;
+      farmerId: string;
+      accountId: string;
+      date?: { gte?: Date; lte?: Date };
+    } = {
       dealerId,
+      farmerId,
       accountId: account.id,
     };
-    if (startDate || endDate) {
-      salesWhere.date = dateFilter;
-    }
+    if (startDate || endDate) salesWhere.date = dateFilter;
 
     const [sales, salesCount] = await Promise.all([
-      prisma.companySale.findMany({
+      prisma.dealerSale.findMany({
         where: salesWhere,
         select: {
           id: true,
@@ -224,25 +262,24 @@ export class CompanyDealerAccountService {
           date: true,
           totalAmount: true,
           notes: true,
-          invoiceImageUrl: true,
         },
         orderBy: { date: "desc" },
         skip,
         take: limit,
       }),
-      prisma.companySale.count({ where: salesWhere }),
+      prisma.dealerSale.count({ where: salesWhere }),
     ]);
 
-    // Get payments
-    const paymentsWhere: any = {
+    const paymentsWhere: {
+      accountId: string;
+      paymentDate?: { gte?: Date; lte?: Date };
+    } = {
       accountId: account.id,
     };
-    if (startDate || endDate) {
-      paymentsWhere.paymentDate = dateFilter;
-    }
+    if (startDate || endDate) paymentsWhere.paymentDate = dateFilter;
 
     const [payments, paymentsCount] = await Promise.all([
-      prisma.companyDealerPayment.findMany({
+      prisma.dealerFarmerPayment.findMany({
         where: paymentsWhere,
         select: {
           id: true,
@@ -259,20 +296,17 @@ export class CompanyDealerAccountService {
         skip,
         take: limit,
       }),
-      prisma.companyDealerPayment.count({ where: paymentsWhere }),
+      prisma.dealerFarmerPayment.count({ where: paymentsWhere }),
     ]);
 
-    // Format sales
     const formattedSales = sales.map((sale) => ({
       id: sale.id,
       invoiceNumber: sale.invoiceNumber,
       date: sale.date,
       amount: Number(sale.totalAmount),
       notes: sale.notes,
-      invoiceImageUrl: sale.invoiceImageUrl,
     }));
 
-    // Format payments
     const formattedPayments = payments.map((payment) => ({
       id: payment.id,
       amount: Number(payment.amount),
@@ -285,7 +319,6 @@ export class CompanyDealerAccountService {
       balanceAfter: Number(payment.balanceAfter),
     }));
 
-    // Also return combined transactions for backward compatibility (if needed)
     const transactions = [
       ...formattedSales.map((sale) => ({
         type: "SALE" as const,
@@ -294,7 +327,6 @@ export class CompanyDealerAccountService {
         amount: sale.amount,
         reference: sale.invoiceNumber,
         notes: sale.notes,
-        imageUrl: sale.invoiceImageUrl,
       })),
       ...formattedPayments.map((payment) => ({
         type: "PAYMENT" as const,
@@ -317,12 +349,12 @@ export class CompanyDealerAccountService {
         totalPayments: Number(account.totalPayments),
         lastSaleDate: account.lastSaleDate,
         lastPaymentDate: account.lastPaymentDate,
-        company: account.company,
         dealer: account.dealer,
+        farmer: account.farmer,
       },
       sales: formattedSales,
       payments: formattedPayments,
-      transactions, // Keep for backward compatibility
+      transactions,
       pagination: {
         page,
         limit,
@@ -335,71 +367,48 @@ export class CompanyDealerAccountService {
   }
 
   /**
-   * Get all accounts for a company
-   */
-  static async getCompanyAccounts(companyId: string) {
-    const accounts = await prisma.companyDealerAccount.findMany({
-      where: { companyId },
-      include: {
-        dealer: {
-          select: {
-            id: true,
-            name: true,
-            contact: true,
-            address: true,
-          },
-        },
-      },
-      orderBy: { balance: "desc" },
-    });
-
-    return accounts.map((account) => ({
-      id: account.id,
-      dealerId: account.dealerId,
-      dealerName: account.dealer.name,
-      dealerContact: account.dealer.contact,
-      dealerAddress: account.dealer.address,
-      balance: Number(account.balance),
-      totalSales: Number(account.totalSales),
-      totalPayments: Number(account.totalPayments),
-      lastSaleDate: account.lastSaleDate,
-      lastPaymentDate: account.lastPaymentDate,
-    }));
-  }
-
-  /**
-   * Set or update balance limit for a dealer account
+   * Set or update balance limit for a dealer-farmer account
    */
   static async setBalanceLimit(params: {
-    companyId: string;
     dealerId: string;
+    farmerId: string;
     balanceLimit: number | null;
     setById: string;
   }) {
-    const { companyId, dealerId, balanceLimit, setById } = params;
+    const { dealerId, farmerId, balanceLimit, setById } = params;
 
-    const account = await prisma.companyDealerAccount.upsert({
+    const account = await prisma.dealerFarmerAccount.upsert({
       where: {
-        companyId_dealerId: { companyId, dealerId },
+        dealerId_farmerId: { dealerId, farmerId },
       },
       update: {
-        balanceLimit: balanceLimit !== null ? new Prisma.Decimal(balanceLimit) : null,
+        balanceLimit:
+          balanceLimit !== null ? new Prisma.Decimal(balanceLimit) : null,
         balanceLimitSetAt: new Date(),
         balanceLimitSetBy: setById,
       },
       create: {
-        companyId,
         dealerId,
+        farmerId,
         balance: new Prisma.Decimal(0),
         totalSales: new Prisma.Decimal(0),
         totalPayments: new Prisma.Decimal(0),
-        balanceLimit: balanceLimit !== null ? new Prisma.Decimal(balanceLimit) : null,
+        balanceLimit:
+          balanceLimit !== null ? new Prisma.Decimal(balanceLimit) : null,
         balanceLimitSetAt: new Date(),
         balanceLimitSetBy: setById,
       },
       include: {
-        company: { select: { id: true, name: true, address: true } },
         dealer: { select: { id: true, name: true, contact: true, address: true } },
+        farmer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            companyName: true,
+            CompanyFarmLocation: true,
+          },
+        },
       },
     });
 
@@ -408,18 +417,17 @@ export class CompanyDealerAccountService {
 
   /**
    * Check if a sale would exceed the balance limit
-   * Returns { allowed: boolean, currentBalance: number, newBalance: number, limit: number | null, exceedsBy?: number }
    */
   static async checkBalanceLimit(params: {
-    companyId: string;
     dealerId: string;
+    farmerId: string;
     saleAmount: number;
   }) {
-    const { companyId, dealerId, saleAmount } = params;
+    const { dealerId, farmerId, saleAmount } = params;
 
-    const account = await prisma.companyDealerAccount.findUnique({
+    const account = await prisma.dealerFarmerAccount.findUnique({
       where: {
-        companyId_dealerId: { companyId, dealerId },
+        dealerId_farmerId: { dealerId, farmerId },
       },
       select: { balance: true, balanceLimit: true },
     });
@@ -445,16 +453,52 @@ export class CompanyDealerAccountService {
   }
 
   /**
-   * Get all accounts for a dealer
+   * Get all farmer accounts for a dealer
    */
   static async getDealerAccounts(dealerId: string) {
-    const accounts = await prisma.companyDealerAccount.findMany({
+    const accounts = await prisma.dealerFarmerAccount.findMany({
       where: { dealerId },
       include: {
-        company: {
+        farmer: {
           select: {
             id: true,
             name: true,
+            phone: true,
+            companyName: true,
+            CompanyFarmLocation: true,
+          },
+        },
+      },
+      orderBy: { balance: "desc" },
+    });
+
+    return accounts.map((account) => ({
+      id: account.id,
+      farmerId: account.farmerId,
+      farmerName: account.farmer.name,
+      farmerPhone: account.farmer.phone,
+      farmerCompanyName: account.farmer.companyName,
+      farmerLocation: account.farmer.CompanyFarmLocation,
+      balance: Number(account.balance),
+      totalSales: Number(account.totalSales),
+      totalPayments: Number(account.totalPayments),
+      lastSaleDate: account.lastSaleDate,
+      lastPaymentDate: account.lastPaymentDate,
+    }));
+  }
+
+  /**
+   * Get all dealer accounts for a farmer
+   */
+  static async getFarmerAccounts(farmerId: string) {
+    const accounts = await prisma.dealerFarmerAccount.findMany({
+      where: { farmerId },
+      include: {
+        dealer: {
+          select: {
+            id: true,
+            name: true,
+            contact: true,
             address: true,
           },
         },
@@ -464,9 +508,10 @@ export class CompanyDealerAccountService {
 
     return accounts.map((account) => ({
       id: account.id,
-      companyId: account.companyId,
-      companyName: account.company.name,
-      companyAddress: account.company.address,
+      dealerId: account.dealerId,
+      dealerName: account.dealer.name,
+      dealerContact: account.dealer.contact,
+      dealerAddress: account.dealer.address,
       balance: Number(account.balance),
       totalSales: Number(account.totalSales),
       totalPayments: Number(account.totalPayments),

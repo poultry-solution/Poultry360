@@ -33,6 +33,7 @@ import { Textarea } from "@/common/components/ui/textarea";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 import { toast } from "sonner";
+import { useI18n } from "@/i18n/useI18n";
 
 interface SaleRequest {
   id: string;
@@ -71,6 +72,7 @@ interface SaleRequest {
 export default function FarmerSaleRequestsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { t } = useI18n();
   const [selectedRequest, setSelectedRequest] = useState<SaleRequest | null>(null);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
@@ -105,12 +107,12 @@ export default function FarmerSaleRequestsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["farmer-sale-requests"] });
       queryClient.invalidateQueries({ queryKey: ["farmer-sale-request-stats"] });
-      toast.success("Sale request approved successfully!");
+      toast.success(t("farmer.saleRequests.toast.approved"));
       setIsApproveDialogOpen(false);
       setSelectedRequest(null);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to approve request");
+      toast.error(error.response?.data?.message || t("farmer.saleRequests.toast.approveFailed"));
     },
   });
 
@@ -126,13 +128,13 @@ export default function FarmerSaleRequestsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["farmer-sale-requests"] });
       queryClient.invalidateQueries({ queryKey: ["farmer-sale-request-stats"] });
-      toast.success("Sale request rejected");
+      toast.success(t("farmer.saleRequests.toast.rejected"));
       setIsRejectDialogOpen(false);
       setSelectedRequest(null);
       setRejectionReason("");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to reject request");
+      toast.error(error.response?.data?.message || t("farmer.saleRequests.toast.rejectFailed"));
     },
   });
 
@@ -157,21 +159,21 @@ export default function FarmerSaleRequestsPage() {
         return (
           <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
             <Clock className="mr-1 h-3 w-3" />
-            Pending
+            {t("farmer.saleRequests.status.pending")}
           </Badge>
         );
       case "APPROVED":
         return (
           <Badge variant="secondary" className="bg-green-100 text-green-800">
             <CheckCircle className="mr-1 h-3 w-3" />
-            Approved
+            {t("farmer.saleRequests.status.approved")}
           </Badge>
         );
       case "REJECTED":
         return (
           <Badge variant="secondary" className="bg-red-100 text-red-800">
             <XCircle className="mr-1 h-3 w-3" />
-            Rejected
+            {t("farmer.saleRequests.status.rejected")}
           </Badge>
         );
       default:
@@ -217,19 +219,17 @@ export default function FarmerSaleRequestsPage() {
           <ArrowLeft className="h-3.5 w-3.5 md:h-4 md:w-4" />
         </Button>
         <div>
-          <h1 className="text-xl md:text-3xl font-bold tracking-tight">Sale Requests</h1>
-          <p className="text-xs md:text-sm text-muted-foreground">
-            Review dealer sale requests
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">{t("farmer.saleRequests.title")}</h1>
+          <p className="text-muted-foreground">{t("farmer.saleRequests.subtitle")}</p>
         </div>
       </div>
 
       {/* Statistics */}
       <div className="grid grid-cols-2 gap-2 md:gap-4 md:grid-cols-4">
         <Card>
-          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium text-muted-foreground">
-              Pending
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {t("farmer.saleRequests.stats.pending")}
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -241,9 +241,9 @@ export default function FarmerSaleRequestsPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium text-muted-foreground">
-              Approved
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {t("farmer.saleRequests.stats.approved")}
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -251,9 +251,9 @@ export default function FarmerSaleRequestsPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium text-muted-foreground">
-              Rejected
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {t("farmer.saleRequests.stats.rejected")}
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -261,9 +261,9 @@ export default function FarmerSaleRequestsPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium text-muted-foreground">
-              Total
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {t("farmer.saleRequests.stats.total")}
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -275,19 +275,17 @@ export default function FarmerSaleRequestsPage() {
       {/* Requests List */}
       {isLoading ? (
         <Card>
-          <CardContent className="p-4 md:p-6">
-            <div className="text-center py-6 text-sm">Loading...</div>
+          <CardContent className="pt-6">
+            <div className="text-center py-8">{t("farmer.saleRequests.loading")}</div>
           </CardContent>
         </Card>
       ) : requests.length === 0 ? (
         <Card>
-          <CardContent className="p-4 md:p-6">
-            <div className="text-center py-6">
-              <ShoppingBag className="mx-auto h-10 w-10 text-muted-foreground" />
-              <h3 className="mt-3 text-base font-semibold">No sale requests</h3>
-              <p className="text-sm text-muted-foreground">
-                Dealer requests will appear here
-              </p>
+          <CardContent className="pt-6">
+            <div className="text-center py-8">
+              <ShoppingBag className="mx-auto h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-4 text-lg font-semibold">{t("farmer.saleRequests.emptyTitle")}</h3>
+              <p className="text-muted-foreground">{t("farmer.saleRequests.emptyHelp")}</p>
             </div>
           </CardContent>
         </Card>
@@ -302,8 +300,8 @@ export default function FarmerSaleRequestsPage() {
                       {request.requestNumber}
                       {getStatusBadge(request.status)}
                     </CardTitle>
-                    <CardDescription className="text-[10px] md:text-sm">
-                      {request.dealer.name} • {formatDate(request.date)}
+                    <CardDescription>
+                      {t("farmer.saleRequests.from")}: {request.dealer.name} • {formatDate(request.date)}
                     </CardDescription>
                   </div>
                   <div className="text-left sm:text-right">
@@ -312,8 +310,8 @@ export default function FarmerSaleRequestsPage() {
                       <span className="md:hidden">रू{Math.round(request.totalAmount).toLocaleString()}</span>
                     </div>
                     {request.paidAmount > 0 && (
-                      <div className="text-xs text-muted-foreground">
-                        Paid: रू{Math.round(request.paidAmount).toLocaleString()}
+                      <div className="text-sm text-muted-foreground">
+                        {t("farmer.saleRequests.paid")}: {formatCurrency(request.paidAmount)}
                       </div>
                     )}
                   </div>
@@ -323,57 +321,53 @@ export default function FarmerSaleRequestsPage() {
                 <div className="space-y-3">
                   {/* Items - scrollable on mobile */}
                   <div>
-                    <h4 className="font-medium mb-2 text-xs md:text-sm">Items:</h4>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="text-xs">Product</TableHead>
-                            <TableHead className="text-xs hidden sm:table-cell">Qty</TableHead>
-                            <TableHead className="text-xs hidden sm:table-cell">Price</TableHead>
-                            <TableHead className="text-xs">Total</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {request.items.map((item) => (
-                            <TableRow key={item.id}>
-                              <TableCell className="text-xs">
-                                <div className="max-w-[100px] md:max-w-none">
-                                  <div className="font-medium truncate">{item.product.name}</div>
-                                  <div className="text-[9px] text-muted-foreground sm:hidden">
-                                    {item.quantity} {item.product.unit}
-                                  </div>
+                    <h4 className="font-medium mb-2">{t("farmer.saleRequests.itemsTitle")}</h4>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t("farmer.saleRequests.table.product")}</TableHead>
+                          <TableHead>{t("farmer.saleRequests.table.quantity")}</TableHead>
+                          <TableHead>{t("farmer.saleRequests.table.unitPrice")}</TableHead>
+                          <TableHead>{t("farmer.saleRequests.table.total")}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {request.items.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{item.product.name}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  {item.product.type}
                                 </div>
-                              </TableCell>
-                              <TableCell className="text-xs hidden sm:table-cell">
-                                {item.quantity} {item.product.unit}
-                              </TableCell>
-                              <TableCell className="text-xs hidden sm:table-cell">
-                                रू{Math.round(item.unitPrice).toLocaleString()}
-                              </TableCell>
-                              <TableCell className="font-medium text-xs">
-                                रू{Math.round(item.totalAmount).toLocaleString()}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {item.quantity} {item.product.unit}
+                            </TableCell>
+                            <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
+                            <TableCell className="font-medium">
+                              {formatCurrency(item.totalAmount)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
 
                   {/* Notes */}
                   {request.notes && (
                     <div>
-                      <h4 className="font-medium mb-1 text-xs">Notes:</h4>
-                      <p className="text-xs text-muted-foreground">{request.notes}</p>
+                      <h4 className="font-medium mb-1">{t("farmer.saleRequests.notes")}</h4>
+                      <p className="text-sm text-muted-foreground">{request.notes}</p>
                     </div>
                   )}
 
                   {/* Rejection Reason */}
                   {request.status === "REJECTED" && request.rejectionReason && (
-                    <div className="bg-red-50 border border-red-200 rounded p-2">
-                      <h4 className="font-medium text-red-800 mb-1 text-xs">Rejection:</h4>
-                      <p className="text-xs text-red-700">{request.rejectionReason}</p>
+                    <div className="bg-red-50 border border-red-200 rounded p-3">
+                      <h4 className="font-medium text-red-800 mb-1">{t("farmer.saleRequests.rejectionReason")}</h4>
+                      <p className="text-sm text-red-700">{request.rejectionReason}</p>
                     </div>
                   )}
 
@@ -384,16 +378,16 @@ export default function FarmerSaleRequestsPage() {
                         onClick={() => handleApprove(request)}
                         className="bg-green-600 hover:bg-green-700 flex-1 sm:flex-none h-8 text-xs"
                       >
-                        <CheckCircle className="mr-1 h-3.5 w-3.5" />
-                        Approve
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        {t("farmer.saleRequests.approve")}
                       </Button>
                       <Button
                         variant="outline"
                         onClick={() => handleReject(request)}
                         className="border-red-300 text-red-600 hover:bg-red-50 flex-1 sm:flex-none h-8 text-xs"
                       >
-                        <XCircle className="mr-1 h-3.5 w-3.5" />
-                        Reject
+                        <XCircle className="mr-2 h-4 w-4" />
+                        {t("farmer.saleRequests.reject")}
                       </Button>
                     </div>
                   )}
@@ -408,31 +402,28 @@ export default function FarmerSaleRequestsPage() {
       <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Approve Sale Request</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to approve this sale request? This will add the items
-              to your inventory and create a purchase entry.
-            </DialogDescription>
+            <DialogTitle>{t("farmer.saleRequests.approveDialogTitle")}</DialogTitle>
+            <DialogDescription>{t("farmer.saleRequests.approveDialogBody")}</DialogDescription>
           </DialogHeader>
           {selectedRequest && (
             <div className="space-y-2 py-4">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Request:</span>
+                <span className="text-muted-foreground">{t("farmer.saleRequests.requestLabel")}</span>
                 <span className="font-medium">{selectedRequest.requestNumber}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Dealer:</span>
+                <span className="text-muted-foreground">{t("farmer.saleRequests.dealerLabel")}</span>
                 <span className="font-medium">{selectedRequest.dealer.name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Amount:</span>
+                <span className="text-muted-foreground">{t("farmer.saleRequests.totalAmountLabel")}</span>
                 <span className="font-bold">
                   {formatCurrency(selectedRequest.totalAmount)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Items:</span>
-                <span>{selectedRequest.items.length} items</span>
+                <span className="text-muted-foreground">{t("farmer.saleRequests.itemsCountLabel")}</span>
+                <span>{t("farmer.saleRequests.itemsCountValue", { count: selectedRequest.items.length })}</span>
               </div>
             </div>
           )}
@@ -442,14 +433,14 @@ export default function FarmerSaleRequestsPage() {
               onClick={() => setIsApproveDialogOpen(false)}
               disabled={approveMutation.isPending}
             >
-              Cancel
+              {t("farmer.saleRequests.cancel")}
             </Button>
             <Button
               onClick={confirmApprove}
               disabled={approveMutation.isPending}
               className="bg-green-600 hover:bg-green-700"
             >
-              {approveMutation.isPending ? "Approving..." : "Approve"}
+              {approveMutation.isPending ? t("farmer.saleRequests.approving") : t("farmer.saleRequests.approve")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -459,17 +450,15 @@ export default function FarmerSaleRequestsPage() {
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject Sale Request</DialogTitle>
-            <DialogDescription>
-              Please provide a reason for rejecting this sale request.
-            </DialogDescription>
+            <DialogTitle>{t("farmer.saleRequests.rejectDialogTitle")}</DialogTitle>
+            <DialogDescription>{t("farmer.saleRequests.rejectDialogBody")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label htmlFor="rejectionReason">Reason (optional)</Label>
+              <Label htmlFor="rejectionReason">{t("farmer.saleRequests.reasonLabel")}</Label>
               <Textarea
                 id="rejectionReason"
-                placeholder="e.g., Price too high, don't need these items right now..."
+                placeholder={t("farmer.saleRequests.reasonPlaceholder")}
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
                 rows={3}
@@ -485,14 +474,14 @@ export default function FarmerSaleRequestsPage() {
               }}
               disabled={rejectMutation.isPending}
             >
-              Cancel
+              {t("farmer.saleRequests.cancel")}
             </Button>
             <Button
               onClick={confirmReject}
               disabled={rejectMutation.isPending}
               variant="destructive"
             >
-              {rejectMutation.isPending ? "Rejecting..." : "Reject"}
+              {rejectMutation.isPending ? t("farmer.saleRequests.rejecting") : t("farmer.saleRequests.reject")}
             </Button>
           </DialogFooter>
         </DialogContent>

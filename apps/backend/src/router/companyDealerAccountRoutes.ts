@@ -3,6 +3,8 @@ import {
   getDealerAccount,
   getDealerAccountStatement,
   recordDealerPayment,
+  setDealerBalanceLimit,
+  checkDealerBalanceLimit,
   getCompanyAccount,
   getCompanyAccountStatement,
   recordCompanyPayment,
@@ -26,6 +28,20 @@ router.get(
   "/company/dealers/:dealerId/account",
   (req, res, next) => authMiddleware(req, res, next, ["COMPANY"]),
   getDealerAccount
+);
+
+// Set dealer balance limit
+router.put(
+  "/company/dealers/:dealerId/account/balance-limit",
+  (req, res, next) => authMiddleware(req, res, next, ["COMPANY"]),
+  setDealerBalanceLimit
+);
+
+// Check dealer balance limit
+router.post(
+  "/company/dealers/:dealerId/account/check-balance-limit",
+  (req, res, next) => authMiddleware(req, res, next, ["COMPANY"]),
+  checkDealerBalanceLimit
 );
 
 // Get dealer account statement

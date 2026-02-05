@@ -102,6 +102,7 @@ export const approvePaymentRequest = async (
     const result = await DealerSalePaymentRequestService.approvePaymentRequest({
       requestId: id,
       dealerId: dealer.id,
+      recordedById: userId as string,
     });
 
     return res.json({

@@ -1,0 +1,638 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "search": "Search",
+    "loading": "Loading...",
+    "notSet": "Not set",
+    "notProvided": "Not provided",
+    "searching": "Searching...",
+    "searchPlaceholderDealer": "Search and select dealer...",
+    "searchPlaceholderCompany": "Search and select company...",
+    "searchDealerHint": "Search by dealer name, contact, or address",
+    "searchCompanyHint": "Search by company name or address",
+    "noDealersFound": "No dealers found",
+    "noCompaniesFound": "No companies found",
+    "typeToSearch": "Type to search...",
+    "typeAtLeast": "Type at least {count} characters to search",
+    "tryDifferentSearch": "Try a different search term",
+    "contactLabel": "Contact",
+    "ownerLabel": "Owner",
+    "optional": "Optional",
+    "notAvailable": "N/A"
+  },
+  "chat": {
+    "unknown": "Unknown",
+    "online": "Online",
+    "offline": "Offline",
+    "deleteConversation": "Delete conversation",
+    "micAccessError": "Could not access microphone. Please check permissions.",
+    "recording": "Recording",
+    "stop": "Stop",
+    "send": "Send",
+    "sending": "Sending...",
+    "cancel": "Cancel"
+  },
+  "topbar": {
+    "expandSidebar": "Expand sidebar",
+    "settings": "Settings",
+    "myAccount": "My Account",
+    "myProfile": "My Profile",
+    "signOut": "Sign Out",
+    "search": {
+      "farmer": "Search farms, batches, inventory...",
+      "doctor": "Search consultations, patients...",
+      "admin": "Search users, farms, batches...",
+      "dealer": "Search dealers, companies...",
+      "company": "Search companies, dealers..."
+    }
+  },
+  "sidebar": {
+    "collapse": "Collapse sidebar",
+    "roles": {
+      "doctor": {
+        "title": "Doctor Portal",
+        "subtitle": "Veterinary Services",
+        "userTitle": "Doctor"
+      },
+      "admin": {
+        "title": "Admin Panel",
+        "subtitle": "System Management",
+        "userTitle": "Administrator"
+      },
+      "dealer": {
+        "title": "Dealer Portal",
+        "subtitle": "Feed & Supply Management",
+        "userTitle": "Dealer"
+      },
+      "company": {
+        "title": "Company Portal",
+        "subtitle": "Product & Distribution Management",
+        "userTitle": "Company"
+      },
+      "farmer": {
+        "title": "Poultry360",
+        "subtitle": "Farm Management",
+        "userTitle": "Owner"
+      }
+    },
+    "nav": {
+      "home": "Home",
+      "farms": "Farms",
+      "batches": "Batches",
+      "dealers": "Dealers",
+      "salesLedger": "Sales Ledger",
+      "medicalSupplierLedger": "Medical Supplier Ledger",
+      "hatcheryLedger": "Hatchery Ledger",
+      "inventory": "Inventory",
+      "chatWithDoctor": "Chat with Doctor",
+      "accounts": "Accounts",
+      "vaccinations": "Vaccinations",
+      "dashboard": "Dashboard",
+      "chat": "Chat",
+      "ledger": "Ledger",
+      "companies": "Companies",
+      "farmers": "Farmers",
+      "sales": "Sales",
+      "products": "Products",
+      "consignments": "Consignments",
+      "payments": "Payments",
+      "analytics": "Analytics",
+      "overview": "Overview",
+      "users": "Users",
+      "financial": "Financial",
+      "suppliers": "Suppliers",
+      "performance": "Performance",
+      "reports": "Reports"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "ownerInfo": "Owner Information",
+    "ownerName": "Owner Name",
+    "phoneNumber": "Phone Number",
+    "companyName": "Company Name",
+    "location": "Location",
+    "companyBusinessInfo": "Company Business Information",
+    "dealerBusinessInfo": "Dealer Business Information",
+    "dealerName": "Dealer Name",
+    "contact": "Contact",
+    "address": "Address",
+    "ownedFarms": "Owned Farms",
+    "managedFarms": "Managed Farms",
+    "farmName": "Farm Name",
+    "capacity": "Capacity",
+    "description": "Description",
+    "noFarms": "No farms found. You don't own or manage any farms yet.",
+    "preferences": "Preferences",
+    "language": "Language",
+    "calendar": "Calendar",
+    "languageEnglish": "English",
+    "languageNepali": "Nepali",
+    "calendarAD": "AD",
+    "calendarBS": "BS",
+    "languageUpdated": "Language updated successfully",
+    "languageUpdateFailed": "Failed to update language",
+    "calendarUpdated": "Calendar preference updated successfully",
+    "calendarUpdateFailed": "Failed to update calendar preference"
+  },
+  "auth": {
+    "login": {
+      "title": "Login",
+      "welcomeBack": "Welcome back",
+      "subtitle": "Log in to your account",
+      "phoneLabel": "Phone",
+      "phonePlaceholder": "98XXXXXXXX",
+      "phoneHelp": "Enter the 10-digit Nepal number (without country code).",
+      "password": "Password",
+      "submit": "Log in",
+      "submitting": "Logging in...",
+      "newTo": "New to Poultry360?",
+      "createAccount": "Create an account",
+      "redirecting": "Redirecting to your dashboard..."
+    },
+    "signup": {
+      "title": "Create your account",
+      "subtitle": "Start managing your farms in minutes.",
+      "fillTestData": "Fill Test Data",
+      "companyNameLabel": "Company name *",
+      "ownerNameLabel": "Owner name *",
+      "provinceLabel": "Province (Nepal)",
+      "locationLabel": "Location (city / area) *",
+      "phoneLabel": "Phone *",
+      "countryCodeLabel": "Country code",
+      "phoneHelp": "Phone number is required for account verification",
+      "languageLabel": "Language *",
+      "calendarLabel": "Calendar *",
+      "dealerLabel": "Dealer (Optional)",
+      "dealerPlaceholder": "Search and select dealer (optional)...",
+      "dealerHelp": "Link your account to a dealer for purchasing supplies (optional)",
+      "passwordLabel": "Password *",
+      "confirmPasswordLabel": "Confirm Password *",
+      "continue": "Continue",
+      "creatingAccount": "Creating account...",
+      "verifyTitle": "Verify your account",
+      "verifySubtitle": "We've sent a verification code to",
+      "verificationCodeLabel": "Verification Code *",
+      "otpTestHint": "For testing: use code {code}",
+      "verifyCreate": "Verify & Create Account",
+      "backToForm": "Back to form",
+      "alreadyHaveAccount": "Already have an account?",
+      "login": "Log in",
+      "registerDealer": "Want to register as a dealer?",
+      "signupDealer": "Sign up as Dealer",
+      "registerCompany": "Want to register as a company?",
+      "signupCompany": "Sign up as Company",
+      "errors": {
+        "passwordMismatch": "Passwords do not match!",
+        "passwordTooShort": "Password must be at least 6 characters long!",
+        "phoneRequired": "Please provide a phone number!",
+        "invalidOtp": "Invalid OTP! Please enter 11111 for testing."
+      }
+    }
+    ,
+    "companySignup": {
+      "title": "Company Registration",
+      "subtitle": "Create your company account to start managing",
+      "ownerNameLabel": "Owner Name *",
+      "phoneLabel": "Phone Number *",
+      "phonePlaceholder": "98XXXXXXXX",
+      "phoneHelp": "This number will be used for both owner and company contact.",
+      "companyNameLabel": "Company Name *",
+      "companyNameHelp": "Your business/company name",
+      "companyAddressLabel": "Company Address",
+      "companyAddressPlaceholder": "Optional business address",
+      "passwordLabel": "Password *",
+      "confirmPasswordLabel": "Confirm Password *",
+      "createAccount": "Create Company Account",
+      "creatingAccount": "Creating account...",
+      "alreadyHaveAccount": "Already have an account?",
+      "login": "Log in",
+      "registerOwner": "Want to register as a farm owner?",
+      "signupOwner": "Sign up as Owner",
+      "registerDealer": "Want to register as a dealer?",
+      "signupDealer": "Sign up as Dealer",
+      "errors": {
+        "ownerNameRequired": "Owner name is required!",
+        "phoneInvalid": "Phone number must be exactly 10 digits!",
+        "companyNameRequired": "Company name is required!",
+        "passwordTooShort": "Password must be at least 6 characters long!",
+        "passwordMismatch": "Passwords do not match!",
+        "registrationFailed": "Registration failed. Please try again."
+      }
+    },
+    "dealerSignup": {
+      "title": "Dealer Registration",
+      "subtitle": "Create your dealer account to start selling",
+      "ownerNameLabel": "Owner Name *",
+      "phoneLabel": "Phone Number *",
+      "phonePlaceholder": "98XXXXXXXX",
+      "phoneHelp": "This number will be used for both owner and dealer contact.",
+      "dealerNameLabel": "Dealer Name *",
+      "dealerNameHelp": "Your business/dealer name",
+      "dealerAddressLabel": "Dealer Address",
+      "dealerAddressPlaceholder": "Optional business address",
+      "companyLabel": "Company (Optional)",
+      "companyPlaceholder": "Search and select company (optional)...",
+      "companyHelp": "Link your dealer account to a company (optional)",
+      "passwordLabel": "Password *",
+      "confirmPasswordLabel": "Confirm Password *",
+      "createAccount": "Create Dealer Account",
+      "creatingAccount": "Creating account...",
+      "alreadyHaveAccount": "Already have an account?",
+      "login": "Log in",
+      "registerOwner": "Want to register as a farm owner?",
+      "signupOwner": "Sign up as Owner",
+      "registerCompany": "Want to register as a company?",
+      "signupCompany": "Sign up as Company",
+      "errors": {
+        "ownerNameRequired": "Owner name is required!",
+        "phoneInvalid": "Phone number must be exactly 10 digits!",
+        "dealerNameRequired": "Dealer name is required!",
+        "passwordTooShort": "Password must be at least 6 characters long!",
+        "passwordMismatch": "Passwords do not match!",
+        "registrationFailed": "Registration failed. Please try again."
+      }
+    }
+  }
+  ,
+  "farmer": {
+    "paymentRequests": {
+      "title": "Payment Requests",
+      "subtitle": "View your payment request history and status",
+      "help": "To make a payment, go to Feed Ledger and click \"Pay\" on any purchase from a connected dealer",
+      "stats": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "total": "Total"
+      },
+      "filters": "Filters",
+      "status": "Status",
+      "statusAll": "All Status",
+      "statusPending": "Pending Review",
+      "statusApproved": "Approved",
+      "statusRejected": "Rejected",
+      "loading": "Loading...",
+      "emptyTitle": "No payment requests found",
+      "emptyHelp": "Go to Feed Ledger to make payments on your purchases",
+      "invoice": "Invoice",
+      "dealer": "Dealer",
+      "amount": "Amount",
+      "date": "Date",
+      "reference": "Reference",
+      "description": "Description",
+      "rejectionReason": "Rejection Reason"
+    }
+    ,
+    "saleRequests": {
+      "title": "Sale Requests",
+      "subtitle": "Review and approve sale requests from your connected dealers",
+      "stats": {
+        "pending": "Pending Review",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "total": "Total"
+      },
+      "loading": "Loading...",
+      "emptyTitle": "No sale requests",
+      "emptyHelp": "When dealers send you sale requests, they'll appear here",
+      "from": "From",
+      "paid": "Paid",
+      "itemsTitle": "Items:",
+      "table": {
+        "product": "Product",
+        "quantity": "Quantity",
+        "unitPrice": "Unit Price",
+        "total": "Total"
+      },
+      "notes": "Notes:",
+      "rejectionReason": "Rejection Reason:",
+      "approve": "Approve",
+      "approving": "Approving...",
+      "reject": "Reject",
+      "rejecting": "Rejecting...",
+      "approveDialogTitle": "Approve Sale Request",
+      "approveDialogBody": "Are you sure you want to approve this sale request? This will add the items to your inventory and create a purchase entry.",
+      "rejectDialogTitle": "Reject Sale Request",
+      "rejectDialogBody": "Please provide a reason for rejecting this sale request.",
+      "requestLabel": "Request:",
+      "dealerLabel": "Dealer:",
+      "totalAmountLabel": "Total Amount:",
+      "itemsCountLabel": "Items:",
+      "itemsCountValue": "{count} items",
+      "cancel": "Cancel",
+      "reasonLabel": "Reason (optional)",
+      "reasonPlaceholder": "e.g., Price too high, don't need these items right now...",
+      "toast": {
+        "approved": "Sale request approved successfully!",
+        "rejected": "Sale request rejected",
+        "approveFailed": "Failed to approve request",
+        "rejectFailed": "Failed to reject request"
+      },
+      "status": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      }
+    }
+    ,
+    "dealers": {
+      "title": "My Dealers",
+      "subtitle": "Manage your dealer connections and verification requests",
+      "buttons": {
+        "feedLedger": "Feed Ledger",
+        "saleRequests": "Sale Requests",
+        "paymentRequests": "Payment Requests",
+        "apply": "Apply to Dealer",
+        "viewDetails": "View Details",
+        "retry": "Retry",
+        "cancel": "Cancel",
+        "archive": "Archive",
+        "restore": "Restore Connection"
+      },
+      "stats": {
+        "connected": "Connected Dealers",
+        "active": "Active",
+        "archived": "Archived",
+        "pending": "Pending Requests",
+        "rejected": "Rejected Requests"
+      },
+      "filters": {
+        "searchPlaceholder": "Search by dealer name, contact, or address...",
+        "allStatus": "All Status",
+        "pending": "Pending",
+        "rejected": "Rejected"
+      },
+      "tabs": {
+        "active": "Active",
+        "archived": "Archived ({count})"
+      },
+      "connectedSection": {
+        "title": "My Connected Dealers",
+        "description": "{count} dealer(s) connected",
+        "emptyTitle": "No connected dealers",
+        "emptySearch": "No dealers match your search.",
+        "emptyDefault": "Apply to a dealer to get started and once approved, you'll see them here."
+      },
+      "verificationSection": {
+        "title": "Verification Requests",
+        "description": "{count} pending/rejected request(s)",
+        "emptyTitle": "No verification requests",
+        "emptyFiltered": "No requests match your filters.",
+        "emptyDefault": "You don't have any pending or rejected verification requests."
+      },
+      "archivedSection": {
+        "title": "Archived Dealers",
+        "description": "{count} archived dealer(s)",
+        "emptyTitle": "No archived dealers",
+        "emptyHelp": "Connections you archive will appear here and can be restored anytime."
+      },
+      "status": {
+        "connected": "Connected",
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      },
+      "labels": {
+        "owner": "Owner:",
+        "phone": "Phone:",
+        "connected": "Connected:",
+        "status": "Status:",
+        "applied": "Applied:",
+        "rejectionCount": "Rejection Count:",
+        "lastRejected": "Last Rejected:"
+      },
+      "messages": {
+        "waitingApproval": "Waiting for dealer approval",
+        "retryLimit": "Cannot retry - 3 rejections reached",
+        "retryWait": "Wait {minutes} more minutes before retrying",
+        "dealerInteractionSoon": "Dealer interaction features coming soon!"
+      },
+      "dialogs": {
+        "archiveTitle": "Archive Connection",
+        "archiveBody": "Are you sure you want to archive your connection with {name}? You can restore it later from the Archived tab.",
+        "cancelRequestTitle": "Cancel Verification Request",
+        "cancelRequestBody": "Are you sure you want to cancel your verification request to {name}?",
+        "cancelKeep": "No, Keep It",
+        "cancelConfirm": "Yes, Cancel Request",
+        "applyTitle": "Apply to Dealer",
+        "applyBody": "Search and select a dealer to send a verification request",
+        "selectDealer": "Select Dealer",
+        "applyHint": "You can only have one pending request per dealer. If already approved, you're connected. If rejected, wait 1 hour before retrying (max 3 retries).",
+        "applyCancel": "Cancel",
+        "applySubmit": "Apply to Dealer",
+        "applySending": "Sending..."
+      },
+      "toasts": {
+        "selectDealer": "Please select a dealer",
+        "requestSent": "Verification request sent successfully",
+        "requestFailed": "Failed to send verification request. Please check if you can retry (wait 1 hour after rejection, and ensure you haven't been rejected 3 times).",
+        "dealerIdMissing": "Dealer ID not found",
+        "retrySent": "Retry request sent successfully",
+        "retryFailed": "Failed to retry verification request. Please check if you can retry (wait 1 hour after rejection, and ensure you haven't been rejected 3 times).",
+        "cancelSuccess": "Verification request cancelled successfully",
+        "cancelFailed": "Failed to cancel request",
+        "archiveSuccess": "Connection archived successfully",
+        "archiveFailed": "Failed to archive connection",
+        "restoreSuccess": "{name} restored successfully",
+        "restoreFailed": "Failed to restore connection"
+      }
+    }
+    ,
+    "dashboard": {
+      "welcome": "Welcome, {name}!",
+      "allFarmsTitle": "All Farms",
+      "allBatchesTitle": "All Batches",
+      "noFarmsFound": "No farms found",
+      "noBatchesFound": "No batches found",
+      "farmCapacity": "Capacity {count} birds",
+      "farmBatches": "Batches: {count}",
+      "batchInfo": "{farm} • Birds {count} • Age {days} days",
+      "close": "Close",
+      "moneyToReceive": "Money to Receive",
+      "moneyToPay": "Money to Pay"
+    }
+    ,
+    "batches": {
+      "title": "Batches",
+      "subtitle": "Track your production batches and performance.",
+      "newBatch": "New Batch",
+      "loading": "Loading batches...",
+      "error": "Failed to load batches. Please try again.",
+      "stats": {
+        "active": "Active Batches",
+        "running": "Currently running",
+        "totalBirds": "Total Birds",
+        "acrossAll": "Across all batches",
+        "currentBirds": "Current Birds",
+        "currentlyAlive": "Currently alive",
+        "closed": "Closed Batches",
+        "tillNow": "Till now"
+      },
+      "finishedNoticeTitle": "Some batches appear finished",
+      "finishedNoticeBody": "One or more active batches have 0 current birds. Consider closing them to finalize records.",
+      "emptyTitle": "No batches found",
+      "emptyHelp": "Get started by creating your first batch.",
+      "createBatch": "Create Batch",
+      "list": {
+        "started": "Started:",
+        "initialBirds": "Initial Birds:",
+        "currentBirds": "Current Birds:",
+        "age": "Age:",
+        "status": "Status:",
+        "days": "days"
+      },
+      "modal": {
+        "createTitle": "Create New Batch",
+        "batchName": "Batch Name",
+        "batchNameAuto": "Auto-generated from Start Date and Farm",
+        "auto": "Auto",
+        "farm": "Farm",
+        "selectFarm": "Select a farm",
+        "startDate": "Start Date",
+        "chicksInventory": "Chicks Inventory",
+        "multiAlloc": "Allocate from multiple items",
+        "selectChicksItem": "Select Chicks Item",
+        "selectItem": "Select an item",
+        "quantity": "Quantity",
+        "notes": "Notes",
+        "notesOptional": "Notes (optional)",
+        "remove": "Remove",
+        "addItem": "Add Item",
+        "totalChicks": "Total Chicks",
+        "initialWeight": "Initial Chick Weight (kg)",
+        "cancel": "Cancel",
+        "creating": "Creating...",
+        "close": "Close",
+        "countTitle": "{status} Batches",
+        "none": "No {status} batches."
+      },
+      "counts": {
+        "active": "Active",
+        "closed": "Closed"
+      },
+      "toasts": {
+        "selectChicks": "Please select chicks inventory and quantity",
+        "created": "Batch created successfully!"
+      }
+    }
+    ,
+    "farms": {
+      "title": "Farms",
+      "subtitle": "Manage your farm locations and details.",
+      "addFarm": "Add Farm",
+      "loading": "Loading farms...",
+      "error": "Failed to load farms. Please try again.",
+      "emptyTitle": "No farms found",
+      "emptyHelp": "Get started by creating your first farm.",
+      "createFarm": "Create Farm",
+      "activeBatches": "Active Batches ({count})",
+      "birds": "birds",
+      "capacity": "Capacity:",
+      "owner": "Owner:",
+      "totalBatches": "Total Batches:",
+      "created": "Created:",
+      "modal": {
+        "addTitle": "Add New Farm",
+        "farmName": "Farm Name",
+        "capacity": "Capacity (Number of Birds)",
+        "description": "Description (Optional)",
+        "cancel": "Cancel",
+        "creating": "Creating...",
+        "create": "Create Farm",
+        "batchesTitle": "{farm} – {status} Batches",
+        "loadingBatches": "Loading {status} batches...",
+        "errorBatches": "Failed to load batches. Please try again.",
+        "noBatches": "No {status} batches found for this farm.",
+        "started": "Started",
+        "age": "Age",
+        "days": "days",
+        "current": "Current",
+        "view": "View",
+        "close": "Close"
+      },
+      "status": {
+        "active": "Active",
+        "closed": "Closed"
+      },
+      "toasts": {
+        "created": "Farm created successfully!"
+      }
+    }
+    ,
+    "inventory": {
+      "title": "Inventory",
+      "subtitleOther": "Manage other supplies and equipment.",
+      "subtitleDefault": "Track feed, medicine, and supplies from purchases.",
+      "addItem": "Add Item",
+      "autoAdded": "Items are automatically added when you make purchases in",
+      "dealerLedger": "Dealer Ledger",
+      "medicalSupplierLedger": "Medical Supplier Ledger",
+      "loading": "Loading inventory...",
+      "error": "Failed to load inventory. Please try again.",
+      "stats": {
+        "totalItems": "Total Items",
+        "inStock": "In stock",
+        "lowStock": "Low Stock",
+        "needReorder": "Need reorder",
+        "totalValue": "Total Value",
+        "inventoryWorth": "Inventory worth",
+        "categories": "Categories",
+        "itemTypes": "Item types"
+      },
+      "tabs": {
+        "feed": "Feed",
+        "chicks": "Chicks",
+        "medicine": "Medicine",
+        "other": "Other"
+      },
+      "table": {
+        "item": "Item",
+        "batch": "Batch",
+        "quantity": "Quantity",
+        "rate": "Rate",
+        "value": "Value",
+        "supplier": "Supplier",
+        "expiry": "Expiry",
+        "status": "Status",
+        "lowStock": "Low Stock"
+      },
+      "categoryTitle": "{category} Inventory",
+      "categoryDesc": "{count} items in {category} category",
+      "empty": "No {category} items found",
+      "emptyAddFirst": "Add First {category} Item",
+      "emptyHelp": "Items will appear here when you make purchases in",
+      "modal": {
+        "addOtherTitle": "Add Other Item",
+        "heading": "Add Other Item",
+        "itemName": "Item Name *",
+        "itemNamePlaceholder": "Enter item name",
+        "quantity": "Quantity *",
+        "unit": "Unit *",
+        "unitPlaceholderFeed": "kg, bags",
+        "unitPlaceholderChicks": "birds, pieces",
+        "unitPlaceholderMedicine": "bottles, vials, tablets",
+        "unitPlaceholderOther": "pieces, kg, bottles",
+        "rate": "Rate per Unit (₹) *",
+        "supplier": "Supplier",
+        "supplierPlaceholder": "Supplier name",
+        "batchNumber": "Batch Number",
+        "batchPlaceholder": "Batch number",
+        "description": "Description",
+        "descriptionPlaceholder": "Additional details",
+        "cancel": "Cancel",
+        "adding": "Adding..."
+      },
+      "validation": {
+        "nameRequired": "Name is required",
+        "quantityRequired": "Valid quantity is required",
+        "unitRequired": "Unit is required",
+        "rateRequired": "Valid rate is required"
+      },
+      "toasts": {
+        "added": "Item added successfully!"
+      }
+    }
+  }
+}

@@ -8,6 +8,7 @@ import {
   XCircle,
   Truck,
   Receipt,
+  AlertCircle,
 } from "lucide-react";
 import {
   Card,
@@ -27,6 +28,15 @@ import { useSearchableDealerSelect } from "@/hooks/useSearchableDealerSelect";
 import { useSearchableProductSelect } from "@/hooks/useSearchableProductSelect";
 import { useCreateCompanyConsignment } from "@/fetchers/company/consignmentQueries";
 import { useCreateCompanySale } from "@/fetchers/company/companySaleQueries";
+import { useCheckDealerBalanceLimit } from "@/fetchers/company/companyDealerAccountQueries";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/common/components/ui/dialog";
 
 interface SaleItem {
   productId: string;
@@ -43,6 +53,9 @@ export default function NewCompanySalePage() {
   const [items, setItems] = useState<SaleItem[]>([]);
   const [notes, setNotes] = useState("");
   const [selectedProductId, setSelectedProductId] = useState("");
+  const [balanceLimitCheck, setBalanceLimitCheck] = useState<any | null>(null);
+  const [showOverrideDialog, setShowOverrideDialog] = useState(false);
+  const [overrideConfirmed, setOverrideConfirmed] = useState(false);
 
   // Searchable selects
   const dealerSelect = useSearchableDealerSelect();
@@ -50,6 +63,9 @@ export default function NewCompanySalePage() {
 
   const createConsignmentMutation = useCreateCompanyConsignment();
   const createSaleMutation = useCreateCompanySale();
+  const checkBalanceLimitMutation = useCheckDealerBalanceLimit();
+
+  const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -112,6 +128,24 @@ export default function NewCompanySalePage() {
       }
     }
 
+    // Run balance limit check before submitting for both direct sales and consignments (unless user already confirmed override)
+    if ((isSelfCreatedDealer || isConnectedDealer) && !overrideConfirmed) {
+      try {
+        const result = await checkBalanceLimitMutation.mutateAsync({
+          dealerId,
+          saleAmount: totalAmount,
+        });
+        setBalanceLimitCheck(result);
+        if (!result.allowed) {
+          setShowOverrideDialog(true);
+          return; // Block submission until user confirms override or cancels
+        }
+      } catch (err) {
+        toast.error("Failed to check balance limit");
+        return;
+      }
+    }
+
     try {
       if (isSelfCreatedDealer) {
         // Direct sale flow for self-created dealers (no approval needed)
@@ -125,6 +159,7 @@ export default function NewCompanySalePage() {
           paymentMethod: "CREDIT",
           notes: notes || undefined,
           date: new Date(),
+          overrideBalanceLimit: overrideConfirmed,
         });
 
         toast.success("Sale created successfully!");
@@ -139,6 +174,7 @@ export default function NewCompanySalePage() {
             unitPrice: item.unitPrice,
           })),
           notes: notes || undefined,
+          overrideBalanceLimit: overrideConfirmed,
         });
 
         toast.success("Consignment request created successfully!");
@@ -154,7 +190,6 @@ export default function NewCompanySalePage() {
     }
   };
 
-  const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const isSubmitting = createConsignmentMutation.isPending || createSaleMutation.isPending;
 
   return (
@@ -414,6 +449,21 @@ export default function NewCompanySalePage() {
                   </div>
                 </div>
 
+                {balanceLimitCheck && !balanceLimitCheck.allowed && !overrideConfirmed && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                      <div className="text-xs">
+                        <p className="font-semibold text-amber-800">Balance Limit Warning</p>
+                        <p className="text-amber-700">
+                          This sale exceeds the dealer&apos;s balance limit by रू{" "}
+                          {balanceLimitCheck.exceedsBy?.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="pt-4 space-y-2">
                   <Button
                     onClick={handleSubmit}
@@ -483,6 +533,75 @@ export default function NewCompanySalePage() {
           </div>
         </div>
       </div>
+
+      {/* Balance limit override confirmation dialog */}
+      <Dialog open={showOverrideDialog} onOpenChange={setShowOverrideDialog}>
+        <DialogContent className="bg-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertCircle className="h-5 w-5" />
+              Balance Limit Exceeded
+            </DialogTitle>
+            <DialogDescription>
+              This sale will exceed the dealer&apos;s balance limit.
+            </DialogDescription>
+          </DialogHeader>
+
+          {balanceLimitCheck && (
+            <div className="space-y-3 py-4">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Current Balance:</span>
+                  <span className="font-semibold">
+                    रू {balanceLimitCheck.currentBalance.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">New Balance (after sale):</span>
+                  <span className="font-semibold text-amber-700">
+                    रू {balanceLimitCheck.newBalance.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Balance Limit:</span>
+                  <span className="font-semibold">
+                    रू {balanceLimitCheck.limit?.toFixed(2)}
+                  </span>
+                </div>
+                {balanceLimitCheck.exceedsBy != null && (
+                  <div className="flex justify-between text-sm pt-2 border-t border-amber-300">
+                    <span className="text-muted-foreground">Exceeds By:</span>
+                    <span className="font-bold text-red-600">
+                      रू {balanceLimitCheck.exceedsBy.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                Do you want to proceed with this sale anyway? You can also update the
+                balance limit from the dealer&apos;s account page.
+              </p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowOverrideDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setOverrideConfirmed(true);
+                setShowOverrideDialog(false);
+                handleSubmit();
+              }}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              Override & Proceed
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

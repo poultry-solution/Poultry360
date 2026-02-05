@@ -89,6 +89,7 @@ export class ConsignmentService {
       unitPrice: number;
     }>;
     notes?: string;
+    overrideBalanceLimit?: boolean;
   }) {
     return await prisma.$transaction(async (tx) => {
       // Calculate total amount
@@ -102,6 +103,30 @@ export class ConsignmentService {
         0
       );
 
+      // Balance limit check for company-to-dealer consignments
+      if (data.fromCompanyId && data.toDealerId && !data.overrideBalanceLimit) {
+        const account = await tx.companyDealerAccount.findUnique({
+          where: {
+            companyId_dealerId: {
+              companyId: data.fromCompanyId,
+              dealerId: data.toDealerId,
+            },
+          },
+          select: { balance: true, balanceLimit: true },
+        });
+        if (account?.balanceLimit) {
+          const currentBalance = Number(account.balance);
+          const newBalance = currentBalance + totalAmount;
+          const limit = Number(account.balanceLimit);
+          if (newBalance > limit) {
+            throw new Error(
+              `Balance limit exceeded. Current: ${currentBalance}, After consignment: ${newBalance}, Limit: ${limit}. ` +
+                `Exceeds by: ${(newBalance - limit).toFixed(2)}. Use override to proceed.`
+            );
+          }
+        }
+      }
+
       // Create consignment request
       const consignment = await tx.consignmentRequest.create({
         data: {
@@ -111,6 +136,7 @@ export class ConsignmentService {
           totalAmount: new Prisma.Decimal(totalAmount),
           requestedQuantity: new Prisma.Decimal(requestedQuantity),
           notes: data.notes,
+          overrideBalanceLimit: data.overrideBalanceLimit ?? false,
           fromCompanyId: data.fromCompanyId,
           fromDealerId: data.fromDealerId,
           toDealerId: data.toDealerId,
@@ -183,6 +209,7 @@ export class ConsignmentService {
 
       // Update items with accepted quantities
       let totalApprovedQty = 0;
+      let totalAcceptedAmount = 0;
       for (const item of data.items) {
         const originalItem = consignment.items.find((i) => i.id === item.itemId);
         if (!originalItem) continue;
@@ -196,6 +223,35 @@ export class ConsignmentService {
         });
 
         totalApprovedQty += item.acceptedQuantity;
+        totalAcceptedAmount += Number(originalItem.unitPrice) * item.acceptedQuantity;
+      }
+
+      // Balance limit check when company accepts (company-to-dealer only)
+      if (
+        consignment.fromCompanyId &&
+        consignment.toDealerId &&
+        consignment.overrideBalanceLimit !== true
+      ) {
+        const account = await tx.companyDealerAccount.findUnique({
+          where: {
+            companyId_dealerId: {
+              companyId: consignment.fromCompanyId,
+              dealerId: consignment.toDealerId,
+            },
+          },
+          select: { balance: true, balanceLimit: true },
+        });
+        if (account?.balanceLimit) {
+          const currentBalance = Number(account.balance);
+          const newBalance = currentBalance + totalAcceptedAmount;
+          const limit = Number(account.balanceLimit);
+          if (newBalance > limit) {
+            throw new Error(
+              `Balance limit exceeded. Current: ${currentBalance}, After acceptance: ${newBalance}, Limit: ${limit}. ` +
+                `Exceeds by: ${(newBalance - limit).toFixed(2)}. Reject or ask to update limit.`
+            );
+          }
+        }
       }
 
       // Update consignment status

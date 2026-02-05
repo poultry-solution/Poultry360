@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Search, Loader2, Building2, Check, X, ChevronDown } from "lucide-react";
 import { useSearchPublicCompanies, type PublicCompany } from "@/fetchers/public/companyQueries";
+import { useI18n } from "@/i18n/useI18n";
 
 interface PublicCompanySearchSelectProps {
   value?: string | null;
@@ -17,12 +18,13 @@ interface PublicCompanySearchSelectProps {
 export function PublicCompanySearchSelect({
   value,
   onValueChange,
-  placeholder = "Search and select company...",
-  label = "Company",
+  placeholder,
+  label,
   required = false,
   disabled = false,
   className = "",
 }: PublicCompanySearchSelectProps) {
+  const { t } = useI18n();
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -109,12 +111,14 @@ export function PublicCompanySearchSelect({
   }, [isOpen]);
 
   const displayValue = isOpen ? searchQuery : (selectedCompany?.name || "");
+  const resolvedPlaceholder = placeholder || t("common.searchPlaceholderCompany");
+  const resolvedLabel = label || t("auth.dealerSignup.companyLabel");
 
   return (
     <div className={`space-y-2 ${className}`} ref={containerRef}>
-      {label && (
+      {resolvedLabel && (
         <label htmlFor="company-search" className="text-sm font-medium">
-          {label}
+          {resolvedLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
@@ -132,7 +136,7 @@ export function PublicCompanySearchSelect({
             <Building2 className="mr-2 h-4 w-4 text-gray-500" />
           )}
           <span className={`flex-1 truncate ${!selectedCompany && !isOpen ? 'text-gray-500' : ''}`}>
-            {displayValue || placeholder}
+            {displayValue || resolvedPlaceholder}
           </span>
           <div className="flex items-center gap-1 ml-2">
             {selectedCompany && !disabled && !isOpen && (
@@ -179,7 +183,7 @@ export function PublicCompanySearchSelect({
                       setIsOpen(false);
                     }
                   }}
-                  placeholder="Type to search..."
+                  placeholder={t("common.typeToSearch")}
                   className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
@@ -189,19 +193,19 @@ export function PublicCompanySearchSelect({
               {isSearching ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-                  <span className="ml-2 text-sm text-gray-500">Searching...</span>
+                  <span className="ml-2 text-sm text-gray-500">{t("common.searching")}</span>
                 </div>
               ) : debouncedSearchQuery.length < 2 ? (
                 <div className="py-8 text-center text-sm text-gray-500">
                   <Search className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                  <p>Type at least 2 characters to search</p>
-                  <p className="text-xs mt-1 text-gray-400">Search by company name or address</p>
+                  <p>{t("common.typeAtLeast", { count: 2 })}</p>
+                  <p className="text-xs mt-1 text-gray-400">{t("common.searchCompanyHint")}</p>
                 </div>
               ) : companies.length === 0 ? (
                 <div className="py-8 text-center text-sm text-gray-500">
                   <Building2 className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                  <p>No companies found</p>
-                  <p className="text-xs mt-1 text-gray-400">Try a different search term</p>
+                  <p>{t("common.noCompaniesFound")}</p>
+                  <p className="text-xs mt-1 text-gray-400">{t("common.tryDifferentSearch")}</p>
                 </div>
               ) : (
                 <div className="p-1">
@@ -226,7 +230,7 @@ export function PublicCompanySearchSelect({
                         <div className="font-medium truncate">{company.name}</div>
                         {company.owner && (
                           <div className="text-xs text-gray-500 truncate">
-                            Owner: {company.owner.name} • {company.owner.phone}
+                            {t("common.ownerLabel")}: {company.owner.name} • {company.owner.phone}
                           </div>
                         )}
                         {company.address && (

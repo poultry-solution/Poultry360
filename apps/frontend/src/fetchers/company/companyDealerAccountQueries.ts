@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
+import type { BalanceLimitCheckResult } from "@poultry360/shared-types";
 
 // Query keys
 export const companyDealerAccountKeys = {
@@ -32,6 +33,9 @@ export interface AccountDetail {
   totalPayments: number;
   lastSaleDate?: Date;
   lastPaymentDate?: Date;
+  balanceLimit?: number | null;
+  balanceLimitSetAt?: Date | null;
+  balanceLimitSetBy?: string | null;
   dealer: {
     id: string;
     name: string;
@@ -181,6 +185,47 @@ export const useRecordDealerPayment = () => {
       queryClient.invalidateQueries({
         queryKey: companyDealerAccountKeys.lists(),
       });
+    },
+  });
+};
+
+// Set dealer balance limit
+export const useSetDealerBalanceLimit = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: {
+      dealerId: string;
+      balanceLimit: number | null;
+    }) => {
+      const { data } = await axiosInstance.put(
+        `/company/dealers/${params.dealerId}/account/balance-limit`,
+        { balanceLimit: params.balanceLimit }
+      );
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: companyDealerAccountKeys.detail(variables.dealerId),
+      });
+      queryClient.invalidateQueries({ queryKey: companyDealerAccountKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["companyDealers"] });
+    },
+  });
+};
+
+// Check dealer balance limit
+export const useCheckDealerBalanceLimit = () => {
+  return useMutation({
+    mutationFn: async (params: {
+      dealerId: string;
+      saleAmount: number;
+    }) => {
+      const { data } = await axiosInstance.post<{ success: boolean; data: BalanceLimitCheckResult }>(
+        `/company/dealers/${params.dealerId}/account/check-balance-limit`,
+        { saleAmount: params.saleAmount }
+      );
+      return data.data;
     },
   });
 };

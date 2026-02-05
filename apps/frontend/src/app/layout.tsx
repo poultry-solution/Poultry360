@@ -10,6 +10,7 @@ import { ChatProvider } from "@/common/contexts/ChatContext";
 import { LoadingProvider } from "@/common/providers/LoadingProvider";
 import { RoleBasedMiddleware } from "@/common/components/auth/RoleBasedMiddleware";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
+import { I18nProvider } from "@/i18n/I18nProvider";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -36,24 +37,26 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthProvider>
-          <QueryProvider>
-            <InventoryProvider>
-              <ChatProvider>
-                <ToastProvider>
-                  <LoadingProvider>
-                    <RoleBasedMiddleware>
-                      <AuthGuard>
-                        <ServiceWorkerRegistration />
-                        {children}
-                      </AuthGuard>
-                    </RoleBasedMiddleware>
-                  </LoadingProvider>
-                </ToastProvider>
-              </ChatProvider>
-            </InventoryProvider>
-          </QueryProvider>
-        </AuthProvider>
+        <I18nProvider>
+          <AuthProvider>
+            <QueryProvider>
+              <InventoryProvider>
+                <ChatProvider>
+                  <ToastProvider>
+                    <LoadingProvider>
+                      <RoleBasedMiddleware>
+                        <AuthGuard>
+                          <ServiceWorkerRegistration />
+                          {children}
+                        </AuthGuard>
+                      </RoleBasedMiddleware>
+                    </LoadingProvider>
+                  </ToastProvider>
+                </ChatProvider>
+              </InventoryProvider>
+            </QueryProvider>
+          </AuthProvider>
+        </I18nProvider>
       </body>
     </html>
   );

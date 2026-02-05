@@ -136,7 +136,8 @@ export const createCompanySale = async (
 ): Promise<any> => {
   try {
     const userId = req.userId;
-    const { dealerId, items, paymentMethod, notes, date } = req.body;
+    const { dealerId, items, paymentMethod, notes, date, overrideBalanceLimit } =
+      req.body;
 
     // Validation
     if (!dealerId) {
@@ -165,6 +166,7 @@ export const createCompanySale = async (
       paymentMethod,
       notes,
       date: date ? new Date(date) : new Date(),
+      overrideBalanceLimit,
     });
 
     return res.status(201).json({

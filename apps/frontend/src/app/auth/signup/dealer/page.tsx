@@ -10,9 +10,11 @@ import { Eye, EyeOff, Store } from "lucide-react";
 import axiosInstance from "@/common/lib/axios";
 import { useAuthStore } from "@/common/store/store";
 import { PublicCompanySearchSelect } from "@/common/components/forms/PublicCompanySearchSelect";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function DealerSignupPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -42,27 +44,27 @@ export default function DealerSignupPage() {
 
   const validateForm = () => {
     if (!formData.ownerName.trim()) {
-      setError("Owner name is required!");
+      setError(t("auth.dealerSignup.errors.ownerNameRequired"));
       return false;
     }
 
     if (!formData.phone || formData.phone.length !== 10) {
-      setError("Phone number must be exactly 10 digits!");
+      setError(t("auth.dealerSignup.errors.phoneInvalid"));
       return false;
     }
 
     if (!formData.dealerName.trim()) {
-      setError("Dealer name is required!");
+      setError(t("auth.dealerSignup.errors.dealerNameRequired"));
       return false;
     }
 
     if (!formData.password || formData.password.length < 6) {
-      setError("Password must be at least 6 characters long!");
+      setError(t("auth.dealerSignup.errors.passwordTooShort"));
       return false;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match!");
+      setError(t("auth.dealerSignup.errors.passwordMismatch"));
       return false;
     }
 
@@ -122,7 +124,7 @@ export default function DealerSignupPage() {
       setError(
         err.response?.data?.message ||
           err.message ||
-          "Registration failed. Please try again."
+          t("auth.dealerSignup.errors.registrationFailed")
       );
       console.error("Registration error:", err);
     } finally {
@@ -152,10 +154,10 @@ export default function DealerSignupPage() {
               <Store className="w-8 h-8 text-blue-600" />
             </div>
             <h1 className="text-2xl font-semibold text-foreground">
-              Dealer Registration
+              {t("auth.dealerSignup.title")}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Create your dealer account to start selling
+              {t("auth.dealerSignup.subtitle")}
             </p>
           </div>
 
@@ -167,7 +169,7 @@ export default function DealerSignupPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="ownerName">Owner Name *</Label>
+              <Label htmlFor="ownerName">{t("auth.dealerSignup.ownerNameLabel")}</Label>
               <Input
                 id="ownerName"
                 name="ownerName"
@@ -178,7 +180,7 @@ export default function DealerSignupPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number *</Label>
+              <Label htmlFor="phone">{t("auth.dealerSignup.phoneLabel")}</Label>
               <div className="flex items-stretch gap-0">
                 <div className="flex items-center gap-2 rounded-l-md border border-r-0 bg-muted px-3 text-foreground">
                   <span aria-hidden>🇳🇵</span>
@@ -191,18 +193,18 @@ export default function DealerSignupPage() {
                   onChange={handleInputChange}
                   inputMode="numeric"
                   pattern="[0-9]{10}"
-                  placeholder="98XXXXXXXX"
+                  placeholder={t("auth.dealerSignup.phonePlaceholder")}
                   className="rounded-l-none"
                   required
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                This number will be used for both owner and dealer contact.
+                {t("auth.dealerSignup.phoneHelp")}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="dealerName">Dealer Name *</Label>
+              <Label htmlFor="dealerName">{t("auth.dealerSignup.dealerNameLabel")}</Label>
               <Input
                 id="dealerName"
                 name="dealerName"
@@ -211,18 +213,18 @@ export default function DealerSignupPage() {
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Your business/dealer name
+                {t("auth.dealerSignup.dealerNameHelp")}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="dealerAddress">Dealer Address</Label>
+              <Label htmlFor="dealerAddress">{t("auth.dealerSignup.dealerAddressLabel")}</Label>
               <Input
                 id="dealerAddress"
                 name="dealerAddress"
                 value={formData.dealerAddress}
                 onChange={handleInputChange}
-                placeholder="Optional business address"
+                placeholder={t("auth.dealerSignup.dealerAddressPlaceholder")}
               />
             </div>
 
@@ -232,17 +234,17 @@ export default function DealerSignupPage() {
                 onValueChange={(value: string | null) =>
                   setFormData({ ...formData, companyId: value })
                 }
-                placeholder="Search and select company (optional)..."
-                label="Company (Optional)"
+                placeholder={t("auth.dealerSignup.companyPlaceholder")}
+                label={t("auth.dealerSignup.companyLabel")}
               />
               <p className="text-xs text-muted-foreground">
-                Link your dealer account to a company (optional)
+                {t("auth.dealerSignup.companyHelp")}
               </p>
             </div>
 
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password *</Label>
+              <Label htmlFor="password">{t("auth.dealerSignup.passwordLabel")}</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -269,7 +271,7 @@ export default function DealerSignupPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password *</Label>
+              <Label htmlFor="confirmPassword">{t("auth.dealerSignup.confirmPasswordLabel")}</Label>
               <div className="relative">
                 <Input
                   id="confirmPassword"
@@ -302,24 +304,24 @@ export default function DealerSignupPage() {
               disabled={isLoading}
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              {isLoading ? "Creating account..." : "Create Dealer Account"}
+              {isLoading ? t("auth.dealerSignup.creatingAccount") : t("auth.dealerSignup.createAccount")}
             </Button>
           </form>
 
           <div className="mt-6 space-y-2">
             <p className="text-sm text-muted-foreground text-center">
-              Already have an account?{" "}
+              {t("auth.dealerSignup.alreadyHaveAccount")}{" "}
               <Link href="/auth/login" className="text-primary hover:underline">
-                Log in
+                {t("auth.dealerSignup.login")}
               </Link>
             </p>
             <p className="text-sm text-muted-foreground text-center">
-              Want to register as a farm owner?{" "}
+              {t("auth.dealerSignup.registerOwner")}{" "}
               <Link
                 href="/auth/signup"
                 className="text-primary hover:underline"
               >
-                Sign up as Owner
+                {t("auth.dealerSignup.signupOwner")}
               </Link>
             </p>
           </div>

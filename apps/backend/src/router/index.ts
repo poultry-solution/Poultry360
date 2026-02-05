@@ -47,6 +47,7 @@ import farmerVerificationRoutes from "./farmerVerificationRoutes";
 import farmerSaleRequestRoutes from "./farmerSaleRequestRoutes";
 import dealerPaymentRequestRoutes from "./dealerPaymentRequestRoutes";
 import farmerPaymentRequestRoutes from "./farmerPaymentRequestRoutes";
+import dealerFarmerAccountRoutes from "./dealerFarmerAccountRoutes";
 
 // Test routes (only in test environment)
 let testRoutes: express.Router | null = null;
@@ -72,6 +73,7 @@ router.use("/verification", farmerVerificationRoutes);
 router.use("/farmer/sale-requests", farmerSaleRequestRoutes);
 router.use("/dealer/payment-requests", dealerPaymentRequestRoutes);
 router.use("/farmer/payment-requests", farmerPaymentRequestRoutes);
+router.use("/dealer/farmer-accounts", dealerFarmerAccountRoutes);
 router.use("/dealer/ledger", dealerLedgerRoutes);
 router.use("/company/products", companyProductRoutes);
 router.use("/company/sales", companySaleRoutes);

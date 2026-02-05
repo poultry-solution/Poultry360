@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowLeft,
   Calendar,
@@ -10,9 +10,9 @@ import {
   CreditCard,
   Package,
   FileText,
-  Plus,
   Check,
   X,
+  Wallet,
 } from "lucide-react";
 import {
   Card,
@@ -22,8 +22,6 @@ import {
   CardTitle,
 } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
-import { Input } from "@/common/components/ui/input";
-import { Label } from "@/common/components/ui/label";
 import {
   Table,
   TableBody,
@@ -33,70 +31,19 @@ import {
   TableRow,
 } from "@/common/components/ui/table";
 import { Badge } from "@/common/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/common/components/ui/select";
-import { toast } from "sonner";
-import { useGetDealerSaleById, useAddSalePayment } from "@/fetchers/dealer/dealerSaleQueries";
+import { useGetDealerSaleById } from "@/fetchers/dealer/dealerSaleQueries";
 
 export default function SaleDetailPage() {
   const router = useRouter();
   const params = useParams();
   const saleId = params?.id as string;
 
-  const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState<number>(0);
-  const [paymentMethod, setPaymentMethod] = useState("CASH");
-  const [paymentNotes, setPaymentNotes] = useState("");
-
   const { data: saleData, isLoading } = useGetDealerSaleById(saleId);
-  const addPaymentMutation = useAddSalePayment();
-
   const sale = saleData?.data;
 
-  const handleAddPayment = async () => {
-    if (!sale) return;
-
-    if (paymentAmount <= 0) {
-      toast.error("Payment amount must be greater than 0");
-      return;
-    }
-
-    const dueAmount = Number(sale.dueAmount) || 0;
-    if (paymentAmount > dueAmount) {
-      toast.error(`Payment amount cannot exceed due amount (रू ${dueAmount.toFixed(2)})`);
-      return;
-    }
-
-    try {
-      await addPaymentMutation.mutateAsync({
-        id: saleId,
-        amount: paymentAmount,
-        paymentMethod,
-        description: paymentNotes || undefined,
-      });
-
-      toast.success("Payment added successfully");
-      setIsAddPaymentOpen(false);
-      setPaymentAmount(0);
-      setPaymentMethod("CASH");
-      setPaymentNotes("");
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to add payment");
-    }
-  };
+  // Payments for connected farmers are managed at account level (no bill-level payment UI)
+  const isFarmerAccountSale = Boolean(sale?.accountId ?? sale?.farmerId ?? sale?.customer?.farmerId);
+  const farmerId = sale?.farmerId ?? sale?.customer?.farmerId;
 
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString("en-US", {
@@ -151,16 +98,18 @@ export default function SaleDetailPage() {
             </p>
           </div>
         </div>
-        {dueAmount > 0 && (
-          <Button onClick={() => setIsAddPaymentOpen(true)} className="bg-primary">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Payment
+        {isFarmerAccountSale && farmerId && (
+          <Button asChild variant="outline">
+            <Link href={`/dealer/dashboard/customers/${sale.customerId ?? farmerId}/account`}>
+              <Wallet className="mr-2 h-4 w-4" />
+              View farmer account
+            </Link>
           </Button>
         )}
       </div>
 
-      {/* Sale Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      {/* Sale Summary Cards: for farmer-linked sales only total (account-only model); for manual sales show Paid/Due */}
+      <div className={`grid gap-4 ${isFarmerAccountSale ? "md:grid-cols-1" : "md:grid-cols-3"}`}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
@@ -168,30 +117,39 @@ export default function SaleDetailPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalAmount)}</div>
+            {isFarmerAccountSale && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Payment tracking is managed in farmer account
+              </p>
+            )}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Paid Amount</CardTitle>
-            <Check className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(paidAmount)}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Due Amount</CardTitle>
-            <X className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {formatCurrency(dueAmount)}
-            </div>
-          </CardContent>
-        </Card>
+        {!isFarmerAccountSale && (
+          <>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Paid Amount</CardTitle>
+                <Check className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {formatCurrency(paidAmount)}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Due Amount</CardTitle>
+                <X className="h-4 w-4 text-red-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">
+                  {formatCurrency(dueAmount)}
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Two Column Layout */}
@@ -233,30 +191,36 @@ export default function SaleDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Payment Status */}
+          {/* Payment Status: for farmer-linked sales no bill-level status; for manual sales show Paid/Due */}
           <Card>
             <CardHeader>
               <CardTitle>Payment Information</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Payment Type</span>
-                  <Badge variant={sale.isCredit ? "destructive" : "default"}>
-                    {sale.isCredit ? "Credit" : "Cash"}
-                  </Badge>
+              {isFarmerAccountSale ? (
+                <p className="text-sm text-muted-foreground">
+                  Payment tracking is managed in farmer account. Record and view payments from the farmer&apos;s account page.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Payment Type</span>
+                    <Badge variant={sale.isCredit ? "destructive" : "default"}>
+                      {sale.isCredit ? "Credit" : "Cash"}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Payment Method</span>
+                    <span className="font-medium text-sm">{sale.paymentMethod}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Status</span>
+                    <Badge variant={dueAmount > 0 ? "destructive" : "secondary"}>
+                      {dueAmount > 0 ? "Pending" : "Fully Paid"}
+                    </Badge>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Payment Method</span>
-                  <span className="font-medium text-sm">{sale.paymentMethod}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Status</span>
-                  <Badge variant={dueAmount > 0 ? "destructive" : "secondary"}>
-                    {dueAmount > 0 ? "Pending" : "Fully Paid"}
-                  </Badge>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
@@ -276,92 +240,83 @@ export default function SaleDetailPage() {
           )}
         </div>
 
-        {/* Right Column - Payment History */}
+        {/* Right Column - Payment: for farmer-linked sales only account CTA; for manual sales show bill-level payments */}
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Payment History</CardTitle>
-                  <CardDescription>
-                    {sale.payments && sale.payments.length > 0
-                      ? `${sale.payments.length} payment${sale.payments.length > 1 ? "s" : ""} recorded`
-                      : "No payments recorded yet"}
-                  </CardDescription>
-                </div>
-                {dueAmount > 0 && (
-                  <Button
-                    size="sm"
-                    onClick={() => setIsAddPaymentOpen(true)}
-                    variant="outline"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add
-                  </Button>
-                )}
-              </div>
+              <CardTitle>Payment</CardTitle>
+              <CardDescription>
+                {isFarmerAccountSale
+                  ? "Payment tracking is managed in farmer account."
+                  : sale.payments && sale.payments.length > 0
+                    ? `${sale.payments.length} payment${sale.payments.length > 1 ? "s" : ""} recorded`
+                    : "No payments recorded for this sale."}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {!sale.payments || sale.payments.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <CreditCard className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p className="text-sm">No payments recorded yet</p>
-                  {dueAmount > 0 && (
-                    <Button
-                      onClick={() => setIsAddPaymentOpen(true)}
-                      className="mt-4"
-                      size="sm"
-                      variant="outline"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add First Payment
-                    </Button>
-                  )}
+              {isFarmerAccountSale && farmerId ? (
+                <div className="text-center py-6 text-muted-foreground space-y-3">
+                  <Wallet className="h-12 w-12 mx-auto opacity-50" />
+                  <p className="text-sm">
+                    Record and view payments from the farmer&apos;s account.
+                  </p>
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/dealer/dashboard/customers/${sale.customerId ?? farmerId}/account`}>
+                      Open farmer account
+                    </Link>
+                  </Button>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {sale.payments.map((payment: any) => (
-                    <div
-                      key={payment.id}
-                      className="p-3 border rounded-lg space-y-2"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="font-semibold">
-                            {formatCurrency(Number(payment.amount))}
+                <>
+                  {sale.payments && sale.payments.length > 0 ? (
+                    <div className="space-y-3">
+                      {sale.payments.map((payment: any) => (
+                        <div
+                          key={payment.id}
+                          className="p-3 border rounded-lg space-y-2"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="font-semibold">
+                                {formatCurrency(Number(payment.amount))}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {formatDate(payment.paymentDate ?? payment.date)}
+                              </div>
+                            </div>
+                            <Badge variant="secondary" className="text-xs">
+                              {payment.method ?? payment.paymentMethod ?? "—"}
+                            </Badge>
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {formatDate(payment.paymentDate)}
-                          </div>
+                          {payment.notes && (
+                            <div className="text-xs text-muted-foreground pt-2 border-t">
+                              {payment.notes}
+                            </div>
+                          )}
                         </div>
-                        <Badge variant="secondary" className="text-xs">
-                          {payment.method}
-                        </Badge>
+                      ))}
+                      <div className="p-3 bg-muted rounded-lg space-y-2 mt-4">
+                        <div className="flex justify-between text-sm">
+                          <span>Total Amount:</span>
+                          <span className="font-semibold">{formatCurrency(totalAmount)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-green-600">
+                          <span>Total Paid:</span>
+                          <span className="font-semibold">{formatCurrency(paidAmount)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-red-600 pt-2 border-t border-border">
+                          <span className="font-semibold">Remaining:</span>
+                          <span className="font-bold">{formatCurrency(dueAmount)}</span>
+                        </div>
                       </div>
-                      {payment.notes && (
-                        <div className="text-xs text-muted-foreground pt-2 border-t">
-                          {payment.notes}
-                        </div>
-                      )}
                     </div>
-                  ))}
-                  
-                  {/* Payment Summary */}
-                  <div className="p-3 bg-muted rounded-lg space-y-2 mt-4">
-                    <div className="flex justify-between text-sm">
-                      <span>Total Amount:</span>
-                      <span className="font-semibold">{formatCurrency(totalAmount)}</span>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <CreditCard className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p className="text-sm">No payments recorded for this sale.</p>
                     </div>
-                    <div className="flex justify-between text-sm text-green-600">
-                      <span>Total Paid:</span>
-                      <span className="font-semibold">{formatCurrency(paidAmount)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm text-red-600 pt-2 border-t border-border">
-                      <span className="font-semibold">Remaining:</span>
-                      <span className="font-bold">{formatCurrency(dueAmount)}</span>
-                    </div>
-                  </div>
-                </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
@@ -412,81 +367,6 @@ export default function SaleDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Add Payment Dialog */}
-      <Dialog open={isAddPaymentOpen} onOpenChange={setIsAddPaymentOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Payment</DialogTitle>
-            <DialogDescription>
-              Record a payment received for this sale
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="p-3 bg-muted rounded-lg">
-              <div className="flex justify-between text-sm">
-                <span>Due Amount:</span>
-                <span className="font-bold text-red-600">
-                  {formatCurrency(dueAmount)}
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="payment-amount">Payment Amount *</Label>
-              <Input
-                id="payment-amount"
-                type="number"
-                min="0"
-                max={dueAmount}
-                step="0.01"
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
-                placeholder="Enter amount"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="payment-method">Payment Method *</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CASH">Cash</SelectItem>
-                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                  <SelectItem value="CHEQUE">Cheque</SelectItem>
-                  <SelectItem value="UPI">UPI</SelectItem>
-                  <SelectItem value="OTHER">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="payment-notes">Notes (Optional)</Label>
-              <Input
-                id="payment-notes"
-                value={paymentNotes}
-                onChange={(e) => setPaymentNotes(e.target.value)}
-                placeholder="Add payment notes..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsAddPaymentOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAddPayment}
-              disabled={addPaymentMutation.isPending}
-            >
-              {addPaymentMutation.isPending ? "Adding..." : "Add Payment"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import prisma from "../utils/prisma";
 import { Prisma } from "@prisma/client";
-import { DealerService } from "./dealerService";
+import { DealerFarmerAccountService } from "./dealerFarmerAccountService";
 
 export class DealerSalePaymentRequestService {
   /**
@@ -45,16 +45,10 @@ export class DealerSalePaymentRequestService {
         );
       }
 
-      // 2. Validate amount
-      const currentDue = Number(sale.dueAmount || 0);
+      // 2. Validate amount (no cap on sale.dueAmount — account-linked sales use
+      // dealer-farmer account balance; amounts above balance allow advances)
       if (amount <= 0) {
         throw new Error("Payment amount must be greater than zero");
-      }
-
-      if (amount > currentDue) {
-        throw new Error(
-          `Payment amount (${amount}) exceeds due amount (${currentDue})`
-        );
       }
 
       // 3. Generate request number
@@ -212,14 +206,15 @@ export class DealerSalePaymentRequestService {
   }
 
   /**
-   * Dealer approves a payment request
-   * This will call addSalePayment (bill-wise) or addGeneralPayment (ledger-level)
+   * Dealer approves a payment request.
+   * Always records the payment via DealerFarmerAccountService.recordPayment (no FIFO or bill-wise allocation).
    */
   static async approvePaymentRequest(data: {
     requestId: string;
     dealerId: string;
+    recordedById: string;
   }) {
-    const { requestId, dealerId } = data;
+    const { requestId, dealerId, recordedById } = data;
 
     // 1. Validate and fetch the request (no transaction yet)
     const request = await prisma.dealerSalePaymentRequest.findUnique({
@@ -254,32 +249,18 @@ export class DealerSalePaymentRequestService {
       },
     });
 
-    // 3. Process payment based on type
-    // These service methods handle their own transactions
+    // 3. Record payment on dealer-farmer account (account-only; no sale allocation).
     try {
-      if (request.isLedgerLevel) {
-        // Ledger-level: auto-allocate from oldest → newest sale
-        await DealerService.addGeneralPayment({
-          customerId: request.customerId,
-          dealerId,
-          amount: Number(request.amount),
-          date: request.paymentDate || new Date(),
-          description: request.description || `Ledger payment - ${request.requestNumber}`,
-          paymentMethod: request.paymentMethod || undefined,
-        });
-      } else {
-        // Bill-wise: apply to specific sale
-        if (!request.dealerSaleId) {
-          throw new Error("Bill-wise payment request must have dealerSaleId");
-        }
-        await DealerService.addSalePayment({
-          saleId: request.dealerSaleId,
-          amount: Number(request.amount),
-          date: request.paymentDate || new Date(),
-          description: request.description || `Payment request approved - ${request.requestNumber}`,
-          paymentMethod: request.paymentMethod || undefined,
-        });
-      }
+      await DealerFarmerAccountService.recordPayment({
+        dealerId,
+        farmerId: request.farmerId,
+        amount: Number(request.amount),
+        paymentMethod: request.paymentMethod || undefined,
+        paymentDate: request.paymentDate || new Date(),
+        notes: request.description || `Payment request approved - ${request.requestNumber}`,
+        reference: request.requestNumber,
+        recordedById,
+      });
     } catch (error) {
       // If payment processing fails, revert the approval status
       await prisma.dealerSalePaymentRequest.update({

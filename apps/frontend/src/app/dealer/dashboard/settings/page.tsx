@@ -19,25 +19,25 @@ import { useAuth } from "@/common/store/store";
 import { useState } from "react";
 import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function SettingsPage() {
   const { user } = useAuth();
-  const [language, setLanguage] = useState<"ENGLISH" | "NEPALI">(
-    user?.language || "ENGLISH"
-  );
+  const { t, language: uiLanguage, setLanguage } = useI18n();
   const [calendarType, setCalendarType] = useState<"AD" | "BS">(
     user?.calendarType || "AD"
   );
 
   const handleLanguageChange = async (newLanguage: string) => {
     try {
+      const nextUiLanguage = newLanguage === "NEPALI" ? "ne" : "en";
+      setLanguage(nextUiLanguage);
       await axiosInstance.patch("/users/preferences", {
         language: newLanguage,
       });
-      setLanguage(newLanguage as "ENGLISH" | "NEPALI");
-      toast.success("Language updated successfully");
+      toast.success(t("settings.languageUpdated"));
     } catch (error) {
-      toast.error("Failed to update language");
+      toast.error(t("settings.languageUpdateFailed"));
     }
   };
 
@@ -47,25 +47,25 @@ export default function SettingsPage() {
         calendarType: newCalendar,
       });
       setCalendarType(newCalendar as "AD" | "BS");
-      toast.success("Calendar preference updated successfully");
+      toast.success(t("settings.calendarUpdated"));
     } catch (error) {
-      toast.error("Failed to update calendar preference");
+      toast.error(t("settings.calendarUpdateFailed"));
     }
   };
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Settings</h1>
+      <h1 className="text-2xl font-bold">{t("settings.title")}</h1>
 
       {/* Owner Information */}
       {user && (
         <Card>
           <CardHeader>
-            <CardTitle>Owner Information</CardTitle>
+            <CardTitle>{t("settings.ownerInfo")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label htmlFor="owner-name">Owner Name</Label>
+              <Label htmlFor="owner-name">{t("settings.ownerName")}</Label>
               <Input
                 id="owner-name"
                 value={user.name}
@@ -75,7 +75,7 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <Label htmlFor="owner-phone">Phone Number</Label>
+              <Label htmlFor="owner-phone">{t("settings.phoneNumber")}</Label>
               <Input
                 id="owner-phone"
                 type="tel"
@@ -87,7 +87,7 @@ export default function SettingsPage() {
 
             {user.companyName && (
               <div>
-                <Label htmlFor="owner-company">Company Name</Label>
+                <Label htmlFor="owner-company">{t("settings.companyName")}</Label>
                 <Input
                   id="owner-company"
                   value={user.companyName}
@@ -99,7 +99,7 @@ export default function SettingsPage() {
 
             {user.companyFarmLocation && (
               <div>
-                <Label htmlFor="owner-location">Location</Label>
+                <Label htmlFor="owner-location">{t("settings.location")}</Label>
                 <Input
                   id="owner-location"
                   value={user.companyFarmLocation}
@@ -116,11 +116,11 @@ export default function SettingsPage() {
       {user?.dealer && (
         <Card>
           <CardHeader>
-            <CardTitle>Dealer Business Information</CardTitle>
+            <CardTitle>{t("settings.dealerBusinessInfo")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label htmlFor="dealer-name">Dealer Name</Label>
+              <Label htmlFor="dealer-name">{t("settings.dealerName")}</Label>
               <Input
                 id="dealer-name"
                 value={user.dealer.name}
@@ -130,7 +130,7 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <Label htmlFor="dealer-contact">Contact</Label>
+              <Label htmlFor="dealer-contact">{t("settings.contact")}</Label>
               <Input
                 id="dealer-contact"
                 type="tel"
@@ -141,10 +141,10 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <Label htmlFor="dealer-address">Address</Label>
+              <Label htmlFor="dealer-address">{t("settings.address")}</Label>
               <Input
                 id="dealer-address"
-                value={user.dealer.address || "Not provided"}
+                value={user.dealer.address || t("common.notProvided")}
                 readOnly
                 className="bg-muted"
               />
@@ -156,31 +156,34 @@ export default function SettingsPage() {
       {/* User Preferences */}
       <Card>
         <CardHeader>
-          <CardTitle>Preferences</CardTitle>
+          <CardTitle>{t("settings.preferences")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label>Language</Label>
-            <Select value={language} onValueChange={handleLanguageChange}>
+            <Label>{t("settings.language")}</Label>
+            <Select
+              value={uiLanguage === "ne" ? "NEPALI" : "ENGLISH"}
+              onValueChange={handleLanguageChange}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ENGLISH">English</SelectItem>
-                <SelectItem value="NEPALI">Nepali</SelectItem>
+                <SelectItem value="ENGLISH">{t("settings.languageEnglish")}</SelectItem>
+                <SelectItem value="NEPALI">{t("settings.languageNepali")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div>
-            <Label>Calendar Type</Label>
+            <Label>{t("settings.calendar")}</Label>
             <Select value={calendarType} onValueChange={handleCalendarChange}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="AD">Gregorian (AD)</SelectItem>
-                <SelectItem value="BS">Bikram Sambat (BS)</SelectItem>
+                <SelectItem value="AD">{t("settings.calendarAD")}</SelectItem>
+                <SelectItem value="BS">{t("settings.calendarBS")}</SelectItem>
               </SelectContent>
             </Select>
           </div>

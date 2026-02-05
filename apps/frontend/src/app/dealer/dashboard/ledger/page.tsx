@@ -61,7 +61,6 @@ import {
   useGetLedgerEntries,
   useAddDealerPayment,
 } from "@/fetchers/dealer/dealerLedgerQueries";
-import { useGetDealerSales } from "@/fetchers/dealer/dealerSaleQueries";
 
 export default function DealerLedgerPage() {
   const router = useRouter();
@@ -69,7 +68,6 @@ export default function DealerLedgerPage() {
   const [search, setSearch] = useState("");
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
   const [selectedPartyId, setSelectedPartyId] = useState("");
-  const [selectedSaleId, setSelectedSaleId] = useState("");
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [paymentNotes, setPaymentNotes] = useState("");
@@ -86,7 +84,6 @@ export default function DealerLedgerPage() {
     page: 1,
     limit: 100,
   });
-  const { data: salesData } = useGetDealerSales({ limit: 1000 });
 
   const addPaymentMutation = useAddDealerPayment();
 
@@ -122,48 +119,28 @@ export default function DealerLedgerPage() {
   };
 
   const handleAddPayment = async () => {
-    // Validation
     if (!paymentAmount || paymentAmount <= 0) {
       toast.error("Please enter a valid amount");
       return;
     }
-
-    // Must have either a sale or a party selected
-    if (!selectedSaleId && !selectedPartyId) {
-      toast.error("Please select a customer or sale");
+    if (!selectedPartyId) {
+      toast.error("Please select a customer");
       return;
     }
 
     try {
-      const paymentData: any = {
+      // Account-level payment only (no sale selection); backend routes farmers to farmer account
+      await addPaymentMutation.mutateAsync({
+        customerId: selectedPartyId,
         amount: paymentAmount,
         paymentMethod,
         date: paymentDate,
         notes: paymentNotes || undefined,
-      };
+      });
 
-      // Add either saleId (bill-wise) or customerId (general payment)
-      if (selectedSaleId && selectedSaleId !== "GENERAL") {
-        paymentData.saleId = selectedSaleId;
-      } else {
-        paymentData.customerId = selectedPartyId;
-      }
-
-      const result = await addPaymentMutation.mutateAsync(paymentData);
-
-      // Show appropriate success message
-      if (result.data?.allocations) {
-        const msg = result.data.allocations.length > 0
-          ? `Payment allocated to ${result.data.allocations.length} sale(s)`
-          : "Advance payment recorded";
-        toast.success(msg);
-      } else {
-        toast.success("Payment added successfully");
-      }
-
+      toast.success("Payment recorded successfully");
       setIsAddPaymentOpen(false);
       setSelectedPartyId("");
-      setSelectedSaleId("");
       setPaymentAmount(0);
       setPaymentMethod("CASH");
       setPaymentNotes("");
@@ -708,13 +685,19 @@ export default function DealerLedgerPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Add Payment Dialog */}
-      <Dialog open={isAddPaymentOpen} onOpenChange={setIsAddPaymentOpen}>
-        <DialogContent className="max-w-2xl">
+      {/* Add Payment Dialog - account-level only (no sale selection); backend routes farmers to farmer account */}
+      <Dialog
+        open={isAddPaymentOpen}
+        onOpenChange={(open) => {
+          setIsAddPaymentOpen(open);
+          if (!open) setSelectedPartyId("");
+        }}
+      >
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Add Payment</DialogTitle>
             <DialogDescription>
-              Record a payment received from a customer
+              Record an account-level payment. Select a customer; for connected farmers, payment is applied to their farmer account.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -750,58 +733,38 @@ export default function DealerLedgerPage() {
 
             {/* Sale Selection - Optional */}
             <div className="space-y-2">
-              <Label htmlFor="sale">
-                Sale (Optional)
-                <span className="text-xs text-muted-foreground ml-2">
-                  Leave as "General Payment" to auto-allocate
-                </span>
-              </Label>
-              {selectedPartyId && partySales.length > 0 ? (
-                <Select
-                  value={selectedSaleId || "GENERAL"}
-                  onValueChange={(value) => {
-                    setSelectedSaleId(value === "GENERAL" ? "" : value);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select payment type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="GENERAL">
-                      General Payment (Auto-allocate to oldest sales)
+              <Label htmlFor="party">Customer *</Label>
+              <Select
+                value={selectedPartyId || ""}
+                onValueChange={setSelectedPartyId}
+              >
+                <SelectTrigger id="party">
+                  <SelectValue placeholder="Select customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {parties.map((party: any) => (
+                    <SelectItem key={party.id} value={party.id}>
+                      {party.name}
+                      {party.partyType === "FARMER" ? " (Farmer)" : ""}
                     </SelectItem>
-                    {partySales.map((sale: any) => (
-                      <SelectItem key={sale.id} value={sale.id}>
-                        {sale.invoiceNumber || sale.id.slice(0, 8)} - Due:{" "}
-                        {formatCurrency(Number(sale.dueAmount || 0))}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Select
-                  value={selectedSaleId || "GENERAL"}
-                  onValueChange={(value) => {
-                    setSelectedSaleId(value === "GENERAL" ? "" : value);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select payment type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="GENERAL">
-                      General Payment (Auto-allocate to oldest sales)
-                    </SelectItem>
-                    {sales
-                      .filter((s: any) => Number(s.dueAmount || 0) > 0)
-                      .map((sale: any) => (
-                        <SelectItem key={sale.id} value={sale.id}>
-                          {sale.invoiceNumber || sale.id.slice(0, 8)} - Due:{" "}
-                          {formatCurrency(Number(sale.dueAmount || 0))}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedPartyId && (
+                <div className="p-3 bg-muted rounded-md text-sm">
+                  <span className="text-muted-foreground">Balance: </span>
+                  <span
+                    className={
+                      Number(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0) > 0
+                        ? "font-bold text-red-600"
+                        : Number(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0) < 0
+                        ? "font-bold text-green-600"
+                        : "font-medium"
+                    }
+                  >
+                    {formatCurrency(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0)}
+                  </span>
+                </div>
               )}
             </div>
 

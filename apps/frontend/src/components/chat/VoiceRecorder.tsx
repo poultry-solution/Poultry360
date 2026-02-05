@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/common/components/ui/button";
 import { Mic, Send, X, Loader2 } from "lucide-react";
+import { useI18n } from "@/i18n/useI18n";
 
 interface VoiceRecorderProps {
   onRecordingComplete: (audioBlob: Blob, duration: number) => void;
@@ -15,6 +16,7 @@ export default function VoiceRecorder({
   onCancel,
   isUploading = false,
 }: VoiceRecorderProps) {
+  const { t } = useI18n();
   const [isRecording, setIsRecording] = useState(true); // Start as recording
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -66,7 +68,7 @@ export default function VoiceRecorder({
       }, 1000);
     } catch (error) {
       console.error("Error accessing microphone:", error);
-      alert("Could not access microphone. Please check permissions.");
+      alert(t("chat.micAccessError"));
     }
   };
 
@@ -169,7 +171,7 @@ export default function VoiceRecorder({
           onClick={stopRecording}
         >
           <Mic className="h-4 w-4 mr-2" />
-          Stop
+          {t("chat.stop")}
         </Button>
       ) : (
         <Button
@@ -183,12 +185,12 @@ export default function VoiceRecorder({
           {isUploading ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Sending
+              {t("chat.sending")}
             </>
           ) : (
             <>
               <Send className="h-4 w-4 mr-2" />
-              Send
+              {t("chat.send")}
             </>
           )}
         </Button>
@@ -196,4 +198,3 @@ export default function VoiceRecorder({
     </div>
   );
 }
-

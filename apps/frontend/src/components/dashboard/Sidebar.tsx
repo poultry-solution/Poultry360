@@ -26,75 +26,76 @@ import {
 import { Button } from "@/common/components/ui/button";
 import { useAuth } from "@/common/store/store";
 import { LucideIcon } from "lucide-react";
+import { useI18n } from "@/i18n/useI18n";
 
 // Navigation item type
-export interface NavigationItem {
-  name: string;
+interface NavigationItem {
+  nameKey: string;
   href: string;
   icon: LucideIcon;
 }
 
 // Role-based navigation configurations
-export const farmerNavigation: NavigationItem[] = [
-  { name: "Home", href: "/farmer/dashboard/home", icon: Home },
-  { name: "Farms", href: "/farmer/dashboard/farms", icon: Building2 },
-  { name: "Batches", href: "/farmer/dashboard/batches", icon: Layers },
-  { name: "Dealers", href: "/farmer/dashboard/dealers", icon: Users },
-  { name: "Sales Ledger", href: "/farmer/dashboard/sales-ledger", icon: Receipt },
+const farmerNavigation: NavigationItem[] = [
+  { nameKey: "sidebar.nav.home", href: "/farmer/dashboard/home", icon: Home },
+  { nameKey: "sidebar.nav.farms", href: "/farmer/dashboard/farms", icon: Building2 },
+  { nameKey: "sidebar.nav.batches", href: "/farmer/dashboard/batches", icon: Layers },
+  { nameKey: "sidebar.nav.dealers", href: "/farmer/dashboard/dealers", icon: Users },
+  { nameKey: "sidebar.nav.salesLedger", href: "/farmer/dashboard/sales-ledger", icon: Receipt },
   {
-    name: "Medical Supplier Ledger",
+    nameKey: "sidebar.nav.medicalSupplierLedger",
     href: "/farmer/dashboard/medical-supplier-ledger",
     icon: Pill,
   },
-  { name: "Hatchery Ledger", href: "/farmer/dashboard/hatchery-ledger", icon: Egg },
-  { name: "Inventory", href: "/farmer/dashboard/inventory", icon: Package },
+  { nameKey: "sidebar.nav.hatcheryLedger", href: "/farmer/dashboard/hatchery-ledger", icon: Egg },
+  { nameKey: "sidebar.nav.inventory", href: "/farmer/dashboard/inventory", icon: Package },
   {
-    name: "Chat with Doctor",
+    nameKey: "sidebar.nav.chatWithDoctor",
     href: "/farmer/dashboard/chat-doctor",
     icon: MessageCircle,
   },
-  { name: "Accounts", href: "/farmer/dashboard/accounts", icon: CreditCard },
-  { name: "Vaccinations", href: "/farmer/dashboard/vaccinations", icon: Syringe },
+  { nameKey: "sidebar.nav.accounts", href: "/farmer/dashboard/accounts", icon: CreditCard },
+  { nameKey: "sidebar.nav.vaccinations", href: "/farmer/dashboard/vaccinations", icon: Syringe },
 ];
 
-export const doctorNavigation: NavigationItem[] = [
-  { name: "Dashboard", href: "/doctor/dashboard", icon: Home },
-  { name: "Chat", href: "/doctor/dashboard/chat", icon: MessageCircle },
-  { name: "Ledger", href: "/doctor/dashboard/ledger", icon: Receipt },
+const doctorNavigation: NavigationItem[] = [
+  { nameKey: "sidebar.nav.dashboard", href: "/doctor/dashboard", icon: Home },
+  { nameKey: "sidebar.nav.chat", href: "/doctor/dashboard/chat", icon: MessageCircle },
+  { nameKey: "sidebar.nav.ledger", href: "/doctor/dashboard/ledger", icon: Receipt },
 ];
 
-export const dealerNavigation: NavigationItem[] = [
-  { name: "Home", href: "/dealer/dashboard/home", icon: Home },
-  { name: "Companies", href: "/dealer/dashboard/company", icon: Building2 },
-  { name: "Inventory", href: "/dealer/dashboard/inventory", icon: Package },
-  { name: "Farmers", href: "/dealer/dashboard/customers", icon: Users },
-  { name: "Sales", href: "/dealer/dashboard/sales", icon: Receipt },
-  { name: "Ledger", href: "/dealer/dashboard/ledger", icon: FileText },
+const dealerNavigation: NavigationItem[] = [
+  { nameKey: "sidebar.nav.home", href: "/dealer/dashboard/home", icon: Home },
+  { nameKey: "sidebar.nav.companies", href: "/dealer/dashboard/company", icon: Building2 },
+  { nameKey: "sidebar.nav.inventory", href: "/dealer/dashboard/inventory", icon: Package },
+  { nameKey: "sidebar.nav.farmers", href: "/dealer/dashboard/customers", icon: Users },
+  { nameKey: "sidebar.nav.sales", href: "/dealer/dashboard/sales", icon: Receipt },
+  { nameKey: "sidebar.nav.ledger", href: "/dealer/dashboard/ledger", icon: FileText },
 
 ];
 
-export const companyNavigation: NavigationItem[] = [
-  { name: "Home", href: "/company/dashboard/home", icon: Home },
-  { name: "Products", href: "/company/dashboard/products", icon: Package },
-  { name: "Dealers", href: "/company/dashboard/dealers", icon: Users },
-  { name: "Sales", href: "/company/dashboard/sales", icon: Receipt },
-  { name: "Ledger", href: "/company/dashboard/ledger", icon: FileText },
-  { name: "Consignments", href: "/company/dashboard/consignments", icon: Truck },
-  { name: "Payments", href: "/company/dashboard/payments", icon: DollarSign },
-  { name: "Analytics", href: "/company/dashboard/analytics", icon: BarChart3 },
+const companyNavigation: NavigationItem[] = [
+  { nameKey: "sidebar.nav.home", href: "/company/dashboard/home", icon: Home },
+  { nameKey: "sidebar.nav.products", href: "/company/dashboard/products", icon: Package },
+  { nameKey: "sidebar.nav.dealers", href: "/company/dashboard/dealers", icon: Users },
+  { nameKey: "sidebar.nav.sales", href: "/company/dashboard/sales", icon: Receipt },
+  { nameKey: "sidebar.nav.ledger", href: "/company/dashboard/ledger", icon: FileText },
+  { nameKey: "sidebar.nav.consignments", href: "/company/dashboard/consignments", icon: Truck },
+  { nameKey: "sidebar.nav.payments", href: "/company/dashboard/payments", icon: DollarSign },
+  { nameKey: "sidebar.nav.analytics", href: "/company/dashboard/analytics", icon: BarChart3 },
 ];
 
-export const adminNavigation: NavigationItem[] = [
-  { name: "Overview", href: "/admin/dashboard", icon: BarChart3 },
-  { name: "Users", href: "/admin/dashboard/users", icon: Users },
-  { name: "Farms", href: "/admin/dashboard/farms", icon: Building2 },
-  { name: "Batches", href: "/admin/dashboard/batches", icon: Package },
-  { name: "Financial", href: "/admin/dashboard/financial", icon: DollarSign },
-  { name: "Suppliers", href: "/admin/dashboard/suppliers", icon: Truck },
-  { name: "Performance", href: "/admin/dashboard/performance", icon: TrendingUp },
-  { name: "Reports", href: "/admin/dashboard/reports", icon: FileText },
-  { name: "Companies", href: "/admin/dashboard/company", icon: Building2 },
-  { name: "Dealers", href: "/admin/dashboard/dealers", icon: Users },
+const adminNavigation: NavigationItem[] = [
+  { nameKey: "sidebar.nav.overview", href: "/admin/dashboard", icon: BarChart3 },
+  { nameKey: "sidebar.nav.users", href: "/admin/dashboard/users", icon: Users },
+  { nameKey: "sidebar.nav.farms", href: "/admin/dashboard/farms", icon: Building2 },
+  { nameKey: "sidebar.nav.batches", href: "/admin/dashboard/batches", icon: Package },
+  { nameKey: "sidebar.nav.financial", href: "/admin/dashboard/financial", icon: DollarSign },
+  { nameKey: "sidebar.nav.suppliers", href: "/admin/dashboard/suppliers", icon: Truck },
+  { nameKey: "sidebar.nav.performance", href: "/admin/dashboard/performance", icon: TrendingUp },
+  { nameKey: "sidebar.nav.reports", href: "/admin/dashboard/reports", icon: FileText },
+  { nameKey: "sidebar.nav.companies", href: "/admin/dashboard/company", icon: Building2 },
+  { nameKey: "sidebar.nav.dealers", href: "/admin/dashboard/dealers", icon: Users },
 ];
 
 interface SidebarProps {
@@ -106,6 +107,7 @@ interface SidebarProps {
 export default function Sidebar({ role, isCollapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useAuth();
+  const { t } = useI18n();
 
   // Get navigation based on role
   const getNavigation = () => {
@@ -122,36 +124,36 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
   const getRoleInfo = () => {
     if (role === "DOCTOR") {
       return {
-        title: "Doctor Portal",
-        subtitle: "Veterinary Services",
-        userTitle: "Doctor"
+        title: t("sidebar.roles.doctor.title"),
+        subtitle: t("sidebar.roles.doctor.subtitle"),
+        userTitle: t("sidebar.roles.doctor.userTitle")
       };
     }
     if (role === "SUPER_ADMIN") {
       return {
-        title: "Admin Panel",
-        subtitle: "System Management",
-        userTitle: "Administrator"
+        title: t("sidebar.roles.admin.title"),
+        subtitle: t("sidebar.roles.admin.subtitle"),
+        userTitle: t("sidebar.roles.admin.userTitle")
       };
     }
     if (role === "DEALER") {
       return {
-        title: "Dealer Portal",
-        subtitle: "Feed & Supply Management",
-        userTitle: "Dealer"
+        title: t("sidebar.roles.dealer.title"),
+        subtitle: t("sidebar.roles.dealer.subtitle"),
+        userTitle: t("sidebar.roles.dealer.userTitle")
       };
     }
     if (role === "COMPANY") {
       return {
-        title: "Company Portal",
-        subtitle: "Product & Distribution Management",
-        userTitle: "Company"
+        title: t("sidebar.roles.company.title"),
+        subtitle: t("sidebar.roles.company.subtitle"),
+        userTitle: t("sidebar.roles.company.userTitle")
       };
     }
     return {
-      title: "Poultry360",
-      subtitle: "Farm Management",
-      userTitle: "Owner"
+      title: t("sidebar.roles.farmer.title"),
+      subtitle: t("sidebar.roles.farmer.subtitle"),
+      userTitle: t("sidebar.roles.farmer.userTitle")
     };
   };
 
@@ -188,7 +190,7 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
             size="icon"
             onClick={onToggle}
             className="cursor-pointer h-8 w-8 flex-shrink-0 hover:bg-gray-100 hover:shadow-sm transition-all duration-200"
-            title="Collapse sidebar"
+            title={t("sidebar.collapse")}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -231,7 +233,7 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
 
           return (
             <Link
-              key={item.name}
+            key={item.nameKey}
               href={item.href}
               className={cn(
                 "cursor-pointer group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-all duration-200",
@@ -248,7 +250,7 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
                     : "text-muted-foreground group-hover:text-foreground"
                 )}
               />
-              <span className="flex-1">{item.name}</span>
+              <span className="flex-1">{t(item.nameKey)}</span>
             </Link>
           );
         })}

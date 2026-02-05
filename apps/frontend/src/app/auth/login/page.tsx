@@ -8,11 +8,13 @@ import { Button } from "@/common/components/ui/button";
 import { useAuth, useAuthStore } from "@/common/store/store";
 import { useLoginRedirect } from "@/common/hooks/useRoleBasedRouting";
 import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function LoginPage() {
   const router = useRouter();
   const { login, isLoading, error, clearError } = useAuth();
   const { isRedirecting, handleLoginRedirect } = useLoginRedirect();
+  const { t } = useI18n();
 
   const [formData, setFormData] = useState({
     // emailOrPhone will hold ONLY the 10 local digits; +977 is shown separately
@@ -60,7 +62,7 @@ export default function LoginPage() {
 
   // Show loading screen during redirection
   if (isRedirecting) {
-    return <AppLoadingScreen message="Redirecting to your dashboard..." />;
+    return <AppLoadingScreen message={t("auth.login.redirecting")} />;
   }
 
   return (
@@ -80,10 +82,10 @@ export default function LoginPage() {
       <div className="w-full max-w-md mx-auto bg-card border rounded-xl p-6 shadow-sm mt-10">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-semibold text-foreground">
-            Welcome back
+            {t("auth.login.welcomeBack")}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Log in to your account
+            {t("auth.login.subtitle")}
           </p>
         </div>
 
@@ -95,7 +97,7 @@ export default function LoginPage() {
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
-            <Label htmlFor="emailOrPhone">Phone</Label>
+            <Label htmlFor="emailOrPhone">{t("auth.login.phoneLabel")}</Label>
             <div className="flex items-stretch gap-0">
               <div className="flex items-center gap-2 rounded-l-md border border-r-0 bg-muted px-3 text-foreground">
                 <span aria-hidden>🇳🇵</span>
@@ -108,17 +110,17 @@ export default function LoginPage() {
                 onChange={handleInputChange}
                 inputMode="numeric"
                 pattern="[0-9]{10}"
-                placeholder="98XXXXXXXX"
+                placeholder={t("auth.login.phonePlaceholder")}
                 className="rounded-l-none"
                 required
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              Enter the 10-digit Nepal number (without country code).
+              {t("auth.login.phoneHelp")}
             </p>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">{t("auth.login.password")}</Label>
             <Input
               id="password"
               name="password"
@@ -133,13 +135,13 @@ export default function LoginPage() {
             disabled={isLoading}
             className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
           >
-            {isLoading ? "Logging in..." : "Log in"}
+            {isLoading ? t("auth.login.submitting") : t("auth.login.submit")}
           </Button>
         </form>
         <p className="text-sm text-muted-foreground mt-4 text-center">
-          New to Poultry360?{" "}
+          {t("auth.login.newTo")}{" "}
           <Link href="/auth/signup" className="text-primary hover:underline">
-            Create an account
+            {t("auth.login.createAccount")}
           </Link>
         </p>
       </div>

@@ -45,6 +45,9 @@ export const getDealerAccount = async (
         totalPayments: Number(account.totalPayments),
         lastSaleDate: account.lastSaleDate,
         lastPaymentDate: account.lastPaymentDate,
+        balanceLimit: account.balanceLimit != null ? Number(account.balanceLimit) : null,
+        balanceLimitSetAt: account.balanceLimitSetAt,
+        balanceLimitSetBy: account.balanceLimitSetBy,
         dealer: account.dealer,
         company: account.company,
       },
@@ -323,6 +326,113 @@ export const recordCompanyPayment = async (
     return res.status(500).json({
       message: error.message || "Internal server error",
     });
+  }
+};
+
+// ==================== SET DEALER BALANCE LIMIT (COMPANY SIDE) ====================
+export const setDealerBalanceLimit = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { dealerId } = req.params;
+    const { balanceLimit } = req.body;
+
+    const company = await prisma.company.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    const dealer = await prisma.dealer.findUnique({
+      where: { id: dealerId },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    const normalizedLimit =
+      balanceLimit === undefined || balanceLimit === null || balanceLimit === ""
+        ? null
+        : Number(balanceLimit);
+
+    if (normalizedLimit !== null && (isNaN(normalizedLimit) || normalizedLimit < 0)) {
+      return res.status(400).json({
+        message: "Balance limit must be a non-negative number or null",
+      });
+    }
+
+    const account = await CompanyDealerAccountService.setBalanceLimit({
+      companyId: company.id,
+      dealerId,
+      balanceLimit: normalizedLimit,
+      setById: userId as string,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        id: account.id,
+        balance: Number(account.balance),
+        balanceLimit: account.balanceLimit != null ? Number(account.balanceLimit) : null,
+        balanceLimitSetAt: account.balanceLimitSetAt,
+        balanceLimitSetBy: account.balanceLimitSetBy,
+      },
+      message: "Balance limit updated successfully",
+    });
+  } catch (error: any) {
+    console.error("Set dealer balance limit error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== CHECK DEALER BALANCE LIMIT (COMPANY SIDE) ====================
+export const checkDealerBalanceLimit = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { dealerId } = req.params;
+    const { saleAmount } = req.body;
+
+    const company = await prisma.company.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    const parsed = Number(saleAmount);
+    if (
+      !Number.isFinite(parsed) ||
+      parsed < 0
+    ) {
+      return res.status(400).json({
+        message: "Valid sale amount is required",
+      });
+    }
+
+    const result = await CompanyDealerAccountService.checkBalanceLimit({
+      companyId: company.id,
+      dealerId,
+      saleAmount: parsed,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    console.error("Check dealer balance limit error:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
