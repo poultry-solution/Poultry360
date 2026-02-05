@@ -350,35 +350,36 @@ export default function AccountsPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Account Ledger</h1>
-          <p className="text-muted-foreground">
-            Central bookkeeping for all transactions across dealers, hatcheries, customers, and sales.
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Account Ledger</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
+            Bookkeeping for all transactions.
           </p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-1 bg-muted p-1 rounded-lg w-fit">
+      <div className="flex gap-1 bg-muted p-1 rounded-lg overflow-x-auto">
         {[
           { id: "ALL", label: "All", icon: BookOpen },
           { id: "DEALER", label: "Dealers", icon: Users },
-          { id: "HATCHERY", label: "Hatcheries", icon: Egg },
+          { id: "HATCHERY", label: "Hatchery", icon: Egg },
           { id: "CUSTOMER", label: "Customers", icon: ShoppingCart },
-          { id: "MEDICINE_SUPPLIER", label: "Medicine", icon: Pill },
+          { id: "MEDICINE_SUPPLIER", label: "Meds", icon: Pill },
         ].map((tab) => (
           <Button
             key={tab.id}
             variant={activeTab === tab.id ? "default" : "ghost"}
             size="sm"
             onClick={() => setActiveTab(tab.id as EntityType)}
-            className="flex items-center gap-2"
+            className="flex items-center gap-1 md:gap-2 text-xs md:text-sm whitespace-nowrap"
           >
-            <tab.icon className="h-4 w-4" />
-            {tab.label}
+            <tab.icon className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">{tab.label}</span>
+            <span className="sm:hidden">{tab.id === "ALL" ? "All" : tab.id === "DEALER" ? "D" : tab.id === "HATCHERY" ? "H" : tab.id === "CUSTOMER" ? "C" : "M"}</span>
           </Button>
         ))}
       </div>
@@ -387,119 +388,118 @@ export default function AccountsPage() {
       {activeTab === "DEALER" ? (
         <>
           {/* Dealer Tab Content */}
-          <div className="grid gap-4 md:grid-cols-3 mb-6">
+          <div className="grid gap-2 grid-cols-3 mb-4">
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Total Dealers</CardTitle>
+              <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+                <CardTitle className="text-[10px] md:text-sm font-medium">Dealers</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{dealers.length}</div>
-                <p className="text-xs text-muted-foreground">Connected dealers</p>
+              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+                <div className="text-base md:text-2xl font-bold">{dealers.length}</div>
+                <p className="text-[9px] md:text-xs text-muted-foreground">Connected</p>
               </CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Total Outstanding</CardTitle>
+              <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+                <CardTitle className="text-[10px] md:text-sm font-medium">Due</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">
-                  {formatCurrency(dealers.reduce((sum: number, d: any) => sum + Math.max(0, d.balance || 0), 0))}
+              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+                <div className="text-base md:text-2xl font-bold text-red-600">
+                  <span className="hidden md:inline">रू</span>{dealers.reduce((sum: number, d: any) => sum + Math.max(0, d.balance || 0), 0).toLocaleString()}
                 </div>
-                <p className="text-xs text-muted-foreground">Amount due to dealers</p>
+                <p className="text-[9px] md:text-xs text-muted-foreground">Outstanding</p>
               </CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
+              <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+                <CardTitle className="text-[10px] md:text-sm font-medium">Pending</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
-                <p className="text-xs text-muted-foreground">
-                  {formatCurrency(stats.pendingAmount)} pending
-                </p>
+              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+                <div className="text-base md:text-2xl font-bold text-yellow-600">{stats.pending}</div>
+                <p className="text-[9px] md:text-xs text-muted-foreground">Requests</p>
               </CardContent>
             </Card>
           </div>
 
           {/* Dealers Table */}
           <Card>
-            <CardHeader>
-              <CardTitle>Dealers & Balances</CardTitle>
-              <CardDescription>
-                {dealers.length} dealer{dealers.length !== 1 ? "s" : ""} with balance information
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-base md:text-lg">Dealers & Balances</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                {dealers.length} dealer{dealers.length !== 1 ? "s" : ""}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {dealersLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                  <span className="ml-2">Loading dealers...</span>
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="ml-2 text-sm">Loading...</span>
                 </div>
               ) : dealers.length === 0 ? (
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No dealers found</h3>
-                  <p className="text-muted-foreground">
-                    Dealers you transact with will appear here.
-                  </p>
+                <div className="text-center py-6">
+                  <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                  <h3 className="text-base font-semibold mb-1">No dealers found</h3>
+                  <p className="text-sm text-muted-foreground">Dealers will appear here.</p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Dealer Name</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead className="text-right">Balance Due</TableHead>
-                      <TableHead>Last Transaction</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {dealers.map((dealer: any) => (
-                      <TableRow key={dealer.id}>
-                        <TableCell className="font-medium">{dealer.name}</TableCell>
-                        <TableCell>{dealer.contact || "N/A"}</TableCell>
-                        <TableCell className="text-right">
-                          <span
-                            className={
-                              dealer.balance > 0
-                                ? "font-bold text-red-600"
-                                : dealer.balance < 0
-                                  ? "font-bold text-green-600"
-                                  : "text-muted-foreground"
-                            }
-                          >
-                            {dealer.balance > 0
-                              ? `${formatCurrency(dealer.balance)} (Due)`
-                              : dealer.balance < 0
-                                ? `${formatCurrency(Math.abs(dealer.balance))} (Advance)`
-                                : formatCurrency(0)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {dealer.lastTransactionDate
-                            ? formatDate(dealer.lastTransactionDate)
-                            : "N/A"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {dealer.balance > 0 ? (
-                            <Button
-                              size="sm"
-                              onClick={() => openPaymentDialog(dealer)}
-                            >
-                              <Plus className="h-4 w-4 mr-1" />
-                              Pay
-                            </Button>
-                          ) : dealer.balance < 0 ? (
-                            <span className="text-sm text-green-600 font-medium">
-                              Credit Available
-                            </span>
-                          ) : null}
-                        </TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Name</TableHead>
+                        <TableHead className="text-xs hidden md:table-cell">Contact</TableHead>
+                        <TableHead className="text-xs text-right">Due</TableHead>
+                        <TableHead className="text-xs hidden sm:table-cell">Last Txn</TableHead>
+                        <TableHead className="text-xs text-right">Action</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {dealers.map((dealer: any) => (
+                        <TableRow key={dealer.id}>
+                          <TableCell className="font-medium text-xs md:text-sm max-w-[100px] truncate">{dealer.name}</TableCell>
+                          <TableCell className="text-xs hidden md:table-cell">{dealer.contact || "N/A"}</TableCell>
+                          <TableCell className="text-right text-xs">
+                            <span
+                              className={
+                                dealer.balance > 0
+                                  ? "font-bold text-red-600"
+                                  : dealer.balance < 0
+                                    ? "font-bold text-green-600"
+                                    : "text-muted-foreground"
+                              }
+                            >
+                              {dealer.balance > 0
+                                ? `रू${dealer.balance.toLocaleString()}`
+                                : dealer.balance < 0
+                                  ? `रू${Math.abs(dealer.balance).toLocaleString()}`
+                                  : "रू0"}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-xs hidden sm:table-cell">
+                            {dealer.lastTransactionDate
+                              ? formatDate(dealer.lastTransactionDate)
+                              : "N/A"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {dealer.balance > 0 ? (
+                              <Button
+                                size="sm"
+                                className="text-xs h-7"
+                                onClick={() => openPaymentDialog(dealer)}
+                              >
+                                <Plus className="h-3.5 w-3.5 md:mr-1" />
+                                <span className="hidden md:inline">Pay</span>
+                              </Button>
+                            ) : dealer.balance < 0 ? (
+                              <span className="text-[10px] md:text-xs text-green-600 font-medium">
+                                Credit
+                              </span>
+                            ) : null}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -574,36 +574,36 @@ export default function AccountsPage() {
         <>
           {/* Filters (for non-Dealer tabs) */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="h-5 w-5" />
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                <Filter className="h-4 w-4 md:h-5 md:w-5" />
                 Filters
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-                <div>
-                  <Label htmlFor="search">Search</Label>
+            <CardContent className="p-3 md:p-6 pt-0">
+              <div className="grid gap-2 md:gap-4 grid-cols-2 lg:grid-cols-5">
+                <div className="col-span-2 lg:col-span-1">
+                  <Label htmlFor="search" className="text-xs">Search</Label>
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                     <Input
                       id="search"
-                      placeholder="Search transactions..."
+                      placeholder="Search..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="pl-10"
+                      className="pl-8 h-8 text-xs"
                     />
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="transactionType">Transaction Type</Label>
+                  <Label htmlFor="transactionType" className="text-xs">Type</Label>
                   <select
                     id="transactionType"
                     value={transactionTypeFilter}
                     onChange={(e) => setTransactionTypeFilter(e.target.value)}
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs"
                   >
-                    <option value="">All Types</option>
+                    <option value="">All</option>
                     <option value="PURCHASE">Purchase</option>
                     <option value="PAYMENT">Payment</option>
                     <option value="RECEIPT">Receipt</option>
@@ -612,7 +612,7 @@ export default function AccountsPage() {
                 </div>
                 <div>
                   <DateInput
-                    label="Start Date"
+                    label="From"
                     value={startDate}
                     onChange={(value) => {
                       const datePart = value.includes("T") ? value.split("T")[0] : value;
@@ -622,7 +622,7 @@ export default function AccountsPage() {
                 </div>
                 <div>
                   <DateInput
-                    label="End Date"
+                    label="To"
                     value={endDate}
                     onChange={(value) => {
                       const datePart = value.includes("T") ? value.split("T")[0] : value;
@@ -633,6 +633,8 @@ export default function AccountsPage() {
                 <div className="flex items-end">
                   <Button
                     variant="outline"
+                    size="sm"
+                    className="text-xs w-full"
                     onClick={() => {
                       setActiveTab("ALL");
                       setTransactionTypeFilter("");
@@ -641,7 +643,7 @@ export default function AccountsPage() {
                       setSearch("");
                     }}
                   >
-                    Clear Filters
+                    Clear
                   </Button>
                 </div>
               </div>
@@ -650,43 +652,43 @@ export default function AccountsPage() {
 
           {/* Transactions Table */}
           <Card>
-            <CardHeader>
-              <CardTitle>All Transactions</CardTitle>
-              <CardDescription>
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-base md:text-lg">All Transactions</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
                 {pagination
-                  ? `${pagination.total} total transactions found`
-                  : "Loading transactions..."}
+                  ? `${pagination.total} transactions`
+                  : "Loading..."}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               {isLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                  <span className="ml-2">Loading transactions...</span>
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="ml-2 text-sm">Loading...</span>
                 </div>
               ) : error ? (
-                <div className="text-center py-8">
-                  <p className="text-red-600">
-                    Failed to load transactions. Please try again.
-                  </p>
+                <div className="text-center py-6">
+                  <p className="text-red-600 text-sm">Failed to load. Try again.</p>
                 </div>
               ) : (
-                <DataTable
-                  data={transactions}
-                  columns={columns}
-                  showFooter={true}
-                  footerContent={
-                    <div className="flex items-center justify-between text-sm text-muted-foreground px-4 py-2">
-                      <span>
-                        Showing {transactions.length} of {pagination?.total || 0} transactions
-                      </span>
-                      <span>
-                        Page {pagination?.page || 1} of {pagination?.totalPages || 1}
-                      </span>
-                    </div>
-                  }
-                  emptyMessage="No transactions found"
-                />
+                <div className="overflow-x-auto">
+                  <DataTable
+                    data={transactions}
+                    columns={columns}
+                    showFooter={true}
+                    footerContent={
+                      <div className="flex items-center justify-between text-xs text-muted-foreground px-3 py-2">
+                        <span>
+                          {transactions.length} of {pagination?.total || 0}
+                        </span>
+                        <span>
+                          Page {pagination?.page || 1}/{pagination?.totalPages || 1}
+                        </span>
+                      </div>
+                    }
+                    emptyMessage="No transactions found"
+                  />
+                </div>
               )}
             </CardContent>
           </Card>

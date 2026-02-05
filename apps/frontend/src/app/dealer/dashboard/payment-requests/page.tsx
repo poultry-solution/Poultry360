@@ -47,6 +47,7 @@ import {
 import { toast } from "sonner";
 
 export default function DealerPaymentRequestsPage() {
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -129,83 +130,89 @@ export default function DealerPaymentRequestsPage() {
   const pagination = requestsData?.pagination;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
         <div className="flex items-center gap-2 mb-2">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => router.push("/dealer/dashboard/customers")}
+            className="text-xs md:text-sm"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Customers
+            <ArrowLeft className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" />
+            <span className="hidden sm:inline">Back to Customers</span>
+            <span className="sm:hidden">Back</span>
           </Button>
         </div>
-        <h1 className="text-3xl font-bold">Payment Requests</h1>
-        <p className="text-muted-foreground">
-          Manage payment requests from connected farmers
+        <h1 className="text-2xl md:text-3xl font-bold">Payment Requests</h1>
+        <p className="text-sm md:text-base text-muted-foreground">
+          Manage payment requests from farmers
         </p>
       </div>
 
       {/* Statistics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-4">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Pending</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.pending}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatCurrency(stats.pendingAmount)}
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">{stats.pending}</div>
+            <p className="text-[9px] md:text-xs text-muted-foreground mt-0.5">
+              <span className="hidden md:inline">{formatCurrency(stats.pendingAmount)}</span>
+              <span className="md:hidden">रू{Math.round(stats.pendingAmount).toLocaleString()}</span>
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Approved</CardTitle>
+          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Approved</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold text-green-600">{stats.approved}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Rejected</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold text-red-600">{stats.rejected}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Total</CardTitle>
+          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Total</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">{stats.total}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
+        <CardHeader className="p-3 md:p-6">
+          <CardTitle className="text-base md:text-lg">Filters</CardTitle>
         </CardHeader>
-        <CardContent className="flex gap-4">
+        <CardContent className="p-3 md:p-6 pt-0 flex flex-col sm:flex-row gap-2">
           <div className="flex-1">
-            <Input
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              icon={<Search className="h-4 w-4" />}
-            />
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8 h-8 text-xs"
+              />
+            </div>
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="h-8 text-xs w-full sm:w-[130px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">All Status</SelectItem>
+              <SelectItem value="ALL">All</SelectItem>
               <SelectItem value="PENDING">Pending</SelectItem>
               <SelectItem value="APPROVED">Approved</SelectItem>
               <SelectItem value="REJECTED">Rejected</SelectItem>
@@ -216,118 +223,123 @@ export default function DealerPaymentRequestsPage() {
 
       {/* Requests Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Payment Requests</CardTitle>
-          <CardDescription>
-            {pagination ? `${pagination.total} total requests` : ""}
+        <CardHeader className="p-3 md:p-6">
+          <CardTitle className="text-base md:text-lg">Payment Requests</CardTitle>
+          <CardDescription className="text-xs md:text-sm">
+            {pagination ? `${pagination.total} total` : ""}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {isLoading ? (
-            <div className="text-center py-8">Loading...</div>
+            <div className="text-center py-6 text-sm">Loading...</div>
           ) : requests.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-6 text-sm text-muted-foreground">
               No payment requests found
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Request #</TableHead>
-                  <TableHead>Farmer</TableHead>
-                  <TableHead>Type / Invoice</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {requests.map((request: any) => (
-                  <TableRow key={request.id}>
-                    <TableCell className="font-medium">
-                      {request.requestNumber}
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{request.farmer?.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {request.farmer?.phone}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {request.isLedgerLevel ? (
-                        <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                          <DollarSign className="h-3 w-3 mr-1" />
-                          General Payment
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">
-                          Bill: {request.dealerSale?.invoiceNumber || "N/A"}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-semibold">
-                      {formatCurrency(request.amount)}
-                    </TableCell>
-                    <TableCell>{formatDate(request.createdAt)}</TableCell>
-                    <TableCell>{getStatusBadge(request.status)}</TableCell>
-                    <TableCell>
-                      {request.status === "PENDING" && (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="bg-green-50 text-green-700 hover:bg-green-100"
-                            onClick={() => handleApprove(request.id)}
-                            disabled={approveMutation.isPending}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="bg-red-50 text-red-700 hover:bg-red-100"
-                            onClick={() => {
-                              setSelectedRequest(request);
-                              setIsRejectDialogOpen(true);
-                            }}
-                          >
-                            <XCircle className="h-4 w-4 mr-1" />
-                            Reject
-                          </Button>
-                        </div>
-                      )}
-                      {request.status === "REJECTED" && request.rejectionReason && (
-                        <div className="text-sm text-red-600">
-                          {request.rejectionReason}
-                        </div>
-                      )}
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs hidden sm:table-cell">Request</TableHead>
+                    <TableHead className="text-xs">Farmer</TableHead>
+                    <TableHead className="text-xs hidden md:table-cell">Type</TableHead>
+                    <TableHead className="text-xs">Amount</TableHead>
+                    <TableHead className="text-xs hidden sm:table-cell">Date</TableHead>
+                    <TableHead className="text-xs">Status</TableHead>
+                    <TableHead className="text-xs">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {requests.map((request: any) => (
+                    <TableRow key={request.id}>
+                      <TableCell className="font-medium text-xs hidden sm:table-cell">
+                        {request.requestNumber}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        <div className="max-w-[80px] md:max-w-none">
+                          <div className="font-medium truncate">{request.farmer?.name}</div>
+                          <div className="text-[10px] text-muted-foreground hidden sm:block">
+                            {request.farmer?.phone}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {request.isLedgerLevel ? (
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-[10px]">
+                            <DollarSign className="h-2.5 w-2.5 mr-0.5" />
+                            General
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px]">
+                            {request.dealerSale?.invoiceNumber || "N/A"}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-semibold text-xs">
+                        <span className="hidden md:inline">{formatCurrency(request.amount)}</span>
+                        <span className="md:hidden">रू{Math.round(Number(request.amount)).toLocaleString()}</span>
+                      </TableCell>
+                      <TableCell className="text-xs hidden sm:table-cell">{formatDate(request.createdAt)}</TableCell>
+                      <TableCell>{getStatusBadge(request.status)}</TableCell>
+                      <TableCell>
+                        {request.status === "PENDING" && (
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 bg-green-50 text-green-700 hover:bg-green-100"
+                              onClick={() => handleApprove(request.id)}
+                              disabled={approveMutation.isPending}
+                            >
+                              <CheckCircle className="h-3.5 w-3.5 md:mr-1" />
+                              <span className="hidden md:inline text-xs">Approve</span>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 bg-red-50 text-red-700 hover:bg-red-100"
+                              onClick={() => {
+                                setSelectedRequest(request);
+                                setIsRejectDialogOpen(true);
+                              }}
+                            >
+                              <XCircle className="h-3.5 w-3.5 md:mr-1" />
+                              <span className="hidden md:inline text-xs">Reject</span>
+                            </Button>
+                          </div>
+                        )}
+                        {request.status === "REJECTED" && request.rejectionReason && (
+                          <div className="text-[10px] text-red-600 max-w-[80px] truncate">
+                            {request.rejectionReason}
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
 
           {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
+            <div className="flex items-center justify-between p-3 md:p-4 border-t">
               <Button
                 variant="outline"
                 size="sm"
+                className="h-7 text-xs"
                 onClick={() => setPage(page - 1)}
                 disabled={page === 1}
               >
-                Previous
+                Prev
               </Button>
-              <span className="text-sm text-muted-foreground">
-                Page {page} of {pagination.totalPages}
+              <span className="text-xs text-muted-foreground">
+                {page}/{pagination.totalPages}
               </span>
               <Button
                 variant="outline"
                 size="sm"
+                className="h-7 text-xs"
                 onClick={() => setPage(page + 1)}
                 disabled={page === pagination.totalPages}
               >

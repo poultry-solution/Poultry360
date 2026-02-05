@@ -222,29 +222,31 @@ export default function DealerCustomersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Customer Management</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Customer Management</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
             Manage your customers and farmers
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             onClick={() => router.push("/dealer/dashboard/payment-requests")}
-            className="hover:bg-green-50 hover:text-green-700 border-green-200"
+            className="flex-1 sm:flex-none hover:bg-green-50 hover:text-green-700 border-green-200"
           >
             <DollarSign className="mr-2 h-4 w-4" />
-            Customer Payment Request
+            <span className="hidden sm:inline">Payment Request</span>
+            <span className="sm:hidden">Payments</span>
           </Button>
           <Button
             variant="outline"
             onClick={() => router.push("/dealer/dashboard/customers/verification")}
-            className="relative hover:bg-green-50 hover:text-green-700 border-green-200"
+            className="flex-1 sm:flex-none relative hover:bg-green-50 hover:text-green-700 border-green-200"
           >
             <CheckCircle2 className="mr-2 h-4 w-4" />
-            Verification Requests
+            <span className="hidden sm:inline">Verification</span>
+            <span className="sm:hidden">Verify</span>
             {pendingVerificationCount > 0 && (
               <Badge className="ml-2 bg-yellow-500 text-white text-xs px-1.5 py-0.5 min-w-[20px] h-5">
                 {pendingVerificationCount}
@@ -254,21 +256,22 @@ export default function DealerCustomersPage() {
           <Button
             variant="outline"
             onClick={() => handleOpenDialog()}
-            className="hover:bg-green-50 hover:text-green-700 border-green-200"
+            className="flex-1 sm:flex-none hover:bg-green-50 hover:text-green-700 border-green-200"
           >
             <Plus className="mr-2 h-4 w-4" />
-            Add Customer
+            <span className="hidden sm:inline">Add Customer</span>
+            <span className="sm:hidden">Add</span>
           </Button>
         </div>
       </div>
 
       {/* Search */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-4 pb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search customers by name or phone..."
+              placeholder="Search customers..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10"
@@ -277,8 +280,8 @@ export default function DealerCustomersPage() {
         </CardContent>
       </Card>
 
-      {/* Customers Table */}
-      <Card>
+      {/* Customers Table - Desktop */}
+      <Card className="hidden md:block">
         <CardHeader>
           <CardTitle>Customers</CardTitle>
           <CardDescription>
@@ -405,6 +408,106 @@ export default function DealerCustomersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Customers List - Mobile */}
+      <div className="md:hidden space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold">Customers</h3>
+          <span className="text-sm text-muted-foreground">{customers.length} total</span>
+        </div>
+        {isLoading ? (
+          <div className="text-center py-8">Loading customers...</div>
+        ) : customers.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-8">
+              <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+              <h3 className="font-semibold mb-2">No customers found</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Add your first customer to get started.
+              </p>
+              <Button size="sm" onClick={() => handleOpenDialog()}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Customer
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          customers.map((customer) => (
+            <Card key={customer.id} className="overflow-hidden">
+              <CardContent className="p-3">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium truncate">{customer.name}</h4>
+                      {(customer.source === "CONNECTED" || customer.partyType === "FARMER") && (
+                        <Badge
+                          variant="secondary"
+                          className="bg-blue-100 text-blue-800 text-[10px] px-1.5"
+                        >
+                          Connected
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                      <Phone className="h-3 w-3" />
+                      <span>{customer.phone}</span>
+                      {customer.address && (
+                        <>
+                          <span>•</span>
+                          <MapPin className="h-3 w-3" />
+                          <span className="truncate max-w-[100px]">{customer.address}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-1 ml-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => handleOpenDialog(customer)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => handleDelete(customer.id, customer.name)}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span
+                    className={`text-sm font-medium ${customer.balance > 0
+                      ? "text-red-600"
+                      : customer.balance < 0
+                        ? "text-green-600"
+                        : ""
+                      }`}
+                  >
+                    {customer.balance > 0
+                      ? `रू ${Math.abs(customer.balance).toFixed(0)} Due`
+                      : customer.balance < 0
+                        ? `रू ${Math.abs(customer.balance).toFixed(0)} Advance`
+                        : "रू 0"}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => router.push(`/dealer/dashboard/customers/${customer.id}/account`)}
+                  >
+                    View Account
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

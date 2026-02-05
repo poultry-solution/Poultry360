@@ -122,7 +122,7 @@ export default function FarmsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t("farmer.farms.title")}</h1>
           <p className="text-muted-foreground">
@@ -130,7 +130,8 @@ export default function FarmsPage() {
           </p>
         </div>
         <Button
-          className="bg-primary hover:bg-primary/90 cursor-pointer"
+          variant="outline"
+          className="border-green-200 hover:bg-green-50 hover:text-green-700 w-full sm:w-auto"
           onClick={() => setIsModalOpen(true)}
         >
           <Plus className="mr-2 h-4 w-4" />
@@ -176,17 +177,17 @@ export default function FarmsPage() {
                 className="block"
               >
                 <Card className="hover:border-primary cursor-pointer transition-colors">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="flex items-center gap-2">
-                        <Building2 className="h-5 w-5 text-primary" />
+                  <CardHeader className="p-3 md:p-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                        <Building2 className="h-4 w-4 md:h-5 md:w-5 text-primary" />
                         {farm.name}
                       </CardTitle>
                       <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-8 px-3 transition-colors hover:bg-primary hover:text-primary-foreground"
+                          className="h-7 md:h-8 text-xs md:text-sm px-2 md:px-3 transition-colors hover:bg-primary hover:text-primary-foreground"
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -196,17 +197,17 @@ export default function FarmsPage() {
                           {/* batches can be active or closed */}
                           {t("farmer.farms.activeBatches", { count: farm._count.activeBatches || 0 })}
                         </Button>
-                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                        <ArrowRight className="h-4 w-4 text-muted-foreground hidden sm:block" />
                       </div>
                     </div>
                     {farm.description && (
-                      <CardDescription className="mt-1">
+                      <CardDescription className="mt-1 text-xs md:text-sm">
                         {farm.description}
                       </CardDescription>
                     )}
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <CardContent className="p-3 md:p-6 pt-0">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 text-xs md:text-sm">
                       <div>
                         <span className="text-muted-foreground">{t("farmer.farms.capacity")}</span>
                         <p className="font-medium">

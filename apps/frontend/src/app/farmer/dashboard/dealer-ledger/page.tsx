@@ -416,89 +416,90 @@ export default function DealerLedgerPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-2 md:gap-4">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => router.push("/farmer/dashboard/dealers")}
-            className="h-8 w-8"
+            className="h-7 w-7 md:h-8 md:w-8 shrink-0"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-3.5 w-3.5 md:h-4 md:w-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">
+            <h1 className="text-xl md:text-3xl font-bold tracking-tight">
               Feed Dealer Ledger
             </h1>
-            <p className="text-muted-foreground">
-              Manage dealer purchases and balances.
+            <p className="text-xs md:text-sm text-muted-foreground">
+              Manage dealer purchases
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button
-            className="bg-primary hover:bg-primary/90"
-            onClick={() => setIsAddDealerOpen(true)}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Feed Dealer
-          </Button>
-        </div>
+        <Button
+          className="bg-primary hover:bg-primary/90 w-full sm:w-auto text-xs md:text-sm h-8 md:h-9"
+          onClick={() => setIsAddDealerOpen(true)}
+        >
+          <Plus className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
+          <span className="hidden sm:inline">Add Feed Dealer</span>
+          <span className="sm:hidden">Add Dealer</span>
+        </Button>
       </div>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-2 md:gap-4 grid-cols-3">
         <Card
           onClick={() => setIsSummaryOpen(true)}
           className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white"
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Dealers</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Dealers</CardTitle>
+            <Users className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
             {statisticsLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-4 w-4 md:h-6 md:w-6 animate-spin" />
             ) : (
-              <div className="text-2xl font-bold">
+              <div className="text-base md:text-2xl font-bold">
                 {statistics.totalDealers || 0}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">Active suppliers</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground hidden sm:block">Active</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Due</CardTitle>
+            <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
             {statisticsLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-4 w-4 md:h-6 md:w-6 animate-spin" />
             ) : (
-              <div className="text-2xl font-bold">
-                ₹{(statistics.outstandingAmount || 0).toLocaleString()}
+              <div className="text-base md:text-2xl font-bold">
+                <span className="hidden md:inline">₹{(statistics.outstandingAmount || 0).toLocaleString()}</span>
+                <span className="md:hidden">₹{Math.round(statistics.outstandingAmount || 0).toLocaleString()}</span>
               </div>
             )}
-            <p className="text-xs text-muted-foreground">Amount Due</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground hidden sm:block">Outstanding</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Month</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium">Month</CardTitle>
+            <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
             {statisticsLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-4 w-4 md:h-6 md:w-6 animate-spin" />
             ) : (
-              <div className="text-2xl font-bold">
-                ₹{(statistics.thisMonthAmount || 0).toLocaleString()}
+              <div className="text-base md:text-2xl font-bold">
+                <span className="hidden md:inline">₹{(statistics.thisMonthAmount || 0).toLocaleString()}</span>
+                <span className="md:hidden">₹{Math.round(statistics.thisMonthAmount || 0).toLocaleString()}</span>
               </div>
             )}
-            <p className="text-xs text-muted-foreground">New purchases</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground hidden sm:block">Purchases</p>
           </CardContent>
         </Card>
       </div>
@@ -1115,116 +1116,129 @@ export default function DealerLedgerPage() {
       {/* Tabs: one per dealer */}
       {!dealersLoading && !dealersError && (
         <div className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {dealers.map((dealer: any) => (
-              <Button
-                key={dealer.id}
-                variant={activeDealerId === dealer.id ? "default" : "outline"}
-                className={
-                  activeDealerId === dealer.id
-                    ? "bg-primary hover:bg-primary/90"
-                    : ""
-                }
-                onClick={() => setActiveDealerId(dealer.id)}
-              >
-                <span className="flex items-center gap-2">
-                  {dealer.name}
-                  {dealer.connectionType === "CONNECTED" && (
-                    <Badge
-                      variant="secondary"
-                      className="ml-1 bg-blue-100 text-blue-800 hover:bg-blue-100 text-xs"
-                    >
-                      <Link2 className="h-3 w-3 mr-1" />
-                      Connected
-                    </Badge>
-                  )}
-                </span>
+          <div className="overflow-x-auto pb-2">
+            <div className="flex gap-2 min-w-max">
+              {dealers.map((dealer: any) => (
+                <Button
+                  key={dealer.id}
+                  variant={activeDealerId === dealer.id ? "default" : "outline"}
+                  size="sm"
+                  className={
+                    `text-xs md:text-sm whitespace-nowrap ${activeDealerId === dealer.id
+                      ? "bg-primary hover:bg-primary/90"
+                      : ""}`
+                  }
+                  onClick={() => setActiveDealerId(dealer.id)}
+                >
+                  <span className="flex items-center gap-1">
+                    {dealer.name}
+                    {dealer.connectionType === "CONNECTED" && (
+                      <Badge
+                        variant="secondary"
+                        className="ml-1 bg-blue-100 text-blue-800 hover:bg-blue-100 text-[9px] md:text-xs px-1"
+                      >
+                        <Link2 className="h-2.5 w-2.5 mr-0.5" />
+                        <span className="hidden sm:inline">Connected</span>
+                      </Badge>
+                    )}
+                  </span>
+                </Button>
+              ))}
+              <Button variant="outline" size="sm" className="text-xs md:text-sm whitespace-nowrap" onClick={() => setIsAddDealerOpen(true)}>
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Add Feed Dealer</span>
+                <span className="sm:hidden">Add</span>
               </Button>
-            ))}
-            <Button variant="outline" onClick={() => setIsAddDealerOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" /> Add Feed Dealer
-            </Button>
+            </div>
           </div>
 
           {dealers.length === 0 ? (
             <Card>
-              <CardContent className="text-center py-8">
-                <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No dealers found</h3>
-                <p className="text-muted-foreground mb-4">
-                  Get started by creating your first dealer.
+              <CardContent className="text-center py-6">
+                <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                <h3 className="text-base font-semibold mb-2">No dealers found</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Create your first dealer.
                 </p>
-                <Button onClick={() => setIsAddDealerOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
+                <Button size="sm" onClick={() => setIsAddDealerOpen(true)}>
+                  <Plus className="mr-1 h-3.5 w-3.5" />
                   Add Dealer
                 </Button>
               </CardContent>
             </Card>
           ) : activeDealerId ? (
             <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>
+              <CardHeader className="p-3 md:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <CardTitle className="text-base md:text-lg">
                     {activeDealer?.name || "Select a dealer"}
                   </CardTitle>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {activeDealerId && !isDeleteMode && (
                       <Button
                         variant="outline"
-                        className="text-red-600 border-red-200 hover:bg-red-50"
+                        size="sm"
+                        className="text-red-600 border-red-200 hover:bg-red-50 h-7 text-xs"
                         onClick={() => setIsDeleteDealerOpen(true)}
                         disabled={!activeDealerId}
                       >
-                        Delete Dealer
+                        <Trash2 className="h-3 w-3 mr-1 sm:mr-0" />
+                        <span className="hidden sm:inline sm:ml-1">Delete</span>
                       </Button>
                     )}
                     {isDeleteMode ? (
                       <>
-                        <Button variant="outline" onClick={exitDeleteMode}>
-                          <X className="mr-2 h-4 w-4" /> Cancel
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={exitDeleteMode}>
+                          <X className="h-3 w-3 mr-1" /> Cancel
                         </Button>
                         <Button
-                          className="bg-red-600 hover:bg-red-700 text-white"
+                          className="bg-red-600 hover:bg-red-700 text-white h-7 text-xs"
+                          size="sm"
                           disabled={
                             selectedIds.size === 0 || deleteTxn.isPending
                           }
                           onClick={() => setIsConfirmDeleteOpen(true)}
                         >
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete (
-                          {selectedIds.size})
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          {selectedIds.size}
                         </Button>
                       </>
                     ) : (
                       <>
                         <Button
                           variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
                           onClick={() => setIsDeleteMode(true)}
                           disabled={!activeDealerId}
                         >
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete Entries
+                          <Trash2 className="h-3 w-3 mr-1 sm:mr-0" />
+                          <span className="hidden sm:inline sm:ml-1">Entries</span>
                         </Button>
                         <Button
-                          className="bg-primary hover:bg-primary/90"
+                          className="bg-primary hover:bg-primary/90 h-7 text-xs"
+                          size="sm"
                           onClick={() => setIsAddEntryOpen(true)}
                           disabled={!activeDealerId}
                         >
-                          <Plus className="mr-2 h-4 w-4" /> Add Entry
+                          <Plus className="h-3 w-3 mr-1" />
+                          <span className="hidden sm:inline">Add</span>
                         </Button>
                       </>
                     )}
                   </div>
                 </div>
-                <CardDescription>
+                <CardDescription className="text-[10px] md:text-sm mt-1">
                   {activeDealer
-                    ? `Itemized ledger for ${activeDealer.name}`
-                    : "Select a dealer to view transactions"}
+                    ? `Ledger for ${activeDealer.name}`
+                    : "Select a dealer"}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 overflow-x-auto">
                 {activeDealerLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                    <span className="ml-2">Loading dealer details...</span>
+                  <div className="flex items-center justify-center py-6 text-sm">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="ml-2">Loading...</span>
                   </div>
                 ) : (
                   <DataTable
@@ -1287,17 +1301,16 @@ export default function DealerLedgerPage() {
             </Card>
           ) : (
             <Card>
-              <CardContent className="text-center py-8">
-                <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">
+              <CardContent className="text-center py-6">
+                <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                <h3 className="text-base font-semibold mb-2">
                   No dealer selected
                 </h3>
-                <p className="text-muted-foreground mb-4">
-                  All dealers have been deleted. Create a new dealer to get
-                  started.
+                <p className="text-sm text-muted-foreground mb-3">
+                  Create a new dealer to get started.
                 </p>
-                <Button onClick={() => setIsAddDealerOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
+                <Button size="sm" onClick={() => setIsAddDealerOpen(true)}>
+                  <Plus className="mr-1 h-3.5 w-3.5" />
                   Add Dealer
                 </Button>
               </CardContent>

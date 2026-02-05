@@ -207,17 +207,16 @@ export default function FarmerSaleRequestsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 md:gap-4">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => router.push("/farmer/dashboard/dealers")}
-          className="h-8 w-8"
+          className="h-7 w-7 md:h-8 md:w-8 shrink-0"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-3.5 w-3.5 md:h-4 md:w-4" />
         </Button>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t("farmer.saleRequests.title")}</h1>
@@ -226,17 +225,18 @@ export default function FarmerSaleRequestsPage() {
       </div>
 
       {/* Statistics */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 md:gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {t("farmer.saleRequests.stats.pending")}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
-            <p className="text-xs text-muted-foreground">
-              {formatCurrency(stats.pendingAmount)}
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold text-yellow-600">{stats.pending}</div>
+            <p className="text-[9px] md:text-xs text-muted-foreground">
+              <span className="hidden md:inline">{formatCurrency(stats.pendingAmount)}</span>
+              <span className="md:hidden">रू{Math.round(stats.pendingAmount).toLocaleString()}</span>
             </p>
           </CardContent>
         </Card>
@@ -246,8 +246,8 @@ export default function FarmerSaleRequestsPage() {
               {t("farmer.saleRequests.stats.approved")}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold text-green-600">{stats.approved}</div>
           </CardContent>
         </Card>
         <Card>
@@ -256,8 +256,8 @@ export default function FarmerSaleRequestsPage() {
               {t("farmer.saleRequests.stats.rejected")}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold text-red-600">{stats.rejected}</div>
           </CardContent>
         </Card>
         <Card>
@@ -266,8 +266,8 @@ export default function FarmerSaleRequestsPage() {
               {t("farmer.saleRequests.stats.total")}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total || 0}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">{stats.total || 0}</div>
           </CardContent>
         </Card>
       </div>
@@ -290,13 +290,13 @@ export default function FarmerSaleRequestsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {requests.map((request) => (
             <Card key={request.id}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
+              <CardHeader className="p-3 md:p-6 pb-2 md:pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="text-sm md:text-lg flex flex-wrap items-center gap-2">
                       {request.requestNumber}
                       {getStatusBadge(request.status)}
                     </CardTitle>
@@ -304,9 +304,10 @@ export default function FarmerSaleRequestsPage() {
                       {t("farmer.saleRequests.from")}: {request.dealer.name} • {formatDate(request.date)}
                     </CardDescription>
                   </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold">
-                      {formatCurrency(request.totalAmount)}
+                  <div className="text-left sm:text-right">
+                    <div className="text-lg md:text-2xl font-bold">
+                      <span className="hidden md:inline">{formatCurrency(request.totalAmount)}</span>
+                      <span className="md:hidden">रू{Math.round(request.totalAmount).toLocaleString()}</span>
                     </div>
                     {request.paidAmount > 0 && (
                       <div className="text-sm text-muted-foreground">
@@ -316,9 +317,9 @@ export default function FarmerSaleRequestsPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {/* Items */}
+              <CardContent className="p-3 md:p-6 pt-0">
+                <div className="space-y-3">
+                  {/* Items - scrollable on mobile */}
                   <div>
                     <h4 className="font-medium mb-2">{t("farmer.saleRequests.itemsTitle")}</h4>
                     <Table>
@@ -372,10 +373,10 @@ export default function FarmerSaleRequestsPage() {
 
                   {/* Actions */}
                   {request.status === "PENDING" && (
-                    <div className="flex gap-2 pt-2">
+                    <div className="flex gap-2 pt-1">
                       <Button
                         onClick={() => handleApprove(request)}
-                        className="bg-green-600 hover:bg-green-700"
+                        className="bg-green-600 hover:bg-green-700 flex-1 sm:flex-none h-8 text-xs"
                       >
                         <CheckCircle className="mr-2 h-4 w-4" />
                         {t("farmer.saleRequests.approve")}
@@ -383,7 +384,7 @@ export default function FarmerSaleRequestsPage() {
                       <Button
                         variant="outline"
                         onClick={() => handleReject(request)}
-                        className="border-red-300 text-red-600 hover:bg-red-50"
+                        className="border-red-300 text-red-600 hover:bg-red-50 flex-1 sm:flex-none h-8 text-xs"
                       >
                         <XCircle className="mr-2 h-4 w-4" />
                         {t("farmer.saleRequests.reject")}

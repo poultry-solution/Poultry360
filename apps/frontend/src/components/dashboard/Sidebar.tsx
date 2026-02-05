@@ -162,7 +162,7 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
   return (
     <div
       className={cn(
-        "flex h-full flex-col bg-card border-r transition-all duration-300 ease-in-out",
+        "flex h-full flex-col bg-white border-r transition-all duration-300 ease-in-out",
         // Base positioning: off-canvas on mobile, static on desktop
         "fixed inset-y-0 left-0 z-50 w-64 md:static",
         // Mobile transform (slide in/out)

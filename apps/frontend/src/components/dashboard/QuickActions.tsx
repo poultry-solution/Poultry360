@@ -17,38 +17,42 @@ export function QuickActions({
   onRecordWeight,
 }: QuickActionsProps) {
   return (
-    <div className="hidden md:flex md:items-center md:gap-2 md:flex-wrap md:justify-end">
+    <div className="flex items-center gap-1 md:gap-2 flex-wrap justify-end">
       <Button
         variant="outline"
-        className="hover:bg-green-50 hover:text-green-700 border-green-200 gap-2"
+        size="sm"
+        className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm h-7 md:h-8 px-2 md:px-3 gap-1"
         onClick={onAddExpense}
       >
-        <Plus className="h-4 w-4" />
-        Add Expense
+        <Plus className="h-3 w-3 md:h-4 md:w-4" />
+        Expense
       </Button>
       <Button
         variant="outline"
-        className="hover:bg-green-50 hover:text-green-700 border-green-200 gap-2"
+        size="sm"
+        className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm h-7 md:h-8 px-2 md:px-3 gap-1"
         onClick={onAddSale}
       >
-        <Plus className="h-4 w-4" />
-        Add Sales
+        <Plus className="h-3 w-3 md:h-4 md:w-4" />
+        Sale
       </Button>
       <Button
         variant="outline"
-        className="hover:bg-green-50 hover:text-green-700 border-green-200 gap-2"
+        size="sm"
+        className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm h-7 md:h-8 px-2 md:px-3 gap-1"
         onClick={onAddMortality}
       >
-        <Plus className="h-4 w-4" />
-        Add Mortality
+        <Plus className="h-3 w-3 md:h-4 md:w-4" />
+        Mortality
       </Button>
       <Button
         variant="outline"
-        className="hover:bg-green-50 hover:text-green-700 border-green-200 gap-2"
+        size="sm"
+        className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm h-7 md:h-8 px-2 md:px-3 gap-1"
         onClick={onRecordWeight}
       >
-        <Plus className="h-4 w-4" />
-        Record Weight
+        <Plus className="h-3 w-3 md:h-4 md:w-4" />
+        Weight
       </Button>
     </div>
   );

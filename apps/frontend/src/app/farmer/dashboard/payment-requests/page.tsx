@@ -81,7 +81,7 @@ export default function FarmerPaymentRequestsPage() {
   const requests = requestsData?.data || [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
         <h1 className="text-3xl font-bold">{t("farmer.paymentRequests.title")}</h1>
         <p className="text-muted-foreground">{t("farmer.paymentRequests.subtitle")}</p>
@@ -91,15 +91,16 @@ export default function FarmerPaymentRequestsPage() {
       </div>
 
       {/* Statistics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">{t("farmer.paymentRequests.stats.pending")}</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.pending}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatCurrency(stats.pendingAmount)}
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">{stats.pending}</div>
+            <p className="text-[9px] md:text-xs text-muted-foreground mt-0.5">
+              <span className="hidden md:inline">{formatCurrency(stats.pendingAmount)}</span>
+              <span className="md:hidden">रू{Math.round(stats.pendingAmount).toLocaleString()}</span>
             </p>
           </CardContent>
         </Card>
@@ -107,24 +108,24 @@ export default function FarmerPaymentRequestsPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">{t("farmer.paymentRequests.stats.approved")}</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold text-green-600">{stats.approved}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">{t("farmer.paymentRequests.stats.rejected")}</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold text-red-600">{stats.rejected}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">{t("farmer.paymentRequests.stats.total")}</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">{stats.total}</div>
           </CardContent>
         </Card>
       </div>
@@ -134,7 +135,7 @@ export default function FarmerPaymentRequestsPage() {
         <CardHeader>
           <CardTitle>{t("farmer.paymentRequests.filters")}</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 md:p-6 pt-0">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder={t("farmer.paymentRequests.status")} />
@@ -150,7 +151,7 @@ export default function FarmerPaymentRequestsPage() {
       </Card>
 
       {/* Requests List */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {isLoading ? (
           <Card>
             <CardContent className="text-center py-8">{t("farmer.paymentRequests.loading")}</CardContent>
@@ -167,10 +168,10 @@ export default function FarmerPaymentRequestsPage() {
         ) : (
           requests.map((request: any) => (
             <Card key={request.id}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
+              <CardHeader className="p-3 md:p-6 pb-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
-                    <CardTitle className="text-lg">
+                    <CardTitle className="text-sm md:text-lg">
                       {request.requestNumber}
                     </CardTitle>
                     <CardDescription>
@@ -180,8 +181,8 @@ export default function FarmerPaymentRequestsPage() {
                   {getStatusBadge(request.status)}
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-2">
+              <CardContent className="p-3 md:p-6 pt-0">
+                <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
                   <div>
                     <div className="text-sm text-muted-foreground">{t("farmer.paymentRequests.dealer")}</div>
                     <div className="font-medium">{request.dealer?.name}</div>
@@ -204,7 +205,7 @@ export default function FarmerPaymentRequestsPage() {
                       <div className="text-sm text-muted-foreground">
                         {t("farmer.paymentRequests.reference")}
                       </div>
-                      <div>{request.paymentReference}</div>
+                      <div className="text-xs md:text-sm truncate">{request.paymentReference}</div>
                     </div>
                   )}
                   {request.description && (
@@ -212,7 +213,7 @@ export default function FarmerPaymentRequestsPage() {
                       <div className="text-sm text-muted-foreground">
                         {t("farmer.paymentRequests.description")}
                       </div>
-                      <div>{request.description}</div>
+                      <div className="text-xs md:text-sm">{request.description}</div>
                     </div>
                   )}
                   {request.status === "REJECTED" && request.rejectionReason && (
@@ -220,7 +221,7 @@ export default function FarmerPaymentRequestsPage() {
                       <div className="text-sm text-red-600 font-medium">
                         {t("farmer.paymentRequests.rejectionReason")}
                       </div>
-                      <div className="text-red-600">
+                      <div className="text-xs md:text-sm text-red-600">
                         {request.rejectionReason}
                       </div>
                     </div>

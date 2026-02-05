@@ -143,7 +143,7 @@ export default function DealerSaleRequestsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
       <div>
         <div className="flex items-center gap-2 mb-2">
@@ -151,85 +151,88 @@ export default function DealerSaleRequestsPage() {
             variant="ghost"
             size="sm"
             onClick={() => router.push("/dealer/dashboard/sales")}
+            className="text-xs md:text-sm"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Sales
+            <ArrowLeft className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" />
+            <span className="hidden sm:inline">Back to Sales</span>
+            <span className="sm:hidden">Back</span>
           </Button>
         </div>
-        <h1 className="text-3xl font-bold tracking-tight">Sale Requests</h1>
-        <p className="text-muted-foreground">
-          Track sale requests sent to connected farmers
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Sale Requests</h1>
+        <p className="text-sm md:text-base text-muted-foreground">
+          Track sale requests to farmers
         </p>
       </div>
 
       {/* Statistics */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 md:gap-4 md:grid-cols-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium text-muted-foreground">
               Pending
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.pending}</div>
-            <p className="text-xs text-muted-foreground">
-              {formatCurrency(stats.pendingAmount)}
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">{stats.pending}</div>
+            <p className="text-[9px] md:text-xs text-muted-foreground">
+              <span className="hidden md:inline">{formatCurrency(stats.pendingAmount)}</span>
+              <span className="md:hidden">रू{Math.round(stats.pendingAmount).toLocaleString()}</span>
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium text-muted-foreground">
               Approved
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold text-green-600">{stats.approved}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium text-muted-foreground">
               Rejected
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold text-red-600">{stats.rejected}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
+            <CardTitle className="text-[10px] md:text-sm font-medium text-muted-foreground">
               Total
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total || 0}</div>
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">{stats.total || 0}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="md:col-span-2">
+        <CardContent className="p-3 md:p-6">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search by request number or notes..."
+                  placeholder="Search..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10"
+                  className="pl-8 h-8 text-xs"
                 />
               </div>
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by status" />
+              <SelectTrigger className="h-8 text-xs w-full sm:w-[120px]">
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="ALL">All</SelectItem>
                 <SelectItem value="PENDING">Pending</SelectItem>
                 <SelectItem value="APPROVED">Approved</SelectItem>
                 <SelectItem value="REJECTED">Rejected</SelectItem>
@@ -241,94 +244,100 @@ export default function DealerSaleRequestsPage() {
 
       {/* Requests Table */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="p-0">
           {isLoading ? (
-            <div className="text-center py-8">Loading...</div>
+            <div className="text-center py-6 text-sm">Loading...</div>
           ) : requests.length === 0 ? (
-            <div className="text-center py-8">
-              <FileCheck className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">No sale requests found</h3>
-              <p className="text-muted-foreground">
-                Sale requests will appear here when you create sales for connected farmers
+            <div className="text-center py-6">
+              <FileCheck className="mx-auto h-10 w-10 text-muted-foreground" />
+              <h3 className="mt-3 text-base font-semibold">No sale requests</h3>
+              <p className="text-sm text-muted-foreground">
+                Requests will appear when you create sales
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Request #</TableHead>
-                    <TableHead>Farmer</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Items</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {requests.map((request) => (
-                    <TableRow key={request.id}>
-                      <TableCell className="font-medium">
-                        {request.requestNumber}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{request.farmer.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {request.farmer.phone}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{formatDate(request.date)}</TableCell>
-                      <TableCell>{request.items.length} items</TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">
-                            {formatCurrency(request.totalAmount)}
-                          </div>
-                          {request.paidAmount > 0 && (
-                            <div className="text-xs text-muted-foreground">
-                              Paid: {formatCurrency(request.paidAmount)}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(request.status)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            router.push(`/dealer/dashboard/sale-requests/${request.id}`)
-                          }
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+            <div className="space-y-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs hidden sm:table-cell">Request</TableHead>
+                      <TableHead className="text-xs">Farmer</TableHead>
+                      <TableHead className="text-xs hidden md:table-cell">Date</TableHead>
+                      <TableHead className="text-xs hidden sm:table-cell">Items</TableHead>
+                      <TableHead className="text-xs">Amount</TableHead>
+                      <TableHead className="text-xs">Status</TableHead>
+                      <TableHead className="text-xs text-right">View</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {requests.map((request) => (
+                      <TableRow key={request.id}>
+                        <TableCell className="font-medium text-xs hidden sm:table-cell">
+                          {request.requestNumber}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          <div className="max-w-[80px] md:max-w-none">
+                            <div className="font-medium truncate">{request.farmer.name}</div>
+                            <div className="text-[10px] text-muted-foreground hidden sm:block">
+                              {request.farmer.phone}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs hidden md:table-cell">{formatDate(request.date)}</TableCell>
+                        <TableCell className="text-xs hidden sm:table-cell">{request.items.length}</TableCell>
+                        <TableCell className="text-xs">
+                          <div>
+                            <div className="font-medium">
+                              <span className="hidden md:inline">{formatCurrency(request.totalAmount)}</span>
+                              <span className="md:hidden">रू{Math.round(request.totalAmount).toLocaleString()}</span>
+                            </div>
+                            {request.paidAmount > 0 && (
+                              <div className="text-[9px] text-muted-foreground">
+                                Paid: रू{Math.round(request.paidAmount).toLocaleString()}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(request.status)}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={() =>
+                              router.push(`/dealer/dashboard/sale-requests/${request.id}`)
+                            }
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
               {/* Pagination */}
               {pagination && pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    Page {pagination.page} of {pagination.totalPages}
-                  </div>
-                  <div className="flex gap-2">
+                <div className="flex items-center justify-between p-3 border-t">
+                  <span className="text-xs text-muted-foreground">
+                    {page}/{pagination.totalPages}
+                  </span>
+                  <div className="flex gap-1">
                     <Button
                       variant="outline"
                       size="sm"
+                      className="h-7 text-xs"
                       onClick={() => setPage(page - 1)}
                       disabled={page === 1}
                     >
-                      Previous
+                      Prev
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
+                      className="h-7 text-xs"
                       onClick={() => setPage(page + 1)}
                       disabled={page === pagination.totalPages}
                     >

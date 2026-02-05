@@ -264,12 +264,12 @@ export default function InventoryPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 md:gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
             {t("farmer.inventory.title")}
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm md:text-base text-muted-foreground">
             {activeTab === "other"
               ? t("farmer.inventory.subtitleOther")
               : t("farmer.inventory.subtitleDefault")}
@@ -277,7 +277,8 @@ export default function InventoryPage() {
         </div>
         {activeTab === "other" ? (
           <Button
-            className="bg-primary hover:bg-primary/90 w-full sm:w-auto"
+            size="sm"
+            className="text-xs md:text-sm bg-primary hover:bg-primary/90 w-full sm:w-auto"
             onClick={openAddModal}
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -294,15 +295,15 @@ export default function InventoryPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Items</CardTitle>
             <CardTitle className="text-sm font-medium">{t("farmer.inventory.stats.totalItems")}</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">
               {stats?.totalItems || 0}
             </div>
             <p className="text-xs text-muted-foreground">{t("farmer.inventory.stats.inStock")}</p>
@@ -315,8 +316,8 @@ export default function InventoryPage() {
             <CardTitle className="text-sm font-medium">{t("farmer.inventory.stats.lowStock")}</CardTitle>
             <AlertTriangle className="h-4 w-4 text-orange-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">
               {stats?.lowStockItems || 0}
             </div>
             <p className="text-xs text-muted-foreground">{t("farmer.inventory.stats.needReorder")}</p>
@@ -328,9 +329,9 @@ export default function InventoryPage() {
             <CardTitle className="text-sm font-medium">{t("farmer.inventory.stats.totalValue")}</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">
-              ₹{(stats?.totalValue || 0).toLocaleString()}
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">
+              <span className="hidden md:inline">रू</span>{(stats?.totalValue || 0).toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">{t("farmer.inventory.stats.inventoryWorth")}</p>
           </CardContent>
@@ -341,8 +342,8 @@ export default function InventoryPage() {
             <CardTitle className="text-sm font-medium">{t("farmer.inventory.stats.categories")}</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">
+          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+            <div className="text-base md:text-2xl font-bold">
               {stats?.categories || 0}
             </div>
             <p className="text-xs text-muted-foreground">{t("farmer.inventory.stats.itemTypes")}</p>
@@ -352,7 +353,7 @@ export default function InventoryPage() {
 
       {/* Tabs */}
       <div className="border-b">
-        <nav className="flex space-x-8 overflow-x-auto">
+        <nav className="flex gap-1 md:space-x-8 overflow-x-auto pb-1">
           {[
             { key: "feed", label: t("farmer.inventory.tabs.feed"), icon: <Wheat className="h-4 w-4" /> },
             {
@@ -397,15 +398,14 @@ export default function InventoryPage() {
                 key={tab.key}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 onClick={() => setActiveTab(tab.key as any)}
-                className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                  activeTab === tab.key
+                className={`flex items-center gap-1 md:space-x-2 py-2 px-2 md:px-1 border-b-2 font-medium text-xs md:text-sm whitespace-nowrap ${activeTab === tab.key
                     ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground"
-                }`}
+                  }`}
               >
                 {tab.icon}
                 <span>{tab.label}</span>
-                <Badge variant="secondary" className="ml-1">
+                <Badge variant="secondary" className="ml-0.5 md:ml-1 text-[10px] md:text-xs px-1.5 md:px-2">
                   {getTabCount()}
                 </Badge>
               </button>
@@ -416,8 +416,8 @@ export default function InventoryPage() {
 
       {/* Inventory Table */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
+        <CardHeader className="p-3 md:p-6">
+          <CardTitle className="flex items-center gap-1 md:space-x-2 text-base md:text-lg">
             {getCategoryIcon(activeTab)}
             <span>
               {t("farmer.inventory.categoryTitle", {
@@ -453,7 +453,8 @@ export default function InventoryPage() {
               <p>{t("farmer.inventory.empty", { category: activeTab })}</p>
               {activeTab === "other" ? (
                 <Button
-                  className="mt-4 bg-primary hover:bg-primary/90"
+                  size="sm"
+                  className="mt-3 text-xs bg-primary hover:bg-primary/90"
                   onClick={openAddModal}
                 >
                   <Plus className="mr-2 h-4 w-4" />
