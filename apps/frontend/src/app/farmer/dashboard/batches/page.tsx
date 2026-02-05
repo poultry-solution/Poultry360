@@ -28,6 +28,7 @@ import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { useI18n } from "@/i18n/useI18n";
 
+
 export default function BatchesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { t } = useI18n();
@@ -508,9 +509,14 @@ export default function BatchesPage() {
                 <DateInput
                   label={t("farmer.batches.modal.startDate")}
                   value={formData.startDate}
-                  onChange={(value) => setFormData(prev => ({ ...prev, startDate: value }))}
-                  preferNativeInput
+                  onChange={(value) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      startDate: value.includes("T") ? value.split("T")[0] : value,
+                    }))
+                  }
                 />
+              
               </div>
               {/* Chicks Inventory Selection */}
               <div className="space-y-2">

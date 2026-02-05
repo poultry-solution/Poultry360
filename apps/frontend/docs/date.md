@@ -61,7 +61,7 @@ flowchart LR
 |--------|------|
 | [`common/lib/nepali-date.ts`](../src/common/lib/nepali-date.ts) | Pure conversion utilities. Single source of truth. |
 | [`common/hooks/useCalendar.ts`](../src/common/hooks/useCalendar.ts) | React hook that exposes conversion and display based on user preference. |
-| [`common/components/ui/date-input.tsx`](../src/common/components/ui/date-input.tsx) | Date picker. Shows BS or AD based on preference; always emits AD ISO. |
+| [`common/components/ui/date-input.tsx`](../src/common/components/ui/date-input.tsx) | Date input. BS mode: popover with Nepali calendar picker; AD mode: HTML5 date picker. Always emits AD ISO. |
 | [`common/components/ui/date-display.tsx`](../src/common/components/ui/date-display.tsx) | Renders dates in user's preferred format (BS or AD). |
 
 ---
@@ -137,7 +137,7 @@ Use `common/lib/nepali-date.ts` directly. Pass `calendarType` if needed for disp
 
 ## preferNativeInput
 
-`DateInput` has a `preferNativeInput` prop. When `true`, it always shows the native HTML date picker (AD) instead of the BS calendar. Use this in modals where the BS calendar has caused instability.
+`DateInput` has a `preferNativeInput` prop. When `true`, it always shows the native HTML date picker (AD) instead of the BS text input.
 
 ---
 
@@ -152,5 +152,5 @@ Use `common/lib/nepali-date.ts` directly. Pass `calendarType` if needed for disp
 
 ## Dependencies
 
-- `nepali-date-converter` – Core conversion library
-- `@sbmdkl/nepali-datepicker-reactjs` – BS calendar UI component (used by DateInput when preference is BS)
+- `nepali-date-converter` – Core conversion library (used for all BS ↔ AD conversion)
+- `@sbmdkl/nepali-datepicker-reactjs` – BS calendar picker (shown in a Popover for BS mode; portaled to avoid modal issues)

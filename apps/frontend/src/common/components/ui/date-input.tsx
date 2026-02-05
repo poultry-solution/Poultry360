@@ -3,20 +3,18 @@
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { useCalendar } from "@/common/hooks/useCalendar";
-import { parseDateStringLocal } from "@/common/lib/nepali-date";
-import { useState, useEffect } from "react";
+import { convertADtoBS } from "@/common/lib/nepali-date";
 // @ts-ignore - Type definitions not available for this package
 import Calendar from "@sbmdkl/nepali-datepicker-reactjs";
 import "@sbmdkl/nepali-datepicker-reactjs/dist/index.css";
 
 interface DateInputProps {
   label?: string;
-  value: string | Date | null | undefined; // ISO date string or Date (AD format) - always stored as AD
-  onChange: (value: string) => void; // Receives ISO date string
-  min?: string; // ISO date string
-  max?: string; // ISO date string
+  value: string | Date | null | undefined;
+  onChange: (value: string) => void;
+  min?: string;
+  max?: string;
   className?: string;
-  /** When true, always use native AD date input (avoids BS Calendar e.g. in modals where it can crash) */
   preferNativeInput?: boolean;
 }
 
@@ -30,92 +28,94 @@ export function DateInput({
   preferNativeInput = false,
 }: DateInputProps) {
   const { isBS } = useCalendar();
-  const useBSCalendar = isBS && !preferNativeInput;
+  const useBSInput = isBS && !preferNativeInput;
 
-  // Normalize value to string (callers may pass Date or other)
-  const valueStr =
-    value == null
-      ? ""
-      : typeof value === "string"
-        ? value
-        : value instanceof Date
-          ? (isNaN(value.getTime()) ? "" : value.toISOString())
-          : String(value);
-
-  // Convert stored AD value to display format
-  const adValue = valueStr ? (valueStr.includes("T") ? valueStr.split("T")[0] : valueStr) : "";
-
-  // State for input value
-  const [inputValue, setInputValue] = useState(adValue);
-
-  // Update input value when value prop changes
-  useEffect(() => {
-    if (valueStr) {
-      const ad = valueStr.includes("T") ? valueStr.split("T")[0] : valueStr;
-      setInputValue(ad);
-    } else {
-      setInputValue("");
+  // Normalize value to AD date string (YYYY-MM-DD)
+  const getADValue = (): string => {
+    if (!value) return "";
+    
+    try {
+      if (typeof value === "string") {
+        return value.includes("T") ? value.split("T")[0] : value;
+      }
+      if (value instanceof Date && !isNaN(value.getTime())) {
+        return value.toISOString().split("T")[0];
+      }
+    } catch (err) {
+      console.error("Error normalizing value:", err);
     }
-  }, [valueStr]);
+    return "";
+  };
 
-  // Handle AD date input change - parse as local to avoid UTC-midnight edge cases
+  const adValue = getADValue();
+
   const handleADChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
-    setInputValue(raw);
 
-    try {
-      const adDate = parseDateStringLocal(raw);
-      if (isNaN(adDate.getTime())) return;
-      onChange(adDate.toISOString());
-    } catch (error) {
-      console.error("Date conversion error:", error);
-    }
-  };
-
-  // Handle BS date picker change
-  // The Calendar component provides both bsDate and adDate
-  const handleBSDateChange = ({ bsDate, adDate }: { bsDate: string; adDate: string }) => {
-    try {
-      // Use the adDate provided by the calendar component
-      const date = new Date(adDate);
-      if (isNaN(date.getTime())) {
-        return; // Invalid date
+    // Only update if it's a valid date
+    if (raw && raw.length === 10) { // YYYY-MM-DD format
+      try {
+        const date = new Date(raw);
+        if (!isNaN(date.getTime())) {
+          onChange(date.toISOString());
+        }
+      } catch (err) {
+        console.error("Date conversion error:", err);
       }
-      // Always save as AD (ISO format) - this is what gets stored in DB
-      onChange(date.toISOString());
-      setInputValue(adDate.split("T")[0]); // Update display value
-    } catch (error) {
-      console.error("BS date conversion error:", error);
     }
   };
 
-  // Get default date for BS calendar (never pass undefined - package can crash)
-  // Use parseDateStringLocal to avoid UTC-midnight edge cases
-  const getDefaultDate = (): Date => {
-    if (adValue) {
-      const d = parseDateStringLocal(adValue);
-      if (!isNaN(d.getTime())) return d;
+  const handleBSPickerChange = ({ adDate }: { bsDate: string; adDate: string }) => {
+    try {
+      const date = new Date(adDate);
+      if (!isNaN(date.getTime())) {
+        onChange(date.toISOString());
+      }
+    } catch (err) {
+      console.error("BS date picker error:", err);
     }
-    return new Date();
+  };
+
+  // Get default date for BS picker (in BS format)
+  const getDefaultDateForPicker = (): string => {
+    if (adValue) {
+      try {
+        const bsDate = convertADtoBS(adValue);
+        return bsDate;
+      } catch (err) {
+        console.error("Error converting current value to BS:", err);
+      }
+    }
+    
+    // Fallback to today
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      return convertADtoBS(today);
+    } catch (err) {
+      console.error("Error getting today's BS date:", err);
+      return "";
+    }
   };
 
   return (
     <div className={className}>
-      {label && <Label className="mb-2">{label}</Label>}
+      {label && <Label className="mb-2 block">{label}</Label>}
       
-      {useBSCalendar ? (
-        // BS Date Picker - Only show BS calendar for BS users (not in modals)
+      {useBSInput ? (
         <Calendar
-          onChange={handleBSDateChange}
-          defaultDate={getDefaultDate()}
-          theme="light"
-          {...({ language: "en" } as any)}
+          key={adValue || "empty"}
+          onChange={handleBSPickerChange}
+          defaultDate={getDefaultDateForPicker()}
+          minDate={min}
+          maxDate={max}
+          className="w-full rounded-md border border-input"
+          theme="dark"
+          language="en"
         />
       ) : (
-        // AD Date Input (HTML5 date picker) - Only show AD picker for AD users
         <Input
           type="date"
-          value={inputValue}
+          value={adValue}
           onChange={handleADChange}
           min={min}
           max={max}

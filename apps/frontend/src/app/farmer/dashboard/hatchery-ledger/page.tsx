@@ -279,13 +279,12 @@ export default function HatcheryLedgerPage() {
     }
   }
 
-  function getRowDueDate(date: string) {
+  // Compute due date (7 days from purchase) for DateDisplay
+  function getRowDueDateDate(date: string): Date {
     const base = new Date(date);
-    const due = new Date(base.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const dd = String(due.getUTCDate()).padStart(2, "0");
-    const mm = String(due.getUTCMonth() + 1).padStart(2, "0");
-    const yyyy = due.getUTCFullYear();
-    return `${dd}/${mm}/${yyyy}`;
+    const d = new Date(base);
+    d.setDate(d.getDate() + 7);
+    return d;
   }
 
   // Column configuration for DataTable
@@ -355,7 +354,12 @@ export default function HatcheryLedgerPage() {
       type: "date",
     }),
     createColumn("dueDate", "Due Date", {
-      render: (_, row) => getRowDueDate(row.date),
+      render: (_, row) =>
+        row.date ? (
+          <DateDisplay date={getRowDueDateDate(row.date)} format="short" />
+        ) : (
+          "—"
+        ),
     }),
     createColumn("payments", "Payment History", {
       render: (_, row) => {
