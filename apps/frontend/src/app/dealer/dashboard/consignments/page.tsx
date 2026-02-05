@@ -1,4 +1,12 @@
 "use client";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/common/components/ui/table";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -35,14 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/common/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/common/components/ui/table";
+import { DataTable, Column } from "@/common/components/ui/data-table";
 import { Badge } from "@/common/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
 import {
@@ -245,12 +246,12 @@ export default function DealerConsignmentsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
             Consignment Management
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm md:text-base text-muted-foreground">
             Manage consignments from companies
           </p>
         </div>
@@ -259,7 +260,7 @@ export default function DealerConsignmentsPage() {
           onClick={() => router.push("/dealer/dashboard/company")}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
+          <span className="hidden sm:inline">Back</span>
         </Button>
       </div>
 
@@ -308,125 +309,123 @@ export default function DealerConsignmentsPage() {
         {/* Received Consignments Tab */}
         <TabsContent value="received">
           <Card>
-            <CardHeader>
-              <CardTitle>Received Consignments</CardTitle>
-              <CardDescription>
-                Consignments received from companies
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-base md:text-lg">Received Consignments</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                {receivedConsignments.length} consignments from companies
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              {receivedLoading ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">Loading...</p>
-                </div>
-              ) : receivedConsignments.length === 0 ? (
-                <div className="text-center py-8">
-                  <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">
-                    No consignments received
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Companies can send you consignments through catalog orders.
-                  </p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Request #</TableHead>
-                      <TableHead>Company</TableHead>
-                      <TableHead>Items</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {receivedConsignments.map((consignment) => (
-                      <TableRow key={consignment.id}>
-                        <TableCell className="font-medium">
-                          {consignment.requestNumber}
-                        </TableCell>
-                        <TableCell>{consignment.fromCompany?.name || "N/A"}</TableCell>
-                        <TableCell>{consignment.items.length} items</TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(consignment.totalAmount)}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(consignment.status)}</TableCell>
-                        <TableCell>{formatDate(consignment.createdAt)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
+            <CardContent className="p-0">
+              <DataTable
+                data={receivedConsignments}
+                loading={receivedLoading}
+                emptyMessage="No consignments received. Companies can send you consignments through catalog orders."
+                columns={[
+                  {
+                    key: 'requestNumber',
+                    label: 'Request #',
+                    width: '100px',
+                    render: (val) => <span className="font-medium">{val}</span>
+                  },
+                  {
+                    key: 'fromCompany',
+                    label: 'Company',
+                    width: '100px',
+                    render: (val) => val?.name || "N/A"
+                  },
+                  {
+                    key: 'items',
+                    label: 'Items',
+                    width: '60px',
+                    render: (val) => `${val?.length || 0}`
+                  },
+                  {
+                    key: 'totalAmount',
+                    label: 'Amount',
+                    align: 'right',
+                    width: '90px',
+                    render: (val) => <span className="font-semibold">{formatCurrency(val)}</span>
+                  },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    width: '100px',
+                    render: (val) => getStatusBadge(val)
+                  },
+                  {
+                    key: 'createdAt',
+                    label: 'Date',
+                    width: '80px',
+                    render: (val) => formatDate(val)
+                  },
+                  {
+                    key: 'actions',
+                    label: 'Actions',
+                    align: 'right',
+                    width: '160px',
+                    render: (_, consignment) => (
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => {
+                            setSelectedConsignment(consignment);
+                            setIsViewDialogOpen(true);
+                          }}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        {consignment.status === "CREATED" && (
+                          <>
                             <Button
-                              variant="ghost"
+                              variant="default"
                               size="sm"
+                              className="h-7 text-xs px-2"
                               onClick={() => {
                                 setSelectedConsignment(consignment);
-                                setIsViewDialogOpen(true);
+                                setAcceptItems(
+                                  consignment.items.map((item) => ({
+                                    itemId: item.id,
+                                    acceptedQuantity: Number(item.quantity),
+                                  }))
+                                );
+                                setIsAcceptDialogOpen(true);
                               }}
                             >
-                              <Eye className="h-4 w-4" />
+                              <CheckCircle className="h-3 w-3" />
                             </Button>
-
-                            {/* Accept action for CREATED status */}
-                            {consignment.status === "CREATED" && (
-                              <>
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedConsignment(consignment);
-                                    setAcceptItems(
-                                      consignment.items.map((item) => ({
-                                        itemId: item.id,
-                                        acceptedQuantity: Number(item.quantity),
-                                      }))
-                                    );
-                                    setIsAcceptDialogOpen(true);
-                                  }}
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Accept
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  className="text-black"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedConsignment(consignment);
-                                    setIsRejectDialogOpen(true);
-                                  }}
-                                >
-                                  <XCircle className="h-4 w-4 mr-1 text-black" />
-                                  Reject
-                                </Button>
-                              </>
-                            )}
-
-                            {/* Confirm Receipt for DISPATCHED status */}
-                            {consignment.status === "DISPATCHED" && (
-                              <Button
-                                variant="default"
-                                size="sm"
-                                className="bg-green-600 hover:bg-green-700"
-                                onClick={() => {
-                                  setSelectedConsignment(consignment);
-                                  setIsConfirmReceiptDialogOpen(true);
-                                }}
-                              >
-                                <Receipt className="h-4 w-4 mr-1" />
-                                Confirm Receipt
-                              </Button>
-                            )}
-
-
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="h-7 text-xs px-2"
+                              onClick={() => {
+                                setSelectedConsignment(consignment);
+                                setIsRejectDialogOpen(true);
+                              }}
+                            >
+                              <XCircle className="h-3 w-3" />
+                            </Button>
+                          </>
+                        )}
+                        {consignment.status === "DISPATCHED" && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="h-7 text-xs px-2 bg-green-600 hover:bg-green-700"
+                            onClick={() => {
+                              setSelectedConsignment(consignment);
+                              setIsConfirmReceiptDialogOpen(true);
+                            }}
+                          >
+                            <Receipt className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  }
+                ] as Column[]}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -434,103 +433,104 @@ export default function DealerConsignmentsPage() {
         {/* Requested Consignments Tab */}
         <TabsContent value="requested">
           <Card>
-            <CardHeader>
-              <CardTitle>My Requests</CardTitle>
-              <CardDescription>
-                Consignment requests you've sent to companies
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-base md:text-lg">My Requests</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                {requestedConsignments.length} requests sent to companies
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              {requestedLoading ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">Loading...</p>
-                </div>
-              ) : requestedConsignments.length === 0 ? (
-                <div className="text-center py-8">
-                  <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">
-                    No requests sent
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Consignment requests are created when you place orders through company catalogs.
-                  </p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Request #</TableHead>
-                      <TableHead>Company</TableHead>
-                      <TableHead>Items</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {requestedConsignments.map((consignment) => (
-                      <TableRow key={consignment.id}>
-                        <TableCell className="font-medium">
-                          {consignment.requestNumber}
-                        </TableCell>
-                        <TableCell>{consignment.fromCompany?.name || "N/A"}</TableCell>
-                        <TableCell>{consignment.items.length} items</TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(consignment.totalAmount)}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(consignment.status)}</TableCell>
-                        <TableCell>{formatDate(consignment.createdAt)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedConsignment(consignment);
-                                setIsViewDialogOpen(true);
-                              }}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {consignment.status === "REJECTED" && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                                onClick={() => {
-                                  setSelectedConsignment(consignment);
-                                  setIsRejectionInfoOpen(true);
-                                }}
-                              >
-                                <AlertCircle className="h-4 w-4 mr-1" />
-                                Reason
-                              </Button>
-                            )}
-
-
-                            {/* Confirm Receipt for DISPATCHED status */}
-                            {consignment.status === "DISPATCHED" && (
-                              <Button
-                                variant="default"
-                                size="sm"
-                                className="bg-green-600 hover:bg-green-700"
-                                onClick={() => {
-                                  setSelectedConsignment(consignment);
-                                  setIsConfirmReceiptDialogOpen(true);
-                                }}
-                              >
-                                <Receipt className="h-4 w-4 mr-1" />
-                                Confirm Receipt
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+            <CardContent className="p-0">
+              <DataTable
+                data={requestedConsignments}
+                loading={requestedLoading}
+                emptyMessage="No requests sent. Consignment requests are created when you place orders through company catalogs."
+                columns={[
+                  {
+                    key: 'requestNumber',
+                    label: 'Request #',
+                    width: '100px',
+                    render: (val) => <span className="font-medium">{val}</span>
+                  },
+                  {
+                    key: 'fromCompany',
+                    label: 'Company',
+                    width: '100px',
+                    render: (val) => val?.name || "N/A"
+                  },
+                  {
+                    key: 'items',
+                    label: 'Items',
+                    width: '60px',
+                    render: (val) => `${val?.length || 0}`
+                  },
+                  {
+                    key: 'totalAmount',
+                    label: 'Amount',
+                    align: 'right',
+                    width: '90px',
+                    render: (val) => <span className="font-semibold">{formatCurrency(val)}</span>
+                  },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    width: '100px',
+                    render: (val) => getStatusBadge(val)
+                  },
+                  {
+                    key: 'createdAt',
+                    label: 'Date',
+                    width: '80px',
+                    render: (val) => formatDate(val)
+                  },
+                  {
+                    key: 'actions',
+                    label: 'Actions',
+                    align: 'right',
+                    width: '130px',
+                    render: (_, consignment) => (
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => {
+                            setSelectedConsignment(consignment);
+                            setIsViewDialogOpen(true);
+                          }}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        {consignment.status === "REJECTED" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs px-2 text-red-600 border-red-200"
+                            onClick={() => {
+                              setSelectedConsignment(consignment);
+                              setIsRejectionInfoOpen(true);
+                            }}
+                          >
+                            <AlertCircle className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {consignment.status === "DISPATCHED" && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="h-7 text-xs px-2 bg-green-600 hover:bg-green-700"
+                            onClick={() => {
+                              setSelectedConsignment(consignment);
+                              setIsConfirmReceiptDialogOpen(true);
+                            }}
+                          >
+                            <Receipt className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  }
+                ] as Column[]}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -598,7 +598,7 @@ export default function DealerConsignmentsPage() {
             >
               {acceptMutation.isPending ? "Accepting..." : "Accept"}
             </Button>
-          </DialogFooter> 
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

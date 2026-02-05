@@ -12,14 +12,7 @@ import {
 } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/common/components/ui/table";
+import { DataTable, Column } from "@/common/components/ui/data-table";
 import {
   Dialog,
   DialogContent,
@@ -280,234 +273,126 @@ export default function DealerCustomersPage() {
         </CardContent>
       </Card>
 
-      {/* Customers Table - Desktop */}
-      <Card className="hidden md:block">
-        <CardHeader>
-          <CardTitle>Customers</CardTitle>
-          <CardDescription>
+      {/* Customers Table - Unified DataTable */}
+      <Card>
+        <CardHeader className="p-3 md:p-6">
+          <CardTitle className="text-base md:text-lg">Customers</CardTitle>
+          <CardDescription className="text-xs md:text-sm">
             {customers.length} {customers.length === 1 ? "customer" : "customers"} registered
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8">Loading customers...</div>
-          ) : customers.length === 0 ? (
-            <div className="text-center py-8">
-              <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No customers found</h3>
-              <p className="text-muted-foreground mb-4">
-                Get started by adding your first customer.
-              </p>
-              <Button onClick={() => handleOpenDialog()}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Customer
-              </Button>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Address</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {customers.map((customer) => (
-                  <TableRow key={customer.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        {customer.name}
-                        {(customer.source === "CONNECTED" || customer.partyType === "FARMER") && (
-                          <Badge
-                            variant="secondary"
-                            className="bg-blue-100 text-blue-800 hover:bg-blue-100 text-xs"
-                          >
-                            <Link2 className="h-3 w-3 mr-1" />
-                            Connected
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        {customer.phone}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {customer.address ? (
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-muted-foreground" />
-                          <span className="max-w-[200px] truncate">
-                            {customer.address}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {customer.category ? (
-                        <span className="px-2 py-1 bg-muted rounded-md text-sm">
-                          {customer.category}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span
-                        className={
-                          customer.balance > 0
-                            ? "text-red-600 font-semibold"
-                            : customer.balance < 0
-                              ? "text-green-600 font-semibold"
-                              : ""
-                        }
+        <CardContent className="p-0">
+          <DataTable
+            data={customers}
+            loading={isLoading}
+            emptyMessage="No customers found. Add your first customer to get started."
+            columns={[
+              {
+                key: 'name',
+                label: 'Name',
+                width: '160px',
+                render: (val, row) => (
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{val}</span>
+                    {(row.source === "CONNECTED" || row.partyType === "FARMER") && (
+                      <Badge
+                        variant="secondary"
+                        className="bg-blue-100 text-blue-800 hover:bg-blue-100 text-[10px] px-1"
                       >
-                        {customer.balance > 0
-                          ? `रू ${Math.abs(customer.balance).toFixed(2)} (Due)`
-                          : customer.balance < 0
-                            ? `रू ${Math.abs(customer.balance).toFixed(2)} (Advance)`
-                            : "रू 0.00"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => router.push(`/dealer/dashboard/customers/${customer.id}/account`)}
-                        >
-                          View Account
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenDialog(customer)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(customer.id, customer.name)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+                        <Link2 className="h-2.5 w-2.5 mr-0.5" />
+                        <span className="hidden sm:inline">Connected</span>
+                      </Badge>
+                    )}
+                  </div>
+                )
+              },
+              {
+                key: 'phone',
+                label: 'Phone',
+                width: '120px',
+                render: (val) => (
+                  <div className="flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>{val}</span>
+                  </div>
+                )
+              },
+              {
+                key: 'address',
+                label: 'Address',
+                width: '150px',
+                render: (val) => val ? (
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                    <span className="truncate max-w-[120px]">{val}</span>
+                  </div>
+                ) : '-'
+              },
+              {
+                key: 'category',
+                label: 'Category',
+                width: '100px',
+                render: (val) => val ? (
+                  <span className="px-2 py-0.5 bg-muted rounded-md text-xs">{val}</span>
+                ) : '-'
+              },
+              {
+                key: 'balance',
+                label: 'Balance',
+                align: 'right',
+                width: '130px',
+                render: (val) => (
+                  <span className={
+                    val > 0 ? "text-red-600 font-semibold" :
+                      val < 0 ? "text-green-600 font-semibold" : ""
+                  }>
+                    {val > 0
+                      ? `रू ${Math.abs(val).toFixed(2)} (Due)`
+                      : val < 0
+                        ? `रू ${Math.abs(val).toFixed(2)} (Adv)`
+                        : "रू 0.00"}
+                  </span>
+                )
+              },
+              {
+                key: 'actions',
+                label: 'Actions',
+                align: 'right',
+                width: '140px',
+                render: (_, row) => (
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs px-2"
+                      onClick={() => router.push(`/dealer/dashboard/customers/${row.id}/account`)}
+                    >
+                      <span className="hidden sm:inline">View</span>
+                      <span className="sm:hidden">Acct</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => handleOpenDialog(row)}
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => handleDelete(row.id, row.name)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                    </Button>
+                  </div>
+                )
+              }
+            ] as Column[]}
+          />
         </CardContent>
       </Card>
-
-      {/* Customers List - Mobile */}
-      <div className="md:hidden space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold">Customers</h3>
-          <span className="text-sm text-muted-foreground">{customers.length} total</span>
-        </div>
-        {isLoading ? (
-          <div className="text-center py-8">Loading customers...</div>
-        ) : customers.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-8">
-              <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-              <h3 className="font-semibold mb-2">No customers found</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Add your first customer to get started.
-              </p>
-              <Button size="sm" onClick={() => handleOpenDialog()}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Customer
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          customers.map((customer) => (
-            <Card key={customer.id} className="overflow-hidden">
-              <CardContent className="p-3">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium truncate">{customer.name}</h4>
-                      {(customer.source === "CONNECTED" || customer.partyType === "FARMER") && (
-                        <Badge
-                          variant="secondary"
-                          className="bg-blue-100 text-blue-800 text-[10px] px-1.5"
-                        >
-                          Connected
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                      <Phone className="h-3 w-3" />
-                      <span>{customer.phone}</span>
-                      {customer.address && (
-                        <>
-                          <span>•</span>
-                          <MapPin className="h-3 w-3" />
-                          <span className="truncate max-w-[100px]">{customer.address}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-1 ml-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => handleOpenDialog(customer)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => handleDelete(customer.id, customer.name)}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`text-sm font-medium ${customer.balance > 0
-                      ? "text-red-600"
-                      : customer.balance < 0
-                        ? "text-green-600"
-                        : ""
-                      }`}
-                  >
-                    {customer.balance > 0
-                      ? `रू ${Math.abs(customer.balance).toFixed(0)} Due`
-                      : customer.balance < 0
-                        ? `रू ${Math.abs(customer.balance).toFixed(0)} Advance`
-                        : "रू 0"}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() => router.push(`/dealer/dashboard/customers/${customer.id}/account`)}
-                  >
-                    View Account
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

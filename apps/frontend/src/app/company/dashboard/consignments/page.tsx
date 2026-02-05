@@ -35,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/common/components/ui/select";
+import { DataTable, Column } from "@/common/components/ui/data-table";
 import {
   Table,
   TableBody,
@@ -53,6 +54,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/common/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/common/components/ui/alert-dialog";
 import { Textarea } from "@/common/components/ui/textarea";
 import { toast } from "sonner";
 import {
@@ -74,6 +85,7 @@ export default function CompanyConsignmentsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [selectedConsignment, setSelectedConsignment] = useState<Consignment | null>(null);
+  const [consignmentToCancel, setConsignmentToCancel] = useState<string | null>(null);
 
   // Dialogs
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -248,16 +260,19 @@ export default function CompanyConsignmentsPage() {
     }
   };
 
-  const handleCancelConsignment = async (consignmentId: string) => {
-    if (!confirm("Are you sure you want to cancel this consignment?")) {
-      return;
-    }
+  const handleCancelConsignment = (id: string) => {
+    setConsignmentToCancel(id);
+  };
 
+  const confirmCancelConsignment = async () => {
+    if (!consignmentToCancel) return;
     try {
-      await cancelMutation.mutateAsync({ id: consignmentId });
-      toast.success("Consignment cancelled");
+      await cancelMutation.mutateAsync({ id: consignmentToCancel });
+      toast.success("Consignment cancelled successfully");
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to cancel consignment");
+    } finally {
+      setConsignmentToCancel(null);
     }
   };
 
@@ -905,7 +920,30 @@ export default function CompanyConsignmentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div >
+
+      <AlertDialog
+        open={!!consignmentToCancel}
+        onOpenChange={(open) => !open && setConsignmentToCancel(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Consignment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this consignment? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, Keep It</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmCancelConsignment}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Yes, Cancel Consignment
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }
 

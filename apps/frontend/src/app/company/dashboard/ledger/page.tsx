@@ -24,14 +24,7 @@ import {
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/common/components/ui/table";
+import { DataTable, Column } from "@/common/components/ui/data-table";
 import { Badge } from "@/common/components/ui/badge";
 import {
   Tabs,
@@ -157,190 +150,172 @@ export default function CompanyLedgerPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Company Ledger</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Company Ledger</h1>
+        <p className="text-sm md:text-base text-muted-foreground">
           Track payments, balances, and transactions with dealers
         </p>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Received</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-6 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Received</CardTitle>
             <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 md:p-6 pt-0">
             {summaryLoading ? (
-              <div className="text-2xl font-bold">...</div>
+              <div className="text-lg md:text-2xl font-bold">...</div>
             ) : (
-              <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(summary?.totalReceived || 0)}
+              <div className="text-lg md:text-2xl font-bold text-green-600">
+                रू {Math.round(Number(summary?.totalReceived) || 0)}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">
-              Total payments received
-            </p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Total received</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Due</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-6 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Due</CardTitle>
             <TrendingDown className="h-4 w-4 text-red-600" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 md:p-6 pt-0">
             {summaryLoading ? (
-              <div className="text-2xl font-bold">...</div>
+              <div className="text-lg md:text-2xl font-bold">...</div>
             ) : (
-              <div className="text-2xl font-bold text-red-600">
-                {formatCurrency(summary?.totalDue || 0)}
+              <div className="text-lg md:text-2xl font-bold text-red-600">
+                रू {Math.round(Number(summary?.totalDue) || 0)}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">
-              Outstanding balances
-            </p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Outstanding</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Dealers</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-6 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Dealers</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 md:p-6 pt-0">
             {partiesLoading ? (
-              <div className="text-2xl font-bold">...</div>
+              <div className="text-lg md:text-2xl font-bold">...</div>
             ) : (
-              <div className="text-2xl font-bold">{parties.length}</div>
+              <div className="text-lg md:text-2xl font-bold">{parties.length}</div>
             )}
-            <p className="text-xs text-muted-foreground">
-              Dealers with transactions
-            </p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Active</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-6 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Pending</CardTitle>
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 md:p-6 pt-0">
             {summaryLoading ? (
-              <div className="text-2xl font-bold">...</div>
+              <div className="text-lg md:text-2xl font-bold">...</div>
             ) : (
-              <div className="text-2xl font-bold">
-                {summary?.pendingRequests || 0}
-              </div>
+              <div className="text-lg md:text-2xl font-bold">{summary?.pendingRequests || 0}</div>
             )}
-            <p className="text-xs text-muted-foreground">
-              Payment requests pending
-            </p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Requests</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="parties">Parties</TabsTrigger>
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
+        <TabsList className="w-full md:w-auto">
+          <TabsTrigger value="parties" className="flex-1 md:flex-none">Parties</TabsTrigger>
+          <TabsTrigger value="transactions" className="flex-1 md:flex-none">Transactions</TabsTrigger>
+          <TabsTrigger value="payments" className="flex-1 md:flex-none">Payments</TabsTrigger>
         </TabsList>
 
         {/* Parties Tab */}
         <TabsContent value="parties" className="space-y-4">
           <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
+            <CardHeader className="p-3 md:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <CardTitle>Dealers & Balances</CardTitle>
-                  <CardDescription>
-                    View dealers and their outstanding balances
+                  <CardTitle className="text-base md:text-lg">Dealers & Balances</CardTitle>
+                  <CardDescription className="text-xs md:text-sm">
+                    {parties.length} dealers with transactions
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="relative">
+                  <div className="relative flex-1 sm:flex-none">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      placeholder="Search dealers..."
+                      placeholder="Search..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="pl-10 w-[200px]"
+                      className="pl-10 w-full sm:w-[180px]"
                     />
                   </div>
-                  <Button onClick={() => setIsAddPaymentOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Payment
+                  <Button size="sm" onClick={() => setIsAddPaymentOpen(true)} className="whitespace-nowrap">
+                    <Plus className="h-4 w-4 mr-1" />
+                    <span className="hidden sm:inline">Add Payment</span>
+                    <span className="sm:hidden">Add</span>
                   </Button>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              {partiesLoading ? (
-                <div className="text-center py-8">Loading parties...</div>
-              ) : parties.length === 0 ? (
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No dealers found</h3>
-                  <p className="text-muted-foreground">
-                    Dealers with transactions will appear here.
-                  </p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Dealer</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead className="text-right">Balance</TableHead>
-                      <TableHead>Last Transaction</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {parties.map((party) => (
-                      <TableRow key={party.id}>
-                        <TableCell className="font-medium">
-                          {party.name}
-                        </TableCell>
-                        <TableCell>{party.contact}</TableCell>
-                        <TableCell className="text-right">
-                          <span
-                            className={
-                              party.balance > 0
-                                ? "font-bold text-red-600"
-                                : "text-muted-foreground"
-                            }
-                          >
-                            {formatCurrency(party.balance)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {party.lastTransactionDate
-                            ? formatDate(party.lastTransactionDate)
-                            : "N/A"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedDealerId(party.id);
-                                setIsAddPaymentOpen(true);
-                              }}
-                            >
-                              <Plus className="h-4 w-4 mr-1" />
-                              Pay
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+            <CardContent className="p-0">
+              <DataTable
+                data={parties}
+                loading={partiesLoading}
+                emptyMessage="No dealers found. Dealers with transactions will appear here."
+                columns={[
+                  {
+                    key: 'name',
+                    label: 'Dealer',
+                    width: '140px',
+                    render: (val) => <span className="font-medium">{val}</span>
+                  },
+                  {
+                    key: 'contact',
+                    label: 'Contact',
+                    width: '120px'
+                  },
+                  {
+                    key: 'balance',
+                    label: 'Balance',
+                    align: 'right',
+                    width: '100px',
+                    render: (val) => (
+                      <span className={val > 0 ? "font-bold text-red-600" : "text-muted-foreground"}>
+                        {formatCurrency(val)}
+                      </span>
+                    )
+                  },
+                  {
+                    key: 'lastTransactionDate',
+                    label: 'Last Txn',
+                    width: '100px',
+                    render: (val) => val ? formatDate(val) : "N/A"
+                  },
+                  {
+                    key: 'actions',
+                    label: 'Actions',
+                    align: 'right',
+                    width: '80px',
+                    render: (_, row) => (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          setSelectedDealerId(row.id);
+                          setIsAddPaymentOpen(true);
+                        }}
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        Pay
+                      </Button>
+                    )
+                  }
+                ] as Column[]}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -348,85 +323,76 @@ export default function CompanyLedgerPage() {
         {/* Transactions Tab */}
         <TabsContent value="transactions" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>All Transactions</CardTitle>
-              <CardDescription>
-                Complete ledger entries for all transactions
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-base md:text-lg">All Transactions</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                {entries.length} ledger entries
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              {entriesLoading ? (
-                <div className="text-center py-8">Loading transactions...</div>
-              ) : entries.length === 0 ? (
-                <div className="text-center py-8">
-                  <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">
-                    No transactions found
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Transactions will appear here once sales are created.
-                  </p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Party</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead className="text-right">Balance</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {entries.map((entry) => (
-                      <TableRow key={entry.id}>
-                        <TableCell>{formatDate(entry.date)}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              entry.type === "SALE"
-                                ? "default"
-                                : entry.type === "PAYMENT_RECEIVED"
-                                ? "secondary"
-                                : "outline"
-                            }
-                          >
-                            {entry.type.replace("_", " ")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {entry.description || "N/A"}
-                          {entry.companySale?.invoiceNumber && (
-                            <span className="text-xs text-muted-foreground ml-2">
-                              ({entry.companySale.invoiceNumber})
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {entry.companySale?.dealer?.name || "N/A"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span
-                            className={
-                              entry.type === "SALE"
-                                ? "text-red-600"
-                                : "text-green-600"
-                            }
-                          >
-                            {entry.type === "SALE" ? "+" : "-"}
-                            {formatCurrency(entry.amount)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(entry.runningBalance)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+            <CardContent className="p-0">
+              <DataTable
+                data={entries}
+                loading={entriesLoading}
+                emptyMessage="No transactions found. Transactions will appear here once sales are created."
+                columns={[
+                  {
+                    key: 'date',
+                    label: 'Date',
+                    width: '100px',
+                    render: (val) => formatDate(val)
+                  },
+                  {
+                    key: 'type',
+                    label: 'Type',
+                    width: '100px',
+                    render: (val) => (
+                      <Badge
+                        variant={val === "SALE" ? "default" : val === "PAYMENT_RECEIVED" ? "secondary" : "outline"}
+                        className="text-xs"
+                      >
+                        {val.replace("_", " ")}
+                      </Badge>
+                    )
+                  },
+                  {
+                    key: 'description',
+                    label: 'Description',
+                    width: '140px',
+                    render: (val, row) => (
+                      <span className="truncate block max-w-[120px]">
+                        {val || "N/A"}
+                        {row.companySale?.invoiceNumber && (
+                          <span className="text-xs text-muted-foreground ml-1">({row.companySale.invoiceNumber})</span>
+                        )}
+                      </span>
+                    )
+                  },
+                  {
+                    key: 'companySale',
+                    label: 'Party',
+                    width: '100px',
+                    render: (val) => val?.dealer?.name || "N/A"
+                  },
+                  {
+                    key: 'amount',
+                    label: 'Amount',
+                    align: 'right',
+                    width: '100px',
+                    render: (val, row) => (
+                      <span className={row.type === "SALE" ? "text-red-600" : "text-green-600"}>
+                        {row.type === "SALE" ? "+" : "-"}{formatCurrency(val)}
+                      </span>
+                    )
+                  },
+                  {
+                    key: 'runningBalance',
+                    label: 'Balance',
+                    align: 'right',
+                    width: '90px',
+                    render: (val) => <span className="font-medium">{formatCurrency(val)}</span>
+                  }
+                ] as Column[]}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -434,68 +400,62 @@ export default function CompanyLedgerPage() {
         {/* Payments Tab */}
         <TabsContent value="payments" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Payment History</CardTitle>
-              <CardDescription>
-                All payments received from dealers
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-base md:text-lg">Payment History</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                {payments.length} payments received
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              {payments.length === 0 ? (
-                <div className="text-center py-8">
-                  <CreditCard className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">
-                    No payments found
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Payments will appear here once received.
-                  </p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Invoice</TableHead>
-                      <TableHead>Dealer</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {payments.map((entry) => (
-                      <TableRow key={entry.id}>
-                        <TableCell>{formatDate(entry.date)}</TableCell>
-                        <TableCell>
-                          {entry.companySale?.invoiceNumber || "N/A"}
-                        </TableCell>
-                        <TableCell>
-                          {entry.companySale?.dealer?.name || "N/A"}
-                        </TableCell>
-                        <TableCell className="text-right font-medium text-green-600">
-                          {formatCurrency(entry.amount)}
-                        </TableCell>
-                        <TableCell>
-                          {entry.companySaleId && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                router.push(
-                                  `/company/dashboard/sales/${entry.companySaleId}`
-                                )
-                              }
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View Sale
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+            <CardContent className="p-0">
+              <DataTable
+                data={payments}
+                loading={false}
+                emptyMessage="No payments found. Payments will appear here once received."
+                columns={[
+                  {
+                    key: 'date',
+                    label: 'Date',
+                    width: '100px',
+                    render: (val) => formatDate(val)
+                  },
+                  {
+                    key: 'companySale',
+                    label: 'Invoice',
+                    width: '100px',
+                    render: (val) => val?.invoiceNumber || "N/A"
+                  },
+                  {
+                    key: 'companySale',
+                    label: 'Dealer',
+                    width: '130px',
+                    render: (val) => val?.dealer?.name || "N/A"
+                  },
+                  {
+                    key: 'amount',
+                    label: 'Amount',
+                    align: 'right',
+                    width: '100px',
+                    render: (val) => (
+                      <span className="font-medium text-green-600">{formatCurrency(val)}</span>
+                    )
+                  },
+                  {
+                    key: 'companySaleId',
+                    label: 'Actions',
+                    width: '70px',
+                    render: (val) => val ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => router.push(`/company/dashboard/sales/${val}`)}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                    ) : null
+                  }
+                ] as Column[]}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -548,11 +508,11 @@ export default function CompanyLedgerPage() {
                   <SelectContent>
                     <SelectItem value="GENERAL">Account Level Payment</SelectItem>
                     {dealerSales.map((sale: any) => (
-                        <SelectItem key={sale.id} value={sale.id}>
-                          {sale.invoiceNumber || sale.id.slice(0, 8)} - Total:{" "}
-                          {formatCurrency(Number(sale.totalAmount || 0))}
-                        </SelectItem>
-                      ))}
+                      <SelectItem key={sale.id} value={sale.id}>
+                        {sale.invoiceNumber || sale.id.slice(0, 8)} - Total:{" "}
+                        {formatCurrency(Number(sale.totalAmount || 0))}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

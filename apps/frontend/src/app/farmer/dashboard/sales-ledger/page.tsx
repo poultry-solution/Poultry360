@@ -13,6 +13,23 @@ import { Input } from "@/common/components/ui/input";
 import { Badge } from "@/common/components/ui/badge";
 import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
 import { Label } from "@/common/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/common/components/ui/alert-dialog";
 import { DataTable } from "@/common/components/ui/data-table";
 import {
   Plus,
@@ -73,6 +90,7 @@ export default function SalesLedgerPage() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
   const [editingPartyId, setEditingPartyId] = useState<string | null>(null);
+  const [partyToDelete, setPartyToDelete] = useState<string | null>(null);
   const [selectedParty, setSelectedParty] = useState<any>(null);
 
   // Filters
@@ -487,15 +505,20 @@ export default function SalesLedgerPage() {
     }
   };
 
-  const handleDeleteParty = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this party?")) {
-      try {
-        await deleteCustomerMutation.mutateAsync(id);
-        toast.success("Party deleted successfully");
-      } catch (error) {
-        console.error("Delete party error:", error);
-        toast.error("Failed to delete party");
-      }
+  const handleDeleteParty = (id: string) => {
+    setPartyToDelete(id);
+  };
+
+  const confirmDeleteParty = async () => {
+    if (!partyToDelete) return;
+    try {
+      await deleteCustomerMutation.mutateAsync(partyToDelete);
+      toast.success("Party deleted successfully");
+    } catch (error) {
+      console.error("Delete party error:", error);
+      toast.error("Failed to delete party");
+    } finally {
+      setPartyToDelete(null);
     }
   };
 
@@ -931,36 +954,38 @@ export default function SalesLedgerPage() {
                 </div>
                 <div>
                   <Label htmlFor="itemType" className="text-xs md:text-sm">Type</Label>
-                  <select
-                    id="itemType"
+                  <Select
                     value={salesFilters.itemType}
-                    onChange={(e) =>
-                      handleSalesFilterChange("itemType", e.target.value)
-                    }
-                    className="w-full h-8 md:h-10 rounded-md border border-input bg-background px-2 md:px-3 text-xs md:text-sm"
+                    onValueChange={(value) => handleSalesFilterChange("itemType", value)}
                   >
-                    <option value="">All</option>
-                    <option value="Chicken_Meat">Meat</option>
-                    <option value="EGGS">Eggs</option>
-                    <option value="CHICKS">Chicks</option>
-                    <option value="FEED">Feed</option>
-                    <option value="OTHER">Other</option>
-                  </select>
+                    <SelectTrigger className="h-8 md:h-10 text-xs md:text-sm">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="Chicken_Meat">Meat</SelectItem>
+                      <SelectItem value="EGGS">Eggs</SelectItem>
+                      <SelectItem value="CHICKS">Chicks</SelectItem>
+                      <SelectItem value="FEED">Feed</SelectItem>
+                      <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label htmlFor="isCredit" className="text-xs md:text-sm">Payment</Label>
-                  <select
-                    id="isCredit"
+                  <Select
                     value={salesFilters.isCredit}
-                    onChange={(e) =>
-                      handleSalesFilterChange("isCredit", e.target.value)
-                    }
-                    className="w-full h-8 md:h-10 rounded-md border border-input bg-background px-2 md:px-3 text-xs md:text-sm"
+                    onValueChange={(value) => handleSalesFilterChange("isCredit", value)}
                   >
-                    <option value="">All</option>
-                    <option value="false">Cash</option>
-                    <option value="true">Credit</option>
-                  </select>
+                    <SelectTrigger className="h-8 md:h-10 text-xs md:text-sm">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="false">Cash</SelectItem>
+                      <SelectItem value="true">Credit</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label htmlFor="startDate" className="text-xs md:text-sm">From</Label>
@@ -1070,33 +1095,35 @@ export default function SalesLedgerPage() {
                 </div>
                 <div>
                   <Label htmlFor="category" className="text-xs md:text-sm">Category</Label>
-                  <select
-                    id="category"
+                  <Select
                     value={partyFilters.category}
-                    onChange={(e) =>
-                      handlePartyFilterChange("category", e.target.value)
-                    }
-                    className="w-full h-8 md:h-10 rounded-md border border-input bg-background px-2 md:px-3 text-xs md:text-sm"
+                    onValueChange={(value) => handlePartyFilterChange("category", value)}
                   >
-                    <option value="">All</option>
-                    <option value="Chicken">Chicken</option>
-                    <option value="Other">Other</option>
-                  </select>
+                    <SelectTrigger className="h-8 md:h-10 text-xs md:text-sm">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="Chicken">Chicken</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label htmlFor="hasBalance" className="text-xs md:text-sm">Balance</Label>
-                  <select
-                    id="hasBalance"
+                  <Select
                     value={partyFilters.hasBalance}
-                    onChange={(e) =>
-                      handlePartyFilterChange("hasBalance", e.target.value)
-                    }
-                    className="w-full h-8 md:h-10 rounded-md border border-input bg-background px-2 md:px-3 text-xs md:text-sm"
+                    onValueChange={(value) => handlePartyFilterChange("hasBalance", value)}
                   >
-                    <option value="">All</option>
-                    <option value="true">Has Due</option>
-                    <option value="false">Cleared</option>
-                  </select>
+                    <SelectTrigger className="h-8 md:h-10 text-xs md:text-sm">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="true">Has Due</SelectItem>
+                      <SelectItem value="false">Cleared</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex items-end">
                   <Button
@@ -1214,21 +1241,24 @@ export default function SalesLedgerPage() {
               {/* Farm Selection */}
               <div>
                 <Label htmlFor="farmId">Select Farm *</Label>
-                <select
-                  id="farmId"
-                  name="farmId"
+                <Select
                   value={saleForm.farmId}
-                  onChange={updateSaleField}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                  required
+                  onValueChange={(value) => {
+                    const event = { target: { name: 'farmId', value } } as any;
+                    updateSaleField(event);
+                  }}
                 >
-                  <option value="">Choose a farm</option>
-                  {farms.map((farm) => (
-                    <option key={farm.id} value={farm.id}>
-                      {farm.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a farm" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {farms.map((farm) => (
+                      <SelectItem key={farm.id} value={farm.id}>
+                        {farm.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {errors.farmId && (
                   <p className="text-xs text-red-600 mt-1">{errors.farmId}</p>
                 )}
@@ -1237,28 +1267,31 @@ export default function SalesLedgerPage() {
               {/* Batch Selection */}
               <div>
                 <Label htmlFor="batchId">Select Batch *</Label>
-                <select
-                  id="batchId"
-                  name="batchId"
+                <Select
                   value={saleForm.batchId}
-                  onChange={updateSaleField}
+                  onValueChange={(value) => {
+                    const event = { target: { name: 'batchId', value } } as any;
+                    updateSaleField(event);
+                  }}
                   disabled={!saleForm.farmId}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  required
                 >
-                  <option value="">Choose a batch</option>
-                  {activeBatches
-                    .filter(
-                      (batch) =>
-                        batch.status === "ACTIVE" &&
-                        (!saleForm.farmId || batch.farmId === saleForm.farmId)
-                    )
-                    .map((batch) => (
-                      <option key={batch.id} value={batch.id}>
-                        {batch.batchNumber} - {batch.farm.name}
-                      </option>
-                    ))}
-                </select>
+                  <SelectTrigger className={!saleForm.farmId ? "opacity-50" : ""}>
+                    <SelectValue placeholder="Choose a batch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeBatches
+                      .filter(
+                        (batch) =>
+                          batch.status === "ACTIVE" &&
+                          (!saleForm.farmId || batch.farmId === saleForm.farmId)
+                      )
+                      .map((batch) => (
+                        <SelectItem key={batch.id} value={batch.id}>
+                          {batch.batchNumber} - {batch.farm.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
                 {errors.batchId && (
                   <p className="text-xs text-red-600 mt-1">{errors.batchId}</p>
                 )}
@@ -1266,37 +1299,45 @@ export default function SalesLedgerPage() {
 
               <div>
                 <Label htmlFor="itemType">Item Type</Label>
-                <select
-                  id="itemType"
-                  name="itemType"
+                <Select
                   value={saleForm.itemType}
-                  onChange={updateSaleField}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                  onValueChange={(value) => {
+                    const event = { target: { name: 'itemType', value } } as any;
+                    updateSaleField(event);
+                  }}
                 >
-                  <option value="EGGS">Eggs</option>
-                  <option value="Chicken_Meat">Layers (Meat)</option>
-                  <option value="FEED">Feed</option>
-                  <option value="MEDICINE">Medicine</option>
-                  <option value="OTHER">Other</option>
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select item type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="EGGS">Eggs</SelectItem>
+                    <SelectItem value="Chicken_Meat">Layers (Meat)</SelectItem>
+                    <SelectItem value="FEED">Feed</SelectItem>
+                    <SelectItem value="MEDICINE">Medicine</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {saleForm.itemType === "EGGS" && (
                 <div>
                   <Label htmlFor="eggCategory">Egg Category</Label>
-                  <select
-                    id="eggCategory"
-                    name="eggCategory"
+                  <Select
                     value={saleForm.eggCategory}
-                    onChange={updateSaleField}
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                    required={saleForm.itemType === "EGGS"}
+                    onValueChange={(value) => {
+                      const event = { target: { name: 'eggCategory', value } } as any;
+                      updateSaleField(event);
+                    }}
                   >
-                    <option value="">Select category</option>
-                    <option value="LARGE">Large</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="SMALL">Small</option>
-                  </select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="LARGE">Large</SelectItem>
+                      <SelectItem value="MEDIUM">Medium</SelectItem>
+                      <SelectItem value="SMALL">Small</SelectItem>
+                    </SelectContent>
+                  </Select>
                   {errors.eggCategory && (
                     <p className="text-xs text-red-600 mt-1">{errors.eggCategory}</p>
                   )}
@@ -1530,16 +1571,21 @@ export default function SalesLedgerPage() {
                   </div>
                   <div>
                     <Label htmlFor="customerCategory">Customer Category</Label>
-                    <select
-                      id="customerCategory"
-                      name="customerCategory"
+                    <Select
                       value={saleForm.customerCategory || "Chicken"}
-                      onChange={updateSaleField}
-                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                      onValueChange={(value) => {
+                        const event = { target: { name: 'customerCategory', value } } as any;
+                        updateSaleField(event);
+                      }}
                     >
-                      <option value="Chicken">Chicken</option>
-                      <option value="Other">Other</option>
-                    </select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Chicken">Chicken</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label htmlFor="balance">Amount Paid (Optional)</Label>
@@ -1631,20 +1677,23 @@ export default function SalesLedgerPage() {
               </div>
               <div>
                 <Label htmlFor="partyCategory">Category</Label>
-                <select
-                  id="partyCategory"
+                <Select
                   value={partyForm.category}
-                  onChange={(e) =>
+                  onValueChange={(value) =>
                     setPartyForm((prev) => ({
                       ...prev,
-                      category: e.target.value,
+                      category: value,
                     }))
                   }
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                 >
-                  <option value="Chicken">Chicken</option>
-                  <option value="Other">Other</option>
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Chicken">Chicken</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="partyAddress">Address</Label>
@@ -1868,6 +1917,30 @@ export default function SalesLedgerPage() {
           </ModalFooter>
         </form>
       </Modal>
+
+      <AlertDialog
+        open={!!partyToDelete}
+        onOpenChange={(open) => !open && setPartyToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Party</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this party? This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteParty}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

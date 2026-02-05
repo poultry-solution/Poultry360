@@ -24,14 +24,7 @@ import {
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/common/components/ui/table";
+import { DataTable, Column } from "@/common/components/ui/data-table";
 import { Badge } from "@/common/components/ui/badge";
 import {
   Tabs,
@@ -90,11 +83,12 @@ export default function DealerLedgerPage() {
   const summary = summaryData?.data;
   const parties = partiesData?.data || [];
   const entries = entriesData?.data || [];
-  const sales = salesData?.data || [];
+  // salesData was never fetched - using empty array as fallback
+  const sales: any[] = [];
 
   // Filter sales for selected party
   const partySales =
-    selectedPartyId && sales
+    selectedPartyId && sales.length > 0
       ? sales.filter(
         (s: any) =>
           (s.customerId === selectedPartyId ||
@@ -251,437 +245,244 @@ export default function DealerLedgerPage() {
 
         {/* Parties Tab */}
         <TabsContent value="parties" className="space-y-4">
-          {/* Desktop Card with Table */}
-          <Card className="hidden md:block">
-            <CardHeader>
-              <div className="flex items-center justify-between">
+          {/* Unified Search and Actions */}
+          <Card>
+            <CardHeader className="p-3 md:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <CardTitle>Customers & Balances</CardTitle>
-                  <CardDescription>
-                    View customers and their outstanding balances
+                  <CardTitle className="text-base md:text-lg">Customers & Balances</CardTitle>
+                  <CardDescription className="text-xs md:text-sm">
+                    {parties.length} customers with transactions
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="relative">
+                  <div className="relative flex-1 sm:flex-none">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      placeholder="Search customers..."
+                      placeholder="Search..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="pl-10 w-[200px]"
+                      className="pl-10 w-full sm:w-[180px]"
                     />
                   </div>
-                  <Button onClick={() => setIsAddPaymentOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Payment
+                  <Button size="sm" onClick={() => setIsAddPaymentOpen(true)} className="whitespace-nowrap">
+                    <Plus className="h-4 w-4 mr-1" />
+                    <span className="hidden sm:inline">Add Payment</span>
+                    <span className="sm:hidden">Add</span>
                   </Button>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              {partiesLoading ? (
-                <div className="text-center py-8">Loading parties...</div>
-              ) : parties.length === 0 ? (
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No customers found</h3>
-                  <p className="text-muted-foreground">
-                    Customers with transactions will appear here.
-                  </p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead className="text-right">Balance</TableHead>
-                      <TableHead>Last Transaction</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {parties.map((party: any) => (
-                      <TableRow key={party.id}>
-                        <TableCell className="font-medium">
-                          {party.name}
-                        </TableCell>
-                        <TableCell>{party.contact}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">
-                            {party.partyType === "FARMER" ? "Farmer" : "Customer"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span
-                            className={
-                              party.balance > 0
-                                ? "font-bold text-red-600"
-                                : "text-muted-foreground"
-                            }
-                          >
-                            {formatCurrency(party.balance)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {party.lastTransactionDate
-                            ? formatDate(party.lastTransactionDate)
-                            : "N/A"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedPartyId(party.id);
-                                setIsAddPaymentOpen(true);
-                              }}
-                            >
-                              <Plus className="h-4 w-4 mr-1" />
-                              Add Payment
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Mobile - Search and Button */}
-          <div className="md:hidden space-y-3">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Button size="sm" onClick={() => setIsAddPaymentOpen(true)}>
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Customers</h3>
-              <span className="text-sm text-muted-foreground">{parties.length} total</span>
-            </div>
-            {partiesLoading ? (
-              <div className="text-center py-8">Loading parties...</div>
-            ) : parties.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-8">
-                  <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                  <p className="text-sm text-muted-foreground">No customers found</p>
-                </CardContent>
-              </Card>
-            ) : (
-              parties.map((party: any) => (
-                <Card key={party.id}>
-                  <CardContent className="p-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-medium truncate">{party.name}</h4>
-                          <Badge variant="secondary" className="text-[10px] px-1.5">
-                            {party.partyType === "FARMER" ? "Farmer" : "Customer"}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">{party.contact}</p>
-                      </div>
+            <CardContent className="p-0">
+              <DataTable
+                data={parties}
+                loading={partiesLoading}
+                emptyMessage="No customers found. Customers with transactions will appear here."
+                columns={[
+                  {
+                    key: 'name',
+                    label: 'Customer',
+                    width: '140px',
+                    render: (val) => <span className="font-medium">{val}</span>
+                  },
+                  {
+                    key: 'contact',
+                    label: 'Contact',
+                    width: '120px'
+                  },
+                  {
+                    key: 'partyType',
+                    label: 'Type',
+                    width: '80px',
+                    render: (val) => (
+                      <Badge variant="secondary" className="text-xs">
+                        {val === "FARMER" ? "Farmer" : "Customer"}
+                      </Badge>
+                    )
+                  },
+                  {
+                    key: 'balance',
+                    label: 'Balance',
+                    align: 'right',
+                    width: '100px',
+                    render: (val) => (
+                      <span className={val > 0 ? "font-bold text-red-600" : "text-muted-foreground"}>
+                        {formatCurrency(val)}
+                      </span>
+                    )
+                  },
+                  {
+                    key: 'lastTransactionDate',
+                    label: 'Last Txn',
+                    width: '100px',
+                    render: (val) => val ? formatDate(val) : "N/A"
+                  },
+                  {
+                    key: 'actions',
+                    label: 'Actions',
+                    align: 'right',
+                    width: '100px',
+                    render: (_, row) => (
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 p-0"
+                        className="h-7 text-xs"
                         onClick={() => {
-                          setSelectedPartyId(party.id);
+                          setSelectedPartyId(row.id);
                           setIsAddPaymentOpen(true);
                         }}
                       >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        <span className="hidden sm:inline">Payment</span>
                       </Button>
-                    </div>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs text-muted-foreground">
-                        {party.lastTransactionDate ? formatDate(party.lastTransactionDate) : "No transactions"}
-                      </span>
-                      <span className={`text-sm font-bold ${party.balance > 0 ? "text-red-600" : ""}`}>
-                        रू {Math.round(party.balance || 0)}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
+                    )
+                  }
+                ] as Column[]}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Transactions Tab */}
         <TabsContent value="transactions" className="space-y-4">
-          {/* Desktop Card with Table */}
-          <Card className="hidden md:block">
-            <CardHeader>
-              <CardTitle>All Transactions</CardTitle>
-              <CardDescription>
-                Complete ledger entries for all transactions
+          {/* Unified Transactions DataTable */}
+          <Card>
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-base md:text-lg">All Transactions</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                {entries.length} ledger entries
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              {entriesLoading ? (
-                <div className="text-center py-8">Loading transactions...</div>
-              ) : entries.length === 0 ? (
-                <div className="text-center py-8">
-                  <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">
-                    No transactions found
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Transactions will appear here once sales are created.
-                  </p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Party</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead className="text-right">Balance</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {entries.map((entry: any) => (
-                      <TableRow key={entry.id}>
-                        <TableCell>{formatDate(entry.date)}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              entry.type === "SALE"
-                                ? "default"
-                                : entry.type === "PAYMENT_RECEIVED"
-                                  ? "secondary"
-                                  : "outline"
-                            }
-                          >
-                            {entry.type.replace("_", " ")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {entry.description || "N/A"}
-                          {entry.sale?.invoiceNumber && (
-                            <span className="text-xs text-muted-foreground ml-2">
-                              ({entry.sale.invoiceNumber})
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {entry.sale?.customer?.name ||
-                            entry.sale?.farmer?.name ||
-                            "N/A"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span
-                            className={
-                              entry.type === "SALE"
-                                ? "text-red-600"
-                                : "text-green-600"
-                            }
-                          >
-                            {entry.type === "SALE" ? "+" : "-"}
-                            {formatCurrency(entry.amount)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(entry.balance)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+            <CardContent className="p-0">
+              <DataTable
+                data={entries}
+                loading={entriesLoading}
+                emptyMessage="No transactions found. Transactions will appear here once sales are created."
+                columns={[
+                  {
+                    key: 'date',
+                    label: 'Date',
+                    width: '100px',
+                    render: (val) => formatDate(val)
+                  },
+                  {
+                    key: 'type',
+                    label: 'Type',
+                    width: '100px',
+                    render: (val) => (
+                      <Badge
+                        variant={val === "SALE" ? "default" : val === "PAYMENT_RECEIVED" ? "secondary" : "outline"}
+                        className="text-xs"
+                      >
+                        {val.replace("_", " ")}
+                      </Badge>
+                    )
+                  },
+                  {
+                    key: 'description',
+                    label: 'Description',
+                    width: '150px',
+                    render: (val, row) => (
+                      <span className="truncate block max-w-[130px]">
+                        {val || "N/A"}
+                        {row.sale?.invoiceNumber && (
+                          <span className="text-xs text-muted-foreground ml-1">({row.sale.invoiceNumber})</span>
+                        )}
+                      </span>
+                    )
+                  },
+                  {
+                    key: 'sale',
+                    label: 'Party',
+                    width: '100px',
+                    render: (val) => val?.customer?.name || val?.farmer?.name || "N/A"
+                  },
+                  {
+                    key: 'amount',
+                    label: 'Amount',
+                    align: 'right',
+                    width: '100px',
+                    render: (val, row) => (
+                      <span className={row.type === "SALE" ? "text-red-600" : "text-green-600"}>
+                        {row.type === "SALE" ? "+" : "-"}{formatCurrency(val)}
+                      </span>
+                    )
+                  },
+                  {
+                    key: 'balance',
+                    label: 'Balance',
+                    align: 'right',
+                    width: '90px',
+                    render: (val) => <span className="font-medium">{formatCurrency(val)}</span>
+                  }
+                ] as Column[]}
+              />
             </CardContent>
           </Card>
-
-          {/* Mobile - Transaction Cards */}
-          <div className="md:hidden space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Transactions</h3>
-              <span className="text-sm text-muted-foreground">{entries.length} total</span>
-            </div>
-            {entriesLoading ? (
-              <div className="text-center py-8">Loading transactions...</div>
-            ) : entries.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-8">
-                  <FileText className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                  <p className="text-sm text-muted-foreground">No transactions found</p>
-                </CardContent>
-              </Card>
-            ) : (
-              entries.map((entry: any) => (
-                <Card key={entry.id}>
-                  <CardContent className="p-3">
-                    <div className="flex items-start justify-between mb-1">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant={
-                              entry.type === "SALE" ? "default" : entry.type === "PAYMENT_RECEIVED" ? "secondary" : "outline"
-                            }
-                            className="text-[10px] px-1.5 py-0"
-                          >
-                            {entry.type.replace("_", " ")}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">{formatDate(entry.date)}</span>
-                        </div>
-                        <p className="text-sm mt-1 truncate">
-                          {entry.description || entry.sale?.invoiceNumber || "Transaction"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {entry.sale?.customer?.name || entry.sale?.farmer?.name || "-"}
-                        </p>
-                      </div>
-                      <div className="text-right ml-2">
-                        <span className={`text-sm font-bold ${entry.type === "SALE" ? "text-red-600" : "text-green-600"}`}>
-                          {entry.type === "SALE" ? "+" : "-"}रू {Math.round(entry.amount || 0)}
-                        </span>
-                        <p className="text-xs text-muted-foreground">
-                          Bal: रू {Math.round(entry.balance || 0)}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
         </TabsContent>
 
         {/* Payments Tab */}
         <TabsContent value="payments" className="space-y-4">
-          {/* Desktop Card with Table */}
-          <Card className="hidden md:block">
-            <CardHeader>
-              <CardTitle>Payment History</CardTitle>
-              <CardDescription>
-                All payments received from customers
+          {/* Unified Payments DataTable */}
+          <Card>
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-base md:text-lg">Payment History</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                {payments.length} payments received
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              {payments.length === 0 ? (
-                <div className="text-center py-8">
-                  <CreditCard className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">
-                    No payments found
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Payments will appear here once received.
-                  </p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Invoice</TableHead>
-                      <TableHead>Customer</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {payments.map((entry: any) => (
-                      <TableRow key={entry.id}>
-                        <TableCell>{formatDate(entry.date)}</TableCell>
-                        <TableCell>
-                          {entry.sale?.invoiceNumber || "N/A"}
-                        </TableCell>
-                        <TableCell>
-                          {entry.sale?.customer?.name ||
-                            entry.sale?.farmer?.name ||
-                            "N/A"}
-                        </TableCell>
-                        <TableCell className="text-right font-medium text-green-600">
-                          {formatCurrency(entry.amount)}
-                        </TableCell>
-                        <TableCell>
-                          {entry.saleId && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                router.push(
-                                  `/dealer/dashboard/sales/${entry.saleId}`
-                                )
-                              }
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View Sale
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+            <CardContent className="p-0">
+              <DataTable
+                data={payments}
+                loading={false}
+                emptyMessage="No payments found. Payments will appear here once received."
+                columns={[
+                  {
+                    key: 'date',
+                    label: 'Date',
+                    width: '100px',
+                    render: (val) => formatDate(val)
+                  },
+                  {
+                    key: 'sale',
+                    label: 'Invoice',
+                    width: '100px',
+                    render: (val) => val?.invoiceNumber || "N/A"
+                  },
+                  {
+                    key: 'sale',
+                    label: 'Customer',
+                    width: '130px',
+                    render: (val) => val?.customer?.name || val?.farmer?.name || "N/A"
+                  },
+                  {
+                    key: 'amount',
+                    label: 'Amount',
+                    align: 'right',
+                    width: '100px',
+                    render: (val) => (
+                      <span className="font-medium text-green-600">{formatCurrency(val)}</span>
+                    )
+                  },
+                  {
+                    key: 'saleId',
+                    label: 'Actions',
+                    width: '80px',
+                    render: (val, row) => val ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => router.push(`/dealer/dashboard/sales/${val}`)}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                    ) : null
+                  }
+                ] as Column[]}
+              />
             </CardContent>
           </Card>
-
-          {/* Mobile - Payment Cards */}
-          <div className="md:hidden space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Payment History</h3>
-              <span className="text-sm text-muted-foreground">{payments.length} total</span>
-            </div>
-            {payments.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-8">
-                  <CreditCard className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                  <p className="text-sm text-muted-foreground">No payments found</p>
-                </CardContent>
-              </Card>
-            ) : (
-              payments.map((entry: any) => (
-                <Card key={entry.id}>
-                  <CardContent className="p-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-sm">{entry.sale?.invoiceNumber || "Payment"}</h4>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {entry.sale?.customer?.name || entry.sale?.farmer?.name || "-"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{formatDate(entry.date)}</p>
-                      </div>
-                      <div className="flex items-center gap-2 ml-2">
-                        <span className="text-sm font-bold text-green-600">
-                          +रू {Math.round(entry.amount || 0)}
-                        </span>
-                        {entry.saleId && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => router.push(`/dealer/dashboard/sales/${entry.saleId}`)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
         </TabsContent>
       </Tabs>
 
@@ -718,10 +519,10 @@ export default function DealerLedgerPage() {
                     <div className="text-right">
                       <p className="text-sm text-muted-foreground">Current Balance</p>
                       <p className={`font-bold ${Number(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0) > 0
-                          ? "text-red-600"
-                          : Number(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0) < 0
-                            ? "text-green-600"
-                            : ""
+                        ? "text-red-600"
+                        : Number(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0) < 0
+                          ? "text-green-600"
+                          : ""
                         }`}>
                         {formatCurrency(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0)}
                       </p>
@@ -758,8 +559,8 @@ export default function DealerLedgerPage() {
                       Number(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0) > 0
                         ? "font-bold text-red-600"
                         : Number(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0) < 0
-                        ? "font-bold text-green-600"
-                        : "font-medium"
+                          ? "font-bold text-green-600"
+                          : "font-medium"
                     }
                   >
                     {formatCurrency(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0)}

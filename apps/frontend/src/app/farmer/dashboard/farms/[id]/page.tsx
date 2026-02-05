@@ -18,6 +18,13 @@ import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
 import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
+import {
   Building2,
   Users,
   Calendar,
@@ -49,7 +56,7 @@ export default function FarmDetailPage() {
   const router = useRouter();
   const farmId = params.id as string;
 
-  
+
 
   // State for modals and filters
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -105,10 +112,10 @@ export default function FarmDetailPage() {
     try {
       // Set deleted state to disable queries immediately
       setIsFarmDeleted(true);
-      
+
       await deleteFarmMutation.mutateAsync(farmId);
       toast.success("Farm deleted successfully!");
-      
+
       // Navigate immediately to prevent further queries
       router.replace("/dashboard/farms");
     } catch (error) {
@@ -132,7 +139,7 @@ export default function FarmDetailPage() {
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [isDeleteBatchModalOpen, setIsDeleteBatchModalOpen] = useState(false);
   const [batchToDelete, setBatchToDelete] = useState<{ id: string; name: string } | null>(null);
-  
+
   // Batch form data
   const [batchForm, setBatchForm] = useState({
     batchNumber: "",
@@ -212,11 +219,11 @@ export default function FarmDetailPage() {
     // Build chicksInventory payload
     const builtAllocations = multiSource
       ? allocations
-          .filter((a) => a.itemId && Number(a.quantity) > 0)
-          .map((a) => ({ itemId: a.itemId, quantity: parseInt(a.quantity, 10), notes: a.notes }))
+        .filter((a) => a.itemId && Number(a.quantity) > 0)
+        .map((a) => ({ itemId: a.itemId, quantity: parseInt(a.quantity, 10), notes: a.notes }))
       : singleAlloc.itemId && Number(singleAlloc.quantity) > 0
-      ? [{ itemId: singleAlloc.itemId, quantity: parseInt(singleAlloc.quantity, 10), notes: singleAlloc.notes }]
-      : [];
+        ? [{ itemId: singleAlloc.itemId, quantity: parseInt(singleAlloc.quantity, 10), notes: singleAlloc.notes }]
+        : [];
 
     if (builtAllocations.length === 0) {
       toast.error("Please select chicks inventory and quantity");
@@ -624,7 +631,7 @@ export default function FarmDetailPage() {
             {batchStats.total > 0 && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <p className="text-sm text-yellow-800">
-                  <strong>Warning:</strong> This farm has {batchStats.total} batches. 
+                  <strong>Warning:</strong> This farm has {batchStats.total} batches.
                   You may want to complete or transfer these batches before deleting the farm.
                 </p>
               </div>
@@ -641,7 +648,7 @@ export default function FarmDetailPage() {
           </Button>
           <Button
             variant="destructive"
-              className="bg-red-600 hover:bg-red-700 text-white"
+            className="bg-red-600 hover:bg-red-700 text-white"
             onClick={handleDeleteFarm}
             disabled={deleteFarmMutation.isPending}
           >
@@ -745,17 +752,21 @@ export default function FarmDetailPage() {
               </div>
               <div>
                 <Label htmlFor="batchType">Batch Type</Label>
-                <select
-                  id="batchType"
-                  name="batchType"
+                <Select
                   value={batchForm.batchType}
-                  onChange={handleBatchChange}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                  required
+                  onValueChange={(value) => {
+                    const event = { target: { name: 'batchType', value } } as any;
+                    handleBatchChange(event);
+                  }}
                 >
-                  <option value="BROILER">Broiler</option>
-                  <option value="LAYERS">Layers</option>
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select batch type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BROILER">Broiler</SelectItem>
+                    <SelectItem value="LAYERS">Layers</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <DateInput
@@ -765,7 +776,7 @@ export default function FarmDetailPage() {
                   preferNativeInput
                 />
               </div>
-              
+
               {/* Chicks Inventory Selection */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -785,19 +796,21 @@ export default function FarmDetailPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <Label htmlFor="singleItem">Select Chicks Item</Label>
-                      <select
-                        id="singleItem"
-                        className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                      <Select
                         value={singleAlloc.itemId}
-                        onChange={(e) => setSingleAlloc((p) => ({ ...p, itemId: e.target.value }))}
+                        onValueChange={(value) => setSingleAlloc((p) => ({ ...p, itemId: value }))}
                       >
-                        <option value="">Select an item</option>
-                        {(chicksInventory.items || []).map((it: any) => (
-                          <option key={it.id} value={it.id}>
-                            {it.name} (Stock: {Number(it.currentStock)})
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an item" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(chicksInventory.items || []).map((it: any) => (
+                            <SelectItem key={it.id} value={it.id}>
+                              {it.name} (Stock: {Number(it.currentStock)})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label htmlFor="singleQty">Quantity</Label>
@@ -819,21 +832,23 @@ export default function FarmDetailPage() {
                       <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
                         <div className="md:col-span-6">
                           <Label>Select Chicks Item</Label>
-                          <select
-                            className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                          <Select
                             value={row.itemId}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setAllocations((prev) => prev.map((r, i) => (i === idx ? { ...r, itemId: v } : r)));
+                            onValueChange={(value) => {
+                              setAllocations((prev) => prev.map((r, i) => (i === idx ? { ...r, itemId: value } : r)));
                             }}
                           >
-                            <option value="">Select an item</option>
-                            {(chicksInventory.items || []).map((it: any) => (
-                              <option key={it.id} value={it.id}>
-                                {it.name} (Stock: {Number(it.currentStock)})
-                              </option>
-                            ))}
-                          </select>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select an item" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(chicksInventory.items || []).map((it: any) => (
+                                <SelectItem key={it.id} value={it.id}>
+                                  {it.name} (Stock: {Number(it.currentStock)})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="md:col-span-3">
                           <Label>Quantity</Label>

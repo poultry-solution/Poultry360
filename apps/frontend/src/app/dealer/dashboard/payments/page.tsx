@@ -25,14 +25,7 @@ import {
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/common/components/ui/table";
+import { DataTable, Column } from "@/common/components/ui/data-table";
 import { Badge } from "@/common/components/ui/badge";
 import {
   Tabs,
@@ -47,7 +40,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+
 } from "@/common/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/common/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -78,6 +82,7 @@ export default function DealerPaymentsPage() {
   const [selectedRequest, setSelectedRequest] = useState<PaymentRequest | null>(
     null
   );
+  const [paymentToCancel, setPaymentToCancel] = useState<string | null>(null);
 
   // Form state for submitting proof
   const [paymentMethod, setPaymentMethod] = useState("CASH");
@@ -261,17 +266,19 @@ export default function DealerPaymentsPage() {
     }
   };
 
-  const handleCancelRequest = async (requestId: string) => {
-    if (!confirm("Are you sure you want to cancel this payment request?")) {
-      return;
-    }
+  const handleCancelRequest = (requestId: string) => {
+    setPaymentToCancel(requestId);
+  };
 
+  const confirmCancelRequest = async () => {
+    if (!paymentToCancel) return;
     try {
-      await cancelRequestMutation.mutateAsync(requestId);
+      await cancelRequestMutation.mutateAsync(paymentToCancel);
       toast.success("Payment request cancelled successfully");
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || "Failed to cancel request";
-      toast.error(errorMessage);
+      toast.error(error.response?.data?.message || "Failed to cancel request");
+    } finally {
+      setPaymentToCancel(null);
     }
   };
 
@@ -409,100 +416,91 @@ export default function DealerPaymentsPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              {receivedLoading ? (
-                <div className="text-center py-6 text-sm">Loading...</div>
-              ) : receivedRequests.length === 0 ? (
-                <div className="text-center py-6">
-                  <DollarSign className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                  <h3 className="text-base font-semibold mb-1">
-                    No requests
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Payment requests will appear here.
-                  </p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs">Date</TableHead>
-                        <TableHead className="text-xs">Company</TableHead>
-                        <TableHead className="text-xs hidden sm:table-cell">Invoice</TableHead>
-                        <TableHead className="text-xs text-right">Amount</TableHead>
-                        <TableHead className="text-xs">Status</TableHead>
-                        <TableHead className="text-xs text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {receivedRequests.map((request) => (
-                        <TableRow key={request.id}>
-                          <TableCell className="text-xs">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3 text-muted-foreground hidden sm:block" />
-                              {formatDate(request.createdAt)}
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-medium text-xs max-w-[80px] truncate">
-                            {request.company?.name || "N/A"}
-                          </TableCell>
-                          <TableCell className="text-xs hidden sm:table-cell">
-                            {request.companySale?.invoiceNumber || "General"}
-                          </TableCell>
-                          <TableCell className="text-right font-semibold text-xs">
-                            <span className="hidden md:inline">{formatCurrency(request.amount)}</span>
-                            <span className="md:hidden">रू{Math.round(request.amount).toLocaleString()}</span>
-                          </TableCell>
-                          <TableCell>{getStatusBadge(request.status)}</TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0"
-                                onClick={() => {
-                                  setSelectedRequest(request);
-                                  setIsViewRequestOpen(true);
-                                }}
-                              >
-                                <Eye className="h-3.5 w-3.5" />
-                              </Button>
-                              {request.status === "PENDING" && request.direction === "COMPANY_TO_DEALER" && (
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  className="h-7 text-xs px-2"
-                                  onClick={() => {
-                                    setSelectedRequest(request);
-                                    setIsAcceptDialogOpen(true);
-                                  }}
-                                >
-                                  <CheckCircle className="h-3.5 w-3.5 md:mr-1" />
-                                  <span className="hidden md:inline">Accept</span>
-                                </Button>
-                              )}
-                              {request.status === "ACCEPTED" && request.direction === "COMPANY_TO_DEALER" && (
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  className="h-7 text-xs px-2"
-                                  onClick={() => {
-                                    setSelectedRequest(request);
-                                    setIsSubmitProofOpen(true);
-                                  }}
-                                >
-                                  <Upload className="h-3.5 w-3.5 md:mr-1" />
-                                  <span className="hidden md:inline">Proof</span>
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
+              <DataTable
+                data={receivedRequests}
+                loading={receivedLoading}
+                emptyMessage="No payment requests. Requests will appear here."
+                columns={[
+                  {
+                    key: 'createdAt',
+                    label: 'Date',
+                    width: '90px',
+                    render: (val) => formatDate(val)
+                  },
+                  {
+                    key: 'company',
+                    label: 'Company',
+                    width: '100px',
+                    render: (val) => <span className="font-medium truncate max-w-[80px] block">{val?.name || "N/A"}</span>
+                  },
+                  {
+                    key: 'companySale',
+                    label: 'Invoice',
+                    width: '80px',
+                    render: (val) => val?.invoiceNumber || "General"
+                  },
+                  {
+                    key: 'amount',
+                    label: 'Amount',
+                    align: 'right',
+                    width: '90px',
+                    render: (val) => <span className="font-semibold">{formatCurrency(val)}</span>
+                  },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    width: '110px',
+                    render: (val) => getStatusBadge(val)
+                  },
+                  {
+                    key: 'actions',
+                    label: 'Actions',
+                    align: 'right',
+                    width: '110px',
+                    render: (_, request) => (
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => {
+                            setSelectedRequest(request);
+                            setIsViewRequestOpen(true);
+                          }}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        {request.status === "PENDING" && request.direction === "COMPANY_TO_DEALER" && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={() => {
+                              setSelectedRequest(request);
+                              setIsAcceptDialogOpen(true);
+                            }}
+                          >
+                            <CheckCircle className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {request.status === "ACCEPTED" && request.direction === "COMPANY_TO_DEALER" && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={() => {
+                              setSelectedRequest(request);
+                              setIsSubmitProofOpen(true);
+                            }}
+                          >
+                            <Upload className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  }
+                ] as Column[]}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -530,90 +528,82 @@ export default function DealerPaymentsPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              {sentLoading ? (
-                <div className="text-center py-6 text-sm">Loading...</div>
-              ) : sentRequests.length === 0 ? (
-                <div className="text-center py-6">
-                  <DollarSign className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                  <h3 className="text-base font-semibold mb-1">
-                    No requests sent
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Submit a payment to get started.
-                  </p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs">Date</TableHead>
-                        <TableHead className="text-xs">Company</TableHead>
-                        <TableHead className="text-xs hidden sm:table-cell">Invoice</TableHead>
-                        <TableHead className="text-xs text-right">Amount</TableHead>
-                        <TableHead className="text-xs hidden md:table-cell">Method</TableHead>
-                        <TableHead className="text-xs">Status</TableHead>
-                        <TableHead className="text-xs text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sentRequests.map((request) => {
-                        return (
-                          <TableRow key={request.id}>
-                            <TableCell className="text-xs">
-                              <div className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3 text-muted-foreground hidden sm:block" />
-                                {formatDate(request.createdAt)}
-                              </div>
-                            </TableCell>
-                            <TableCell className="font-medium text-xs max-w-[80px] truncate">
-                              {request.company?.name || "N/A"}
-                            </TableCell>
-                            <TableCell className="text-xs hidden sm:table-cell">
-                              {request.companySale?.invoiceNumber || "General"}
-                            </TableCell>
-                            <TableCell className="text-right font-semibold text-xs">
-                              <span className="hidden md:inline">{formatCurrency(request.amount)}</span>
-                              <span className="md:hidden">रू{Math.round(request.amount).toLocaleString()}</span>
-                            </TableCell>
-                            <TableCell className="text-xs hidden md:table-cell">
-                              {formatPaymentMethod(request.paymentMethod)}
-                            </TableCell>
-                            <TableCell>{getStatusBadge(request.status)}</TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 w-7 p-0"
-                                  onClick={() => {
-                                    setSelectedRequest(request);
-                                    setIsViewRequestOpen(true);
-                                  }}
-                                >
-                                  <Eye className="h-3.5 w-3.5" />
-                                </Button>
-                                {request.status === "PENDING" && (
-                                  <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    className="h-7 text-xs px-2"
-                                    onClick={() => handleCancelRequest(request.id)}
-                                    disabled={cancelRequestMutation.isPending}
-                                  >
-                                    <XCircle className="h-3.5 w-3.5 md:mr-1" />
-                                    <span className="hidden md:inline">Cancel</span>
-                                  </Button>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
+              <DataTable
+                data={sentRequests}
+                loading={sentLoading}
+                emptyMessage="No requests sent. Submit a payment to get started."
+                columns={[
+                  {
+                    key: 'createdAt',
+                    label: 'Date',
+                    width: '90px',
+                    render: (val) => formatDate(val)
+                  },
+                  {
+                    key: 'company',
+                    label: 'Company',
+                    width: '100px',
+                    render: (val) => <span className="font-medium truncate max-w-[80px] block">{val?.name || "N/A"}</span>
+                  },
+                  {
+                    key: 'companySale',
+                    label: 'Invoice',
+                    width: '80px',
+                    render: (val) => val?.invoiceNumber || "General"
+                  },
+                  {
+                    key: 'amount',
+                    label: 'Amount',
+                    align: 'right',
+                    width: '90px',
+                    render: (val) => <span className="font-semibold">{formatCurrency(val)}</span>
+                  },
+                  {
+                    key: 'paymentMethod',
+                    label: 'Method',
+                    width: '80px',
+                    render: (val) => formatPaymentMethod(val)
+                  },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    width: '110px',
+                    render: (val) => getStatusBadge(val)
+                  },
+                  {
+                    key: 'actions',
+                    label: 'Actions',
+                    align: 'right',
+                    width: '90px',
+                    render: (_, request) => (
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => {
+                            setSelectedRequest(request);
+                            setIsViewRequestOpen(true);
+                          }}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        {request.status === "PENDING" && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={() => handleCancelRequest(request.id)}
+                            disabled={cancelRequestMutation.isPending}
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  }
+                ] as Column[]}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -997,6 +987,29 @@ export default function DealerPaymentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!paymentToCancel}
+        onOpenChange={(open) => !open && setPaymentToCancel(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Payment Request</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this payment request? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, Keep It</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmCancelRequest}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Yes, Cancel Request
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

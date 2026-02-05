@@ -38,6 +38,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/common/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/common/components/ui/alert-dialog";
 import { Label } from "@/common/components/ui/label";
 import { Textarea } from "@/common/components/ui/textarea";
 import { toast } from "sonner";
@@ -60,6 +70,7 @@ export default function CompanyCatalogPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
+  const [isClearCartDialogOpen, setIsClearCartDialogOpen] = useState(false);
   const [checkoutNotes, setCheckoutNotes] = useState("");
   const [addingToCart, setAddingToCart] = useState<{ [key: string]: number }>({});
 
@@ -131,12 +142,15 @@ export default function CompanyCatalogPage() {
     }
   };
 
-  const handleClearCart = async () => {
-    if (!confirm("Are you sure you want to clear your cart?")) return;
+  const handleClearCart = () => {
+    setIsClearCartDialogOpen(true);
+  };
 
+  const confirmClearCart = async () => {
     try {
       await clearCartMutation.mutateAsync(companyId);
       toast.success("Cart cleared");
+      setIsClearCartDialogOpen(false);
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to clear cart");
     }
@@ -616,6 +630,29 @@ export default function CompanyCatalogPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={isClearCartDialogOpen}
+        onOpenChange={setIsClearCartDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear Cart</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to clear your cart? This will remove all items and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmClearCart}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Clear Cart
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -596,18 +596,21 @@ export default function AccountsPage() {
                 </div>
                 <div>
                   <Label htmlFor="transactionType" className="text-xs">Type</Label>
-                  <select
-                    id="transactionType"
+                  <Select
                     value={transactionTypeFilter}
-                    onChange={(e) => setTransactionTypeFilter(e.target.value)}
-                    className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs"
+                    onValueChange={(value) => setTransactionTypeFilter(value)}
                   >
-                    <option value="">All</option>
-                    <option value="PURCHASE">Purchase</option>
-                    <option value="PAYMENT">Payment</option>
-                    <option value="RECEIPT">Receipt</option>
-                    <option value="SALE">Sale</option>
-                  </select>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="PURCHASE">Purchase</SelectItem>
+                      <SelectItem value="PAYMENT">Payment</SelectItem>
+                      <SelectItem value="RECEIPT">Receipt</SelectItem>
+                      <SelectItem value="SALE">Sale</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <DateInput

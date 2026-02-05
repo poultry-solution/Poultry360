@@ -18,14 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/common/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/common/components/ui/table";
+import { DataTable, Column } from "@/common/components/ui/data-table";
+import { Badge } from "@/common/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -193,23 +187,24 @@ export default function CompanyProductsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Product Catalog</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Product Catalog</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
             Manage your products available for dealers
           </p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="bg-primary">
           <Plus className="mr-2 h-4 w-4" />
-          Add Product
+          <span className="hidden sm:inline">Add Product</span>
+          <span className="sm:hidden">Add</span>
         </Button>
       </div>
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex gap-4">
+        <CardContent className="pt-4 pb-4">
+          <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -222,7 +217,7 @@ export default function CompanyProductsPage() {
               </div>
             </div>
             <Select value={typeFilter || "ALL"} onValueChange={(value) => setTypeFilter(value === "ALL" ? "" : value)}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[150px]">
                 <Filter className="mr-2 h-4 w-4" />
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
@@ -238,118 +233,126 @@ export default function CompanyProductsPage() {
 
       {/* Products Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Products</CardTitle>
-          <CardDescription>
+        <CardHeader className="p-3 md:p-6">
+          <CardTitle className="text-base md:text-lg">Products</CardTitle>
+          <CardDescription className="text-xs md:text-sm">
             {pagination?.total || 0} total products in catalog
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8">Loading products...</div>
-          ) : products.length === 0 ? (
-            <div className="text-center py-8">
-              <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No products found</h3>
-              <p className="text-muted-foreground mb-4">
-                Get started by adding your first product to the catalog.
-              </p>
-              <Button onClick={() => handleOpenDialog()}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Product
-              </Button>
-            </div>
-          ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Unit</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead>
-                    <TableHead className="text-right">Total Value</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {products.map((product: any) => (
-                    <TableRow key={product.id}>
-                      <TableCell className="font-medium">
-                        {product.name}
-                      </TableCell>
-                      <TableCell>{product.type}</TableCell>
-                      <TableCell>{product.unit}</TableCell>
-                      <TableCell className="text-right">
-                        रू {Number(product.price).toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {Number(product.quantity).toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        रू {Number(product.totalPrice).toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleOpenInventoryDialog(product)}
-                            title="Add Inventory"
-                          >
-                            <PackagePlus className="h-4 w-4 text-blue-600" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleOpenDialog(product)}
-                            title="Edit Product"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleOpenDeleteDialog(product.id, product.name)}
-                            title="Delete Product"
-                          >
-                            <Trash2 className="h-4 w-4 text-red-600" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+        <CardContent className="p-0">
+          <DataTable
+            data={products}
+            loading={isLoading}
+            emptyMessage="No products found. Add your first product to get started."
+            columns={[
+              {
+                key: 'name',
+                label: 'Name',
+                width: '140px',
+                render: (val) => <span className="font-medium">{val}</span>
+              },
+              {
+                key: 'type',
+                label: 'Type',
+                width: '80px',
+                render: (val) => (
+                  <Badge variant="secondary" className="text-xs">{val}</Badge>
+                )
+              },
+              {
+                key: 'unit',
+                label: 'Unit',
+                width: '60px'
+              },
+              {
+                key: 'price',
+                label: 'Price',
+                align: 'right',
+                width: '100px',
+                render: (val) => `रू ${Number(val).toFixed(2)}`
+              },
+              {
+                key: 'quantity',
+                label: 'Qty',
+                align: 'right',
+                width: '80px',
+                render: (val) => Number(val).toFixed(2)
+              },
+              {
+                key: 'totalPrice',
+                label: 'Value',
+                align: 'right',
+                width: '100px',
+                render: (val) => `रू ${Number(val).toFixed(2)}`
+              },
+              {
+                key: 'actions',
+                label: 'Actions',
+                align: 'right',
+                width: '110px',
+                render: (_, row) => (
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => handleOpenInventoryDialog(row)}
+                      title="Add Inventory"
+                    >
+                      <PackagePlus className="h-3.5 w-3.5 text-blue-600" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => handleOpenDialog(row)}
+                      title="Edit"
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => handleOpenDeleteDialog(row.id, row.name)}
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                    </Button>
+                  </div>
+                )
+              }
+            ] as Column[]}
+          />
 
-              {/* Pagination */}
-              {pagination && pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-muted-foreground">
-                    Page {pagination.page} of {pagination.totalPages}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage(page - 1)}
-                      disabled={page === 1}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage(page + 1)}
-                      disabled={page === pagination.totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
+          {/* Pagination */}
+          {pagination && pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between p-3 md:p-4 border-t">
+              <span className="text-xs md:text-sm text-muted-foreground">
+                Page {pagination.page} of {pagination.totalPages}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setPage(page - 1)}
+                  disabled={page === 1}
+                >
+                  <span className="hidden sm:inline">Previous</span>
+                  <span className="sm:hidden">Prev</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setPage(page + 1)}
+                  disabled={page === pagination.totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -500,8 +503,8 @@ export default function CompanyProductsPage() {
                 {createMutation.isPending || updateMutation.isPending
                   ? "Saving..."
                   : editingProduct
-                  ? "Update Product"
-                  : "Add Product"}
+                    ? "Update Product"
+                    : "Add Product"}
               </Button>
             </DialogFooter>
           </form>

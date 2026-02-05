@@ -23,14 +23,7 @@ import {
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/common/components/ui/table";
+import { DataTable, Column } from "@/common/components/ui/data-table";
 import { Badge } from "@/common/components/ui/badge";
 import {
   Tabs,
@@ -46,6 +39,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/common/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/common/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -76,6 +79,7 @@ export default function CompanyPaymentsPage() {
   const [selectedRequest, setSelectedRequest] = useState<PaymentRequest | null>(
     null
   );
+  const [paymentToCancel, setPaymentToCancel] = useState<string | null>(null);
   const [isVerifyDialogOpen, setIsVerifyDialogOpen] = useState(false);
   const [verifyApproved, setVerifyApproved] = useState(true);
   const [verifyNotes, setVerifyNotes] = useState("");
@@ -226,17 +230,20 @@ export default function CompanyPaymentsPage() {
     }
   };
 
-  const handleCancelRequest = async (requestId: string) => {
-    if (!confirm("Are you sure you want to cancel this payment request?")) {
-      return;
-    }
+  const handleCancelRequest = (requestId: string) => {
+    setPaymentToCancel(requestId);
+  };
 
+  const confirmCancelRequest = async () => {
+    if (!paymentToCancel) return;
     try {
-      await cancelRequestMutation.mutateAsync(requestId);
-      toast.success("Payment request cancelled successfully");
+      await cancelRequestMutation.mutateAsync(paymentToCancel);
+      toast.success("Payment request cancelled");
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.message || "Failed to cancel request";
       toast.error(errorMessage);
+    } finally {
+      setPaymentToCancel(null);
     }
   };
 
@@ -256,105 +263,92 @@ export default function CompanyPaymentsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
             Payment Requests
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm md:text-base text-muted-foreground">
             Manage payment requests with dealers
           </p>
         </div>
         <Button onClick={() => setIsCreateRequestOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Create Request
+          <span className="hidden sm:inline">Create Request</span>
+          <span className="sm:hidden">Create</span>
         </Button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 grid-cols-3">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-6 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Pending</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{pendingReceived}</div>
-            <p className="text-xs text-muted-foreground">
-              Awaiting verification
-            </p>
+          <CardContent className="p-3 md:p-6 pt-0">
+            <div className="text-lg md:text-2xl font-bold">{pendingReceived}</div>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Awaiting verification</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Verified Today</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-6 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Verified</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {verifiedToday}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Processed payments
-            </p>
+          <CardContent className="p-3 md:p-6 pt-0">
+            <div className="text-lg md:text-2xl font-bold text-green-600">{verifiedToday}</div>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Today</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Amount</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-6 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Amount</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(pendingAmount)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Awaiting verification
-            </p>
+          <CardContent className="p-3 md:p-6 pt-0">
+            <div className="text-lg md:text-2xl font-bold">रू {Math.round(pendingAmount)}</div>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Pending</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="received">Received Requests</TabsTrigger>
-          <TabsTrigger value="sent">Sent Requests</TabsTrigger>
+        <TabsList className="w-full md:w-auto">
+          <TabsTrigger value="received" className="flex-1 md:flex-none">Received</TabsTrigger>
+          <TabsTrigger value="sent" className="flex-1 md:flex-none">Sent</TabsTrigger>
         </TabsList>
 
         {/* Received Requests Tab */}
         <TabsContent value="received" className="space-y-4">
           <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
+            <CardHeader className="p-3 md:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <CardTitle>Received Payment Requests</CardTitle>
-                  <CardDescription>
-                    Payment requests submitted by dealers for verification
+                  <CardTitle className="text-base md:text-lg">Received Payment Requests</CardTitle>
+                  <CardDescription className="text-xs md:text-sm">
+                    {receivedRequests.length} requests from dealers
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="relative">
+                  <div className="relative flex-1 sm:flex-none">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      placeholder="Search by dealer or invoice..."
+                      placeholder="Search..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="pl-10 w-[200px]"
+                      className="pl-10 w-full sm:w-[150px]"
                     />
                   </div>
-                  <Select
-                    value={statusFilter}
-                    onValueChange={setStatusFilter}
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Filter by status" />
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[110px] sm:w-[140px]">
+                      <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ALL">All Statuses</SelectItem>
+                      <SelectItem value="ALL">All</SelectItem>
                       <SelectItem value="PENDING">Pending</SelectItem>
-                      <SelectItem value="ACCEPTED">Accepted</SelectItem>
-                      <SelectItem value="PAYMENT_SUBMITTED">Payment Submitted</SelectItem>
+                      <SelectItem value="PAYMENT_SUBMITTED">Submitted</SelectItem>
                       <SelectItem value="VERIFIED">Verified</SelectItem>
                       <SelectItem value="REJECTED">Rejected</SelectItem>
                     </SelectContent>
@@ -362,142 +356,126 @@ export default function CompanyPaymentsPage() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              {receivedLoading ? (
-                <div className="text-center py-8">Loading requests...</div>
-              ) : receivedRequests.length === 0 ? (
-                <div className="text-center py-8">
-                  <DollarSign className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">
-                    No payment requests
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Payment requests from dealers will appear here.
-                  </p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Dealer</TableHead>
-                      <TableHead>Invoice #</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead>Payment Method</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {receivedRequests.map((request) => {
-                      console.log('Company Received Request:', {
-                        id: request.id,
-                        status: request.status,
-                        direction: request.direction,
-                        paymentMethod: request.paymentMethod
-                      });
-                      return (
-                      <TableRow key={request.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            {formatDate(request.createdAt)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {request.dealer?.name || "N/A"}
-                        </TableCell>
-                        <TableCell>
-                          {request.companySale?.invoiceNumber || "Account Payment"}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold">
-                          {formatCurrency(request.amount)}
-                        </TableCell>
-                        <TableCell>
-                          {formatPaymentMethod(request.paymentMethod)}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(request.status)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
+            <CardContent className="p-0">
+              <DataTable
+                data={receivedRequests}
+                loading={receivedLoading}
+                emptyMessage="No payment requests from dealers."
+                columns={[
+                  {
+                    key: 'createdAt',
+                    label: 'Date',
+                    width: '90px',
+                    render: (val) => formatDate(val)
+                  },
+                  {
+                    key: 'dealer',
+                    label: 'Dealer',
+                    width: '120px',
+                    render: (val) => <span className="font-medium">{val?.name || "N/A"}</span>
+                  },
+                  {
+                    key: 'amount',
+                    label: 'Amount',
+                    align: 'right',
+                    width: '100px',
+                    render: (val) => <span className="font-semibold">{formatCurrency(val)}</span>
+                  },
+                  {
+                    key: 'paymentMethod',
+                    label: 'Method',
+                    width: '90px',
+                    render: (val) => formatPaymentMethod(val)
+                  },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    width: '110px',
+                    render: (val) => getStatusBadge(val)
+                  },
+                  {
+                    key: 'actions',
+                    label: 'Actions',
+                    align: 'right',
+                    width: '180px',
+                    render: (_, request) => (
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => {
+                            setSelectedRequest(request);
+                            setIsViewRequestOpen(true);
+                          }}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        {request.status === "PENDING" && request.direction === "DEALER_TO_COMPANY" && (
+                          <>
                             <Button
-                              variant="ghost"
+                              variant="default"
                               size="sm"
+                              className="h-7 text-xs px-2"
+                              onClick={async () => {
+                                try {
+                                  await acceptRequestMutation.mutateAsync(request.id);
+                                  toast.success("Payment request accepted");
+                                } catch (error: any) {
+                                  toast.error(error.response?.data?.message || "Failed");
+                                }
+                              }}
+                              disabled={acceptRequestMutation.isPending}
+                            >
+                              <CheckCircle className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="h-7 text-xs px-2"
                               onClick={() => {
                                 setSelectedRequest(request);
-                                setIsViewRequestOpen(true);
+                                setVerifyApproved(false);
+                                setIsVerifyDialogOpen(true);
                               }}
                             >
-                              <Eye className="h-4 w-4" />
+                              <XCircle className="h-3 w-3" />
                             </Button>
-                            {request.status === "PENDING" && request.direction === "DEALER_TO_COMPANY" && (
-                              <>
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={async () => {
-                                    try {
-                                      await acceptRequestMutation.mutateAsync(request.id);
-                                      toast.success("Payment request accepted");
-                                    } catch (error: any) {
-                                      const errorMessage = error.response?.data?.message || error.message || "Failed to accept request";
-                                      toast.error(errorMessage);
-                                    }
-                                  }}
-                                  disabled={acceptRequestMutation.isPending}
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  {acceptRequestMutation.isPending ? "Accepting..." : "Accept"}
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedRequest(request);
-                                    setVerifyApproved(false);
-                                    setIsVerifyDialogOpen(true);
-                                  }}
-                                >
-                                  <XCircle className="h-4 w-4 mr-1" />
-                                  Reject
-                                </Button>
-                              </>
-                            )}
-                            {request.status === "PAYMENT_SUBMITTED" && request.direction === "DEALER_TO_COMPANY" && (
-                              <>
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedRequest(request);
-                                    setVerifyApproved(true);
-                                    setIsVerifyDialogOpen(true);
-                                  }}
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Accept Payment Proof
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedRequest(request);
-                                    setVerifyApproved(false);
-                                    setIsVerifyDialogOpen(true);
-                                  }}
-                                >
-                                  <XCircle className="h-4 w-4 mr-1" />
-                                  Reject
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              )}
+                          </>
+                        )}
+                        {request.status === "PAYMENT_SUBMITTED" && request.direction === "DEALER_TO_COMPANY" && (
+                          <>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="h-7 text-xs px-2"
+                              onClick={() => {
+                                setSelectedRequest(request);
+                                setVerifyApproved(true);
+                                setIsVerifyDialogOpen(true);
+                              }}
+                            >
+                              <CheckCircle className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="h-7 text-xs px-2"
+                              onClick={() => {
+                                setSelectedRequest(request);
+                                setVerifyApproved(false);
+                                setIsVerifyDialogOpen(true);
+                              }}
+                            >
+                              <XCircle className="h-3 w-3" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    )
+                  }
+                ] as Column[]}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -505,36 +483,32 @@ export default function CompanyPaymentsPage() {
         {/* Sent Requests Tab */}
         <TabsContent value="sent" className="space-y-4">
           <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
+            <CardHeader className="p-3 md:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <CardTitle>Sent Payment Requests</CardTitle>
-                  <CardDescription>
-                    Payment requests sent to dealers
+                  <CardTitle className="text-base md:text-lg">Sent Payment Requests</CardTitle>
+                  <CardDescription className="text-xs md:text-sm">
+                    {sentRequests.length} requests sent to dealers
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="relative">
+                  <div className="relative flex-1 sm:flex-none">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      placeholder="Search by dealer or invoice..."
+                      placeholder="Search..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="pl-10 w-[200px]"
+                      className="pl-10 w-full sm:w-[150px]"
                     />
                   </div>
-                  <Select
-                    value={statusFilter}
-                    onValueChange={setStatusFilter}
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Filter by status" />
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[110px] sm:w-[140px]">
+                      <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ALL">All Statuses</SelectItem>
+                      <SelectItem value="ALL">All</SelectItem>
                       <SelectItem value="PENDING">Pending</SelectItem>
-                      <SelectItem value="ACCEPTED">Accepted</SelectItem>
-                      <SelectItem value="PAYMENT_SUBMITTED">Payment Submitted</SelectItem>
+                      <SelectItem value="PAYMENT_SUBMITTED">Submitted</SelectItem>
                       <SelectItem value="VERIFIED">Verified</SelectItem>
                       <SelectItem value="REJECTED">Rejected</SelectItem>
                     </SelectContent>
@@ -542,108 +516,105 @@ export default function CompanyPaymentsPage() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              {sentLoading ? (
-                <div className="text-center py-8">Loading requests...</div>
-              ) : sentRequests.length === 0 ? (
-                <div className="text-center py-8">
-                  <DollarSign className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">
-                    No payment requests sent
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Create a payment request to get started.
-                  </p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Dealer</TableHead>
-                      <TableHead>Invoice #</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sentRequests.map((request) => (
-                      <TableRow key={request.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            {formatDate(request.createdAt)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {request.dealer?.name || "N/A"}
-                        </TableCell>
-                        <TableCell>
-                          {request.companySale?.invoiceNumber || "Account Payment"}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold">
-                          {formatCurrency(request.amount)}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(request.status)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
+            <CardContent className="p-0">
+              <DataTable
+                data={sentRequests}
+                loading={sentLoading}
+                emptyMessage="No payment requests sent. Create one to get started."
+                columns={[
+                  {
+                    key: 'createdAt',
+                    label: 'Date',
+                    width: '90px',
+                    render: (val) => formatDate(val)
+                  },
+                  {
+                    key: 'dealer',
+                    label: 'Dealer',
+                    width: '120px',
+                    render: (val) => <span className="font-medium">{val?.name || "N/A"}</span>
+                  },
+                  {
+                    key: 'companySale',
+                    label: 'Invoice',
+                    width: '90px',
+                    render: (val) => val?.invoiceNumber || "Account"
+                  },
+                  {
+                    key: 'amount',
+                    label: 'Amount',
+                    align: 'right',
+                    width: '100px',
+                    render: (val) => <span className="font-semibold">{formatCurrency(val)}</span>
+                  },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    width: '110px',
+                    render: (val) => getStatusBadge(val)
+                  },
+                  {
+                    key: 'actions',
+                    label: 'Actions',
+                    align: 'right',
+                    width: '140px',
+                    render: (_, request) => (
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => {
+                            setSelectedRequest(request);
+                            setIsViewRequestOpen(true);
+                          }}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        {request.status === "PAYMENT_SUBMITTED" && request.direction === "COMPANY_TO_DEALER" && (
+                          <>
                             <Button
-                              variant="ghost"
+                              variant="default"
                               size="sm"
+                              className="h-7 text-xs px-2"
                               onClick={() => {
                                 setSelectedRequest(request);
-                                setIsViewRequestOpen(true);
+                                setVerifyApproved(true);
+                                setIsVerifyDialogOpen(true);
                               }}
                             >
-                              <Eye className="h-4 w-4" />
+                              <CheckCircle className="h-3 w-3" />
                             </Button>
-                            {request.status === "PAYMENT_SUBMITTED" && request.direction === "COMPANY_TO_DEALER" && (
-                              <>
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedRequest(request);
-                                    setVerifyApproved(true);
-                                    setIsVerifyDialogOpen(true);
-                                  }}
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Accept Payment Proof
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedRequest(request);
-                                    setVerifyApproved(false);
-                                    setIsVerifyDialogOpen(true);
-                                  }}
-                                >
-                                  <XCircle className="h-4 w-4 mr-1" />
-                                  Reject
-                                </Button>
-                              </>
-                            )}
-                            {request.status === "PENDING" && (
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleCancelRequest(request.id)}
-                                disabled={cancelRequestMutation.isPending}
-                              >
-                                <XCircle className="h-4 w-4 mr-1" />
-                                Cancel
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="h-7 text-xs px-2"
+                              onClick={() => {
+                                setSelectedRequest(request);
+                                setVerifyApproved(false);
+                                setIsVerifyDialogOpen(true);
+                              }}
+                            >
+                              <XCircle className="h-3 w-3" />
+                            </Button>
+                          </>
+                        )}
+                        {request.status === "PENDING" && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="h-7 text-xs px-2"
+                            onClick={() => handleCancelRequest(request.id)}
+                            disabled={cancelRequestMutation.isPending}
+                          >
+                            <XCircle className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  }
+                ] as Column[]}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -694,11 +665,11 @@ export default function CompanyPaymentsPage() {
                       </span>
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {Number(dealerAccount.balance) > 0 
-                        ? "Dealer owes company" 
-                        : Number(dealerAccount.balance) < 0 
-                        ? "Company owes dealer (advance)" 
-                        : "No balance"}
+                      {Number(dealerAccount.balance) > 0
+                        ? "Dealer owes company"
+                        : Number(dealerAccount.balance) < 0
+                          ? "Company owes dealer (advance)"
+                          : "No balance"}
                     </div>
                   </div>
                 )}
@@ -921,12 +892,35 @@ export default function CompanyPaymentsPage() {
               {verifyRequestMutation.isPending
                 ? "Processing..."
                 : verifyApproved
-                ? "Approve"
-                : "Reject"}
+                  ? "Approve"
+                  : "Reject"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!paymentToCancel}
+        onOpenChange={(open) => !open && setPaymentToCancel(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Payment Request</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this payment request? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, Keep It</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmCancelRequest}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Yes, Cancel Request
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

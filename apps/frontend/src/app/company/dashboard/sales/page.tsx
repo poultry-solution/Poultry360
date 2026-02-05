@@ -19,14 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/common/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/common/components/ui/table";
+import { DataTable, Column } from "@/common/components/ui/data-table";
 import { Badge } from "@/common/components/ui/badge";
 import {
   useGetCompanySales,
@@ -67,10 +60,10 @@ export default function CompanySalesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Sales Management</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Sales Management</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
             Track and manage sales to dealers
           </p>
         </div>
@@ -79,39 +72,40 @@ export default function CompanySalesPage() {
           className="bg-primary"
         >
           <Plus className="mr-2 h-4 w-4" />
-          New Sale
+          <span className="hidden sm:inline">New Sale</span>
+          <span className="sm:hidden">Create</span>
         </Button>
       </div>
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="md:col-span-1">
+        <CardContent className="pt-4 pb-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search by invoice number or notes..."
+                  placeholder="Search invoice..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-10"
                 />
               </div>
             </div>
-            <div className="flex gap-2 md:col-span-2">
+            <div className="flex gap-2">
               <Input
                 type="date"
-                placeholder="Start Date"
+                placeholder="Start"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="flex-1"
+                className="flex-1 sm:w-[130px]"
               />
               <Input
                 type="date"
-                placeholder="End Date"
+                placeholder="End"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="flex-1"
+                className="flex-1 sm:w-[130px]"
               />
             </div>
           </div>
@@ -120,115 +114,100 @@ export default function CompanySalesPage() {
 
       {/* Sales Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Sales Records</CardTitle>
-          <CardDescription>
+        <CardHeader className="p-3 md:p-6">
+          <CardTitle className="text-base md:text-lg">Sales Records</CardTitle>
+          <CardDescription className="text-xs md:text-sm">
             {pagination?.total || 0} total sales transactions
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8">Loading sales...</div>
-          ) : sales.length === 0 ? (
-            <div className="text-center py-8">
-              <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No sales found</h3>
-              <p className="text-muted-foreground mb-4">
-                Get started by recording your first sale.
-              </p>
-              <Button onClick={() => router.push("/company/dashboard/sales/new")}>
-                <Plus className="mr-2 h-4 w-4" />
-                New Sale
-              </Button>
-            </div>
-          ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Invoice</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Dealer</TableHead>
-                    <TableHead className="text-right">Total Amount</TableHead>
-                    <TableHead>Payment Method</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sales.map((sale) => (
-                    <TableRow key={sale.id}>
-                      <TableCell className="font-medium">
-                        {sale.invoiceNumber || `#${sale.id.slice(0, 8)}`}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          {formatDate(sale.date)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {sale.dealer ? (
-                          <div>
-                            <div className="font-medium">{sale.dealer.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {sale.dealer.contact}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(Number(sale.totalAmount))}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={sale.isCredit ? "secondary" : "default"}>
-                          {sale.isCredit ? "Credit" : sale.paymentMethod || "Cash"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            router.push(`/company/dashboard/sales/${sale.id}`)
-                          }
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+        <CardContent className="p-0">
+          <DataTable
+            data={sales}
+            loading={isLoading}
+            emptyMessage="No sales found. Create your first sale to get started."
+            columns={[
+              {
+                key: 'invoiceNumber',
+                label: 'Invoice',
+                width: '100px',
+                render: (val, row) => <span className="font-medium">{val || `#${row.id.slice(0, 8)}`}</span>
+              },
+              {
+                key: 'date',
+                label: 'Date',
+                width: '100px',
+                render: (val) => formatDate(val)
+              },
+              {
+                key: 'dealer',
+                label: 'Dealer',
+                width: '140px',
+                render: (val) => val?.name || '-'
+              },
+              {
+                key: 'totalAmount',
+                label: 'Amount',
+                align: 'right',
+                width: '100px',
+                render: (val) => formatCurrency(Number(val))
+              },
+              {
+                key: 'isCredit',
+                label: 'Payment',
+                width: '80px',
+                render: (val, row) => (
+                  <Badge variant={val ? "secondary" : "default"} className="text-xs">
+                    {val ? "Credit" : row.paymentMethod || "Cash"}
+                  </Badge>
+                )
+              },
+              {
+                key: 'id',
+                label: 'View',
+                align: 'right',
+                width: '60px',
+                render: (val) => (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => router.push(`/company/dashboard/sales/${val}`)}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                )
+              }
+            ] as Column[]}
+          />
 
-              {/* Pagination */}
-              {pagination && pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-muted-foreground">
-                    Page {pagination.page} of {pagination.totalPages}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage(page - 1)}
-                      disabled={page === 1}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage(page + 1)}
-                      disabled={page === pagination.totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
+          {/* Pagination */}
+          {pagination && pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between p-3 md:p-4 border-t">
+              <span className="text-xs md:text-sm text-muted-foreground">
+                Page {pagination.page} of {pagination.totalPages}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setPage(page - 1)}
+                  disabled={page === 1}
+                >
+                  <span className="hidden sm:inline">Previous</span>
+                  <span className="sm:hidden">Prev</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setPage(page + 1)}
+                  disabled={page === pagination.totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

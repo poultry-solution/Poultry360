@@ -18,14 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/common/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/common/components/ui/table";
+import { DataTable, Column } from "@/common/components/ui/data-table";
+import { Badge } from "@/common/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -33,7 +27,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/common/components/ui/alert-dialog";
 import { Label } from "@/common/components/ui/label";
 import { toast } from "sonner";
 import {
@@ -51,6 +56,7 @@ export default function DealerInventoryPage() {
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [productToDelete, setProductToDelete] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState<CreateDealerProductInput>({
@@ -135,14 +141,20 @@ export default function DealerInventoryPage() {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+  const handleDeleteProduct = (id: string) => {
+    setProductToDelete(id);
+  };
+
+  const confirmDeleteProduct = async () => {
+    if (!productToDelete) return;
 
     try {
-      await deleteMutation.mutateAsync(id);
+      await deleteMutation.mutateAsync(productToDelete);
       toast.success("Product deleted successfully");
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to delete product");
+    } finally {
+      setProductToDelete(null);
     }
   };
 
@@ -264,242 +276,146 @@ export default function DealerInventoryPage() {
         </CardContent>
       </Card>
 
-      {/* Products Table - Desktop */}
-      <Card className="hidden md:block">
-        <CardHeader>
-          <CardTitle>Products</CardTitle>
-          <CardDescription>
+      {/* Products Table - Unified DataTable */}
+      <Card>
+        <CardHeader className="p-3 md:p-6">
+          <CardTitle className="text-base md:text-lg">Products</CardTitle>
+          <CardDescription className="text-xs md:text-sm">
             {pagination?.total || 0} total products
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8">Loading products...</div>
-          ) : products.length === 0 ? (
-            <div className="text-center py-8">
-              <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No products found</h3>
-              <p className="text-muted-foreground mb-4">
-                Get started by adding your first product.
-              </p>
-              <Button onClick={() => handleOpenDialog()}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Product
-              </Button>
-            </div>
-          ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Unit</TableHead>
-                    <TableHead className="text-right">Cost Price</TableHead>
-                    <TableHead className="text-right">Selling Price</TableHead>
-                    <TableHead className="text-right">Stock</TableHead>
-                    <TableHead className="text-right">Min Stock</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {products.map((product: any) => (
-                    <TableRow key={product.id}>
-                      <TableCell className="font-medium">
-                        {product.name}
-                        {product.sku && (
-                          <span className="text-xs text-muted-foreground ml-2">
-                            ({product.sku})
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>{product.type}</TableCell>
-                      <TableCell>{product.unit}</TableCell>
-                      <TableCell className="text-right">
-                        रू {Number(product.costPrice).toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        रू {Number(product.sellingPrice).toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span
-                          className={
-                            product.minStock &&
-                              Number(product.currentStock) <= Number(product.minStock)
-                              ? "text-red-600 font-semibold"
-                              : ""
-                          }
-                        >
-                          {Number(product.currentStock).toFixed(2)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {product.minStock ? Number(product.minStock).toFixed(2) : "-"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleOpenDialog(product)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(product.id, product.name)}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-600" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+        <CardContent className="p-0">
+          <DataTable
+            data={products}
+            loading={isLoading}
+            emptyMessage="No products found. Add your first product to get started."
+            columns={[
+              {
+                key: 'name',
+                label: 'Name',
+                width: '180px',
+                render: (val, row) => (
+                  <div>
+                    <span className="font-medium">{val}</span>
+                    {row.sku && (
+                      <span className="text-xs text-muted-foreground ml-1">({row.sku})</span>
+                    )}
+                  </div>
+                )
+              },
+              {
+                key: 'type',
+                label: 'Type',
+                width: '80px',
+                render: (val) => (
+                  <Badge variant="secondary" className="text-xs">
+                    {val}
+                  </Badge>
+                )
+              },
+              {
+                key: 'unit',
+                label: 'Unit',
+                width: '60px'
+              },
+              {
+                key: 'costPrice',
+                label: 'Cost',
+                type: 'currency',
+                align: 'right',
+                width: '100px',
+                render: (val) => `रू ${Number(val).toFixed(2)}`
+              },
+              {
+                key: 'sellingPrice',
+                label: 'Sell',
+                type: 'currency',
+                align: 'right',
+                width: '100px',
+                render: (val) => `रू ${Number(val).toFixed(2)}`
+              },
+              {
+                key: 'currentStock',
+                label: 'Stock',
+                align: 'right',
+                width: '80px',
+                render: (val, row) => (
+                  <span className={
+                    row.minStock && Number(val) <= Number(row.minStock)
+                      ? "text-red-600 font-semibold"
+                      : ""
+                  }>
+                    {Number(val).toFixed(2)}
+                  </span>
+                )
+              },
+              {
+                key: 'minStock',
+                label: 'Min',
+                align: 'right',
+                width: '70px',
+                render: (val) => val ? Number(val).toFixed(2) : '-'
+              },
+              {
+                key: 'actions',
+                label: 'Actions',
+                align: 'right',
+                width: '100px',
+                render: (_, row) => (
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => handleOpenDialog(row)}
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => handleDeleteProduct(row.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                    </Button>
+                  </div>
+                )
+              }
+            ] as Column[]}
+          />
 
-              {/* Pagination */}
-              {pagination && pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-muted-foreground">
-                    Page {pagination.page} of {pagination.totalPages}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage(page - 1)}
-                      disabled={page === 1}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage(page + 1)}
-                      disabled={page === pagination.totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
+          {/* Pagination */}
+          {pagination && pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between p-3 md:p-4 border-t">
+              <span className="text-xs md:text-sm text-muted-foreground">
+                Page {pagination.page} of {pagination.totalPages}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setPage(page - 1)}
+                  disabled={page === 1}
+                >
+                  <span className="hidden sm:inline">Previous</span>
+                  <span className="sm:hidden">Prev</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setPage(page + 1)}
+                  disabled={page === pagination.totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
-
-      {/* Products List - Mobile */}
-      <div className="md:hidden space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold">Products</h3>
-          <span className="text-sm text-muted-foreground">{pagination?.total || 0} total</span>
-        </div>
-        {isLoading ? (
-          <div className="text-center py-8">Loading products...</div>
-        ) : products.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-8">
-              <Package className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-              <h3 className="font-semibold mb-2">No products found</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Add your first product to get started.
-              </p>
-              <Button size="sm" onClick={() => handleOpenDialog()}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Product
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <>
-            {products.map((product: any) => (
-              <Card key={product.id} className="overflow-hidden">
-                <CardContent className="p-3">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium truncate">{product.name}</h4>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{product.type}</span>
-                        <span>•</span>
-                        <span>{product.unit}</span>
-                        {product.sku && (
-                          <>
-                            <span>•</span>
-                            <span>{product.sku}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-1 ml-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => handleOpenDialog(product)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => handleDelete(product.id, product.name)}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground text-xs">Cost</span>
-                      <p className="font-medium">रू {Number(product.costPrice).toFixed(0)}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground text-xs">Sell</span>
-                      <p className="font-medium">रू {Number(product.sellingPrice).toFixed(0)}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground text-xs">Stock</span>
-                      <p className={`font-medium ${product.minStock && Number(product.currentStock) <= Number(product.minStock) ? "text-red-600" : ""}`}>
-                        {Number(product.currentStock).toFixed(0)}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            {/* Mobile Pagination */}
-            {pagination && pagination.totalPages > 1 && (
-              <div className="flex items-center justify-between pt-2">
-                <span className="text-sm text-muted-foreground">
-                  {pagination.page}/{pagination.totalPages}
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(page - 1)}
-                    disabled={page === 1}
-                  >
-                    Prev
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(page + 1)}
-                    disabled={page === pagination.totalPages}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -677,6 +593,29 @@ export default function DealerInventoryPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!productToDelete}
+        onOpenChange={(open) => !open && setProductToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Product</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this product? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteProduct}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

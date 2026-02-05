@@ -18,14 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/common/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/common/components/ui/table";
+import { DataTable, Column } from "@/common/components/ui/data-table";
 import { Badge } from "@/common/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
@@ -245,107 +238,104 @@ export default function DealerSaleRequestsPage() {
       {/* Requests Table */}
       <Card>
         <CardContent className="p-0">
-          {isLoading ? (
-            <div className="text-center py-6 text-sm">Loading...</div>
-          ) : requests.length === 0 ? (
-            <div className="text-center py-6">
-              <FileCheck className="mx-auto h-10 w-10 text-muted-foreground" />
-              <h3 className="mt-3 text-base font-semibold">No sale requests</h3>
-              <p className="text-sm text-muted-foreground">
-                Requests will appear when you create sales
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs hidden sm:table-cell">Request</TableHead>
-                      <TableHead className="text-xs">Farmer</TableHead>
-                      <TableHead className="text-xs hidden md:table-cell">Date</TableHead>
-                      <TableHead className="text-xs hidden sm:table-cell">Items</TableHead>
-                      <TableHead className="text-xs">Amount</TableHead>
-                      <TableHead className="text-xs">Status</TableHead>
-                      <TableHead className="text-xs text-right">View</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {requests.map((request) => (
-                      <TableRow key={request.id}>
-                        <TableCell className="font-medium text-xs hidden sm:table-cell">
-                          {request.requestNumber}
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          <div className="max-w-[80px] md:max-w-none">
-                            <div className="font-medium truncate">{request.farmer.name}</div>
-                            <div className="text-[10px] text-muted-foreground hidden sm:block">
-                              {request.farmer.phone}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs hidden md:table-cell">{formatDate(request.date)}</TableCell>
-                        <TableCell className="text-xs hidden sm:table-cell">{request.items.length}</TableCell>
-                        <TableCell className="text-xs">
-                          <div>
-                            <div className="font-medium">
-                              <span className="hidden md:inline">{formatCurrency(request.totalAmount)}</span>
-                              <span className="md:hidden">रू{Math.round(request.totalAmount).toLocaleString()}</span>
-                            </div>
-                            {request.paidAmount > 0 && (
-                              <div className="text-[9px] text-muted-foreground">
-                                Paid: रू{Math.round(request.paidAmount).toLocaleString()}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>{getStatusBadge(request.status)}</TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0"
-                            onClick={() =>
-                              router.push(`/dealer/dashboard/sale-requests/${request.id}`)
-                            }
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Pagination */}
-              {pagination && pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between p-3 border-t">
-                  <span className="text-xs text-muted-foreground">
-                    {page}/{pagination.totalPages}
-                  </span>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => setPage(page - 1)}
-                      disabled={page === 1}
-                    >
-                      Prev
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => setPage(page + 1)}
-                      disabled={page === pagination.totalPages}
-                    >
-                      Next
-                    </Button>
+          <DataTable
+            data={requests}
+            loading={isLoading}
+            emptyMessage="No sale requests. Requests will appear when you create sales."
+            columns={[
+              {
+                key: 'requestNumber',
+                label: 'Request',
+                width: '90px',
+                render: (val) => <span className="font-medium">{val}</span>
+              },
+              {
+                key: 'farmer',
+                label: 'Farmer',
+                width: '100px',
+                render: (val) => (
+                  <div>
+                    <div className="font-medium truncate max-w-[80px]">{val?.name}</div>
+                    <div className="text-[10px] text-muted-foreground">{val?.phone}</div>
                   </div>
-                </div>
-              )}
+                )
+              },
+              {
+                key: 'date',
+                label: 'Date',
+                width: '80px',
+                render: (val) => formatDate(val)
+              },
+              {
+                key: 'items',
+                label: 'Items',
+                width: '50px',
+                render: (val) => val?.length || 0
+              },
+              {
+                key: 'totalAmount',
+                label: 'Amount',
+                width: '90px',
+                render: (val, row) => (
+                  <div>
+                    <div className="font-medium">{formatCurrency(val)}</div>
+                    {row.paidAmount > 0 && (
+                      <div className="text-[9px] text-muted-foreground">Paid: रू{Math.round(row.paidAmount).toLocaleString()}</div>
+                    )}
+                  </div>
+                )
+              },
+              {
+                key: 'status',
+                label: 'Status',
+                width: '100px',
+                render: (val) => getStatusBadge(val)
+              },
+              {
+                key: 'actions',
+                label: 'View',
+                align: 'right',
+                width: '60px',
+                render: (_, request) => (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => router.push(`/dealer/dashboard/sale-requests/${request.id}`)}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                )
+              }
+            ] as Column[]}
+          />
+
+          {/* Pagination */}
+          {pagination && pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between p-3 border-t">
+              <span className="text-xs text-muted-foreground">
+                {page}/{pagination.totalPages}
+              </span>
+              <div className="flex gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setPage(page - 1)}
+                  disabled={page === 1}
+                >
+                  Prev
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setPage(page + 1)}
+                  disabled={page === pagination.totalPages}
+                >
+                  Next
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
