@@ -30,11 +30,13 @@ import {
 import { InventoryItemType } from "@myapp/shared-types";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { toast } from "sonner";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState<
     "feed" | "chicks" | "medicine" | "other"
   >("feed");
+  const { t } = useI18n();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Use TanStack Query hooks
@@ -87,12 +89,12 @@ export default function InventoryPage() {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.name.trim()) newErrors.name = "Name is required";
+    if (!formData.name.trim()) newErrors.name = t("farmer.inventory.validation.nameRequired");
     if (!formData.quantity || parseFloat(formData.quantity) <= 0)
-      newErrors.quantity = "Valid quantity is required";
-    if (!formData.unit.trim()) newErrors.unit = "Unit is required";
+      newErrors.quantity = t("farmer.inventory.validation.quantityRequired");
+    if (!formData.unit.trim()) newErrors.unit = t("farmer.inventory.validation.unitRequired");
     if (!formData.rate || parseFloat(formData.rate) <= 0)
-      newErrors.rate = "Valid rate is required";
+      newErrors.rate = t("farmer.inventory.validation.rateRequired");
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -119,7 +121,7 @@ export default function InventoryPage() {
         rate: parseFloat(formData.rate), // Pass rate for initial transaction
       });
 
-      toast.success("Item added successfully!");
+      toast.success(t("farmer.inventory.toasts.added"));
       setIsAddModalOpen(false);
       setFormData({
         name: "",
@@ -161,17 +163,19 @@ export default function InventoryPage() {
     category: "feed" | "medicine" | "chicks" | "other"
   ) => {
     const baseColumns = [
-      createColumn("name", "Item", {
+      createColumn("name", t("farmer.inventory.table.item"), {
         render: (_, item: any) => (
           <div>
             <p className="font-medium">{item.name}</p>
             {item.batchNumber && (
-              <p className="text-sm text-gray-600">Batch: {item.batchNumber}</p>
+              <p className="text-sm text-gray-600">
+                {t("farmer.inventory.table.batch")}: {item.batchNumber}
+              </p>
             )}
           </div>
         ),
       }),
-      createColumn("quantity", "Quantity", {
+      createColumn("quantity", t("farmer.inventory.table.quantity"), {
         render: (_, item: any) => (
           <div className="flex items-center space-x-1">
             <span className="font-medium">{item.quantity}</span>
@@ -179,16 +183,16 @@ export default function InventoryPage() {
           </div>
         ),
       }),
-      createColumn("rate", "Rate", {
+      createColumn("rate", t("farmer.inventory.table.rate"), {
         render: (_, item: any) => `₹${item.rate}`,
         align: "right",
       }),
-      createColumn("value", "Value", {
+      createColumn("value", t("farmer.inventory.table.value"), {
         render: (_, item: any) => `₹${item.value.toLocaleString()}`,
         align: "right",
       }),
-      createColumn("supplier", "Supplier", {
-        render: (value: any) => value || "—",
+      createColumn("supplier", t("farmer.inventory.table.supplier"), {
+        render: (value: any) => value || t("common.notAvailable"),
       }),
     ];
 
@@ -197,9 +201,9 @@ export default function InventoryPage() {
       baseColumns.splice(
         4,
         0,
-        createColumn("expiryDate", "Expiry", {
+        createColumn("expiryDate", t("farmer.inventory.table.expiry"), {
           render: (value) => {
-            if (!value) return "—";
+            if (!value) return t("common.notAvailable");
             const isExpired = new Date(value) < new Date();
             return (
               <span className={isExpired ? "text-red-600 font-medium" : ""}>
@@ -223,7 +227,9 @@ export default function InventoryPage() {
                 : "bg-green-100 text-green-800"
             }
           >
-            {item.status}
+            {item.status === "Low Stock"
+              ? t("farmer.inventory.table.lowStock")
+              : item.status}
           </Badge>
         ),
       })
@@ -239,7 +245,7 @@ export default function InventoryPage() {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading inventory...</span>
+        <span className="ml-2">{t("farmer.inventory.loading")}</span>
       </div>
     );
   }
@@ -249,7 +255,7 @@ export default function InventoryPage() {
     return (
       <div className="text-center py-8">
         <p className="text-red-600">
-          Failed to load inventory. Please try again.
+          {t("farmer.inventory.error")}
         </p>
       </div>
     );
@@ -261,12 +267,12 @@ export default function InventoryPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            Inventory
+            {t("farmer.inventory.title")}
           </h1>
           <p className="text-muted-foreground">
             {activeTab === "other"
-              ? "Manage other supplies and equipment."
-              : "Track feed, medicine, and supplies from purchases."}
+              ? t("farmer.inventory.subtitleOther")
+              : t("farmer.inventory.subtitleDefault")}
           </p>
         </div>
         {activeTab === "other" ? (
@@ -275,12 +281,14 @@ export default function InventoryPage() {
             onClick={openAddModal}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Add Item
+            {t("farmer.inventory.addItem")}
           </Button>
         ) : (
           <div className="text-sm text-muted-foreground">
-            Items are automatically added when you make purchases in{" "}
-            {activeTab === "feed" ? "Dealer Ledger" : "Medical Supplier Ledger"}
+            {t("farmer.inventory.autoAdded")}{" "}
+            {activeTab === "feed"
+              ? t("farmer.inventory.dealerLedger")
+              : t("farmer.inventory.medicalSupplierLedger")}
           </div>
         )}
       </div>
@@ -290,52 +298,54 @@ export default function InventoryPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Items</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("farmer.inventory.stats.totalItems")}</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-xl sm:text-2xl font-bold">
               {stats?.totalItems || 0}
             </div>
-            <p className="text-xs text-muted-foreground">In stock</p>
+            <p className="text-xs text-muted-foreground">{t("farmer.inventory.stats.inStock")}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("farmer.inventory.stats.lowStock")}</CardTitle>
             <AlertTriangle className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
             <div className="text-xl sm:text-2xl font-bold">
               {stats?.lowStockItems || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Need reorder</p>
+            <p className="text-xs text-muted-foreground">{t("farmer.inventory.stats.needReorder")}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Value</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("farmer.inventory.stats.totalValue")}</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-xl sm:text-2xl font-bold">
               ₹{(stats?.totalValue || 0).toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">Inventory worth</p>
+            <p className="text-xs text-muted-foreground">{t("farmer.inventory.stats.inventoryWorth")}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Categories</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("farmer.inventory.stats.categories")}</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-xl sm:text-2xl font-bold">
               {stats?.categories || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Item types</p>
+            <p className="text-xs text-muted-foreground">{t("farmer.inventory.stats.itemTypes")}</p>
           </CardContent>
         </Card>
       </div>
@@ -344,18 +354,18 @@ export default function InventoryPage() {
       <div className="border-b">
         <nav className="flex space-x-8 overflow-x-auto">
           {[
-            { key: "feed", label: "Feed", icon: <Wheat className="h-4 w-4" /> },
+            { key: "feed", label: t("farmer.inventory.tabs.feed"), icon: <Wheat className="h-4 w-4" /> },
             {
               key: "chicks",
-              label: "Chicks",
+              label: t("farmer.inventory.tabs.chicks"),
               icon: <Package className="h-4 w-4" />,
             },
             {
               key: "medicine",
-              label: "Medicine",
+              label: t("farmer.inventory.tabs.medicine"),
               icon: <Pill className="h-4 w-4" />,
             },
-            { key: "other", label: "Other", icon: <Box className="h-4 w-4" /> },
+            { key: "other", label: t("farmer.inventory.tabs.other"), icon: <Box className="h-4 w-4" /> },
           ].map((tab) => {
             const getTabCount = () => {
               if (!tableData) return 0;
@@ -410,33 +420,53 @@ export default function InventoryPage() {
           <CardTitle className="flex items-center space-x-2">
             {getCategoryIcon(activeTab)}
             <span>
-              {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Inventory
+              {t("farmer.inventory.categoryTitle", {
+                category:
+                  activeTab === "feed"
+                    ? t("farmer.inventory.tabs.feed")
+                    : activeTab === "chicks"
+                      ? t("farmer.inventory.tabs.chicks")
+                      : activeTab === "medicine"
+                        ? t("farmer.inventory.tabs.medicine")
+                        : t("farmer.inventory.tabs.other"),
+              })}
             </span>
           </CardTitle>
           <CardDescription>
-            {filteredInventory.length} items in {activeTab} category
+            {t("farmer.inventory.categoryDesc", {
+              count: filteredInventory.length,
+              category:
+                activeTab === "feed"
+                  ? t("farmer.inventory.tabs.feed")
+                  : activeTab === "chicks"
+                    ? t("farmer.inventory.tabs.chicks")
+                    : activeTab === "medicine"
+                      ? t("farmer.inventory.tabs.medicine")
+                      : t("farmer.inventory.tabs.other"),
+            })}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {filteredInventory.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No {activeTab} items found</p>
+              <p>{t("farmer.inventory.empty", { category: activeTab })}</p>
               {activeTab === "other" ? (
                 <Button
                   className="mt-4 bg-primary hover:bg-primary/90"
                   onClick={openAddModal}
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Add First{" "}
-                  {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Item
+                  {t("farmer.inventory.emptyAddFirst", {
+                    category: t("farmer.inventory.tabs.other"),
+                  })}
                 </Button>
               ) : (
                 <p className="text-sm mt-2">
-                  Items will appear here when you make purchases in{" "}
+                  {t("farmer.inventory.emptyHelp")}{" "}
                   {activeTab === "feed"
-                    ? "Dealer Ledger"
-                    : "Medical Supplier Ledger"}
+                    ? t("farmer.inventory.dealerLedger")
+                    : t("farmer.inventory.medicalSupplierLedger")}
                 </p>
               )}
             </div>
@@ -444,7 +474,7 @@ export default function InventoryPage() {
             <DataTable
               data={filteredInventory}
               columns={getInventoryColumns(activeTab)}
-              emptyMessage={`No ${activeTab} items found`}
+              emptyMessage={t("farmer.inventory.empty", { category: activeTab })}
             />
           )}
         </CardContent>
@@ -454,21 +484,21 @@ export default function InventoryPage() {
       <Modal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        title="Add Other Item"
+        title={t("farmer.inventory.modal.addOtherTitle")}
       >
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Add Other Item</h2>
+          <h2 className="text-xl font-semibold">{t("farmer.inventory.modal.heading")}</h2>
 
           <div className="grid gap-4">
             <div>
-              <Label htmlFor="name">Item Name *</Label>
+              <Label htmlFor="name">{t("farmer.inventory.modal.itemName")}</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, name: e.target.value }))
                 }
-                placeholder="Enter item name"
+                placeholder={t("farmer.inventory.modal.itemNamePlaceholder")}
               />
               {errors.name && (
                 <p className="text-sm text-red-600 mt-1">{errors.name}</p>
@@ -477,7 +507,7 @@ export default function InventoryPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="quantity">Quantity *</Label>
+                <Label htmlFor="quantity">{t("farmer.inventory.modal.quantity")}</Label>
                 <Input
                   id="quantity"
                   type="number"
@@ -495,7 +525,7 @@ export default function InventoryPage() {
                 )}
               </div>
               <div>
-                <Label htmlFor="unit">Unit *</Label>
+                <Label htmlFor="unit">{t("farmer.inventory.modal.unit")}</Label>
                 <Input
                   id="unit"
                   value={formData.unit}
@@ -504,12 +534,12 @@ export default function InventoryPage() {
                   }
                   placeholder={
                     activeTab === "feed"
-                      ? "kg, bags"
+                      ? t("farmer.inventory.modal.unitPlaceholderFeed")
                       : activeTab === "chicks"
-                        ? "birds, pieces"
+                        ? t("farmer.inventory.modal.unitPlaceholderChicks")
                         : activeTab === "medicine"
-                          ? "bottles, vials, tablets"
-                          : "pieces, kg, bottles"
+                          ? t("farmer.inventory.modal.unitPlaceholderMedicine")
+                          : t("farmer.inventory.modal.unitPlaceholderOther")
                   }
                 />
                 {errors.unit && (
@@ -519,7 +549,7 @@ export default function InventoryPage() {
             </div>
 
             <div>
-              <Label htmlFor="rate">Rate per Unit (₹) *</Label>
+              <Label htmlFor="rate">{t("farmer.inventory.modal.rate")}</Label>
               <Input
                 id="rate"
                 type="number"
@@ -535,19 +565,19 @@ export default function InventoryPage() {
             </div>
 
             <div>
-              <Label htmlFor="supplier">Supplier</Label>
+              <Label htmlFor="supplier">{t("farmer.inventory.modal.supplier")}</Label>
               <Input
                 id="supplier"
                 value={formData.supplier}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, supplier: e.target.value }))
                 }
-                placeholder="Supplier name"
+                placeholder={t("farmer.inventory.modal.supplierPlaceholder")}
               />
             </div>
 
             <div>
-              <Label htmlFor="batchNumber">Batch Number</Label>
+              <Label htmlFor="batchNumber">{t("farmer.inventory.modal.batchNumber")}</Label>
               <Input
                 id="batchNumber"
                 value={formData.batchNumber}
@@ -557,12 +587,12 @@ export default function InventoryPage() {
                     batchNumber: e.target.value,
                   }))
                 }
-                placeholder="Batch number"
+                placeholder={t("farmer.inventory.modal.batchPlaceholder")}
               />
             </div>
 
             <div>
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">{t("farmer.inventory.modal.description")}</Label>
               <Input
                 id="description"
                 value={formData.description}
@@ -572,14 +602,14 @@ export default function InventoryPage() {
                     description: e.target.value,
                   }))
                 }
-                placeholder="Additional details"
+                placeholder={t("farmer.inventory.modal.descriptionPlaceholder")}
               />
             </div>
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">
             <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>
-              Cancel
+              {t("farmer.inventory.modal.cancel")}
             </Button>
             <Button
               onClick={handleSubmit}
@@ -589,10 +619,10 @@ export default function InventoryPage() {
               {createInventoryMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding...
+                  {t("farmer.inventory.modal.adding")}
                 </>
               ) : (
-                "Add Item"
+                t("farmer.inventory.addItem")
               )}
             </Button>
           </div>

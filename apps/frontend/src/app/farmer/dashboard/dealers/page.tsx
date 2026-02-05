@@ -55,9 +55,11 @@ import {
   type FarmerVerificationRequest,
 } from "@/fetchers/farmer/farmerVerificationQueries";
 import { PublicDealerSearchSelect } from "@/common/components/forms/PublicDealerSearchSelect";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function FarmerDealersPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [viewTab, setViewTab] = useState<"active" | "archived">("active");
@@ -123,7 +125,7 @@ export default function FarmerDealersPage() {
 
   const handleApply = async () => {
     if (!selectedDealerId) {
-      toast.error("Please select a dealer");
+      toast.error(t("farmer.dealers.toasts.selectDealer"));
       return;
     }
 
@@ -131,20 +133,20 @@ export default function FarmerDealersPage() {
       await createRequestMutation.mutateAsync({
         dealerId: selectedDealerId,
       });
-      toast.success("Verification request sent successfully");
+      toast.success(t("farmer.dealers.toasts.requestSent"));
       setIsApplyDialogOpen(false);
       setSelectedDealerId(null);
     } catch (error: any) {
       toast.error(
         error.response?.data?.message ||
-        "Failed to send verification request. Please check if you can retry (wait 1 hour after rejection, and ensure you haven't been rejected 3 times)."
+        t("farmer.dealers.toasts.requestFailed")
       );
     }
   };
 
   const handleRetry = async (request: FarmerVerificationRequest) => {
     if (!request.dealerId) {
-      toast.error("Dealer ID not found");
+      toast.error(t("farmer.dealers.toasts.dealerIdMissing"));
       return;
     }
 
@@ -152,11 +154,11 @@ export default function FarmerDealersPage() {
       await createRequestMutation.mutateAsync({
         dealerId: request.dealerId,
       });
-      toast.success("Retry request sent successfully");
+      toast.success(t("farmer.dealers.toasts.retrySent"));
     } catch (error: any) {
       toast.error(
         error.response?.data?.message ||
-        "Failed to retry verification request. Please check if you can retry (wait 1 hour after rejection, and ensure you haven't been rejected 3 times)."
+        t("farmer.dealers.toasts.retryFailed")
       );
     }
   };
@@ -174,29 +176,29 @@ export default function FarmerDealersPage() {
   const handleCancelRequest = async (requestId: string) => {
     try {
       await cancelRequestMutation.mutateAsync(requestId);
-      toast.success("Verification request cancelled successfully");
+      toast.success(t("farmer.dealers.toasts.cancelSuccess"));
       setCancelConfirm(null);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to cancel request");
+      toast.error(error.response?.data?.message || t("farmer.dealers.toasts.cancelFailed"));
     }
   };
 
   const handleArchive = async (connectionId: string) => {
     try {
       await archiveMutation.mutateAsync(connectionId);
-      toast.success("Connection archived successfully");
+      toast.success(t("farmer.dealers.toasts.archiveSuccess"));
       setArchiveConfirm(null);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to archive connection");
+      toast.error(error.response?.data?.message || t("farmer.dealers.toasts.archiveFailed"));
     }
   };
 
   const handleUnarchive = async (connectionId: string, dealerName: string) => {
     try {
       await unarchiveMutation.mutateAsync(connectionId);
-      toast.success(`${dealerName} restored successfully`);
+      toast.success(t("farmer.dealers.toasts.restoreSuccess", { name: dealerName }));
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to restore connection");
+      toast.error(error.response?.data?.message || t("farmer.dealers.toasts.restoreFailed"));
     }
   };
 
@@ -206,21 +208,21 @@ export default function FarmerDealersPage() {
         return (
           <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
             <Clock className="mr-1 h-3 w-3" />
-            Pending
+            {t("farmer.dealers.status.pending")}
           </Badge>
         );
       case "APPROVED":
         return (
           <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
             <CheckCircle className="mr-1 h-3 w-3" />
-            Approved
+            {t("farmer.dealers.status.approved")}
           </Badge>
         );
       case "REJECTED":
         return (
           <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
             <XCircle className="mr-1 h-3 w-3" />
-            Rejected
+            {t("farmer.dealers.status.rejected")}
           </Badge>
         );
       default:
@@ -230,7 +232,7 @@ export default function FarmerDealersPage() {
 
   const getRetryMessage = (request: FarmerVerificationRequest): string => {
     if (request.rejectedCount >= 3) {
-      return "Cannot retry - 3 rejections reached";
+      return t("farmer.dealers.messages.retryLimit");
     }
     if (request.lastRejectedAt) {
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -239,7 +241,7 @@ export default function FarmerDealersPage() {
         const minutesRemaining = Math.ceil(
           (lastRejected.getTime() - oneHourAgo.getTime()) / (60 * 1000)
         );
-        return `Wait ${minutesRemaining} more minutes before retrying`;
+        return t("farmer.dealers.messages.retryWait", { minutes: minutesRemaining });
       }
     }
     return "";
@@ -250,15 +252,15 @@ export default function FarmerDealersPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">My Dealers</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{t("farmer.dealers.title")}</h1>
             <p className="text-muted-foreground">
-              Manage your dealer connections and verification requests
+              {t("farmer.dealers.subtitle")}
             </p>
           </div>
         </div>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-center py-8">Loading...</div>
+            <div className="text-center py-8">{t("common.loading")}</div>
           </CardContent>
         </Card>
       </div>
@@ -270,9 +272,9 @@ export default function FarmerDealersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Dealers</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t("farmer.dealers.title")}</h1>
           <p className="text-muted-foreground">
-            Manage your dealer connections and verification requests
+            {t("farmer.dealers.subtitle")}
           </p>
         </div>
         <div className="flex gap-2">
@@ -282,7 +284,7 @@ export default function FarmerDealersPage() {
             onClick={() => router.push("/farmer/dashboard/dealer-ledger")}
           >
             <Users className="mr-2 h-4 w-4" />
-            Feed Ledger
+            {t("farmer.dealers.buttons.feedLedger")}
           </Button>
           <Button
             variant="outline"
@@ -290,7 +292,7 @@ export default function FarmerDealersPage() {
             onClick={() => router.push("/farmer/dashboard/sale-requests")}
           >
             <FileCheck className="mr-2 h-4 w-4" />
-            Sale Requests
+            {t("farmer.dealers.buttons.saleRequests")}
           </Button>
           <Button
             variant="outline"
@@ -298,7 +300,7 @@ export default function FarmerDealersPage() {
             onClick={() => router.push("/farmer/dashboard/payment-requests")}
           >
             <DollarSign className="mr-2 h-4 w-4" />
-            Payment Requests
+            {t("farmer.dealers.buttons.paymentRequests")}
           </Button>
         </div>
       </div>
@@ -307,18 +309,18 @@ export default function FarmerDealersPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Connected Dealers</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("farmer.dealers.stats.connected")}</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2">
               <div className="text-2xl font-bold">{connectedDealers.length}</div>
-              <span className="text-sm text-muted-foreground">Active</span>
+              <span className="text-sm text-muted-foreground">{t("farmer.dealers.stats.active")}</span>
               {archivedDealers.length > 0 && (
                 <>
                   <span className="text-sm text-muted-foreground">/</span>
                   <div className="text-xl font-semibold text-muted-foreground">{archivedDealers.length}</div>
-                  <span className="text-sm text-muted-foreground">Archived</span>
+                  <span className="text-sm text-muted-foreground">{t("farmer.dealers.stats.archived")}</span>
                 </>
               )}
             </div>
@@ -327,7 +329,7 @@ export default function FarmerDealersPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("farmer.dealers.stats.pending")}</CardTitle>
             <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
@@ -337,7 +339,7 @@ export default function FarmerDealersPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rejected Requests</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("farmer.dealers.stats.rejected")}</CardTitle>
             <XCircle className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
@@ -354,7 +356,7 @@ export default function FarmerDealersPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search by dealer name, contact, or address..."
+                  placeholder={t("farmer.dealers.filters.searchPlaceholder")}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-10"
@@ -367,12 +369,12 @@ export default function FarmerDealersPage() {
                 onValueChange={(value) => setStatusFilter(value)}
               >
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="All Status" />
+                  <SelectValue placeholder={t("farmer.dealers.filters.allStatus")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALL">All Status</SelectItem>
-                  <SelectItem value="PENDING">Pending</SelectItem>
-                  <SelectItem value="REJECTED">Rejected</SelectItem>
+                  <SelectItem value="ALL">{t("farmer.dealers.filters.allStatus")}</SelectItem>
+                  <SelectItem value="PENDING">{t("farmer.dealers.filters.pending")}</SelectItem>
+                  <SelectItem value="REJECTED">{t("farmer.dealers.filters.rejected")}</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -391,7 +393,7 @@ export default function FarmerDealersPage() {
               : "text-muted-foreground hover:text-foreground"
               }`}
           >
-            Active
+            {t("farmer.dealers.tabs.active")}
           </button>
           <button
             onClick={() => setViewTab("archived")}
@@ -400,12 +402,12 @@ export default function FarmerDealersPage() {
               : "text-muted-foreground hover:text-foreground"
               }`}
           >
-            Archived ({archivedDealers.length})
+            {t("farmer.dealers.tabs.archived", { count: archivedDealers.length })}
           </button>
         </div>
         <Button onClick={() => setIsApplyDialogOpen(true)} className="bg-primary">
           <Plus className="mr-2 h-4 w-4" />
-          Apply to Dealer
+          {t("farmer.dealers.buttons.apply")}
         </Button>
       </div>
 
@@ -416,23 +418,23 @@ export default function FarmerDealersPage() {
             <CardHeader>
               <CardTitle>My Connected Dealers</CardTitle>
               <CardDescription>
-                {filteredConnectedDealers.length} dealer(s) connected
+                {t("farmer.dealers.connectedSection.description", { count: filteredConnectedDealers.length })}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {filteredConnectedDealers.length === 0 ? (
                 <div className="text-center py-8">
                   <Store className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No connected dealers</h3>
+                  <h3 className="text-lg font-semibold mb-2">{t("farmer.dealers.connectedSection.emptyTitle")}</h3>
                   <p className="text-muted-foreground mb-4">
                     {search
-                      ? "No dealers match your search."
-                      : "Apply to a dealer to get started and once approved, you'll see them here."}
+                      ? t("farmer.dealers.connectedSection.emptySearch")
+                      : t("farmer.dealers.connectedSection.emptyDefault")}
                   </p>
                   {!search && (
                     <Button onClick={() => setIsApplyDialogOpen(true)}>
                       <Plus className="mr-2 h-4 w-4" />
-                      Apply to Dealer
+                      {t("farmer.dealers.buttons.apply")}
                     </Button>
                   )}
                 </div>
@@ -457,7 +459,7 @@ export default function FarmerDealersPage() {
                           </div>
                           <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
                             <CheckCircle className="mr-1 h-3 w-3" />
-                            Connected
+                            {t("farmer.dealers.status.connected")}
                           </Badge>
                         </div>
                       </CardHeader>
@@ -466,17 +468,17 @@ export default function FarmerDealersPage() {
                           {dealer.owner && (
                             <>
                               <div className="flex justify-between">
-                                <span className="text-muted-foreground">Owner:</span>
+                                <span className="text-muted-foreground">{t("farmer.dealers.labels.owner")}</span>
                                 <span className="font-medium">{dealer.owner.name}</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-muted-foreground">Phone:</span>
+                                <span className="text-muted-foreground">{t("farmer.dealers.labels.phone")}</span>
                                 <span className="font-medium">{dealer.owner.phone}</span>
                               </div>
                             </>
                           )}
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Connected:</span>
+                            <span className="text-muted-foreground">{t("farmer.dealers.labels.connected")}</span>
                             <span className="font-medium text-green-600">
                               {new Date(dealer.connectedAt).toLocaleDateString()}
                             </span>
@@ -490,11 +492,11 @@ export default function FarmerDealersPage() {
                             className="flex-1"
                             onClick={() => {
                               // Navigate to dealer details page - to be implemented later
-                              toast.info("Dealer interaction features coming soon!");
+                              toast.info(t("farmer.dealers.messages.dealerInteractionSoon"));
                             }}
                           >
                             <Eye className="mr-2 h-4 w-4" />
-                            View Details
+                            {t("farmer.dealers.buttons.viewDetails")}
                           </Button>
                           <Button
                             variant="ghost"
@@ -518,18 +520,18 @@ export default function FarmerDealersPage() {
             <CardHeader>
               <CardTitle>Verification Requests</CardTitle>
               <CardDescription>
-                {filteredVerificationRequests.length} pending/rejected request(s)
+                {t("farmer.dealers.verificationSection.description", { count: filteredVerificationRequests.length })}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {filteredVerificationRequests.length === 0 ? (
                 <div className="text-center py-8">
                   <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No verification requests</h3>
+                  <h3 className="text-lg font-semibold mb-2">{t("farmer.dealers.verificationSection.emptyTitle")}</h3>
                   <p className="text-muted-foreground mb-4">
                     {search || statusFilter !== "ALL"
-                      ? "No requests match your filters."
-                      : "You don't have any pending or rejected verification requests."}
+                      ? t("farmer.dealers.verificationSection.emptyFiltered")
+                      : t("farmer.dealers.verificationSection.emptyDefault")}
                   </p>
                 </div>
               ) : (
@@ -540,7 +542,7 @@ export default function FarmerDealersPage() {
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <CardTitle className="text-lg">
-                              {request.dealer?.name || "Unknown Dealer"}
+                              {request.dealer?.name || t("chat.unknown")}
                             </CardTitle>
                             {request.dealer?.contact && (
                               <CardDescription className="mt-1">
@@ -559,11 +561,11 @@ export default function FarmerDealersPage() {
                       <CardContent>
                         <div className="space-y-2 text-sm">
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Status:</span>
+                            <span className="text-muted-foreground">{t("farmer.dealers.labels.status")}</span>
                             <span className="font-medium">{request.status}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Applied:</span>
+                            <span className="text-muted-foreground">{t("farmer.dealers.labels.applied")}</span>
                             <span className="font-medium">
                               {new Date(request.createdAt).toLocaleDateString()}
                             </span>
@@ -571,14 +573,14 @@ export default function FarmerDealersPage() {
                           {request.status === "REJECTED" && (
                             <>
                               <div className="flex justify-between">
-                                <span className="text-muted-foreground">Rejection Count:</span>
+                                <span className="text-muted-foreground">{t("farmer.dealers.labels.rejectionCount")}</span>
                                 <span className="font-medium text-red-600">
                                   {request.rejectedCount}/3
                                 </span>
                               </div>
                               {request.lastRejectedAt && (
                                 <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Last Rejected:</span>
+                                  <span className="text-muted-foreground">{t("farmer.dealers.labels.lastRejected")}</span>
                                   <span className="font-medium">
                                     {new Date(request.lastRejectedAt).toLocaleDateString()}
                                   </span>
@@ -598,7 +600,7 @@ export default function FarmerDealersPage() {
                               disabled={createRequestMutation.isPending}
                             >
                               <RefreshCw className="mr-2 h-4 w-4" />
-                              Retry
+                              {t("farmer.dealers.buttons.retry")}
                             </Button>
                           )}
                           {request.status === "REJECTED" && !canRetry(request) && (
@@ -612,7 +614,7 @@ export default function FarmerDealersPage() {
                             <>
                               <div className="flex-1">
                                 <p className="text-xs text-yellow-600 text-center font-medium">
-                                  Waiting for dealer approval
+                                  {t("farmer.dealers.messages.waitingApproval")}
                                 </p>
                               </div>
                               <Button
@@ -622,7 +624,7 @@ export default function FarmerDealersPage() {
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
                               >
                                 <X className="mr-1 h-4 w-4" />
-                                Cancel
+                                {t("farmer.dealers.buttons.cancel")}
                               </Button>
                             </>
                           )}
@@ -639,19 +641,17 @@ export default function FarmerDealersPage() {
         /* Archived Dealers Tab */
         <Card>
           <CardHeader>
-            <CardTitle>Archived Dealers</CardTitle>
+            <CardTitle>{t("farmer.dealers.archivedSection.title")}</CardTitle>
             <CardDescription>
-              {archivedDealers.length} archived dealer(s)
+              {t("farmer.dealers.archivedSection.description", { count: archivedDealers.length })}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {archivedDealers.length === 0 ? (
               <div className="text-center py-8">
                 <Archive className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No archived dealers</h3>
-                <p className="text-muted-foreground">
-                  Connections you archive will appear here and can be restored anytime.
-                </p>
+                <h3 className="text-lg font-semibold mb-2">{t("farmer.dealers.archivedSection.emptyTitle")}</h3>
+                <p className="text-muted-foreground">{t("farmer.dealers.archivedSection.emptyHelp")}</p>
               </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -674,7 +674,7 @@ export default function FarmerDealersPage() {
                         </div>
                         <Badge className="bg-gray-200 text-gray-700 hover:bg-gray-200">
                           <Archive className="mr-1 h-3 w-3" />
-                          Archived
+                          {t("farmer.dealers.stats.archived")}
                         </Badge>
                       </div>
                     </CardHeader>
@@ -683,17 +683,17 @@ export default function FarmerDealersPage() {
                         {dealer.owner && (
                           <>
                             <div className="flex justify-between">
-                              <span className="text-muted-foreground">Owner:</span>
+                              <span className="text-muted-foreground">{t("farmer.dealers.labels.owner")}</span>
                               <span className="font-medium">{dealer.owner.name}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-muted-foreground">Phone:</span>
+                              <span className="text-muted-foreground">{t("farmer.dealers.labels.phone")}</span>
                               <span className="font-medium">{dealer.owner.phone}</span>
                             </div>
                           </>
                         )}
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Connected:</span>
+                          <span className="text-muted-foreground">{t("farmer.dealers.labels.connected")}</span>
                           <span className="font-medium">
                             {new Date(dealer.connectedAt).toLocaleDateString()}
                           </span>
@@ -709,7 +709,7 @@ export default function FarmerDealersPage() {
                           disabled={unarchiveMutation.isPending}
                         >
                           <ArchiveRestore className="mr-2 h-4 w-4" />
-                          Restore Connection
+                          {t("farmer.dealers.buttons.restore")}
                         </Button>
                       </div>
                     </CardContent>
@@ -726,21 +726,20 @@ export default function FarmerDealersPage() {
         <Dialog open={!!archiveConfirm} onOpenChange={() => setArchiveConfirm(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Archive Connection</DialogTitle>
+              <DialogTitle>{t("farmer.dealers.dialogs.archiveTitle")}</DialogTitle>
               <DialogDescription>
-                Are you sure you want to archive your connection with {archiveConfirm.name}?
-                You can restore it later from the Archived tab.
+                {t("farmer.dealers.dialogs.archiveBody", { name: archiveConfirm.name })}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button variant="outline" onClick={() => setArchiveConfirm(null)}>
-                Cancel
+                {t("farmer.dealers.buttons.cancel")}
               </Button>
               <Button
                 onClick={() => handleArchive(archiveConfirm.id)}
                 disabled={archiveMutation.isPending}
               >
-                Archive
+                {t("farmer.dealers.buttons.archive")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -752,21 +751,21 @@ export default function FarmerDealersPage() {
         <Dialog open={!!cancelConfirm} onOpenChange={() => setCancelConfirm(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Cancel Verification Request</DialogTitle>
+              <DialogTitle>{t("farmer.dealers.dialogs.cancelRequestTitle")}</DialogTitle>
               <DialogDescription>
-                Are you sure you want to cancel your verification request to {cancelConfirm.dealerName}?
+                {t("farmer.dealers.dialogs.cancelRequestBody", { name: cancelConfirm.dealerName })}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button variant="outline" onClick={() => setCancelConfirm(null)}>
-                No, Keep It
+                {t("farmer.dealers.dialogs.cancelKeep")}
               </Button>
               <Button
                 variant="destructive"
                 onClick={() => handleCancelRequest(cancelConfirm.id)}
                 disabled={cancelRequestMutation.isPending}
               >
-                Yes, Cancel Request
+                {t("farmer.dealers.dialogs.cancelConfirm")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -777,25 +776,23 @@ export default function FarmerDealersPage() {
       <Dialog open={isApplyDialogOpen} onOpenChange={setIsApplyDialogOpen}>
         <DialogContent className="max-w-2xl bg-white">
           <DialogHeader>
-            <DialogTitle>Apply to Dealer</DialogTitle>
+            <DialogTitle>{t("farmer.dealers.dialogs.applyTitle")}</DialogTitle>
             <DialogDescription>
-              Search and select a dealer to send a verification request
+              {t("farmer.dealers.dialogs.applyBody")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Select Dealer</label>
+              <label className="text-sm font-medium">{t("farmer.dealers.dialogs.selectDealer")}</label>
               <PublicDealerSearchSelect
                 value={selectedDealerId || undefined}
                 onValueChange={(dealerId) => setSelectedDealerId(dealerId || null)}
-                placeholder="Search for a dealer..."
+                placeholder={t("common.searchPlaceholderDealer")}
               />
               {selectedDealerId && (
                 <p className="text-xs text-muted-foreground">
-                  You can only have one pending request per dealer. If already approved,
-                  you&apos;re connected. If rejected, wait 1 hour before retrying (max 3
-                  retries).
+                  {t("farmer.dealers.dialogs.applyHint")}
                 </p>
               )}
             </div>
@@ -810,14 +807,14 @@ export default function FarmerDealersPage() {
               }}
               disabled={createRequestMutation.isPending}
             >
-              Cancel
+              {t("farmer.dealers.dialogs.applyCancel")}
             </Button>
             <Button
               onClick={handleApply}
               disabled={!selectedDealerId || createRequestMutation.isPending}
               className="bg-primary"
             >
-              {createRequestMutation.isPending ? "Sending..." : "Apply to Dealer"}
+              {createRequestMutation.isPending ? t("farmer.dealers.dialogs.applySending") : t("farmer.dealers.dialogs.applySubmit")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/common/store/store";
 import { useRouter } from "next/navigation";
 import { NotificationBell } from "@/common/components/notifications/NotificationBell";
+import { useI18n } from "@/i18n/useI18n";
 interface TopbarProps {
   role?: "OWNER" | "MANAGER" | "DOCTOR" | "SUPER_ADMIN" | "DEALER" | "COMPANY";
   isCollapsed?: boolean;
@@ -24,36 +25,37 @@ interface TopbarProps {
 export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const { t } = useI18n();
 
   // Get role-specific settings
   const getRoleSettings = () => {
     if (role === "DOCTOR") {
       return {
-        searchPlaceholder: "Search consultations, patients...",
+        searchPlaceholder: t("topbar.search.doctor"),
         settingsPath: "/doctor/dashboard/settings"
       };
     }
     if (role === "SUPER_ADMIN") {
       return {
-        searchPlaceholder: "Search users, farms, batches...",
+        searchPlaceholder: t("topbar.search.admin"),
         settingsPath: "/admin/dashboard/settings"
       };
     }
 
     if (role === "DEALER") {
       return {
-        searchPlaceholder: "Search dealers, companies...",
+        searchPlaceholder: t("topbar.search.dealer"),
         settingsPath: "/dealer/dashboard/settings"
       };
     }
     if (role === "COMPANY") {
       return {
-        searchPlaceholder: "Search companies, dealers...",
+        searchPlaceholder: t("topbar.search.company"),
         settingsPath: "/company/dashboard/settings"
       };
     }
     return {
-      searchPlaceholder: "Search farms, batches, inventory...",
+      searchPlaceholder: t("topbar.search.farmer"),
       settingsPath: "/farmer/dashboard/settings"
     };
   };
@@ -89,7 +91,7 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
             size="icon"
             onClick={onToggle}
             className="cursor-pointer h-9 w-9 hover:bg-gray-100 hover:shadow-sm transition-all duration-200"
-            title="Expand sidebar"
+            title={t("topbar.expandSidebar")}
           >
             <Menu className="h-5 w-5" />
           </Button>
@@ -137,15 +139,15 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
             align="end"
             className="w-56 bg-white border shadow-lg"
           >
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("topbar.myAccount")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleProfileClick}>
               <User className="mr-2 h-4 w-4" />
-              My Profile
+              {t("topbar.myProfile")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleSettingsClick}>
               <Settings className="mr-2 h-4 w-4" />
-              Settings
+              {t("topbar.settings")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -153,7 +155,7 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
               className="text-red-600"
             >
               <LogOut className="mr-2 h-4 w-4" />
-              Sign Out
+              {t("topbar.signOut")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

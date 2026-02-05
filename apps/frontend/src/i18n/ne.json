@@ -1,0 +1,638 @@
+{
+  "common": {
+    "save": "सेभ गर्नुहोस्",
+    "cancel": "रद्द गर्नुहोस्",
+    "search": "खोज्नुहोस्",
+    "loading": "लोड हुँदैछ...",
+    "notSet": "सेट छैन",
+    "notProvided": "उपलब्ध छैन",
+    "searching": "खोज हुँदैछ...",
+    "searchPlaceholderDealer": "डिलर खोजेर छान्नुहोस्...",
+    "searchPlaceholderCompany": "कम्पनी खोजेर छान्नुहोस्...",
+    "searchDealerHint": "डिलरको नाम, सम्पर्क वा ठेगानाबाट खोज्नुहोस्",
+    "searchCompanyHint": "कम्पनीको नाम वा ठेगानाबाट खोज्नुहोस्",
+    "noDealersFound": "डिलर भेटिएन",
+    "noCompaniesFound": "कम्पनी भेटिएन",
+    "typeToSearch": "खोज गर्न टाइप गर्नुहोस्...",
+    "typeAtLeast": "खोज्न कम्तिमा {count} अक्षर टाइप गर्नुहोस्",
+    "tryDifferentSearch": "फरक शब्दले खोज्नुहोस्",
+    "contactLabel": "सम्पर्क",
+    "ownerLabel": "मालिक",
+    "optional": "वैकल्पिक",
+    "notAvailable": "उपलब्ध छैन"
+  },
+  "chat": {
+    "unknown": "अज्ञात",
+    "online": "अनलाइन",
+    "offline": "अफलाइन",
+    "deleteConversation": "वार्ता हटाउनुहोस्",
+    "micAccessError": "माइक्रोफोन पहुँच गर्न सकिएन। कृपया अनुमति जाँच गर्नुहोस्।",
+    "recording": "रेकर्ड हुँदैछ",
+    "stop": "रोक्नुहोस्",
+    "send": "पठाउनुहोस्",
+    "sending": "पठाउँदैछ...",
+    "cancel": "रद्द गर्नुहोस्"
+  },
+  "topbar": {
+    "expandSidebar": "साइडबार विस्तार गर्नुहोस्",
+    "settings": "सेटिङ्स",
+    "myAccount": "मेरो खाता",
+    "myProfile": "मेरो प्रोफाइल",
+    "signOut": "साइन आउट",
+    "search": {
+      "farmer": "फार्म, ब्याच, इन्भेन्टरी खोज्नुहोस्...",
+      "doctor": "परामर्श, बिरामी खोज्नुहोस्...",
+      "admin": "युजर, फार्म, ब्याच खोज्नुहोस्...",
+      "dealer": "डिलर, कम्पनी खोज्नुहोस्...",
+      "company": "कम्पनी, डिलर खोज्नुहोस्..."
+    }
+  },
+  "sidebar": {
+    "collapse": "साइडबार संकुचित गर्नुहोस्",
+    "roles": {
+      "doctor": {
+        "title": "डाक्टर पोर्टल",
+        "subtitle": "पशुचिकित्सा सेवा",
+        "userTitle": "डाक्टर"
+      },
+      "admin": {
+        "title": "एडमिन प्यानल",
+        "subtitle": "सिस्टम व्यवस्थापन",
+        "userTitle": "प्रशासक"
+      },
+      "dealer": {
+        "title": "डिलर पोर्टल",
+        "subtitle": "फिड तथा आपूर्ति व्यवस्थापन",
+        "userTitle": "डिलर"
+      },
+      "company": {
+        "title": "कम्पनी पोर्टल",
+        "subtitle": "उत्पादन तथा वितरण व्यवस्थापन",
+        "userTitle": "कम्पनी"
+      },
+      "farmer": {
+        "title": "पोल्ट्री३६०",
+        "subtitle": "फार्म व्यवस्थापन",
+        "userTitle": "मालिक"
+      }
+    },
+    "nav": {
+      "home": "होम",
+      "farms": "फार्महरू",
+      "batches": "ब्याचहरू",
+      "dealers": "डिलरहरू",
+      "salesLedger": "बिक्री लेजर",
+      "medicalSupplierLedger": "औषधि आपूर्तिकर्ता लेजर",
+      "hatcheryLedger": "ह्याचरी लेजर",
+      "inventory": "इन्भेन्टरी",
+      "chatWithDoctor": "डाक्टरसँग च्याट",
+      "accounts": "खाताहरू",
+      "vaccinations": "खोपहरू",
+      "dashboard": "ड्यासबोर्ड",
+      "chat": "च्याट",
+      "ledger": "लेजर",
+      "companies": "कम्पनीहरू",
+      "farmers": "किसानहरू",
+      "sales": "बिक्री",
+      "products": "उत्पादनहरू",
+      "consignments": "कन्साइनमेन्ट",
+      "payments": "भुक्तानी",
+      "analytics": "विश्लेषण",
+      "overview": "अवलोकन",
+      "users": "युजरहरू",
+      "financial": "वित्तीय",
+      "suppliers": "आपूर्तिकर्ता",
+      "performance": "कार्यसम्पादन",
+      "reports": "प्रतिवेदन"
+    }
+  },
+  "settings": {
+    "title": "सेटिङ्स",
+    "ownerInfo": "मालिक जानकारी",
+    "ownerName": "मालिकको नाम",
+    "phoneNumber": "फोन नम्बर",
+    "companyName": "कम्पनीको नाम",
+    "location": "स्थान",
+    "companyBusinessInfo": "कम्पनी व्यवसाय जानकारी",
+    "dealerBusinessInfo": "डिलर व्यवसाय जानकारी",
+    "dealerName": "डिलरको नाम",
+    "contact": "सम्पर्क",
+    "address": "ठेगाना",
+    "ownedFarms": "मालिकाना फार्महरू",
+    "managedFarms": "व्यवस्थापन गरिएको फार्महरू",
+    "farmName": "फार्मको नाम",
+    "capacity": "क्षमता",
+    "description": "विवरण",
+    "noFarms": "कुनै फार्म फेला परेन। तपाईंले कुनै फार्म स्वामित्व वा व्यवस्थापन गर्नु भएको छैन।",
+    "preferences": "प्राथमिकता",
+    "language": "भाषा",
+    "calendar": "क्यालेन्डर",
+    "languageEnglish": "अङ्ग्रेजी",
+    "languageNepali": "नेपाली",
+    "calendarAD": "वि.सं. (AD)",
+    "calendarBS": "वि.सं. (BS)",
+    "languageUpdated": "भाषा सफलतापूर्वक अपडेट भयो",
+    "languageUpdateFailed": "भाषा अपडेट गर्न असफल भयो",
+    "calendarUpdated": "क्यालेन्डर प्राथमिकता सफलतापूर्वक अपडेट भयो",
+    "calendarUpdateFailed": "क्यालेन्डर प्राथमिकता अपडेट गर्न असफल भयो"
+  },
+  "auth": {
+    "login": {
+      "title": "लगइन",
+      "welcomeBack": "फर्केर स्वागत छ",
+      "subtitle": "आफ्नो खातामा लगइन गर्नुहोस्",
+      "phoneLabel": "फोन",
+      "phonePlaceholder": "98XXXXXXXX",
+      "phoneHelp": "१० अंकको नेपाली नम्बर प्रविष्ट गर्नुहोस् (देश कोड बिना)।",
+      "password": "पासवर्ड",
+      "submit": "लगइन",
+      "submitting": "लगइन हुँदैछ...",
+      "newTo": "पोल्ट्री३६० मा नयाँ?",
+      "createAccount": "खाता बनाउनुहोस्",
+      "redirecting": "ड्यासबोर्डमा पठाइँदैछ..."
+    },
+    "signup": {
+      "title": "खाता बनाउनुहोस्",
+      "subtitle": "केही मिनेटमै आफ्नो फार्म व्यवस्थापन सुरु गर्नुहोस्।",
+      "fillTestData": "टेस्ट डेटा भर्नुहोस्",
+      "companyNameLabel": "कम्पनीको नाम *",
+      "ownerNameLabel": "मालिकको नाम *",
+      "provinceLabel": "प्रदेश (नेपाल)",
+      "locationLabel": "स्थान (सहर / क्षेत्र) *",
+      "phoneLabel": "फोन *",
+      "countryCodeLabel": "देश कोड",
+      "phoneHelp": "खाता प्रमाणीकरणका लागि फोन नम्बर आवश्यक छ",
+      "languageLabel": "भाषा *",
+      "calendarLabel": "क्यालेन्डर *",
+      "dealerLabel": "डिलर (वैकल्पिक)",
+      "dealerPlaceholder": "डिलर खोजेर छान्नुहोस् (वैकल्पिक)...",
+      "dealerHelp": "सामग्री खरिदका लागि आफ्नो खाता डिलरसँग जोड्नुहोस् (वैकल्पिक)",
+      "passwordLabel": "पासवर्ड *",
+      "confirmPasswordLabel": "पासवर्ड पुष्टि गर्नुहोस् *",
+      "continue": "अगाडि बढ्नुहोस्",
+      "creatingAccount": "खाता बनाउँदैछ...",
+      "verifyTitle": "खाता प्रमाणीकरण गर्नुहोस्",
+      "verifySubtitle": "हामीले प्रमाणीकरण कोड पठाएका छौं",
+      "verificationCodeLabel": "प्रमाणीकरण कोड *",
+      "otpTestHint": "टेस्टका लागि: कोड {code} प्रयोग गर्नुहोस्",
+      "verifyCreate": "पुष्टि गरेर खाता बनाउनुहोस्",
+      "backToForm": "फारममा फर्कनुहोस्",
+      "alreadyHaveAccount": "पहिले नै खाता छ?",
+      "login": "लगइन",
+      "registerDealer": "डिलरको रूपमा दर्ता गर्न चाहनुहुन्छ?",
+      "signupDealer": "डिलरको रूपमा साइन अप",
+      "registerCompany": "कम्पनीको रूपमा दर्ता गर्न चाहनुहुन्छ?",
+      "signupCompany": "कम्पनीको रूपमा साइन अप",
+      "errors": {
+        "passwordMismatch": "पासवर्ड मिलेन!",
+        "passwordTooShort": "पासवर्ड कम्तिमा 6 अक्षरको हुनुपर्छ!",
+        "phoneRequired": "कृपया फोन नम्बर दिनुहोस्!",
+        "invalidOtp": "अवैध OTP! टेस्टका लागि 11111 प्रविष्ट गर्नुहोस्।"
+      }
+    }
+    ,
+    "companySignup": {
+      "title": "कम्पनी दर्ता",
+      "subtitle": "व्यवस्थापन सुरु गर्न कम्पनी खाता बनाउनुहोस्",
+      "ownerNameLabel": "मालिकको नाम *",
+      "phoneLabel": "फोन नम्बर *",
+      "phonePlaceholder": "98XXXXXXXX",
+      "phoneHelp": "यो नम्बर मालिक र कम्पनी दुवैका लागि प्रयोग हुनेछ।",
+      "companyNameLabel": "कम्पनीको नाम *",
+      "companyNameHelp": "तपाईंको व्यवसाय/कम्पनीको नाम",
+      "companyAddressLabel": "कम्पनीको ठेगाना",
+      "companyAddressPlaceholder": "ऐच्छिक व्यवसाय ठेगाना",
+      "passwordLabel": "पासवर्ड *",
+      "confirmPasswordLabel": "पासवर्ड पुष्टि गर्नुहोस् *",
+      "createAccount": "कम्पनी खाता बनाउनुहोस्",
+      "creatingAccount": "खाता बनाउँदैछ...",
+      "alreadyHaveAccount": "पहिले नै खाता छ?",
+      "login": "लगइन",
+      "registerOwner": "फार्म मालिकको रूपमा दर्ता गर्न चाहनुहुन्छ?",
+      "signupOwner": "मालिकको रूपमा साइन अप",
+      "registerDealer": "डिलरको रूपमा दर्ता गर्न चाहनुहुन्छ?",
+      "signupDealer": "डिलरको रूपमा साइन अप",
+      "errors": {
+        "ownerNameRequired": "मालिकको नाम आवश्यक छ!",
+        "phoneInvalid": "फोन नम्बर ठीक १० अंकको हुनुपर्छ!",
+        "companyNameRequired": "कम्पनीको नाम आवश्यक छ!",
+        "passwordTooShort": "पासवर्ड कम्तिमा 6 अक्षरको हुनुपर्छ!",
+        "passwordMismatch": "पासवर्ड मिलेन!",
+        "registrationFailed": "दर्ता असफल भयो। कृपया पुन: प्रयास गर्नुहोस्।"
+      }
+    },
+    "dealerSignup": {
+      "title": "डिलर दर्ता",
+      "subtitle": "बिक्री सुरु गर्न डिलर खाता बनाउनुहोस्",
+      "ownerNameLabel": "मालिकको नाम *",
+      "phoneLabel": "फोन नम्बर *",
+      "phonePlaceholder": "98XXXXXXXX",
+      "phoneHelp": "यो नम्बर मालिक र डिलर दुवैका लागि प्रयोग हुनेछ।",
+      "dealerNameLabel": "डिलरको नाम *",
+      "dealerNameHelp": "तपाईंको व्यवसाय/डिलरको नाम",
+      "dealerAddressLabel": "डिलर ठेगाना",
+      "dealerAddressPlaceholder": "ऐच्छिक व्यवसाय ठेगाना",
+      "companyLabel": "कम्पनी (वैकल्पिक)",
+      "companyPlaceholder": "कम्पनी खोजेर छान्नुहोस् (वैकल्पिक)...",
+      "companyHelp": "डिलर खाता कम्पनीसँग जोड्नुहोस् (वैकल्पिक)",
+      "passwordLabel": "पासवर्ड *",
+      "confirmPasswordLabel": "पासवर्ड पुष्टि गर्नुहोस् *",
+      "createAccount": "डिलर खाता बनाउनुहोस्",
+      "creatingAccount": "खाता बनाउँदैछ...",
+      "alreadyHaveAccount": "पहिले नै खाता छ?",
+      "login": "लगइन",
+      "registerOwner": "फार्म मालिकको रूपमा दर्ता गर्न चाहनुहुन्छ?",
+      "signupOwner": "मालिकको रूपमा साइन अप",
+      "registerCompany": "कम्पनीको रूपमा दर्ता गर्न चाहनुहुन्छ?",
+      "signupCompany": "कम्पनीको रूपमा साइन अप",
+      "errors": {
+        "ownerNameRequired": "मालिकको नाम आवश्यक छ!",
+        "phoneInvalid": "फोन नम्बर ठीक १० अंकको हुनुपर्छ!",
+        "dealerNameRequired": "डिलरको नाम आवश्यक छ!",
+        "passwordTooShort": "पासवर्ड कम्तिमा 6 अक्षरको हुनुपर्छ!",
+        "passwordMismatch": "पासवर्ड मिलेन!",
+        "registrationFailed": "दर्ता असफल भयो। कृपया पुन: प्रयास गर्नुहोस्।"
+      }
+    }
+  }
+  ,
+  "farmer": {
+    "paymentRequests": {
+      "title": "भुक्तानी अनुरोधहरू",
+      "subtitle": "आफ्ना भुक्तानी अनुरोधहरूको इतिहास र स्थिति हेर्नुहोस्",
+      "help": "भुक्तानी गर्न, फिड लेजरमा गएर कुनै पनि खरिदमा \"Pay\" थिच्नुहोस्",
+      "stats": {
+        "pending": "बाँकी",
+        "approved": "स्वीकृत",
+        "rejected": "अस्वीकृत",
+        "total": "कुल"
+      },
+      "filters": "फिल्टरहरू",
+      "status": "स्थिति",
+      "statusAll": "सबै स्थिति",
+      "statusPending": "समिक्षा बाँकी",
+      "statusApproved": "स्वीकृत",
+      "statusRejected": "अस्वीकृत",
+      "loading": "लोड हुँदैछ...",
+      "emptyTitle": "कुनै भुक्तानी अनुरोध भेटिएन",
+      "emptyHelp": "आफ्ना खरिदहरूमा भुक्तानी गर्न फिड लेजरमा जानुहोस्",
+      "invoice": "इनभ्वाइस",
+      "dealer": "डिलर",
+      "amount": "रकम",
+      "date": "मिति",
+      "reference": "सन्दर्भ",
+      "description": "विवरण",
+      "rejectionReason": "अस्वीकृत कारण"
+    }
+    ,
+    "saleRequests": {
+      "title": "बिक्री अनुरोधहरू",
+      "subtitle": "आफ्ना जोडिएका डिलरहरूको बिक्री अनुरोध समीक्षा र स्वीकृत गर्नुहोस्",
+      "stats": {
+        "pending": "समिक्षा बाँकी",
+        "approved": "स्वीकृत",
+        "rejected": "अस्वीकृत",
+        "total": "कुल"
+      },
+      "loading": "लोड हुँदैछ...",
+      "emptyTitle": "कुनै बिक्री अनुरोध छैन",
+      "emptyHelp": "डिलरहरूले बिक्री अनुरोध पठाउँदा यहाँ देखिन्छ",
+      "from": "बाट",
+      "paid": "भुक्तानी भएको",
+      "itemsTitle": "आइटमहरू:",
+      "table": {
+        "product": "उत्पादन",
+        "quantity": "परिमाण",
+        "unitPrice": "एकाइ मूल्य",
+        "total": "कुल"
+      },
+      "notes": "नोटहरू:",
+      "rejectionReason": "अस्वीकृत कारण:",
+      "approve": "स्वीकृत",
+      "approving": "स्वीकृत हुँदैछ...",
+      "reject": "अस्वीकृत",
+      "rejecting": "अस्वीकृत गर्दै...",
+      "approveDialogTitle": "बिक्री अनुरोध स्वीकृत गर्नुहोस्",
+      "approveDialogBody": "के तपाईं यो बिक्री अनुरोध स्वीकृत गर्न चाहनुहुन्छ? यसले आइटमहरू इन्भेन्टरीमा थप्नेछ र खरिद प्रविष्टि बनाउनेछ।",
+      "rejectDialogTitle": "बिक्री अनुरोध अस्वीकृत गर्नुहोस्",
+      "rejectDialogBody": "कृपया यो बिक्री अनुरोध अस्वीकृत गर्ने कारण दिनुहोस्।",
+      "requestLabel": "अनुरोध:",
+      "dealerLabel": "डिलर:",
+      "totalAmountLabel": "कुल रकम:",
+      "itemsCountLabel": "आइटमहरू:",
+      "itemsCountValue": "{count} आइटम",
+      "cancel": "रद्द गर्नुहोस्",
+      "reasonLabel": "कारण (वैकल्पिक)",
+      "reasonPlaceholder": "उदाहरण: मूल्य धेरै भयो, अहिले यी आइटमहरू चाहिँदैन...",
+      "toast": {
+        "approved": "बिक्री अनुरोध सफलतापूर्वक स्वीकृत भयो!",
+        "rejected": "बिक्री अनुरोध अस्वीकृत भयो",
+        "approveFailed": "अनुरोध स्वीकृत गर्न असफल भयो",
+        "rejectFailed": "अनुरोध अस्वीकृत गर्न असफल भयो"
+      },
+      "status": {
+        "pending": "बाँकी",
+        "approved": "स्वीकृत",
+        "rejected": "अस्वीकृत"
+      }
+    }
+    ,
+    "dealers": {
+      "title": "मेरो डिलरहरू",
+      "subtitle": "डिलर जडान र प्रमाणीकरण अनुरोधहरू व्यवस्थापन गर्नुहोस्",
+      "buttons": {
+        "feedLedger": "फिड लेजर",
+        "saleRequests": "बिक्री अनुरोधहरू",
+        "paymentRequests": "भुक्तानी अनुरोधहरू",
+        "apply": "डिलरमा आवेदन",
+        "viewDetails": "विवरण हेर्नुहोस्",
+        "retry": "पुन: प्रयास",
+        "cancel": "रद्द गर्नुहोस्",
+        "archive": "आर्काइभ",
+        "restore": "जडान पुनर्स्थापना गर्नुहोस्"
+      },
+      "stats": {
+        "connected": "जोडिएका डिलरहरू",
+        "active": "सक्रिय",
+        "archived": "आर्काइभ",
+        "pending": "बाँकी अनुरोधहरू",
+        "rejected": "अस्वीकृत अनुरोधहरू"
+      },
+      "filters": {
+        "searchPlaceholder": "डिलरको नाम, सम्पर्क वा ठेगानाबाट खोज्नुहोस्...",
+        "allStatus": "सबै स्थिति",
+        "pending": "बाँकी",
+        "rejected": "अस्वीकृत"
+      },
+      "tabs": {
+        "active": "सक्रिय",
+        "archived": "आर्काइभ ({count})"
+      },
+      "connectedSection": {
+        "title": "मेरा जोडिएका डिलरहरू",
+        "description": "{count} डिलर(हरू) जडान",
+        "emptyTitle": "जोडिएका डिलर छैनन्",
+        "emptySearch": "तपाईंको खोजसँग मिल्दो डिलर छैन।",
+        "emptyDefault": "सुरु गर्न डिलरमा आवेदन दिनुहोस्, स्वीकृत भएपछि यहाँ देखिन्छ।"
+      },
+      "verificationSection": {
+        "title": "प्रमाणीकरण अनुरोधहरू",
+        "description": "{count} बाँकी/अस्वीकृत अनुरोध",
+        "emptyTitle": "कुनै प्रमाणीकरण अनुरोध छैन",
+        "emptyFiltered": "तपाईंको फिल्टरसँग मेल खाने अनुरोध छैन।",
+        "emptyDefault": "तपाईंका कुनै बाँकी वा अस्वीकृत अनुरोध छैनन्।"
+      },
+      "archivedSection": {
+        "title": "आर्काइभ गरिएको डिलरहरू",
+        "description": "{count} आर्काइभ गरिएको डिलर(हरू)",
+        "emptyTitle": "आर्काइभ गरिएको डिलर छैन",
+        "emptyHelp": "तपाईंले आर्काइभ गरेका जडानहरू यहाँ देखिन्छन् र जुनसुकै बेला पुनर्स्थापना गर्न सकिन्छ।"
+      },
+      "status": {
+        "connected": "जोडिएको",
+        "pending": "बाँकी",
+        "approved": "स्वीकृत",
+        "rejected": "अस्वीकृत"
+      },
+      "labels": {
+        "owner": "मालिक:",
+        "phone": "फोन:",
+        "connected": "जडान भएको:",
+        "status": "स्थिति:",
+        "applied": "आवेदन:",
+        "rejectionCount": "अस्वीकृत गणना:",
+        "lastRejected": "अन्तिम अस्वीकृत:"
+      },
+      "messages": {
+        "waitingApproval": "डिलरको स्वीकृतिको प्रतीक्षा",
+        "retryLimit": "पुन: प्रयास सम्भव छैन - ३ पटक अस्वीकृत",
+        "retryWait": "पुन: प्रयास गर्न {minutes} मिनेट पर्खनुहोस्",
+        "dealerInteractionSoon": "डिलर अन्तर्क्रियाका फिचरहरू छिट्टै आउँदैछन्!"
+      },
+      "dialogs": {
+        "archiveTitle": "जडान आर्काइभ गर्नुहोस्",
+        "archiveBody": "के तपाईं {name} सँगको जडान आर्काइभ गर्न चाहनुहुन्छ? पछि आर्काइभ ट्याबबाट पुनर्स्थापना गर्न सक्नुहुन्छ।",
+        "cancelRequestTitle": "प्रमाणीकरण अनुरोध रद्द गर्नुहोस्",
+        "cancelRequestBody": "के तपाईं {name} लाई पठाएको प्रमाणीकरण अनुरोध रद्द गर्न चाहनुहुन्छ?",
+        "cancelKeep": "होइन, राख्नुहोस्",
+        "cancelConfirm": "हो, अनुरोध रद्द गर्नुहोस्",
+        "applyTitle": "डिलरमा आवेदन",
+        "applyBody": "प्रमाणीकरण अनुरोध पठाउन डिलर खोजेर छान्नुहोस्",
+        "selectDealer": "डिलर छान्नुहोस्",
+        "applyHint": "प्रत्येक डिलरमा एकवटा मात्र बाँकी अनुरोध हुन सक्छ। स्वीकृत भएमा तपाईं जडान हुनुहुन्छ। अस्वीकृत भएमा १ घण्टा पर्खेर पुन: प्रयास गर्नुहोस् (अधिकतम ३ पटक)।",
+        "applyCancel": "रद्द गर्नुहोस्",
+        "applySubmit": "डिलरमा आवेदन",
+        "applySending": "पठाउँदैछ..."
+      },
+      "toasts": {
+        "selectDealer": "कृपया डिलर छान्नुहोस्",
+        "requestSent": "प्रमाणीकरण अनुरोध सफलतापूर्वक पठाइयो",
+        "requestFailed": "प्रमाणीकरण अनुरोध पठाउन असफल भयो। १ घण्टा पर्खनुहोस् र ३ पटकभन्दा धेरै अस्वीकृत भएको छैन भन्ने सुनिश्चित गर्नुहोस्।",
+        "dealerIdMissing": "डिलर आईडी भेटिएन",
+        "retrySent": "पुन: प्रयास अनुरोध पठाइयो",
+        "retryFailed": "पुन: प्रयास अनुरोध पठाउन असफल भयो। १ घण्टा पर्खनुहोस् र ३ पटकभन्दा धेरै अस्वीकृत भएको छैन भन्ने सुनिश्चित गर्नुहोस्।",
+        "cancelSuccess": "प्रमाणीकरण अनुरोध सफलतापूर्वक रद्द गरियो",
+        "cancelFailed": "अनुरोध रद्द गर्न असफल भयो",
+        "archiveSuccess": "जडान सफलतापूर्वक आर्काइभ भयो",
+        "archiveFailed": "जडान आर्काइभ गर्न असफल भयो",
+        "restoreSuccess": "{name} सफलतापूर्वक पुनर्स्थापित भयो",
+        "restoreFailed": "जडान पुनर्स्थापना गर्न असफल भयो"
+      }
+    }
+    ,
+    "dashboard": {
+      "welcome": "स्वागत छ, {name}!",
+      "allFarmsTitle": "सबै फार्महरू",
+      "allBatchesTitle": "सबै ब्याचहरू",
+      "noFarmsFound": "कुनै फार्म भेटिएन",
+      "noBatchesFound": "कुनै ब्याच भेटिएन",
+      "farmCapacity": "क्षमता {count} चरा",
+      "farmBatches": "ब्याचहरू: {count}",
+      "batchInfo": "{farm} • चरा {count} • उमेर {days} दिन",
+      "close": "बन्द गर्नुहोस्",
+      "moneyToReceive": "पाउनुपर्ने रकम",
+      "moneyToPay": "तिर्नुपर्ने रकम"
+    }
+    ,
+    "batches": {
+      "title": "ब्याचहरू",
+      "subtitle": "आफ्ना उत्पादन ब्याच र कार्यसम्पादन ट्र्याक गर्नुहोस्।",
+      "newBatch": "नयाँ ब्याच",
+      "loading": "ब्याचहरू लोड हुँदैछ...",
+      "error": "ब्याचहरू लोड गर्न असफल भयो। कृपया पुन: प्रयास गर्नुहोस्।",
+      "stats": {
+        "active": "सक्रिय ब्याचहरू",
+        "running": "हाल सञ्चालनमा",
+        "totalBirds": "कुल चरा",
+        "acrossAll": "सबै ब्याचमा",
+        "currentBirds": "वर्तमान चरा",
+        "currentlyAlive": "हाल जीवित",
+        "closed": "बन्द ब्याचहरू",
+        "tillNow": "अहिलेसम्म"
+      },
+      "finishedNoticeTitle": "केही ब्याचहरू सकिएको जस्तो देखिन्छ",
+      "finishedNoticeBody": "एक वा बढी सक्रिय ब्याचमा ० वर्तमान चरा छन्। अभिलेख अन्तिम गर्न बन्द गर्ने विचार गर्नुहोस्।",
+      "emptyTitle": "कुनै ब्याच भेटिएन",
+      "emptyHelp": "पहिलो ब्याच बनाएर सुरु गर्नुहोस्।",
+      "createBatch": "ब्याच बनाउनुहोस्",
+      "list": {
+        "started": "सुरु भएको:",
+        "initialBirds": "प्रारम्भिक चरा:",
+        "currentBirds": "वर्तमान चरा:",
+        "age": "उमेर:",
+        "status": "स्थिति:",
+        "days": "दिन"
+      },
+      "modal": {
+        "createTitle": "नयाँ ब्याच बनाउनुहोस्",
+        "batchName": "ब्याच नाम",
+        "batchNameAuto": "सुरु मिति र फार्मबाट स्वतः बनाइन्छ",
+        "auto": "स्वतः",
+        "farm": "फार्म",
+        "selectFarm": "फार्म छान्नुहोस्",
+        "startDate": "सुरु मिति",
+        "chicksInventory": "चल्ली इन्भेन्टरी",
+        "multiAlloc": "धेरै आइटमबाट वितरण गर्नुहोस्",
+        "selectChicksItem": "चल्ली आइटम छान्नुहोस्",
+        "selectItem": "आइटम छान्नुहोस्",
+        "quantity": "परिमाण",
+        "notes": "नोटहरू",
+        "notesOptional": "नोटहरू (वैकल्पिक)",
+        "remove": "हटाउनुहोस्",
+        "addItem": "आइटम थप्नुहोस्",
+        "totalChicks": "कुल चल्ली",
+        "initialWeight": "प्रारम्भिक चल्ली वजन (किलो)",
+        "cancel": "रद्द गर्नुहोस्",
+        "creating": "बनाइँदैछ...",
+        "close": "बन्द गर्नुहोस्",
+        "countTitle": "{status} ब्याचहरू",
+        "none": "{status} ब्याचहरू छैनन्।"
+      },
+      "counts": {
+        "active": "सक्रिय",
+        "closed": "बन्द"
+      },
+      "toasts": {
+        "selectChicks": "कृपया चल्ली इन्भेन्टरी र परिमाण छान्नुहोस्",
+        "created": "ब्याच सफलतापूर्वक सिर्जना भयो!"
+      }
+    }
+    ,
+    "farms": {
+      "title": "फार्महरू",
+      "subtitle": "फार्मको स्थान र विवरण व्यवस्थापन गर्नुहोस्।",
+      "addFarm": "फार्म थप्नुहोस्",
+      "loading": "फार्महरू लोड हुँदैछ...",
+      "error": "फार्महरू लोड गर्न असफल भयो। कृपया पुन: प्रयास गर्नुहोस्।",
+      "emptyTitle": "कुनै फार्म भेटिएन",
+      "emptyHelp": "पहिलो फार्म बनाएर सुरु गर्नुहोस्।",
+      "createFarm": "फार्म बनाउनुहोस्",
+      "activeBatches": "सक्रिय ब्याचहरू ({count})",
+      "birds": "चरा",
+      "capacity": "क्षमता:",
+      "owner": "मालिक:",
+      "totalBatches": "कुल ब्याचहरू:",
+      "created": "सिर्जना गरिएको:",
+      "modal": {
+        "addTitle": "नयाँ फार्म थप्नुहोस्",
+        "farmName": "फार्मको नाम",
+        "capacity": "क्षमता (चराको संख्या)",
+        "description": "विवरण (वैकल्पिक)",
+        "cancel": "रद्द गर्नुहोस्",
+        "creating": "बनाइँदैछ...",
+        "create": "फार्म बनाउनुहोस्",
+        "batchesTitle": "{farm} – {status} ब्याचहरू",
+        "loadingBatches": "{status} ब्याचहरू लोड हुँदैछ...",
+        "errorBatches": "ब्याचहरू लोड गर्न असफल भयो। कृपया पुन: प्रयास गर्नुहोस्।",
+        "noBatches": "यस फार्मका लागि कुनै {status} ब्याच भेटिएन।",
+        "started": "सुरु",
+        "age": "उमेर",
+        "days": "दिन",
+        "current": "वर्तमान",
+        "view": "हेर्नुहोस्",
+        "close": "बन्द गर्नुहोस्"
+      },
+      "status": {
+        "active": "सक्रिय",
+        "closed": "बन्द"
+      },
+      "toasts": {
+        "created": "फार्म सफलतापूर्वक सिर्जना भयो!"
+      }
+    }
+    ,
+    "inventory": {
+      "title": "इन्भेन्टरी",
+      "subtitleOther": "अन्य सामग्री र उपकरण व्यवस्थापन गर्नुहोस्।",
+      "subtitleDefault": "खरिदबाट फिड, औषधि र सामग्री ट्र्याक गर्नुहोस्।",
+      "addItem": "आइटम थप्नुहोस्",
+      "autoAdded": "खरिद गर्दा आइटमहरू स्वचालित रूपमा थपिन्छन्",
+      "dealerLedger": "डिलर लेजर",
+      "medicalSupplierLedger": "औषधि आपूर्तिकर्ता लेजर",
+      "loading": "इन्भेन्टरी लोड हुँदैछ...",
+      "error": "इन्भेन्टरी लोड गर्न असफल भयो। कृपया पुन: प्रयास गर्नुहोस्।",
+      "stats": {
+        "totalItems": "कुल आइटम",
+        "inStock": "स्टकमा",
+        "lowStock": "कम स्टक",
+        "needReorder": "पुन: अर्डर आवश्यक",
+        "totalValue": "कुल मूल्य",
+        "inventoryWorth": "इन्भेन्टरी मूल्य",
+        "categories": "श्रेणीहरू",
+        "itemTypes": "आइटम प्रकार"
+      },
+      "tabs": {
+        "feed": "फिड",
+        "chicks": "चल्ली",
+        "medicine": "औषधि",
+        "other": "अन्य"
+      },
+      "table": {
+        "item": "आइटम",
+        "batch": "ब्याच",
+        "quantity": "परिमाण",
+        "rate": "दर",
+        "value": "मूल्य",
+        "supplier": "आपूर्तिकर्ता",
+        "expiry": "म्याद",
+        "status": "स्थिति",
+        "lowStock": "कम स्टक"
+      },
+      "categoryTitle": "{category} इन्भेन्टरी",
+      "categoryDesc": "{category} श्रेणीमा {count} आइटम",
+      "empty": "{category} आइटम छैन",
+      "emptyAddFirst": "पहिलो {category} आइटम थप्नुहोस्",
+      "emptyHelp": "खरिद गर्दा आइटमहरू यहाँ देखिन्छन्",
+      "modal": {
+        "addOtherTitle": "अन्य आइटम थप्नुहोस्",
+        "heading": "अन्य आइटम थप्नुहोस्",
+        "itemName": "आइटम नाम *",
+        "itemNamePlaceholder": "आइटम नाम लेख्नुहोस्",
+        "quantity": "परिमाण *",
+        "unit": "एकाइ *",
+        "unitPlaceholderFeed": "किलो, ब्याग",
+        "unitPlaceholderChicks": "चरा, पिस",
+        "unitPlaceholderMedicine": "बोतल, भायल, ट्याब्लेट",
+        "unitPlaceholderOther": "पिस, किलो, बोतल",
+        "rate": "एकाइ दर (₹) *",
+        "supplier": "आपूर्तिकर्ता",
+        "supplierPlaceholder": "आपूर्तिकर्ताको नाम",
+        "batchNumber": "ब्याच नम्बर",
+        "batchPlaceholder": "ब्याच नम्बर",
+        "description": "विवरण",
+        "descriptionPlaceholder": "थप विवरण",
+        "cancel": "रद्द गर्नुहोस्",
+        "adding": "थप हुँदैछ..."
+      },
+      "validation": {
+        "nameRequired": "नाम आवश्यक छ",
+        "quantityRequired": "मान्य परिमाण आवश्यक छ",
+        "unitRequired": "एकाइ आवश्यक छ",
+        "rateRequired": "मान्य दर आवश्यक छ"
+      },
+      "toasts": {
+        "added": "आइटम सफलतापूर्वक थपियो!"
+      }
+    }
+  }
+}

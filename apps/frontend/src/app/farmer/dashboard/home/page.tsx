@@ -42,10 +42,12 @@ import {
 } from "@/fetchers/remainder/remainderQueries";
 import { useAddWeight } from "@/fetchers/weight/weightQueries";
 import { useQuickActions } from "@/contexts/QuickActionsContext";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const { setHandlers } = useQuickActions();
+  const { t } = useI18n();
 
   // Fetch real data from APIs
   const { data: batchesResponse } = useGetAllBatches();
@@ -256,7 +258,7 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight">
-            Welcome , {user?.name}!
+            {t("farmer.dashboard.welcome", { name: user?.name || "" })}
           </h1>
         </div>
         <QuickActions
@@ -271,14 +273,14 @@ export default function DashboardPage() {
       <Modal
         isOpen={isFarmsOpen}
         onClose={() => setIsFarmsOpen(false)}
-        title="All Farms"
+        title={t("farmer.dashboard.allFarmsTitle")}
       >
         <ModalContent>
           <div className="space-y-3">
             {farms.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No farms found</p>
+                <p>{t("farmer.dashboard.noFarmsFound")}</p>
               </div>
             ) : (
               farms.map((farm) => (
@@ -290,11 +292,11 @@ export default function DashboardPage() {
                   <div>
                     <div className="font-medium">{farm.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      Capacity {farm.capacity.toLocaleString()} birds
+                      {t("farmer.dashboard.farmCapacity", { count: farm.capacity.toLocaleString() })}
                     </div>
                   </div>
                   <div className="text-right text-sm">
-                    Batches: {farm._count?.batches || 0}
+                    {t("farmer.dashboard.farmBatches", { count: farm._count?.batches || 0 })}
                   </div>
                 </Link>
               ))
@@ -307,7 +309,7 @@ export default function DashboardPage() {
             onClick={() => setIsFarmsOpen(false)}
             className="cursor-pointer hover:bg-gray-50 transition-colors duration-200"
           >
-            Close
+            {t("farmer.dashboard.close")}
           </Button>
         </ModalFooter>
       </Modal>
@@ -315,14 +317,14 @@ export default function DashboardPage() {
       <Modal
         isOpen={isBatchesOpen}
         onClose={() => setIsBatchesOpen(false)}
-        title="All Batches"
+        title={t("farmer.dashboard.allBatchesTitle")}
       >
         <ModalContent>
           <div className="space-y-3">
             {activeBatches.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Layers className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No batches found</p>
+                <p>{t("farmer.dashboard.noBatchesFound")}</p>
               </div>
             ) : (
               activeBatches.map((batch) => (
@@ -334,14 +336,14 @@ export default function DashboardPage() {
                   <div>
                     <div className="font-medium">{batch.batchNumber}</div>
                     <div className="text-xs text-muted-foreground">
-                      {batch.farm.name} • Birds{" "}
-                      {batch.initialChicks.toLocaleString()} • Age{" "}
-                      {Math.floor(
-                        (new Date().getTime() -
-                          new Date(batch.startDate).getTime()) /
-                          (1000 * 60 * 60 * 24)
-                      )}{" "}
-                      days
+                      {t("farmer.dashboard.batchInfo", {
+                        farm: batch.farm.name,
+                        count: batch.initialChicks.toLocaleString(),
+                        days: Math.floor(
+                          (new Date().getTime() - new Date(batch.startDate).getTime()) /
+                            (1000 * 60 * 60 * 24)
+                        ),
+                      })}
                     </div>
                   </div>
                   <div
@@ -364,7 +366,7 @@ export default function DashboardPage() {
             onClick={() => setIsBatchesOpen(false)}
             className="cursor-pointer hover:bg-gray-50 transition-colors duration-200"
           >
-            Close
+            {t("farmer.dashboard.close")}
           </Button>
         </ModalFooter>
       </Modal>
@@ -445,7 +447,7 @@ export default function DashboardPage() {
       <MoneyDetailsModal
         isOpen={isMoneyToReceiveOpen}
         onClose={() => setIsMoneyToReceiveOpen(false)}
-        title="Money to Receive"
+        title={t("farmer.dashboard.moneyToReceive")}
         icon="💰"
         isLoading={moneyToReceiveLoading}
         data={moneyToReceiveData?.data}
@@ -456,7 +458,7 @@ export default function DashboardPage() {
       <MoneyDetailsModal
         isOpen={isMoneyToPayOpen}
         onClose={() => setIsMoneyToPayOpen(false)}
-        title="Money to Pay"
+        title={t("farmer.dashboard.moneyToPay")}
         icon="💳"
         isLoading={moneyToPayLoading}
         data={moneyToPayData?.data}

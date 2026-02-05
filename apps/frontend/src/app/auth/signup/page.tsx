@@ -10,10 +10,12 @@ import { useAuth, useAuthStore } from "@/common/store/store";
 import { PublicDealerSearchSelect } from "@/common/components/forms/PublicDealerSearchSelect";
 // import { crossPortAuth } from "@myapp/shared-auth"; // Removed - no longer using shared packages
 import { Eye, EyeOff, CheckCircle } from "lucide-react";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function SignupPage() {
   const router = useRouter();
   const { register, isLoading, error, clearError } = useAuth();
+  const { t } = useI18n();
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -45,17 +47,17 @@ export default function SignupPage() {
 
   const validateForm = () => {
     if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match!");
+      alert(t("auth.signup.errors.passwordMismatch"));
       return false;
     }
 
     if (formData.password.length < 6) {
-      alert("Password must be at least 6 characters long!");
+      alert(t("auth.signup.errors.passwordTooShort"));
       return false;
     }
 
     if (!formData.phone) {
-      alert("Please provide a phone number!");
+      alert(t("auth.signup.errors.phoneRequired"));
       return false;
     }
 
@@ -80,7 +82,7 @@ export default function SignupPage() {
     e.preventDefault();
 
     if (otp !== "11111") {
-      alert("Invalid OTP! Please enter 11111 for testing.");
+      alert(t("auth.signup.errors.invalidOtp"));
       return;
     }
 
@@ -178,17 +180,17 @@ export default function SignupPage() {
             <>
               <div className="mb-6 text-center">
                 <h1 className="text-2xl font-semibold text-foreground">
-                  Create your account
+                  {t("auth.signup.title")}
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Start managing your farms in minutes.
+                  {t("auth.signup.subtitle")}
                 </p>
                 <button
                   type="button"
                   onClick={fillTestData}
                   className="mt-3 px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md border"
                 >
-                  🧪 Fill Test Data
+                  🧪 {t("auth.signup.fillTestData")}
                 </button>
               </div>
 
@@ -200,7 +202,7 @@ export default function SignupPage() {
 
               <form onSubmit={handleFormSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="companyName">Company name *</Label>
+                  <Label htmlFor="companyName">{t("auth.signup.companyNameLabel")}</Label>
                   <Input
                     id="companyName"
                     name="companyName"
@@ -211,7 +213,7 @@ export default function SignupPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="name">Owner name *</Label>
+                  <Label htmlFor="name">{t("auth.signup.ownerNameLabel")}</Label>
                   <Input
                     id="name"
                     name="name"
@@ -223,7 +225,7 @@ export default function SignupPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="province">Province (Nepal)</Label>
+                    <Label htmlFor="province">{t("auth.signup.provinceLabel")}</Label>
                     <select
                       id="province"
                       name="province"
@@ -244,7 +246,7 @@ export default function SignupPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="location">Location (city / area) *</Label>
+                    <Label htmlFor="location">{t("auth.signup.locationLabel")}</Label>
                     <Input
                       id="location"
                       name="location"
@@ -256,7 +258,7 @@ export default function SignupPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone *</Label>
+                  <Label htmlFor="phone">{t("auth.signup.phoneLabel")}</Label>
                   <div className="flex gap-2">
                     <select
                       id="countryCode"
@@ -264,7 +266,7 @@ export default function SignupPage() {
                       value={formData.countryCode}
                       onChange={handleInputChange}
                       className="h-10 rounded-md border border-input bg-background px-2 text-sm"
-                      aria-label="Country code"
+                      aria-label={t("auth.signup.countryCodeLabel")}
                     >
                       <option value="+91">+91 (IN)</option>
                       <option value="+977">+977 (NP)</option>
@@ -280,13 +282,13 @@ export default function SignupPage() {
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Phone number is required for account verification
+                    {t("auth.signup.phoneHelp")}
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="language">Language *</Label>
+                    <Label htmlFor="language">{t("auth.signup.languageLabel")}</Label>
                     <select
                       id="language"
                       name="language"
@@ -294,13 +296,13 @@ export default function SignupPage() {
                       onChange={handleInputChange}
                       className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                     >
-                      <option value="ENGLISH">English</option>
-                      <option value="NEPALI">नेपाली (Nepali)</option>
+                      <option value="ENGLISH">{t("settings.languageEnglish")}</option>
+                      <option value="NEPALI">{t("settings.languageNepali")}</option>
                     </select>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="calendarType">Calendar *</Label>
+                    <Label htmlFor="calendarType">{t("auth.signup.calendarLabel")}</Label>
                     <select
                       id="calendarType"
                       name="calendarType"
@@ -308,8 +310,8 @@ export default function SignupPage() {
                       onChange={handleInputChange}
                       className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                     >
-                      <option value="AD">AD (Gregorian)</option>
-                      <option value="BS">BS (Bikram Sambat)</option>
+                      <option value="AD">{t("settings.calendarAD")}</option>
+                      <option value="BS">{t("settings.calendarBS")}</option>
                     </select>
                   </div>
                 </div>
@@ -320,16 +322,16 @@ export default function SignupPage() {
                     onValueChange={(value: string | null) =>
                       setFormData({ ...formData, dealerId: value })
                     }
-                    placeholder="Search and select dealer (optional)..."
-                    label="Dealer (Optional)"
+                    placeholder={t("auth.signup.dealerPlaceholder")}
+                    label={t("auth.signup.dealerLabel")}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Link your account to a dealer for purchasing supplies (optional)
+                    {t("auth.signup.dealerHelp")}
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password *</Label>
+                  <Label htmlFor="password">{t("auth.signup.passwordLabel")}</Label>
                   <div className="relative">
                     <Input
                       id="password"
@@ -356,7 +358,7 @@ export default function SignupPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                  <Label htmlFor="confirmPassword">{t("auth.signup.confirmPasswordLabel")}</Label>
                   <div className="relative">
                     <Input
                       id="confirmPassword"
@@ -389,7 +391,7 @@ export default function SignupPage() {
                   disabled={isLoading}
                   className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
                 >
-                  {isLoading ? "Creating account..." : "Continue"}
+                  {isLoading ? t("auth.signup.creatingAccount") : t("auth.signup.continue")}
                 </Button>
               </form>
             </>
@@ -400,10 +402,10 @@ export default function SignupPage() {
                   <CheckCircle className="w-8 h-8 text-green-600" />
                 </div>
                 <h1 className="text-2xl font-semibold text-foreground">
-                  Verify your account
+                  {t("auth.signup.verifyTitle")}
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                  We&#39;ve sent a verification code to
+                  {t("auth.signup.verifySubtitle")}
                 </p>
                 <p className="text-sm font-medium text-foreground">
                   {getVerificationTarget()}
@@ -413,7 +415,7 @@ export default function SignupPage() {
 
               <form onSubmit={handleOtpSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="otp">Verification Code *</Label>
+                  <Label htmlFor="otp">{t("auth.signup.verificationCodeLabel")}</Label>
                   <Input
                     id="otp"
                     name="otp"
@@ -424,7 +426,7 @@ export default function SignupPage() {
                     className="text-center text-lg tracking-widest"
                   />
                   <p className="text-xs text-blue-600 text-center">
-                    For testing: use code <strong>11111</strong>
+                    {t("auth.signup.otpTestHint", { code: "11111" })}
                   </p>
                 </div>
 
@@ -434,8 +436,8 @@ export default function SignupPage() {
                   className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   {isLoading
-                    ? "Creating Account..."
-                    : "Verify & Create Account"}
+                    ? t("auth.signup.creatingAccount")
+                    : t("auth.signup.verifyCreate")}
                 </Button>
 
                 <button
@@ -446,7 +448,7 @@ export default function SignupPage() {
                   }}
                   className="w-full text-sm text-muted-foreground hover:text-foreground"
                 >
-                  ← Back to form
+                  ← {t("auth.signup.backToForm")}
                 </button>
               </form>
             </>
@@ -454,30 +456,30 @@ export default function SignupPage() {
 
           <div className="mt-6 space-y-2">
             <p className="text-sm text-muted-foreground text-center">
-              Already have an account?{" "}
+              {t("auth.signup.alreadyHaveAccount")}{" "}
               <Link href="/auth/login" className="text-primary hover:underline">
-                Log in
+                {t("auth.signup.login")}
               </Link>
             </p>
             <p className="text-sm text-muted-foreground text-center">
-              Want to register as a dealer?{" "}
+              {t("auth.signup.registerDealer")}{" "}
               <Link
                 href="/auth/signup/dealer"
                 className="text-primary hover:underline"
               >
-                Sign up as Dealer
+                {t("auth.signup.signupDealer")}
               </Link>
             </p>
 
           </div>
           <div className="mt-2 space-y-2">
             <p className="text-sm text-muted-foreground text-center">
-              Want to register as a company?{" "}
+              {t("auth.signup.registerCompany")}{" "}
               <Link
                 href="/auth/signup/company"
                 className="text-primary hover:underline"
               >
-                Sign up as Company
+                {t("auth.signup.signupCompany")}
               </Link>
             </p>
           </div>

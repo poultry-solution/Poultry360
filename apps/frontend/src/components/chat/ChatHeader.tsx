@@ -11,6 +11,7 @@ import {
 } from "@/common/components/ui/dropdown-menu";
 import { ArrowLeft, MoreVertical, Trash2 } from "lucide-react";
 import React from "react";
+import { useI18n } from "@/i18n/useI18n";
 
 interface ChatHeaderProps {
   title: string;
@@ -21,6 +22,7 @@ interface ChatHeaderProps {
 }
 
 export default function ChatHeader({ title, subtitle, isOnline, onBack, onDelete }: ChatHeaderProps) {
+  const { t } = useI18n();
   const initials = React.useMemo(() => {
     const trimmed = (title || "").trim();
     if (!trimmed) return "?";
@@ -40,7 +42,9 @@ export default function ChatHeader({ title, subtitle, isOnline, onBack, onDelete
             <span className="text-primary-foreground font-bold text-sm">{initials}</span>
           </div>
           <div>
-            <div className="text-lg font-semibold leading-none tracking-tight">{title || "Unknown"}</div>
+            <div className="text-lg font-semibold leading-none tracking-tight">
+              {title || t("chat.unknown")}
+            </div>
             {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
           </div>
         </div>
@@ -49,7 +53,7 @@ export default function ChatHeader({ title, subtitle, isOnline, onBack, onDelete
             variant="secondary"
             className={`${isOnline ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}
           >
-            {isOnline ? "Online" : "Offline"}
+            {isOnline ? t("chat.online") : t("chat.offline")}
           </Badge>
           {onDelete && (
             <DropdownMenu>
@@ -64,7 +68,7 @@ export default function ChatHeader({ title, subtitle, isOnline, onBack, onDelete
                   className="text-red-600 focus:text-red-600 focus:bg-red-50"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Conversation
+                  {t("chat.deleteConversation")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -74,5 +78,4 @@ export default function ChatHeader({ title, subtitle, isOnline, onBack, onDelete
     </CardHeader>
   );
 }
-
 

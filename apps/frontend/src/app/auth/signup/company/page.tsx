@@ -9,9 +9,11 @@ import { Button } from "@/common/components/ui/button";
 import { Eye, EyeOff, Building2 } from "lucide-react";
 import axiosInstance from "@/common/lib/axios";
 import { useAuthStore } from "@/common/store/store";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function CompanySignupPage() {
     const router = useRouter();
+    const { t } = useI18n();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showPassword, setShowPassword] = useState(false);
@@ -40,27 +42,27 @@ export default function CompanySignupPage() {
 
     const validateForm = () => {
         if (!formData.ownerName.trim()) {
-            setError("Owner name is required!");
+            setError(t("auth.companySignup.errors.ownerNameRequired"));
             return false;
         }
 
         if (!formData.phone || formData.phone.length !== 10) {
-            setError("Phone number must be exactly 10 digits!");
+            setError(t("auth.companySignup.errors.phoneInvalid"));
             return false;
         }
 
         if (!formData.companyName.trim()) {
-            setError("Company name is required!");
+            setError(t("auth.companySignup.errors.companyNameRequired"));
             return false;
         }
 
         if (!formData.password || formData.password.length < 6) {
-            setError("Password must be at least 6 characters long!");
+            setError(t("auth.companySignup.errors.passwordTooShort"));
             return false;
         }
 
         if (formData.password !== formData.confirmPassword) {
-            setError("Passwords do not match!");
+            setError(t("auth.companySignup.errors.passwordMismatch"));
             return false;
         }
 
@@ -118,7 +120,7 @@ export default function CompanySignupPage() {
             setError(
                 err.response?.data?.message ||
                 err.message ||
-                "Registration failed. Please try again."
+                t("auth.companySignup.errors.registrationFailed")
             );
             console.error("Registration error:", err);
         } finally {
@@ -148,10 +150,10 @@ export default function CompanySignupPage() {
                             <Building2 className="w-8 h-8 text-blue-600" />
                         </div>
                         <h1 className="text-2xl font-semibold text-foreground">
-                            Company Registration
+                            {t("auth.companySignup.title")}
                         </h1>
                         <p className="text-sm text-muted-foreground mt-1">
-                            Create your company account to start managing
+                            {t("auth.companySignup.subtitle")}
                         </p>
                     </div>
 
@@ -163,7 +165,7 @@ export default function CompanySignupPage() {
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="ownerName">Owner Name *</Label>
+                            <Label htmlFor="ownerName">{t("auth.companySignup.ownerNameLabel")}</Label>
                             <Input
                                 id="ownerName"
                                 name="ownerName"
@@ -174,31 +176,31 @@ export default function CompanySignupPage() {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="phone">Phone Number *</Label>
+                            <Label htmlFor="phone">{t("auth.companySignup.phoneLabel")}</Label>
                             <div className="flex items-stretch gap-0">
                                 <div className="flex items-center gap-2 rounded-l-md border border-r-0 bg-muted px-3 text-foreground">
                                     <span aria-hidden>🇳🇵</span>
                                     <span className="text-sm font-medium">+977</span>
                                 </div>
-                                <Input
-                                    id="phone"
-                                    name="phone"
-                                    value={formData.phone}
-                                    onChange={handleInputChange}
-                                    inputMode="numeric"
-                                    pattern="[0-9]{10}"
-                                    placeholder="98XXXXXXXX"
-                                    className="rounded-l-none"
-                                    required
-                                />
-                            </div>
+                                    <Input
+                                        id="phone"
+                                        name="phone"
+                                        value={formData.phone}
+                                        onChange={handleInputChange}
+                                        inputMode="numeric"
+                                        pattern="[0-9]{10}"
+                                        placeholder={t("auth.companySignup.phonePlaceholder")}
+                                        className="rounded-l-none"
+                                        required
+                                    />
+                                </div>
                             <p className="text-xs text-muted-foreground">
-                                This number will be used for both owner and company contact.
+                                {t("auth.companySignup.phoneHelp")}
                             </p>
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="companyName">Company Name *</Label>
+                            <Label htmlFor="companyName">{t("auth.companySignup.companyNameLabel")}</Label>
                             <Input
                                 id="companyName"
                                 name="companyName"
@@ -207,23 +209,23 @@ export default function CompanySignupPage() {
                                 required
                             />
                             <p className="text-xs text-muted-foreground">
-                                Your business/company name
+                                {t("auth.companySignup.companyNameHelp")}
                             </p>
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="companyAddress">Company Address</Label>
+                            <Label htmlFor="companyAddress">{t("auth.companySignup.companyAddressLabel")}</Label>
                             <Input
                                 id="companyAddress"
                                 name="companyAddress"
                                 value={formData.companyAddress}
                                 onChange={handleInputChange}
-                                placeholder="Optional business address"
+                                placeholder={t("auth.companySignup.companyAddressPlaceholder")}
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="password">Password *</Label>
+                            <Label htmlFor="password">{t("auth.companySignup.passwordLabel")}</Label>
                             <div className="relative">
                                 <Input
                                     id="password"
@@ -250,7 +252,7 @@ export default function CompanySignupPage() {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                            <Label htmlFor="confirmPassword">{t("auth.companySignup.confirmPasswordLabel")}</Label>
                             <div className="relative">
                                 <Input
                                     id="confirmPassword"
@@ -283,33 +285,33 @@ export default function CompanySignupPage() {
                             disabled={isLoading}
                             className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
                         >
-                            {isLoading ? "Creating account..." : "Create Company Account"}
+                            {isLoading ? t("auth.companySignup.creatingAccount") : t("auth.companySignup.createAccount")}
                         </Button>
                     </form>
 
                     <div className="mt-6 space-y-2">
                         <p className="text-sm text-muted-foreground text-center">
-                            Already have an account?{" "}
+                            {t("auth.companySignup.alreadyHaveAccount")}{" "}
                             <Link href="/auth/login" className="text-primary hover:underline">
-                                Log in
+                                {t("auth.companySignup.login")}
                             </Link>
                         </p>
                         <p className="text-sm text-muted-foreground text-center">
-                            Want to register as a farm owner?{" "}
+                            {t("auth.companySignup.registerOwner")}{" "}
                             <Link
                                 href="/auth/signup"
                                 className="text-primary hover:underline"
                             >
-                                Sign up as Owner
+                                {t("auth.companySignup.signupOwner")}
                             </Link>
                         </p>
                         <p className="text-sm text-muted-foreground text-center">
-                            Want to register as a dealer?{" "}
+                            {t("auth.companySignup.registerDealer")}{" "}
                             <Link
                                 href="/auth/signup/dealer"
                                 className="text-primary hover:underline"
                             >
-                                Sign up as Dealer
+                                {t("auth.companySignup.signupDealer")}
                             </Link>
                         </p>
                     </div>

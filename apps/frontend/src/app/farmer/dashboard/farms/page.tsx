@@ -21,9 +21,11 @@ import { toast } from "sonner";
 import { useAuth } from "@/common/store/store";
 import { FarmResponse, BatchResponse } from "@myapp/shared-types";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function FarmsPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -101,7 +103,7 @@ export default function FarmsPage() {
         managers: [],
       });
 
-      toast.success("Farm created successfully!");
+      toast.success(t("farmer.farms.toasts.created"));
 
       // Reset form and close modal
       setIsModalOpen(false);
@@ -122,9 +124,9 @@ export default function FarmsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Farms</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t("farmer.farms.title")}</h1>
           <p className="text-muted-foreground">
-            Manage your farm locations and details.
+            {t("farmer.farms.subtitle")}
           </p>
         </div>
         <Button
@@ -132,7 +134,7 @@ export default function FarmsPage() {
           onClick={() => setIsModalOpen(true)}
         >
           <Plus className="mr-2 h-4 w-4" />
-          Add Farm
+          {t("farmer.farms.addFarm")}
         </Button>
       </div>
 
@@ -140,7 +142,7 @@ export default function FarmsPage() {
       {farmsLoading && (
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin" />
-          <span className="ml-2">Loading farms...</span>
+          <span className="ml-2">{t("farmer.farms.loading")}</span>
         </div>
       )}
 
@@ -148,7 +150,7 @@ export default function FarmsPage() {
       {farmsError && (
         <div className="text-center py-8">
           <p className="text-red-600">
-            Failed to load farms. Please try again.
+            {t("farmer.farms.error")}
           </p>
         </div>
       )}
@@ -159,13 +161,11 @@ export default function FarmsPage() {
           {farms.length === 0 ? (
             <div className="text-center py-8">
               <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No farms found</h3>
-              <p className="text-muted-foreground mb-4">
-                Get started by creating your first farm.
-              </p>
+              <h3 className="text-lg font-semibold mb-2">{t("farmer.farms.emptyTitle")}</h3>
+              <p className="text-muted-foreground mb-4">{t("farmer.farms.emptyHelp")}</p>
               <Button onClick={() => setIsModalOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
-                Create Farm
+                {t("farmer.farms.createFarm")}
               </Button>
             </div>
           ) : (
@@ -194,7 +194,7 @@ export default function FarmsPage() {
                           }}
                         >
                           {/* batches can be active or closed */}
-                          Active Batches ({farm._count.activeBatches || 0} )
+                          {t("farmer.farms.activeBatches", { count: farm._count.activeBatches || 0 })}
                         </Button>
                         <ArrowRight className="h-4 w-4 text-muted-foreground" />
                       </div>
@@ -208,21 +208,21 @@ export default function FarmsPage() {
                   <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
-                        <span className="text-muted-foreground">Capacity:</span>
+                        <span className="text-muted-foreground">{t("farmer.farms.capacity")}</span>
                         <p className="font-medium">
-                          {farm.capacity.toLocaleString()} birds
+                          {farm.capacity.toLocaleString()} {t("farmer.farms.birds")}
                         </p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Owner:</span>
+                        <span className="text-muted-foreground">{t("farmer.farms.owner")}</span>
                         <p className="font-medium">{farm.owner.name}</p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Total Batches:</span>
+                        <span className="text-muted-foreground">{t("farmer.farms.totalBatches")}</span>
                         <p className="font-medium">{farm._count.batches || 0}</p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Created:</span>
+                        <span className="text-muted-foreground">{t("farmer.farms.created")}</span>
                         <p className="font-medium">
                           <DateDisplay date={farm.createdAt} format="short" />
                         </p>
@@ -237,12 +237,12 @@ export default function FarmsPage() {
       )}
 
       {/* Add Farm Modal */}
-      <Modal isOpen={isModalOpen} onClose={handleClose} title="Add New Farm">
+      <Modal isOpen={isModalOpen} onClose={handleClose} title={t("farmer.farms.modal.addTitle")}>
         <form onSubmit={handleSubmit}>
           <ModalContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="name">Farm Name</Label>
+                <Label htmlFor="name">{t("farmer.farms.modal.farmName")}</Label>
                 <Input
                   id="name"
                   name="name"
@@ -253,7 +253,7 @@ export default function FarmsPage() {
               </div>
 
               <div>
-                <Label htmlFor="capacity">Capacity (Number of Birds)</Label>
+                <Label htmlFor="capacity">{t("farmer.farms.modal.capacity")}</Label>
                 <Input
                   id="capacity"
                   name="capacity"
@@ -265,7 +265,7 @@ export default function FarmsPage() {
               </div>
 
               <div>
-                <Label htmlFor="description">Description (Optional)</Label>
+                <Label htmlFor="description">{t("farmer.farms.modal.description")}</Label>
                 <textarea
                   id="description"
                   name="description"
@@ -280,7 +280,7 @@ export default function FarmsPage() {
 
           <ModalFooter>
             <Button type="button" variant="outline" onClick={handleClose}>
-              Cancel
+              {t("farmer.farms.modal.cancel")}
             </Button>
             <Button
               type="submit"
@@ -290,10 +290,10 @@ export default function FarmsPage() {
               {createFarmMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
+                  {t("farmer.farms.modal.creating")}
                 </>
               ) : (
-                "Create Farm"
+                t("farmer.farms.modal.create")
               )}
             </Button>
           </ModalFooter>
@@ -304,22 +304,29 @@ export default function FarmsPage() {
       <Modal
         isOpen={isBatchesModalOpen}
         onClose={() => setIsBatchesModalOpen(false)}
-        title={`${selectedFarm?.name ?? "Farm"} – ${batchFilter === "active" ? "Active" : "Closed"} Batches`}
+        title={t("farmer.farms.modal.batchesTitle", {
+          farm: selectedFarm?.name ?? t("farmer.farms.title"),
+          status: batchFilter === "active" ? t("farmer.farms.status.active") : t("farmer.farms.status.closed"),
+        })}
       >
         <ModalContent>
           <div className="space-y-3">
             {modalBatchesLoading ? (
               <div className="text-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-                <p>Loading {batchFilter} batches...</p>
+                <p>{t("farmer.farms.modal.loadingBatches", {
+                  status: batchFilter === "active" ? t("farmer.farms.status.active") : t("farmer.farms.status.closed")
+                })}</p>
               </div>
             ) : modalBatchesError ? (
               <div className="text-center py-8">
-                <p className="text-red-600">Failed to load batches. Please try again.</p>
+                <p className="text-red-600">{t("farmer.farms.modal.errorBatches")}</p>
               </div>
             ) : modalBatches.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-muted-foreground">No {batchFilter} batches found for this farm.</p>
+                <p className="text-muted-foreground">{t("farmer.farms.modal.noBatches", {
+                  status: batchFilter === "active" ? t("farmer.farms.status.active") : t("farmer.farms.status.closed")
+                })}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -332,10 +339,14 @@ export default function FarmsPage() {
                           {batch.status}
                         </span>
                       </div>
-                      <p className="text-sm text-muted-foreground">Started <DateDisplay date={batch.startDate} format="short" /> • Age {calculateBatchAge(batch.startDate)} days • Current {batch.currentChicks?.toLocaleString?.() || "N/A"}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {t("farmer.farms.modal.started")} <DateDisplay date={batch.startDate} format="short" /> •{" "}
+                        {t("farmer.farms.modal.age")} {calculateBatchAge(batch.startDate)} {t("farmer.farms.modal.days")} •{" "}
+                        {t("farmer.farms.modal.current")} {batch.currentChicks?.toLocaleString?.() || t("common.notAvailable")}
+                      </p>
                     </div>
                     <Button variant="outline" asChild onClick={(e) => e.stopPropagation()}>
-                      <Link href={`/farmer/dashboard/batches/${batch.id}`}>View</Link>
+                      <Link href={`/farmer/dashboard/batches/${batch.id}`}>{t("farmer.farms.modal.view")}</Link>
                     </Button>
                   </div>
                 ))}
@@ -348,7 +359,7 @@ export default function FarmsPage() {
             variant="outline"
             onClick={() => setIsBatchesModalOpen(false)}
           >
-            Close
+            {t("farmer.farms.modal.close")}
           </Button>
         </ModalFooter>
       </Modal>

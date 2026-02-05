@@ -26,9 +26,11 @@ import { BatchResponse, BatchStatus } from "@myapp/shared-types";
 import { useInventoryByType } from "@/fetchers/inventory/inventoryQueries";
 import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function BatchesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { t } = useI18n();
 
 
   // Fetch batches data
@@ -156,7 +158,7 @@ export default function BatchesPage() {
       : [];
 
     if (builtAllocations.length === 0) {
-      toast.error("Please select chicks inventory and quantity");
+      toast.error(t("farmer.batches.toasts.selectChicks"));
       return;
     }
 
@@ -173,7 +175,7 @@ export default function BatchesPage() {
         chicksInventory: builtAllocations,
       });
 
-      toast.success("Batch created successfully!");
+      toast.success(t("farmer.batches.toasts.created"));
       setIsModalOpen(false);
       setFormData({
         batchNumber: "",
@@ -214,9 +216,9 @@ export default function BatchesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Batches</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t("farmer.batches.title")}</h1>
           <p className="text-muted-foreground">
-            Track your production batches and performance.
+            {t("farmer.batches.subtitle")}
           </p>
         </div>
         <Button
@@ -225,7 +227,7 @@ export default function BatchesPage() {
           disabled={farmsLoading}
         >
           <Plus className="mr-2 h-4 w-4" />
-          New Batch
+          {t("farmer.batches.newBatch")}
         </Button>
       </div>
 
@@ -233,7 +235,7 @@ export default function BatchesPage() {
       {batchesLoading && (
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin" />
-          <span className="ml-2">Loading batches...</span>
+          <span className="ml-2">{t("farmer.batches.loading")}</span>
         </div>
       )}
 
@@ -241,7 +243,7 @@ export default function BatchesPage() {
       {batchesError && (
         <div className="text-center py-8">
           <p className="text-red-600">
-            Failed to load batches. Please try again.
+            {t("farmer.batches.error")}
           </p>
         </div>
       )}
@@ -255,7 +257,7 @@ export default function BatchesPage() {
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium group-hover:text-primary-foreground">
-                Active Batches
+                {t("farmer.batches.stats.active")}
               </CardTitle>
               <Layers className="h-4 w-4 text-muted-foreground group-hover:text-primary-foreground" />
             </CardHeader>
@@ -264,14 +266,14 @@ export default function BatchesPage() {
                 {activeBatches.length}
               </div>
               <p className="text-xs text-muted-foreground group-hover:text-primary-foreground">
-                Currently running
+                {t("farmer.batches.stats.running")}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Birds</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("farmer.batches.stats.totalBirds")}</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -281,7 +283,7 @@ export default function BatchesPage() {
                   .toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">
-                Across all batches
+                {t("farmer.batches.stats.acrossAll")}
               </p>
             </CardContent>
           </Card>
@@ -289,7 +291,7 @@ export default function BatchesPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Current Birds
+                {t("farmer.batches.stats.currentBirds")}
               </CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
@@ -299,7 +301,7 @@ export default function BatchesPage() {
                   .reduce((sum, b: BatchResponse) => sum + b.currentChicks, 0)
                   .toLocaleString()}
               </div>
-              <p className="text-xs text-muted-foreground">Currently alive</p>
+              <p className="text-xs text-muted-foreground">{t("farmer.batches.stats.currentlyAlive")}</p>
             </CardContent>
           </Card>
 
@@ -309,7 +311,7 @@ export default function BatchesPage() {
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium group-hover:text-primary-foreground">
-                Closed Batches
+                {t("farmer.batches.stats.closed")}
               </CardTitle>
               <Layers className="h-4 w-4 text-muted-foreground group-hover:text-primary-foreground" />
             </CardHeader>
@@ -318,7 +320,7 @@ export default function BatchesPage() {
                 {closedBatches.length}
               </div>
               <p className="text-xs text-muted-foreground group-hover:text-primary-foreground">
-                Till now
+                {t("farmer.batches.stats.tillNow")}
               </p>
             </CardContent>
           </Card>
@@ -335,10 +337,10 @@ export default function BatchesPage() {
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <div className="text-sm font-semibold text-orange-900">
-                      Some batches appear finished
+                      {t("farmer.batches.finishedNoticeTitle")}
                     </div>
                     <div className="text-sm text-orange-800">
-                      One or more active batches have 0 current birds. Consider closing them to finalize records.
+                      {t("farmer.batches.finishedNoticeBody")}
                     </div>
                   </div>
                 </div>
@@ -348,13 +350,11 @@ export default function BatchesPage() {
           {batches.length === 0 ? (
             <div className="text-center py-8">
               <Layers className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No batches found</h3>
-              <p className="text-muted-foreground mb-4">
-                Get started by creating your first batch.
-              </p>
+              <h3 className="text-lg font-semibold mb-2">{t("farmer.batches.emptyTitle")}</h3>
+              <p className="text-muted-foreground mb-4">{t("farmer.batches.emptyHelp")}</p>
               <Button onClick={() => setIsModalOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
-                Create Batch
+                {t("farmer.batches.createBatch")}
               </Button>
             </div>
           ) : (
@@ -380,7 +380,7 @@ export default function BatchesPage() {
                       </Badge>
                     </CardTitle>
                     <CardDescription>
-                      {b.farm.name} • Started:{" "}
+                      {b.farm.name} • {t("farmer.batches.list.started")}{" "}
                       <DateDisplay date={b.startDate} format="short" />
                     </CardDescription>
                   </CardHeader>
@@ -388,7 +388,7 @@ export default function BatchesPage() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <span className="text-muted-foreground">
-                          Initial Birds:
+                          {t("farmer.batches.list.initialBirds")}
                         </span>
                         <p className="font-medium">
                           {b.initialChicks.toLocaleString()}
@@ -396,25 +396,25 @@ export default function BatchesPage() {
                       </div>
                       <div>
                         <span className="text-muted-foreground">
-                          Current Birds:
+                          {t("farmer.batches.list.currentBirds")}
                         </span>
                         <p className="font-medium">
                           {b.currentChicks.toLocaleString()}
                         </p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Age:</span>
+                        <span className="text-muted-foreground">{t("farmer.batches.list.age")}</span>
                         <p className="font-medium">
                           {Math.floor(
                             (new Date().getTime() -
                               new Date(b.startDate).getTime()) /
                               (1000 * 60 * 60 * 24)
                           )}{" "}
-                          days
+                          {t("farmer.batches.list.days")}
                         </p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Status:</span>
+                        <span className="text-muted-foreground">{t("farmer.batches.list.status")}</span>
                         <p
                           className={`font-medium ${b.status === "ACTIVE" ? "text-green-600" : "text-gray-600"}`}
                         >
@@ -434,13 +434,13 @@ export default function BatchesPage() {
       <Modal
         isOpen={isModalOpen}
         onClose={handleClose}
-        title="Create New Batch"
+        title={t("farmer.batches.modal.createTitle")}
       >
         <form onSubmit={handleSubmit}>
           <ModalContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="batchNumber">Batch Name</Label>
+                <Label htmlFor="batchNumber">{t("farmer.batches.modal.batchName")}</Label>
                 <div className="relative">
                   <Input
                     id="batchNumber"
@@ -448,19 +448,19 @@ export default function BatchesPage() {
                     value={formData.batchNumber}
                     readOnly
                     aria-readonly
-                    title="Auto-generated from Start Date and Farm"
+                    title={t("farmer.batches.modal.batchNameAuto")}
                     className="bg-muted cursor-not-allowed"
                   />
                   <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
-                    Auto
+                    {t("farmer.batches.modal.auto")}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Auto-generated from Start Date and Farm
+                  {t("farmer.batches.modal.batchNameAuto")}
                 </p>
               </div>
               <div>
-                <Label htmlFor="farmId">Farm</Label>
+                <Label htmlFor="farmId">{t("farmer.batches.modal.farm")}</Label>
                 <select
                   id="farmId"
                   name="farmId"
@@ -469,7 +469,7 @@ export default function BatchesPage() {
                   className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                   required
                 >
-                  <option value="">Select a farm</option>
+                  <option value="">{t("farmer.batches.modal.selectFarm")}</option>
                   {farms.map((farm) => (
                     <option key={farm.id} value={farm.id}>
                       {farm.name}
@@ -479,7 +479,7 @@ export default function BatchesPage() {
               </div>
               <div>
                 <DateInput
-                  label="Start Date"
+                  label={t("farmer.batches.modal.startDate")}
                   value={formData.startDate}
                   onChange={(value) => setFormData(prev => ({ ...prev, startDate: value }))}
                 />
@@ -487,14 +487,14 @@ export default function BatchesPage() {
               {/* Chicks Inventory Selection */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Chicks Inventory</Label>
+                  <Label>{t("farmer.batches.modal.chicksInventory")}</Label>
                   <label className="flex items-center space-x-2 text-sm">
                     <input
                       type="checkbox"
                       checked={multiSource}
                       onChange={(e) => setMultiSource(e.target.checked)}
                     />
-                    <span>Allocate from multiple items</span>
+                    <span>{t("farmer.batches.modal.multiAlloc")}</span>
                   </label>
                 </div>
 
@@ -502,14 +502,14 @@ export default function BatchesPage() {
                 {!multiSource && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <Label htmlFor="singleItem">Select Chicks Item</Label>
+                      <Label htmlFor="singleItem">{t("farmer.batches.modal.selectChicksItem")}</Label>
                       <select
                         id="singleItem"
                         className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                         value={singleAlloc.itemId}
                         onChange={(e) => setSingleAlloc((p) => ({ ...p, itemId: e.target.value }))}
                       >
-                        <option value="">Select an item</option>
+                        <option value="">{t("farmer.batches.modal.selectItem")}</option>
                         {(chicksInventory.items || []).map((it: any) => (
                           <option key={it.id} value={it.id}>
                             {it.name} (Stock: {Number(it.currentStock)})
@@ -518,7 +518,7 @@ export default function BatchesPage() {
                       </select>
                     </div>
                     <div>
-                      <Label htmlFor="singleQty">Quantity</Label>
+                      <Label htmlFor="singleQty">{t("farmer.batches.modal.quantity")}</Label>
                       <Input
                         id="singleQty"
                         type="number"
@@ -536,7 +536,7 @@ export default function BatchesPage() {
                     {allocations.map((row, idx) => (
                       <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
                         <div className="md:col-span-6">
-                          <Label>Select Chicks Item</Label>
+                          <Label>{t("farmer.batches.modal.selectChicksItem")}</Label>
                           <select
                             className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                             value={row.itemId}
@@ -545,7 +545,7 @@ export default function BatchesPage() {
                               setAllocations((prev) => prev.map((r, i) => (i === idx ? { ...r, itemId: v } : r)));
                             }}
                           >
-                            <option value="">Select an item</option>
+                            <option value="">{t("farmer.batches.modal.selectItem")}</option>
                             {(chicksInventory.items || []).map((it: any) => (
                               <option key={it.id} value={it.id}>
                                 {it.name} (Stock: {Number(it.currentStock)})
@@ -554,7 +554,7 @@ export default function BatchesPage() {
                           </select>
                         </div>
                         <div className="md:col-span-3">
-                          <Label>Quantity</Label>
+                          <Label>{t("farmer.batches.modal.quantity")}</Label>
                           <Input
                             type="number"
                             min={1}
@@ -566,9 +566,9 @@ export default function BatchesPage() {
                           />
                         </div>
                         <div className="md:col-span-2">
-                          <Label>Notes</Label>
+                          <Label>{t("farmer.batches.modal.notes")}</Label>
                           <Input
-                            placeholder="Optional"
+                            placeholder={t("common.optional")}
                             value={row.notes || ""}
                             onChange={(e) => {
                               const v = e.target.value;
@@ -582,7 +582,7 @@ export default function BatchesPage() {
                             variant="outline"
                             onClick={() => setAllocations((prev) => prev.filter((_, i) => i !== idx))}
                           >
-                            Remove
+                            {t("farmer.batches.modal.remove")}
                           </Button>
                         </div>
                       </div>
@@ -593,7 +593,7 @@ export default function BatchesPage() {
                         variant="secondary"
                         onClick={() => setAllocations((prev) => [...prev, { itemId: "", quantity: "" }])}
                       >
-                        Add Item
+                        {t("farmer.batches.modal.addItem")}
                       </Button>
                     </div>
                   </div>
@@ -602,7 +602,7 @@ export default function BatchesPage() {
 
               {/* Computed total chicks */}
               <div>
-                <Label>Total Chicks</Label>
+                <Label>{t("farmer.batches.modal.totalChicks")}</Label>
                 <Input
                   readOnly
                   value={(() => {
@@ -616,7 +616,7 @@ export default function BatchesPage() {
               </div>
               <div>
                 <Label htmlFor="initialChickWeight">
-                  Initial Chick Weight (kg)
+                  {t("farmer.batches.modal.initialWeight")}
                 </Label>
                 <Input
                   id="initialChickWeight"
@@ -629,7 +629,7 @@ export default function BatchesPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="notes">Notes (optional)</Label>
+                <Label htmlFor="notes">{t("farmer.batches.modal.notesOptional")}</Label>
                 <textarea
                   id="notes"
                   name="notes"
@@ -643,7 +643,7 @@ export default function BatchesPage() {
           </ModalContent>
           <ModalFooter>
             <Button type="button" variant="outline" onClick={handleClose}>
-              Cancel
+              {t("farmer.batches.modal.cancel")}
             </Button>
             <Button
               type="submit"
@@ -653,10 +653,10 @@ export default function BatchesPage() {
               {createBatchMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
+                  {t("farmer.batches.modal.creating")}
                 </>
               ) : (
-                "Create Batch"
+                t("farmer.batches.createBatch")
               )}
             </Button>
           </ModalFooter>
@@ -667,7 +667,12 @@ export default function BatchesPage() {
       <Modal
         isOpen={isCountModalOpen}
         onClose={() => setIsCountModalOpen(false)}
-        title={`${countFilter} Batches`}
+        title={t("farmer.batches.modal.countTitle", {
+          status:
+            countFilter === "Active"
+              ? t("farmer.batches.counts.active")
+              : t("farmer.batches.counts.closed"),
+        })}
       >
         <ModalContent>
           <div className="space-y-3">
@@ -703,14 +708,19 @@ export default function BatchesPage() {
             {(countFilter === "Active" ? activeBatches : closedBatches)
               .length === 0 && (
               <p className="text-sm text-muted-foreground">
-                No {countFilter.toLowerCase()} batches.
+                {t("farmer.batches.modal.none", {
+                  status:
+                    countFilter === "Active"
+                      ? t("farmer.batches.counts.active").toLowerCase()
+                      : t("farmer.batches.counts.closed").toLowerCase(),
+                })}
               </p>
             )}
           </div>
         </ModalContent>
         <ModalFooter>
           <Button variant="outline" onClick={() => setIsCountModalOpen(false)}>
-            Close
+            {t("farmer.batches.modal.close")}
           </Button>
         </ModalFooter>
       </Modal>
