@@ -1,13 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CreateInventoryUsageSchema = exports.InventoryUsageSchema = exports.CreateInventoryTransactionSchema = exports.InventoryTransactionSchema = exports.UpdateInventoryItemSchema = exports.CreateInventoryItemSchema = exports.InventoryItemSchema = exports.InventoryItemTypeSchema = exports.CreateSalePaymentSchema = exports.SalePaymentSchema = exports.UpdateSaleSchema = exports.CreateSaleSchema = exports.SaleSchema = exports.SalesItemTypeSchema = exports.UpdateExpenseSchema = exports.CreateExpenseSchema = exports.ExpenseSchema = exports.UpdateCategorySchema = exports.CreateCategorySchema = exports.CategorySchema = exports.BatchSummarySchema = exports.CloseBatchSchema = exports.UpdateBatchSchema = exports.CreateBatchSchema = exports.BatchResponseSchema = exports.BatchCountSchema = exports.BatchFarmSchema = exports.BatchSchema = exports.UpdateFarmSchema = exports.CreateFarmSchema = exports.FarmResponseSchema = exports.FarmCountSchema = exports.FarmManagerSchema = exports.FarmOwnerSchema = exports.FarmSchema = exports.UpdateUserSchema = exports.CreateUserSchema = exports.UserSchema = exports.BaseSchema = exports.RecurrencePatternSchema = exports.ReminderStatusSchema = exports.ReminderTypeSchema = exports.CategoryTypeSchema = exports.AuditActionSchema = exports.VaccinationStatusSchema = exports.NotificationStatusSchema = exports.NotificationTypeSchema = exports.TransactionTypeSchema = exports.BatchStatusSchema = exports.UserRoleSchema = void 0;
-exports.FarmDetailResponseSchema = exports.FarmListResponseSchema = exports.AuthResponseSchema = exports.UserResponseSchema = exports.FarmAnalyticsSchema = exports.BatchAnalyticsSchema = exports.SignupSchema = exports.CalendarTypeSchema = exports.LanguageSchema = exports.LoginSchema = exports.CreateAuditLogSchema = exports.AuditLogSchema = exports.UpdateReminderSchema = exports.CreateReminderSchema = exports.ReminderSchema = exports.UpdateNotificationSchema = exports.CreateNotificationSchema = exports.NotificationSchema = exports.UpdateBirdWeightSchema = exports.CreateBirdWeightSchema = exports.BirdWeightSchema = exports.UpdateFeedConsumptionSchema = exports.CreateFeedConsumptionSchema = exports.FeedConsumptionSchema = exports.UpdateVaccinationSchema = exports.CreateVaccinationSchema = exports.VaccinationSchema = exports.UpdateMortalitySchema = exports.CreateMortalitySchema = exports.MortalitySchema = exports.CreateCustomerTransactionSchema = exports.CustomerTransactionSchema = exports.UpdateCustomerSchema = exports.CreateCustomerSchema = exports.CustomerSchema = exports.UpdateMedicineSupplierSchema = exports.CreateMedicineSupplierSchema = exports.MedicineSupplierSchema = exports.UpdateHatcherySchema = exports.CreateHatcherySchema = exports.HatcherySchema = exports.DealerDetailResponseSchema = exports.DealerStatisticsSchema = exports.DealerResponseSchema = exports.DealerTransactionSchema = exports.UpdateDealerSchema = exports.CreateDealerSchema = exports.DealerSchema = exports.CreateEntityTransactionSchema = exports.EntityTransactionSchema = void 0;
-exports.PaginatedResponseSchema = exports.ApiResponseSchema = exports.schemas = exports.BatchDetailResponseSchema = exports.BatchListResponseSchema = void 0;
+exports.InventoryItemSchema = exports.InventoryItemTypeSchema = exports.CreateSalePaymentSchema = exports.SalePaymentSchema = exports.UpdateSaleSchema = exports.CreateSaleSchema = exports.SaleSchema = exports.SalesItemTypeSchema = exports.UpdateExpenseSchema = exports.CreateExpenseSchema = exports.ExpenseSchema = exports.UpdateCategorySchema = exports.CreateCategorySchema = exports.CategorySchema = exports.BatchSummarySchema = exports.EggInventoryResponseSchema = exports.EggProductionSchema = exports.UpdateEggProductionSchema = exports.CreateEggProductionSchema = exports.EggCategorySchema = exports.CloseBatchSchema = exports.UpdateBatchSchema = exports.CreateBatchSchema = exports.BatchResponseSchema = exports.BatchCountSchema = exports.BatchFarmSchema = exports.BatchSchema = exports.UpdateFarmSchema = exports.CreateFarmSchema = exports.FarmResponseSchema = exports.FarmCountSchema = exports.FarmManagerSchema = exports.FarmOwnerSchema = exports.FarmSchema = exports.UpdateUserSchema = exports.CreateUserSchema = exports.UserSchema = exports.BaseSchema = exports.RecurrencePatternSchema = exports.ReminderStatusSchema = exports.ReminderTypeSchema = exports.CategoryTypeSchema = exports.AuditActionSchema = exports.VaccinationStatusSchema = exports.NotificationStatusSchema = exports.NotificationTypeSchema = exports.TransactionTypeSchema = exports.BatchTypeSchema = exports.BatchStatusSchema = exports.UserRoleSchema = void 0;
+exports.SignupSchema = exports.CalendarTypeSchema = exports.LanguageSchema = exports.LoginSchema = exports.CreateAuditLogSchema = exports.AuditLogSchema = exports.UpdateReminderSchema = exports.CreateReminderSchema = exports.ReminderSchema = exports.UpdateNotificationSchema = exports.CreateNotificationSchema = exports.NotificationSchema = exports.UpdateBirdWeightSchema = exports.CreateBirdWeightSchema = exports.BirdWeightSchema = exports.UpdateFeedConsumptionSchema = exports.CreateFeedConsumptionSchema = exports.FeedConsumptionSchema = exports.UpdateVaccinationSchema = exports.CreateVaccinationSchema = exports.VaccinationSchema = exports.UpdateMortalitySchema = exports.CreateMortalitySchema = exports.MortalitySchema = exports.CreateCustomerTransactionSchema = exports.CustomerTransactionSchema = exports.UpdateCustomerSchema = exports.CreateCustomerSchema = exports.CustomerSchema = exports.UpdateMedicineSupplierSchema = exports.CreateMedicineSupplierSchema = exports.MedicineSupplierSchema = exports.UpdateHatcherySchema = exports.CreateHatcherySchema = exports.HatcherySchema = exports.DealerDetailResponseSchema = exports.DealerStatisticsSchema = exports.DealerResponseSchema = exports.DealerTransactionSchema = exports.UpdateDealerSchema = exports.CreateDealerSchema = exports.DealerSchema = exports.CreateEntityTransactionSchema = exports.EntityTransactionSchema = exports.CreateInventoryUsageSchema = exports.InventoryUsageSchema = exports.CreateInventoryTransactionSchema = exports.InventoryTransactionSchema = exports.UpdateInventoryItemSchema = exports.CreateInventoryItemSchema = void 0;
+exports.PaginatedResponseSchema = exports.ApiResponseSchema = exports.schemas = exports.BatchDetailResponseSchema = exports.BatchListResponseSchema = exports.FarmDetailResponseSchema = exports.FarmListResponseSchema = exports.AuthResponseSchema = exports.UserResponseSchema = exports.FarmAnalyticsSchema = exports.BatchAnalyticsSchema = void 0;
 // packages/shared-types/index.ts
 const zod_1 = require("zod");
 // ==================== ENUMS ====================
 exports.UserRoleSchema = zod_1.z.enum(["OWNER", "MANAGER", "DEALER", "COMPANY", "SUPER_ADMIN"]);
 exports.BatchStatusSchema = zod_1.z.enum(["ACTIVE", "COMPLETED"]);
+exports.BatchTypeSchema = zod_1.z.enum(["BROILER", "LAYERS"]);
 exports.TransactionTypeSchema = zod_1.z.enum([
     "PURCHASE",
     "SALE",
@@ -167,6 +168,7 @@ exports.BatchSchema = exports.BaseSchema.extend({
     startDate: zod_1.z.date(),
     endDate: zod_1.z.date().nullable(),
     status: exports.BatchStatusSchema,
+    batchType: exports.BatchTypeSchema,
     initialChicks: zod_1.z.number().int().positive(),
     initialChickWeight: zod_1.z.number().positive(),
     farmId: zod_1.z.string(),
@@ -197,6 +199,7 @@ exports.BatchResponseSchema = exports.BaseSchema.extend({
     startDate: zod_1.z.date(),
     endDate: zod_1.z.date().nullable(),
     status: exports.BatchStatusSchema,
+    batchType: exports.BatchTypeSchema,
     initialChicks: zod_1.z.number().int().positive(),
     initialChickWeight: zod_1.z.number().positive(),
     farmId: zod_1.z.string(),
@@ -243,6 +246,7 @@ exports.CreateBatchSchema = zod_1.z.object({
     startDate: zod_1.z.string().datetime(),
     endDate: zod_1.z.string().datetime().optional(),
     status: exports.BatchStatusSchema.optional().default("ACTIVE"),
+    batchType: exports.BatchTypeSchema,
     // initialChicks will be derived from chicksInventory.quantity
     initialChicks: zod_1.z.number().int().positive().optional(),
     initialChickWeight: zod_1.z.number().positive().optional().default(0.045),
@@ -259,6 +263,7 @@ exports.UpdateBatchSchema = zod_1.z.object({
     startDate: zod_1.z.string().datetime().optional(),
     endDate: zod_1.z.string().datetime().nullable().optional(),
     status: exports.BatchStatusSchema.optional(),
+    batchType: exports.BatchTypeSchema.optional(),
     initialChicks: zod_1.z.number().int().positive().optional(),
     initialChickWeight: zod_1.z.number().positive().optional(),
     farmId: zod_1.z.string().optional(),
@@ -266,6 +271,32 @@ exports.UpdateBatchSchema = zod_1.z.object({
 exports.CloseBatchSchema = zod_1.z.object({
     endDate: zod_1.z.string().datetime().optional(),
     finalNotes: zod_1.z.string().optional(),
+});
+// ==================== EGG SCHEMAS (LAYERS) ====================
+exports.EggCategorySchema = zod_1.z.enum(["LARGE", "MEDIUM", "SMALL"]);
+exports.CreateEggProductionSchema = zod_1.z.object({
+    date: zod_1.z.string().datetime(),
+    largeCount: zod_1.z.number().int().min(0).default(0),
+    mediumCount: zod_1.z.number().int().min(0).default(0),
+    smallCount: zod_1.z.number().int().min(0).default(0),
+});
+exports.UpdateEggProductionSchema = zod_1.z.object({
+    date: zod_1.z.string().datetime().optional(),
+    largeCount: zod_1.z.number().int().min(0).optional(),
+    mediumCount: zod_1.z.number().int().min(0).optional(),
+    smallCount: zod_1.z.number().int().min(0).optional(),
+});
+exports.EggProductionSchema = exports.BaseSchema.extend({
+    batchId: zod_1.z.string(),
+    date: zod_1.z.date(),
+    largeCount: zod_1.z.number().int().min(0),
+    mediumCount: zod_1.z.number().int().min(0),
+    smallCount: zod_1.z.number().int().min(0),
+});
+exports.EggInventoryResponseSchema = zod_1.z.object({
+    LARGE: zod_1.z.number().int().min(0),
+    MEDIUM: zod_1.z.number().int().min(0),
+    SMALL: zod_1.z.number().int().min(0),
 });
 exports.BatchSummarySchema = zod_1.z.object({
     initialChicks: zod_1.z.number(),
@@ -360,7 +391,8 @@ exports.SaleSchema = exports.BaseSchema.extend({
     itemType: exports.SalesItemTypeSchema,
     categoryId: zod_1.z.string().nullable(),
 });
-exports.CreateSaleSchema = zod_1.z.object({
+exports.CreateSaleSchema = zod_1.z
+    .object({
     date: zod_1.z.string().datetime(),
     amount: zod_1.z.number().positive(),
     quantity: zod_1.z.number().positive(),
@@ -373,6 +405,7 @@ exports.CreateSaleSchema = zod_1.z.object({
     batchId: zod_1.z.string().optional(),
     customerId: zod_1.z.string().optional(),
     itemType: exports.SalesItemTypeSchema.optional(),
+    eggCategory: exports.EggCategorySchema.optional(),
     categoryId: zod_1.z.string().optional(),
     customerData: zod_1.z.object({
         name: zod_1.z.string(),
@@ -380,7 +413,13 @@ exports.CreateSaleSchema = zod_1.z.object({
         category: zod_1.z.string().optional(),
         address: zod_1.z.string().optional(),
     }).optional(),
-});
+})
+    .refine((data) => {
+    if (data.itemType === "EGGS") {
+        return data.eggCategory != null && ["LARGE", "MEDIUM", "SMALL"].includes(data.eggCategory);
+    }
+    return true;
+}, { message: "eggCategory (LARGE, MEDIUM, or SMALL) is required when itemType is EGGS", path: ["eggCategory"] });
 exports.UpdateSaleSchema = zod_1.z.object({
     date: zod_1.z.string().datetime().optional(),
     amount: zod_1.z.number().positive().optional(),
@@ -926,6 +965,7 @@ exports.schemas = {
     // Enums
     UserRole: exports.UserRoleSchema,
     BatchStatus: exports.BatchStatusSchema,
+    BatchType: exports.BatchTypeSchema,
     TransactionType: exports.TransactionTypeSchema,
     NotificationType: exports.NotificationTypeSchema,
     NotificationStatus: exports.NotificationStatusSchema,
@@ -1061,5 +1101,4 @@ const PaginatedResponseSchema = (itemSchema) => zod_1.z.object({
     message: zod_1.z.string().optional(),
 });
 exports.PaginatedResponseSchema = PaginatedResponseSchema;
-// ==================== FARM API RESPONSE SCHEMAS ====================
 // ==================== USER RESPONSE SCHEMAS ====================

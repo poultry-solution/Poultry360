@@ -136,6 +136,7 @@ export default function FarmDetailPage() {
   // Batch form data
   const [batchForm, setBatchForm] = useState({
     batchNumber: "",
+    batchType: "BROILER" as "BROILER" | "LAYERS",
     startDate: getTodayLocalDate(),
     initialChickWeight: "0.045",
     notes: "",
@@ -181,7 +182,7 @@ export default function FarmDetailPage() {
   }, [isBatchModalOpen, batchForm.startDate, farm?.name]);
 
   function handleBatchChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
     const { name, value } = e.target;
     setBatchForm((p) => {
@@ -227,6 +228,7 @@ export default function FarmDetailPage() {
         batchNumber:
           batchForm.batchNumber ||
           `B-${new Date().getFullYear()}-${String(batches.length + 1).padStart(3, "0")}`,
+        batchType: batchForm.batchType,
         farmId,
         startDate: startDateIso,
         initialChickWeight: parseFloat(batchForm.initialChickWeight),
@@ -238,6 +240,7 @@ export default function FarmDetailPage() {
       setIsBatchModalOpen(false);
       setBatchForm({
         batchNumber: "",
+        batchType: "BROILER",
         startDate: getTodayLocalDate(),
         initialChickWeight: "0.045",
         notes: "",
@@ -534,6 +537,9 @@ export default function FarmDetailPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="text-lg font-semibold">{batch.batchNumber}</h3>
+                          <Badge variant="outline" className="font-normal">
+                            {(batch as any).batchType === "LAYERS" ? "Layers" : "Broiler"}
+                          </Badge>
                           <Badge
                             variant={batch.status === "ACTIVE" ? "default" : "secondary"}
                             className={
@@ -738,10 +744,25 @@ export default function FarmDetailPage() {
                 </p>
               </div>
               <div>
+                <Label htmlFor="batchType">Batch Type</Label>
+                <select
+                  id="batchType"
+                  name="batchType"
+                  value={batchForm.batchType}
+                  onChange={handleBatchChange}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                  required
+                >
+                  <option value="BROILER">Broiler</option>
+                  <option value="LAYERS">Layers</option>
+                </select>
+              </div>
+              <div>
                 <DateInput
                   label="Start Date"
                   value={batchForm.startDate}
                   onChange={(value) => setBatchForm(prev => ({ ...prev, startDate: value }))}
+                  preferNativeInput
                 />
               </div>
               

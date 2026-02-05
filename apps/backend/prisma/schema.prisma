@@ -256,6 +256,9 @@ model User {
   // Inventory
   inventoryItems InventoryItem[]
 
+  // Egg inventory (Layers: by category)
+  eggInventories EggInventory[]
+
   // Chat relationships
   farmerConversations Conversation[] @relation("FarmerConversations")
   doctorConversations Conversation[] @relation("DoctorConversations")
@@ -354,12 +357,18 @@ model Farm {
   updatedAt DateTime @updatedAt
 }
 
+enum BatchType {
+  BROILER
+  LAYERS
+}
+
 model Batch {
   id            String      @id @default(cuid())
   batchNumber   String
   startDate     DateTime
   endDate       DateTime?
   status        BatchStatus @default(ACTIVE)
+  batchType     BatchType   @default(BROILER)
   initialChicks Int
   notes         String?
 
@@ -386,11 +395,52 @@ model Batch {
   // Shares referencing this batch
   batchShares BatchShare[]
 
+  // Layers: daily egg production (one record per batch per day)
+  eggProductions EggProduction[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([farmId, batchNumber])
   @@index([farmId, startDate])
+}
+
+// ==================== EGG MODELS (LAYERS) ====================
+
+enum EggCategory {
+  LARGE
+  MEDIUM
+  SMALL
+}
+
+model EggProduction {
+  id          String   @id @default(cuid())
+  batchId     String
+  batch       Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date        DateTime
+  largeCount  Int      @default(0)
+  mediumCount Int      @default(0)
+  smallCount  Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([batchId, date])
+  @@index([batchId, date])
+}
+
+model EggInventory {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eggCategory EggCategory
+  quantity    Int         @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, eggCategory])
+  @@index([userId])
 }
 
 // ==================== UNIFIED CATEGORY MODEL ====================
@@ -506,6 +556,7 @@ model Sale {
   description String?
 
   itemType    SalesItemType @default(Chicken_Meat)
+  eggCategory EggCategory?  // For EGGS sales: LARGE, MEDIUM, SMALL
   // Credit tracking (simplified)
   isCredit    Boolean       @default(false)
   paidAmount  Decimal       @default(0) @db.Decimal(10, 2)

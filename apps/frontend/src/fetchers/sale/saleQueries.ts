@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
-import { CreateSale, UpdateSale, CategoryType } from "@myapp/shared-types";
+import { CreateSale, UpdateSale, CategoryType, EggInventoryResponse } from "@myapp/shared-types";
 import { weightKeys } from "@/fetchers/weight/weightQueries";
 
 // ==================== QUERY KEYS ====================
@@ -17,9 +17,22 @@ export const saleQueryKeys = {
     [...saleQueryKeys.all, "statistics", params] as const,
   categories: (type?: CategoryType) =>
     [...saleQueryKeys.all, "categories", type] as const,
+  eggInventory: () => [...saleQueryKeys.all, "egg-inventory"] as const,
 };
 
 // ==================== QUERY HOOKS ====================
+
+// Get current user's egg inventory (LARGE, MEDIUM, SMALL)
+export const useGetEggInventory = (options?: { enabled?: boolean }) => {
+  return useQuery<{ success: boolean; data: EggInventoryResponse }>({
+    queryKey: saleQueryKeys.eggInventory(),
+    queryFn: async () => {
+      const response = await axiosInstance.get("/egg-inventory");
+      return response.data;
+    },
+    enabled: options?.enabled !== false,
+  });
+};
 
 // Get all sales with filtering
 export const useGetSales = (

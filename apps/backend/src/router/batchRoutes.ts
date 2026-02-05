@@ -11,6 +11,12 @@ import {
   getBatchAnalytics,
   getBatchClosureSummary,
 } from "../controller/batchController";
+import {
+  getEggProductionByBatch,
+  createEggProduction,
+  updateEggProduction,
+  deleteEggProduction,
+} from "../controller/eggProductionController";
 import { authMiddleware } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
 
@@ -37,6 +43,12 @@ batchRouter.get("/:id/analytics", getBatchAnalytics);
 
 // Get batch closure summary (for completed batches)
 batchRouter.get("/:id/closure-summary", getBatchClosureSummary);
+
+// Egg production (Layers batches only)
+batchRouter.get("/:id/egg-production", getEggProductionByBatch);
+batchRouter.post("/:id/egg-production", createEggProduction);
+batchRouter.put("/:id/egg-production/:recordId", updateEggProduction);
+batchRouter.delete("/:id/egg-production/:recordId", deleteEggProduction);
 
 // Create batch
 batchRouter.post("/", createBatch);

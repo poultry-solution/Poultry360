@@ -8,7 +8,10 @@ import {
   BatchStatus,
   BatchResponse,
   BatchListResponse,
-  BatchDetailResponse
+  BatchDetailResponse,
+  CreateEggProduction,
+  UpdateEggProduction,
+  EggProductionRecord,
 } from "@myapp/shared-types";
 import axiosInstance from "@/common/lib/axios";
 
@@ -21,6 +24,7 @@ export const batchKeys = {
   detail: (id: string) => [...batchKeys.details(), id] as const,
   farmBatches: (farmId: string) => [...batchKeys.all, "farm", farmId] as const,
   analytics: (id: string) => [...batchKeys.detail(id), "analytics"] as const,
+  eggProduction: (batchId: string) => [...batchKeys.detail(batchId), "egg-production"] as const,
 };
 
 // ==================== QUERY HOOKS ====================
@@ -84,6 +88,64 @@ export const useGetBatchAnalytics = (id: string, options?: { enabled?: boolean }
       return response.data;
     },
     enabled: (options?.enabled !== false) && !!id,
+  });
+};
+
+// Egg production (Layers batches only)
+export const useGetEggProductionByBatch = (
+  batchId: string,
+  params?: { startDate?: string; endDate?: string },
+  options?: { enabled?: boolean }
+) => {
+  return useQuery<{ success: boolean; data: EggProductionRecord[] }>({
+    queryKey: [...batchKeys.eggProduction(batchId), params || {}],
+    queryFn: async () => {
+      const response = await axiosInstance.get(`/batches/${batchId}/egg-production`, { params });
+      return response.data;
+    },
+    enabled: (options?.enabled !== false) && !!batchId,
+  });
+};
+
+export const useCreateEggProduction = (batchId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: CreateEggProduction) => {
+      const response = await axiosInstance.post(`/batches/${batchId}/egg-production`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: batchKeys.eggProduction(batchId) });
+      queryClient.invalidateQueries({ queryKey: batchKeys.detail(batchId) });
+    },
+  });
+};
+
+export const useUpdateEggProduction = (batchId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ recordId, data }: { recordId: string; data: UpdateEggProduction }) => {
+      const response = await axiosInstance.put(`/batches/${batchId}/egg-production/${recordId}`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: batchKeys.eggProduction(batchId) });
+      queryClient.invalidateQueries({ queryKey: batchKeys.detail(batchId) });
+    },
+  });
+};
+
+export const useDeleteEggProduction = (batchId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (recordId: string) => {
+      const response = await axiosInstance.delete(`/batches/${batchId}/egg-production/${recordId}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: batchKeys.eggProduction(batchId) });
+      queryClient.invalidateQueries({ queryKey: batchKeys.detail(batchId) });
+    },
   });
 };
 

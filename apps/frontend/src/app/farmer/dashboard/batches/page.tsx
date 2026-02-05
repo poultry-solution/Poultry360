@@ -50,6 +50,7 @@ export default function BatchesPage() {
 
   const [formData, setFormData] = useState({
     batchNumber: "",
+    batchType: "BROILER" as "BROILER" | "LAYERS",
     farmId: "",
     startDate: getTodayLocalDate(),
     initialChickWeight: "0.045",
@@ -168,6 +169,7 @@ export default function BatchesPage() {
           formData.batchNumber ||
           `B-${new Date().getFullYear()}-${String(batches.length + 1).padStart(3, "0")}`,
 
+        batchType: formData.batchType,
         farmId: formData.farmId,
         startDate: startDate,
         initialChickWeight: parseFloat(formData.initialChickWeight),
@@ -179,6 +181,7 @@ export default function BatchesPage() {
       setIsModalOpen(false);
       setFormData({
         batchNumber: "",
+        batchType: "BROILER",
         farmId: "",
         startDate: "",
         initialChickWeight: "0.045",
@@ -197,6 +200,7 @@ export default function BatchesPage() {
     setIsModalOpen(false);
     setFormData({
       batchNumber: "",
+      batchType: "BROILER",
       farmId: "",
       startDate: getTodayLocalDate(),
       initialChickWeight: "0.045",
@@ -369,16 +373,24 @@ export default function BatchesPage() {
                   <CardHeader className="p-3 md:p-6">
                     <CardTitle className="flex items-center justify-between text-sm md:text-base">
                       <span className="truncate max-w-[180px] md:max-w-none">{b.batchNumber}</span>
-                      <Badge
-                        variant="default"
-                        className={
-                          b.status === "ACTIVE"
-                            ? "bg-green-100 text-green-800 text-[10px] md:text-xs"
-                            : "bg-gray-100 text-gray-800 text-[10px] md:text-xs"
-                        }
-                      >
-                        {b.status}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] md:text-xs font-normal"
+                        >
+                          {(b as any).batchType === "LAYERS" ? t("farmer.batches.modal.layers") : t("farmer.batches.modal.broiler")}
+                        </Badge>
+                        <Badge
+                          variant="default"
+                          className={
+                            b.status === "ACTIVE"
+                              ? "bg-green-100 text-green-800 text-[10px] md:text-xs"
+                              : "bg-gray-100 text-gray-800 text-[10px] md:text-xs"
+                          }
+                        >
+                          {b.status}
+                        </Badge>
+                      </div>
                     </CardTitle>
                     <CardDescription>
                       {b.farm.name} • {t("farmer.batches.list.started")}{" "}
@@ -461,6 +473,20 @@ export default function BatchesPage() {
                 </p>
               </div>
               <div>
+                <Label htmlFor="batchType">{t("farmer.batches.modal.batchType")}</Label>
+                <select
+                  id="batchType"
+                  name="batchType"
+                  value={formData.batchType}
+                  onChange={handleChange}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                  required
+                >
+                  <option value="BROILER">{t("farmer.batches.modal.broiler")}</option>
+                  <option value="LAYERS">{t("farmer.batches.modal.layers")}</option>
+                </select>
+              </div>
+              <div>
                 <Label htmlFor="farmId">{t("farmer.batches.modal.farm")}</Label>
                 <select
                   id="farmId"
@@ -483,6 +509,7 @@ export default function BatchesPage() {
                   label={t("farmer.batches.modal.startDate")}
                   value={formData.startDate}
                   onChange={(value) => setFormData(prev => ({ ...prev, startDate: value }))}
+                  preferNativeInput
                 />
               </div>
               {/* Chicks Inventory Selection */}

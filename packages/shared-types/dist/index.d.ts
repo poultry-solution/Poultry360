@@ -12,6 +12,11 @@ export declare const BatchStatusSchema: z.ZodEnum<{
     COMPLETED: "COMPLETED";
 }>;
 export type BatchStatus = z.infer<typeof BatchStatusSchema>;
+export declare const BatchTypeSchema: z.ZodEnum<{
+    BROILER: "BROILER";
+    LAYERS: "LAYERS";
+}>;
+export type BatchType = z.infer<typeof BatchTypeSchema>;
 export declare const TransactionTypeSchema: z.ZodEnum<{
     PURCHASE: "PURCHASE";
     SALE: "SALE";
@@ -277,6 +282,10 @@ export declare const BatchSchema: z.ZodObject<{
         ACTIVE: "ACTIVE";
         COMPLETED: "COMPLETED";
     }>;
+    batchType: z.ZodEnum<{
+        BROILER: "BROILER";
+        LAYERS: "LAYERS";
+    }>;
     initialChicks: z.ZodNumber;
     initialChickWeight: z.ZodNumber;
     farmId: z.ZodString;
@@ -314,6 +323,10 @@ export declare const BatchResponseSchema: z.ZodObject<{
     status: z.ZodEnum<{
         ACTIVE: "ACTIVE";
         COMPLETED: "COMPLETED";
+    }>;
+    batchType: z.ZodEnum<{
+        BROILER: "BROILER";
+        LAYERS: "LAYERS";
     }>;
     initialChicks: z.ZodNumber;
     initialChickWeight: z.ZodNumber;
@@ -378,6 +391,10 @@ export declare const CreateBatchSchema: z.ZodObject<{
         ACTIVE: "ACTIVE";
         COMPLETED: "COMPLETED";
     }>>>;
+    batchType: z.ZodEnum<{
+        BROILER: "BROILER";
+        LAYERS: "LAYERS";
+    }>;
     initialChicks: z.ZodOptional<z.ZodNumber>;
     initialChickWeight: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
     farmId: z.ZodString;
@@ -396,6 +413,10 @@ export declare const UpdateBatchSchema: z.ZodObject<{
         ACTIVE: "ACTIVE";
         COMPLETED: "COMPLETED";
     }>>;
+    batchType: z.ZodOptional<z.ZodEnum<{
+        BROILER: "BROILER";
+        LAYERS: "LAYERS";
+    }>>;
     initialChicks: z.ZodOptional<z.ZodNumber>;
     initialChickWeight: z.ZodOptional<z.ZodNumber>;
     farmId: z.ZodOptional<z.ZodString>;
@@ -406,6 +427,43 @@ export declare const CloseBatchSchema: z.ZodObject<{
     finalNotes: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type CloseBatch = z.infer<typeof CloseBatchSchema>;
+export declare const EggCategorySchema: z.ZodEnum<{
+    LARGE: "LARGE";
+    MEDIUM: "MEDIUM";
+    SMALL: "SMALL";
+}>;
+export type EggCategory = z.infer<typeof EggCategorySchema>;
+export declare const CreateEggProductionSchema: z.ZodObject<{
+    date: z.ZodString;
+    largeCount: z.ZodDefault<z.ZodNumber>;
+    mediumCount: z.ZodDefault<z.ZodNumber>;
+    smallCount: z.ZodDefault<z.ZodNumber>;
+}, z.core.$strip>;
+export type CreateEggProduction = z.infer<typeof CreateEggProductionSchema>;
+export declare const UpdateEggProductionSchema: z.ZodObject<{
+    date: z.ZodOptional<z.ZodString>;
+    largeCount: z.ZodOptional<z.ZodNumber>;
+    mediumCount: z.ZodOptional<z.ZodNumber>;
+    smallCount: z.ZodOptional<z.ZodNumber>;
+}, z.core.$strip>;
+export type UpdateEggProduction = z.infer<typeof UpdateEggProductionSchema>;
+export declare const EggProductionSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    batchId: z.ZodString;
+    date: z.ZodDate;
+    largeCount: z.ZodNumber;
+    mediumCount: z.ZodNumber;
+    smallCount: z.ZodNumber;
+}, z.core.$strip>;
+export type EggProductionRecord = z.infer<typeof EggProductionSchema>;
+export declare const EggInventoryResponseSchema: z.ZodObject<{
+    LARGE: z.ZodNumber;
+    MEDIUM: z.ZodNumber;
+    SMALL: z.ZodNumber;
+}, z.core.$strip>;
+export type EggInventoryResponse = z.infer<typeof EggInventoryResponseSchema>;
 export declare const BatchSummarySchema: z.ZodObject<{
     initialChicks: z.ZodNumber;
     finalChicks: z.ZodNumber;
@@ -554,6 +612,11 @@ export declare const CreateSaleSchema: z.ZodObject<{
         MEDICINE: "MEDICINE";
         EGGS: "EGGS";
         EQUIPMENT: "EQUIPMENT";
+    }>>;
+    eggCategory: z.ZodOptional<z.ZodEnum<{
+        LARGE: "LARGE";
+        MEDIUM: "MEDIUM";
+        SMALL: "SMALL";
     }>>;
     categoryId: z.ZodOptional<z.ZodString>;
     customerData: z.ZodOptional<z.ZodObject<{
@@ -1558,6 +1621,10 @@ export declare const BatchListResponseSchema: z.ZodObject<{
             ACTIVE: "ACTIVE";
             COMPLETED: "COMPLETED";
         }>;
+        batchType: z.ZodEnum<{
+            BROILER: "BROILER";
+            LAYERS: "LAYERS";
+        }>;
         initialChicks: z.ZodNumber;
         initialChickWeight: z.ZodNumber;
         farmId: z.ZodString;
@@ -1634,6 +1701,10 @@ export declare const BatchDetailResponseSchema: z.ZodObject<{
             ACTIVE: "ACTIVE";
             COMPLETED: "COMPLETED";
         }>;
+        batchType: z.ZodEnum<{
+            BROILER: "BROILER";
+            LAYERS: "LAYERS";
+        }>;
         initialChicks: z.ZodNumber;
         initialChickWeight: z.ZodNumber;
         farmId: z.ZodString;
@@ -1702,6 +1773,10 @@ export declare const schemas: {
     readonly BatchStatus: z.ZodEnum<{
         ACTIVE: "ACTIVE";
         COMPLETED: "COMPLETED";
+    }>;
+    readonly BatchType: z.ZodEnum<{
+        BROILER: "BROILER";
+        LAYERS: "LAYERS";
     }>;
     readonly TransactionType: z.ZodEnum<{
         PURCHASE: "PURCHASE";
@@ -2044,6 +2119,10 @@ export declare const schemas: {
             ACTIVE: "ACTIVE";
             COMPLETED: "COMPLETED";
         }>;
+        batchType: z.ZodEnum<{
+            BROILER: "BROILER";
+            LAYERS: "LAYERS";
+        }>;
         initialChicks: z.ZodNumber;
         initialChickWeight: z.ZodNumber;
         farmId: z.ZodString;
@@ -2057,6 +2136,10 @@ export declare const schemas: {
             ACTIVE: "ACTIVE";
             COMPLETED: "COMPLETED";
         }>>>;
+        batchType: z.ZodEnum<{
+            BROILER: "BROILER";
+            LAYERS: "LAYERS";
+        }>;
         initialChicks: z.ZodOptional<z.ZodNumber>;
         initialChickWeight: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
         farmId: z.ZodString;
@@ -2074,6 +2157,10 @@ export declare const schemas: {
             ACTIVE: "ACTIVE";
             COMPLETED: "COMPLETED";
         }>>;
+        batchType: z.ZodOptional<z.ZodEnum<{
+            BROILER: "BROILER";
+            LAYERS: "LAYERS";
+        }>>;
         initialChicks: z.ZodOptional<z.ZodNumber>;
         initialChickWeight: z.ZodOptional<z.ZodNumber>;
         farmId: z.ZodOptional<z.ZodString>;
@@ -2088,6 +2175,10 @@ export declare const schemas: {
         status: z.ZodEnum<{
             ACTIVE: "ACTIVE";
             COMPLETED: "COMPLETED";
+        }>;
+        batchType: z.ZodEnum<{
+            BROILER: "BROILER";
+            LAYERS: "LAYERS";
         }>;
         initialChicks: z.ZodNumber;
         initialChickWeight: z.ZodNumber;
@@ -2175,6 +2266,10 @@ export declare const schemas: {
                 ACTIVE: "ACTIVE";
                 COMPLETED: "COMPLETED";
             }>;
+            batchType: z.ZodEnum<{
+                BROILER: "BROILER";
+                LAYERS: "LAYERS";
+            }>;
             initialChicks: z.ZodNumber;
             initialChickWeight: z.ZodNumber;
             farmId: z.ZodString;
@@ -2249,6 +2344,10 @@ export declare const schemas: {
             status: z.ZodEnum<{
                 ACTIVE: "ACTIVE";
                 COMPLETED: "COMPLETED";
+            }>;
+            batchType: z.ZodEnum<{
+                BROILER: "BROILER";
+                LAYERS: "LAYERS";
             }>;
             initialChicks: z.ZodNumber;
             initialChickWeight: z.ZodNumber;
@@ -2422,6 +2521,11 @@ export declare const schemas: {
             MEDICINE: "MEDICINE";
             EGGS: "EGGS";
             EQUIPMENT: "EQUIPMENT";
+        }>>;
+        eggCategory: z.ZodOptional<z.ZodEnum<{
+            LARGE: "LARGE";
+            MEDIUM: "MEDIUM";
+            SMALL: "SMALL";
         }>>;
         categoryId: z.ZodOptional<z.ZodString>;
         customerData: z.ZodOptional<z.ZodObject<{
@@ -3268,3 +3372,23 @@ export declare const PaginatedResponseSchema: <T extends z.ZodTypeAny>(itemSchem
     }, z.core.$strip>;
     message: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
+export interface CompanyDealerAccount {
+    id: string;
+    companyId: string;
+    dealerId: string;
+    balance: number;
+    totalSales: number;
+    totalPayments: number;
+    lastSaleDate?: Date | null;
+    lastPaymentDate?: Date | null;
+    balanceLimit?: number | null;
+    balanceLimitSetAt?: Date | null;
+    balanceLimitSetBy?: string | null;
+}
+export interface BalanceLimitCheckResult {
+    allowed: boolean;
+    currentBalance: number;
+    newBalance: number;
+    limit: number | null;
+    exceedsBy?: number;
+}
