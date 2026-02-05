@@ -31,6 +31,7 @@ export const BatchSaleModel = ({
   submitSale: (e: React.FormEvent) => void;
   saleForm: {
     itemType: string;
+    eggCategory?: string;
     rate: string;
     quantity: string;
     weight: string;
@@ -41,9 +42,10 @@ export const BatchSaleModel = ({
     contact: string;
     customerCategory: string;
     balance: string;
+    categoryId?: string;
   };
   saleErrors: Record<string, string>;
-  categoryId: string;
+  categoryId?: string;
   updateSaleField: (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => void;
@@ -52,20 +54,7 @@ export const BatchSaleModel = ({
   customers: any[];
   isCreating: boolean;
   isUpdating: boolean;
-  setSaleForm: React.Dispatch<React.SetStateAction<{
-    itemType: string;
-    rate: string;
-    quantity: string;
-    weight: string;
-    date: string;
-    remaining: boolean;
-    customerId: string;
-    customerName: string;
-    contact: string;
-    customerCategory: string;
-    balance: string;
-    categoryId: string;
-  }>>;
+  setSaleForm: React.Dispatch<React.SetStateAction<any>>;
   setSaleErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 }) => {
 
@@ -76,6 +65,7 @@ export const BatchSaleModel = ({
   const showWeight = ["Chicken_Meat", "FEED", "MEDICINE"].includes(
     saleForm.itemType
   );
+  const showEggCategory = saleForm.itemType === "EGGS";
   const computedTotal = showWeight
     ? Number.isFinite(numericRate) && Number.isFinite(numericWeight)
       ? numericRate * numericWeight
@@ -107,15 +97,33 @@ export const BatchSaleModel = ({
                 onChange={updateSaleField}
                 className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
               >
-                <option value="Chicken_Meat">Chicken_Meat</option>
-                {/* <option value="EGGS">EGGS</option> */}
-                {/* <option value="CHICKS">CHICKS</option> */}
-                {/* <option value="FEED">FEED</option> */}
-                {/* <option value="MEDICINE">MEDICINE</option> */}
-                {/* <option value="EQUIPMENT">EQUIPMENT</option> */}
-                <option value="OTHER">OTHER</option>
+                <option value="EGGS">Eggs</option>
+                <option value="Chicken_Meat">Layers (Meat)</option>
+                <option value="FEED">Feed</option>
+                <option value="MEDICINE">Medicine</option>
+                <option value="OTHER">Other</option>
               </select>
             </div>
+            {showEggCategory && (
+              <div>
+                <Label htmlFor="eggCategory">Egg Category</Label>
+                <select
+                  id="eggCategory"
+                  name="eggCategory"
+                  value={saleForm.eggCategory ?? ""}
+                  onChange={updateSaleField}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                >
+                  <option value="">Select category</option>
+                  <option value="LARGE">Large</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="SMALL">Small</option>
+                </select>
+                {saleErrors.eggCategory && (
+                  <p className="text-xs text-red-600 mt-1">{saleErrors.eggCategory}</p>
+                )}
+              </div>
+            )}
 
             <div>
               <Label htmlFor="rate">Rate</Label>
@@ -134,7 +142,9 @@ export const BatchSaleModel = ({
               <Label htmlFor="quantity">
                 {saleForm.itemType === "Chicken_Meat"
                   ? "Quantity (Birds)"
-                  : "Quantity (Units)"}
+                  : saleForm.itemType === "EGGS"
+                    ? "Quantity (Eggs)"
+                    : "Quantity (Units)"}
               </Label>
               <Input
                 id="quantity"

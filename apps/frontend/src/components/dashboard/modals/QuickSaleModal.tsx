@@ -21,6 +21,7 @@ interface QuickSaleForm {
   farmId: string;
   batchId: string;
   itemType: string;
+  eggCategory: string;
   rate: string;
   quantity: string;
   weight: string;
@@ -48,6 +49,7 @@ export function QuickSaleModal({
     farmId: "",
     batchId: "",
     itemType: "Chicken_Meat",
+    eggCategory: "",
     rate: "",
     quantity: "",
     weight: "",
@@ -150,6 +152,10 @@ export function QuickSaleModal({
       if (!quickSaleForm.weight)
         errors.weight = "Weight required for Chicken_Meat";
     }
+    if (quickSaleForm.itemType === "EGGS") {
+      if (!quickSaleForm.eggCategory)
+        errors.eggCategory = "Please select egg category (Large / Medium / Small)";
+    }
     if (!quickSaleForm.date) errors.date = "Please select a date";
 
     // Sanity check for Chicken_Meat
@@ -227,9 +233,11 @@ export function QuickSaleModal({
         itemType: quickSaleForm.itemType,
       };
 
-      // Add weight for Chicken_Meat sales
       if (quickSaleForm.itemType === "Chicken_Meat" && quickSaleForm.weight) {
         saleData.weight = parseFloat(quickSaleForm.weight);
+      }
+      if (quickSaleForm.itemType === "EGGS" && quickSaleForm.eggCategory) {
+        saleData.eggCategory = quickSaleForm.eggCategory;
       }
 
       // Handle customer data
@@ -263,6 +271,7 @@ export function QuickSaleModal({
         farmId: "",
         batchId: "",
         itemType: "Chicken_Meat",
+        eggCategory: "",
         rate: "",
         quantity: "",
         weight: "",
@@ -372,10 +381,33 @@ export function QuickSaleModal({
                   onChange={updateQuickSaleField}
                   className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                 >
-                  <option value="Chicken_Meat">Chicken_Meat</option>
-                  <option value="OTHER">OTHER</option>
+                  <option value="EGGS">Eggs</option>
+                  <option value="Chicken_Meat">Layers (Meat)</option>
+                  <option value="FEED">Feed</option>
+                  <option value="MEDICINE">Medicine</option>
+                  <option value="OTHER">Other</option>
                 </select>
               </div>
+              {quickSaleForm.itemType === "EGGS" && (
+                <div>
+                  <Label htmlFor="eggCategory">Egg Category</Label>
+                  <select
+                    id="eggCategory"
+                    name="eggCategory"
+                    value={quickSaleForm.eggCategory}
+                    onChange={updateQuickSaleField}
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                  >
+                    <option value="">Select category</option>
+                    <option value="LARGE">Large</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="SMALL">Small</option>
+                  </select>
+                  {quickFormErrors.eggCategory && (
+                    <p className="text-xs text-red-600 mt-1">{quickFormErrors.eggCategory}</p>
+                  )}
+                </div>
+              )}
               <div>
                 <DateInput
                   label="Date *"
@@ -410,7 +442,9 @@ export function QuickSaleModal({
                 <Label htmlFor="quantity">
                   {quickSaleForm.itemType === "Chicken_Meat"
                     ? "Quantity (Birds) *"
-                    : "Quantity (Units) *"}
+                    : quickSaleForm.itemType === "EGGS"
+                      ? "Quantity (Eggs) *"
+                      : "Quantity (Units) *"}
                 </Label>
                 <Input
                   id="quantity"

@@ -35,6 +35,7 @@ import {
 import {
   useSalesManagement,
   useGetCustomersForSales,
+  useGetEggInventory,
   useCreateCustomer,
   useUpdateCustomer,
   useDeleteCustomer,
@@ -94,6 +95,7 @@ export default function SalesLedgerPage() {
     farmId: "",
     batchId: "",
     itemType: "Chicken_Meat",
+    eggCategory: "" as "" | "LARGE" | "MEDIUM" | "SMALL",
     rate: "",
     quantity: "",
     weight: "",
@@ -167,6 +169,11 @@ export default function SalesLedgerPage() {
     useGetCustomersForSales(partyFilters.search, {
       enabled: true,
     });
+
+  const { data: eggInventoryResponse } = useGetEggInventory({
+    enabled: isSaleModalOpen && saleForm.itemType === "EGGS",
+  });
+  const eggInventory = eggInventoryResponse?.data;
 
   // Fetch farms and batches for sale form (same as home page)
   const { data: batchesResponse } = useGetAllBatches();
@@ -266,6 +273,9 @@ export default function SalesLedgerPage() {
     if (saleForm.itemType === "Chicken_Meat") {
       if (!saleForm.weight) errors.weight = "Weight required for Chicken_Meat";
     }
+    if (saleForm.itemType === "EGGS") {
+      if (!saleForm.eggCategory) errors.eggCategory = "Please select egg category (Large / Medium / Small)";
+    }
     if (!saleForm.date) errors.date = "Please select a date";
 
     // Sanity check for Chicken_Meat
@@ -293,7 +303,7 @@ export default function SalesLedgerPage() {
       const totalAmount =
         saleForm.itemType === "Chicken_Meat"
           ? Number(saleForm.rate || 0) * Number(saleForm.weight || 0)
-          : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0);
+          : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0); // EGGS and others: rate * quantity
       const paidAmount = Number(saleForm.balance || 0);
       if (paidAmount > totalAmount) {
         errors.balance = `Paid amount cannot exceed total amount of ₹${totalAmount.toLocaleString()}`;
@@ -316,7 +326,7 @@ export default function SalesLedgerPage() {
       const amount =
         saleForm.itemType === "Chicken_Meat"
           ? unitPrice * (weight || 0)
-          : unitPrice * quantity;
+          : unitPrice * quantity; // EGGS and others: rate * quantity
 
       const paidAmount = saleForm.remaining
         ? saleForm.balance
@@ -333,7 +343,7 @@ export default function SalesLedgerPage() {
           : new Date().toISOString(),
         amount,
         quantity,
-        weight,
+        weight: weight ?? undefined,
         unitPrice,
         description: undefined,
         isCredit,
@@ -342,6 +352,9 @@ export default function SalesLedgerPage() {
         batchId: saleForm.batchId,
         itemType: saleForm.itemType,
       };
+      if (saleForm.itemType === "EGGS" && saleForm.eggCategory) {
+        saleData.eggCategory = saleForm.eggCategory;
+      }
 
       // Handle customer data (same as home page)
       if (saleForm.customerId) {
@@ -498,10 +511,10 @@ export default function SalesLedgerPage() {
 
   const resetSaleForm = () => {
     setSaleForm((prev) => ({
-      // Keep farmId and batchId for smart persistence
       farmId: prev.farmId,
       batchId: prev.batchId,
       itemType: "Chicken_Meat",
+      eggCategory: "",
       rate: "",
       quantity: "",
       weight: "",
@@ -1257,10 +1270,40 @@ export default function SalesLedgerPage() {
                   onChange={updateSaleField}
                   className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                 >
-                  <option value="Chicken_Meat">Chicken_Meat</option>
-                  <option value="OTHER">OTHER</option>
+                  <option value="EGGS">Eggs</option>
+                  <option value="Chicken_Meat">Layers (Meat)</option>
+                  <option value="FEED">Feed</option>
+                  <option value="MEDICINE">Medicine</option>
+                  <option value="OTHER">Other</option>
                 </select>
               </div>
+
+              {saleForm.itemType === "EGGS" && (
+                <div>
+                  <Label htmlFor="eggCategory">Egg Category</Label>
+                  <select
+                    id="eggCategory"
+                    name="eggCategory"
+                    value={saleForm.eggCategory}
+                    onChange={updateSaleField}
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                    required={saleForm.itemType === "EGGS"}
+                  >
+                    <option value="">Select category</option>
+                    <option value="LARGE">Large</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="SMALL">Small</option>
+                  </select>
+                  {errors.eggCategory && (
+                    <p className="text-xs text-red-600 mt-1">{errors.eggCategory}</p>
+                  )}
+                  {eggInventory && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Available: Large {eggInventory.LARGE} · Medium {eggInventory.MEDIUM} · Small {eggInventory.SMALL}
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
@@ -1281,7 +1324,9 @@ export default function SalesLedgerPage() {
                   <Label htmlFor="quantity">
                     {saleForm.itemType === "Chicken_Meat"
                       ? "Quantity (Birds)"
-                      : "Quantity (Units)"}
+                      : saleForm.itemType === "EGGS"
+                        ? "Quantity (Eggs)"
+                        : "Quantity (Units)"}
                   </Label>
                   <Input
                     id="quantity"
@@ -1347,24 +1392,17 @@ export default function SalesLedgerPage() {
                       const quantity = Number(saleForm.quantity || 0);
                       const weight = Number(saleForm.weight || 0);
 
-                      if (
-                        ["Chicken_Meat", "FEED", "MEDICINE"].includes(
-                          saleForm.itemType
-                        )
-                      ) {
+                      if (saleForm.itemType === "Chicken_Meat" && weight) {
                         return (rate * weight).toLocaleString();
-                      } else {
-                        return (rate * quantity).toLocaleString();
                       }
+                      return (rate * quantity).toLocaleString();
                     })()}
                   </span>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  {["Chicken_Meat", "FEED", "MEDICINE"].includes(
-                    saleForm.itemType
-                  )
-                    ? "Calculated as rate : weight"
-                    : "Calculated as rate : quantity"}
+                  {saleForm.itemType === "Chicken_Meat"
+                    ? "Calculated as rate × weight"
+                    : "Calculated as rate × quantity"}
                 </p>
               </div>
 

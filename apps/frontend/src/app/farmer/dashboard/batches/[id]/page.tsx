@@ -70,6 +70,7 @@ import { MortalityTab } from "@/components/batches/tabs/MortalityTab";
 import { SalesBalanceTab } from "@/components/batches/tabs/SalesBalanceTab";
 import { ProfitLossTab } from "@/components/batches/tabs/ProfitLossTab";
 import { GrowthTab } from "@/components/batches/tabs/GrowthTab";
+import { EggProductionTab } from "@/components/batches/tabs/EggProductionTab";
 import { createExpenseColumns } from "@/components/batches/configs/expenseColumns";
 import { createSalesColumns } from "@/components/batches/configs/salesColumns";
 import { createMortalityColumns } from "@/components/batches/configs/mortalityColumns";
@@ -124,15 +125,16 @@ type LedgerRow = {
   balance: number;
 };
 
-const TABS = [
+const BASE_TABS = [
   "Overview",
   "Expenses",
   "Sales",
   "Mortality",
   "Sales Balance",
   "Profit & Loss",
-  "Growth",
 ] as const;
+// Growth for Broiler, Egg Production for Layers
+type TabName = (typeof BASE_TABS)[number] | "Growth" | "Egg Production";
 
 
 // helper banner
@@ -162,7 +164,11 @@ export default function BatchDetailPage() {
   const batch = batchResponse?.data;
   const analytics = analyticsResponse?.data;
 
-  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>("Overview");
+  const tabs: TabName[] = batch
+    ? [...BASE_TABS, (batch as any).batchType === "LAYERS" ? "Egg Production" : "Growth"]
+    : [...BASE_TABS, "Growth"];
+
+  const [activeTab, setActiveTab] = useState<TabName>("Overview");
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
@@ -836,6 +842,7 @@ export default function BatchDetailPage() {
     quantity: "",
     weight: "",
     itemType: "Chicken_Meat",
+    eggCategory: "" as "" | "LARGE" | "MEDIUM" | "SMALL",
     remaining: false,
     customerId: "",
     customerName: "",
@@ -862,13 +869,14 @@ export default function BatchDetailPage() {
       quantity: "",
       weight: "",
       itemType: "Chicken_Meat",
+      eggCategory: "",
       remaining: false,
       customerId: "",
       customerName: "",
       contact: "",
       customerCategory: "Chicken",
       balance: "",
-      date: new Date().toISOString().split("T")[0], // Set today's date in YYYY-MM-DD format
+      date: new Date().toISOString().split("T")[0],
       categoryId: "",
     });
     setCustomerSearch("");
@@ -879,10 +887,11 @@ export default function BatchDetailPage() {
     setSaleForm({
       rate: String(row.rate),
       quantity: String(row.quantity),
-      weight: String((row as any).weight || ""), // Get weight from sale data
+      weight: String((row as any).weight || ""),
       itemType: (row as any).itemType || "Chicken_Meat",
+      eggCategory: (row as any).eggCategory || "",
       remaining: row.remaining,
-      customerId: "", // TODO: Get customer ID from sale data
+      customerId: "",
       customerName: row.customer?.name || "",
       contact: row.customer?.phone || "",
       customerCategory: row.customer?.category || "Chicken",
@@ -910,6 +919,9 @@ export default function BatchDetailPage() {
     if (!saleForm.quantity) errs.quantity = "Quantity required";
     if (saleForm.itemType === "Chicken_Meat") {
       if (!saleForm.weight) errs.weight = "Weight required for Chicken_Meat";
+    }
+    if (saleForm.itemType === "EGGS" && !saleForm.eggCategory) {
+      errs.eggCategory = "Egg category (Large / Medium / Small) required";
     }
     if (!saleForm.date) errs.date = "Date required";
 
@@ -976,6 +988,9 @@ export default function BatchDetailPage() {
         itemType: saleForm.itemType,
         categoryId: saleForm.categoryId,
       };
+      if (saleForm.itemType === "EGGS" && saleForm.eggCategory) {
+        saleData.eggCategory = saleForm.eggCategory;
+      }
 
       // Handle customer data
       if (saleForm.customerId) {
@@ -1422,6 +1437,9 @@ export default function BatchDetailPage() {
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
             <Layers className="h-6 w-6 text-primary" /> {batch.batchNumber}
           </h1>
+          <Badge variant="secondary" className="font-normal">
+            {(batch as any).batchType === "LAYERS" ? "Layers" : "Broiler"}
+          </Badge>
           <Badge
             variant="outline"
             className={
@@ -1513,7 +1531,7 @@ export default function BatchDetailPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <Button
             key={tab}
             variant={activeTab === tab ? "default" : "outline"}
@@ -1607,7 +1625,7 @@ export default function BatchDetailPage() {
         />
       )}
 
-      {activeTab === "Growth" && (
+      {activeTab === "Growth" && batch && (batch as any).batchType !== "LAYERS" && (
         <GrowthTab
           isBatchClosed={isBatchClosed}
           weights={weights}
@@ -1615,6 +1633,13 @@ export default function BatchDetailPage() {
           weightsError={weightsError}
           growthChartData={growthChartData}
           setIsWeightModalOpen={setIsWeightModalOpen}
+        />
+      )}
+
+      {activeTab === "Egg Production" && batchId && (
+        <EggProductionTab
+          batchId={batchId}
+          isBatchClosed={isBatchClosed}
         />
       )}
 

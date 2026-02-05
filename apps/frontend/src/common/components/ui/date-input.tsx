@@ -15,6 +15,8 @@ interface DateInputProps {
   min?: string; // ISO date string
   max?: string; // ISO date string
   className?: string;
+  /** When true, always use native AD date input (avoids BS Calendar e.g. in modals where it can crash) */
+  preferNativeInput?: boolean;
 }
 
 export function DateInput({
@@ -24,24 +26,36 @@ export function DateInput({
   min,
   max,
   className,
+  preferNativeInput = false,
 }: DateInputProps) {
   const { isBS } = useCalendar();
+  const useBSCalendar = isBS && !preferNativeInput;
+
+  // Normalize value to string (callers may pass Date or other)
+  const valueStr =
+    value == null
+      ? ""
+      : typeof value === "string"
+        ? value
+        : value instanceof Date
+          ? (isNaN(value.getTime()) ? "" : value.toISOString())
+          : String(value);
 
   // Convert stored AD value to display format
-  const adValue = value ? (value.includes("T") ? value.split("T")[0] : value) : "";
+  const adValue = valueStr ? (valueStr.includes("T") ? valueStr.split("T")[0] : valueStr) : "";
 
   // State for input value
   const [inputValue, setInputValue] = useState(adValue);
 
   // Update input value when value prop changes
   useEffect(() => {
-    if (value) {
-      const ad = value.includes("T") ? value.split("T")[0] : value;
+    if (valueStr) {
+      const ad = valueStr.includes("T") ? valueStr.split("T")[0] : valueStr;
       setInputValue(ad);
     } else {
       setInputValue("");
     }
-  }, [value]);
+  }, [valueStr]);
 
   // Handle AD date input change
   const handleADChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,22 +92,25 @@ export function DateInput({
     }
   };
 
-  // Get default date for BS calendar (convert AD to Date object)
-  const getDefaultDate = () => {
-    if (!value) return undefined;
-    try {
-      return new Date(value);
-    } catch {
-      return undefined;
+  // Get default date for BS calendar (never pass undefined - package can crash)
+  const getDefaultDate = (): Date => {
+    if (valueStr) {
+      try {
+        const d = new Date(valueStr);
+        if (!isNaN(d.getTime())) return d;
+      } catch {
+        // fall through to today
+      }
     }
+    return new Date();
   };
 
   return (
     <div className={className}>
       {label && <Label className="mb-2">{label}</Label>}
       
-      {isBS ? (
-        // BS Date Picker - Only show BS calendar for BS users
+      {useBSCalendar ? (
+        // BS Date Picker - Only show BS calendar for BS users (not in modals)
         <Calendar
           onChange={handleBSDateChange}
           defaultDate={getDefaultDate()}

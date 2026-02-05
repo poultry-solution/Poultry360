@@ -9,6 +9,9 @@ export type UserRole = z.infer<typeof UserRoleSchema>;
 export const BatchStatusSchema = z.enum(["ACTIVE", "COMPLETED"]);
 export type BatchStatus = z.infer<typeof BatchStatusSchema>;
 
+export const BatchTypeSchema = z.enum(["BROILER", "LAYERS"]);
+export type BatchType = z.infer<typeof BatchTypeSchema>;
+
 export const TransactionTypeSchema = z.enum([
   "PURCHASE",
   "SALE",
@@ -223,6 +226,7 @@ export const BatchSchema = BaseSchema.extend({
   startDate: z.date(),
   endDate: z.date().nullable(),
   status: BatchStatusSchema,
+  batchType: BatchTypeSchema,
   initialChicks: z.number().int().positive(),
   initialChickWeight: z.number().positive(),
   farmId: z.string(),
@@ -263,6 +267,7 @@ export const BatchResponseSchema = BaseSchema.extend({
   startDate: z.date(),
   endDate: z.date().nullable(),
   status: BatchStatusSchema,
+  batchType: BatchTypeSchema,
   initialChicks: z.number().int().positive(),
   initialChickWeight: z.number().positive(),
   farmId: z.string(),
@@ -316,6 +321,7 @@ export const CreateBatchSchema = z.object({
   startDate: z.string().datetime(),
   endDate: z.string().datetime().optional(),
   status: BatchStatusSchema.optional().default("ACTIVE"),
+  batchType: BatchTypeSchema,
   // initialChicks will be derived from chicksInventory.quantity
   initialChicks: z.number().int().positive().optional(),
   initialChickWeight: z.number().positive().optional().default(0.045),
@@ -335,6 +341,7 @@ export const UpdateBatchSchema = z.object({
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().nullable().optional(),
   status: BatchStatusSchema.optional(),
+  batchType: BatchTypeSchema.optional(),
   initialChicks: z.number().int().positive().optional(),
   initialChickWeight: z.number().positive().optional(),
   farmId: z.string().optional(),
@@ -348,6 +355,47 @@ export const CloseBatchSchema = z.object({
 });
 
 export type CloseBatch = z.infer<typeof CloseBatchSchema>;
+
+// ==================== EGG SCHEMAS (LAYERS) ====================
+
+export const EggCategorySchema = z.enum(["LARGE", "MEDIUM", "SMALL"]);
+export type EggCategory = z.infer<typeof EggCategorySchema>;
+
+export const CreateEggProductionSchema = z.object({
+  date: z.string().datetime(),
+  largeCount: z.number().int().min(0).default(0),
+  mediumCount: z.number().int().min(0).default(0),
+  smallCount: z.number().int().min(0).default(0),
+});
+
+export type CreateEggProduction = z.infer<typeof CreateEggProductionSchema>;
+
+export const UpdateEggProductionSchema = z.object({
+  date: z.string().datetime().optional(),
+  largeCount: z.number().int().min(0).optional(),
+  mediumCount: z.number().int().min(0).optional(),
+  smallCount: z.number().int().min(0).optional(),
+});
+
+export type UpdateEggProduction = z.infer<typeof UpdateEggProductionSchema>;
+
+export const EggProductionSchema = BaseSchema.extend({
+  batchId: z.string(),
+  date: z.date(),
+  largeCount: z.number().int().min(0),
+  mediumCount: z.number().int().min(0),
+  smallCount: z.number().int().min(0),
+});
+
+export type EggProductionRecord = z.infer<typeof EggProductionSchema>;
+
+export const EggInventoryResponseSchema = z.object({
+  LARGE: z.number().int().min(0),
+  MEDIUM: z.number().int().min(0),
+  SMALL: z.number().int().min(0),
+});
+
+export type EggInventoryResponse = z.infer<typeof EggInventoryResponseSchema>;
 
 export const BatchSummarySchema = z.object({
   initialChicks: z.number(),
@@ -474,27 +522,38 @@ export const SaleSchema = BaseSchema.extend({
 
 export type Sale = z.infer<typeof SaleSchema>;
 
-export const CreateSaleSchema = z.object({
-  date: z.string().datetime(),
-  amount: z.number().positive(),
-  quantity: z.number().positive(),
-  weight: z.number().positive().optional().nullable(),
-  unitPrice: z.number().positive(),
-  description: z.string().optional(),
-  isCredit: z.boolean().optional().default(false),
-  paidAmount: z.number().nonnegative().optional().default(0),
-  farmId: z.string().optional(),
-  batchId: z.string().optional(),
-  customerId: z.string().optional(),
-  itemType: SalesItemTypeSchema.optional(),
-  categoryId: z.string().optional(),
-  customerData: z.object({
-    name: z.string(),
-    phone: z.string(),
-    category: z.string().optional(),
-    address: z.string().optional(),
-  }).optional(),
-});
+export const CreateSaleSchema = z
+  .object({
+    date: z.string().datetime(),
+    amount: z.number().positive(),
+    quantity: z.number().positive(),
+    weight: z.number().positive().optional().nullable(),
+    unitPrice: z.number().positive(),
+    description: z.string().optional(),
+    isCredit: z.boolean().optional().default(false),
+    paidAmount: z.number().nonnegative().optional().default(0),
+    farmId: z.string().optional(),
+    batchId: z.string().optional(),
+    customerId: z.string().optional(),
+    itemType: SalesItemTypeSchema.optional(),
+    eggCategory: EggCategorySchema.optional(),
+    categoryId: z.string().optional(),
+    customerData: z.object({
+      name: z.string(),
+      phone: z.string(),
+      category: z.string().optional(),
+      address: z.string().optional(),
+    }).optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.itemType === "EGGS") {
+        return data.eggCategory != null && ["LARGE", "MEDIUM", "SMALL"].includes(data.eggCategory);
+      }
+      return true;
+    },
+    { message: "eggCategory (LARGE, MEDIUM, or SMALL) is required when itemType is EGGS", path: ["eggCategory"] }
+  );
 
 export type CreateSale = z.infer<typeof CreateSaleSchema>;
 
@@ -1253,6 +1312,7 @@ export const schemas = {
   // Enums
   UserRole: UserRoleSchema,
   BatchStatus: BatchStatusSchema,
+  BatchType: BatchTypeSchema,
   TransactionType: TransactionTypeSchema,
   NotificationType: NotificationTypeSchema,
   NotificationStatus: NotificationStatusSchema,

@@ -860,6 +860,7 @@ export default function HatcheryLedgerPage() {
                     label="Date"
                     value={newEntry.date}
                     onChange={(value) => setNewEntry({ ...newEntry, date: value })}
+                    preferNativeInput
                   />
                 </div>
                 <div>
@@ -867,6 +868,7 @@ export default function HatcheryLedgerPage() {
                     label="Due Date (optional)"
                     value={newEntry.dueDate}
                     onChange={(value) => setNewEntry({ ...newEntry, dueDate: value })}
+                    preferNativeInput
                   />
                 </div>
               </div>
@@ -940,6 +942,7 @@ export default function HatcheryLedgerPage() {
                   label="Payment Date"
                   value={paymentForm.date}
                   onChange={(value) => setPaymentForm({ ...paymentForm, date: value })}
+                  preferNativeInput
                 />
               </div>
               <div>

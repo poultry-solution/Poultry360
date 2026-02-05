@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { UserRole, TransactionType, SalesItemType } from "@prisma/client";
+import type { EggCategory } from "@prisma/client";
 import {
   CreateSaleSchema,
   UpdateSaleSchema,
@@ -344,6 +345,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       batchId,
       customerId,
       itemType,
+      eggCategory,
     } = data;
     // Ensure required categoryId is present (Prisma requires non-null string)
     const categoryId = await getSalesCategoryIdForItemType(currentUserId, itemType as SalesItemType);
@@ -405,6 +407,15 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
 
         if (!hasAccess) {
           return res.status(403).json({ message: "Access denied to batch" });
+        }
+      }
+
+      // Validate egg category and inventory for EGGS sales
+      if (itemType === SalesItemType.EGGS) {
+        if (!eggCategory || !["LARGE", "MEDIUM", "SMALL"].includes(eggCategory)) {
+          return res.status(400).json({
+            message: "eggCategory (LARGE, MEDIUM, or SMALL) is required for egg sales",
+          });
         }
       }
 
@@ -522,6 +533,21 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       return res.status(400).json({ message: "Invalid paid amount" });
     }
 
+    // For EGGS sales: validate egg inventory (farmer = current user)
+    if (itemType === SalesItemType.EGGS && eggCategory) {
+      const inv = await prisma.eggInventory.findUnique({
+        where: {
+          userId_eggCategory: { userId: currentUserId, eggCategory: eggCategory as EggCategory },
+        },
+      });
+      const available = inv?.quantity ?? 0;
+      if (available < numericQuantity) {
+        return res.status(400).json({
+          message: `Insufficient egg inventory. Available (${eggCategory}): ${available}, requested: ${numericQuantity}`,
+        });
+      }
+    }
+
     // Calculate due amount for credit sales
     const dueAmount = isCredit ? numericAmount - numericPaidAmount : 0;
 
@@ -539,12 +565,28 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
           paidAmount: numericPaidAmount,
           dueAmount: dueAmount > 0 ? dueAmount : null,
           itemType,
+          eggCategory: itemType === SalesItemType.EGGS && eggCategory ? (eggCategory as EggCategory) : null,
           farmId: farmId || null,
           batchId: batchId || null,
           categoryId: categoryId,
           customerId: finalCustomerId || null,
         },
       });
+
+      // 1b. Decrement egg inventory for EGGS sales
+      if (itemType === SalesItemType.EGGS && eggCategory) {
+        const inv = await tx.eggInventory.findUnique({
+          where: {
+            userId_eggCategory: { userId: currentUserId, eggCategory: eggCategory as EggCategory },
+          },
+        });
+        if (inv) {
+          await tx.eggInventory.update({
+            where: { id: inv.id },
+            data: { quantity: { decrement: numericQuantity } },
+          });
+        }
+      }
 
       // 2. Update customer balance if it's a credit sale
       if (isCredit && finalCustomerId && dueAmount > 0) {
