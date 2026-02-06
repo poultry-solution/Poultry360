@@ -12,6 +12,7 @@ import {
   Calendar,
   Plus,
   FileText,
+  Image,
 } from "lucide-react";
 import {
   Card,
@@ -430,9 +431,9 @@ export default function CompanyPaymentsPage() {
                               <CheckCircle className="h-3 w-3" />
                             </Button>
                             <Button
-                              variant="destructive"
+                              variant="outline"
                               size="sm"
-                              className="h-7 text-xs px-2"
+                              className="h-7 text-xs px-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
                               onClick={() => {
                                 setSelectedRequest(request);
                                 setVerifyApproved(false);
@@ -458,9 +459,9 @@ export default function CompanyPaymentsPage() {
                               <CheckCircle className="h-3 w-3" />
                             </Button>
                             <Button
-                              variant="destructive"
+                              variant="outline"
                               size="sm"
-                              className="h-7 text-xs px-2"
+                              className="h-7 text-xs px-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
                               onClick={() => {
                                 setSelectedRequest(request);
                                 setVerifyApproved(false);
@@ -586,9 +587,9 @@ export default function CompanyPaymentsPage() {
                               <CheckCircle className="h-3 w-3" />
                             </Button>
                             <Button
-                              variant="destructive"
+                              variant="outline"
                               size="sm"
-                              className="h-7 text-xs px-2"
+                              className="h-7 text-xs px-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
                               onClick={() => {
                                 setSelectedRequest(request);
                                 setVerifyApproved(false);
@@ -601,9 +602,9 @@ export default function CompanyPaymentsPage() {
                         )}
                         {request.status === "PENDING" && (
                           <Button
-                            variant="destructive"
+                            variant="outline"
                             size="sm"
-                            className="h-7 text-xs px-2"
+                            className="h-7 text-xs px-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
                             onClick={() => handleCancelRequest(request.id)}
                             disabled={cancelRequestMutation.isPending}
                           >
@@ -819,6 +820,29 @@ export default function CompanyPaymentsPage() {
                   <p className="text-sm">{selectedRequest.reviewNotes}</p>
                 </div>
               )}
+              {selectedRequest.paymentReceiptUrl && (
+                <div>
+                  <Label>Payment Receipt</Label>
+                  <div className="mt-2">
+                    <a
+                      href={selectedRequest.paymentReceiptUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 underline"
+                    >
+                      <Image className="h-4 w-4" />
+                      View Receipt Image
+                    </a>
+                    <div className="mt-2 relative aspect-video w-full max-w-sm rounded-lg border overflow-hidden bg-muted">
+                      <img
+                        src={selectedRequest.paymentReceiptUrl}
+                        alt="Payment Receipt"
+                        className="object-contain w-full h-full"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>
@@ -888,6 +912,7 @@ export default function CompanyPaymentsPage() {
               onClick={handleVerifyRequest}
               disabled={verifyRequestMutation.isPending}
               variant={verifyApproved ? "default" : "destructive"}
+              className={!verifyApproved ? "text-black" : ""}
             >
               {verifyRequestMutation.isPending
                 ? "Processing..."

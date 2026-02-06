@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Search, Filter, Edit, Trash2, Package, PackagePlus, AlertTriangle } from "lucide-react";
+import { ImageUpload } from "@/common/components/ui/image-upload";
 import {
   Card,
   CardContent,
@@ -397,18 +398,15 @@ export default function CompanyProductsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="imageUrl">Product Image URL</Label>
-                <Input
-                  id="imageUrl"
+                <Label>Product Image</Label>
+                <ImageUpload
                   value={formData.imageUrl}
-                  onChange={(e) =>
-                    setFormData({ ...formData, imageUrl: e.target.value })
+                  onChange={(url) =>
+                    setFormData({ ...formData, imageUrl: url })
                   }
-                  placeholder="https://example.com/product-image.jpg"
+                  folder="products"
+                  placeholder="Click or drag image to upload"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Enter a URL for the product image (for testing purposes)
-                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

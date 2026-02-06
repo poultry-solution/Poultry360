@@ -79,7 +79,7 @@ export const companyNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.products", href: "/company/dashboard/products", icon: Package },
   { nameKey: "sidebar.nav.dealers", href: "/company/dashboard/dealers", icon: Users },
   { nameKey: "sidebar.nav.sales", href: "/company/dashboard/sales", icon: Receipt },
-  { nameKey: "sidebar.nav.ledger", href: "/company/dashboard/ledger", icon: FileText },
+
   { nameKey: "sidebar.nav.consignments", href: "/company/dashboard/consignments", icon: Truck },
   { nameKey: "sidebar.nav.payments", href: "/company/dashboard/payments", icon: DollarSign },
   { nameKey: "sidebar.nav.analytics", href: "/company/dashboard/analytics", icon: BarChart3 },
@@ -233,7 +233,7 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
 
           return (
             <Link
-            key={item.nameKey}
+              key={item.nameKey}
               href={item.href}
               className={cn(
                 "cursor-pointer group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-all duration-200",

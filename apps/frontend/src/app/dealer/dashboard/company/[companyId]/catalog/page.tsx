@@ -294,25 +294,25 @@ export default function CompanyCatalogPage() {
                       const addQty = addingToCart[product.id] || 1;
 
                       return (
-                        <Card key={product.id} className="overflow-hidden">
-                          <div className="aspect-video bg-muted relative">
+                        <Card key={product.id} className="overflow-hidden flex flex-col">
+                          <div className="aspect-video bg-muted relative overflow-hidden">
                             {product.imageUrl ? (
                               <img
                                 src={product.imageUrl}
                                 alt={product.name}
-                                className="w-full h-full object-cover"
+                                className="absolute inset-0 w-full h-full object-cover"
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).src =
                                     "https://via.placeholder.com/400x300?text=No+Image";
                                 }}
                               />
                             ) : (
-                              <div className="flex items-center justify-center h-full">
+                              <div className="absolute inset-0 flex items-center justify-center">
                                 <Package className="h-16 w-16 text-muted-foreground" />
                               </div>
                             )}
                             <Badge
-                              className={`absolute top-2 right-2 ${getProductTypeColor(
+                              className={`absolute top-2 right-2 z-10 ${getProductTypeColor(
                                 product.type
                               )}`}
                             >

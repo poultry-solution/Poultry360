@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Users, Edit, Trash2, Archive, ArchiveRestore, Phone, MapPin, CheckCircle2 } from "lucide-react";
+import { Plus, Search, Users, Edit, Trash2, Archive, ArchiveRestore, Phone, MapPin, CheckCircle2, DollarSign, Image } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -32,6 +32,15 @@ import {
   AlertDialogTitle,
 } from "@/common/components/ui/alert-dialog";
 import { Label } from "@/common/components/ui/label";
+import { Textarea } from "@/common/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
+import { ImageUpload } from "@/common/components/ui/image-upload";
 import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -40,6 +49,7 @@ import {
   useUnarchiveCompanyDealer,
   useGetArchivedCompanyDealers,
 } from "@/fetchers/company/companyDealerQueries";
+import { useRecordDealerPayment } from "@/fetchers/company/companyDealerAccountQueries";
 import { useGetCompanyVerificationRequests } from "@/fetchers/company/companyVerificationQueries";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
 import { Badge } from "@/common/components/ui/badge";
@@ -142,6 +152,61 @@ export default function CompanyDealersPage() {
 
   // Unarchive dealer connection mutation
   const unarchiveMutation = useUnarchiveCompanyDealer();
+
+  // Record payment mutation
+  const recordPaymentMutation = useRecordDealerPayment();
+
+  // Payment Dialog State
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [paymentData, setPaymentData] = useState({
+    dealerId: "",
+    amount: 0,
+    paymentMethod: "CASH",
+    paymentDate: new Date().toISOString().split("T")[0],
+    notes: "",
+    reference: "",
+    receiptImageUrl: "",
+  });
+
+  const handleRecordPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!paymentData.dealerId) {
+      toast.error("Please select a dealer");
+      return;
+    }
+
+    if (paymentData.amount <= 0) {
+      toast.error("Amount must be greater than 0");
+      return;
+    }
+
+    try {
+      await recordPaymentMutation.mutateAsync({
+        dealerId: paymentData.dealerId,
+        amount: paymentData.amount,
+        paymentMethod: paymentData.paymentMethod,
+        paymentDate: new Date(paymentData.paymentDate),
+        notes: paymentData.notes,
+        reference: paymentData.reference,
+        receiptImageUrl: paymentData.receiptImageUrl || undefined,
+      });
+
+      toast.success("Payment recorded successfully");
+      setIsPaymentDialogOpen(false);
+      setPaymentData({
+        dealerId: "",
+        amount: 0,
+        paymentMethod: "CASH",
+        paymentDate: new Date().toISOString().split("T")[0],
+        notes: "",
+        reference: "",
+        receiptImageUrl: "",
+      });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to record payment");
+    }
+  };
 
   // Get archived dealers
   const { data: archivedDealersData, isLoading: archivedLoading } = useGetArchivedCompanyDealers();
@@ -279,10 +344,18 @@ export default function CompanyDealersPage() {
       {/* Dealers Table with Tabs */}
       <Card>
         <CardHeader>
-          <CardTitle>Dealers</CardTitle>
-          <CardDescription>
-            Manage your active and archived dealer connections
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Dealers</CardTitle>
+              <CardDescription>
+                Manage your active and archived dealer connections
+              </CardDescription>
+            </div>
+            <Button onClick={() => setIsPaymentDialogOpen(true)} variant="secondary" size="sm">
+              <DollarSign className="mr-2 h-4 w-4" />
+              Add Payment
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -573,6 +646,149 @@ export default function CompanyDealersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Record Payment Dialog */}
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent className="max-w-md">
+          <form onSubmit={handleRecordPayment}>
+            <DialogHeader>
+              <DialogTitle>Record Payment</DialogTitle>
+              <DialogDescription>
+                Record a payment received from a dealer
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="dealerId">Select Dealer *</Label>
+                <Select
+                  value={paymentData.dealerId}
+                  onValueChange={(value) =>
+                    setPaymentData({ ...paymentData, dealerId: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a dealer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dealers.map((dealer) => (
+                      <SelectItem key={dealer.id} value={dealer.id}>
+                        {dealer.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="amount">Amount *</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={paymentData.amount || ""}
+                  onChange={(e) =>
+                    setPaymentData({
+                      ...paymentData,
+                      amount: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2 ">
+                <Label htmlFor="paymentMethod">Payment Method *</Label>
+                <Select
+                  value={paymentData.paymentMethod}
+                  onValueChange={(value) =>
+                    setPaymentData({ ...paymentData, paymentMethod: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="CASH">Cash</SelectItem>
+                    <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                    <SelectItem value="CHEQUE">Cheque</SelectItem>
+                    <SelectItem value="UPI">UPI</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="paymentDate">Payment Date *</Label>
+                <Input
+                  id="paymentDate"
+                  type="date"
+                  value={paymentData.paymentDate}
+                  onChange={(e) =>
+                    setPaymentData({ ...paymentData, paymentDate: e.target.value })
+                  }
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="reference">Reference Number</Label>
+                <Input
+                  id="reference"
+                  value={paymentData.reference}
+                  onChange={(e) =>
+                    setPaymentData({ ...paymentData, reference: e.target.value })
+                  }
+                  placeholder="Transaction ID, Receipt #, etc."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={paymentData.notes}
+                  onChange={(e) =>
+                    setPaymentData({ ...paymentData, notes: e.target.value })
+                  }
+                  placeholder="Additional notes..."
+                  rows={2}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Payment Receipt (Optional)</Label>
+                <ImageUpload
+                  value={paymentData.receiptImageUrl}
+                  onChange={(url) =>
+                    setPaymentData({ ...paymentData, receiptImageUrl: url })
+                  }
+                  folder="payment-receipts"
+                  placeholder="Upload payment receipt image"
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsPaymentDialogOpen(false)}
+                disabled={recordPaymentMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={recordPaymentMutation.isPending}>
+                {recordPaymentMutation.isPending
+                  ? "Recording..."
+                  : "Record Payment"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

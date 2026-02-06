@@ -10,6 +10,7 @@ import {
   Calendar,
   Plus,
   Receipt,
+  Image,
   FileText,
 } from "lucide-react";
 import {
@@ -40,6 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/common/components/ui/select";
+import { ImageUpload } from "@/common/components/ui/image-upload";
 import { toast } from "sonner";
 import {
   useGetDealerAccount,
@@ -63,6 +65,7 @@ export default function DealerAccountPage() {
     paymentDate: new Date().toISOString().split("T")[0],
     notes: "",
     reference: "",
+    receiptImageUrl: "",
   });
 
   // Queries
@@ -104,6 +107,7 @@ export default function DealerAccountPage() {
         paymentDate: new Date(paymentData.paymentDate),
         notes: paymentData.notes,
         reference: paymentData.reference,
+        receiptImageUrl: paymentData.receiptImageUrl || undefined,
       });
       toast.success("Payment recorded successfully");
       setIsPaymentDialogOpen(false);
@@ -113,6 +117,7 @@ export default function DealerAccountPage() {
         paymentDate: new Date().toISOString().split("T")[0],
         notes: "",
         reference: "",
+        receiptImageUrl: "",
       });
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to record payment");
@@ -182,13 +187,12 @@ export default function DealerAccountPage() {
           </CardHeader>
           <CardContent>
             <div
-              className={`text-2xl font-bold ${
-                (account?.balance || 0) > 0
-                  ? "text-red-600"
-                  : (account?.balance || 0) < 0
+              className={`text-2xl font-bold ${(account?.balance || 0) > 0
+                ? "text-red-600"
+                : (account?.balance || 0) < 0
                   ? "text-green-600"
                   : ""
-              }`}
+                }`}
             >
               {formatCurrency(account?.balance || 0)}
             </div>
@@ -196,8 +200,8 @@ export default function DealerAccountPage() {
               {(account?.balance || 0) > 0
                 ? "Outstanding"
                 : (account?.balance || 0) < 0
-                ? "Advance/Credit"
-                : "Settled"}
+                  ? "Advance/Credit"
+                  : "Settled"}
             </p>
           </CardContent>
         </Card>
@@ -249,8 +253,8 @@ export default function DealerAccountPage() {
             <div className="text-2xl font-bold">
               {account?.totalSales
                 ? Math.round(
-                    ((account?.totalPayments || 0) / account.totalSales) * 100
-                  )
+                  ((account?.totalPayments || 0) / account.totalSales) * 100
+                )
                 : 0}
               %
             </div>
@@ -436,9 +440,17 @@ export default function DealerAccountPage() {
                             </p>
                           )}
                           {(payment.receiptImageUrl || payment.proofImageUrl) && (
-                            <Badge variant="secondary" className="text-xs mt-1">
-                              Receipt Available
-                            </Badge>
+                            <a
+                              href={payment.receiptImageUrl || payment.proofImageUrl || "#"}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1"
+                            >
+                              <Badge variant="secondary" className="text-xs mt-1 cursor-pointer hover:bg-green-100">
+                                <Image className="h-3 w-3 mr-1" />
+                                View Receipt
+                              </Badge>
+                            </a>
                           )}
                         </div>
                       </div>
@@ -476,9 +488,8 @@ export default function DealerAccountPage() {
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-medium">Current Balance</span>
                   <span
-                    className={`text-xl font-bold ${
-                      (account?.balance || 0) > 0 ? "text-red-600" : "text-green-600"
-                    }`}
+                    className={`text-xl font-bold ${(account?.balance || 0) > 0 ? "text-red-600" : "text-green-600"
+                      }`}
                   >
                     {formatCurrency(account?.balance || 0)}
                   </span>
@@ -490,13 +501,12 @@ export default function DealerAccountPage() {
                         After Payment
                       </span>
                       <span
-                        className={`font-bold ${
-                          balanceAfterPayment > 0
-                            ? "text-red-600"
-                            : balanceAfterPayment < 0
+                        className={`font-bold ${balanceAfterPayment > 0
+                          ? "text-red-600"
+                          : balanceAfterPayment < 0
                             ? "text-green-600"
                             : ""
-                        }`}
+                          }`}
                       >
                         {formatCurrency(balanceAfterPayment)}
                       </span>
@@ -531,7 +541,7 @@ export default function DealerAccountPage() {
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 ">
                 <Label htmlFor="paymentMethod">Payment Method *</Label>
                 <Select
                   value={paymentData.paymentMethod}
@@ -542,7 +552,7 @@ export default function DealerAccountPage() {
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     <SelectItem value="CASH">Cash</SelectItem>
                     <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
                     <SelectItem value="CHEQUE">Cheque</SelectItem>
@@ -586,7 +596,19 @@ export default function DealerAccountPage() {
                     setPaymentData({ ...paymentData, notes: e.target.value })
                   }
                   placeholder="Additional notes..."
-                  rows={3}
+                  rows={2}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Payment Receipt (Optional)</Label>
+                <ImageUpload
+                  value={paymentData.receiptImageUrl}
+                  onChange={(url) =>
+                    setPaymentData({ ...paymentData, receiptImageUrl: url })
+                  }
+                  folder="payment-receipts"
+                  placeholder="Upload payment receipt image"
                 />
               </div>
             </div>

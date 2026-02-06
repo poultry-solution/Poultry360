@@ -14,6 +14,7 @@ import {
   FileText,
   Upload,
   ArrowLeft,
+  Image,
 } from "lucide-react";
 import {
   Card,
@@ -70,6 +71,7 @@ import {
   type PaymentRequest,
 } from "@/fetchers/dealer/paymentRequestQueries";
 import { CompanySearchSelect } from "@/common/components/forms/CompanySearchSelect";
+import { ImageUpload } from "@/common/components/ui/image-upload";
 
 export default function DealerPaymentsPage() {
   const router = useRouter();
@@ -702,6 +704,29 @@ export default function DealerPaymentsPage() {
                   <p className="text-sm">{selectedRequest.reviewNotes}</p>
                 </div>
               )}
+              {selectedRequest.paymentReceiptUrl && (
+                <div>
+                  <Label>Payment Receipt</Label>
+                  <div className="mt-2">
+                    <a
+                      href={selectedRequest.paymentReceiptUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 underline"
+                    >
+                      <Image className="h-4 w-4" />
+                      View Receipt Image
+                    </a>
+                    <div className="mt-2 relative aspect-video w-full max-w-sm rounded-lg border overflow-hidden bg-muted">
+                      <img
+                        src={selectedRequest.paymentReceiptUrl}
+                        alt="Payment Receipt"
+                        className="object-contain w-full h-full"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>
@@ -817,12 +842,12 @@ export default function DealerPaymentsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="payment-receipt">Receipt URL (Optional)</Label>
-              <Input
-                id="payment-receipt"
+              <Label>Receipt Image (Optional)</Label>
+              <ImageUpload
                 value={paymentReceiptUrl}
-                onChange={(e) => setPaymentReceiptUrl(e.target.value)}
-                placeholder="Enter receipt URL..."
+                onChange={(url) => setPaymentReceiptUrl(url)}
+                folder="payment-receipts"
+                placeholder="Upload receipt image"
               />
             </div>
 
@@ -867,106 +892,106 @@ export default function DealerPaymentsPage() {
               Submit proof of payment you've already made to the company for verification and balance reduction
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+
+
+          <div className="grid gap-3 py-3">
             <CompanySearchSelect
               value={requestCompanyId}
               onValueChange={setRequestCompanyId}
-              placeholder="Search and select company..."
+              placeholder="Select company"
               label="Company"
               required
             />
 
-            <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="request-amount">Amount *</Label>
+                <Input
+                  id="request-amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={requestAmount}
+                  onChange={(e) =>
+                    setRequestAmount(parseFloat(e.target.value) || 0)
+                  }
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="request-payment-date">Date *</Label>
+                <Input
+                  id="request-payment-date"
+                  type="date"
+                  value={requestPaymentDate}
+                  onChange={(e) => setRequestPaymentDate(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="request-payment-method">Method *</Label>
+                <Select
+                  value={requestPaymentMethod}
+                  onValueChange={setRequestPaymentMethod}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CASH">Cash</SelectItem>
+                    <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                    <SelectItem value="CHEQUE">Cheque</SelectItem>
+                    <SelectItem value="UPI">UPI</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="request-payment-reference">Reference</Label>
+                <Input
+                  id="request-payment-reference"
+                  value={requestPaymentReference}
+                  onChange={(e) => setRequestPaymentReference(e.target.value)}
+                  placeholder="Txn ID..."
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
               <Label htmlFor="sale-id">Sale ID (Optional)</Label>
               <Input
                 id="sale-id"
                 value={requestSaleId}
                 onChange={(e) => setRequestSaleId(e.target.value)}
-                placeholder="Enter sale ID (optional)"
+                placeholder="Enter sale ID if known"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="request-amount">Amount *</Label>
-              <Input
-                id="request-amount"
-                type="number"
-                min="0"
-                step="0.01"
-                value={requestAmount}
-                onChange={(e) =>
-                  setRequestAmount(parseFloat(e.target.value) || 0)
-                }
-                placeholder="Enter amount"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="request-description">Description (Optional)</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="request-description">Description</Label>
               <Textarea
                 id="request-description"
                 value={requestDescription}
                 onChange={(e) => setRequestDescription(e.target.value)}
-                placeholder="Add description..."
-                rows={3}
+                placeholder="Add note..."
+                rows={2}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="request-payment-method">Payment Method *</Label>
-              <Select
-                value={requestPaymentMethod}
-                onValueChange={setRequestPaymentMethod}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CASH">Cash</SelectItem>
-                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                  <SelectItem value="CHEQUE">Cheque</SelectItem>
-                  <SelectItem value="UPI">UPI</SelectItem>
-                  <SelectItem value="OTHER">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="request-payment-reference">
-                Payment Reference (Transaction ID, Cheque #, etc.)
-              </Label>
-              <Input
-                id="request-payment-reference"
-                value={requestPaymentReference}
-                onChange={(e) => setRequestPaymentReference(e.target.value)}
-                placeholder="Enter payment reference..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="request-payment-receipt">Receipt URL (Optional)</Label>
-              <Input
-                id="request-payment-receipt"
+            <div className="space-y-1.5">
+              <Label>Receipt Image</Label>
+              <ImageUpload
                 value={requestPaymentReceiptUrl}
-                onChange={(e) => setRequestPaymentReceiptUrl(e.target.value)}
-                placeholder="Enter receipt URL..."
+                onChange={(url) => setRequestPaymentReceiptUrl(url)}
+                folder="payment-receipts"
+                placeholder="Upload receipt"
               />
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-md">
-              <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Note:</strong> You are submitting proof that you have already paid. The company will verify and reduce your outstanding balance.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="request-payment-date">Payment Date *</Label>
-              <Input
-                id="request-payment-date"
-                type="date"
-                value={requestPaymentDate}
-                onChange={(e) => setRequestPaymentDate(e.target.value)}
-              />
+            <div className="bg-blue-50 dark:bg-blue-950 p-2 rounded-md text-xs text-blue-800 dark:text-blue-200">
+              <strong>Note:</strong> Submitting proof for verification.
             </div>
           </div>
           <DialogFooter>
