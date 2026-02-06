@@ -19,6 +19,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/common/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/common/components/ui/alert-dialog";
 import { Badge } from "@/common/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
 import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
@@ -86,6 +96,10 @@ export default function VaccinationsPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingVaccination, setEditingVaccination] = useState<any>(null);
 
+  // Confirmation dialog states
+  const [vaccinationToDelete, setVaccinationToDelete] = useState<string | null>(null);
+  const [scheduleToDelete, setScheduleToDelete] = useState<string | null>(null);
+
   // Form states
   const [createForm, setCreateForm] = useState({
     vaccineName: "",
@@ -123,7 +137,7 @@ export default function VaccinationsPage() {
 
   // Filter batches for create form
   const createFormFilteredBatches = getFilteredBatchesForForm(createForm.farmId);
-  
+
   // Filter batches for multi-dose form
   const multiDoseFormFilteredBatches = getFilteredBatchesForForm(multiDoseForm.farmId);
 
@@ -131,7 +145,7 @@ export default function VaccinationsPage() {
   const filterVaccinations = (vaccinations: any[]) => {
     return vaccinations.filter((vaccination) => {
       const matchesSearch = vaccination.vaccineName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           vaccination.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+        vaccination.notes?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesFarm = !selectedFarmFilter || selectedFarmFilter === "none" || vaccination.farmId === selectedFarmFilter;
       const matchesBatch = !selectedBatchFilter || selectedBatchFilter === "none" || vaccination.batchId === selectedBatchFilter;
       return matchesSearch && matchesFarm && matchesBatch;
@@ -144,7 +158,7 @@ export default function VaccinationsPage() {
   // Filter schedules
   const filteredSchedules = vaccinationSchedules.filter((schedule) => {
     const matchesSearch = schedule.vaccineName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         schedule.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+      schedule.notes?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFarm = !selectedFarmFilter || selectedFarmFilter === "none" || schedule.farmId === selectedFarmFilter;
     const matchesBatch = !selectedBatchFilter || selectedBatchFilter === "none" || schedule.batchId === selectedBatchFilter;
     return matchesSearch && matchesFarm && matchesBatch;
@@ -177,25 +191,35 @@ export default function VaccinationsPage() {
     }
   };
 
-  const handleDeleteVaccination = async (vaccinationId: string) => {
-    if (!confirm("Are you sure you want to delete this vaccination?")) return;
-    
+  const handleDeleteVaccination = (vaccinationId: string) => {
+    setVaccinationToDelete(vaccinationId);
+  };
+
+  const confirmDeleteVaccination = async () => {
+    if (!vaccinationToDelete) return;
     try {
-      await deleteVaccinationMutation.mutateAsync(vaccinationId);
+      await deleteVaccinationMutation.mutateAsync(vaccinationToDelete);
       toast.success("Vaccination deleted successfully");
     } catch (error) {
       toast.error("Failed to delete vaccination");
+    } finally {
+      setVaccinationToDelete(null);
     }
   };
 
-  const handleDeleteSchedule = async (scheduleId: string) => {
-    if (!confirm("Are you sure you want to delete this entire vaccination schedule? This will delete all doses in the schedule.")) return;
-    
+  const handleDeleteSchedule = (scheduleId: string) => {
+    setScheduleToDelete(scheduleId);
+  };
+
+  const confirmDeleteSchedule = async () => {
+    if (!scheduleToDelete) return;
     try {
-      await deleteScheduleMutation.mutateAsync(scheduleId);
+      await deleteScheduleMutation.mutateAsync(scheduleToDelete);
       toast.success("Vaccination schedule deleted successfully");
     } catch (error) {
       toast.error("Failed to delete vaccination schedule");
+    } finally {
+      setScheduleToDelete(null);
     }
   };
 
@@ -242,13 +266,13 @@ export default function VaccinationsPage() {
     const now = new Date().getTime();
     const due = new Date(dateString).getTime();
     const diffMs = due - now;
-    
+
     if (diffMs <= 0) return "Due now";
-    
+
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    
+
     if (diffDays > 0) return `in ${diffDays} day${diffDays > 1 ? 's' : ''}`;
     if (diffHours > 0) return `in ${diffHours} hour${diffHours > 1 ? 's' : ''}`;
     return `in ${diffMinutes} minute${diffMinutes > 1 ? 's' : ''}`;
@@ -689,7 +713,7 @@ export default function VaccinationsPage() {
                               </Badge>
                             )}
                           </div>
-                          
+
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <Calendar className="h-4 w-4" />
@@ -724,7 +748,7 @@ export default function VaccinationsPage() {
                             <p className="text-sm text-muted-foreground">{schedule.notes}</p>
                           )}
                         </div>
-                        
+
                         <div className="flex gap-2 ml-4">
                           <Button
                             size="sm"
@@ -884,6 +908,46 @@ export default function VaccinationsPage() {
 
 
 
+      {/* Confirmation Dialogs */}
+      <AlertDialog open={!!vaccinationToDelete} onOpenChange={(open) => !open && setVaccinationToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Vaccination</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this vaccination? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteVaccination}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!scheduleToDelete} onOpenChange={(open) => !open && setScheduleToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Vaccination Schedule</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this entire vaccination schedule? This will delete all doses in the schedule. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteSchedule}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Delete Schedule
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Users, Edit, Trash2, Archive, ArchiveRestore, Phone, MapPin, CheckCircle2 } from "lucide-react";
+import { Plus, Search, Users, Edit, Trash2, Archive, ArchiveRestore, Phone, MapPin, CheckCircle2, DollarSign, Image } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -12,14 +12,7 @@ import {
 } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/common/components/ui/table";
+import { DataTable, Column } from "@/common/components/ui/data-table";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +21,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/common/components/ui/alert-dialog";
 import { Label } from "@/common/components/ui/label";
+import { Textarea } from "@/common/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
+import { ImageUpload } from "@/common/components/ui/image-upload";
 import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -37,6 +49,7 @@ import {
   useUnarchiveCompanyDealer,
   useGetArchivedCompanyDealers,
 } from "@/fetchers/company/companyDealerQueries";
+import { useRecordDealerPayment } from "@/fetchers/company/companyDealerAccountQueries";
 import { useGetCompanyVerificationRequests } from "@/fetchers/company/companyVerificationQueries";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
 import { Badge } from "@/common/components/ui/badge";
@@ -59,6 +72,13 @@ export default function CompanyDealersPage() {
   const [search, setSearch] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDealer, setEditingDealer] = useState<Dealer | null>(null);
+
+  // Confirmation Dialog State
+  const [confirmationAction, setConfirmationAction] = useState<{
+    type: "DELETE" | "ARCHIVE" | "UNARCHIVE";
+    id: string;
+    name: string;
+  } | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -129,10 +149,65 @@ export default function CompanyDealersPage() {
 
   // Archive dealer connection mutation
   const archiveMutation = useArchiveCompanyDealer();
-  
+
   // Unarchive dealer connection mutation
   const unarchiveMutation = useUnarchiveCompanyDealer();
-  
+
+  // Record payment mutation
+  const recordPaymentMutation = useRecordDealerPayment();
+
+  // Payment Dialog State
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [paymentData, setPaymentData] = useState({
+    dealerId: "",
+    amount: 0,
+    paymentMethod: "CASH",
+    paymentDate: new Date().toISOString().split("T")[0],
+    notes: "",
+    reference: "",
+    receiptImageUrl: "",
+  });
+
+  const handleRecordPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!paymentData.dealerId) {
+      toast.error("Please select a dealer");
+      return;
+    }
+
+    if (paymentData.amount <= 0) {
+      toast.error("Amount must be greater than 0");
+      return;
+    }
+
+    try {
+      await recordPaymentMutation.mutateAsync({
+        dealerId: paymentData.dealerId,
+        amount: paymentData.amount,
+        paymentMethod: paymentData.paymentMethod,
+        paymentDate: new Date(paymentData.paymentDate),
+        notes: paymentData.notes,
+        reference: paymentData.reference,
+        receiptImageUrl: paymentData.receiptImageUrl || undefined,
+      });
+
+      toast.success("Payment recorded successfully");
+      setIsPaymentDialogOpen(false);
+      setPaymentData({
+        dealerId: "",
+        amount: 0,
+        paymentMethod: "CASH",
+        paymentDate: new Date().toISOString().split("T")[0],
+        notes: "",
+        reference: "",
+        receiptImageUrl: "",
+      });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to record payment");
+    }
+  };
+
   // Get archived dealers
   const { data: archivedDealersData, isLoading: archivedLoading } = useGetArchivedCompanyDealers();
 
@@ -184,28 +259,36 @@ export default function CompanyDealersPage() {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) return;
-    deleteMutation.mutate(id);
+  const handleDelete = (id: string, name: string) => {
+    setConfirmationAction({ type: "DELETE", id, name });
   };
 
-  const handleArchive = async (connectionId: string, name: string) => {
-    if (!confirm(`Archive connection with "${name}"?`)) return;
-    try {
-      await archiveMutation.mutateAsync(connectionId);
-      toast.success("Dealer connection archived successfully");
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to archive dealer connection");
-    }
+  const handleArchive = (connectionId: string, name: string) => {
+    setConfirmationAction({ type: "ARCHIVE", id: connectionId, name });
   };
 
-  const handleUnarchive = async (connectionId: string, name: string) => {
-    if (!confirm(`Unarchive connection with "${name}"?`)) return;
+  const handleUnarchive = (connectionId: string, name: string) => {
+    setConfirmationAction({ type: "UNARCHIVE", id: connectionId, name });
+  };
+
+  const executeConfirmationAction = async () => {
+    if (!confirmationAction) return;
+
     try {
-      await unarchiveMutation.mutateAsync(connectionId);
-      toast.success("Dealer connection unarchived successfully");
+      if (confirmationAction.type === "DELETE") {
+        deleteMutation.mutate(confirmationAction.id);
+      } else if (confirmationAction.type === "ARCHIVE") {
+        await archiveMutation.mutateAsync(confirmationAction.id);
+        toast.success("Dealer connection archived successfully");
+      } else if (confirmationAction.type === "UNARCHIVE") {
+        await unarchiveMutation.mutateAsync(confirmationAction.id);
+        toast.success("Dealer connection unarchived successfully");
+      }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to unarchive dealer connection");
+      const action = confirmationAction.type.toLowerCase();
+      toast.error(error.response?.data?.message || `Failed to ${action} dealer connection`);
+    } finally {
+      setConfirmationAction(null);
     }
   };
 
@@ -261,10 +344,18 @@ export default function CompanyDealersPage() {
       {/* Dealers Table with Tabs */}
       <Card>
         <CardHeader>
-          <CardTitle>Dealers</CardTitle>
-          <CardDescription>
-            Manage your active and archived dealer connections
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Dealers</CardTitle>
+              <CardDescription>
+                Manage your active and archived dealer connections
+              </CardDescription>
+            </div>
+            <Button onClick={() => setIsPaymentDialogOpen(true)} variant="secondary" size="sm">
+              <DollarSign className="mr-2 h-4 w-4" />
+              Add Payment
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -279,202 +370,168 @@ export default function CompanyDealersPage() {
 
             {/* Active Dealers Tab */}
             <TabsContent value="active" className="mt-4">
-              {isLoading ? (
-                <div className="text-center py-8">Loading dealers...</div>
-              ) : dealers.length === 0 ? (
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No dealers found</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Get started by adding your first dealer.
-                  </p>
-                  <Button onClick={() => handleOpenDialog()}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Dealer
-                  </Button>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Address</TableHead>
-                      <TableHead className="text-right">Account Balance</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {dealers.map((dealer) => (
-                      <TableRow key={dealer.id}>
-                        <TableCell className="font-medium">{dealer.name}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-muted-foreground" />
-                            {dealer.contact}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {dealer.address ? (
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4 text-muted-foreground" />
-                              <span className="max-w-[200px] truncate">
-                                {dealer.address}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span
-                            className={
-                              dealer.balance > 0
-                                ? "text-red-600 font-semibold"
-                                : dealer.balance < 0
-                                ? "text-green-600 font-semibold"
-                                : ""
-                            }
+              <DataTable
+                data={dealers}
+                loading={isLoading}
+                emptyMessage="No dealers found. Add your first dealer."
+                columns={[
+                  {
+                    key: 'name',
+                    label: 'Name',
+                    width: '120px',
+                    render: (val) => <span className="font-medium">{val}</span>
+                  },
+                  {
+                    key: 'contact',
+                    label: 'Contact',
+                    width: '120px',
+                    render: (val) => (
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        {val}
+                      </div>
+                    )
+                  },
+                  {
+                    key: 'address',
+                    label: 'Address',
+                    width: '150px',
+                    render: (val) => val ? (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span className="truncate max-w-[150px]">{val}</span>
+                      </div>
+                    ) : <span className="text-muted-foreground">-</span>
+                  },
+                  {
+                    key: 'balance',
+                    label: 'Account Balance',
+                    align: 'right',
+                    width: '120px',
+                    render: (val) => (
+                      <span className={val > 0 ? "text-red-600 font-semibold" : val < 0 ? "text-green-600 font-semibold" : ""}>
+                        {val > 0 ? `रू ${Math.abs(val).toFixed(2)} (Due)` : val < 0 ? `रू ${Math.abs(val).toFixed(2)} (Advance)` : "रू 0.00"}
+                      </span>
+                    )
+                  },
+                  {
+                    key: 'actions',
+                    label: 'Actions',
+                    align: 'right',
+                    width: '180px',
+                    render: (_, dealer) => (
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => router.push(`/company/dashboard/dealers/${dealer.id}/account`)}
+                        >
+                          View Account
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(dealer)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        {dealer.connectionType === "CONNECTED" && dealer.connectionId ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleArchive(dealer.connectionId!, dealer.name)}
+                            disabled={archiveMutation.isPending}
                           >
-                            {dealer.balance > 0
-                              ? `रू ${Math.abs(dealer.balance).toFixed(2)} (Due)`
-                              : dealer.balance < 0
-                              ? `रू ${Math.abs(dealer.balance).toFixed(2)} (Advance)`
-                              : "रू 0.00"}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => router.push(`/company/dashboard/dealers/${dealer.id}/account`)}
-                            >
-                              View Account
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenDialog(dealer)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            {dealer.connectionType === "CONNECTED" && dealer.connectionId ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleArchive(dealer.connectionId!, dealer.name)}
-                                disabled={archiveMutation.isPending}
-                              >
-                                <Archive className="h-4 w-4 text-orange-600" />
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDelete(dealer.id, dealer.name)}
-                                disabled={deleteMutation.isPending}
-                              >
-                                <Trash2 className="h-4 w-4 text-red-600" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+                            <Archive className="h-4 w-4 text-orange-600" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(dealer.id, dealer.name)}
+                            disabled={deleteMutation.isPending}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  }
+                ] as Column[]}
+              />
             </TabsContent>
 
             {/* Archived Dealers Tab */}
             <TabsContent value="archived" className="mt-4">
-              {archivedLoading ? (
-                <div className="text-center py-8">Loading archived dealers...</div>
-              ) : archivedDealers.length === 0 ? (
-                <div className="text-center py-8">
-                  <Archive className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No archived dealers</h3>
-                  <p className="text-muted-foreground">
-                    Archived dealer connections will appear here.
-                  </p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Address</TableHead>
-                      <TableHead className="text-right">Account Balance</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {archivedDealers.map((dealer) => (
-                      <TableRow key={dealer.id}>
-                        <TableCell className="font-medium">{dealer.name}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-muted-foreground" />
-                            {dealer.contact}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {dealer.address ? (
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4 text-muted-foreground" />
-                              <span className="max-w-[200px] truncate">
-                                {dealer.address}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span
-                            className={
-                              dealer.balance > 0
-                                ? "text-red-600 font-semibold"
-                                : dealer.balance < 0
-                                ? "text-green-600 font-semibold"
-                                : ""
-                            }
+              <DataTable
+                data={archivedDealers}
+                loading={archivedLoading}
+                emptyMessage="No archived dealers. Archived connections will appear here."
+                columns={[
+                  {
+                    key: 'name',
+                    label: 'Name',
+                    width: '120px',
+                    render: (val) => <span className="font-medium">{val}</span>
+                  },
+                  {
+                    key: 'contact',
+                    label: 'Contact',
+                    width: '120px',
+                    render: (val) => (
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        {val}
+                      </div>
+                    )
+                  },
+                  {
+                    key: 'address',
+                    label: 'Address',
+                    width: '150px',
+                    render: (val) => val ? (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span className="truncate max-w-[150px]">{val}</span>
+                      </div>
+                    ) : <span className="text-muted-foreground">-</span>
+                  },
+                  {
+                    key: 'balance',
+                    label: 'Account Balance',
+                    align: 'right',
+                    width: '120px',
+                    render: (val) => (
+                      <span className={val > 0 ? "text-red-600 font-semibold" : val < 0 ? "text-green-600 font-semibold" : ""}>
+                        {val > 0 ? `रू ${Math.abs(val).toFixed(2)} (Due)` : val < 0 ? `रू ${Math.abs(val).toFixed(2)} (Advance)` : "रू 0.00"}
+                      </span>
+                    )
+                  },
+                  {
+                    key: 'actions',
+                    label: 'Actions',
+                    align: 'right',
+                    width: '150px',
+                    render: (_, dealer) => (
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => router.push(`/company/dashboard/dealers/${dealer.id}/account`)}
+                        >
+                          View Account
+                        </Button>
+                        {dealer.connectionId && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleUnarchive(dealer.connectionId!, dealer.name)}
+                            disabled={unarchiveMutation.isPending}
                           >
-                            {dealer.balance > 0
-                              ? `रू ${Math.abs(dealer.balance).toFixed(2)} (Due)`
-                              : dealer.balance < 0
-                              ? `रू ${Math.abs(dealer.balance).toFixed(2)} (Advance)`
-                              : "रू 0.00"}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => router.push(`/company/dashboard/dealers/${dealer.id}/account`)}
-                            >
-                              View Account
-                            </Button>
-                            {dealer.connectionId && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleUnarchive(dealer.connectionId!, dealer.name)}
-                                disabled={unarchiveMutation.isPending}
-                              >
-                                <ArchiveRestore className="h-4 w-4 text-green-600" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+                            <ArchiveRestore className="h-4 w-4 text-green-600" />
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  }
+                ] as Column[]}
+              />
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -551,8 +608,182 @@ export default function CompanyDealersPage() {
                 {createMutation.isPending || updateMutation.isPending
                   ? "Saving..."
                   : editingDealer
-                  ? "Update Dealer"
-                  : "Add Dealer"}
+                    ? "Update Dealer"
+                    : "Add Dealer"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={!!confirmationAction}
+        onOpenChange={(open) => !open && setConfirmationAction(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmationAction?.type === "DELETE" && "Delete Dealer"}
+              {confirmationAction?.type === "ARCHIVE" && "Archive Connection"}
+              {confirmationAction?.type === "UNARCHIVE" && "Unarchive Connection"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmationAction?.type === "DELETE" && `Are you sure you want to delete "${confirmationAction.name}"? This action cannot be undone.`}
+              {confirmationAction?.type === "ARCHIVE" && `Are you sure you want to archive the connection with "${confirmationAction.name}"?`}
+              {confirmationAction?.type === "UNARCHIVE" && `Are you sure you want to unarchive the connection with "${confirmationAction.name}"?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeConfirmationAction}
+              className={confirmationAction?.type === "DELETE" ? "bg-red-600 hover:bg-red-700 focus:ring-red-600" : ""}
+            >
+              {confirmationAction?.type === "DELETE" && "Delete"}
+              {confirmationAction?.type === "ARCHIVE" && "Archive"}
+              {confirmationAction?.type === "UNARCHIVE" && "Unarchive"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Record Payment Dialog */}
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent className="max-w-md">
+          <form onSubmit={handleRecordPayment}>
+            <DialogHeader>
+              <DialogTitle>Record Payment</DialogTitle>
+              <DialogDescription>
+                Record a payment received from a dealer
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="dealerId">Select Dealer *</Label>
+                <Select
+                  value={paymentData.dealerId}
+                  onValueChange={(value) =>
+                    setPaymentData({ ...paymentData, dealerId: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a dealer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dealers.map((dealer) => (
+                      <SelectItem key={dealer.id} value={dealer.id}>
+                        {dealer.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="amount">Amount *</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={paymentData.amount || ""}
+                  onChange={(e) =>
+                    setPaymentData({
+                      ...paymentData,
+                      amount: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2 ">
+                <Label htmlFor="paymentMethod">Payment Method *</Label>
+                <Select
+                  value={paymentData.paymentMethod}
+                  onValueChange={(value) =>
+                    setPaymentData({ ...paymentData, paymentMethod: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="CASH">Cash</SelectItem>
+                    <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                    <SelectItem value="CHEQUE">Cheque</SelectItem>
+                    <SelectItem value="UPI">UPI</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="paymentDate">Payment Date *</Label>
+                <Input
+                  id="paymentDate"
+                  type="date"
+                  value={paymentData.paymentDate}
+                  onChange={(e) =>
+                    setPaymentData({ ...paymentData, paymentDate: e.target.value })
+                  }
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="reference">Reference Number</Label>
+                <Input
+                  id="reference"
+                  value={paymentData.reference}
+                  onChange={(e) =>
+                    setPaymentData({ ...paymentData, reference: e.target.value })
+                  }
+                  placeholder="Transaction ID, Receipt #, etc."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={paymentData.notes}
+                  onChange={(e) =>
+                    setPaymentData({ ...paymentData, notes: e.target.value })
+                  }
+                  placeholder="Additional notes..."
+                  rows={2}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Payment Receipt (Optional)</Label>
+                <ImageUpload
+                  value={paymentData.receiptImageUrl}
+                  onChange={(url) =>
+                    setPaymentData({ ...paymentData, receiptImageUrl: url })
+                  }
+                  folder="payment-receipts"
+                  placeholder="Upload payment receipt image"
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsPaymentDialogOpen(false)}
+                disabled={recordPaymentMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={recordPaymentMutation.isPending}>
+                {recordPaymentMutation.isPending
+                  ? "Recording..."
+                  : "Record Payment"}
               </Button>
             </DialogFooter>
           </form>

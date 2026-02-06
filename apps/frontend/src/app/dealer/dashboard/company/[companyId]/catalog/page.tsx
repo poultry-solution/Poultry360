@@ -38,6 +38,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/common/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/common/components/ui/alert-dialog";
 import { Label } from "@/common/components/ui/label";
 import { Textarea } from "@/common/components/ui/textarea";
 import { toast } from "sonner";
@@ -60,6 +70,7 @@ export default function CompanyCatalogPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
+  const [isClearCartDialogOpen, setIsClearCartDialogOpen] = useState(false);
   const [checkoutNotes, setCheckoutNotes] = useState("");
   const [addingToCart, setAddingToCart] = useState<{ [key: string]: number }>({});
 
@@ -131,12 +142,15 @@ export default function CompanyCatalogPage() {
     }
   };
 
-  const handleClearCart = async () => {
-    if (!confirm("Are you sure you want to clear your cart?")) return;
+  const handleClearCart = () => {
+    setIsClearCartDialogOpen(true);
+  };
 
+  const confirmClearCart = async () => {
     try {
       await clearCartMutation.mutateAsync(companyId);
       toast.success("Cart cleared");
+      setIsClearCartDialogOpen(false);
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to clear cart");
     }
@@ -280,25 +294,25 @@ export default function CompanyCatalogPage() {
                       const addQty = addingToCart[product.id] || 1;
 
                       return (
-                        <Card key={product.id} className="overflow-hidden">
-                          <div className="aspect-video bg-muted relative">
+                        <Card key={product.id} className="overflow-hidden flex flex-col">
+                          <div className="aspect-video bg-muted relative overflow-hidden">
                             {product.imageUrl ? (
                               <img
                                 src={product.imageUrl}
                                 alt={product.name}
-                                className="w-full h-full object-cover"
+                                className="absolute inset-0 w-full h-full object-cover"
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).src =
                                     "https://via.placeholder.com/400x300?text=No+Image";
                                 }}
                               />
                             ) : (
-                              <div className="flex items-center justify-center h-full">
+                              <div className="absolute inset-0 flex items-center justify-center">
                                 <Package className="h-16 w-16 text-muted-foreground" />
                               </div>
                             )}
                             <Badge
-                              className={`absolute top-2 right-2 ${getProductTypeColor(
+                              className={`absolute top-2 right-2 z-10 ${getProductTypeColor(
                                 product.type
                               )}`}
                             >
@@ -616,6 +630,29 @@ export default function CompanyCatalogPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={isClearCartDialogOpen}
+        onOpenChange={setIsClearCartDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear Cart</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to clear your cart? This will remove all items and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmClearCart}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Clear Cart
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

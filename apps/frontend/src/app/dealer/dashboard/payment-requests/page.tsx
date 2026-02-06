@@ -19,14 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/common/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/common/components/ui/table";
+import { DataTable, Column } from "@/common/components/ui/data-table";
 import { Badge } from "@/common/components/ui/badge";
 import {
   Dialog,
@@ -230,97 +223,102 @@ export default function DealerPaymentRequestsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          {isLoading ? (
-            <div className="text-center py-6 text-sm">Loading...</div>
-          ) : requests.length === 0 ? (
-            <div className="text-center py-6 text-sm text-muted-foreground">
-              No payment requests found
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs hidden sm:table-cell">Request</TableHead>
-                    <TableHead className="text-xs">Farmer</TableHead>
-                    <TableHead className="text-xs hidden md:table-cell">Type</TableHead>
-                    <TableHead className="text-xs">Amount</TableHead>
-                    <TableHead className="text-xs hidden sm:table-cell">Date</TableHead>
-                    <TableHead className="text-xs">Status</TableHead>
-                    <TableHead className="text-xs">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {requests.map((request: any) => (
-                    <TableRow key={request.id}>
-                      <TableCell className="font-medium text-xs hidden sm:table-cell">
-                        {request.requestNumber}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        <div className="max-w-[80px] md:max-w-none">
-                          <div className="font-medium truncate">{request.farmer?.name}</div>
-                          <div className="text-[10px] text-muted-foreground hidden sm:block">
-                            {request.farmer?.phone}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {request.isLedgerLevel ? (
-                          <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-[10px]">
-                            <DollarSign className="h-2.5 w-2.5 mr-0.5" />
-                            General
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-[10px]">
-                            {request.dealerSale?.invoiceNumber || "N/A"}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-semibold text-xs">
-                        <span className="hidden md:inline">{formatCurrency(request.amount)}</span>
-                        <span className="md:hidden">रू{Math.round(Number(request.amount)).toLocaleString()}</span>
-                      </TableCell>
-                      <TableCell className="text-xs hidden sm:table-cell">{formatDate(request.createdAt)}</TableCell>
-                      <TableCell>{getStatusBadge(request.status)}</TableCell>
-                      <TableCell>
-                        {request.status === "PENDING" && (
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 px-2 bg-green-50 text-green-700 hover:bg-green-100"
-                              onClick={() => handleApprove(request.id)}
-                              disabled={approveMutation.isPending}
-                            >
-                              <CheckCircle className="h-3.5 w-3.5 md:mr-1" />
-                              <span className="hidden md:inline text-xs">Approve</span>
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 px-2 bg-red-50 text-red-700 hover:bg-red-100"
-                              onClick={() => {
-                                setSelectedRequest(request);
-                                setIsRejectDialogOpen(true);
-                              }}
-                            >
-                              <XCircle className="h-3.5 w-3.5 md:mr-1" />
-                              <span className="hidden md:inline text-xs">Reject</span>
-                            </Button>
-                          </div>
-                        )}
-                        {request.status === "REJECTED" && request.rejectionReason && (
-                          <div className="text-[10px] text-red-600 max-w-[80px] truncate">
-                            {request.rejectionReason}
-                          </div>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <DataTable
+            data={requests}
+            loading={isLoading}
+            emptyMessage="No payment requests found"
+            columns={[
+              {
+                key: 'requestNumber',
+                label: 'Request',
+                width: '90px',
+                render: (val) => <span className="font-medium">{val}</span>
+              },
+              {
+                key: 'farmer',
+                label: 'Farmer',
+                width: '120px',
+                render: (val) => (
+                  <div>
+                    <div className="font-medium truncate">{val?.name}</div>
+                    <div className="text-[10px] text-muted-foreground">{val?.phone}</div>
+                  </div>
+                )
+              },
+              {
+                key: 'isLedgerLevel',
+                label: 'Type',
+                width: '80px',
+                render: (val, row) => val ? (
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-[10px]">
+                    General
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px]">
+                    {row.dealerSale?.invoiceNumber || "N/A"}
+                  </Badge>
+                )
+              },
+              {
+                key: 'amount',
+                label: 'Amount',
+                align: 'right',
+                width: '90px',
+                render: (val) => <span className="font-semibold">{formatCurrency(val)}</span>
+              },
+              {
+                key: 'createdAt',
+                label: 'Date',
+                width: '90px',
+                render: (val) => formatDate(val)
+              },
+              {
+                key: 'status',
+                label: 'Status',
+                width: '100px',
+                render: (val) => getStatusBadge(val)
+              },
+              {
+                key: 'actions',
+                label: 'Actions',
+                align: 'right',
+                width: '120px',
+                render: (_, request) => (
+                  <>
+                    {request.status === "PENDING" && (
+                      <div className="flex gap-1 justify-end">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 w-7 p-0 bg-green-50 text-green-700 hover:bg-green-100"
+                          onClick={() => handleApprove(request.id)}
+                          disabled={approveMutation.isPending}
+                        >
+                          <CheckCircle className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 w-7 p-0 bg-red-50 text-red-700 hover:bg-red-100"
+                          onClick={() => {
+                            setSelectedRequest(request);
+                            setIsRejectDialogOpen(true);
+                          }}
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )}
+                    {request.status === "REJECTED" && request.rejectionReason && (
+                      <div className="text-[10px] text-red-600 max-w-[80px] truncate">
+                        {request.rejectionReason}
+                      </div>
+                    )}
+                  </>
+                )
+              }
+            ] as Column[]}
+          />
 
           {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between p-3 md:p-4 border-t">
@@ -392,6 +390,6 @@ export default function DealerPaymentRequestsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 }

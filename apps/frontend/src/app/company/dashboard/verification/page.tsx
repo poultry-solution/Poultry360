@@ -30,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/common/components/ui/select";
+import { DataTable, Column } from "@/common/components/ui/data-table";
 import {
   Table,
   TableBody,

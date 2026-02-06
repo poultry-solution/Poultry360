@@ -16,14 +16,7 @@ import {
   CardTitle,
 } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/common/components/ui/table";
+import { DataTable, Column } from "@/common/components/ui/data-table";
 import { Badge } from "@/common/components/ui/badge";
 import { useGetCompanySaleById } from "@/fetchers/company/companySaleQueries";
 
@@ -87,7 +80,7 @@ export default function CompanySaleDetailPage() {
           </div>
         </div>
         {sale.dealer && (
-          <Button 
+          <Button
             onClick={() => router.push(`/company/dashboard/dealers/${sale.dealerId}/account`)}
             variant="outline"
           >
@@ -190,44 +183,50 @@ export default function CompanySaleDetailPage() {
 
       {/* Items Table - Full Width */}
       <Card>
-        <CardHeader>
-          <CardTitle>Items Sold</CardTitle>
-          <CardDescription>
+        <CardHeader className="p-3 md:p-6">
+          <CardTitle className="text-base md:text-lg">Items Sold</CardTitle>
+          <CardDescription className="text-xs md:text-sm">
             {sale.items?.length || 0} item{sale.items?.length !== 1 ? "s" : ""} in this sale
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead className="text-right">Unit Price</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sale.items?.map((item: any) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-medium">
-                    {item.product?.name || "Product"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatCurrency(Number(item.unitPrice))}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {Number(item.quantity).toFixed(2)}
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {formatCurrency(Number(item.totalAmount))}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <div className="flex justify-between items-center pt-4 border-t mt-4">
-            <span className="font-semibold">Total Amount</span>
-            <span className="text-xl font-bold">{formatCurrency(totalAmount)}</span>
+        <CardContent className="p-0">
+          <DataTable
+            data={sale.items || []}
+            loading={false}
+            emptyMessage="No items in this sale"
+            columns={[
+              {
+                key: 'product',
+                label: 'Product',
+                width: '150px',
+                render: (val) => <span className="font-medium">{val?.name || "Product"}</span>
+              },
+              {
+                key: 'unitPrice',
+                label: 'Unit Price',
+                align: 'right',
+                width: '100px',
+                render: (val) => formatCurrency(Number(val))
+              },
+              {
+                key: 'quantity',
+                label: 'Quantity',
+                align: 'right',
+                width: '80px',
+                render: (val) => Number(val).toFixed(2)
+              },
+              {
+                key: 'totalAmount',
+                label: 'Total',
+                align: 'right',
+                width: '100px',
+                render: (val) => <span className="font-medium">{formatCurrency(Number(val))}</span>
+              }
+            ] as Column[]}
+          />
+          <div className="flex justify-between items-center px-3 md:px-4 py-3 border-t">
+            <span className="font-semibold text-sm">Total Amount</span>
+            <span className="text-lg md:text-xl font-bold">{formatCurrency(totalAmount)}</span>
           </div>
         </CardContent>
       </Card>

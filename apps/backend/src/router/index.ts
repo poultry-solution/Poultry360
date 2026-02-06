@@ -49,6 +49,7 @@ import farmerSaleRequestRoutes from "./farmerSaleRequestRoutes";
 import dealerPaymentRequestRoutes from "./dealerPaymentRequestRoutes";
 import farmerPaymentRequestRoutes from "./farmerPaymentRequestRoutes";
 import dealerFarmerAccountRoutes from "./dealerFarmerAccountRoutes";
+import uploadRoutes from "./uploadRoutes";
 
 // Test routes (only in test environment)
 let testRoutes: express.Router | null = null;
@@ -90,7 +91,7 @@ router.use("/sales", salesRoutes);
 router.use("/reminders", reminderRoutes);
 router.use("/reminder-notifications", reminderNotificationRoutes);
 router.use("/notification-actions", notificationActionRoutes);
-router.use("/vaccinations", vaccinationRoutes);  
+router.use("/vaccinations", vaccinationRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/conversations", conversationRoutes);
 router.use("/messages", messageRoutes);
@@ -108,6 +109,7 @@ router.use("/account", accountRoutes);
 router.use("/admin/companies", adminCompanyRoutes);
 router.use("/admin/dealers", adminDealerRoutes);
 router.use("/public", publicRoutes);
+router.use("/upload", uploadRoutes);
 
 // Test routes (only in test environment)
 if (testRoutes) {

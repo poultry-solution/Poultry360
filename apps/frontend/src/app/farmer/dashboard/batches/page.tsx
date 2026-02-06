@@ -16,6 +16,13 @@ import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
+import {
   useGetAllBatches,
   useCreateBatch,
 } from "@/fetchers/batches/batchQueries";
@@ -422,7 +429,7 @@ export default function BatchesPage() {
                           {Math.floor(
                             (new Date().getTime() -
                               new Date(b.startDate).getTime()) /
-                              (1000 * 60 * 60 * 24)
+                            (1000 * 60 * 60 * 24)
                           )}{" "}
                           {t("farmer.batches.list.days")}
                         </p>
@@ -475,35 +482,36 @@ export default function BatchesPage() {
               </div>
               <div>
                 <Label htmlFor="batchType">{t("farmer.batches.modal.batchType")}</Label>
-                <select
-                  id="batchType"
-                  name="batchType"
+                <Select
                   value={formData.batchType}
-                  onChange={handleChange}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                  required
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, batchType: value as "BROILER" | "LAYERS" }))}
                 >
-                  <option value="BROILER">{t("farmer.batches.modal.broiler")}</option>
-                  <option value="LAYERS">{t("farmer.batches.modal.layers")}</option>
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("farmer.batches.modal.batchType")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BROILER">{t("farmer.batches.modal.broiler")}</SelectItem>
+                    <SelectItem value="LAYERS">{t("farmer.batches.modal.layers")}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="farmId">{t("farmer.batches.modal.farm")}</Label>
-                <select
-                  id="farmId"
-                  name="farmId"
+                <Select
                   value={formData.farmId}
-                  onChange={handleChange}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                  required
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, farmId: value }))}
                 >
-                  <option value="">{t("farmer.batches.modal.selectFarm")}</option>
-                  {farms.map((farm) => (
-                    <option key={farm.id} value={farm.id}>
-                      {farm.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("farmer.batches.modal.selectFarm")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {farms.map((farm) => (
+                      <SelectItem key={farm.id} value={farm.id}>
+                        {farm.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <DateInput
@@ -537,19 +545,21 @@ export default function BatchesPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <Label htmlFor="singleItem">{t("farmer.batches.modal.selectChicksItem")}</Label>
-                      <select
-                        id="singleItem"
-                        className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                      <Select
                         value={singleAlloc.itemId}
-                        onChange={(e) => setSingleAlloc((p) => ({ ...p, itemId: e.target.value }))}
+                        onValueChange={(value) => setSingleAlloc((p) => ({ ...p, itemId: value }))}
                       >
-                        <option value="">{t("farmer.batches.modal.selectItem")}</option>
-                        {(chicksInventory.items || []).map((it: any) => (
-                          <option key={it.id} value={it.id}>
-                            {it.name} (Stock: {Number(it.currentStock)})
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t("farmer.batches.modal.selectItem")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(chicksInventory.items || []).map((it: any) => (
+                            <SelectItem key={it.id} value={it.id}>
+                              {it.name} (Stock: {Number(it.currentStock)})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label htmlFor="singleQty">{t("farmer.batches.modal.quantity")}</Label>
@@ -571,21 +581,23 @@ export default function BatchesPage() {
                       <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
                         <div className="md:col-span-6">
                           <Label>{t("farmer.batches.modal.selectChicksItem")}</Label>
-                          <select
-                            className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                          <Select
                             value={row.itemId}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setAllocations((prev) => prev.map((r, i) => (i === idx ? { ...r, itemId: v } : r)));
+                            onValueChange={(value) => {
+                              setAllocations((prev) => prev.map((r, i) => (i === idx ? { ...r, itemId: value } : r)));
                             }}
                           >
-                            <option value="">{t("farmer.batches.modal.selectItem")}</option>
-                            {(chicksInventory.items || []).map((it: any) => (
-                              <option key={it.id} value={it.id}>
-                                {it.name} (Stock: {Number(it.currentStock)})
-                              </option>
-                            ))}
-                          </select>
+                            <SelectTrigger>
+                              <SelectValue placeholder={t("farmer.batches.modal.selectItem")} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(chicksInventory.items || []).map((it: any) => (
+                                <SelectItem key={it.id} value={it.id}>
+                                  {it.name} (Stock: {Number(it.currentStock)})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="md:col-span-3">
                           <Label>{t("farmer.batches.modal.quantity")}</Label>
@@ -741,15 +753,15 @@ export default function BatchesPage() {
             )}
             {(countFilter === "Active" ? activeBatches : closedBatches)
               .length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                {t("farmer.batches.modal.none", {
-                  status:
-                    countFilter === "Active"
-                      ? t("farmer.batches.counts.active").toLowerCase()
-                      : t("farmer.batches.counts.closed").toLowerCase(),
-                })}
-              </p>
-            )}
+                <p className="text-sm text-muted-foreground">
+                  {t("farmer.batches.modal.none", {
+                    status:
+                      countFilter === "Active"
+                        ? t("farmer.batches.counts.active").toLowerCase()
+                        : t("farmer.batches.counts.closed").toLowerCase(),
+                  })}
+                </p>
+              )}
           </div>
         </ModalContent>
         <ModalFooter>

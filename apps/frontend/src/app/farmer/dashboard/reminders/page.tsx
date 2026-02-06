@@ -21,6 +21,23 @@ import {
 } from "@/fetchers/remainder/remainderQueries";
 import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/common/components/ui/alert-dialog";
 
 export default function RemindersPage() {
   const [activeTab, setActiveTab] = useState<"upcoming" | "overdue" | "scheduled" | "completed" | "all">("upcoming");
@@ -51,6 +68,10 @@ export default function RemindersPage() {
 
   // Track which reminder is being processed for loading states
   const [processingReminderId, setProcessingReminderId] = useState<string | null>(null);
+
+  // Delete confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   // Form state
   const [form, setForm] = useState({
@@ -91,7 +112,7 @@ export default function RemindersPage() {
   // Handle form submission
   const handleCreateReminder = async () => {
     if (!form.title || !form.dueDate) return;
-    
+
     try {
       // DateInput already returns ISO string, so we can use it directly
       await createReminder.mutateAsync({
@@ -103,7 +124,7 @@ export default function RemindersPage() {
         recurrencePattern: form.isRecurring ? (form.recurrencePattern as any) : "NONE",
         recurrenceInterval: form.isRecurring ? Number(form.recurrenceInterval) : undefined,
       } as any);
-      
+
       // Reset form
       setForm({
         title: "",
@@ -146,17 +167,22 @@ export default function RemindersPage() {
 
   // Handle delete reminder with loading state
   const handleDeleteReminder = async (reminderId: string) => {
-    if (!confirm('Are you sure you want to delete this reminder? For recurring reminders, this will delete ALL future instances.')) {
-      return;
-    }
-    
-    setProcessingReminderId(reminderId);
+    setPendingDeleteId(reminderId);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteReminder = async () => {
+    if (!pendingDeleteId) return;
+
+    setDeleteDialogOpen(false);
+    setProcessingReminderId(pendingDeleteId);
     try {
-      await deleteReminder.mutateAsync(reminderId);
+      await deleteReminder.mutateAsync(pendingDeleteId);
     } catch (error) {
       console.error('Failed to delete reminder:', error);
     } finally {
       setProcessingReminderId(null);
+      setPendingDeleteId(null);
     }
   };
 
@@ -164,15 +190,15 @@ export default function RemindersPage() {
     const now = Date.now();
     const due = new Date(dateString).getTime();
     const diffMs = due - now;
-    
+
     if (diffMs <= 0) return "Overdue";
-    
+
     const diffMin = Math.round(diffMs / 60000);
     if (diffMin < 60) return `${diffMin}m`;
-    
+
     const diffHr = Math.round(diffMin / 60);
     if (diffHr < 24) return `${diffHr}h`;
-    
+
     const diffDay = Math.round(diffHr / 24);
     return `${diffDay}d`;
   };
@@ -237,14 +263,14 @@ export default function RemindersPage() {
             <p className="text-slate-600 mt-1">Manage your farm tasks and notifications</p>
           </div>
           <div className="flex gap-2">
-            <Button 
+            <Button
               onClick={() => setShowCreateForm(!showCreateForm)}
               className="bg-blue-600 hover:bg-blue-700 shadow-lg"
             >
               <Plus className="h-4 w-4 mr-2" />
               New Reminder
             </Button>
-            <Button 
+            <Button
               onClick={() => cleanupDuplicates.mutate()}
               variant="outline"
               className="shadow-lg"
@@ -323,7 +349,7 @@ export default function RemindersPage() {
                     onChange={(e) => setForm({ ...form, title: e.target.value })}
                   />
                 </div>
-                
+
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-2">Description</label>
                   <textarea
@@ -337,20 +363,24 @@ export default function RemindersPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Type</label>
-                  <select 
-                    className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                  <Select
                     value={form.type}
-                    onChange={(e) => setForm({ ...form, type: e.target.value })}
+                    onValueChange={(value) => setForm({ ...form, type: value })}
                   >
-                    <option value="GENERAL">General</option>
-                    <option value="VACCINATION">Vaccination</option>
-                    <option value="FEEDING">Feeding</option>
-                    <option value="MEDICATION">Medication</option>
-                    <option value="CLEANING">Cleaning</option>
-                    <option value="WEIGHING">Weighing</option>
-                    <option value="SUPPLIER_PAYMENT">Supplier Payment</option>
-                    <option value="CUSTOMER_PAYMENT">Customer Payment</option>
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="GENERAL">General</SelectItem>
+                      <SelectItem value="VACCINATION">Vaccination</SelectItem>
+                      <SelectItem value="FEEDING">Feeding</SelectItem>
+                      <SelectItem value="MEDICATION">Medication</SelectItem>
+                      <SelectItem value="CLEANING">Cleaning</SelectItem>
+                      <SelectItem value="WEIGHING">Weighing</SelectItem>
+                      <SelectItem value="SUPPLIER_PAYMENT">Supplier Payment</SelectItem>
+                      <SelectItem value="CUSTOMER_PAYMENT">Customer Payment</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>
@@ -369,8 +399,8 @@ export default function RemindersPage() {
 
                 <div className="md:col-span-2 flex items-center gap-4">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       className="w-4 h-4 text-blue-600 rounded"
                       checked={form.isRecurring}
                       onChange={(e) => setForm({ ...form, isRecurring: e.target.checked })}
@@ -383,16 +413,20 @@ export default function RemindersPage() {
                   <div className="md:col-span-2 grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">Pattern</label>
-                      <select 
-                        className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                      <Select
                         value={form.recurrencePattern}
-                        onChange={(e) => setForm({ ...form, recurrencePattern: e.target.value })}
+                        onValueChange={(value) => setForm({ ...form, recurrencePattern: value })}
                       >
-                        <option value="DAILY">Daily</option>
-                        <option value="WEEKLY">Weekly</option>
-                        <option value="MONTHLY">Monthly</option>
-                        <option value="CUSTOM">Custom</option>
-                      </select>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select pattern" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="DAILY">Daily</SelectItem>
+                          <SelectItem value="WEEKLY">Weekly</SelectItem>
+                          <SelectItem value="MONTHLY">Monthly</SelectItem>
+                          <SelectItem value="CUSTOM">Custom</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">Interval</label>
@@ -408,15 +442,15 @@ export default function RemindersPage() {
                 )}
 
                 <div className="md:col-span-2 flex gap-3">
-                  <Button 
+                  <Button
                     className="bg-blue-600 hover:bg-blue-700 flex-1"
                     onClick={handleCreateReminder}
                     disabled={createReminder.isPending || !form.title || !form.dueDate}
                   >
                     {createReminder.isPending ? "Creating..." : "Create Reminder"}
                   </Button>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => setShowCreateForm(false)}
                     className="flex-1"
                   >
@@ -432,51 +466,46 @@ export default function RemindersPage() {
         <div className="flex gap-2 border-b border-slate-200 overflow-x-auto">
           <button
             onClick={() => setActiveTab("all")}
-            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
-              activeTab === "all"
-                ? "text-blue-600 border-b-2 border-blue-600"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
+            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${activeTab === "all"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-slate-600 hover:text-slate-900"
+              }`}
           >
             All ({allReminders.length})
           </button>
           <button
             onClick={() => setActiveTab("upcoming")}
-            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
-              activeTab === "upcoming"
-                ? "text-blue-600 border-b-2 border-blue-600"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
+            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${activeTab === "upcoming"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-slate-600 hover:text-slate-900"
+              }`}
           >
             Upcoming ({totalUpcoming})
           </button>
           <button
             onClick={() => setActiveTab("overdue")}
-            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
-              activeTab === "overdue"
-                ? "text-blue-600 border-b-2 border-blue-600"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
+            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${activeTab === "overdue"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-slate-600 hover:text-slate-900"
+              }`}
           >
             Overdue ({totalOverdue})
           </button>
           <button
             onClick={() => setActiveTab("scheduled")}
-            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
-              activeTab === "scheduled"
-                ? "text-blue-600 border-b-2 border-blue-600"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
+            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${activeTab === "scheduled"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-slate-600 hover:text-slate-900"
+              }`}
           >
             All Scheduled ({totalScheduled})
           </button>
           <button
             onClick={() => setActiveTab("completed")}
-            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
-              activeTab === "completed"
-                ? "text-blue-600 border-b-2 border-blue-600"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
+            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${activeTab === "completed"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-slate-600 hover:text-slate-900"
+              }`}
           >
             Completed Today ({completedToday})
           </button>
@@ -485,142 +514,162 @@ export default function RemindersPage() {
         {/* Reminders List */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {(activeTab === "all" ? allReminders :
-            activeTab === "upcoming" ? upcomingReminders : 
-            activeTab === "overdue" ? overdueReminders : 
-            activeTab === "scheduled" ? scheduledReminders :
-            completedTodayReminders).map((reminder) => {
-            const isCompleted = reminder.status === "COMPLETED";
-            return (
-            <Card 
-              key={reminder.id} 
-              className={`shadow-md hover:shadow-xl transition-all border-l-4 ${
-                isCompleted 
-                  ? "border-l-green-500 bg-green-50/30" 
-                  : "border-l-blue-500"
-              }`}
-            >
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className="text-2xl">{getReminderIcon(reminder.type)}</div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-slate-900 text-lg mb-1">
-                        {reminder.title}
-                      </h3>
-                      {reminder.description && (
-                        <p className="text-sm text-slate-600 mb-2">{reminder.description}</p>
-                      )}
-                      <div className="flex flex-wrap gap-2 items-center">
-                        <Badge className={`${getTypeColor(reminder.type)} border`}>
-                          {getReminderTypeDisplayName(reminder.type)}
-                        </Badge>
-                        {reminder.isRecurring && (
-                          <Badge variant="outline" className="text-purple-600 border-purple-300">
-                            🔄 Recurring
-                          </Badge>
-                        )}
-                        {reminder.batch && (
-                          <Badge variant="outline" className="text-blue-600 border-blue-300">
-                            📦 {reminder.batch.batchNumber}
-                          </Badge>
-                        )}
-                        {reminder.farm && (
-                          <Badge variant="outline" className="text-green-600 border-green-300">
-                            🏡 {reminder.farm.name}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <Badge 
-                      variant={
-                        isCompleted ? "default" :
-                        activeTab === "completed" ? "default" :
-                        reminder.status === "OVERDUE" ? "destructive" : "secondary"
-                      }
-                      className={`text-xs ${isCompleted ? "bg-green-600 text-white" : ""}`}
-                    >
-                      {isCompleted ? (
-                        <span className="flex items-center gap-1">
-                          <CheckCircle className="h-3 w-3" />
-                          Completed
-                        </span>
-                      ) : activeTab === "completed" ? "Completed" : formatDueIn(reminder.dueDate.toString())}
-                    </Badge>
-                  </div>
-                </div>
+            activeTab === "upcoming" ? upcomingReminders :
+              activeTab === "overdue" ? overdueReminders :
+                activeTab === "scheduled" ? scheduledReminders :
+                  completedTodayReminders).map((reminder) => {
+                    const isCompleted = reminder.status === "COMPLETED";
+                    return (
+                      <Card
+                        key={reminder.id}
+                        className={`shadow-md hover:shadow-xl transition-all border-l-4 ${isCompleted
+                          ? "border-l-green-500 bg-green-50/30"
+                          : "border-l-blue-500"
+                          }`}
+                      >
+                        <CardContent className="p-5">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-start gap-3 flex-1">
+                              <div className="text-2xl">{getReminderIcon(reminder.type)}</div>
+                              <div className="flex-1">
+                                <h3 className="font-semibold text-slate-900 text-lg mb-1">
+                                  {reminder.title}
+                                </h3>
+                                {reminder.description && (
+                                  <p className="text-sm text-slate-600 mb-2">{reminder.description}</p>
+                                )}
+                                <div className="flex flex-wrap gap-2 items-center">
+                                  <Badge className={`${getTypeColor(reminder.type)} border`}>
+                                    {getReminderTypeDisplayName(reminder.type)}
+                                  </Badge>
+                                  {reminder.isRecurring && (
+                                    <Badge variant="outline" className="text-purple-600 border-purple-300">
+                                      🔄 Recurring
+                                    </Badge>
+                                  )}
+                                  {reminder.batch && (
+                                    <Badge variant="outline" className="text-blue-600 border-blue-300">
+                                      📦 {reminder.batch.batchNumber}
+                                    </Badge>
+                                  )}
+                                  {reminder.farm && (
+                                    <Badge variant="outline" className="text-green-600 border-green-300">
+                                      🏡 {reminder.farm.name}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <Badge
+                                variant={
+                                  isCompleted ? "default" :
+                                    activeTab === "completed" ? "default" :
+                                      reminder.status === "OVERDUE" ? "destructive" : "secondary"
+                                }
+                                className={`text-xs ${isCompleted ? "bg-green-600 text-white" : ""}`}
+                              >
+                                {isCompleted ? (
+                                  <span className="flex items-center gap-1">
+                                    <CheckCircle className="h-3 w-3" />
+                                    Completed
+                                  </span>
+                                ) : activeTab === "completed" ? "Completed" : formatDueIn(reminder.dueDate.toString())}
+                              </Badge>
+                            </div>
+                          </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                  <div className="text-xs text-slate-500 flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    <DateDisplay date={reminder.dueDate} format="long" />
-                  </div>
-                  <div className="flex gap-2">
-                    {/* Only show action buttons if not completed */}
-                    {!isCompleted && activeTab !== "completed" && (
-                      <>
-                        <Button
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700 h-8 px-3"
-                          onClick={() => handleMarkCompleted(reminder.id)}
-                          disabled={processingReminderId === reminder.id}
-                        >
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          {processingReminderId === reminder.id ? "..." : "Done"}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 px-3 border-slate-300"
-                          onClick={() => handleMarkNotDone(reminder.id)}
-                          disabled={processingReminderId === reminder.id}
-                        >
-                          <RotateCcw className="h-3 w-3 mr-1" />
-                          +1h
-                        </Button>
-                      </>
-                    )}
-                    {/* Always show delete button */}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 px-3 border-red-300 text-red-600 hover:bg-red-50"
-                      onClick={() => handleDeleteReminder(reminder.id)}
-                      disabled={processingReminderId === reminder.id}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            );
-          })}
+                          <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                            <div className="text-xs text-slate-500 flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              <DateDisplay date={reminder.dueDate} format="long" />
+                            </div>
+                            <div className="flex gap-2">
+                              {/* Only show action buttons if not completed */}
+                              {!isCompleted && activeTab !== "completed" && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    className="bg-green-600 hover:bg-green-700 h-8 px-3"
+                                    onClick={() => handleMarkCompleted(reminder.id)}
+                                    disabled={processingReminderId === reminder.id}
+                                  >
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    {processingReminderId === reminder.id ? "..." : "Done"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 px-3 border-slate-300"
+                                    onClick={() => handleMarkNotDone(reminder.id)}
+                                    disabled={processingReminderId === reminder.id}
+                                  >
+                                    <RotateCcw className="h-3 w-3 mr-1" />
+                                    +1h
+                                  </Button>
+                                </>
+                              )}
+                              {/* Always show delete button */}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-3 border-red-300 text-red-600 hover:bg-red-50"
+                                onClick={() => handleDeleteReminder(reminder.id)}
+                                disabled={processingReminderId === reminder.id}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
         </div>
 
         {/* Empty State */}
         {(activeTab === "all" ? allReminders :
-          activeTab === "upcoming" ? upcomingReminders : 
-          activeTab === "overdue" ? overdueReminders : 
-          activeTab === "scheduled" ? scheduledReminders :
-          completedTodayReminders).length === 0 && (
-          <Card className="shadow-md">
-            <CardContent className="p-12 text-center">
-              <div className="text-6xl mb-4">✨</div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">
-                All caught up!
-              </h3>
-              <p className="text-slate-600">
-                No {activeTab === "upcoming" ? "upcoming" : 
-                    activeTab === "overdue" ? "overdue" : 
-                    activeTab === "scheduled" ? "scheduled" : 
-                    "completed"} reminders at the moment.
-              </p>
-            </CardContent>
-          </Card>
-        )}
+          activeTab === "upcoming" ? upcomingReminders :
+            activeTab === "overdue" ? overdueReminders :
+              activeTab === "scheduled" ? scheduledReminders :
+                completedTodayReminders).length === 0 && (
+            <Card className="shadow-md">
+              <CardContent className="p-12 text-center">
+                <div className="text-6xl mb-4">✨</div>
+                <h3 className="text-xl font-semibold text-slate-900 mb-2">
+                  All caught up!
+                </h3>
+                <p className="text-slate-600">
+                  No {activeTab === "upcoming" ? "upcoming" :
+                    activeTab === "overdue" ? "overdue" :
+                      activeTab === "scheduled" ? "scheduled" :
+                        "completed"} reminders at the moment.
+                </p>
+              </CardContent>
+            </Card>
+          )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Reminder</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this reminder? For recurring reminders, this will delete ALL future instances. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingDeleteId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteReminder}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
