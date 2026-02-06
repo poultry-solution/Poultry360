@@ -685,6 +685,7 @@ model EntityTransaction {
   date         DateTime
   description  String?
   reference    String? // Invoice/receipt number
+  imageUrl     String? // Receipt/Proof image URL
 
   // ✅ Proper foreign key relationships
   dealerId String?
@@ -1784,6 +1785,7 @@ model DealerLedgerEntry {
   date        DateTime
   description String?
   reference   String?
+  imageUrl    String? // Receipt/Proof image URL
 
   dealerId String
   dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)

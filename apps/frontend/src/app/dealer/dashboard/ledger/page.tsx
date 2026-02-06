@@ -54,6 +54,7 @@ import {
   useGetLedgerEntries,
   useAddDealerPayment,
 } from "@/fetchers/dealer/dealerLedgerQueries";
+import { ImageUpload } from "@/common/components/ui/image-upload";
 
 export default function DealerLedgerPage() {
   const router = useRouter();
@@ -67,6 +68,8 @@ export default function DealerLedgerPage() {
   const [paymentDate, setPaymentDate] = useState(
     new Date().toISOString().split("T")[0]
   );
+  const [receiptImageUrl, setReceiptImageUrl] = useState("");
+  const [reference, setReference] = useState("");
 
   // Queries
   const { data: summaryData, isLoading: summaryLoading } =
@@ -130,6 +133,8 @@ export default function DealerLedgerPage() {
         paymentMethod,
         date: paymentDate,
         notes: paymentNotes || undefined,
+        receiptImageUrl: receiptImageUrl || undefined,
+        reference: reference || undefined,
       });
 
       toast.success("Payment recorded successfully");
@@ -138,6 +143,8 @@ export default function DealerLedgerPage() {
       setPaymentAmount(0);
       setPaymentMethod("CASH");
       setPaymentNotes("");
+      setReceiptImageUrl("");
+      setReference("");
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to add payment");
     }
@@ -494,7 +501,7 @@ export default function DealerLedgerPage() {
           if (!open) setSelectedPartyId("");
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Payment</DialogTitle>
             <DialogDescription>
@@ -502,37 +509,7 @@ export default function DealerLedgerPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {/* Customer Info */}
-            {selectedPartyId && (
-              <div className="space-y-2">
-                <Label>Customer</Label>
-                <div className="p-3 bg-muted rounded-md">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">
-                        {parties.find((p: any) => p.id === selectedPartyId)?.name || "Unknown"}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {parties.find((p: any) => p.id === selectedPartyId)?.contact || ""}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-muted-foreground">Current Balance</p>
-                      <p className={`font-bold ${Number(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0) > 0
-                        ? "text-red-600"
-                        : Number(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0) < 0
-                          ? "text-green-600"
-                          : ""
-                        }`}>
-                        {formatCurrency(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Sale Selection - Optional */}
+            {/* Customer Selection */}
             <div className="space-y-2">
               <Label htmlFor="party">Customer *</Label>
               <Select
@@ -551,61 +528,86 @@ export default function DealerLedgerPage() {
                   ))}
                 </SelectContent>
               </Select>
-              {selectedPartyId && (
-                <div className="p-3 bg-muted rounded-md text-sm">
-                  <span className="text-muted-foreground">Balance: </span>
-                  <span
-                    className={
-                      Number(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0) > 0
-                        ? "font-bold text-red-600"
-                        : Number(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0) < 0
-                          ? "font-bold text-green-600"
-                          : "font-medium"
-                    }
-                  >
-                    {formatCurrency(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0)}
-                  </span>
+            </div>
+
+            {/* Customer Info Card */}
+            {selectedPartyId && (
+              <div className="p-3 bg-muted rounded-md text-sm">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="font-medium">
+                      {parties.find((p: any) => p.id === selectedPartyId)?.name}
+                    </p>
+                    <p className="text-muted-foreground">
+                      {parties.find((p: any) => p.id === selectedPartyId)?.contact}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-muted-foreground">Balance</p>
+                    <p className={`font-bold ${Number(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0) > 0
+                      ? "text-red-600"
+                      : Number(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0) < 0
+                        ? "text-green-600"
+                        : ""
+                      }`}>
+                      {formatCurrency(parties.find((p: any) => p.id === selectedPartyId)?.balance || 0)}
+                    </p>
+                  </div>
                 </div>
-              )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="amount">Amount *</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="payment-method">Method *</Label>
+                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <SelectTrigger id="payment-method">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CASH">Cash</SelectItem>
+                    <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                    <SelectItem value="CHEQUE">Cheque</SelectItem>
+                    <SelectItem value="UPI">UPI</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount *</Label>
-              <Input
-                id="amount"
-                type="number"
-                min="0"
-                step="0.01"
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
-                placeholder="Enter amount"
-              />
-            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="date">Date *</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="payment-method">Payment Method *</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CASH">Cash</SelectItem>
-                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                  <SelectItem value="CHEQUE">Cheque</SelectItem>
-                  <SelectItem value="UPI">UPI</SelectItem>
-                  <SelectItem value="OTHER">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="date">Payment Date *</Label>
-              <Input
-                id="date"
-                type="date"
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-              />
+              <div className="space-y-2">
+                <Label htmlFor="reference">Reference</Label>
+                <Input
+                  id="reference"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  placeholder="Ref #"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -615,6 +617,16 @@ export default function DealerLedgerPage() {
                 value={paymentNotes}
                 onChange={(e) => setPaymentNotes(e.target.value)}
                 placeholder="Add payment notes..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Payment Receipt (Optional)</Label>
+              <ImageUpload
+                value={receiptImageUrl}
+                onChange={setReceiptImageUrl}
+                folder="payment-receipts"
+                placeholder="Upload receipt"
               />
             </div>
           </div>

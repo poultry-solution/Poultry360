@@ -180,6 +180,7 @@ export class DealerFarmerAccountService {
           dealerId: data.dealerId,
           partyId: data.farmerId,
           partyType: "FARMER",
+          imageUrl: data.receiptImageUrl,
         },
       });
 
