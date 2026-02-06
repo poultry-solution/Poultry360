@@ -241,14 +241,11 @@ export class DealerFarmerAccountService {
     if (startDate) dateFilter.gte = startDate;
     if (endDate) dateFilter.lte = endDate;
 
+    // Query by accountId only: DealerSale rows may have farmerId null (set only accountId via recordSale)
     const salesWhere: {
-      dealerId: string;
-      farmerId: string;
       accountId: string;
       date?: { gte?: Date; lte?: Date };
     } = {
-      dealerId,
-      farmerId,
       accountId: account.id,
     };
     if (startDate || endDate) salesWhere.date = dateFilter;

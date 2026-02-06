@@ -7,13 +7,14 @@ import {
 } from "@prisma/client";
 
 // ==================== COMPANY: CREATE PAYMENT REQUEST ====================
+// Account-based only: payment is applied to company-dealer account ledger (no sale linkage).
 export const createCompanyPaymentRequest = async (
   req: Request,
   res: Response
 ): Promise<any> => {
   try {
     const userId = req.userId;
-    const { dealerId, amount, companySaleId, description } = req.body;
+    const { dealerId, amount, description } = req.body;
 
     // Validation
     if (!dealerId || !amount || amount <= 0) {
@@ -41,31 +42,12 @@ export const createCompanyPaymentRequest = async (
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    // If saleId provided, verify it belongs to company and dealer, and validate amount
-    if (companySaleId) {
-      const sale = await prisma.companySale.findFirst({
-        where: {
-          id: companySaleId,
-          companyId: company.id,
-          dealerId,
-        },
-      });
-
-      if (!sale) {
-        return res.status(404).json({
-          message: "Sale not found or does not belong to this company/dealer",
-        });
-      }
-
-      // Note: We allow amount > sale.dueAmount because overflow will be auto-applied to other sales
-    }
-
     const paymentRequest = await CompanyService.createPaymentRequest({
       companyId: company.id,
       dealerId,
       requestedById: userId as string,
       amount: Number(amount),
-      companySaleId,
+      companySaleId: undefined,
       description,
       direction: PaymentRequestDirection.COMPANY_TO_DEALER,
     });

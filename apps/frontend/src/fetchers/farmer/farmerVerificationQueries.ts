@@ -33,6 +33,7 @@ export interface ConnectedDealer {
   connectedAt: string;
   connectedVia: "VERIFICATION" | "MANUAL";
   dealerFarmerId: string;
+  balance?: number;
   owner?: {
     name: string;
     phone: string;
@@ -57,6 +58,76 @@ interface VerificationRequestResponse {
 interface ConnectedDealersResponse {
   success: boolean;
   data: ConnectedDealer[];
+}
+
+// Full dealer details for farmer (single route: dealer + account + sales + payments)
+export interface FarmerDealerDetailsDealer {
+  id: string;
+  name: string;
+  contact: string;
+  address?: string;
+  owner?: { id: string; name: string; phone: string };
+  _count?: { products: number; sales: number };
+}
+
+export interface FarmerDealerDetailsAccount {
+  id: string;
+  balance: number;
+  totalSales: number;
+  totalPayments: number;
+  lastSaleDate?: string;
+  lastPaymentDate?: string;
+  balanceLimit?: number | null;
+}
+
+export interface FarmerDealerDetailsSale {
+  id: string;
+  invoiceNumber: string;
+  date: string;
+  amount: number;
+  notes?: string;
+}
+
+export interface FarmerDealerDetailsPayment {
+  id: string;
+  amount: number;
+  paymentMethod?: string;
+  paymentDate: string;
+  notes?: string;
+  reference?: string;
+  balanceAfter?: number;
+}
+
+export interface FarmerDealerDetailsTransaction {
+  type: "SALE" | "PAYMENT";
+  id: string;
+  date: string;
+  amount: number;
+  reference?: string;
+  notes?: string;
+  paymentMethod?: string;
+  balanceAfter?: number;
+}
+
+export interface FarmerDealerDetailsData {
+  dealer: FarmerDealerDetailsDealer;
+  account: FarmerDealerDetailsAccount;
+  sales: FarmerDealerDetailsSale[];
+  payments: FarmerDealerDetailsPayment[];
+  transactions: FarmerDealerDetailsTransaction[];
+  statementPagination?: {
+    page: number;
+    limit: number;
+    totalSales: number;
+    totalPayments: number;
+    totalTransactions: number;
+    totalPages: number;
+  };
+}
+
+export interface FarmerDealerDetailsResponse {
+  success: boolean;
+  data: FarmerDealerDetailsData;
 }
 
 // ==================== QUERY KEYS ====================
@@ -98,12 +169,14 @@ export const useGetFarmerDealers = () => {
   });
 };
 
-// Get dealer details for farmer
+// Get full dealer details for farmer (dealer + account + sales + payments in one call)
 export const useGetDealerDetailsForFarmer = (dealerId: string, enabled = true) => {
-  return useQuery({
-    queryKey: [...farmerVerificationKeys.all, "dealer", dealerId],
+  return useQuery<FarmerDealerDetailsResponse>({
+    queryKey: farmerVerificationKeys.dealer(dealerId),
     queryFn: async () => {
-      const { data } = await axiosInstance.get(`/verification/farmers/dealers/${dealerId}`);
+      const { data } = await axiosInstance.get<FarmerDealerDetailsResponse>(
+        `/verification/farmers/dealers/${dealerId}`
+      );
       return data;
     },
     enabled: enabled && !!dealerId,

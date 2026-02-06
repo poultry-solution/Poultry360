@@ -116,7 +116,7 @@ export const useGetCompanyPaymentRequests = (params?: {
   });
 };
 
-// Create company payment request
+// Create company payment request (account-based: dealer + amount, no sale linkage)
 export const useCreateCompanyPaymentRequest = () => {
   const queryClient = useQueryClient();
 
@@ -124,7 +124,6 @@ export const useCreateCompanyPaymentRequest = () => {
     mutationFn: async (input: {
       dealerId: string;
       amount: number;
-      companySaleId?: string;
       description?: string;
     }) => {
       const { data } = await axiosInstance.post(

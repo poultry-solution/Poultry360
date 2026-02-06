@@ -206,6 +206,176 @@ export class DealerSalePaymentRequestService {
   }
 
   /**
+   * Dealer creates a payment request to farmer (asking farmer to pay)
+   */
+  static async createDealerPaymentRequest(data: {
+    dealerId: string;
+    farmerId: string;
+    amount: number;
+    description?: string;
+  }) {
+    const { dealerId, farmerId, amount, description } = data;
+
+    return await prisma.$transaction(async (tx) => {
+      // 1. Validate dealer-farmer connection exists
+      const dealerFarmerConnection = await tx.dealerFarmer.findFirst({
+        where: {
+          dealerId,
+          farmerId,
+          archivedByFarmer: false,
+          archivedByDealer: false,
+        },
+      });
+
+      if (!dealerFarmerConnection) {
+        throw new Error("No active connection found with this farmer");
+      }
+
+      // 2. Get dealer to find ownerId
+      const dealer = await tx.dealer.findUnique({
+        where: { id: dealerId },
+      });
+
+      if (!dealer || !dealer.ownerId) {
+        throw new Error("Invalid dealer");
+      }
+
+      // 3. Find customer record
+      const customer = await tx.customer.findFirst({
+        where: {
+          userId: dealer.ownerId,
+          farmerId,
+        },
+      });
+
+      if (!customer) {
+        throw new Error("No customer record found for this farmer");
+      }
+
+      // 4. Validate amount
+      if (amount <= 0) {
+        throw new Error("Payment amount must be greater than zero");
+      }
+
+      // 5. Generate request number
+      const requestNumber = `DPR-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+      // 6. Create payment request (dealer asking farmer to pay)
+      const paymentRequest = await tx.dealerSalePaymentRequest.create({
+        data: {
+          requestNumber,
+          amount: new Prisma.Decimal(amount),
+          description: description || "Payment request from dealer",
+          dealerId,
+          farmerId,
+          customerId: customer.id,
+          status: "PENDING",
+          isLedgerLevel: true,
+          dealerSaleId: null,
+        },
+        include: {
+          dealer: {
+            select: {
+              id: true,
+              name: true,
+              contact: true,
+              address: true,
+            },
+          },
+          farmer: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+            },
+          },
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+            },
+          },
+        },
+      });
+
+      return paymentRequest;
+    });
+  }
+
+  /**
+   * Farmer responds to a dealer-initiated payment request with proof
+   */
+  static async respondToPaymentRequest(data: {
+    requestId: string;
+    farmerId: string;
+    paymentMethod?: string;
+    paymentReference?: string;
+    paymentDate?: Date;
+    proofOfPaymentUrl?: string;
+  }) {
+    const { requestId, farmerId, paymentMethod, paymentReference, paymentDate, proofOfPaymentUrl } = data;
+
+    return await prisma.$transaction(async (tx) => {
+      // 1. Get the payment request
+      const request = await tx.dealerSalePaymentRequest.findUnique({
+        where: { id: requestId },
+      });
+
+      if (!request) {
+        throw new Error("Payment request not found");
+      }
+
+      // 2. Verify this request belongs to this farmer
+      if (request.farmerId !== farmerId) {
+        throw new Error("You can only respond to payment requests sent to you");
+      }
+
+      // 3. Check if already processed
+      if (request.status !== "PENDING") {
+        throw new Error(`Request is already ${request.status.toLowerCase()}`);
+      }
+
+      // 4. Update with proof data
+      const updatedRequest = await tx.dealerSalePaymentRequest.update({
+        where: { id: requestId },
+        data: {
+          paymentMethod: paymentMethod || request.paymentMethod,
+          paymentReference: paymentReference || request.paymentReference,
+          paymentDate: paymentDate || request.paymentDate || new Date(),
+          proofOfPaymentUrl: proofOfPaymentUrl || request.proofOfPaymentUrl,
+        },
+        include: {
+          dealer: {
+            select: {
+              id: true,
+              name: true,
+              contact: true,
+              address: true,
+            },
+          },
+          farmer: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+            },
+          },
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+            },
+          },
+        },
+      });
+
+      return updatedRequest;
+    });
+  }
+
+  /**
    * Dealer approves a payment request.
    * Always records the payment via DealerFarmerAccountService.recordPayment (no FIFO or bill-wise allocation).
    */

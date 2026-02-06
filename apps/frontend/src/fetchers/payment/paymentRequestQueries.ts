@@ -127,7 +127,7 @@ export const useGetDealerPaymentRequestStatistics = (
 // Approve payment request
 export const useApprovePaymentRequest = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (requestId: string) => {
       const response = await axiosInstance.post(
@@ -144,13 +144,32 @@ export const useApprovePaymentRequest = () => {
 // Reject payment request
 export const useRejectPaymentRequest = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (data: { requestId: string; rejectionReason: string }) => {
       const response = await axiosInstance.post(
         `/dealer/payment-requests/${data.requestId}/reject`,
         { rejectionReason: data.rejectionReason }
       );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: paymentRequestKeys.dealer() });
+    },
+  });
+};
+
+// Create payment request to farmer (dealer side)
+export const useCreateDealerPaymentRequestToFarmer = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      farmerId: string;
+      amount: number;
+      description?: string;
+    }) => {
+      const response = await axiosInstance.post("/dealer/payment-requests", data);
       return response.data;
     },
     onSuccess: () => {
@@ -210,7 +229,7 @@ export const useGetFarmerPaymentRequestStatistics = (
 // Create payment request
 export const useCreatePaymentRequest = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (data: {
       dealerSaleId: string;
@@ -221,6 +240,30 @@ export const useCreatePaymentRequest = () => {
       description?: string;
     }) => {
       const response = await axiosInstance.post("/farmer/payment-requests", data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: paymentRequestKeys.farmer() });
+    },
+  });
+};
+
+// Respond to dealer-initiated payment request with proof
+export const useRespondToPaymentRequest = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      requestId: string;
+      paymentMethod?: string;
+      paymentReference?: string;
+      paymentDate?: string;
+    }) => {
+      const { requestId, ...body } = data;
+      const response = await axiosInstance.post(
+        `/farmer/payment-requests/${requestId}/respond`,
+        body
+      );
       return response.data;
     },
     onSuccess: () => {

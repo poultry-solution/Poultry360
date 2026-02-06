@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   Plus,
   Search,
-  Store,
   CheckCircle,
   XCircle,
   Clock,
@@ -44,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/common/components/ui/select";
+import { DataTable, Column } from "@/common/components/ui/data-table";
 import { toast } from "sonner";
 import {
   useGetFarmerVerificationRequests,
@@ -421,300 +421,314 @@ export default function FarmerDealersPage() {
 
       {viewTab === "active" ? (
         <>
-          {/* Connected Dealers Section */}
+          {/* Connected Dealers Table */}
           <Card>
-            <CardHeader>
-              <CardTitle>My Connected Dealers</CardTitle>
-              <CardDescription>
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-base md:text-lg">My Connected Dealers</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
                 {t("farmer.dealers.connectedSection.description", { count: filteredConnectedDealers.length })}
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-3 md:p-6 pt-0">
-              {filteredConnectedDealers.length === 0 ? (
-                <div className="text-center py-8">
-                  <Store className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">{t("farmer.dealers.connectedSection.emptyTitle")}</h3>
-                  <p className="text-muted-foreground mb-4">
-                    {search
-                      ? t("farmer.dealers.connectedSection.emptySearch")
-                      : t("farmer.dealers.connectedSection.emptyDefault")}
-                  </p>
-                  {!search && (
-                    <Button onClick={() => setIsApplyDialogOpen(true)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      {t("farmer.dealers.buttons.apply")}
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <div className="grid gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {filteredConnectedDealers.map((dealer) => (
-                    <Card key={dealer.id} className="relative border-green-200 bg-green-50/30">
-                      <CardHeader className="p-3 md:p-6 pb-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <CardTitle className="text-sm md:text-lg truncate">{dealer.name}</CardTitle>
-                            {dealer.contact && (
-                              <CardDescription className="text-xs mt-0.5">
-                                {dealer.contact}
-                              </CardDescription>
-                            )}
-                          </div>
-                          <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-                            <CheckCircle className="mr-1 h-3 w-3" />
-                            {t("farmer.dealers.status.connected")}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="p-3 md:p-6 pt-0">
-                        <div className="grid grid-cols-2 gap-1 text-xs md:text-sm">
-                          {dealer.owner && (
-                            <>
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">{t("farmer.dealers.labels.owner")}</span>
-                                <span className="font-medium">{dealer.owner.name}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">{t("farmer.dealers.labels.phone")}</span>
-                                <span className="font-medium">{dealer.owner.phone}</span>
-                              </div>
-                            </>
-                          )}
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">{t("farmer.dealers.labels.connected")}</span>
-                            <span className="font-medium text-green-600">
-                              <DateDisplay date={dealer.connectedAt} format="long" />
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 text-xs"
-                            onClick={() => {
-                              // Navigate to dealer details page - to be implemented later
-                              toast.info(t("farmer.dealers.messages.dealerInteractionSoon"));
-                            }}
-                          >
-                            <Eye className="mr-2 h-4 w-4" />
-                            {t("farmer.dealers.buttons.viewDetails")}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setArchiveConfirm({ id: dealer.dealerFarmerId, name: dealer.name })}
-                            className="text-muted-foreground hover:text-foreground px-2"
-                          >
-                            <Archive className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+            <CardContent className="p-0">
+              <DataTable
+                data={filteredConnectedDealers}
+                loading={dealersLoading}
+                emptyMessage={
+                  search
+                    ? t("farmer.dealers.connectedSection.emptySearch")
+                    : t("farmer.dealers.connectedSection.emptyDefault")
+                }
+                columns={[
+                  {
+                    key: "name",
+                    label: t("farmer.dealers.labels.dealer") || "Dealer",
+                    width: "160px",
+                    render: (val) => <span className="font-medium">{val}</span>,
+                  },
+                  {
+                    key: "contact",
+                    label: t("farmer.dealers.labels.contact") || "Contact",
+                    width: "130px",
+                    render: (val) => val || "—",
+                  },
+                  {
+                    key: "balance",
+                    label: "Balance",
+                    align: "right",
+                    width: "130px",
+                    render: (val) => {
+                      const num = Number(val ?? 0);
+                      return (
+                        <span
+                          className={
+                            num > 0
+                              ? "text-red-600 font-semibold"
+                              : num < 0
+                                ? "text-green-600 font-semibold"
+                                : ""
+                          }
+                        >
+                          {num > 0
+                            ? `रू ${Math.abs(num).toFixed(2)} (Due)`
+                            : num < 0
+                              ? `रू ${Math.abs(num).toFixed(2)} (Adv)`
+                              : "रू 0.00"}
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    key: "owner",
+                    label: t("farmer.dealers.labels.owner") || "Owner",
+                    width: "120px",
+                    render: (_, row) =>
+                      row.owner?.name ? (
+                        <span className="text-sm">{row.owner.name}</span>
+                      ) : (
+                        "—"
+                      ),
+                  },
+                  {
+                    key: "connectedAt",
+                    label: t("farmer.dealers.labels.connected") || "Connected",
+                    width: "120px",
+                    render: (val) =>
+                      val ? (
+                        <span className="text-green-600 text-sm">
+                          <DateDisplay date={val} format="long" />
+                        </span>
+                      ) : (
+                        "—"
+                      ),
+                  },
+                  {
+                    key: "status",
+                    label: "Status",
+                    width: "100px",
+                    render: () => (
+                      <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                        <CheckCircle className="mr-1 h-3 w-3" />
+                        {t("farmer.dealers.status.connected")}
+                      </Badge>
+                    ),
+                  },
+                  {
+                    key: "actions",
+                    label: "Actions",
+                    align: "right",
+                    width: "160px",
+                    render: (_, dealer) => (
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs px-2"
+                          onClick={() => router.push(`/farmer/dashboard/dealers/${dealer.id}`)}
+                        >
+                          <Eye className="mr-2 h-3.5 w-3.5" />
+                          {t("farmer.dealers.buttons.viewDetails")}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                          onClick={() => setArchiveConfirm({ id: dealer.dealerFarmerId, name: dealer.name })}
+                        >
+                          <Archive className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ),
+                  },
+                ] as Column[]}
+              />
+              {filteredConnectedDealers.length === 0 && !search && (
+                <div className="p-4 flex justify-center">
+                  <Button variant="outline" size="sm" onClick={() => setIsApplyDialogOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    {t("farmer.dealers.buttons.apply")}
+                  </Button>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Verification Requests Section */}
+          {/* Verification Requests Table */}
           <Card>
-            <CardHeader>
-              <CardTitle>Verification Requests</CardTitle>
-              <CardDescription>
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-base md:text-lg">Verification Requests</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
                 {t("farmer.dealers.verificationSection.description", { count: filteredVerificationRequests.length })}
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-3 md:p-6 pt-0">
-              {filteredVerificationRequests.length === 0 ? (
-                <div className="text-center py-8">
-                  <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">{t("farmer.dealers.verificationSection.emptyTitle")}</h3>
-                  <p className="text-muted-foreground mb-4">
-                    {search || statusFilter !== "ALL"
-                      ? t("farmer.dealers.verificationSection.emptyFiltered")
-                      : t("farmer.dealers.verificationSection.emptyDefault")}
-                  </p>
-                </div>
-              ) : (
-                <div className="grid gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {filteredVerificationRequests.map((request) => (
-                    <Card key={request.id} className="relative">
-                      <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="text-lg">
-                              {request.dealer?.name || t("chat.unknown")}
-                            </CardTitle>
-                            {request.dealer?.contact && (
-                              <CardDescription className="text-xs mt-0.5">
-                                {request.dealer.contact}
-                              </CardDescription>
-                            )}
-                          </div>
-                          {getStatusBadge(request.status)}
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">{t("farmer.dealers.labels.status")}</span>
-                            <span className="font-medium">{request.status}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">{t("farmer.dealers.labels.applied")}</span>
-                            <span className="font-medium">
-                              <DateDisplay date={request.createdAt} format="long" />
+            <CardContent className="p-0">
+              <DataTable
+                data={filteredVerificationRequests}
+                loading={requestsLoading}
+                emptyMessage={
+                  search || statusFilter !== "ALL"
+                    ? t("farmer.dealers.verificationSection.emptyFiltered")
+                    : t("farmer.dealers.verificationSection.emptyDefault")
+                }
+                columns={[
+                  {
+                    key: "dealer",
+                    label: t("farmer.dealers.labels.dealer") || "Dealer",
+                    width: "160px",
+                    render: (_, row) => (
+                      <span className="font-medium">{row.dealer?.name || t("chat.unknown")}</span>
+                    ),
+                  },
+                  {
+                    key: "contact",
+                    label: t("farmer.dealers.labels.contact") || "Contact",
+                    width: "130px",
+                    render: (_, row) => row.dealer?.contact || "—",
+                  },
+                  {
+                    key: "status",
+                    label: t("farmer.dealers.labels.status") || "Status",
+                    width: "100px",
+                    render: (_, row) => getStatusBadge(row.status),
+                  },
+                  {
+                    key: "createdAt",
+                    label: t("farmer.dealers.labels.applied") || "Applied",
+                    width: "120px",
+                    render: (val) => (val ? <DateDisplay date={val} format="long" /> : "—"),
+                  },
+                  {
+                    key: "rejectedInfo",
+                    label: "Rejected",
+                    width: "100px",
+                    render: (_, row) =>
+                      row.status === "REJECTED" ? (
+                        <span className="text-xs text-red-600">
+                          {row.rejectedCount}/3
+                          {row.lastRejectedAt && (
+                            <span className="block text-muted-foreground">
+                              <DateDisplay date={row.lastRejectedAt} format="short" />
                             </span>
-                          </div>
-                          {request.status === "REJECTED" && (
-                            <>
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">{t("farmer.dealers.labels.rejectionCount")}</span>
-                                <span className="font-medium text-red-600">
-                                  {request.rejectedCount}/3
-                                </span>
-                              </div>
-                              {request.lastRejectedAt && (
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">{t("farmer.dealers.labels.lastRejected")}</span>
-                                  <span className="font-medium">
-                                    <DateDisplay date={request.lastRejectedAt} format="long" />
-                                  </span>
-                                </div>
-                              )}
-                            </>
                           )}
-                        </div>
-
-                        <div className="mt-3 flex gap-2">
-                          {request.status === "REJECTED" && canRetry(request) && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1 text-xs text-blue-600 hover:text-blue-700"
-                              onClick={() => handleRetry(request)}
-                              disabled={createRequestMutation.isPending}
-                            >
-                              <RefreshCw className="mr-2 h-4 w-4" />
-                              {t("farmer.dealers.buttons.retry")}
-                            </Button>
-                          )}
-                          {request.status === "REJECTED" && !canRetry(request) && (
-                            <div className="flex-1">
-                              <p className="text-[10px] text-red-600 text-center">
-                                {getRetryMessage(request)}
-                              </p>
-                            </div>
-                          )}
-                          {request.status === "PENDING" && (
-                            <>
-                              <div className="flex-1">
-                                <p className="text-xs text-yellow-600 text-center font-medium">
-                                  {t("farmer.dealers.messages.waitingApproval")}
-                                </p>
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setCancelConfirm({ id: request.id, dealerName: request.dealer?.name || "this dealer" })}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 px-2 text-xs"
-                              >
-                                <X className="mr-1 h-4 w-4" />
-                                {t("farmer.dealers.buttons.cancel")}
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
+                        </span>
+                      ) : (
+                        "—"
+                      ),
+                  },
+                  {
+                    key: "actions",
+                    label: "Actions",
+                    align: "right",
+                    width: "180px",
+                    render: (_, request) => (
+                      <div className="flex justify-end gap-1">
+                        {request.status === "REJECTED" && canRetry(request) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs px-2 text-blue-600 hover:text-blue-700"
+                            onClick={() => handleRetry(request)}
+                            disabled={createRequestMutation.isPending}
+                          >
+                            <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                            {t("farmer.dealers.buttons.retry")}
+                          </Button>
+                        )}
+                        {request.status === "PENDING" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() =>
+                              setCancelConfirm({
+                                id: request.id,
+                                dealerName: request.dealer?.name || "this dealer",
+                              })
+                            }
+                          >
+                            <X className="mr-1 h-3.5 w-3.5" />
+                            {t("farmer.dealers.buttons.cancel")}
+                          </Button>
+                        )}
+                        {request.status === "REJECTED" && !canRetry(request) && (
+                          <p className="text-[10px] text-red-600 text-right py-1">
+                            {getRetryMessage(request)}
+                          </p>
+                        )}
+                      </div>
+                    ),
+                  },
+                ] as Column[]}
+              />
             </CardContent>
           </Card>
         </>
       ) : (
         /* Archived Dealers Tab */
         <Card>
-          <CardHeader>
-            <CardTitle>{t("farmer.dealers.archivedSection.title")}</CardTitle>
-            <CardDescription>
+          <CardHeader className="p-3 md:p-6">
+            <CardTitle className="text-base md:text-lg">{t("farmer.dealers.archivedSection.title")}</CardTitle>
+            <CardDescription className="text-xs md:text-sm">
               {t("farmer.dealers.archivedSection.description", { count: archivedDealers.length })}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            {archivedDealers.length === 0 ? (
-              <div className="text-center py-8">
-                <Archive className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">{t("farmer.dealers.archivedSection.emptyTitle")}</h3>
-                <p className="text-muted-foreground">{t("farmer.dealers.archivedSection.emptyHelp")}</p>
-              </div>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {archivedDealers.map((dealer) => (
-                  <Card key={dealer.id} className="relative border-gray-300 bg-gray-50/30">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg">{dealer.name}</CardTitle>
-                          {dealer.contact && (
-                            <CardDescription className="mt-1">
-                              {dealer.contact}
-                            </CardDescription>
-                          )}
-                          {dealer.address && (
-                            <CardDescription className="mt-1">
-                              {dealer.address}
-                            </CardDescription>
-                          )}
-                        </div>
-                        <Badge className="bg-gray-200 text-gray-700 hover:bg-gray-200">
-                          <Archive className="mr-1 h-3 w-3" />
-                          {t("farmer.dealers.stats.archived")}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2 text-sm">
-                        {dealer.owner && (
-                          <>
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">{t("farmer.dealers.labels.owner")}</span>
-                              <span className="font-medium">{dealer.owner.name}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">{t("farmer.dealers.labels.phone")}</span>
-                              <span className="font-medium">{dealer.owner.phone}</span>
-                            </div>
-                          </>
-                        )}
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">{t("farmer.dealers.labels.connected")}</span>
-                          <span className="font-medium">
-                            <DateDisplay date={dealer.connectedAt} format="long" />
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="mt-4">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                          onClick={() => handleUnarchive(dealer.dealerFarmerId, dealer.name)}
-                          disabled={unarchiveMutation.isPending}
-                        >
-                          <ArchiveRestore className="mr-2 h-4 w-4" />
-                          {t("farmer.dealers.buttons.restore")}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+          <CardContent className="p-0">
+            <DataTable
+              data={archivedDealers}
+              loading={archivedLoading}
+              emptyMessage={t("farmer.dealers.archivedSection.emptyHelp")}
+              columns={[
+                {
+                  key: "name",
+                  label: t("farmer.dealers.labels.dealer") || "Dealer",
+                  width: "160px",
+                  render: (val) => <span className="font-medium">{val}</span>,
+                },
+                {
+                  key: "contact",
+                  label: t("farmer.dealers.labels.contact") || "Contact",
+                  width: "130px",
+                  render: (val) => val || "—",
+                },
+                {
+                  key: "address",
+                  label: "Address",
+                  width: "140px",
+                  render: (val) => (val ? <span className="truncate max-w-[120px] block">{val}</span> : "—"),
+                },
+                {
+                  key: "owner",
+                  label: t("farmer.dealers.labels.owner") || "Owner",
+                  width: "120px",
+                  render: (_, row) => row.owner?.name ?? "—",
+                },
+                {
+                  key: "connectedAt",
+                  label: t("farmer.dealers.labels.connected") || "Connected",
+                  width: "120px",
+                  render: (val) => (val ? <DateDisplay date={val} format="long" /> : "—"),
+                },
+                {
+                  key: "actions",
+                  label: "Actions",
+                  align: "right",
+                  width: "120px",
+                  render: (_, dealer) => (
+                    <div className="flex justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs px-2"
+                        onClick={() => handleUnarchive(dealer.dealerFarmerId, dealer.name)}
+                        disabled={unarchiveMutation.isPending}
+                      >
+                        <ArchiveRestore className="mr-2 h-3.5 w-3.5" />
+                        {t("farmer.dealers.buttons.restore")}
+                      </Button>
+                    </div>
+                  ),
+                },
+              ] as Column[]}
+            />
           </CardContent>
         </Card>
       )}

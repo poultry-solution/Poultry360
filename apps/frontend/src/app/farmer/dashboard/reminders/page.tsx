@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
@@ -40,6 +41,7 @@ import {
 } from "@/common/components/ui/alert-dialog";
 
 export default function RemindersPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"upcoming" | "overdue" | "scheduled" | "completed" | "all">("upcoming");
   const [showCreateForm, setShowCreateForm] = useState(false);
 
@@ -271,6 +273,13 @@ export default function RemindersPage() {
               New Reminder
             </Button>
             <Button
+              variant="outline"
+              className="shadow-lg"
+              onClick={() => router.push("/farmer/dashboard/reminder-test")}
+            >
+              Test Reminders
+            </Button>
+            <Button 
               onClick={() => cleanupDuplicates.mutate()}
               variant="outline"
               className="shadow-lg"
