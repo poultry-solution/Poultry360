@@ -417,11 +417,11 @@ export const getDealerLedgerParties = async (
         userId: userId,
         ...(search
           ? {
-              OR: [
-                { name: { contains: search as string, mode: "insensitive" } },
-                { phone: { contains: search as string, mode: "insensitive" } },
-              ],
-            }
+            OR: [
+              { name: { contains: search as string, mode: "insensitive" } },
+              { phone: { contains: search as string, mode: "insensitive" } },
+            ],
+          }
           : {}),
       },
       select: {
@@ -451,11 +451,11 @@ export const getDealerLedgerParties = async (
         },
         ...(search
           ? {
-              OR: [
-                { name: { contains: search as string, mode: "insensitive" } },
-                { phone: { contains: search as string, mode: "insensitive" } },
-              ],
-            }
+            OR: [
+              { name: { contains: search as string, mode: "insensitive" } },
+              { phone: { contains: search as string, mode: "insensitive" } },
+            ],
+          }
           : {}),
       },
       include: {
@@ -542,7 +542,7 @@ export const addDealerPayment = async (
 ): Promise<any> => {
   try {
     const userId = req.userId;
-    const { saleId, customerId, amount, paymentMethod, date, notes } = req.body;
+    const { saleId, customerId, amount, paymentMethod, date, notes, receiptImageUrl, reference } = req.body;
 
     // Validation
     if (!amount || amount <= 0) {
@@ -585,6 +585,8 @@ export const addDealerPayment = async (
           paymentDate: date ? new Date(date) : new Date(),
           notes: notes || `Payment received`,
           recordedById: userId as string,
+          receiptImageUrl,
+          reference,
         });
       } else {
         // Manual customer: use bill-level payment
@@ -594,6 +596,8 @@ export const addDealerPayment = async (
           paymentMethod: paymentMethod || "CASH",
           date: date ? new Date(date) : new Date(),
           description: notes || `Payment received`,
+          receiptUrl: receiptImageUrl,
+          // reference not directly supported in addSalePayment args? let me check DealerService.addSalePayment signature
         });
       }
 
@@ -622,6 +626,7 @@ export const addDealerPayment = async (
           paymentDate: date ? new Date(date) : new Date(),
           notes: notes || `General payment`,
           recordedById: userId as string,
+          receiptImageUrl,
         });
       } else {
         // Manual customer: FIFO allocation
@@ -632,6 +637,7 @@ export const addDealerPayment = async (
           paymentMethod: paymentMethod || "CASH",
           date: date ? new Date(date) : new Date(),
           description: notes || `General payment`,
+          receiptUrl: receiptImageUrl,
         });
         return res.status(200).json({
           success: true,

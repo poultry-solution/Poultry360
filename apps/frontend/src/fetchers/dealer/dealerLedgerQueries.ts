@@ -193,6 +193,8 @@ export const useAddDealerPayment = () => {
       paymentMethod?: string;
       date?: string;
       notes?: string;
+      receiptImageUrl?: string;
+      reference?: string;
     }) => {
       const { data } = await axiosInstance.post("/dealer/ledger/payments", input);
       return data;
