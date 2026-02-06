@@ -68,9 +68,8 @@ export const dealerNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.home", href: "/dealer/dashboard/home", icon: Home },
   { nameKey: "sidebar.nav.companies", href: "/dealer/dashboard/company", icon: Building2 },
   { nameKey: "sidebar.nav.inventory", href: "/dealer/dashboard/inventory", icon: Package },
-  { nameKey: "sidebar.nav.farmers", href: "/dealer/dashboard/customers", icon: Users },
+  { nameKey: "sidebar.nav.customers", href: "/dealer/dashboard/customers", icon: Users },
   { nameKey: "sidebar.nav.sales", href: "/dealer/dashboard/sales", icon: Receipt },
-  { nameKey: "sidebar.nav.ledger", href: "/dealer/dashboard/ledger", icon: FileText },
 
 ];
 
