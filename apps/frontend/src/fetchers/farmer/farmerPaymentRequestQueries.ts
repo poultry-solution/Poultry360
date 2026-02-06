@@ -152,8 +152,9 @@ export const useCreateFarmerPaymentRequest = () => {
       queryClient.invalidateQueries({
         queryKey: farmerPaymentRequestKeys.statistics(),
       });
+      queryClient.invalidateQueries({ queryKey: ["paymentRequests", "farmer"] });
       queryClient.invalidateQueries({ queryKey: ["account", "transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["dealers"] });
+      queryClient.invalidateQueries({ queryKey: ["farmer-verification"] });
     },
   });
 };

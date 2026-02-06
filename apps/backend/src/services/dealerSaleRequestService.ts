@@ -200,7 +200,7 @@ export class DealerSaleRequestService {
         }
       }
 
-      // Create the actual DealerSale
+      // Create the actual DealerSale (farmerId for farmer-side listing; accountId set by recordSale)
       const sale = await tx.dealerSale.create({
         data: {
           invoiceNumber,
@@ -212,6 +212,7 @@ export class DealerSaleRequestService {
           notes: request.notes,
           dealerId: request.dealerId,
           customerId: request.customerId,
+          farmerId: request.farmerId,
         },
       });
 

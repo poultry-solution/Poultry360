@@ -5,6 +5,7 @@ import {
   approvePaymentRequest,
   rejectPaymentRequest,
   getDealerPaymentRequestStatistics,
+  createDealerPaymentRequest,
 } from "../controller/dealerSalePaymentRequestController";
 import { authMiddleware } from "../middelware/middelware";
 
@@ -19,6 +20,9 @@ router.use((req, res, next) => {
 
 // Statistics (must come before /:id to avoid route conflicts)
 router.get("/statistics", getDealerPaymentRequestStatistics);
+
+// Create payment request (dealer → farmer)
+router.post("/", createDealerPaymentRequest);
 
 // List and get
 router.get("/", getDealerPaymentRequests);

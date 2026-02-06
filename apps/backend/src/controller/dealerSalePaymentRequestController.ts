@@ -212,6 +212,53 @@ export const getDealerPaymentRequestStatistics = async (
   }
 };
 
+/**
+ * Create a payment request to farmer (dealer side)
+ */
+export const createDealerPaymentRequest = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { farmerId, amount, description } = req.body;
+
+    // Validation
+    if (!farmerId) {
+      return res.status(400).json({ message: "Farmer ID is required" });
+    }
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: "Valid amount is required" });
+    }
+
+    // Get the dealer record
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    const result = await DealerSalePaymentRequestService.createDealerPaymentRequest({
+      dealerId: dealer.id,
+      farmerId,
+      amount: Number(amount),
+      description,
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: result,
+      message: "Payment request created successfully",
+    });
+  } catch (error: any) {
+    console.error("Create dealer payment request error:", error);
+    return res.status(400).json({ message: error.message || "Internal server error" });
+  }
+};
+
 // ==================== FARMER ENDPOINTS ====================
 
 /**
@@ -273,7 +320,7 @@ export const getFarmerPaymentRequestById = async (
 
 /**
  * Create a payment request (farmer side)
- * Supports both bill-wise (with dealerSaleId) and ledger-level (with dealerId) payments
+ * Account-based only: requires dealerId; payment is applied to dealer-farmer account ledger.
  */
 export const createPaymentRequest = async (
   req: Request,
@@ -283,7 +330,6 @@ export const createPaymentRequest = async (
     const farmerId = req.userId;
     const {
       dealerId,
-      dealerSaleId,
       amount,
       paymentDate,
       paymentReference,
@@ -298,69 +344,52 @@ export const createPaymentRequest = async (
       });
     }
 
-    // Route to appropriate service method based on presence of dealerSaleId
-    let result;
-
-    if (dealerSaleId) {
-      // Bill-wise payment request (existing logic)
-      result = await DealerSalePaymentRequestService.createPaymentRequest({
-        dealerSaleId,
-        farmerId: farmerId!,
-        amount: Number(amount),
-        paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
-        paymentReference,
-        paymentMethod,
-        description,
-      });
-    } else {
-      // Ledger-level payment request (new logic)
-      if (!dealerId) {
-        return res.status(400).json({
-          message: "Dealer ID is required for ledger-level payment",
-        });
-      }
-
-      // Find dealer and get their ownerId
-      const dealer = await prisma.dealer.findUnique({
-        where: { id: dealerId },
-      });
-
-      if (!dealer) {
-        return res.status(404).json({ message: "Dealer not found" });
-      }
-
-      if (!dealer.ownerId) {
-        return res.status(400).json({ 
-          message: "This dealer is not registered and cannot receive payment requests" 
-        });
-      }
-
-      // Find customer record where farmer is linked
-      // Customer.userId = dealer's ownerId, Customer.farmerId = current farmer
-      const customer = await prisma.customer.findFirst({
-        where: {
-          userId: dealer.ownerId,
-          farmerId: farmerId!,
-        },
-      });
-
-      if (!customer) {
-        return res.status(404).json({
-          message: "No customer record found for this dealer-farmer connection",
-        });
-      }
-
-      result = await DealerSalePaymentRequestService.createLedgerLevelPaymentRequest({
-        dealerId,
-        farmerId: farmerId!,
-        customerId: customer.id,
-        amount: Number(amount),
-        paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
-        paymentReference,
-        paymentMethod,
-        description,
+    if (!dealerId) {
+      return res.status(400).json({
+        message: "Dealer ID is required",
       });
     }
+
+    // Find dealer and get their ownerId
+    const dealer = await prisma.dealer.findUnique({
+      where: { id: dealerId },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    if (!dealer.ownerId) {
+      return res.status(400).json({
+        message: "This dealer is not registered and cannot receive payment requests",
+      });
+    }
+
+    // Find customer record where farmer is linked
+    // Customer.userId = dealer's ownerId, Customer.farmerId = current farmer
+    const customer = await prisma.customer.findFirst({
+      where: {
+        userId: dealer.ownerId,
+        farmerId: farmerId!,
+      },
+    });
+
+    if (!customer) {
+      return res.status(404).json({
+        message: "No customer record found for this dealer-farmer connection",
+      });
+    }
+
+    const result = await DealerSalePaymentRequestService.createLedgerLevelPaymentRequest({
+      dealerId,
+      farmerId: farmerId!,
+      customerId: customer.id,
+      amount: Number(amount),
+      paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
+      paymentReference,
+      paymentMethod,
+      description,
+    });
 
     return res.status(201).json({
       success: true,
@@ -369,6 +398,43 @@ export const createPaymentRequest = async (
     });
   } catch (error: any) {
     console.error("Create payment request error:", error);
+    return res.status(400).json({ message: error.message || "Internal server error" });
+  }
+};
+
+/**
+ * Respond to a dealer-initiated payment request (farmer side)
+ */
+export const respondToPaymentRequest = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const farmerId = req.userId;
+    const { id } = req.params;
+    const { paymentMethod, paymentReference, paymentDate } = req.body;
+
+    if (!paymentMethod && !paymentReference) {
+      return res.status(400).json({
+        message: "Please provide payment method or reference",
+      });
+    }
+
+    const result = await DealerSalePaymentRequestService.respondToPaymentRequest({
+      requestId: id,
+      farmerId: farmerId!,
+      paymentMethod,
+      paymentReference,
+      paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
+    });
+
+    return res.json({
+      success: true,
+      data: result,
+      message: "Payment proof submitted successfully",
+    });
+  } catch (error: any) {
+    console.error("Respond to payment request error:", error);
     return res.status(400).json({ message: error.message || "Internal server error" });
   }
 };

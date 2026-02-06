@@ -472,6 +472,12 @@ export const getDealerLedgerParties = async (
       },
     });
 
+    // Account-based: farmer balance comes from DealerFarmerAccount, not sum of sale dueAmounts
+    const farmerAccounts = await DealerFarmerAccountService.getDealerAccounts(dealer.id);
+    const farmerBalanceByUserId = new Map(
+      farmerAccounts.map((acc) => [acc.farmerId, acc.balance])
+    );
+
     // Combine and calculate balances
     const partiesWithBalance = [
       ...staticCustomers.map((customer) => {
@@ -494,10 +500,8 @@ export const getDealerLedgerParties = async (
         };
       }),
       ...farmersWithSales.map((farmer) => {
-        const balance = farmer.dealerSalesReceived.reduce((sum: number, sale: any) => {
-          const due = Number(sale.dueAmount || 0);
-          return sum + due;
-        }, 0);
+        // Use dealer-farmer account balance (account-based); same source as customer account page
+        const balance = farmerBalanceByUserId.get(farmer.id) ?? 0;
 
         const lastSale = farmer.dealerSalesReceived
           .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
@@ -507,7 +511,7 @@ export const getDealerLedgerParties = async (
           name: farmer.name,
           contact: farmer.phone,
           address: farmer.CompanyFarmLocation || null,
-          balance: Math.max(0, balance),
+          balance: Number(balance), // Can be negative (advance)
           lastTransactionDate: lastSale?.date || null,
           totalSales: farmer.dealerSalesReceived.length,
           partyType: "FARMER",

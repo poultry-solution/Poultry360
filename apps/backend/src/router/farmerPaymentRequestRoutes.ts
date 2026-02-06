@@ -4,6 +4,7 @@ import {
   getFarmerPaymentRequestById,
   createPaymentRequest,
   getFarmerPaymentRequestStatistics,
+  respondToPaymentRequest,
 } from "../controller/dealerSalePaymentRequestController";
 import { authMiddleware } from "../middelware/middelware";
 
@@ -25,5 +26,8 @@ router.get("/:id", getFarmerPaymentRequestById);
 
 // Create
 router.post("/", createPaymentRequest);
+
+// Respond to dealer-initiated request with proof
+router.post("/:id/respond", respondToPaymentRequest);
 
 export default router;

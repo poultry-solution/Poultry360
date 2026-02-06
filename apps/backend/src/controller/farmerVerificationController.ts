@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { UserRole } from "@prisma/client";
+import { DealerFarmerAccountService } from "../services/dealerFarmerAccountService";
 
 // Use type assertion for Prisma client until Prisma client is regenerated
 const prismaWithVerification = prisma as any;
@@ -658,12 +659,17 @@ export const getFarmerDealers = async (
       orderBy: { connectedAt: "desc" },
     });
 
-    // Extract dealers with connection info
+    // Get account balances for this farmer (dealerId -> balance)
+    const accounts = await DealerFarmerAccountService.getFarmerAccounts(currentUserId as string);
+    const balanceByDealerId = new Map(accounts.map((a) => [a.dealerId, a.balance]));
+
+    // Extract dealers with connection info and balance
     const dealers = dealerFarmers.map((df: any) => ({
       ...df.dealer,
       connectedAt: df.connectedAt,
       connectedVia: df.connectedVia,
       dealerFarmerId: df.id,
+      balance: balanceByDealerId.get(df.dealer.id) ?? 0,
     }));
 
     return res.json({
@@ -749,14 +755,25 @@ export const getDealerFarmers = async (
 };
 
 // ==================== GET DEALER DETAILS FOR FARMER ====================
+/**
+ * Single route returning everything about a dealer to the authenticated farmer:
+ * dealer info, account (balance/totals), sales to this dealer, and payment/statement (transactions).
+ */
 export const getDealerDetailsForFarmer = async (
   req: Request,
   res: Response
 ): Promise<any> => {
   try {
-    const { dealerId } = req.params;
+    const dealerId = req.params.dealerId;
     const currentUserId = req.userId;
     const currentUserRole = req.role;
+
+    if (!dealerId || !currentUserId) {
+      return res.status(400).json({
+        success: false,
+        message: "Dealer ID is required",
+      });
+    }
 
     // Only farmers can access
     if (currentUserRole !== UserRole.OWNER) {
@@ -793,6 +810,7 @@ export const getDealerDetailsForFarmer = async (
         address: true,
         owner: {
           select: {
+            id: true,
             name: true,
             phone: true,
           },
@@ -813,9 +831,43 @@ export const getDealerDetailsForFarmer = async (
       });
     }
 
+    // Get dealer-farmer account (balance, totals)
+    const accountRecord = await DealerFarmerAccountService.getOrCreateAccount(
+      dealerId as string,
+      currentUserId as string
+    );
+
+    const account = {
+      id: accountRecord.id,
+      balance: Number(accountRecord.balance),
+      totalSales: Number(accountRecord.totalSales),
+      totalPayments: Number(accountRecord.totalPayments),
+      lastSaleDate: accountRecord.lastSaleDate,
+      lastPaymentDate: accountRecord.lastPaymentDate,
+      balanceLimit:
+        accountRecord.balanceLimit != null
+          ? Number(accountRecord.balanceLimit)
+          : null,
+    };
+
+    // Get full statement (sales + payments, merged as transactions) - one call
+    const statement = await DealerFarmerAccountService.getAccountStatement({
+      dealerId: dealerId as string,
+      farmerId: currentUserId as string,
+      page: 1,
+      limit: 500,
+    });
+
     return res.json({
       success: true,
-      data: dealer,
+      data: {
+        dealer,
+        account,
+        sales: statement.sales,
+        payments: statement.payments,
+        transactions: statement.transactions,
+        statementPagination: statement.pagination,
+      },
     });
   } catch (error: any) {
     console.error("Get dealer details for farmer error:", error);

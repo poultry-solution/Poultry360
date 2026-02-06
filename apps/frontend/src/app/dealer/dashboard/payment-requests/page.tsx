@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { DollarSign, Search, Eye, Clock, CheckCircle, XCircle, ArrowLeft } from "lucide-react";
+import { DollarSign, Search, Eye, Clock, CheckCircle, XCircle, ArrowLeft, Plus } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -36,7 +36,9 @@ import {
   useGetDealerPaymentRequestStatistics,
   useApprovePaymentRequest,
   useRejectPaymentRequest,
+  useCreateDealerPaymentRequestToFarmer,
 } from "@/fetchers/payment/paymentRequestQueries";
+import { useGetConnectedFarmers, useGetFarmerAccount } from "@/fetchers/dealer/dealerFarmerQueries";
 import { toast } from "sonner";
 
 export default function DealerPaymentRequestsPage() {
@@ -48,6 +50,12 @@ export default function DealerPaymentRequestsPage() {
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
 
+  // Create payment request state
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [selectedFarmerId, setSelectedFarmerId] = useState<string>("");
+  const [createAmount, setCreateAmount] = useState<string>("");
+  const [createDescription, setCreateDescription] = useState<string>("");
+
   // Queries
   const { data: requestsData, isLoading } = useGetDealerPaymentRequests({
     page,
@@ -56,10 +64,13 @@ export default function DealerPaymentRequestsPage() {
   });
 
   const { data: statsData } = useGetDealerPaymentRequestStatistics();
+  const { data: farmersData } = useGetConnectedFarmers();
+  const { data: selectedFarmerAccount } = useGetFarmerAccount(selectedFarmerId);
 
   // Mutations
   const approveMutation = useApprovePaymentRequest();
   const rejectMutation = useRejectPaymentRequest();
+  const createMutation = useCreateDealerPaymentRequestToFarmer();
 
   const handleApprove = async (requestId: string) => {
     try {
@@ -87,6 +98,32 @@ export default function DealerPaymentRequestsPage() {
       setRejectionReason("");
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to reject request");
+    }
+  };
+
+  const handleCreateRequest = async () => {
+    if (!selectedFarmerId) {
+      toast.error("Please select a farmer");
+      return;
+    }
+    if (!createAmount || Number(createAmount) <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    try {
+      await createMutation.mutateAsync({
+        farmerId: selectedFarmerId,
+        amount: Number(createAmount),
+        description: createDescription || undefined,
+      });
+      toast.success("Payment request created successfully");
+      setIsCreateDialogOpen(false);
+      setSelectedFarmerId("");
+      setCreateAmount("");
+      setCreateDescription("");
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to create payment request");
     }
   };
 
@@ -121,6 +158,7 @@ export default function DealerPaymentRequestsPage() {
 
   const requests = requestsData?.data || [];
   const pagination = requestsData?.pagination;
+  const connectedFarmers = farmersData?.data || [];
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -137,10 +175,28 @@ export default function DealerPaymentRequestsPage() {
             <span className="sm:hidden">Back</span>
           </Button>
         </div>
-        <h1 className="text-2xl md:text-3xl font-bold">Payment Requests</h1>
-        <p className="text-sm md:text-base text-muted-foreground">
-          Manage payment requests from farmers
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">Payment Requests</h1>
+            <p className="text-sm md:text-base text-muted-foreground">
+              Manage payment requests from farmers
+            </p>
+          </div>
+          <Button
+            onClick={() => setIsCreateDialogOpen(true)}
+            className="hidden sm:flex"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create Request
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setIsCreateDialogOpen(true)}
+            className="sm:hidden"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Statistics */}
@@ -347,6 +403,86 @@ export default function DealerPaymentRequestsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Create Payment Request Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Payment Request</DialogTitle>
+            <DialogDescription>
+              Request payment from a farmer.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="farmer">Select Farmer</Label>
+              <Select value={selectedFarmerId} onValueChange={setSelectedFarmerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a farmer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {connectedFarmers.map((farmer) => (
+                    <SelectItem key={farmer.id} value={farmer.id}>
+                      {farmer.name} ({farmer.phone})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedFarmerId && selectedFarmerAccount && (
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-sm text-muted-foreground">Current Balance</div>
+                <div className="text-lg font-bold">
+                  {formatCurrency(selectedFarmerAccount.balance)}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor="amount">Amount (रू)</Label>
+              <Input
+                id="amount"
+                type="number"
+                value={createAmount}
+                onChange={(e) => setCreateAmount(e.target.value)}
+                placeholder="Enter amount"
+                min="1"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="description">Description (Optional)</Label>
+              <Textarea
+                id="description"
+                value={createDescription}
+                onChange={(e) => setCreateDescription(e.target.value)}
+                placeholder="Enter description..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCreateDialogOpen(false);
+                setSelectedFarmerId("");
+                setCreateAmount("");
+                setCreateDescription("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateRequest}
+              disabled={createMutation.isPending || !selectedFarmerId || !createAmount}
+            >
+              {createMutation.isPending ? "Creating..." : "Create Request"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Reject Dialog */}
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { DealerService } from "../services/dealerService";
 import { DealerSaleRequestService } from "../services/dealerSaleRequestService";
+import { DealerFarmerAccountService } from "../services/dealerFarmerAccountService";
 
 // ==================== CREATE DEALER SALE ====================
 export const createDealerSale = async (
@@ -450,6 +451,24 @@ export const getDealerCustomers = async (
       }),
       prisma.customer.count({ where }),
     ]);
+
+    // For connected customers (farmerId set), use dealer-farmer account balance so "due" matches account page
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId as string },
+      select: { id: true },
+    });
+    if (dealer) {
+      const farmerIds = customers.map((c) => c.farmerId).filter(Boolean) as string[];
+      if (farmerIds.length > 0) {
+        const accounts = await DealerFarmerAccountService.getDealerAccounts(dealer.id);
+        const balanceByFarmerId = new Map(accounts.map((a) => [a.farmerId, a.balance]));
+        for (const c of customers) {
+          if (c.farmerId != null && balanceByFarmerId.has(c.farmerId)) {
+            (c as any).balance = balanceByFarmerId.get(c.farmerId);
+          }
+        }
+      }
+    }
 
     return res.status(200).json({
       success: true,
