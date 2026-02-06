@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGetDealerFarmerRequests, useGetConnectedFarmers } from "@/fetchers/dealer/dealerFarmerQueries";
+import { DealerAddPaymentDialog } from "@/components/dealer/DealerAddPaymentDialog";
 
 interface Customer {
   id: string;
@@ -46,6 +47,9 @@ export default function DealerCustomersPage() {
   const [search, setSearch] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+
+  // Add Payment dialog
+  const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -276,10 +280,23 @@ export default function DealerCustomersPage() {
       {/* Customers Table - Unified DataTable */}
       <Card>
         <CardHeader className="p-3 md:p-6">
-          <CardTitle className="text-base md:text-lg">Customers</CardTitle>
-          <CardDescription className="text-xs md:text-sm">
-            {customers.length} {customers.length === 1 ? "customer" : "customers"} registered
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <CardTitle className="text-base md:text-lg">Customers</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                {customers.length} {customers.length === 1 ? "customer" : "customers"} registered
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAddPaymentOpen(true)}
+              className="w-full sm:w-auto hover:bg-green-50 hover:text-green-700 border-green-200"
+            >
+              <DollarSign className="mr-2 h-4 w-4" />
+              Add Payment
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <DataTable
@@ -484,6 +501,22 @@ export default function DealerCustomersPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <DealerAddPaymentDialog
+        open={isAddPaymentOpen}
+        onOpenChange={setIsAddPaymentOpen}
+        mode="select"
+        customers={customers.map((c) => ({
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          balance: c.balance,
+        }))}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
+          queryClient.invalidateQueries({ queryKey: ["dealer-ledger-parties"] });
+        }}
+      />
     </div>
   );
 }

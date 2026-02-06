@@ -22,34 +22,15 @@ import {
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/common/components/ui/dialog";
-import { Label } from "@/common/components/ui/label";
-import { Input } from "@/common/components/ui/input";
-import { Textarea } from "@/common/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/common/components/ui/select";
-import { toast } from "sonner";
 import { useGetDealerSales } from "@/fetchers/dealer/dealerSaleQueries";
-import { useGetPartyLedger, useAddDealerPayment } from "@/fetchers/dealer/dealerLedgerQueries";
+import { useGetPartyLedger } from "@/fetchers/dealer/dealerLedgerQueries";
 import {
   useGetFarmerAccount,
   useGetFarmerAccountStatement,
-  useRecordFarmerPayment,
 } from "@/fetchers/dealer/dealerFarmerQueries";
 import axiosInstance from "@/common/lib/axios";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { DealerAddPaymentDialog } from "@/components/dealer/DealerAddPaymentDialog";
 
 export default function CustomerAccountPage() {
   const params = useParams();
@@ -58,12 +39,7 @@ export default function CustomerAccountPage() {
 
   const [activeTab, setActiveTab] = useState("sales");
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-  const [paymentData, setPaymentData] = useState({
-    amount: 0,
-    paymentMethod: "CASH",
-    date: new Date().toISOString().split("T")[0],
-    notes: "",
-  });
+  const queryClient = useQueryClient();
 
   // Get customer details (prefer direct customer lookup, then fall back to ledger parties)
   const { data: customerData, isLoading: customerLoading } = useQuery({
@@ -110,7 +86,6 @@ export default function CustomerAccountPage() {
   );
   const { data: statementData, isLoading: statementLoading } =
     useGetFarmerAccountStatement(farmerId ?? "", { limit: 100 });
-  const recordFarmerPaymentMutation = useRecordFarmerPayment();
 
   // Sales (for both: list by customerId)
   const { data: salesData, isLoading: salesLoading } = useGetDealerSales({
@@ -123,7 +98,6 @@ export default function CustomerAccountPage() {
     partyId,
     { limit: 100 }
   );
-  const addPaymentMutation = useAddDealerPayment();
 
   const sales = salesData?.data || [];
   const ledgerEntries = Array.isArray(ledgerData?.data)
@@ -149,43 +123,6 @@ export default function CustomerAccountPage() {
     : ledgerEntries.filter((entry: any) =>
         entry.type === "PAYMENT_RECEIVED" || entry.type === "PAYMENT"
       );
-
-  const handleRecordPayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (paymentData.amount <= 0) {
-      toast.error("Amount must be greater than 0");
-      return;
-    }
-    try {
-      if (isFarmer && farmerId) {
-        await recordFarmerPaymentMutation.mutateAsync({
-          farmerId,
-          amount: paymentData.amount,
-          paymentMethod: paymentData.paymentMethod,
-          paymentDate: paymentData.date,
-          notes: paymentData.notes || undefined,
-        });
-      } else {
-        await addPaymentMutation.mutateAsync({
-          customerId,
-          amount: paymentData.amount,
-          paymentMethod: paymentData.paymentMethod,
-          date: paymentData.date,
-          notes: paymentData.notes,
-        });
-      }
-      toast.success("Payment recorded successfully");
-      setIsPaymentDialogOpen(false);
-      setPaymentData({
-        amount: 0,
-        paymentMethod: "CASH",
-        date: new Date().toISOString().split("T")[0],
-        notes: "",
-      });
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to record payment");
-    }
-  };
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -230,8 +167,6 @@ export default function CustomerAccountPage() {
       </div>
     );
   }
-
-  const balanceAfterPayment = currentBalance - paymentData.amount;
 
   return (
     <div className="space-y-6">
@@ -495,161 +430,25 @@ export default function CustomerAccountPage() {
         </CardContent>
       </Card>
 
-      {/* Record Payment Dialog - account-level only for farmers, no sale selection */}
-      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-        <DialogContent className="max-w-md">
-          <form onSubmit={handleRecordPayment}>
-            <DialogHeader>
-              <DialogTitle>Record Payment</DialogTitle>
-              <DialogDescription>
-                {isFarmer
-                  ? `Record a payment to ${customer.name}'s account (account-level only).`
-                  : `Record a payment received from ${customer.name}`}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="grid gap-4 py-4">
-              {/* Current Balance */}
-              <div className="p-4 bg-muted rounded-lg">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium">Current Balance</span>
-                  <span
-                    className={`text-xl font-bold ${
-                      currentBalance > 0 ? "text-red-600" : "text-green-600"
-                    }`}
-                  >
-                    {formatCurrency(Math.abs(currentBalance))}
-                  </span>
-                </div>
-                {paymentData.amount > 0 && (
-                  <>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">
-                        After Payment
-                      </span>
-                      <span
-                        className={`font-bold ${
-                          balanceAfterPayment > 0
-                            ? "text-red-600"
-                            : balanceAfterPayment < 0
-                            ? "text-green-600"
-                            : ""
-                        }`}
-                      >
-                        {formatCurrency(Math.abs(balanceAfterPayment))}
-                      </span>
-                    </div>
-                    {balanceAfterPayment < 0 && (
-                      <p className="text-xs text-green-600 mt-1">
-                        This will create an advance/credit of{" "}
-                        {formatCurrency(Math.abs(balanceAfterPayment))}
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount *</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={paymentData.amount || ""}
-                  onChange={(e) =>
-                    setPaymentData({
-                      ...paymentData,
-                      amount: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                  placeholder="0.00"
-                  required
-                  autoFocus
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="paymentMethod">Payment Method *</Label>
-                <Select
-                  value={paymentData.paymentMethod}
-                  onValueChange={(value) =>
-                    setPaymentData({ ...paymentData, paymentMethod: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CASH">Cash</SelectItem>
-                    <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                    <SelectItem value="CHEQUE">Cheque</SelectItem>
-                    <SelectItem value="UPI">UPI</SelectItem>
-                    <SelectItem value="OTHER">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="paymentDate">Payment Date *</Label>
-                <Input
-                  id="paymentDate"
-                  type="date"
-                  value={paymentData.date}
-                  onChange={(e) =>
-                    setPaymentData({ ...paymentData, date: e.target.value })
-                  }
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={paymentData.notes}
-                  onChange={(e) =>
-                    setPaymentData({ ...paymentData, notes: e.target.value })
-                  }
-                  placeholder="Additional notes..."
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsPaymentDialogOpen(false)}
-                disabled={
-                  isFarmer
-                    ? recordFarmerPaymentMutation.isPending
-                    : addPaymentMutation.isPending
-                }
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={
-                  isFarmer
-                    ? recordFarmerPaymentMutation.isPending
-                    : addPaymentMutation.isPending
-                }
-              >
-                {isFarmer
-                  ? recordFarmerPaymentMutation.isPending
-                    ? "Recording..."
-                    : "Record Payment"
-                  : addPaymentMutation.isPending
-                  ? "Recording..."
-                  : "Record Payment"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <DealerAddPaymentDialog
+        open={isPaymentDialogOpen}
+        onOpenChange={setIsPaymentDialogOpen}
+        mode="single"
+        customer={{
+          id: customer.id,
+          name: customer.name,
+          phone: customer.phone,
+          balance: currentBalance,
+        }}
+        isFarmer={!!isFarmer}
+        farmerId={farmerId}
+        onSuccess={() => {
+          queryClient.invalidateQueries({
+            queryKey: ["dealer-customer", customerId],
+          });
+        }}
+        formatCurrency={(n) => formatCurrency(n)}
+      />
     </div>
   );
 }
