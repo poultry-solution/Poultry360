@@ -44,7 +44,7 @@ router.post('/setup-users', async (req, res) => {
     if (!dealerUser) {
       console.log('📝 Creating dealer user...');
       const hashedPassword = await bcrypt.hash(dealerPassword, 10);
-      
+
       const newUser = await prisma.user.create({
         data: {
           phone: dealerPhone,
@@ -85,7 +85,7 @@ router.post('/setup-users', async (req, res) => {
     if (!farmerUser) {
       console.log('📝 Creating farmer user...');
       const hashedPassword = await bcrypt.hash(farmerPassword, 10);
-      
+
       farmerUser = await prisma.user.create({
         data: {
           phone: farmerPhone,
@@ -113,41 +113,41 @@ router.post('/setup-users', async (req, res) => {
       prisma.dealerProduct.deleteMany({}),
       prisma.dealerVerificationRequest.deleteMany({}),
       prisma.dealerFarmer.deleteMany({}),
-      
+
       // ==================== FARMER TABLES ====================
       prisma.farmerVerificationRequest.deleteMany({}),
-      
+
       // ==================== COMPANY TABLES ====================
-      prisma.companySalePayment.deleteMany({}),
+      prisma.companyDealerPayment.deleteMany({}),
       prisma.companySaleItem.deleteMany({}),
       prisma.companySale.deleteMany({}),
       prisma.companyLedgerEntry.deleteMany({}),
       prisma.dealerCompany.deleteMany({}),
-      
+
       // ==================== CONSIGNMENT TABLES ====================
       prisma.consignmentAuditLog.deleteMany({}),
       prisma.consignmentItem.deleteMany({}),
       prisma.consignmentRequest.deleteMany({}),
-      
+
       // ==================== PAYMENT REQUESTS ====================
       prisma.paymentRequest.deleteMany({}),
-      
+
       // ==================== AUDIT LOGS ====================
       prisma.auditLog.deleteMany({}),
-      
+
       // ==================== INVENTORY & TRANSACTIONS ====================
       prisma.entityTransaction.deleteMany({}),
       prisma.inventoryUsage.deleteMany({}),
       prisma.inventoryTransaction.deleteMany({}),
       prisma.inventoryItem.deleteMany({}),
-      
+
       // ==================== EXPENSES ====================
       prisma.expense.deleteMany({}),
-      
+
       // ==================== SALES ====================
       prisma.salePayment.deleteMany({}),
       prisma.sale.deleteMany({}),
-      
+
       // ==================== BATCH RELATED ====================
       prisma.vaccination.deleteMany({}),
       prisma.mortality.deleteMany({}),
@@ -156,22 +156,22 @@ router.post('/setup-users', async (req, res) => {
       prisma.batchShareView.deleteMany({}),
       prisma.batchShare.deleteMany({}),
       prisma.batch.deleteMany({}),
-      
+
       // ==================== FARMS ====================
       prisma.farm.deleteMany({}),
-      
+
       // ==================== CONVERSATIONS & MESSAGES ====================
       prisma.message.deleteMany({}),
       prisma.conversation.deleteMany({}),
-      
+
       // ==================== NOTIFICATIONS & REMINDERS ====================
       prisma.notification.deleteMany({}),
       prisma.reminder.deleteMany({}),
-      
+
       // ==================== CUSTOMERS ====================
       prisma.customerTransaction.deleteMany({}),
       prisma.customer.deleteMany({}),
-      
+
       // Note: NOT deleting users, dealers, companies, hatcheries, suppliers
       // because we want to keep the test accounts
     ]);
@@ -180,7 +180,7 @@ router.post('/setup-users', async (req, res) => {
 
     // 5. Recreate dealer-farmer connection (was deleted in cleanup)
     console.log('🔗 Reconnecting dealer and farmer...');
-    
+
     await prisma.customer.create({
       data: {
         userId: dealerUser.id,
@@ -196,7 +196,7 @@ router.post('/setup-users', async (req, res) => {
 
     // 6. Create a default product for testing (optional, tests can create their own)
     const existingProduct = await prisma.dealerProduct.findFirst({
-      where: { 
+      where: {
         dealerId: dealerUser.dealer.id,
         name: 'Test Product',
       },

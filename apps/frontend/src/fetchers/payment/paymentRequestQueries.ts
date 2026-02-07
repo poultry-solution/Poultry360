@@ -258,6 +258,7 @@ export const useRespondToPaymentRequest = () => {
       paymentMethod?: string;
       paymentReference?: string;
       paymentDate?: string;
+      proofOfPaymentUrl?: string;
     }) => {
       const { requestId, ...body } = data;
       const response = await axiosInstance.post(

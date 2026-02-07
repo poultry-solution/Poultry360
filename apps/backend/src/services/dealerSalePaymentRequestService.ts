@@ -14,6 +14,7 @@ export class DealerSalePaymentRequestService {
     paymentReference?: string;
     paymentMethod?: string;
     description?: string;
+    proofOfPaymentUrl?: string;
   }) {
     const {
       dealerSaleId,
@@ -23,6 +24,7 @@ export class DealerSalePaymentRequestService {
       paymentReference,
       paymentMethod,
       description,
+      proofOfPaymentUrl,
     } = data;
 
     return await prisma.$transaction(async (tx) => {
@@ -68,6 +70,7 @@ export class DealerSalePaymentRequestService {
           farmerId,
           customerId: sale.customerId!,
           status: "PENDING",
+          proofOfPaymentUrl,
         },
         include: {
           dealerSale: true,
@@ -105,6 +108,7 @@ export class DealerSalePaymentRequestService {
     paymentReference?: string;
     paymentMethod?: string;
     description?: string;
+    proofOfPaymentUrl?: string;
   }) {
     const {
       dealerId,
@@ -115,6 +119,7 @@ export class DealerSalePaymentRequestService {
       paymentReference,
       paymentMethod,
       description,
+      proofOfPaymentUrl,
     } = data;
 
     return await prisma.$transaction(async (tx) => {
@@ -174,6 +179,7 @@ export class DealerSalePaymentRequestService {
           status: "PENDING",
           isLedgerLevel: true,
           dealerSaleId: null, // No specific sale
+          proofOfPaymentUrl,
         },
         include: {
           dealer: {

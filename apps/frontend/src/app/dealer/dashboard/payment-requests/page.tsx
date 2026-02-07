@@ -41,6 +41,13 @@ import {
 import { useGetConnectedFarmers, useGetFarmerAccount } from "@/fetchers/dealer/dealerFarmerQueries";
 import { toast } from "sonner";
 
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/common/components/ui/tabs";
+
 export default function DealerPaymentRequestsPage() {
   const router = useRouter();
   const [page, setPage] = useState(1);
@@ -48,6 +55,7 @@ export default function DealerPaymentRequestsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
 
   // Create payment request state
@@ -240,169 +248,283 @@ export default function DealerPaymentRequestsPage() {
       </div>
 
       {/* Filters */}
-      <Card>
-        <CardHeader className="p-3 md:p-6">
-          <CardTitle className="text-base md:text-lg">Filters</CardTitle>
-        </CardHeader>
-        <CardContent className="p-3 md:p-6 pt-0 flex flex-col sm:flex-row gap-2">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 h-8 text-xs"
-              />
-            </div>
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-8 text-xs w-full sm:w-[130px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All</SelectItem>
-              <SelectItem value="PENDING">Pending</SelectItem>
-              <SelectItem value="APPROVED">Approved</SelectItem>
-              <SelectItem value="REJECTED">Rejected</SelectItem>
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
-
-      {/* Requests Table */}
-      <Card>
-        <CardHeader className="p-3 md:p-6">
-          <CardTitle className="text-base md:text-lg">Payment Requests</CardTitle>
-          <CardDescription className="text-xs md:text-sm">
-            {pagination ? `${pagination.total} total` : ""}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <DataTable
-            data={requests}
-            loading={isLoading}
-            emptyMessage="No payment requests found"
-            columns={[
-              {
-                key: 'requestNumber',
-                label: 'Request',
-                width: '90px',
-                render: (val) => <span className="font-medium">{val}</span>
-              },
-              {
-                key: 'farmer',
-                label: 'Farmer',
-                width: '120px',
-                render: (val) => (
-                  <div>
-                    <div className="font-medium truncate">{val?.name}</div>
-                    <div className="text-[10px] text-muted-foreground">{val?.phone}</div>
-                  </div>
-                )
-              },
-              {
-                key: 'isLedgerLevel',
-                label: 'Type',
-                width: '80px',
-                render: (val, row) => val ? (
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-[10px]">
-                    General
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-[10px]">
-                    {row.dealerSale?.invoiceNumber || "N/A"}
-                  </Badge>
-                )
-              },
-              {
-                key: 'amount',
-                label: 'Amount',
-                align: 'right',
-                width: '90px',
-                render: (val) => <span className="font-semibold">{formatCurrency(val)}</span>
-              },
-              {
-                key: 'createdAt',
-                label: 'Date',
-                width: '90px',
-                render: (val) => formatDate(val)
-              },
-              {
-                key: 'status',
-                label: 'Status',
-                width: '100px',
-                render: (val) => getStatusBadge(val)
-              },
-              {
-                key: 'actions',
-                label: 'Actions',
-                align: 'right',
-                width: '120px',
-                render: (_, request) => (
-                  <>
-                    {request.status === "PENDING" && (
-                      <div className="flex gap-1 justify-end">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 w-7 p-0 bg-green-50 text-green-700 hover:bg-green-100"
-                          onClick={() => handleApprove(request.id)}
-                          disabled={approveMutation.isPending}
-                        >
-                          <CheckCircle className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 w-7 p-0 bg-red-50 text-red-700 hover:bg-red-100"
-                          onClick={() => {
-                            setSelectedRequest(request);
-                            setIsRejectDialogOpen(true);
-                          }}
-                        >
-                          <XCircle className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    )}
-                    {request.status === "REJECTED" && request.rejectionReason && (
-                      <div className="text-[10px] text-red-600 max-w-[80px] truncate">
-                        {request.rejectionReason}
-                      </div>
-                    )}
-                  </>
-                )
-              }
-            ] as Column[]}
+      <div className="flex flex-col sm:flex-row gap-2 justify-end">
+        <div className="relative w-full sm:w-[200px]">
+          <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8 h-9 text-xs bg-background"
           />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="h-9 text-xs w-full sm:w-[130px] bg-background">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All</SelectItem>
+            <SelectItem value="PENDING">Pending</SelectItem>
+            <SelectItem value="APPROVED">Approved</SelectItem>
+            <SelectItem value="REJECTED">Rejected</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-          {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between p-3 md:p-4 border-t">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => setPage(page - 1)}
-                disabled={page === 1}
-              >
-                Prev
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                {page}/{pagination.totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => setPage(page + 1)}
-                disabled={page === pagination.totalPages}
-              >
-                Next
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="received" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-4">
+          <TabsTrigger value="received">
+            Received (From Farmers)
+            {requests.filter((r: any) => !r.requestNumber?.startsWith("DPR-")).length > 0 && (
+              <Badge variant="secondary" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center">
+                {requests.filter((r: any) => !r.requestNumber?.startsWith("DPR-")).length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="sent">
+            Sent (To Farmers)
+            {requests.filter((r: any) => r.requestNumber?.startsWith("DPR-")).length > 0 && (
+              <Badge variant="secondary" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center">
+                {requests.filter((r: any) => r.requestNumber?.startsWith("DPR-")).length}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="received">
+          <Card>
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-base md:text-lg">Payment Requests from Farmers</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                Requests initiated by farmers (e.g., payment proofs)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <DataTable
+                data={requests.filter((r: any) => !r.requestNumber?.startsWith("DPR-"))}
+                loading={isLoading}
+                emptyMessage="No payment requests received from farmers"
+                columns={[
+                  {
+                    key: 'requestNumber',
+                    label: 'Request',
+                    width: '90px',
+                    render: (val) => <span className="font-medium">{val}</span>
+                  },
+                  {
+                    key: 'farmer',
+                    label: 'Farmer',
+                    width: '120px',
+                    render: (val) => (
+                      <div>
+                        <div className="font-medium truncate">{val?.name}</div>
+                        <div className="text-[10px] text-muted-foreground">{val?.phone}</div>
+                      </div>
+                    )
+                  },
+                  {
+                    key: 'amount',
+                    label: 'Amount',
+                    align: 'right',
+                    width: '90px',
+                    render: (val) => <span className="font-semibold">{formatCurrency(val)}</span>
+                  },
+                  {
+                    key: 'createdAt',
+                    label: 'Date',
+                    width: '90px',
+                    render: (val) => formatDate(val)
+                  },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    width: '100px',
+                    render: (val) => getStatusBadge(val)
+                  },
+                  {
+                    key: 'proofOfPaymentUrl',
+                    label: 'Proof',
+                    width: '60px',
+                    align: 'center',
+                    render: (val, row) => val ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={() => {
+                          setSelectedRequest(row);
+                          setIsImageDialogOpen(true);
+                        }}
+                      >
+                        <Eye className="h-4 w-4 text-blue-600" />
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    )
+                  },
+                  {
+                    key: 'actions',
+                    label: 'Actions',
+                    align: 'right',
+                    width: '120px',
+                    render: (_, request) => (
+                      <>
+                        {request.status === "PENDING" && (
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 w-7 p-0 bg-green-50 text-green-700 hover:bg-green-100"
+                              onClick={() => handleApprove(request.id)}
+                              disabled={approveMutation.isPending}
+                            >
+                              <CheckCircle className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 w-7 p-0 bg-red-50 text-red-700 hover:bg-red-100"
+                              onClick={() => {
+                                setSelectedRequest(request);
+                                setIsRejectDialogOpen(true);
+                              }}
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                        {request.status === "REJECTED" && request.rejectionReason && (
+                          <div className="text-[10px] text-red-600 max-w-[80px] truncate" title={request.rejectionReason}>
+                            {request.rejectionReason}
+                          </div>
+                        )}
+                      </>
+                    )
+                  }
+                ] as Column[]}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="sent">
+          <Card>
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-base md:text-lg">Payment Requests Sent to Farmers</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                Requests you sent asking farmers for payment
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <DataTable
+                data={requests.filter((r: any) => r.requestNumber?.startsWith("DPR-"))}
+                loading={isLoading}
+                emptyMessage="No payment requests sent to farmers"
+                columns={[
+                  {
+                    key: 'requestNumber',
+                    label: 'Request',
+                    width: '90px',
+                    render: (val) => <span className="font-medium">{val}</span>
+                  },
+                  {
+                    key: 'farmer',
+                    label: 'Farmer',
+                    width: '120px',
+                    render: (val) => (
+                      <div>
+                        <div className="font-medium truncate">{val?.name}</div>
+                        <div className="text-[10px] text-muted-foreground">{val?.phone}</div>
+                      </div>
+                    )
+                  },
+                  {
+                    key: 'amount',
+                    label: 'Amount',
+                    align: 'right',
+                    width: '90px',
+                    render: (val) => <span className="font-semibold">{formatCurrency(val)}</span>
+                  },
+                  {
+                    key: 'createdAt',
+                    label: 'Date',
+                    width: '90px',
+                    render: (val) => formatDate(val)
+                  },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    width: '100px',
+                    render: (val) => getStatusBadge(val)
+                  },
+                  {
+                    key: 'proofOfPaymentUrl',
+                    label: 'Proof',
+                    width: '60px',
+                    align: 'center',
+                    render: (val, row) => val ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={() => {
+                          setSelectedRequest(row);
+                          setIsImageDialogOpen(true);
+                        }}
+                      >
+                        <Eye className="h-4 w-4 text-blue-600" />
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    )
+                  },
+                  {
+                    key: 'actions',
+                    label: 'Actions',
+                    align: 'right',
+                    width: '120px',
+                    render: (_, request) => (
+                      <>
+                        {request.status === "PENDING" && (
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 w-7 p-0 bg-green-50 text-green-700 hover:bg-green-100"
+                              onClick={() => handleApprove(request.id)}
+                              disabled={approveMutation.isPending}
+                              title="Approve Payment"
+                            >
+                              <CheckCircle className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 w-7 p-0 bg-red-50 text-red-700 hover:bg-red-100"
+                              onClick={() => {
+                                setSelectedRequest(request);
+                                setIsRejectDialogOpen(true);
+                              }}
+                              title="Reject Payment"
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                        {request.status === "REJECTED" && request.rejectionReason && (
+                          <div className="text-[10px] text-red-600 max-w-[80px] truncate" title={request.rejectionReason}>
+                            {request.rejectionReason}
+                          </div>
+                        )}
+                      </>
+                    )
+                  }
+                ] as Column[]}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Create Payment Request Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -522,6 +644,36 @@ export default function DealerPaymentRequestsPage() {
               disabled={rejectMutation.isPending || !rejectionReason.trim()}
             >
               Reject Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Dialog */}
+      <Dialog open={isImageDialogOpen} onOpenChange={setIsImageDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Payment Proof</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center p-4">
+            {selectedRequest?.proofOfPaymentUrl ? (
+              <img
+                src={selectedRequest.proofOfPaymentUrl}
+                alt="Payment Proof"
+                className="max-h-[60vh] w-auto object-contain rounded-md"
+              />
+            ) : (
+              <div className="text-center text-muted-foreground p-8">
+                No proof image available
+              </div>
+            )}
+          </div>
+          <DialogFooter className="sm:justify-between">
+            <div className="text-sm text-muted-foreground self-center">
+              {selectedRequest?.requestNumber}
+            </div>
+            <Button variant="secondary" onClick={() => setIsImageDialogOpen(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

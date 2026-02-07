@@ -138,6 +138,7 @@ export const useCreateFarmerPaymentRequest = () => {
       paymentReference?: string;
       paymentDate?: string;
       description?: string;
+      receiptImageUrl?: string;
     }) => {
       const { data } = await axiosInstance.post(
         "/farmer/payment-requests",
