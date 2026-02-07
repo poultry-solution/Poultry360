@@ -216,7 +216,7 @@ export const addItemToCart = async (
     if (existingItem) {
       // Update quantity
       const newQuantity = Number(existingItem.quantity) + Number(quantity);
-      
+
       // Check stock for new total quantity
       if (Number(product.currentStock) < newQuantity) {
         return res.status(400).json({
@@ -240,7 +240,7 @@ export const addItemToCart = async (
           cartId: cart.id,
           productId: productId,
           quantity: new Prisma.Decimal(quantity),
-          unitPrice: product.price, // Freeze current price
+          unitPrice: product.unitSellingPrice, // Freeze current price
         },
         include: {
           product: true,

@@ -136,7 +136,7 @@ export const useGetCompanyLedgerSummary = (params?: {
 };
 
 // Add payment
-export const useAddCompanyPayment = () => {
+export const useAddCompanyPaym = () => {
   const queryClient = useQueryClient();
 
   return useMutation({

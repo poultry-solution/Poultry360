@@ -546,16 +546,18 @@ export default function CompanyVerificationPage() {
         <DialogContent className="bg-white">
           <DialogHeader>
             <DialogTitle>Approve Verification Request</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to approve this dealer's request to join your company?
-              {selectedRequest && (
-                <div className="mt-2 p-2 bg-blue-50 rounded">
-                  <p className="font-medium">{selectedRequest.dealer?.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Owner: {selectedRequest.dealer?.owner?.name}
-                  </p>
-                </div>
-              )}
+            <DialogDescription asChild>
+              <div>
+                Are you sure you want to approve this dealer's request to join your company?
+                {selectedRequest && (
+                  <div className="mt-2 p-2 bg-blue-50 rounded">
+                    <p className="font-medium">{selectedRequest.dealer?.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Owner: {selectedRequest.dealer?.owner?.name}
+                    </p>
+                  </div>
+                )}
+              </div>
             </DialogDescription>
           </DialogHeader>
 
@@ -599,22 +601,24 @@ export default function CompanyVerificationPage() {
         <DialogContent className="bg-white">
           <DialogHeader>
             <DialogTitle>Reject Verification Request</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to reject this dealer's request?
-              {selectedRequest && (
-                <div className="mt-2 p-2 bg-red-50 rounded">
-                  <p className="font-medium">{selectedRequest.dealer?.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Owner: {selectedRequest.dealer?.owner?.name}
-                  </p>
-                  {selectedRequest.rejectedCount > 0 && (
-                    <p className="text-sm text-red-600 mt-1">
-                      This will be rejection #{selectedRequest.rejectedCount + 1}. After 3
-                      rejections, the dealer cannot apply again.
+            <DialogDescription asChild>
+              <div>
+                Are you sure you want to reject this dealer's request?
+                {selectedRequest && (
+                  <div className="mt-2 p-2 bg-red-50 rounded">
+                    <p className="font-medium">{selectedRequest.dealer?.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Owner: {selectedRequest.dealer?.owner?.name}
                     </p>
-                  )}
-                </div>
-              )}
+                    {selectedRequest.rejectedCount > 0 && (
+                      <p className="text-sm text-red-600 mt-1">
+                        This will be rejection #{selectedRequest.rejectedCount + 1}. After 3
+                        rejections, the dealer cannot apply again.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

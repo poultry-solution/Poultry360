@@ -1410,7 +1410,7 @@ export const getCompanyProducts = async (
           description: true,
           type: true,
           unit: true,
-          price: true,
+          unitSellingPrice: true,
           currentStock: true,
           imageUrl: true,
           createdAt: true,

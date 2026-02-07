@@ -23,7 +23,7 @@ export interface CartItem {
     description?: string;
     type: string;
     unit: string;
-    price: number;
+    unitSellingPrice: number;
     currentStock: number;
     imageUrl?: string;
   };
