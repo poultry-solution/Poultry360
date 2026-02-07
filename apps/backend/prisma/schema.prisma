@@ -1462,7 +1462,7 @@ model DealerProduct {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([dealerId, name])
+  @@unique([dealerId, name, costPrice, sellingPrice])
   @@index([dealerId])
   @@index([companyProductId])
 }

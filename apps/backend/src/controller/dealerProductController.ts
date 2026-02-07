@@ -39,19 +39,20 @@ export const createDealerProduct = async (
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    // Check if product with same name already exists for this dealer
-    const existingProduct = await prisma.dealerProduct.findUnique({
+    // Check if product with same name, cost price and selling price already exists
+    const existingProduct = await prisma.dealerProduct.findFirst({
       where: {
-        dealerId_name: {
-          dealerId: dealer.id,
-          name,
-        },
+        dealerId: dealer.id,
+        name,
+        costPrice,
+        sellingPrice,
       },
     });
 
     if (existingProduct) {
       return res.status(400).json({
-        message: "Product with this name already exists",
+        message:
+          "Product with this name, cost price, and selling price already exists",
       });
     }
 
@@ -242,20 +243,37 @@ export const updateDealerProduct = async (
       return res.status(404).json({ message: "Product not found" });
     }
 
-    // Check if name is being changed and if new name already exists
-    if (name && name !== existingProduct.name) {
-      const duplicateProduct = await prisma.dealerProduct.findUnique({
+    // Check for duplicates if name or costPrice or sellingPrice is changing
+    const targetName = name || existingProduct.name;
+    const targetCostPrice = costPrice
+      ? new Prisma.Decimal(costPrice)
+      : existingProduct.costPrice;
+    const targetSellingPrice = sellingPrice
+      ? new Prisma.Decimal(sellingPrice)
+      : existingProduct.sellingPrice;
+
+    if (
+      (name && name !== existingProduct.name) ||
+      (costPrice && Number(costPrice) !== Number(existingProduct.costPrice)) ||
+      (sellingPrice &&
+        Number(sellingPrice) !== Number(existingProduct.sellingPrice))
+    ) {
+      const duplicateProduct = await prisma.dealerProduct.findFirst({
         where: {
-          dealerId_name: {
-            dealerId: dealer.id,
-            name,
+          dealerId: dealer.id,
+          name: targetName,
+          costPrice: targetCostPrice,
+          sellingPrice: targetSellingPrice,
+          NOT: {
+            id,
           },
         },
       });
 
       if (duplicateProduct) {
         return res.status(400).json({
-          message: "Product with this name already exists",
+          message:
+            "Product with this name, cost price, and selling price already exists. Updates would cause a duplicate.",
         });
       }
     }

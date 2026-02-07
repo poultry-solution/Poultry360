@@ -499,3 +499,42 @@ export const getAllCompanyAccounts = async (
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+// ==================== GET ALL DEALER PAYMENTS (COMPANY SIDE) ====================
+export const getAllDealerPayments = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { startDate, endDate, page = 1, limit = 50, dealerId } = req.query;
+
+    // Get company
+    const company = await prisma.company.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    const result = await CompanyDealerAccountService.getAllPayments({
+      companyId: company.id,
+      startDate: startDate ? new Date(startDate as string) : undefined,
+      endDate: endDate ? new Date(endDate as string) : undefined,
+      page: Number(page),
+      limit: Number(limit),
+      dealerId: dealerId as string,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result.payments,
+      pagination: result.pagination,
+    });
+  } catch (error: any) {
+    console.error("Get all dealer payments error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};

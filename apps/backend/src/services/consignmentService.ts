@@ -121,7 +121,7 @@ export class ConsignmentService {
           if (newBalance > limit) {
             throw new Error(
               `Balance limit exceeded. Current: ${currentBalance}, After consignment: ${newBalance}, Limit: ${limit}. ` +
-                `Exceeds by: ${(newBalance - limit).toFixed(2)}. Use override to proceed.`
+              `Exceeds by: ${(newBalance - limit).toFixed(2)}. Use override to proceed.`
             );
           }
         }
@@ -248,7 +248,7 @@ export class ConsignmentService {
           if (newBalance > limit) {
             throw new Error(
               `Balance limit exceeded. Current: ${currentBalance}, After acceptance: ${newBalance}, Limit: ${limit}. ` +
-                `Exceeds by: ${(newBalance - limit).toFixed(2)}. Reject or ask to update limit.`
+              `Exceeds by: ${(newBalance - limit).toFixed(2)}. Reject or ask to update limit.`
             );
           }
         }
@@ -427,6 +427,7 @@ export class ConsignmentService {
     receivedById: string;
     grnRef?: string;
     notes?: string;
+    items?: Array<{ itemId: string; sellingPrice?: number }>;
   }) {
     return await prisma.$transaction(async (tx) => {
       const consignment = await tx.consignmentRequest.findUnique({
@@ -473,11 +474,19 @@ export class ConsignmentService {
           },
         });
 
+        // Find user provided selling price
+        const userItem = data.items?.find((i) => i.itemId === item.id);
+        const sellingPrice = userItem?.sellingPrice
+          ? new Prisma.Decimal(userItem.sellingPrice)
+          : new Prisma.Decimal(Number(item.unitPrice) * 1.2);
+
         // Check if dealer has this product in their inventory
         const dealerProduct = await tx.dealerProduct.findFirst({
           where: {
             dealerId: consignment.toDealerId!,
             name: item.companyProduct.name,
+            costPrice: item.unitPrice,
+            sellingPrice: sellingPrice,
           },
         });
 
@@ -499,7 +508,7 @@ export class ConsignmentService {
               type: item.companyProduct.type || "OTHER",
               unit: item.companyProduct.unit || "UNITS",
               costPrice: item.unitPrice,
-              sellingPrice: new Prisma.Decimal(Number(item.unitPrice) * 1.2), // 20% markup default
+              sellingPrice: sellingPrice,
               currentStock: acceptedQty,
               dealerId: consignment.toDealerId!,
             },

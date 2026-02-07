@@ -474,4 +474,83 @@ export class CompanyDealerAccountService {
       lastPaymentDate: account.lastPaymentDate,
     }));
   }
+  /**
+   * Get all payments for a company across all dealers
+   */
+  static async getAllPayments(params: {
+    companyId: string;
+    startDate?: Date;
+    endDate?: Date;
+    page?: number;
+    limit?: number;
+    dealerId?: string;
+  }) {
+    const { companyId, startDate, endDate, page = 1, limit = 50, dealerId } = params;
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      account: {
+        companyId,
+      },
+    };
+
+    if (dealerId) {
+      where.account.dealerId = dealerId;
+    }
+
+    if (startDate || endDate) {
+      where.paymentDate = {};
+      if (startDate) where.paymentDate.gte = startDate;
+      if (endDate) where.paymentDate.lte = endDate;
+    }
+
+    const [payments, total] = await Promise.all([
+      prisma.companyDealerPayment.findMany({
+        where,
+        include: {
+          account: {
+            include: {
+              dealer: {
+                select: {
+                  id: true,
+                  name: true,
+                  contact: true,
+                  address: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { paymentDate: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.companyDealerPayment.count({ where }),
+    ]);
+
+    const formattedPayments = payments.map((payment) => ({
+      id: payment.id,
+      dealerId: payment.account.dealerId,
+      dealerName: payment.account.dealer.name,
+      dealerContact: payment.account.dealer.contact,
+      amount: Number(payment.amount),
+      paymentMethod: payment.paymentMethod,
+      paymentDate: payment.paymentDate,
+      notes: payment.notes,
+      reference: payment.reference,
+      receiptImageUrl: payment.receiptImageUrl,
+      proofImageUrl: payment.proofImageUrl,
+      balanceAfter: Number(payment.balanceAfter),
+    }));
+
+    return {
+      payments: formattedPayments,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
 }

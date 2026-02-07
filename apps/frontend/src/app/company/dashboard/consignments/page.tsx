@@ -668,7 +668,7 @@ export default function CompanyConsignmentsPage() {
                 id="trackingInfo"
                 value={trackingInfo}
                 onChange={(e) => setTrackingInfo(e.target.value)}
-                placeholder="Courier name, LR number, vehicle details..."
+                placeholder="Driver Phone-Number, vehicle details..."
               />
             </div>
 

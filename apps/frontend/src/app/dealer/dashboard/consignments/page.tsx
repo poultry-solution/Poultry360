@@ -89,6 +89,7 @@ export default function DealerConsignmentsPage() {
   // Form state for confirm receipt
   const [grnRef, setGrnRef] = useState("");
   const [receiptNotes, setReceiptNotes] = useState("");
+  const [sellingPrices, setSellingPrices] = useState<Record<string, string>>({});
 
   // Form state for reject
   const [rejectReason, setRejectReason] = useState("");
@@ -209,16 +210,32 @@ export default function DealerConsignmentsPage() {
     if (!selectedConsignment) return;
 
     try {
+      // Prepare items payload with selling prices
+      const itemsPayload = selectedConsignment.items.map((item) => {
+        const costPrice = Number(item.unitPrice);
+        // Default to 1.2 * cost if not set by user
+        const sellingPrice = sellingPrices[item.id] !== undefined
+          ? Number(sellingPrices[item.id])
+          : (costPrice * 1.2);
+
+        return {
+          itemId: item.id,
+          sellingPrice
+        };
+      });
+
       await confirmReceiptMutation.mutateAsync({
         id: selectedConsignment.id,
         grnRef: grnRef || undefined,
         notes: receiptNotes || undefined,
+        items: itemsPayload,
       });
       toast.success("Receipt confirmed! Sale created and inventory updated.");
       setIsConfirmReceiptDialogOpen(false);
       setSelectedConsignment(null);
       setGrnRef("");
       setReceiptNotes("");
+      setSellingPrices({});
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to confirm receipt");
     }
@@ -398,7 +415,7 @@ export default function DealerConsignmentsPage() {
                             <Button
                               variant="destructive"
                               size="sm"
-                              className="h-7 text-xs px-2"
+                              className="h-7 text-xs px-2 bg-red-600 hover:bg-red-700 text-white"
                               onClick={() => {
                                 setSelectedConsignment(consignment);
                                 setIsRejectDialogOpen(true);
@@ -418,7 +435,7 @@ export default function DealerConsignmentsPage() {
                               setIsConfirmReceiptDialogOpen(true);
                             }}
                           >
-                            <Receipt className="h-3 w-3" />
+                            Received
                           </Button>
                         )}
                       </div>
@@ -523,7 +540,7 @@ export default function DealerConsignmentsPage() {
                               setIsConfirmReceiptDialogOpen(true);
                             }}
                           >
-                            <Receipt className="h-3 w-3" />
+                            Received
                           </Button>
                         )}
                       </div>
@@ -604,14 +621,14 @@ export default function DealerConsignmentsPage() {
 
       {/* Confirm Receipt Dialog */}
       <Dialog open={isConfirmReceiptDialogOpen} onOpenChange={setIsConfirmReceiptDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Confirm Consignment Receipt</DialogTitle>
             <DialogDescription>
               Confirm receipt of {selectedConsignment?.requestNumber}. This will create a sale and update your inventory.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
             <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 p-4 rounded-md">
               <p className="text-sm font-medium text-yellow-900 dark:text-yellow-100">
                 ⚠️ Important
@@ -627,17 +644,79 @@ export default function DealerConsignmentsPage() {
               </ul>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="grn-ref">GRN Reference (Optional)</Label>
-              <Input
-                id="grn-ref"
-                value={grnRef}
-                onChange={(e) => setGrnRef(e.target.value)}
-                placeholder="e.g., GRN-12345"
-              />
-            </div>
+            {selectedConsignment && (
+              <div className="space-y-4">
+                <div className="bg-muted p-4 rounded-md">
+                  <p className="text-sm font-medium mb-2">Consignment Summary</p>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Items</p>
+                      <p className="font-medium">{selectedConsignment.items.length} products</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Total Amount</p>
+                      <p className="font-medium">{formatCurrency(selectedConsignment.totalAmount)}</p>
+                    </div>
+                  </div>
+                </div>
 
-            <div className="space-y-2">
+                <div>
+                  <Label className="text-base font-semibold mb-2 block">Set Selling Prices</Label>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Review and adjust the selling price for each item. Default is set to 20% markup on cost price.
+                  </p>
+
+                  <div className="space-y-3">
+                    {selectedConsignment.items.map((item) => {
+                      const costPrice = Number(item.unitPrice);
+                      const currentSellingPrice = sellingPrices[item.id] !== undefined
+                        ? sellingPrices[item.id]
+                        : (costPrice * 1.2).toFixed(2);
+
+                      return (
+                        <div key={item.id} className="flex flex-col sm:flex-row gap-4 p-3 border rounded-md items-start sm:items-center bg-card">
+                          <div className="flex-1">
+                            <p className="font-medium">{item.companyProduct?.name || "Unknown Product"}</p>
+                            <div className="flex gap-4 text-sm text-muted-foreground mt-1">
+                              <span>Qty: {item.acceptedQuantity || item.quantity}</span>
+                              <span>Cost: {formatCurrency(item.unitPrice)}</span>
+                            </div>
+                          </div>
+
+                          <div className="w-full sm:w-48">
+                            <Label htmlFor={`price-${item.id}`} className="text-xs mb-1.5 block">
+                              Selling Price (per unit)
+                            </Label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                                रू
+                              </span>
+                              <Input
+                                id={`price-${item.id}`}
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                className="pl-8"
+                                value={currentSellingPrice}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setSellingPrices(prev => ({
+                                    ...prev,
+                                    [item.id]: val
+                                  }));
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2 pt-4 border-t">
               <Label htmlFor="receipt-notes">Notes (Optional)</Label>
               <Textarea
                 id="receipt-notes"
@@ -647,22 +726,6 @@ export default function DealerConsignmentsPage() {
                 rows={3}
               />
             </div>
-
-            {selectedConsignment && (
-              <div className="bg-muted p-4 rounded-md">
-                <p className="text-sm font-medium mb-2">Consignment Summary</p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Items</p>
-                    <p className="font-medium">{selectedConsignment.items.length} products</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Total Amount</p>
-                    <p className="font-medium">{formatCurrency(selectedConsignment.totalAmount)}</p>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
           <DialogFooter>
             <Button
@@ -671,6 +734,7 @@ export default function DealerConsignmentsPage() {
                 setIsConfirmReceiptDialogOpen(false);
                 setGrnRef("");
                 setReceiptNotes("");
+                setSellingPrices({});
               }}
             >
               Cancel
