@@ -56,6 +56,7 @@ import {
   useCreateCustomer,
   useUpdateCustomer,
   useDeleteCustomer,
+  useGetSalePayments,
 } from "@/fetchers/sale/saleQueries";
 
 import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
@@ -63,6 +64,7 @@ import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
 import { toast } from "sonner";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { DateInput } from "@/common/components/ui/date-input";
+import { ImageUpload } from "@/common/components/ui/image-upload";
 
 // Types
 type TabType = "overview" | "sales" | "parties" | "payments";
@@ -80,6 +82,12 @@ interface PartyFilters {
   search: string;
   category: string;
   hasBalance: string;
+}
+
+interface PaymentFilters {
+  search: string;
+  startDate: string;
+  endDate: string;
 }
 
 export default function SalesLedgerPage() {
@@ -107,6 +115,12 @@ export default function SalesLedgerPage() {
     search: "",
     category: "",
     hasBalance: "",
+  });
+
+  const [paymentFilters, setPaymentFilters] = useState<PaymentFilters>({
+    search: "",
+    startDate: "",
+    endDate: "",
   });
 
   // Form states
@@ -139,6 +153,7 @@ export default function SalesLedgerPage() {
     date: new Date().toISOString().split("T")[0],
     description: "",
     reference: "",
+    receiptUrl: "",
   });
 
   const [paymentErrors, setPaymentErrors] = useState<Record<string, string>>(
@@ -206,6 +221,19 @@ export default function SalesLedgerPage() {
   const updateCustomerMutation = useUpdateCustomer();
   const deleteCustomerMutation = useDeleteCustomer();
 
+  // Fetch payments
+  const { data: paymentsResponse, isLoading: paymentsLoading } = useGetSalePayments({
+    page: 1,
+    limit: 50,
+    search: paymentFilters.search,
+    startDate: paymentFilters.startDate,
+    endDate: paymentFilters.endDate,
+  }, {
+    enabled: activeTab === "payments",
+  });
+  const payments = paymentsResponse?.data || [];
+  const paymentsPagination = paymentsResponse?.pagination;
+
   // Computed values
   const salesStats = useMemo(() => {
     const totalSales = sales.length;
@@ -260,6 +288,10 @@ export default function SalesLedgerPage() {
 
   const handlePartyFilterChange = (key: keyof PartyFilters, value: string) => {
     setPartyFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handlePaymentFilterChange = (key: keyof PaymentFilters, value: string) => {
+    setPaymentFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   // Handle sale form field updates (same as home page)
@@ -464,6 +496,7 @@ export default function SalesLedgerPage() {
           amount: Number(paymentForm.amount),
           date: paymentForm.date,
           description: paymentForm.description,
+          receiptUrl: paymentForm.receiptUrl,
         },
       });
 
@@ -474,6 +507,7 @@ export default function SalesLedgerPage() {
         date: new Date().toISOString().split("T")[0],
         description: "",
         reference: "",
+        receiptUrl: "",
       });
       setSelectedParty(null);
       setPaymentErrors({});
@@ -739,6 +773,7 @@ export default function SalesLedgerPage() {
                 date: new Date().toISOString().split("T")[0],
                 description: `Payment from ${row.name}`,
                 reference: "",
+                receiptUrl: "",
               });
               setPaymentErrors({});
               setIsPaymentModalOpen(true);
@@ -1182,28 +1217,153 @@ export default function SalesLedgerPage() {
       )}
 
       {/* Payments Tab */}
+      {/* Payments Tab */}
       {activeTab === "payments" && (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
+          {/* Payment Filters */}
           <Card>
-            <CardHeader>
-              <CardTitle>Payment Management</CardTitle>
-              <CardDescription>
-                Track and manage customer payments
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                <Filter className="h-4 w-4 md:h-5 md:w-5" />
+                Filters
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 md:p-6 pt-0">
+              <div className="grid gap-3 grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
+                <div className="col-span-2 md:col-span-2">
+                  <Label htmlFor="paymentSearch" className="text-xs md:text-sm">Search</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground" />
+                    <Input
+                      id="paymentSearch"
+                      placeholder="Search description or customer..."
+                      value={paymentFilters.search}
+                      onChange={(e) =>
+                        handlePaymentFilterChange("search", e.target.value)
+                      }
+                      className="pl-9 h-8 md:h-10 text-xs md:text-sm"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="paymentStartDate" className="text-xs md:text-sm">From</Label>
+                  <DateInput
+                    value={paymentFilters.startDate}
+                    onChange={(v) =>
+                      handlePaymentFilterChange(
+                        "startDate",
+                        v.includes("T") ? v.split("T")[0] : v
+                      )
+                    }
+                    className="[&_input]:h-8 [&_input]:md:h-10 [&_input]:text-xs [&_input]:md:text-sm"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="paymentEndDate" className="text-xs md:text-sm">To</Label>
+                  <DateInput
+                    value={paymentFilters.endDate}
+                    onChange={(v) =>
+                      handlePaymentFilterChange(
+                        "endDate",
+                        v.includes("T") ? v.split("T")[0] : v
+                      )
+                    }
+                    className="[&_input]:h-8 [&_input]:md:h-10 [&_input]:text-xs [&_input]:md:text-sm"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 md:h-10 text-xs"
+                    onClick={() =>
+                      setPaymentFilters({
+                        search: "",
+                        startDate: "",
+                        endDate: "",
+                      })
+                    }
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Payments Table */}
+          <Card>
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-base md:text-lg">Recent Payments</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                {paymentsPagination?.total || 0} total records
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <CreditCard className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">
-                  Payment Management
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  Payment tracking and management features coming soon.
-                </p>
-                <Button onClick={() => setActiveTab("parties")}>
-                  View Parties with Outstanding Balance
-                </Button>
-              </div>
+            <CardContent className="p-3 md:p-6 pt-0">
+              {paymentsLoading ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="ml-2 text-sm">Loading payments...</span>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <DataTable
+                    data={payments}
+                    columns={[
+                      {
+                        key: "date",
+                        label: "Date",
+                        width: "120px",
+                        render: (value: string) => <DateDisplay date={value} format="short" />,
+                      },
+                      {
+                        key: "sale",
+                        label: "Customer",
+                        width: "200px",
+                        render: (sale: any) => sale?.customer?.name || "—",
+                      },
+                      {
+                        key: "description",
+                        label: "Description",
+                        width: "250px",
+                        render: (value: string) => value || "Payment",
+                      },
+                      {
+                        key: "amount",
+                        label: "Amount",
+                        type: "currency" as const,
+                        width: "120px",
+                        align: "right" as const,
+                      },
+                      {
+                        key: "receiptUrl",
+                        label: "Receipt",
+                        width: "100px",
+                        align: "center" as const,
+                        render: (value: string) =>
+                          value ? (
+                            <a
+                              href={value}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-2 py-1 text-xs border rounded-md hover:bg-gray-50 text-blue-600"
+                            >
+                              <Eye className="h-3 w-3 mr-1" /> View
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          ),
+                      },
+                    ]}
+                    showFooter={true}
+                    footerContent={
+                      <div className="flex items-center justify-between text-xs md:text-sm text-muted-foreground w-full">
+                        <span>Total Records: {paymentsPagination?.total || 0}</span>
+                      </div>
+                    }
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -1755,6 +1915,7 @@ export default function SalesLedgerPage() {
             date: new Date().toISOString().split("T")[0],
             description: "",
             reference: "",
+            receiptUrl: "",
           });
           setPaymentErrors({});
         }}
@@ -1878,6 +2039,18 @@ export default function SalesLedgerPage() {
                   placeholder="Receipt number or reference"
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label>Payment Receipt (Optional)</Label>
+                <ImageUpload
+                  value={paymentForm.receiptUrl || ""}
+                  onChange={(url) =>
+                    setPaymentForm((prev) => ({ ...prev, receiptUrl: url }))
+                  }
+                  folder="payment-receipts"
+                  placeholder="Upload receipt"
+                />
+              </div>
             </div>
           </ModalContent>
           <ModalFooter>
@@ -1892,6 +2065,7 @@ export default function SalesLedgerPage() {
                   date: new Date().toISOString().split("T")[0],
                   description: "",
                   reference: "",
+                  receiptUrl: "",
                 });
                 setPaymentErrors({});
               }}
@@ -1939,6 +2113,6 @@ export default function SalesLedgerPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </div >
   );
 }

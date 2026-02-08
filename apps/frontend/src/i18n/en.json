@@ -392,6 +392,8 @@
         "rejected": "Rejected"
       },
       "labels": {
+        "dealer": "Dealer",
+        "contact": "Contact",
         "owner": "Owner:",
         "phone": "Phone:",
         "connected": "Connected:",

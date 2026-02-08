@@ -15,6 +15,7 @@ import {
   updateCustomer,
   deleteCustomer,
   getCustomerById,
+  getAllSalePayments,
 } from "../controller/salesController";
 import { authMiddleware } from "../middelware/middelware";
 
@@ -24,6 +25,9 @@ const router = express.Router();
 router.use(authMiddleware);
 
 // ==================== SALES ROUTES ====================
+
+// GET /api/sales/payments - Get all sale payments
+router.get("/payments", getAllSalePayments);
 
 // GET /api/sales - Get all sales with filtering
 router.get("/", getAllSales);

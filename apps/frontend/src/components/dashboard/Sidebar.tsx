@@ -40,7 +40,7 @@ export const farmerNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.home", href: "/farmer/dashboard/home", icon: Home },
   { nameKey: "sidebar.nav.farms", href: "/farmer/dashboard/farms", icon: Building2 },
   { nameKey: "sidebar.nav.batches", href: "/farmer/dashboard/batches", icon: Layers },
-  { nameKey: "sidebar.nav.dealers", href: "/farmer/dashboard/dealers", icon: Users },
+  { nameKey: "sidebar.nav.dealers", href: "/farmer/dashboard/dealer-ledger", icon: Users },
   { nameKey: "sidebar.nav.salesLedger", href: "/farmer/dashboard/sales-ledger", icon: Receipt },
   {
     nameKey: "sidebar.nav.medicalSupplierLedger",

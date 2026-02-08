@@ -598,6 +598,7 @@ model SalePayment {
   amount      Decimal  @db.Decimal(10, 2)
   date        DateTime @default(now())
   description String?
+  receiptUrl  String? // Payment receipt image URL
 
   saleId String
   sale   Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
@@ -902,6 +903,7 @@ model CustomerTransaction {
   date        DateTime
   description String?
   reference   String?
+  imageUrl    String? // Payment/Transaction related image URL
 
   // Relationships
   customerId String
