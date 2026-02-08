@@ -651,7 +651,7 @@ export default function CompanyPaymentsPage() {
                 <SelectTrigger>
                   <SelectValue placeholder="Select dealer" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white">
                   {dealers.map((dealer: any) => (
                     <SelectItem key={dealer.id} value={dealer.id}>
                       {dealer.name} - {dealer.contact}

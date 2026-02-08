@@ -103,7 +103,8 @@
       "financial": "Financial",
       "suppliers": "Suppliers",
       "performance": "Performance",
-      "reports": "Reports"
+      "reports": "Reports",
+      "businessInsights": "Business Insights"
     }
   },
   "settings": {
@@ -189,8 +190,7 @@
         "phoneRequired": "Please provide a phone number!",
         "invalidOtp": "Invalid OTP! Please enter 11111 for testing."
       }
-    }
-    ,
+    },
     "companySignup": {
       "title": "Company Registration",
       "subtitle": "Create your company account to start managing",
@@ -254,8 +254,7 @@
         "registrationFailed": "Registration failed. Please try again."
       }
     }
-  }
-  ,
+  },
   "farmer": {
     "paymentRequests": {
       "title": "Payment Requests",
@@ -283,8 +282,7 @@
       "reference": "Reference",
       "description": "Description",
       "rejectionReason": "Rejection Reason"
-    }
-    ,
+    },
     "saleRequests": {
       "title": "Sale Requests",
       "subtitle": "Review and approve sale requests from your connected dealers",
@@ -335,8 +333,7 @@
         "approved": "Approved",
         "rejected": "Rejected"
       }
-    }
-    ,
+    },
     "dealers": {
       "title": "My Dealers",
       "subtitle": "Manage your dealer connections and verification requests",
@@ -438,8 +435,7 @@
         "restoreSuccess": "{name} restored successfully",
         "restoreFailed": "Failed to restore connection"
       }
-    }
-    ,
+    },
     "dashboard": {
       "welcome": "Welcome, {name}!",
       "allFarmsTitle": "All Farms",
@@ -452,8 +448,7 @@
       "close": "Close",
       "moneyToReceive": "Money to Receive",
       "moneyToPay": "Money to Pay"
-    }
-    ,
+    },
     "batches": {
       "title": "Batches",
       "subtitle": "Track your production batches and performance.",
@@ -519,8 +514,7 @@
         "selectChicks": "Please select chicks inventory and quantity",
         "created": "Batch created successfully!"
       }
-    }
-    ,
+    },
     "farms": {
       "title": "Farms",
       "subtitle": "Manage your farm locations and details.",
@@ -562,8 +556,7 @@
       "toasts": {
         "created": "Farm created successfully!"
       }
-    }
-    ,
+    },
     "inventory": {
       "title": "Inventory",
       "subtitleOther": "Manage other supplies and equipment.",

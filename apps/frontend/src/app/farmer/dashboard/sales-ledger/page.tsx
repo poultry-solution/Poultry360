@@ -961,7 +961,7 @@ export default function SalesLedgerPage() {
                     <SelectTrigger className="h-8 md:h-10 text-xs md:text-sm">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       <SelectItem value="all">All</SelectItem>
                       <SelectItem value="Chicken_Meat">Meat</SelectItem>
                       <SelectItem value="EGGS">Eggs</SelectItem>
@@ -980,7 +980,7 @@ export default function SalesLedgerPage() {
                     <SelectTrigger className="h-8 md:h-10 text-xs md:text-sm">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       <SelectItem value="all">All</SelectItem>
                       <SelectItem value="false">Cash</SelectItem>
                       <SelectItem value="true">Credit</SelectItem>
@@ -1102,7 +1102,7 @@ export default function SalesLedgerPage() {
                     <SelectTrigger className="h-8 md:h-10 text-xs md:text-sm">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       <SelectItem value="all">All</SelectItem>
                       <SelectItem value="Chicken">Chicken</SelectItem>
                       <SelectItem value="Other">Other</SelectItem>
@@ -1118,7 +1118,7 @@ export default function SalesLedgerPage() {
                     <SelectTrigger className="h-8 md:h-10 text-xs md:text-sm">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       <SelectItem value="all">All</SelectItem>
                       <SelectItem value="true">Has Due</SelectItem>
                       <SelectItem value="false">Cleared</SelectItem>
@@ -1251,7 +1251,7 @@ export default function SalesLedgerPage() {
                   <SelectTrigger>
                     <SelectValue placeholder="Choose a farm" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     {farms.map((farm) => (
                       <SelectItem key={farm.id} value={farm.id}>
                         {farm.name}
@@ -1278,7 +1278,7 @@ export default function SalesLedgerPage() {
                   <SelectTrigger className={!saleForm.farmId ? "opacity-50" : ""}>
                     <SelectValue placeholder="Choose a batch" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     {activeBatches
                       .filter(
                         (batch) =>
@@ -1309,11 +1309,9 @@ export default function SalesLedgerPage() {
                   <SelectTrigger>
                     <SelectValue placeholder="Select item type" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     <SelectItem value="EGGS">Eggs</SelectItem>
                     <SelectItem value="Chicken_Meat">Layers (Meat)</SelectItem>
-                    <SelectItem value="FEED">Feed</SelectItem>
-                    <SelectItem value="MEDICINE">Medicine</SelectItem>
                     <SelectItem value="OTHER">Other</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1332,7 +1330,7 @@ export default function SalesLedgerPage() {
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       <SelectItem value="LARGE">Large</SelectItem>
                       <SelectItem value="MEDIUM">Medium</SelectItem>
                       <SelectItem value="SMALL">Small</SelectItem>
@@ -1392,7 +1390,7 @@ export default function SalesLedgerPage() {
                 </div>
               </div>
 
-              {["Chicken_Meat", "FEED", "MEDICINE"].includes(
+              {["Chicken_Meat"].includes(
                 saleForm.itemType
               ) && (
                   <div>
@@ -1581,7 +1579,7 @@ export default function SalesLedgerPage() {
                       <SelectTrigger>
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-white">
                         <SelectItem value="Chicken">Chicken</SelectItem>
                         <SelectItem value="Other">Other</SelectItem>
                       </SelectContent>

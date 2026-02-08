@@ -489,7 +489,7 @@ export default function BatchesPage() {
                   <SelectTrigger>
                     <SelectValue placeholder={t("farmer.batches.modal.batchType")} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     <SelectItem value="BROILER">{t("farmer.batches.modal.broiler")}</SelectItem>
                     <SelectItem value="LAYERS">{t("farmer.batches.modal.layers")}</SelectItem>
                   </SelectContent>
@@ -504,7 +504,7 @@ export default function BatchesPage() {
                   <SelectTrigger>
                     <SelectValue placeholder={t("farmer.batches.modal.selectFarm")} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     {farms.map((farm) => (
                       <SelectItem key={farm.id} value={farm.id}>
                         {farm.name}
@@ -524,7 +524,7 @@ export default function BatchesPage() {
                     }))
                   }
                 />
-              
+
               </div>
               {/* Chicks Inventory Selection */}
               <div className="space-y-2">
@@ -552,7 +552,7 @@ export default function BatchesPage() {
                         <SelectTrigger>
                           <SelectValue placeholder={t("farmer.batches.modal.selectItem")} />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-white">
                           {(chicksInventory.items || []).map((it: any) => (
                             <SelectItem key={it.id} value={it.id}>
                               {it.name} (Stock: {Number(it.currentStock)})
@@ -590,7 +590,7 @@ export default function BatchesPage() {
                             <SelectTrigger>
                               <SelectValue placeholder={t("farmer.batches.modal.selectItem")} />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="bg-white">
                               {(chicksInventory.items || []).map((it: any) => (
                                 <SelectItem key={it.id} value={it.id}>
                                   {it.name} (Stock: {Number(it.currentStock)})
