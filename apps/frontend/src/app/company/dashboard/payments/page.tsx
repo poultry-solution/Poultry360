@@ -273,11 +273,17 @@ export default function CompanyPaymentsPage() {
             Manage payment requests with dealers
           </p>
         </div>
-        <Button onClick={() => setIsCreateRequestOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          <span className="hidden sm:inline">Create Request</span>
-          <span className="sm:hidden">Create</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => router.push("/company/dashboard/payments/history")}>
+            <Clock className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">History</span>
+          </Button>
+          <Button onClick={() => setIsCreateRequestOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Create Request</span>
+            <span className="sm:hidden">Create</span>
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}

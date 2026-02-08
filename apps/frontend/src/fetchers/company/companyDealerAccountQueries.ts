@@ -166,6 +166,38 @@ export const useGetDealerAccountStatement = (
   });
 };
 
+// Get all payments for company (across all dealers)
+export const useGetAllCompanyPayments = (params?: {
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+  dealerId?: string;
+}) => {
+  const queryString = new URLSearchParams(
+    Object.entries(params || {})
+      .filter(([_, v]) => v !== undefined)
+      .map(([k, v]) => [k, String(v)])
+  ).toString();
+
+  return useQuery({
+    queryKey: [...companyDealerAccountKeys.all, "payments", { queryString }] as const,
+    queryFn: async () => {
+      const { data } = await axiosInstance.get<{
+        success: boolean;
+        data: any[]; // Using any for now, ideally should update PaymentRecord interface
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+        };
+      }>(`/company/payments?${queryString}`);
+      return data;
+    },
+  });
+};
+
 // Record payment from dealer
 export const useRecordDealerPayment = () => {
   const queryClient = useQueryClient();

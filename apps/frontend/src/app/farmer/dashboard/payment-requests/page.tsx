@@ -30,6 +30,13 @@ import {
   SelectValue,
 } from "@/common/components/ui/select";
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/common/components/ui/tabs";
+
+import {
   useGetFarmerPaymentRequests,
   useGetFarmerPaymentRequestStatistics,
   useRespondToPaymentRequest,
@@ -39,6 +46,7 @@ import { useGetFarmerDealers } from "@/fetchers/farmer/farmerVerificationQueries
 import { useI18n } from "@/i18n/useI18n";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { toast } from "sonner";
+import { ImageUpload } from "@/common/components/ui/image-upload";
 
 export default function FarmerPaymentRequestsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -57,6 +65,7 @@ export default function FarmerPaymentRequestsPage() {
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [proofPaymentMethod, setProofPaymentMethod] = useState<string>("");
   const [proofReference, setProofReference] = useState<string>("");
+  const [proofReceiptUrl, setProofReceiptUrl] = useState<string>("");
 
   // Create payment request state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -66,6 +75,7 @@ export default function FarmerPaymentRequestsPage() {
   const [createReference, setCreateReference] = useState("");
   const [createDate, setCreateDate] = useState(new Date().toISOString().split("T")[0]);
   const [createDescription, setCreateDescription] = useState("");
+  const [createReceiptUrl, setCreateReceiptUrl] = useState("");
 
   // Mutations
   const respondMutation = useRespondToPaymentRequest();
@@ -86,12 +96,14 @@ export default function FarmerPaymentRequestsPage() {
         paymentMethod: proofPaymentMethod || undefined,
         paymentReference: proofReference || undefined,
         paymentDate: new Date().toISOString(),
+        proofOfPaymentUrl: proofReceiptUrl || undefined,
       });
       toast.success("Payment proof submitted successfully");
       setIsSubmitProofOpen(false);
       setSelectedRequest(null);
       setProofPaymentMethod("");
       setProofReference("");
+      setProofReceiptUrl("");
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to submit proof");
     }
@@ -115,6 +127,7 @@ export default function FarmerPaymentRequestsPage() {
         paymentReference: createReference || undefined,
         paymentDate: createDate || new Date().toISOString().split("T")[0],
         description: createDescription || undefined,
+        receiptImageUrl: createReceiptUrl || undefined,
       });
       toast.success("Payment request sent to dealer. They can accept or reject it.");
       setIsCreateOpen(false);
@@ -124,6 +137,7 @@ export default function FarmerPaymentRequestsPage() {
       setCreateReference("");
       setCreateDate(new Date().toISOString().split("T")[0]);
       setCreateDescription("");
+      setCreateReceiptUrl("");
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to create payment request");
     }
@@ -224,132 +238,230 @@ export default function FarmerPaymentRequestsPage() {
       </div>
 
       {/* Filter */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("farmer.paymentRequests.filters")}</CardTitle>
-        </CardHeader>
-        <CardContent className="p-3 md:p-6 pt-0">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder={t("farmer.paymentRequests.status")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">{t("farmer.paymentRequests.statusAll")}</SelectItem>
-              <SelectItem value="PENDING">{t("farmer.paymentRequests.stats.pending")}</SelectItem>
-              <SelectItem value="APPROVED">{t("farmer.paymentRequests.stats.approved")}</SelectItem>
-              <SelectItem value="REJECTED">{t("farmer.paymentRequests.stats.rejected")}</SelectItem>
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
+      {/* Filter */}
+      <div className="flex justify-end">
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[180px] bg-background">
+            <SelectValue placeholder={t("farmer.paymentRequests.status")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">{t("farmer.paymentRequests.statusAll")}</SelectItem>
+            <SelectItem value="PENDING">{t("farmer.paymentRequests.stats.pending")}</SelectItem>
+            <SelectItem value="APPROVED">{t("farmer.paymentRequests.stats.approved")}</SelectItem>
+            <SelectItem value="REJECTED">{t("farmer.paymentRequests.stats.rejected")}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      {/* Requests List */}
-      <div className="space-y-3">
-        {isLoading ? (
-          <Card>
-            <CardContent className="text-center py-8">{t("farmer.paymentRequests.loading")}</CardContent>
-          </Card>
-        ) : requests.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-8 text-muted-foreground">
-              <p>{t("farmer.paymentRequests.emptyTitle")}</p>
-              <p className="text-sm mt-2">
-                {t("farmer.paymentRequests.emptyHelp")}
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          requests.map((request: any) => (
-            <Card key={request.id}>
-              <CardHeader className="p-3 md:p-6 pb-2">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div>
-                    <CardTitle className="text-sm md:text-lg">
-                      {request.requestNumber}
-                    </CardTitle>
-                    <CardDescription className="flex items-center gap-2 flex-wrap">
-                      {request.requestNumber?.startsWith("DPR-") ? (
-                        <Badge variant="secondary" className="text-[10px]">From Dealer</Badge>
-                      ) : request.requestNumber?.startsWith("LPR-") ? (
-                        <Badge variant="outline" className="text-[10px]">To Dealer (Sent by you)</Badge>
-                      ) : request.isLedgerLevel ? (
-                        <Badge variant="secondary" className="text-[10px]">From Dealer</Badge>
-                      ) : null}
-                      {!request.requestNumber?.startsWith("LPR-") && !request.requestNumber?.startsWith("DPR-") && !request.isLedgerLevel && (
-                        <>{t("farmer.paymentRequests.invoice")}: {request.dealerSale?.invoiceNumber}</>
-                      )}
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {getStatusBadge(request.status)}
-                    {request.status === "PENDING" && request.requestNumber?.startsWith("DPR-") && !request.paymentReference && (
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setSelectedRequest(request);
-                          setIsSubmitProofOpen(true);
-                        }}
-                      >
-                        <Send className="h-3.5 w-3.5 mr-1" />
-                        Submit Proof
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-3 md:p-6 pt-0">
-                <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
-                  <div>
-                    <div className="text-sm text-muted-foreground">{t("farmer.paymentRequests.dealer")}</div>
-                    <div className="font-medium">{request.dealer?.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {request.dealer?.contact}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-muted-foreground">{t("farmer.paymentRequests.amount")}</div>
-                    <div className="text-2xl font-bold">
-                      {formatCurrency(request.amount)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-muted-foreground">{t("farmer.paymentRequests.date")}</div>
-                    <div>
-                      <DateDisplay date={request.createdAt} format="long" />
-                    </div>
-                  </div>
-                  {request.paymentReference && (
-                    <div>
-                      <div className="text-sm text-muted-foreground">
-                        {t("farmer.paymentRequests.reference")}
-                      </div>
-                      <div className="text-xs md:text-sm truncate">{request.paymentReference}</div>
-                    </div>
-                  )}
-                  {request.description && (
-                    <div className="md:col-span-2">
-                      <div className="text-sm text-muted-foreground">
-                        {t("farmer.paymentRequests.description")}
-                      </div>
-                      <div className="text-xs md:text-sm">{request.description}</div>
-                    </div>
-                  )}
-                  {request.status === "REJECTED" && request.rejectionReason && (
-                    <div className="md:col-span-2">
-                      <div className="text-sm text-red-600 font-medium">
-                        {t("farmer.paymentRequests.rejectionReason")}
-                      </div>
-                      <div className="text-xs md:text-sm text-red-600">
-                        {request.rejectionReason}
-                      </div>
-                    </div>
-                  )}
-                </div>
+      <Tabs defaultValue="received" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-4">
+          <TabsTrigger value="received">
+            Received (From Dealer)
+            {requests.filter((r: any) => r.requestNumber?.startsWith("DPR-")).length > 0 && (
+              <Badge variant="secondary" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center">
+                {requests.filter((r: any) => r.requestNumber?.startsWith("DPR-")).length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="sent">
+            Sent (My Requests)
+            {requests.filter((r: any) => !r.requestNumber?.startsWith("DPR-")).length > 0 && (
+              <Badge variant="secondary" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center">
+                {requests.filter((r: any) => !r.requestNumber?.startsWith("DPR-")).length}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="received" className="space-y-3">
+          {isLoading ? (
+            <Card>
+              <CardContent className="text-center py-8">{t("farmer.paymentRequests.loading")}</CardContent>
+            </Card>
+          ) : requests.filter((r: any) => r.requestNumber?.startsWith("DPR-")).length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-8 text-muted-foreground">
+                <p>No payment requests received from dealers.</p>
               </CardContent>
             </Card>
-          ))
-        )}
-      </div>
+          ) : (
+            requests
+              .filter((r: any) => r.requestNumber?.startsWith("DPR-"))
+              .map((request: any) => (
+                <Card key={request.id}>
+                  <CardHeader className="p-3 md:p-6 pb-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div>
+                        <CardTitle className="text-sm md:text-lg">
+                          {request.requestNumber}
+                        </CardTitle>
+                        <CardDescription className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="secondary" className="text-[10px]">From Dealer</Badge>
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {getStatusBadge(request.status)}
+                        {request.status === "PENDING" && !request.paymentReference && (
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setSelectedRequest(request);
+                              setIsSubmitProofOpen(true);
+                            }}
+                          >
+                            <Send className="h-3.5 w-3.5 mr-1" />
+                            Submit Proof
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-3 md:p-6 pt-0">
+                    <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+                      <div>
+                        <div className="text-sm text-muted-foreground">{t("farmer.paymentRequests.dealer")}</div>
+                        <div className="font-medium">{request.dealer?.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {request.dealer?.contact}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">{t("farmer.paymentRequests.amount")}</div>
+                        <div className="text-2xl font-bold">
+                          {formatCurrency(request.amount)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">{t("farmer.paymentRequests.date")}</div>
+                        <div>
+                          <DateDisplay date={request.createdAt} format="long" />
+                        </div>
+                      </div>
+                      {request.paymentReference && (
+                        <div>
+                          <div className="text-sm text-muted-foreground">
+                            {t("farmer.paymentRequests.reference")}
+                          </div>
+                          <div className="text-xs md:text-sm truncate">{request.paymentReference}</div>
+                        </div>
+                      )}
+                      {request.description && (
+                        <div className="md:col-span-2">
+                          <div className="text-sm text-muted-foreground">
+                            {t("farmer.paymentRequests.description")}
+                          </div>
+                          <div className="text-xs md:text-sm">{request.description}</div>
+                        </div>
+                      )}
+                      {request.status === "REJECTED" && request.rejectionReason && (
+                        <div className="md:col-span-2">
+                          <div className="text-sm text-red-600 font-medium">
+                            {t("farmer.paymentRequests.rejectionReason")}
+                          </div>
+                          <div className="text-xs md:text-sm text-red-600">
+                            {request.rejectionReason}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+          )}
+        </TabsContent>
+
+        <TabsContent value="sent" className="space-y-3">
+          {isLoading ? (
+            <Card>
+              <CardContent className="text-center py-8">{t("farmer.paymentRequests.loading")}</CardContent>
+            </Card>
+          ) : requests.filter((r: any) => !r.requestNumber?.startsWith("DPR-")).length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-8 text-muted-foreground">
+                <p>No payment requests sent by you.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            requests
+              .filter((r: any) => !r.requestNumber?.startsWith("DPR-"))
+              .map((request: any) => (
+                <Card key={request.id}>
+                  <CardHeader className="p-3 md:p-6 pb-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div>
+                        <CardTitle className="text-sm md:text-lg">
+                          {request.requestNumber}
+                        </CardTitle>
+                        <CardDescription className="flex items-center gap-2 flex-wrap">
+                          {request.requestNumber?.startsWith("LPR-") ? (
+                            <Badge variant="outline" className="text-[10px]">To Dealer (General)</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px]">To Dealer (Invoice Linked)</Badge>
+                          )}
+                          {!request.requestNumber?.startsWith("LPR-") && !request.isLedgerLevel && (
+                            <>{t("farmer.paymentRequests.invoice")}: {request.dealerSale?.invoiceNumber}</>
+                          )}
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {getStatusBadge(request.status)}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-3 md:p-6 pt-0">
+                    <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+                      <div>
+                        <div className="text-sm text-muted-foreground">{t("farmer.paymentRequests.dealer")}</div>
+                        <div className="font-medium">{request.dealer?.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {request.dealer?.contact}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">{t("farmer.paymentRequests.amount")}</div>
+                        <div className="text-2xl font-bold">
+                          {formatCurrency(request.amount)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">{t("farmer.paymentRequests.date")}</div>
+                        <div>
+                          <DateDisplay date={request.createdAt} format="long" />
+                        </div>
+                      </div>
+                      {request.paymentReference && (
+                        <div>
+                          <div className="text-sm text-muted-foreground">
+                            {t("farmer.paymentRequests.reference")}
+                          </div>
+                          <div className="text-xs md:text-sm truncate">{request.paymentReference}</div>
+                        </div>
+                      )}
+                      {request.description && (
+                        <div className="md:col-span-2">
+                          <div className="text-sm text-muted-foreground">
+                            {t("farmer.paymentRequests.description")}
+                          </div>
+                          <div className="text-xs md:text-sm">{request.description}</div>
+                        </div>
+                      )}
+                      {request.status === "REJECTED" && request.rejectionReason && (
+                        <div className="md:col-span-2">
+                          <div className="text-sm text-red-600 font-medium">
+                            {t("farmer.paymentRequests.rejectionReason")}
+                          </div>
+                          <div className="text-xs md:text-sm text-red-600">
+                            {request.rejectionReason}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Submit Proof Dialog */}
       <Dialog open={isSubmitProofOpen} onOpenChange={setIsSubmitProofOpen}>
@@ -395,6 +507,16 @@ export default function FarmerPaymentRequestsPage() {
                 placeholder="Transaction ID, receipt number, etc."
               />
             </div>
+
+            <div className="space-y-2">
+              <Label>Payment Receipt (Optional)</Label>
+              <ImageUpload
+                value={proofReceiptUrl}
+                onChange={setProofReceiptUrl}
+                folder="payment-proofs"
+                placeholder="Upload receipt"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button
@@ -420,7 +542,7 @@ export default function FarmerPaymentRequestsPage() {
 
       {/* Create payment request dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create payment request</DialogTitle>
             <DialogDescription>
@@ -497,6 +619,15 @@ export default function FarmerPaymentRequestsPage() {
                 onChange={(e) => setCreateDescription(e.target.value)}
                 placeholder="Optional note"
                 rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Payment Receipt (Optional)</Label>
+              <ImageUpload
+                value={createReceiptUrl}
+                onChange={setCreateReceiptUrl}
+                folder="payment-receipts"
+                placeholder="Upload receipt"
               />
             </div>
           </div>

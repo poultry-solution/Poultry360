@@ -58,7 +58,8 @@ export default function CompanyProductsPage() {
     description: "",
     type: "FEED",
     unit: "kg",
-    price: 0,
+    unitSellingPrice: 0,
+    unitCostPrice: 0,
     quantity: 0,
     imageUrl: "",
   });
@@ -84,7 +85,8 @@ export default function CompanyProductsPage() {
         description: product.description || "",
         type: product.type,
         unit: product.unit,
-        price: Number(product.price),
+        unitSellingPrice: Number(product.unitSellingPrice),
+        unitCostPrice: Number(product.unitCostPrice || 0),
         quantity: Number(product.quantity),
         imageUrl: product.imageUrl || "",
       });
@@ -95,7 +97,8 @@ export default function CompanyProductsPage() {
         description: "",
         type: "FEED",
         unit: "kg",
-        price: 0,
+        unitSellingPrice: 0,
+        unitCostPrice: 0,
         quantity: 0,
         imageUrl: "",
       });
@@ -266,8 +269,15 @@ export default function CompanyProductsPage() {
                 width: '60px'
               },
               {
-                key: 'price',
-                label: 'Price',
+                key: 'unitCostPrice',
+                label: 'Cost Price',
+                align: 'right',
+                width: '100px',
+                render: (val) => `रू ${Number(val || 0).toFixed(2)}`
+              },
+              {
+                key: 'unitSellingPrice',
+                label: 'Selling Price',
                 align: 'right',
                 width: '100px',
                 render: (val) => `रू ${Number(val).toFixed(2)}`
@@ -443,16 +453,32 @@ export default function CompanyProductsPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Unit Price *</Label>
+                  <Label htmlFor="unitCostPrice">Unit Cost Price</Label>
                   <Input
-                    id="price"
+                    id="unitCostPrice"
                     type="number"
                     step="0.01"
-                    value={formData.price}
+                    value={formData.unitCostPrice}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        price: parseFloat(e.target.value) || 0,
+                        unitCostPrice: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="unitSellingPrice">Unit Selling Price *</Label>
+                  <Input
+                    id="unitSellingPrice"
+                    type="number"
+                    step="0.01"
+                    value={formData.unitSellingPrice}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        unitSellingPrice: parseFloat(e.target.value) || 0,
                       })
                     }
                     required
@@ -476,11 +502,19 @@ export default function CompanyProductsPage() {
                 </div>
               </div>
 
-              {formData.price > 0 && formData.quantity > 0 && (
-                <div className="p-4 bg-muted rounded-lg">
-                  <div className="text-sm font-medium">Total Value</div>
-                  <div className="text-2xl font-bold">
-                    रू {(formData.price * formData.quantity).toFixed(2)}
+              {(formData.unitSellingPrice > 0 || formData.unitCostPrice > 0) && formData.quantity > 0 && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-muted rounded-lg">
+                    <div className="text-sm font-medium">Total Cost Value</div>
+                    <div className="text-2xl font-bold">
+                      रू {(formData.unitCostPrice * formData.quantity).toFixed(2)}
+                    </div>
+                  </div>
+                  <div className="p-4 bg-blue-50 text-blue-900 rounded-lg">
+                    <div className="text-sm font-medium">Total Selling Value</div>
+                    <div className="text-2xl font-bold">
+                      रू {(formData.unitSellingPrice * formData.quantity).toFixed(2)}
+                    </div>
                   </div>
                 </div>
               )}
@@ -565,7 +599,7 @@ export default function CompanyProductsPage() {
                     New Total Value: रू{" "}
                     {(
                       (Number(selectedProduct.quantity) + inventoryQuantity) *
-                      Number(selectedProduct.price)
+                      Number(selectedProduct.unitSellingPrice)
                     ).toFixed(2)}
                   </div>
                 </div>

@@ -335,6 +335,7 @@ export const createPaymentRequest = async (
       paymentReference,
       paymentMethod,
       description,
+      receiptImageUrl,
     } = req.body;
 
     // Validation
@@ -389,6 +390,7 @@ export const createPaymentRequest = async (
       paymentReference,
       paymentMethod,
       description,
+      proofOfPaymentUrl: receiptImageUrl,
     });
 
     return res.status(201).json({
@@ -412,7 +414,7 @@ export const respondToPaymentRequest = async (
   try {
     const farmerId = req.userId;
     const { id } = req.params;
-    const { paymentMethod, paymentReference, paymentDate } = req.body;
+    const { paymentMethod, paymentReference, paymentDate, proofOfPaymentUrl } = req.body;
 
     if (!paymentMethod && !paymentReference) {
       return res.status(400).json({
@@ -426,6 +428,7 @@ export const respondToPaymentRequest = async (
       paymentMethod,
       paymentReference,
       paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
+      proofOfPaymentUrl,
     });
 
     return res.json({

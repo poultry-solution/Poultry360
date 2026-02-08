@@ -112,7 +112,7 @@ export class CompanyService {
         if (newBalance > limit && !overrideBalanceLimit) {
           throw new Error(
             `Balance limit exceeded. Current: ${currentBalance}, New: ${newBalance}, Limit: ${limit}. ` +
-              `Exceeds by: ${(newBalance - limit).toFixed(2)}`
+            `Exceeds by: ${(newBalance - limit).toFixed(2)}`
           );
         }
       }
@@ -727,7 +727,7 @@ export class CompanyService {
 
     return await prisma.$transaction(async (tx) => {
       const where: any = { id: requestId };
-      
+
       if (companyId) {
         where.companyId = companyId;
       }
@@ -852,6 +852,7 @@ export class CompanyService {
             paymentDate,
             notes: `Payment via request ${request.requestNumber}${reviewNotes ? ` - ${reviewNotes}` : ''}`,
             reference: request.requestNumber,
+            receiptImageUrl: request.paymentReceiptUrl,
             balanceAfter: new Prisma.Decimal(newBalance),
             recordedById: reviewedById,
           },

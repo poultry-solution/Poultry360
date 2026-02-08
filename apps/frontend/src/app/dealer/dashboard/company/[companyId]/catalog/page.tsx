@@ -334,7 +334,7 @@ export default function CompanyCatalogPage() {
                                   Price per {product.unit}
                                 </span>
                                 <span className="text-lg font-bold">
-                                  रू {Number(product.price).toFixed(2)}
+                                  रू {Number(product.unitSellingPrice).toFixed(2)}
                                 </span>
                               </div>
                               <div className="flex justify-between items-center">

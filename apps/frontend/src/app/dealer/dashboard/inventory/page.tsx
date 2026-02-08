@@ -56,6 +56,8 @@ export default function DealerInventoryPage() {
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
+  const [tempPrice, setTempPrice] = useState("");
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
 
   // Form state
@@ -328,11 +330,59 @@ export default function DealerInventoryPage() {
               },
               {
                 key: 'sellingPrice',
-                label: 'Sell',
-                type: 'currency',
+                label: 'Sell (Click to Edit)',
                 align: 'right',
-                width: '100px',
-                render: (val) => `रू ${Number(val).toFixed(2)}`
+                width: '140px',
+                render: (val, row) => {
+                  const isEditing = editingPriceId === row.id;
+
+                  if (isEditing) {
+                    return (
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Input
+                          autoFocus
+                          type="number"
+                          step="0.01"
+                          className="h-8 w-24 px-2 text-right"
+                          value={tempPrice}
+                          onChange={(e) => setTempPrice(e.target.value)}
+                          onBlur={() => setEditingPriceId(null)}
+                          onKeyDown={async (e) => {
+                            if (e.key === "Enter") {
+                              try {
+                                await updateMutation.mutateAsync({
+                                  id: row.id,
+                                  sellingPrice: Number(tempPrice),
+                                });
+                                toast.success("Price updated");
+                                setEditingPriceId(null);
+                              } catch (err) {
+                                toast.error("Failed to update");
+                              }
+                            } else if (e.key === "Escape") {
+                              setEditingPriceId(null);
+                            }
+                          }}
+                        />
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div
+                      className="cursor-pointer hover:bg-muted/50 py-1 px-2 rounded flex items-center justify-end gap-2 group transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingPriceId(row.id);
+                        setTempPrice(Number(val).toString());
+                      }}
+                      title="Click to edit selling price"
+                    >
+                      <span className="font-medium">रू {Number(val).toFixed(2)}</span>
+                      <Edit className="h-3 w-3 opacity-0 group-hover:opacity-50 text-muted-foreground" />
+                    </div>
+                  );
+                },
               },
               {
                 key: 'currentStock',

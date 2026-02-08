@@ -160,13 +160,12 @@ export default function CompanyAccountPage() {
           </CardHeader>
           <CardContent>
             <div
-              className={`text-2xl font-bold ${
-                (account?.balance || 0) > 0
+              className={`text-2xl font-bold ${(account?.balance || 0) > 0
                   ? "text-red-600"
                   : (account?.balance || 0) < 0
-                  ? "text-green-600"
-                  : ""
-              }`}
+                    ? "text-green-600"
+                    : ""
+                }`}
             >
               {formatCurrency(account?.balance || 0)}
             </div>
@@ -174,8 +173,8 @@ export default function CompanyAccountPage() {
               {(account?.balance || 0) > 0
                 ? "Outstanding"
                 : (account?.balance || 0) < 0
-                ? "Advance/Credit"
-                : "Settled"}
+                  ? "Advance/Credit"
+                  : "Settled"}
             </p>
           </CardContent>
         </Card>
@@ -229,8 +228,8 @@ export default function CompanyAccountPage() {
             <div className="text-2xl font-bold">
               {account?.totalSales
                 ? Math.round(
-                    ((account?.totalPayments || 0) / account.totalSales) * 100
-                  )
+                  ((account?.totalPayments || 0) / account.totalSales) * 100
+                )
                 : 0}
               %
             </div>
@@ -269,11 +268,10 @@ export default function CompanyAccountPage() {
                 >
                   <div className="flex items-start gap-3">
                     <div
-                      className={`p-2 rounded-lg ${
-                        transaction.type === "SALE"
+                      className={`p-2 rounded-lg ${transaction.type === "SALE"
                           ? "bg-blue-100"
                           : "bg-green-100"
-                      }`}
+                        }`}
                     >
                       {transaction.type === "SALE" ? (
                         <Receipt className="h-5 w-5 text-blue-600" />
@@ -309,11 +307,10 @@ export default function CompanyAccountPage() {
                   </div>
                   <div className="text-right">
                     <p
-                      className={`text-lg font-bold ${
-                        transaction.type === "SALE"
+                      className={`text-lg font-bold ${transaction.type === "SALE"
                           ? "text-red-600"
                           : "text-green-600"
-                      }`}
+                        }`}
                     >
                       {transaction.type === "SALE" ? "+" : "-"}
                       {formatCurrency(transaction.amount)}
@@ -348,9 +345,8 @@ export default function CompanyAccountPage() {
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-medium">Current Balance</span>
                   <span
-                    className={`text-xl font-bold ${
-                      (account?.balance || 0) > 0 ? "text-red-600" : "text-green-600"
-                    }`}
+                    className={`text-xl font-bold ${(account?.balance || 0) > 0 ? "text-red-600" : "text-green-600"
+                      }`}
                   >
                     {formatCurrency(account?.balance || 0)}
                   </span>
@@ -362,13 +358,12 @@ export default function CompanyAccountPage() {
                         After Verification
                       </span>
                       <span
-                        className={`font-bold ${
-                          balanceAfterPayment > 0
+                        className={`font-bold ${balanceAfterPayment > 0
                             ? "text-red-600"
                             : balanceAfterPayment < 0
-                            ? "text-green-600"
-                            : ""
-                        }`}
+                              ? "text-green-600"
+                              : ""
+                          }`}
                       >
                         {formatCurrency(balanceAfterPayment)}
                       </span>

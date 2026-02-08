@@ -10,6 +10,7 @@ import {
   recordCompanyPayment,
   getAllDealerAccounts,
   getAllCompanyAccounts,
+  getAllDealerPayments,
 } from "../controller/companyDealerAccountController";
 import { authMiddleware } from "../middelware/middelware";
 
@@ -56,6 +57,13 @@ router.post(
   "/company/dealers/:dealerId/payments",
   (req, res, next) => authMiddleware(req, res, next, ["COMPANY"]),
   recordDealerPayment
+);
+
+// Get all dealer payments for company
+router.get(
+  "/company/payments",
+  (req, res, next) => authMiddleware(req, res, next, ["COMPANY"]),
+  getAllDealerPayments
 );
 
 // ==================== DEALER SIDE ROUTES ====================

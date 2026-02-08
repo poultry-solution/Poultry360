@@ -18,7 +18,8 @@ export interface CompanyProduct {
   description?: string;
   type: string;
   unit: string;
-  price: number;
+  unitSellingPrice: number;
+  unitCostPrice: number;
   quantity: number;
   currentStock: number;
   totalPrice: number;
@@ -34,12 +35,13 @@ export interface CreateCompanyProductInput {
   description?: string;
   type: string;
   unit: string;
-  price: number;
+  unitSellingPrice: number;
+  unitCostPrice: number;
   quantity: number;
   imageUrl?: string;
 }
 
-export interface UpdateCompanyProductInput extends Partial<CreateCompanyProductInput> {}
+export interface UpdateCompanyProductInput extends Partial<CreateCompanyProductInput> { }
 
 export interface CompanyProductsResponse {
   success: boolean;

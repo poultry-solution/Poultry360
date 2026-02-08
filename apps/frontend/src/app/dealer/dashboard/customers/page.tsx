@@ -512,9 +512,11 @@ export default function DealerCustomersPage() {
           phone: c.phone,
           balance: c.balance,
         }))}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
-          queryClient.invalidateQueries({ queryKey: ["dealer-ledger-parties"] });
+        onSuccess={async () => {
+          await queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
+          await queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] }); // Catches dealer-ledger-parties and others
+          await queryClient.invalidateQueries({ queryKey: ["dealer-ledger-parties"] }); // Explicitly just in case
+          await queryClient.invalidateQueries({ queryKey: ["dealer-farmers"] });
         }}
       />
     </div>

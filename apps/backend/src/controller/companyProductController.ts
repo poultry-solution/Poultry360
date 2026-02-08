@@ -10,12 +10,12 @@ export const createCompanyProduct = async (
   try {
     const userId = req.userId;
 
-    const { name, description, type, unit, price, quantity, imageUrl } = req.body;
+    const { name, description, type, unit, unitSellingPrice, unitCostPrice, quantity, imageUrl } = req.body;
 
     // Validation
-    if (!name || !type || !unit || !price || !quantity) {
+    if (!name || !type || !unit || !unitSellingPrice || !quantity) {
       return res.status(400).json({
-        message: "Name, type, unit, price, and quantity are required",
+        message: "Name, type, unit, unit selling price, and quantity are required",
       });
     }
 
@@ -28,8 +28,10 @@ export const createCompanyProduct = async (
       return res.status(404).json({ message: "Company not found" });
     }
 
-    // Calculate total price
-    const totalPrice = Number(price) * Number(quantity);
+    // Calculate total price (using unitSellingPrice as the basis for value for now, or maybe cost? User didn't specify, but previously it was price * quantity. "price" was selling price. So I will keep it as selling price * quantity)
+    // Actually, "Total Price" usually means total inventory value which is cost. But to be safe and consistent with previous "price" usage:
+    // If I change "price" to "unitSellingPrice", I should probably use that.
+    const totalPrice = Number(unitSellingPrice) * Number(quantity);
 
     // Create product
     const product = await prisma.product.create({
@@ -38,7 +40,8 @@ export const createCompanyProduct = async (
         description,
         type,
         unit,
-        price: new Prisma.Decimal(price),
+        unitSellingPrice: new Prisma.Decimal(unitSellingPrice),
+        unitCostPrice: unitCostPrice ? new Prisma.Decimal(unitCostPrice) : new Prisma.Decimal(0),
         quantity: new Prisma.Decimal(quantity),
         currentStock: new Prisma.Decimal(quantity), // Set initial stock
         totalPrice: new Prisma.Decimal(totalPrice),
@@ -163,7 +166,7 @@ export const updateCompanyProduct = async (
     const userId = req.userId;
     const { id } = req.params;
 
-    const { name, description, type, unit, price, quantity, imageUrl } = req.body;
+    const { name, description, type, unit, unitSellingPrice, unitCostPrice, quantity, imageUrl } = req.body;
 
     // Check if product exists and belongs to company
     const existingProduct = await prisma.product.findFirst({
@@ -178,7 +181,7 @@ export const updateCompanyProduct = async (
     }
 
     // Calculate new total price if price or quantity changed
-    const newPrice = price !== undefined ? Number(price) : Number(existingProduct.price);
+    const newPrice = unitSellingPrice !== undefined ? Number(unitSellingPrice) : Number(existingProduct.unitSellingPrice);
     const newQuantity = quantity !== undefined ? Number(quantity) : Number(existingProduct.quantity);
     const totalPrice = newPrice * newQuantity;
 
@@ -190,7 +193,8 @@ export const updateCompanyProduct = async (
         description,
         type,
         unit,
-        price: price !== undefined ? new Prisma.Decimal(price) : undefined,
+        unitSellingPrice: unitSellingPrice !== undefined ? new Prisma.Decimal(unitSellingPrice) : undefined,
+        unitCostPrice: unitCostPrice !== undefined ? new Prisma.Decimal(unitCostPrice) : undefined,
         quantity: quantity !== undefined ? new Prisma.Decimal(quantity) : undefined,
         currentStock: quantity !== undefined ? new Prisma.Decimal(quantity) : undefined, // Update stock when quantity changes
         totalPrice: new Prisma.Decimal(totalPrice),
@@ -309,7 +313,7 @@ export const getCompanyProductSummary = async (
     // Get connected dealers count from DealerCompany relationship
     // Also count manually created dealers (those with userId = current user)
     let dealersCount = 0;
-    
+
     if (company) {
       // Count connected dealers (active, not archived by company)
       const connectedDealers = await (prisma as any).dealerCompany.count({
@@ -318,14 +322,14 @@ export const getCompanyProductSummary = async (
           archivedByCompany: false,
         },
       });
-      
+
       // Count manually created dealers
       const manualDealers = await prisma.dealer.count({
         where: {
           userId: userId,
         },
       });
-      
+
       dealersCount = connectedDealers + manualDealers;
     }
 
@@ -381,7 +385,7 @@ export const adjustCompanyProductStock = async (
     // Calculate new quantity and total price
     const newQuantity = Number(product.quantity) + Number(quantity);
     const newCurrentStock = Number(product.currentStock || product.quantity) + Number(quantity);
-    const newTotalPrice = newQuantity * Number(product.price);
+    const newTotalPrice = newQuantity * Number(product.unitSellingPrice);
 
     // Update product
     const updatedProduct = await prisma.product.update({

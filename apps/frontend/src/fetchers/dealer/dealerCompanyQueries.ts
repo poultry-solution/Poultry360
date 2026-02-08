@@ -16,7 +16,7 @@ export interface CompanyProduct {
   description?: string;
   type: string;
   unit: string;
-  price: number;
+  unitSellingPrice: number;
   currentStock: number;
   imageUrl?: string;
   createdAt: Date;

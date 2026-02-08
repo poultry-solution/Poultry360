@@ -497,7 +497,7 @@ export const confirmDealerConsignmentReceipt = async (
   try {
     const userId = req.userId;
     const { id } = req.params;
-    const { grnRef, notes } = req.body;
+    const { grnRef, notes, items } = req.body;
 
     const dealer = await prisma.dealer.findUnique({
       where: { ownerId: userId },
@@ -513,6 +513,12 @@ export const confirmDealerConsignmentReceipt = async (
       receivedById: userId as string,
       grnRef,
       notes,
+      items: items?.map((item: any) => ({
+        itemId: item.itemId,
+        sellingPrice: item.sellingPrice
+          ? Number(item.sellingPrice)
+          : undefined,
+      })),
     });
 
     return res.status(200).json({

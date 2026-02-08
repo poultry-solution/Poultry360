@@ -124,10 +124,11 @@ export const useConfirmReceipt = () => {
       id: string;
       grnRef?: string;
       notes?: string;
+      items?: Array<{ itemId: string; sellingPrice?: number }>;
     }) => {
       const { data } = await axiosInstance.post(
         `/consignments/dealer/${input.id}/confirm-receipt`,
-        { grnRef: input.grnRef, notes: input.notes }
+        { grnRef: input.grnRef, notes: input.notes, items: input.items }
       );
       return data;
     },

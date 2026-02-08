@@ -91,7 +91,7 @@ export default function NewCompanySalePage() {
     const newItem: SaleItem = {
       productId,
       quantity: 1, // Default quantity
-      unitPrice: Number(selectedProduct?.price) || 0,
+      unitPrice: Number(selectedProduct?.unitSellingPrice) || 0,
     };
 
     setItems([...items, newItem]);
@@ -261,19 +261,18 @@ export default function NewCompanySalePage() {
 
               {/* Sale Type Info */}
               {selectedDealer && (
-                <div className={`p-3 rounded-lg text-sm ${
-                  isConnectedDealer 
-                    ? "bg-blue-50 border border-blue-200 text-blue-800" 
-                    : "bg-green-50 border border-green-200 text-green-800"
-                }`}>
+                <div className={`p-3 rounded-lg text-sm ${isConnectedDealer
+                  ? "bg-blue-50 border border-blue-200 text-blue-800"
+                  : "bg-green-50 border border-green-200 text-green-800"
+                  }`}>
                   {isConnectedDealer ? (
                     <>
-                      <strong>Consignment Flow:</strong> This will create a consignment request. 
+                      <strong>Consignment Flow:</strong> This will create a consignment request.
                       The dealer will need to accept it before you can dispatch the products.
                     </>
                   ) : isSelfCreatedDealer ? (
                     <>
-                      <strong>Direct Sale:</strong> This will create an instant sale. 
+                      <strong>Direct Sale:</strong> This will create an instant sale.
                       Inventory will be updated immediately and balance will be added to the dealer's account.
                     </>
                   ) : null}
@@ -475,8 +474,8 @@ export default function NewCompanySalePage() {
                         ? "Creating Consignment..."
                         : "Creating Sale..."
                       : isConnectedDealer
-                      ? "Create Consignment Request"
-                      : "Create Sale"}
+                        ? "Create Consignment Request"
+                        : "Create Sale"}
                   </Button>
                   <Button
                     variant="outline"
