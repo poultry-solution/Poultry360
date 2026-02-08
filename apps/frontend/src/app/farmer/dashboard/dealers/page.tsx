@@ -16,6 +16,7 @@ import {
   Users,
   FileCheck,
   DollarSign,
+  ArrowLeft,
 } from "lucide-react";
 import {
   Card,
@@ -272,40 +273,21 @@ export default function FarmerDealersPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t("farmer.dealers.title")}</h1>
-          <p className="text-muted-foreground">
-            {t("farmer.dealers.subtitle")}
-          </p>
-        </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex items-center gap-2 md:gap-4">
           <Button
-            variant="outline"
-            size="sm"
-            className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm"
+            variant="ghost"
+            size="icon"
             onClick={() => router.push("/farmer/dashboard/dealer-ledger")}
+            className="h-7 w-7 md:h-8 md:w-8 shrink-0"
           >
-            <Users className="mr-2 h-4 w-4" />
-            {t("farmer.dealers.buttons.feedLedger")}
+            <ArrowLeft className="h-3.5 w-3.5 md:h-4 md:w-4" />
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm"
-            onClick={() => router.push("/farmer/dashboard/sale-requests")}
-          >
-            <FileCheck className="mr-2 h-4 w-4" />
-            {t("farmer.dealers.buttons.saleRequests")}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm"
-            onClick={() => router.push("/farmer/dashboard/payment-requests")}
-          >
-            <DollarSign className="mr-2 h-4 w-4" />
-            {t("farmer.dealers.buttons.paymentRequests")}
-          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">{t("farmer.dealers.title")}</h1>
+            <p className="text-muted-foreground">
+              {t("farmer.dealers.subtitle")}
+            </p>
+          </div>
         </div>
       </div>
 

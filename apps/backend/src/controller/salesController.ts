@@ -8,6 +8,127 @@ import {
   SaleSchema,
 } from "@myapp/shared-types";
 
+// ==================== GET ALL SALE PAYMENTS ====================
+export const getAllSalePayments = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      farmId,
+      customerId,
+      startDate,
+      endDate,
+    } = req.query;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // Build where clause
+    const where: any = {};
+
+    // Role-based filtering
+    if (currentUserRole === UserRole.MANAGER) {
+      // Managers can only see payments for sales from farms they manage
+      const userFarms = await prisma.farm.findMany({
+        where: {
+          OR: [
+            { ownerId: currentUserId },
+            { managers: { some: { id: currentUserId } } },
+          ],
+        },
+        select: { id: true },
+      });
+      where.sale = {
+        farmId: { in: userFarms.map((farm) => farm.id) },
+      };
+    } else {
+      // Owners see payments for their sales (implicitly via sale.farm.ownerId or sale.userId if applicable)
+      // Assuming Sale model links to Farm/User, we constrain by Sale's farm owner or direct association
+      // For simplicity in this app's context where sales are linked to farms owned by the user:
+      where.sale = {
+        farm: { ownerId: currentUserId },
+      };
+    }
+
+    if (farmId) {
+      where.sale = { ...where.sale, farmId: farmId as string };
+    }
+
+    if (customerId) {
+      where.sale = { ...where.sale, customerId: customerId as string };
+    }
+
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) {
+        where.date.gte = new Date(startDate as string);
+      }
+      if (endDate) {
+        where.date.lte = new Date(endDate as string);
+      }
+    }
+
+    if (search) {
+      where.OR = [
+        { description: { contains: search as string, mode: "insensitive" } },
+        {
+          sale: {
+            customer: {
+              name: { contains: search as string, mode: "insensitive" },
+            },
+          },
+        },
+      ];
+    }
+
+    const [payments, total] = await Promise.all([
+      prisma.salePayment.findMany({
+        where,
+        skip,
+        take: Number(limit),
+        include: {
+          sale: {
+            select: {
+              id: true,
+              date: true,
+              amount: true,
+              itemType: true,
+              customer: {
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { date: "desc" },
+      }),
+      prisma.salePayment.count({ where }),
+    ]);
+
+    return res.json({
+      success: true,
+      data: payments,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        totalPages: Math.ceil(total / Number(limit)),
+      },
+    });
+  } catch (error) {
+    console.error("Get all sale payments error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 // ==================== GET ALL SALES ====================
 import { getSalesCategoryIdForItemType } from "../utils/category";
 export const getAllSales = async (
@@ -1019,7 +1140,7 @@ export const addSalePayment = async (
 ): Promise<any> => {
   try {
     const { id } = req.params;
-    const { amount, date, description } = req.body;
+    const { amount, date, description, receiptUrl } = req.body;
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
@@ -1080,6 +1201,7 @@ export const addSalePayment = async (
           amount: Number(amount),
           date: date ? new Date(date) : new Date(),
           description: description || "Payment received",
+          receiptUrl: receiptUrl || null,
           saleId: id,
         },
       });
@@ -1115,6 +1237,7 @@ export const addSalePayment = async (
             date: date ? new Date(date) : new Date(),
             description: description || "Payment received",
             reference: payment.id,
+            imageUrl: receiptUrl || null,
             customerId: sale.customerId,
           },
         });

@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/common/components/ui/card";
-import { Users, Plus, TrendingUp, Loader2, Trash2, X, Link2, ArrowLeft } from "lucide-react";
+import { Users, Plus, TrendingUp, Loader2, Trash2, X, Link2, FileCheck, DollarSign } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
 import { useRouter } from "next/navigation";
@@ -420,33 +420,45 @@ export default function DealerLedgerPage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-2 md:gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push("/farmer/dashboard/dealers")}
-            className="h-7 w-7 md:h-8 md:w-8 shrink-0"
-          >
-            <ArrowLeft className="h-3.5 w-3.5 md:h-4 md:w-4" />
-          </Button>
-          <div>
-            <h1 className="text-xl md:text-3xl font-bold tracking-tight">
-              Feed Dealer Ledger
-            </h1>
-            <p className="text-xs md:text-sm text-muted-foreground">
-              Manage dealer purchases
-            </p>
-          </div>
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+        <div>
+          <h1 className="text-xl md:text-3xl font-bold tracking-tight">
+            Feed Dealer Ledger
+          </h1>
+          <p className="text-xs md:text-sm text-muted-foreground">
+            Manage dealer purchases
+          </p>
         </div>
-        <Button
-          className="bg-primary hover:bg-primary/90 w-full sm:w-auto text-xs md:text-sm h-8 md:h-9"
-          onClick={() => setIsAddDealerOpen(true)}
-        >
-          <Plus className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
-          <span className="hidden sm:inline">Add Feed Dealer</span>
-          <span className="sm:hidden">Add Dealer</span>
-        </Button>
+
+        <div className="flex flex-wrap gap-2 items-center">
+          <Button
+            variant="outline"
+            size="sm"
+            className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm h-9"
+            onClick={() => router.push("/farmer/dashboard/dealers")}
+          >
+            <Users className="mr-2 h-4 w-4" />
+            My Dealers
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm h-9"
+            onClick={() => router.push("/farmer/dashboard/sale-requests")}
+          >
+            <FileCheck className="mr-2 h-4 w-4" />
+            Sale Requests
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm h-9"
+            onClick={() => router.push("/farmer/dashboard/payment-requests")}
+          >
+            <DollarSign className="mr-2 h-4 w-4" />
+            Payment Requests
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-2 md:gap-4 grid-cols-3">

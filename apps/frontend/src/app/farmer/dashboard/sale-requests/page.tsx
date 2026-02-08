@@ -209,7 +209,7 @@ export default function FarmerSaleRequestsPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => router.push("/farmer/dashboard/dealers")}
+          onClick={() => router.push("/farmer/dashboard/dealer-ledger")}
           className="h-7 w-7 md:h-8 md:w-8 shrink-0"
         >
           <ArrowLeft className="h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -449,8 +449,8 @@ export default function FarmerSaleRequestsPage() {
                 <span className="font-medium">{selectedRequest.dealer.name}</span>
               </div>
               {selectedRequest.subtotalAmount != null &&
-              selectedRequest.discountType &&
-              Number(selectedRequest.subtotalAmount) > Number(selectedRequest.totalAmount) ? (
+                selectedRequest.discountType &&
+                Number(selectedRequest.subtotalAmount) > Number(selectedRequest.totalAmount) ? (
                 <div className="p-3 rounded-lg bg-muted/60 border border-border/60 text-sm space-y-1">
                   <p className="font-medium mb-2 text-muted-foreground">Price breakdown</p>
                   <div className="flex justify-between">

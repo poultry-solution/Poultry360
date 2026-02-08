@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DollarSign, Clock, CheckCircle, XCircle, Send, Plus } from "lucide-react";
+import { DollarSign, Clock, CheckCircle, XCircle, Send, Plus, ArrowLeft } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -11,6 +11,7 @@ import {
 } from "@/common/components/ui/card";
 import { Badge } from "@/common/components/ui/badge";
 import { Button } from "@/common/components/ui/button";
+import { useRouter } from "next/navigation";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Textarea } from "@/common/components/ui/textarea";
@@ -51,6 +52,7 @@ import { ImageUpload } from "@/common/components/ui/image-upload";
 export default function FarmerPaymentRequestsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const { t } = useI18n();
+  const router = useRouter();
 
   // Queries
   const { data: requestsData, isLoading } = useGetFarmerPaymentRequests({
@@ -184,12 +186,22 @@ export default function FarmerPaymentRequestsPage() {
   return (
     <div className="space-y-4 md:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold">{t("farmer.paymentRequests.title")}</h1>
-          <p className="text-muted-foreground">{t("farmer.paymentRequests.subtitle")}</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            {t("farmer.paymentRequests.help")}
-          </p>
+        <div className="flex items-center gap-2 md:gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.push("/farmer/dashboard/dealer-ledger")}
+            className="h-7 w-7 md:h-8 md:w-8 shrink-0"
+          >
+            <ArrowLeft className="h-3.5 w-3.5 md:h-4 md:w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">{t("farmer.paymentRequests.title")}</h1>
+            <p className="text-muted-foreground">{t("farmer.paymentRequests.subtitle")}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {t("farmer.paymentRequests.help")}
+            </p>
+          </div>
         </div>
         <Button onClick={() => setIsCreateOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />

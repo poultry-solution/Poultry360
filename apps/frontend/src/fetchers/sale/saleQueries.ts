@@ -61,6 +61,30 @@ export const useGetSales = (
   });
 };
 
+// Get all sale payments
+export const useGetSalePayments = (
+  params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    farmId?: string;
+    customerId?: string;
+    startDate?: string;
+    endDate?: string;
+  },
+  options?: { enabled?: boolean }
+) => {
+  return useQuery({
+    queryKey: [...saleQueryKeys.all, "payments", params],
+    queryFn: async () => {
+      const response = await axiosInstance.get("/sales/payments", { params });
+      return response.data;
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    enabled: options?.enabled !== false,
+  });
+};
+
 // Get sale by ID
 export const useGetSale = (id: string, options?: { enabled?: boolean }) => {
   return useQuery({
@@ -254,6 +278,7 @@ export const useAddSalePayment = () => {
         amount: number;
         date?: string;
         description?: string;
+        receiptUrl?: string;
       };
     }) => {
       const response = await axiosInstance.post(

@@ -15,6 +15,7 @@ import {
   Box,
   Plus,
   Loader2,
+  Egg,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
@@ -27,6 +28,8 @@ import {
   useInventoryDashboard,
   useCreateInventoryItem,
 } from "@/fetchers/inventory/inventoryQueries";
+import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
+import { useGetEggInventory } from "@/fetchers/sale/saleQueries";
 import { InventoryItemType } from "@myapp/shared-types";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { toast } from "sonner";
@@ -34,7 +37,7 @@ import { useI18n } from "@/i18n/useI18n";
 
 export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState<
-    "feed" | "chicks" | "medicine" | "other"
+    "feed" | "chicks" | "medicine" | "other" | "eggs"
   >("feed");
   const { t } = useI18n();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -49,6 +52,13 @@ export default function InventoryPage() {
     isLoading,
     error,
   } = useInventoryDashboard();
+
+  const { data: batchesData } = useGetAllBatches({}, { enabled: true });
+  const hasLayerBatch = batchesData?.data?.some((batch) => batch.batchType === "LAYERS");
+
+  const { data: eggData, isLoading: isEggLoading } = useGetEggInventory({
+    enabled: hasLayerBatch
+  });
 
   const createInventoryMutation = useCreateInventoryItem();
 
@@ -65,6 +75,42 @@ export default function InventoryPage() {
 
   // Filter table data based on active tab
   const getFilteredInventory = () => {
+    if (activeTab === "eggs") {
+      if (!eggData?.data) return [];
+      return [
+        {
+          id: "large-eggs",
+          name: "Large Eggs",
+          quantity: eggData.data.LARGE || 0,
+          unit: "pcs",
+          itemType: "EGGS",
+          status: (eggData.data.LARGE || 0) > 0 ? "In Stock" : "Out of Stock",
+          rate: 0,
+          value: 0,
+        },
+        {
+          id: "medium-eggs",
+          name: "Medium Eggs",
+          quantity: eggData.data.MEDIUM || 0,
+          unit: "pcs",
+          itemType: "EGGS",
+          status: (eggData.data.MEDIUM || 0) > 0 ? "In Stock" : "Out of Stock",
+          rate: 0,
+          value: 0,
+        },
+        {
+          id: "small-eggs",
+          name: "Small Eggs",
+          quantity: eggData.data.SMALL || 0,
+          unit: "pcs",
+          itemType: "EGGS",
+          status: (eggData.data.SMALL || 0) > 0 ? "In Stock" : "Out of Stock",
+          rate: 0,
+          value: 0,
+        },
+      ];
+    }
+
     if (!tableData) return [];
 
     switch (activeTab) {
@@ -145,6 +191,8 @@ export default function InventoryPage() {
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
+      case "eggs":
+        return <Egg className="h-4 w-4" />;
       case "feed":
         return <Wheat className="h-4 w-4" />;
       case "chicks":
@@ -160,8 +208,42 @@ export default function InventoryPage() {
 
   // Column configurations for different categories
   const getInventoryColumns = (
-    category: "feed" | "medicine" | "chicks" | "other"
+    category: "feed" | "medicine" | "chicks" | "other" | "eggs"
   ) => {
+    if (category === "eggs") {
+      return [
+        createColumn("name", t("farmer.inventory.table.item"), {
+          render: (_, item: any) => (
+            <div>
+              <p className="font-medium">{item.name}</p>
+            </div>
+          ),
+        }),
+        createColumn("quantity", t("farmer.inventory.table.quantity"), {
+          render: (_, item: any) => (
+            <div className="flex items-center space-x-1">
+              <span className="font-medium">{item.quantity}</span>
+              <span className="text-sm text-gray-600">{item.unit}</span>
+            </div>
+          ),
+        }),
+        createColumn("status", "Status", {
+          render: (_, item: any) => (
+            <Badge
+              variant={item.quantity === 0 ? "destructive" : "secondary"}
+              className={
+                item.quantity === 0
+                  ? "bg-red-100 text-red-800"
+                  : "bg-green-100 text-green-800"
+              }
+            >
+              {item.quantity === 0 ? "Out of Stock" : "In Stock"}
+            </Badge>
+          ),
+        })
+      ];
+    }
+
     const baseColumns = [
       createColumn("name", t("farmer.inventory.table.item"), {
         render: (_, item: any) => (
@@ -241,7 +323,7 @@ export default function InventoryPage() {
   };
 
   // Loading state
-  if (isLoading) {
+  if (isLoading || isEggLoading) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -272,7 +354,9 @@ export default function InventoryPage() {
           <p className="text-sm md:text-base text-muted-foreground">
             {activeTab === "other"
               ? t("farmer.inventory.subtitleOther")
-              : t("farmer.inventory.subtitleDefault")}
+              : activeTab === "eggs"
+                ? "Track your egg inventory from daily production"
+                : t("farmer.inventory.subtitleDefault")}
           </p>
         </div>
         {activeTab === "other" ? (
@@ -284,6 +368,10 @@ export default function InventoryPage() {
             <Plus className="mr-2 h-4 w-4" />
             {t("farmer.inventory.addItem")}
           </Button>
+        ) : activeTab === "eggs" ? (
+          <div className="text-sm text-muted-foreground">
+            Auto-calculated from batch production & sales
+          </div>
         ) : (
           <div className="text-sm text-muted-foreground">
             {t("farmer.inventory.autoAdded")}{" "}
@@ -355,6 +443,7 @@ export default function InventoryPage() {
       <div className="border-b">
         <nav className="flex gap-1 md:space-x-8 overflow-x-auto pb-1">
           {[
+            ...(hasLayerBatch ? [{ key: "eggs", label: "Eggs", icon: <Egg className="h-4 w-4" /> }] : []),
             { key: "feed", label: t("farmer.inventory.tabs.feed"), icon: <Wheat className="h-4 w-4" /> },
             {
               key: "chicks",
@@ -369,6 +458,9 @@ export default function InventoryPage() {
             { key: "other", label: t("farmer.inventory.tabs.other"), icon: <Box className="h-4 w-4" /> },
           ].map((tab) => {
             const getTabCount = () => {
+              if (tab.key === "eggs") {
+                return (eggData?.data?.LARGE || 0) + (eggData?.data?.MEDIUM || 0) + (eggData?.data?.SMALL || 0);
+              }
               if (!tableData) return 0;
               switch (tab.key) {
                 case "feed":
@@ -399,8 +491,8 @@ export default function InventoryPage() {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 onClick={() => setActiveTab(tab.key as any)}
                 className={`flex items-center gap-1 md:space-x-2 py-2 px-2 md:px-1 border-b-2 font-medium text-xs md:text-sm whitespace-nowrap ${activeTab === tab.key
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground"
                   }`}
               >
                 {tab.icon}
@@ -420,7 +512,25 @@ export default function InventoryPage() {
           <CardTitle className="flex items-center gap-1 md:space-x-2 text-base md:text-lg">
             {getCategoryIcon(activeTab)}
             <span>
-              {t("farmer.inventory.categoryTitle", {
+              {activeTab === "eggs"
+                ? "Egg Inventory"
+                : t("farmer.inventory.categoryTitle", {
+                  category:
+                    activeTab === "feed"
+                      ? t("farmer.inventory.tabs.feed")
+                      : activeTab === "chicks"
+                        ? t("farmer.inventory.tabs.chicks")
+                        : activeTab === "medicine"
+                          ? t("farmer.inventory.tabs.medicine")
+                          : t("farmer.inventory.tabs.other"),
+                })}
+            </span>
+          </CardTitle>
+          <CardDescription>
+            {activeTab === "eggs"
+              ? "Current stock of eggs by category"
+              : t("farmer.inventory.categoryDesc", {
+                count: filteredInventory.length,
                 category:
                   activeTab === "feed"
                     ? t("farmer.inventory.tabs.feed")
@@ -430,20 +540,6 @@ export default function InventoryPage() {
                         ? t("farmer.inventory.tabs.medicine")
                         : t("farmer.inventory.tabs.other"),
               })}
-            </span>
-          </CardTitle>
-          <CardDescription>
-            {t("farmer.inventory.categoryDesc", {
-              count: filteredInventory.length,
-              category:
-                activeTab === "feed"
-                  ? t("farmer.inventory.tabs.feed")
-                  : activeTab === "chicks"
-                    ? t("farmer.inventory.tabs.chicks")
-                    : activeTab === "medicine"
-                      ? t("farmer.inventory.tabs.medicine")
-                      : t("farmer.inventory.tabs.other"),
-            })}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -462,6 +558,10 @@ export default function InventoryPage() {
                     category: t("farmer.inventory.tabs.other"),
                   })}
                 </Button>
+              ) : activeTab === "eggs" ? (
+                <p className="text-sm mt-2">
+                  No eggs in stock. Record daily egg production in Batches to see data here.
+                </p>
               ) : (
                 <p className="text-sm mt-2">
                   {t("farmer.inventory.emptyHelp")}{" "}
