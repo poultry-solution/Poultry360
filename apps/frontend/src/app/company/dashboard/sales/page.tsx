@@ -149,7 +149,16 @@ export default function CompanySalesPage() {
                 label: 'Amount',
                 align: 'right',
                 width: '100px',
-                render: (val) => formatCurrency(Number(val))
+                render: (val, row) => (
+                  <div className="flex flex-col items-end gap-0.5">
+                    <span className="font-medium">{formatCurrency(Number(val))}</span>
+                    {(row.subtotalAmount != null || row.discount) && (
+                      <Badge variant="outline" className="text-[10px] font-normal px-1.5 py-0">
+                        Disc.
+                      </Badge>
+                    )}
+                  </div>
+                )
               },
               {
                 key: 'isCredit',

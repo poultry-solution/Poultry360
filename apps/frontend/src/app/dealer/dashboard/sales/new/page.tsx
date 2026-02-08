@@ -61,6 +61,8 @@ export default function NewSalePage() {
   const [selectedProductId, setSelectedProductId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [paidAmount, setPaidAmount] = useState(0);
+  const [discountType, setDiscountType] = useState<"PERCENT" | "FLAT">("PERCENT");
+  const [discountValue, setDiscountValue] = useState<number>(0);
   const [isCreateCustomerOpen, setIsCreateCustomerOpen] = useState(false);
   const [newCustomerData, setNewCustomerData] = useState({
     name: "",
@@ -149,10 +151,8 @@ export default function NewSalePage() {
       }
     }
 
-    const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-
-    if (paidAmount < 0 || paidAmount > totalAmount) {
-      toast.error("Paid amount must be between 0 and total amount");
+    if (paidAmount < 0 || paidAmount > finalTotal) {
+      toast.error("Paid amount must be between 0 and final total");
       return;
     }
 
@@ -168,6 +168,10 @@ export default function NewSalePage() {
         paymentMethod,
         notes: notes || undefined,
         date: new Date(),
+        discount:
+          discountValue > 0
+            ? { type: discountType, value: discountValue }
+            : undefined,
       });
 
       toast.success("Sale created successfully!");
@@ -177,7 +181,15 @@ export default function NewSalePage() {
     }
   };
 
-  const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const discountAmount =
+    discountValue > 0
+      ? discountType === "PERCENT"
+        ? Math.round((Math.min(100, discountValue) / 100) * subtotal * 100) / 100
+        : Math.min(discountValue, subtotal)
+      : 0;
+  const finalTotal = Math.round((subtotal - discountAmount) * 100) / 100;
+  const totalAmount = finalTotal;
   const dueAmount = totalAmount - paidAmount;
 
   return (
@@ -359,6 +371,55 @@ export default function NewSalePage() {
             </CardContent>
           </Card>
 
+          {/* Discount Section */}
+          {items.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Discount (Optional)</CardTitle>
+                <CardDescription>Apply a global discount to this sale</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Type</Label>
+                    <Select
+                      value={discountType}
+                      onValueChange={(v: "PERCENT" | "FLAT") => setDiscountType(v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PERCENT">Percent (%)</SelectItem>
+                        <SelectItem value="FLAT">Flat (रू)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Value</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={discountType === "PERCENT" ? 1 : 0.01}
+                      max={discountType === "PERCENT" ? 100 : subtotal}
+                      value={discountValue || ""}
+                      onChange={(e) =>
+                        setDiscountValue(parseFloat(e.target.value) || 0)
+                      }
+                      placeholder={discountType === "PERCENT" ? "e.g. 10" : "e.g. 100"}
+                    />
+                  </div>
+                </div>
+                {discountValue > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Discount: रू {discountAmount.toFixed(2)}
+                    {discountType === "PERCENT" && ` (${Math.min(100, discountValue)}%)`}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Payment Section */}
           {items.length > 0 && (
             <Card>
@@ -390,7 +451,7 @@ export default function NewSalePage() {
                       type="number"
                       min="0"
                       step="0.01"
-                      max={totalAmount}
+                      max={finalTotal}
                       value={paidAmount || ""}
                       onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
                       placeholder="0.00"
@@ -477,11 +538,23 @@ export default function NewSalePage() {
                   )}
                 </div>
 
-                <div className="pt-4 border-t">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium">Total Amount</span>
+                <div className="pt-4 border-t space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="font-medium">{formatCurrency(subtotal)}</span>
+                  </div>
+                  {discountValue > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Discount</span>
+                      <span className="font-medium text-green-600">
+                        - {formatCurrency(discountAmount)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center pt-2">
+                    <span className="font-medium">Final Total</span>
                     <span className="text-2xl font-bold">
-                      {formatCurrency(totalAmount)}
+                      {formatCurrency(finalTotal)}
                     </span>
                   </div>
                 </div>
@@ -535,10 +608,22 @@ export default function NewSalePage() {
 
                     {/* Grand Total */}
                     <div className="border-t-2 pt-3 mt-3">
-                      <div className="flex justify-between items-center">
+                      {discountValue > 0 && (
+                        <>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Subtotal</span>
+                            <span>{formatCurrency(subtotal)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Discount</span>
+                            <span className="text-green-600">- {formatCurrency(discountAmount)}</span>
+                          </div>
+                        </>
+                      )}
+                      <div className="flex justify-between items-center pt-1">
                         <span className="font-semibold">Grand Total</span>
                         <span className="text-lg font-bold">
-                          {formatCurrency(totalAmount)}
+                          {formatCurrency(finalTotal)}
                         </span>
                       </div>
                       {paidAmount > 0 && (

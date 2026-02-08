@@ -17,6 +17,7 @@ export interface DealerSale {
   invoiceNumber: string;
   date: Date;
   totalAmount: number;
+  subtotalAmount?: number | null;
   paidAmount: number;
   dueAmount?: number;
   isCredit: boolean;
@@ -30,6 +31,7 @@ export interface DealerSale {
   farmer?: any;
   items: DealerSaleItem[];
   payments: DealerSalePayment[];
+  discount?: { type: string; value: number } | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -64,6 +66,7 @@ export interface CreateDealerSaleInput {
   paymentMethod?: string;
   notes?: string;
   date?: Date;
+  discount?: { type: "PERCENT" | "FLAT"; value: number };
 }
 
 export interface AddSalePaymentInput {

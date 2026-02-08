@@ -212,41 +212,61 @@ export default function FarmerDealerAccountPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {sales.map((sale) => (
-                    <div
-                      key={sale.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-lg bg-blue-100">
-                          <Receipt className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium">Sale</p>
-                            {sale.invoiceNumber && (
-                              <Badge variant="outline" className="text-xs">
-                                {sale.invoiceNumber}
-                              </Badge>
+                  {sales.map((sale) => {
+                    const hasDiscount =
+                      sale.subtotalAmount != null &&
+                      sale.discountType &&
+                      Number(sale.subtotalAmount) > Number(sale.amount);
+                    return (
+                      <div
+                        key={sale.id}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 rounded-lg bg-blue-100">
+                            <Receipt className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium">Sale</p>
+                              {sale.invoiceNumber && (
+                                <Badge variant="outline" className="text-xs">
+                                  {sale.invoiceNumber}
+                                </Badge>
+                              )}
+                              {hasDiscount && (
+                                <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 border-green-200">
+                                  Discount applied
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {formatDate(sale.date)}
+                            </p>
+                            {hasDiscount && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Original {formatCurrency(sale.subtotalAmount!)}
+                                {sale.discountType === "PERCENT"
+                                  ? ` → ${sale.discountValue}% off`
+                                  : ` → रू ${Number(sale.discountValue || 0).toFixed(2)} off`}
+                                {" "}· You paid {formatCurrency(sale.amount)}
+                              </p>
+                            )}
+                            {sale.notes && (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {sale.notes}
+                              </p>
                             )}
                           </div>
-                          <p className="text-sm text-muted-foreground">
-                            {formatDate(sale.date)}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-red-600">
+                            +{formatCurrency(sale.amount)}
                           </p>
-                          {sale.notes && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {sale.notes}
-                            </p>
-                          )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-red-600">
-                          +{formatCurrency(sale.amount)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </TabsContent>

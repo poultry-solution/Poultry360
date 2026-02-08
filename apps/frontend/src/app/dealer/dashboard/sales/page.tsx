@@ -199,10 +199,28 @@ export default function DealerSalesPage() {
                 key: 'totalAmount',
                 label: 'Amount',
                 align: 'right',
-                width: '100px',
-                render: (val) => (
-                  <span className="font-medium">{formatCurrency(Number(val))}</span>
-                )
+                width: '120px',
+                render: (val, row) => {
+                  const hasDiscount = row.subtotalAmount != null && row.discount;
+                  const subtotal = hasDiscount ? Number(row.subtotalAmount) : 0;
+                  const total = Number(val);
+                  const discountLabel = row.discount
+                    ? row.discount.type === "PERCENT"
+                      ? `${row.discount.value}% off`
+                      : `रू ${Number(row.discount.value || 0).toFixed(2)} off`
+                    : "";
+                  return (
+                    <div className="flex flex-col items-end gap-0.5">
+                      <span className="font-medium">{formatCurrency(total)}</span>
+                      {hasDiscount && (
+                        <span className="text-[10px] text-muted-foreground leading-tight">
+                          Was {formatCurrency(subtotal)}
+                          {discountLabel && ` · ${discountLabel}`}
+                        </span>
+                      )}
+                    </div>
+                  );
+                }
               },
               {
                 key: 'isCredit',

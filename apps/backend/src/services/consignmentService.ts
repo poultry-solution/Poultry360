@@ -5,6 +5,11 @@ import {
   LedgerEntryType,
   Prisma,
 } from "@prisma/client";
+import {
+  computeDiscountAmount,
+  distributeDiscountToItems,
+  type DiscountType,
+} from "../utils/discountHelpers";
 
 export class ConsignmentService {
   /**
@@ -90,20 +95,47 @@ export class ConsignmentService {
     }>;
     notes?: string;
     overrideBalanceLimit?: boolean;
+    discount?: { type: DiscountType; value: number };
   }) {
     return await prisma.$transaction(async (tx) => {
-      // Calculate total amount
-      const totalAmount = data.items.reduce(
+      const subtotal = data.items.reduce(
         (sum, item) => sum + item.quantity * item.unitPrice,
         0
       );
+
+      let finalTotal: number;
+      let itemTotals: number[];
+      const hasDiscount =
+        data.discount &&
+        data.discount.value > 0 &&
+        (data.discount.type !== "PERCENT" || data.discount.value <= 100) &&
+        (data.discount.type !== "FLAT" || data.discount.value < subtotal);
+
+      if (hasDiscount && data.discount) {
+        const discountAmount = computeDiscountAmount(
+          subtotal,
+          data.discount.type,
+          data.discount.value
+        );
+        finalTotal = Math.round((subtotal - discountAmount) * 100) / 100;
+        itemTotals = distributeDiscountToItems(
+          subtotal,
+          discountAmount,
+          data.items.map((i) => ({ quantity: i.quantity, unitPrice: i.unitPrice }))
+        );
+      } else {
+        finalTotal = subtotal;
+        itemTotals = data.items.map(
+          (item) => Math.round(item.quantity * item.unitPrice * 100) / 100
+        );
+      }
 
       const requestedQuantity = data.items.reduce(
         (sum, item) => sum + item.quantity,
         0
       );
 
-      // Balance limit check for company-to-dealer consignments
+      // Balance limit check for company-to-dealer consignments (use final total)
       if (data.fromCompanyId && data.toDealerId && !data.overrideBalanceLimit) {
         const account = await tx.companyDealerAccount.findUnique({
           where: {
@@ -116,7 +148,7 @@ export class ConsignmentService {
         });
         if (account?.balanceLimit) {
           const currentBalance = Number(account.balance);
-          const newBalance = currentBalance + totalAmount;
+          const newBalance = currentBalance + finalTotal;
           const limit = Number(account.balanceLimit);
           if (newBalance > limit) {
             throw new Error(
@@ -127,30 +159,37 @@ export class ConsignmentService {
         }
       }
 
-      // Create consignment request
-      const consignment = await tx.consignmentRequest.create({
-        data: {
-          requestNumber: this.generateConsignmentNumber(),
-          direction: data.direction,
-          status: ConsignmentStatus.CREATED,
-          totalAmount: new Prisma.Decimal(totalAmount),
-          requestedQuantity: new Prisma.Decimal(requestedQuantity),
-          notes: data.notes,
-          overrideBalanceLimit: data.overrideBalanceLimit ?? false,
-          fromCompanyId: data.fromCompanyId,
-          fromDealerId: data.fromDealerId,
-          toDealerId: data.toDealerId,
-          toFarmerId: data.toFarmerId,
-          items: {
-            create: data.items.map((item) => ({
-              quantity: new Prisma.Decimal(item.quantity),
-              unitPrice: new Prisma.Decimal(item.unitPrice),
-              totalAmount: new Prisma.Decimal(item.quantity * item.unitPrice),
-              companyProductId: item.companyProductId,
-              dealerProductId: item.dealerProductId,
-            })),
-          },
+      const consignmentData: any = {
+        requestNumber: this.generateConsignmentNumber(),
+        direction: data.direction,
+        status: ConsignmentStatus.CREATED,
+        totalAmount: new Prisma.Decimal(finalTotal),
+        requestedQuantity: new Prisma.Decimal(requestedQuantity),
+        notes: data.notes,
+        overrideBalanceLimit: data.overrideBalanceLimit ?? false,
+        fromCompanyId: data.fromCompanyId,
+        fromDealerId: data.fromDealerId,
+        toDealerId: data.toDealerId,
+        toFarmerId: data.toFarmerId,
+        items: {
+          create: data.items.map((item, idx) => ({
+            quantity: new Prisma.Decimal(item.quantity),
+            unitPrice: new Prisma.Decimal(item.unitPrice),
+            totalAmount: new Prisma.Decimal(itemTotals[idx] ?? item.quantity * item.unitPrice),
+            companyProductId: item.companyProductId,
+            dealerProductId: item.dealerProductId,
+          })),
         },
+      };
+
+      if (hasDiscount && data.discount) {
+        consignmentData.subtotalAmount = new Prisma.Decimal(subtotal);
+        consignmentData.discountType = data.discount.type;
+        consignmentData.discountValue = new Prisma.Decimal(data.discount.value);
+      }
+
+      const consignment = await tx.consignmentRequest.create({
+        data: consignmentData,
         include: {
           items: {
             include: {
@@ -180,7 +219,8 @@ export class ConsignmentService {
   }
 
   /**
-   * Accept consignment (supports partial acceptance)
+   * Accept consignment (supports partial acceptance).
+   * Optional discount: when provided, applied to accepted subtotal; consignment totalAmount and item totalAmounts updated.
    */
   static async acceptConsignment(data: {
     consignmentId: string;
@@ -190,6 +230,7 @@ export class ConsignmentService {
       acceptedQuantity: number;
     }>;
     notes?: string;
+    discount?: { type: DiscountType; value: number };
   }) {
     return await prisma.$transaction(async (tx) => {
       const consignment = await tx.consignmentRequest.findUnique({
@@ -207,9 +248,11 @@ export class ConsignmentService {
         );
       }
 
-      // Update items with accepted quantities
+      // Build accepted items list and update accepted quantities
+      const acceptedItemsMeta: { itemId: string; quantity: number; unitPrice: number; index: number }[] = [];
       let totalApprovedQty = 0;
       let totalAcceptedAmount = 0;
+      let itemIndex = 0;
       for (const item of data.items) {
         const originalItem = consignment.items.find((i) => i.id === item.itemId);
         if (!originalItem) continue;
@@ -223,10 +266,59 @@ export class ConsignmentService {
         });
 
         totalApprovedQty += item.acceptedQuantity;
-        totalAcceptedAmount += Number(originalItem.unitPrice) * item.acceptedQuantity;
+        const lineSubtotal = Number(originalItem.unitPrice) * item.acceptedQuantity;
+        totalAcceptedAmount += lineSubtotal;
+        if (item.acceptedQuantity > 0) {
+          acceptedItemsMeta.push({
+            itemId: item.itemId,
+            quantity: item.acceptedQuantity,
+            unitPrice: Number(originalItem.unitPrice),
+            index: itemIndex++,
+          });
+        }
       }
 
-      // Balance limit check when company accepts (company-to-dealer only)
+      const subtotal = Math.round(totalAcceptedAmount * 100) / 100;
+      const hasDiscount =
+        data.discount &&
+        data.discount.value > 0 &&
+        (data.discount.type !== "PERCENT" || data.discount.value <= 100) &&
+        (data.discount.type !== "FLAT" || data.discount.value < subtotal);
+
+      let finalTotal: number;
+      let itemTotals: number[];
+      if (hasDiscount && data.discount) {
+        const discountAmount = computeDiscountAmount(
+          subtotal,
+          data.discount.type,
+          data.discount.value
+        );
+        finalTotal = Math.round((subtotal - discountAmount) * 100) / 100;
+        itemTotals = distributeDiscountToItems(
+          subtotal,
+          discountAmount,
+          acceptedItemsMeta.map((m) => ({ quantity: m.quantity, unitPrice: m.unitPrice }))
+        );
+      } else {
+        finalTotal = subtotal;
+        itemTotals = acceptedItemsMeta.map(
+          (m) => Math.round(m.quantity * m.unitPrice * 100) / 100
+        );
+      }
+
+      // Update each ConsignmentItem totalAmount to distributed (accepted) line total
+      for (let i = 0; i < acceptedItemsMeta.length; i++) {
+        const meta = acceptedItemsMeta[i];
+        const lineTotal = itemTotals[i] ?? meta.quantity * meta.unitPrice;
+        await tx.consignmentItem.update({
+          where: { id: meta.itemId },
+          data: {
+            totalAmount: new Prisma.Decimal(Math.round(lineTotal * 100) / 100),
+          },
+        });
+      }
+
+      // Balance limit check when company accepts (use discounted total)
       if (
         consignment.fromCompanyId &&
         consignment.toDealerId &&
@@ -243,7 +335,7 @@ export class ConsignmentService {
         });
         if (account?.balanceLimit) {
           const currentBalance = Number(account.balance);
-          const newBalance = currentBalance + totalAcceptedAmount;
+          const newBalance = currentBalance + finalTotal;
           const limit = Number(account.balanceLimit);
           if (newBalance > limit) {
             throw new Error(
@@ -254,13 +346,20 @@ export class ConsignmentService {
         }
       }
 
-      // Update consignment status
+      const updateData: Prisma.ConsignmentRequestUpdateInput = {
+        status: ConsignmentStatus.ACCEPTED_PENDING_DISPATCH,
+        approvedQuantity: new Prisma.Decimal(totalApprovedQty),
+        totalAmount: new Prisma.Decimal(finalTotal),
+      };
+      if (hasDiscount && data.discount) {
+        updateData.subtotalAmount = new Prisma.Decimal(subtotal);
+        updateData.discountType = data.discount.type;
+        updateData.discountValue = new Prisma.Decimal(data.discount.value);
+      }
+
       const updated = await tx.consignmentRequest.update({
         where: { id: data.consignmentId },
-        data: {
-          status: ConsignmentStatus.ACCEPTED_PENDING_DISPATCH,
-          approvedQuantity: new Prisma.Decimal(totalApprovedQty),
-        },
+        data: updateData,
         include: {
           items: {
             include: {
@@ -274,7 +373,6 @@ export class ConsignmentService {
         },
       });
 
-      // Create audit log
       await this.createAuditLog(tx, {
         consignmentId: data.consignmentId,
         action: "ACCEPTED",
@@ -464,6 +562,13 @@ export class ConsignmentService {
         const acceptedQty = Number(item.acceptedQuantity || 0);
         if (acceptedQty <= 0 || !item.companyProduct) continue;
 
+        // Use discounted unit price as cost when applicable (totalAmount is post-discount line total)
+        const effectiveCostPerUnit =
+          acceptedQty > 0
+            ? Number(item.totalAmount) / acceptedQty
+            : Number(item.unitPrice);
+        const costPriceDecimal = new Prisma.Decimal(effectiveCostPerUnit);
+
         // Reduce company stock
         await tx.product.update({
           where: { id: item.companyProductId! },
@@ -478,14 +583,16 @@ export class ConsignmentService {
         const userItem = data.items?.find((i) => i.itemId === item.id);
         const sellingPrice = userItem?.sellingPrice
           ? new Prisma.Decimal(userItem.sellingPrice)
-          : new Prisma.Decimal(Number(item.unitPrice) * 1.2);
+          : new Prisma.Decimal(
+              Math.round(effectiveCostPerUnit * 1.2 * 100) / 100
+            );
 
-        // Check if dealer has this product in their inventory
+        // Check if dealer has this product in their inventory (match by cost to support same product at different costs)
         const dealerProduct = await tx.dealerProduct.findFirst({
           where: {
             dealerId: consignment.toDealerId!,
             name: item.companyProduct.name,
-            costPrice: item.unitPrice,
+            costPrice: costPriceDecimal,
             sellingPrice: sellingPrice,
           },
         });
@@ -501,13 +608,13 @@ export class ConsignmentService {
             },
           });
         } else {
-          // Create new dealer product
+          // Create new dealer product with discounted cost
           await tx.dealerProduct.create({
             data: {
               name: item.companyProduct.name,
               type: item.companyProduct.type || "OTHER",
               unit: item.companyProduct.unit || "UNITS",
-              costPrice: item.unitPrice,
+              costPrice: costPriceDecimal,
               sellingPrice: sellingPrice,
               currentStock: acceptedQty,
               dealerId: consignment.toDealerId!,
@@ -546,38 +653,66 @@ export class ConsignmentService {
         });
       }
 
-      // 3. Create CompanySale record
+      // 3. Create CompanySale record (preserve consignment discount on sale)
       const invoiceNumber = `CINV-${Date.now()}-${Math.random()
         .toString(36)
         .substring(2, 7)
         .toUpperCase()}`;
 
-      const sale = await tx.companySale.create({
-        data: {
-          invoiceNumber,
-          companyId: consignment.fromCompanyId!,
-          dealerId: consignment.toDealerId!,
-          soldById: data.receivedById,
-          totalAmount: consignment.totalAmount,
-          isCredit: true,
-          paymentMethod: "CREDIT",
-          notes: `Consignment sale from ${consignment.requestNumber}`,
-          consignmentId: consignment.id,
-          accountId: account.id,
-          items: {
-            create: consignment.items
-              .filter((item) => Number(item.acceptedQuantity || 0) > 0)
-              .map((item) => ({
-                productId: item.companyProductId!,
-                quantity: item.acceptedQuantity!,
-                unitPrice: item.unitPrice,
-                totalAmount: new Prisma.Decimal(
-                  Number(item.acceptedQuantity) * Number(item.unitPrice)
-                ),
-              })),
-          },
+      const consignmentWithDiscount = consignment as typeof consignment & {
+        subtotalAmount?: unknown;
+        discountType?: string | null;
+        discountValue?: unknown;
+      };
+      const hasConsignmentDiscount =
+        consignmentWithDiscount.subtotalAmount != null &&
+        consignmentWithDiscount.discountType &&
+        consignmentWithDiscount.discountValue != null;
+
+      const saleData: any = {
+        invoiceNumber,
+        companyId: consignment.fromCompanyId!,
+        dealerId: consignment.toDealerId!,
+        soldById: data.receivedById,
+        totalAmount: consignment.totalAmount,
+        isCredit: true,
+        paymentMethod: "CREDIT",
+        notes: `Consignment sale from ${consignment.requestNumber}`,
+        consignmentId: consignment.id,
+        accountId: account.id,
+        items: {
+          create: consignment.items
+            .filter((item) => Number(item.acceptedQuantity || 0) > 0)
+            .map((item) => ({
+              productId: item.companyProductId!,
+              quantity: item.acceptedQuantity!,
+              unitPrice: item.unitPrice,
+              // Use consignment item's totalAmount (already includes discount distribution)
+              totalAmount: item.totalAmount,
+            })),
         },
+      };
+      if (hasConsignmentDiscount) {
+        saleData.subtotalAmount = consignmentWithDiscount.subtotalAmount;
+      }
+
+      const sale = await tx.companySale.create({
+        data: saleData,
       });
+
+      if (
+        hasConsignmentDiscount &&
+        consignmentWithDiscount.discountType &&
+        consignmentWithDiscount.discountValue != null
+      ) {
+        await tx.saleDiscount.create({
+          data: {
+            type: consignmentWithDiscount.discountType as "PERCENT" | "FLAT",
+            value: consignmentWithDiscount.discountValue,
+            companySaleId: sale.id,
+          },
+        });
+      }
 
       // 3. Update account balance with sale amount
       await tx.companyDealerAccount.update({
@@ -648,6 +783,7 @@ export class ConsignmentService {
           toDealer: true,
           companySale: {
             include: {
+              discount: true,
               items: true,
               account: true,
             },
@@ -742,6 +878,7 @@ export class ConsignmentService {
         toFarmer: true,
         companySale: {
           include: {
+            discount: true,
             items: true,
             account: true,
           },
@@ -842,7 +979,9 @@ export class ConsignmentService {
             select: {
               id: true,
               invoiceNumber: true,
+              subtotalAmount: true,
               totalAmount: true,
+              discount: true,
               account: {
                 select: {
                   id: true,

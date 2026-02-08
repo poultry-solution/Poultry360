@@ -210,13 +210,14 @@ export default function DealerConsignmentsPage() {
     if (!selectedConsignment) return;
 
     try {
-      // Prepare items payload with selling prices
+      // Prepare items payload with selling prices (use discounted unit price as cost when applicable)
       const itemsPayload = selectedConsignment.items.map((item) => {
-        const costPrice = Number(item.unitPrice);
-        // Default to 1.2 * cost if not set by user
+        const qty = Number(item.acceptedQuantity || item.quantity) || 1;
+        const costPrice =
+          qty > 0 ? Number(item.totalAmount) / qty : Number(item.unitPrice);
         const sellingPrice = sellingPrices[item.id] !== undefined
           ? Number(sellingPrices[item.id])
-          : (costPrice * 1.2);
+          : Math.round(costPrice * 1.2 * 100) / 100;
 
         return {
           itemId: item.id,
@@ -402,7 +403,7 @@ export default function DealerConsignmentsPage() {
                               onClick={() => {
                                 setSelectedConsignment(consignment);
                                 setAcceptItems(
-                                  consignment.items.map((item) => ({
+                                  consignment.items.map((item: any) => ({
                                     itemId: item.id,
                                     acceptedQuantity: Number(item.quantity),
                                   }))
@@ -653,10 +654,45 @@ export default function DealerConsignmentsPage() {
                       <p className="text-muted-foreground">Items</p>
                       <p className="font-medium">{selectedConsignment.items.length} products</p>
                     </div>
-                    <div>
-                      <p className="text-muted-foreground">Total Amount</p>
-                      <p className="font-medium">{formatCurrency(selectedConsignment.totalAmount)}</p>
-                    </div>
+                    {selectedConsignment.subtotalAmount != null &&
+                    selectedConsignment.discountType ? (
+                      <>
+                        <div>
+                          <p className="text-muted-foreground">Subtotal</p>
+                          <p className="font-medium">
+                            {formatCurrency(Number(selectedConsignment.subtotalAmount))}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">
+                            Discount
+                            {selectedConsignment.discountType === "PERCENT"
+                              ? ` (${selectedConsignment.discountValue}%)`
+                              : ""}
+                          </p>
+                          <p className="font-medium text-green-600">
+                            -{" "}
+                            {formatCurrency(
+                              Number(selectedConsignment.subtotalAmount) -
+                                Number(selectedConsignment.totalAmount)
+                            )}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Total Amount</p>
+                          <p className="font-medium">
+                            {formatCurrency(selectedConsignment.totalAmount)}
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <div>
+                        <p className="text-muted-foreground">Total Amount</p>
+                        <p className="font-medium">
+                          {formatCurrency(selectedConsignment.totalAmount)}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -668,7 +704,9 @@ export default function DealerConsignmentsPage() {
 
                   <div className="space-y-3">
                     {selectedConsignment.items.map((item) => {
-                      const costPrice = Number(item.unitPrice);
+                      const qty = Number(item.acceptedQuantity || item.quantity) || 1;
+                      const costPrice =
+                        qty > 0 ? Number(item.totalAmount) / qty : Number(item.unitPrice);
                       const currentSellingPrice = sellingPrices[item.id] !== undefined
                         ? sellingPrices[item.id]
                         : (costPrice * 1.2).toFixed(2);
@@ -679,7 +717,7 @@ export default function DealerConsignmentsPage() {
                             <p className="font-medium">{item.companyProduct?.name || "Unknown Product"}</p>
                             <div className="flex gap-4 text-sm text-muted-foreground mt-1">
                               <span>Qty: {item.acceptedQuantity || item.quantity}</span>
-                              <span>Cost: {formatCurrency(item.unitPrice)}</span>
+                              <span>Cost: {formatCurrency(costPrice)}</span>
                             </div>
                           </div>
 
@@ -826,12 +864,45 @@ export default function DealerConsignmentsPage() {
                     {selectedConsignment.fromCompany?.name || "N/A"}
                   </p>
                 </div>
-                <div>
-                  <Label>Total Amount</Label>
-                  <p className="font-medium mt-1">
-                    {formatCurrency(selectedConsignment.totalAmount)}
-                  </p>
-                </div>
+                {selectedConsignment.subtotalAmount != null &&
+                selectedConsignment.discountType ? (
+                  <>
+                    <div>
+                      <Label>Subtotal</Label>
+                      <p className="font-medium mt-1">
+                        {formatCurrency(Number(selectedConsignment.subtotalAmount))}
+                      </p>
+                    </div>
+                    <div>
+                      <Label>
+                        Discount
+                        {selectedConsignment.discountType === "PERCENT"
+                          ? ` (${selectedConsignment.discountValue}%)`
+                          : ` (रू ${Number(selectedConsignment.discountValue || 0).toFixed(2)})`}
+                      </Label>
+                      <p className="font-medium mt-1 text-green-600">
+                        -{" "}
+                        {formatCurrency(
+                          Number(selectedConsignment.subtotalAmount) -
+                            Number(selectedConsignment.totalAmount)
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <Label>Total Amount</Label>
+                      <p className="font-medium mt-1">
+                        {formatCurrency(selectedConsignment.totalAmount)}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <div>
+                    <Label>Total Amount</Label>
+                    <p className="font-medium mt-1">
+                      {formatCurrency(selectedConsignment.totalAmount)}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Items */}
@@ -920,33 +991,66 @@ export default function DealerConsignmentsPage() {
               )}
 
               {/* Linked Sale */}
-              {selectedConsignment.companySale && (
+              {selectedConsignment.companySale && (() => {
+                const cs = selectedConsignment.companySale as {
+                  invoiceNumber?: string;
+                  totalAmount: number;
+                  subtotalAmount?: number | null;
+                  discount?: { type: string; value: number } | null;
+                  account?: { balance: number };
+                };
+                const hasSaleDiscount = cs.subtotalAmount != null && cs.discount;
+                const saleSubtotal = cs.subtotalAmount != null ? Number(cs.subtotalAmount) : Number(cs.totalAmount);
+                const discountLabel = cs.discount
+                  ? cs.discount.type === "PERCENT"
+                    ? `${Number(cs.discount.value)}%`
+                    : `रू ${Number(cs.discount.value).toFixed(2)}`
+                  : "";
+                return (
                 <div className="space-y-2 p-4 bg-blue-50 dark:bg-blue-950 rounded-md">
                   <Label>Linked Sale</Label>
                   <div className="grid grid-cols-3 gap-4 mt-2">
                     <div>
                       <p className="text-sm text-muted-foreground">Invoice #</p>
                       <p className="font-medium">
-                        {selectedConsignment.companySale.invoiceNumber}
+                        {cs.invoiceNumber}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total</p>
-                      <p className="font-medium">
-                        {formatCurrency(selectedConsignment.companySale.totalAmount)}
-                      </p>
-                    </div>
-                    {(selectedConsignment.companySale as any)?.account && (
+                    {hasSaleDiscount ? (
+                      <>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Subtotal</p>
+                          <p className="font-medium">{formatCurrency(saleSubtotal)}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Discount ({discountLabel})</p>
+                          <p className="font-medium text-green-600">
+                            - {formatCurrency(saleSubtotal - Number(cs.totalAmount))}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Total</p>
+                          <p className="font-medium">{formatCurrency(Number(cs.totalAmount))}</p>
+                        </div>
+                      </>
+                    ) : (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total</p>
+                        <p className="font-medium">{formatCurrency(Number(cs.totalAmount))}</p>
+                      </div>
+                    )}
+                    {cs?.account && (
                       <div>
                         <p className="text-sm text-muted-foreground">Account Balance</p>
-                        <p className={`font-medium ${Number((selectedConsignment.companySale as any).account.balance) > 0 ? "text-red-600" : Number((selectedConsignment.companySale as any).account.balance) < 0 ? "text-green-600" : ""}`}>
-                          {formatCurrency((selectedConsignment.companySale as any).account.balance)}
+                        <p className={`font-medium ${Number(cs.account.balance) > 0 ? "text-red-600" : Number(cs.account.balance) < 0 ? "text-green-600" : ""}`}>
+                          {formatCurrency(cs.account.balance)}
                         </p>
                       </div>
                     )}
                   </div>
                 </div>
-              )}
+                );
+              })()}
 
               {/* Notes */}
               {selectedConsignment.notes && (

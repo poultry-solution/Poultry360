@@ -100,6 +100,8 @@ export default function CompanyConsignmentsPage() {
     acceptedQuantity: number;
   }>>([]);
   const [approveNotes, setApproveNotes] = useState("");
+  const [approveDiscountType, setApproveDiscountType] = useState<"PERCENT" | "FLAT">("PERCENT");
+  const [approveDiscountValue, setApproveDiscountValue] = useState<number>(0);
 
   // Form state for dispatch
   const [dispatchRef, setDispatchRef] = useState("");
@@ -215,10 +217,17 @@ export default function CompanyConsignmentsPage() {
         id: selectedConsignment.id,
         items: approveItems,
         notes: approveNotes || undefined,
+        discount:
+          approveDiscountValue > 0
+            ? { type: approveDiscountType, value: approveDiscountValue }
+            : undefined,
       });
       toast.success("Consignment approved successfully");
       setIsApproveDialogOpen(false);
       setSelectedConsignment(null);
+      setApproveNotes("");
+      setApproveDiscountType("PERCENT");
+      setApproveDiscountValue(0);
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to approve consignment");
     }
@@ -531,6 +540,8 @@ export default function CompanyConsignmentsPage() {
                                         acceptedQuantity: Number(item.quantity),
                                       }))
                                     );
+                                    setApproveDiscountType("PERCENT");
+                                    setApproveDiscountValue(0);
                                     setIsApproveDialogOpen(true);
                                   }}
                                 >
@@ -577,7 +588,17 @@ export default function CompanyConsignmentsPage() {
       </Tabs>
 
       {/* Approve Consignment Dialog */}
-      <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+      <Dialog
+        open={isApproveDialogOpen}
+        onOpenChange={(open) => {
+          setIsApproveDialogOpen(open);
+          if (!open) {
+            setApproveNotes("");
+            setApproveDiscountType("PERCENT");
+            setApproveDiscountValue(0);
+          }
+        }}
+      >
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Approve Consignment Request</DialogTitle>
@@ -611,6 +632,70 @@ export default function CompanyConsignmentsPage() {
               })}
             </div>
 
+            {/* Discount (optional) */}
+            {(() => {
+              const approveSubtotal =
+                (selectedConsignment &&
+                  approveItems.reduce((sum, item) => {
+                    const orig = selectedConsignment.items.find((i) => i.id === item.itemId);
+                    return sum + (orig ? Number(orig.unitPrice) * item.acceptedQuantity : 0);
+                  }, 0)) ?? 0;
+              const discountAmount =
+                approveDiscountValue <= 0
+                  ? 0
+                  : approveDiscountType === "PERCENT"
+                    ? Math.round(approveSubtotal * (Math.min(100, Math.max(0, approveDiscountValue)) / 100) * 100) / 100
+                    : Math.min(approveDiscountValue, approveSubtotal);
+              const approveFinalTotal = Math.round((approveSubtotal - discountAmount) * 100) / 100;
+              return (
+                <div className="space-y-3 rounded-md border p-3">
+                  <Label>Discount (optional)</Label>
+                  <div className="flex flex-wrap gap-3 items-end">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Type</Label>
+                      <Select
+                        value={approveDiscountType}
+                        onValueChange={(v) => setApproveDiscountType(v as "PERCENT" | "FLAT")}
+                      >
+                        <SelectTrigger className="w-[120px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="PERCENT">Percent</SelectItem>
+                          <SelectItem value="FLAT">Flat</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Value</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={approveDiscountType === "PERCENT" ? 1 : 0.01}
+                        value={approveDiscountValue || ""}
+                        onChange={(e) =>
+                          setApproveDiscountValue(
+                            e.target.value === "" ? 0 : parseFloat(e.target.value) || 0
+                          )
+                        }
+                        placeholder={approveDiscountType === "PERCENT" ? "e.g. 10" : "e.g. 100"}
+                        className="w-[120px]"
+                      />
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground space-y-0.5">
+                    <p>Subtotal: {formatCurrency(approveSubtotal)}</p>
+                    {approveDiscountValue > 0 && (
+                      <>
+                        <p>Discount: {formatCurrency(discountAmount)}</p>
+                        <p className="font-medium text-foreground">Final total: {formatCurrency(approveFinalTotal)}</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="space-y-2">
               <Label htmlFor="approve-notes">Notes (Optional)</Label>
               <Textarea
@@ -628,6 +713,8 @@ export default function CompanyConsignmentsPage() {
               onClick={() => {
                 setIsApproveDialogOpen(false);
                 setApproveNotes("");
+                setApproveDiscountType("PERCENT");
+                setApproveDiscountValue(0);
               }}
             >
               Cancel
@@ -782,12 +869,45 @@ export default function CompanyConsignmentsPage() {
                     {selectedConsignment.toDealer?.name || selectedConsignment.fromDealer?.name}
                   </p>
                 </div>
-                <div>
-                  <Label>Total Amount</Label>
-                  <p className="font-medium mt-1">
-                    {formatCurrency(selectedConsignment.totalAmount)}
-                  </p>
-                </div>
+                {selectedConsignment.subtotalAmount != null &&
+                selectedConsignment.discountType ? (
+                  <>
+                    <div>
+                      <Label>Subtotal</Label>
+                      <p className="font-medium mt-1">
+                        {formatCurrency(Number(selectedConsignment.subtotalAmount))}
+                      </p>
+                    </div>
+                    <div>
+                      <Label>
+                        Discount
+                        {selectedConsignment.discountType === "PERCENT"
+                          ? ` (${selectedConsignment.discountValue}%)`
+                          : ` (रू ${Number(selectedConsignment.discountValue || 0).toFixed(2)})`}
+                      </Label>
+                      <p className="font-medium mt-1 text-green-600">
+                        -{" "}
+                        {formatCurrency(
+                          Number(selectedConsignment.subtotalAmount) -
+                            Number(selectedConsignment.totalAmount)
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <Label>Total Amount</Label>
+                      <p className="font-medium mt-1">
+                        {formatCurrency(selectedConsignment.totalAmount)}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <div>
+                    <Label>Total Amount</Label>
+                    <p className="font-medium mt-1">
+                      {formatCurrency(selectedConsignment.totalAmount)}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Items */}

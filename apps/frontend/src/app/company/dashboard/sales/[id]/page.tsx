@@ -60,6 +60,13 @@ export default function CompanySaleDetailPage() {
   }
 
   const totalAmount = Number(sale.totalAmount);
+  const hasDiscount = sale.subtotalAmount != null && sale.discount;
+  const subtotalAmount = sale.subtotalAmount != null ? Number(sale.subtotalAmount) : totalAmount;
+  const discountLabel = sale.discount
+    ? sale.discount.type === "PERCENT"
+      ? `${Number(sale.discount.value)}%`
+      : `रू ${Number(sale.discount.value).toFixed(2)}`
+    : "";
 
   return (
     <div className="space-y-6">
@@ -93,13 +100,34 @@ export default function CompanySaleDetailPage() {
       {/* Sale Summary Card */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Sale Amount</CardTitle>
+          <CardTitle className="text-sm font-medium">
+            {hasDiscount ? "Amount breakdown" : "Sale Amount"}
+          </CardTitle>
           <Package className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatCurrency(totalAmount)}</div>
+          {hasDiscount ? (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span className="font-medium">{formatCurrency(subtotalAmount)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Discount ({discountLabel})</span>
+                <span className="font-medium text-green-600">
+                  - {formatCurrency(subtotalAmount - totalAmount)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t">
+                <span className="font-medium">Total</span>
+                <span className="text-2xl font-bold">{formatCurrency(totalAmount)}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="text-2xl font-bold">{formatCurrency(totalAmount)}</div>
+          )}
           <p className="text-xs text-muted-foreground mt-2">
-            Payment tracking is managed in dealer's account
+            Payment tracking is managed in dealer&apos;s account
           </p>
         </CardContent>
       </Card>
@@ -224,9 +252,23 @@ export default function CompanySaleDetailPage() {
               }
             ] as Column[]}
           />
-          <div className="flex justify-between items-center px-3 md:px-4 py-3 border-t">
-            <span className="font-semibold text-sm">Total Amount</span>
-            <span className="text-lg md:text-xl font-bold">{formatCurrency(totalAmount)}</span>
+          <div className="px-3 md:px-4 py-3 border-t space-y-1">
+            {hasDiscount && (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span>{formatCurrency(subtotalAmount)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Discount ({discountLabel})</span>
+                  <span className="text-green-600">- {formatCurrency(subtotalAmount - totalAmount)}</span>
+                </div>
+              </>
+            )}
+            <div className="flex justify-between items-center pt-1">
+              <span className="font-semibold text-sm">Total Amount</span>
+              <span className="text-lg md:text-xl font-bold">{formatCurrency(totalAmount)}</span>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -2,11 +2,17 @@ import prisma from "../utils/prisma";
 import { Prisma } from "@prisma/client";
 import { DealerFarmerAccountService } from "./dealerFarmerAccountService";
 import { InventoryService } from "./inventoryService";
+import {
+  computeDiscountAmount,
+  distributeDiscountToItems,
+  type DiscountType,
+} from "../utils/discountHelpers";
 
 export class DealerSaleRequestService {
   /**
    * Create a sale request for a connected farmer
-   * Validates stock but does not deduct it yet
+   * Validates stock but does not deduct it yet.
+   * When discount is provided, request total and item totals/unit prices are stored after discount.
    */
   static async createSaleRequest(data: {
     dealerId: string;
@@ -21,6 +27,7 @@ export class DealerSaleRequestService {
     paymentMethod?: string;
     notes?: string;
     date: Date;
+    discount?: { type: DiscountType; value: number };
   }) {
     const {
       dealerId,
@@ -31,7 +38,46 @@ export class DealerSaleRequestService {
       paymentMethod,
       notes,
       date,
+      discount,
     } = data;
+
+    const subtotal = items.reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice,
+      0
+    );
+
+    const hasDiscount =
+      discount &&
+      discount.value > 0 &&
+      (discount.type !== "PERCENT" || discount.value <= 100) &&
+      (discount.type !== "FLAT" || discount.value < subtotal);
+
+    let finalTotal: number;
+    let itemTotals: number[];
+    if (hasDiscount && discount) {
+      const discountAmount = computeDiscountAmount(
+        subtotal,
+        discount.type,
+        discount.value
+      );
+      finalTotal = Math.round((subtotal - discountAmount) * 100) / 100;
+      itemTotals = distributeDiscountToItems(
+        subtotal,
+        discountAmount,
+        items.map((i) => ({ quantity: i.quantity, unitPrice: i.unitPrice }))
+      );
+    } else {
+      finalTotal = subtotal;
+      itemTotals = items.map(
+        (i) => Math.round(i.quantity * i.unitPrice * 100) / 100
+      );
+    }
+
+    if (paidAmount > finalTotal) {
+      throw new Error(
+        `Paid amount (रू ${paidAmount.toFixed(2)}) cannot exceed total amount (रू ${finalTotal.toFixed(2)})`
+      );
+    }
 
     const requestId = await prisma.$transaction(
       async (tx) => {
@@ -52,40 +98,48 @@ export class DealerSaleRequestService {
           }
         }
 
-        // 2. Calculate totals
-        const totalAmount = items.reduce(
-          (sum, item) => sum + item.quantity * item.unitPrice,
-          0
-        );
-
-        // 3. Generate request number
+        // 2. Generate request number
         const requestNumber = `SR-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
-        // 4. Create the sale request
+        // 3. Create the sale request (with discounted total when applicable)
+        const requestData: any = {
+          requestNumber,
+          date,
+          totalAmount: new Prisma.Decimal(finalTotal),
+          paidAmount: new Prisma.Decimal(paidAmount),
+          paymentMethod,
+          notes,
+          dealerId,
+          farmerId,
+          customerId,
+          status: "PENDING",
+        };
+        if (hasDiscount) {
+          requestData.subtotalAmount = new Prisma.Decimal(subtotal);
+          requestData.discountType = discount!.type;
+          requestData.discountValue = new Prisma.Decimal(discount!.value);
+        }
         const request = await tx.dealerSaleRequest.create({
-          data: {
-            requestNumber,
-            date,
-            totalAmount: new Prisma.Decimal(totalAmount),
-            paidAmount: new Prisma.Decimal(paidAmount),
-            paymentMethod,
-            notes,
-            dealerId,
-            farmerId,
-            customerId,
-            status: "PENDING",
-          },
+          data: requestData,
         });
 
-        // 5. Create request items
-        for (const item of items) {
+        // 4. Create request items (discounted unit price = totalAmount/quantity per line)
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          const lineTotal = itemTotals[i] ?? item.quantity * item.unitPrice;
+          const qty = item.quantity;
+          const unitPriceAfterDiscount = qty > 0 ? lineTotal / qty : item.unitPrice;
           await tx.dealerSaleRequestItem.create({
             data: {
               requestId: request.id,
               productId: item.productId,
               quantity: new Prisma.Decimal(item.quantity),
-              unitPrice: new Prisma.Decimal(item.unitPrice),
-              totalAmount: new Prisma.Decimal(item.quantity * item.unitPrice),
+              unitPrice: new Prisma.Decimal(
+                Math.round(unitPriceAfterDiscount * 100) / 100
+              ),
+              totalAmount: new Prisma.Decimal(
+                Math.round(lineTotal * 100) / 100
+              ),
             },
           });
         }
@@ -201,20 +255,43 @@ export class DealerSaleRequestService {
       }
 
       // Create the actual DealerSale (farmerId for farmer-side listing; accountId set by recordSale)
+      // Preserve discount metadata from request so dealer/farmer views show "was X, discount Y"
+      const saleData: any = {
+        invoiceNumber,
+        date: request.date,
+        totalAmount: request.totalAmount,
+        paidAmount: request.paidAmount,
+        dueAmount: dueAmount > 0 ? new Prisma.Decimal(dueAmount) : null,
+        isCredit,
+        notes: request.notes,
+        dealerId: request.dealerId,
+        customerId: request.customerId,
+        farmerId: request.farmerId,
+      };
+      const requestWithDiscount = request as typeof request & {
+        subtotalAmount?: unknown;
+        discountType?: string | null;
+        discountValue?: unknown;
+      };
+      if (requestWithDiscount.subtotalAmount != null) {
+        saleData.subtotalAmount = requestWithDiscount.subtotalAmount;
+      }
       const sale = await tx.dealerSale.create({
-        data: {
-          invoiceNumber,
-          date: request.date,
-          totalAmount: request.totalAmount,
-          paidAmount: request.paidAmount,
-          dueAmount: dueAmount > 0 ? new Prisma.Decimal(dueAmount) : null,
-          isCredit,
-          notes: request.notes,
-          dealerId: request.dealerId,
-          customerId: request.customerId,
-          farmerId: request.farmerId,
-        },
+        data: saleData,
       });
+
+      if (
+        requestWithDiscount.discountType &&
+        requestWithDiscount.discountValue != null
+      ) {
+        await tx.saleDiscount.create({
+          data: {
+            type: requestWithDiscount.discountType as "PERCENT" | "FLAT",
+            value: requestWithDiscount.discountValue,
+            dealerSaleId: sale.id,
+          },
+        });
+      }
 
       // Account-based: record only net due so balance is not overstated for partially-paid sales.
       // When paidAmount exists, record sale for dueAmount then record upfront payment in same tx.

@@ -59,6 +59,9 @@ export interface AccountTransaction {
   paymentMethod?: string;
   imageUrl?: string;
   balanceAfter?: number;
+  subtotalAmount?: number | null;
+  discountType?: string | null;
+  discountValue?: number | null;
 }
 
 export interface SaleRecord {
@@ -68,6 +71,9 @@ export interface SaleRecord {
   amount: number;
   notes: string | null;
   invoiceImageUrl: string | null;
+  subtotalAmount?: number | null;
+  discountType?: string | null;
+  discountValue?: number | null;
 }
 
 export interface PaymentRecord {

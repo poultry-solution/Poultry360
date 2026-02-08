@@ -1,5 +1,10 @@
 import prisma from "../utils/prisma";
-import { ConsignmentStatus, Prisma } from "@prisma/client";
+import { ConsignmentStatus, DiscountType as PrismaDiscountType, Prisma } from "@prisma/client";
+import {
+  computeDiscountAmount,
+  distributeDiscountToItems,
+  type DiscountType,
+} from "../utils/discountHelpers";
 
 export class DealerService {
   /**
@@ -17,6 +22,7 @@ export class DealerService {
     paymentMethod?: string;
     notes?: string;
     date: Date;
+    discount?: { type: DiscountType; value: number };
   }) {
     const {
       dealerId,
@@ -26,6 +32,7 @@ export class DealerService {
       paymentMethod,
       notes,
       date,
+      discount: discountInput,
     } = data;
 
     // Validate that customerId is provided
@@ -33,14 +40,37 @@ export class DealerService {
       throw new Error("Customer ID is required");
     }
 
-    // Calculate totals before transaction
-    const totalAmount = items.reduce(
+    const subtotal = items.reduce(
       (sum, item) => sum + item.quantity * item.unitPrice,
       0
     );
+
+    if (discountInput && discountInput.value > 0) {
+      if (discountInput.type === "PERCENT" && discountInput.value > 100) {
+        throw new Error("Discount percent cannot exceed 100");
+      }
+      if (discountInput.type === "FLAT" && discountInput.value > subtotal) {
+        throw new Error("Flat discount cannot exceed subtotal");
+      }
+    }
+
+    const discountAmount =
+      discountInput && discountInput.value > 0
+        ? computeDiscountAmount(
+            subtotal,
+            discountInput.type,
+            discountInput.value
+          )
+        : 0;
+    const totalAmount = Math.round((subtotal - discountAmount) * 100) / 100;
     const dueAmount = totalAmount - paidAmount;
     const isCredit = dueAmount > 0;
     const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+    const itemTotals =
+      discountAmount > 0
+        ? distributeDiscountToItems(subtotal, discountAmount, items)
+        : items.map((item) => item.quantity * item.unitPrice);
 
     // Use a single, optimized transaction for all side effects
     const saleId = await prisma.$transaction(async (tx) => {
@@ -70,6 +100,10 @@ export class DealerService {
         data: {
           invoiceNumber,
           date,
+          subtotalAmount:
+            discountAmount > 0
+              ? new Prisma.Decimal(subtotal)
+              : undefined,
           totalAmount: new Prisma.Decimal(totalAmount),
           paidAmount: new Prisma.Decimal(paidAmount),
           dueAmount: dueAmount > 0 ? new Prisma.Decimal(dueAmount) : null,
@@ -80,20 +114,31 @@ export class DealerService {
         },
       });
 
+      if (discountAmount > 0 && discountInput) {
+        await tx.saleDiscount.create({
+          data: {
+            type: discountInput.type as PrismaDiscountType,
+            value: new Prisma.Decimal(discountInput.value),
+            scope: "SALE",
+            dealerSaleId: sale.id,
+          },
+        });
+      }
+
       // 3. Prepare bulk operations
-      const saleItemsData = items.map((item) => ({
+      const saleItemsData = items.map((item, i) => ({
         saleId: sale.id,
         productId: item.productId,
         quantity: new Prisma.Decimal(item.quantity),
         unitPrice: new Prisma.Decimal(item.unitPrice),
-        totalAmount: new Prisma.Decimal(item.quantity * item.unitPrice),
+        totalAmount: new Prisma.Decimal(itemTotals[i]),
       }));
 
-      const productTransactionsData = items.map((item) => ({
+      const productTransactionsData = items.map((item, i) => ({
         type: "SALE" as const,
         quantity: new Prisma.Decimal(item.quantity),
         unitPrice: new Prisma.Decimal(item.unitPrice),
-        totalAmount: new Prisma.Decimal(item.quantity * item.unitPrice),
+        totalAmount: new Prisma.Decimal(itemTotals[i]),
         date,
         description: `Sale - Invoice ${invoiceNumber}`,
         reference: invoiceNumber,
@@ -219,6 +264,7 @@ export class DealerService {
     return await prisma.dealerSale.findUnique({
       where: { id: saleId },
       include: {
+        discount: true,
         items: {
           include: {
             product: true,

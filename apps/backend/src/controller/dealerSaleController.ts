@@ -19,6 +19,7 @@ export const createDealerSale = async (
       paymentMethod,
       notes,
       date,
+      discount,
     } = req.body;
 
     // Validation
@@ -70,6 +71,10 @@ export const createDealerSale = async (
         paymentMethod,
         notes,
         date: date ? new Date(date) : new Date(),
+        discount:
+          discount && discount.value > 0
+            ? { type: discount.type as "PERCENT" | "FLAT", value: Number(discount.value) }
+            : undefined,
       });
 
       return res.status(201).json({
@@ -89,6 +94,10 @@ export const createDealerSale = async (
       paymentMethod,
       notes,
       date: date ? new Date(date) : new Date(),
+      discount:
+        discount && discount.value > 0
+          ? { type: discount.type, value: Number(discount.value) }
+          : undefined,
     });
 
     return res.status(201).json({
@@ -167,6 +176,7 @@ export const getDealerSales = async (
         orderBy: { date: "desc" },
         include: {
           customer: true,
+          discount: true,
           items: {
             include: {
               product: true,
@@ -219,6 +229,7 @@ export const getDealerSaleById = async (
       },
       include: {
         customer: true,
+        discount: true,
         items: {
           include: {
             product: true,

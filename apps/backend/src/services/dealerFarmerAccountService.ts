@@ -259,7 +259,11 @@ export class DealerFarmerAccountService {
           invoiceNumber: true,
           date: true,
           totalAmount: true,
+          subtotalAmount: true,
           notes: true,
+          discount: {
+            select: { type: true, value: true },
+          },
         },
         orderBy: { date: "desc" },
         skip,
@@ -302,6 +306,9 @@ export class DealerFarmerAccountService {
       invoiceNumber: sale.invoiceNumber,
       date: sale.date,
       amount: Number(sale.totalAmount),
+      subtotalAmount: sale.subtotalAmount != null ? Number(sale.subtotalAmount) : null,
+      discountType: sale.discount?.type ?? null,
+      discountValue: sale.discount?.value != null ? Number(sale.discount.value) : null,
       notes: sale.notes,
     }));
 
