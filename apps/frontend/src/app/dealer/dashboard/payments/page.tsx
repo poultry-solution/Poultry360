@@ -78,7 +78,7 @@ export default function DealerPaymentsPage() {
   const [activeTab, setActiveTab] = useState("received");
   const [search, setSearch] = useState("");
   const [isViewRequestOpen, setIsViewRequestOpen] = useState(false);
-  const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
+  const [isAcceptAndProofDialogOpen, setIsAcceptAndProofDialogOpen] = useState(false);
   const [isSubmitProofOpen, setIsSubmitProofOpen] = useState(false);
   const [isCreateRequestOpen, setIsCreateRequestOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<PaymentRequest | null>(
@@ -86,7 +86,7 @@ export default function DealerPaymentsPage() {
   );
   const [paymentToCancel, setPaymentToCancel] = useState<string | null>(null);
 
-  // Form state for submitting proof
+  // Form state for accept-and-submit-proof and submit-proof
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [paymentReference, setPaymentReference] = useState("");
   const [paymentReceiptUrl, setPaymentReceiptUrl] = useState("");
@@ -195,17 +195,30 @@ export default function DealerPaymentsPage() {
     }
   };
 
-  const handleAcceptRequest = async () => {
-    if (!selectedRequest) return;
+  const handleAcceptAndSubmitProof = async () => {
+    if (!selectedRequest || !paymentMethod) {
+      toast.error("Please fill in all required fields (payment method, date)");
+      return;
+    }
 
     try {
       await acceptRequestMutation.mutateAsync(selectedRequest.id);
-      toast.success("Payment request accepted");
-      setIsAcceptDialogOpen(false);
+      await submitProofMutation.mutateAsync({
+        id: selectedRequest.id,
+        paymentMethod,
+        paymentReference: paymentReference || undefined,
+        paymentReceiptUrl: paymentReceiptUrl || undefined,
+        paymentDate,
+      });
+      toast.success("Payment request accepted and proof submitted successfully");
+      setIsAcceptAndProofDialogOpen(false);
       setIsViewRequestOpen(false);
       setSelectedRequest(null);
+      setPaymentMethod("CASH");
+      setPaymentReference("");
+      setPaymentReceiptUrl("");
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to accept request");
+      toast.error(error.response?.data?.message || "Failed to accept or submit proof");
     }
   };
 
@@ -479,8 +492,13 @@ export default function DealerPaymentsPage() {
                             className="h-7 w-7 p-0"
                             onClick={() => {
                               setSelectedRequest(request);
-                              setIsAcceptDialogOpen(true);
+                              setPaymentMethod("CASH");
+                              setPaymentReference("");
+                              setPaymentReceiptUrl("");
+                              setPaymentDate(new Date().toISOString().split("T")[0]);
+                              setIsAcceptAndProofDialogOpen(true);
                             }}
+                            title="Accept & submit proof"
                           >
                             <CheckCircle className="h-3.5 w-3.5" />
                           </Button>
@@ -492,8 +510,13 @@ export default function DealerPaymentsPage() {
                             className="h-7 w-7 p-0"
                             onClick={() => {
                               setSelectedRequest(request);
+                              setPaymentMethod("CASH");
+                              setPaymentReference("");
+                              setPaymentReceiptUrl("");
+                              setPaymentDate(new Date().toISOString().split("T")[0]);
                               setIsSubmitProofOpen(true);
                             }}
+                            title="Submit proof"
                           >
                             <Upload className="h-3.5 w-3.5" />
                           </Button>
@@ -737,17 +760,27 @@ export default function DealerPaymentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Accept Request Dialog */}
-      <Dialog open={isAcceptDialogOpen} onOpenChange={setIsAcceptDialogOpen}>
-        <DialogContent>
+      {/* Accept & submit proof (one go) – for received PENDING requests */}
+      <Dialog
+        open={isAcceptAndProofDialogOpen}
+        onOpenChange={(open) => {
+          setIsAcceptAndProofDialogOpen(open);
+          if (!open) {
+            setPaymentMethod("CASH");
+            setPaymentReference("");
+            setPaymentReceiptUrl("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Accept Payment Request</DialogTitle>
+            <DialogTitle>Accept & submit proof</DialogTitle>
             <DialogDescription>
-              Accept this payment request and proceed to submit payment proof
+              Accept this payment request and submit your payment proof in one step
             </DialogDescription>
           </DialogHeader>
-          {selectedRequest && (
-            <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4">
+            {selectedRequest && (
               <div className="p-3 bg-muted rounded-lg">
                 <div className="flex justify-between text-sm mb-2">
                   <span>Amount:</span>
@@ -762,29 +795,90 @@ export default function DealerPaymentsPage() {
                   </span>
                 </div>
               </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="accept-proof-payment-method">Payment Method *</Label>
+              <Select
+                value={paymentMethod}
+                onValueChange={setPaymentMethod}
+              >
+                <SelectTrigger id="accept-proof-payment-method">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CASH">Cash</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                  <SelectItem value="CHEQUE">Cheque</SelectItem>
+                  <SelectItem value="UPI">UPI</SelectItem>
+                  <SelectItem value="OTHER">Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          )}
+
+            <div className="space-y-2">
+              <Label htmlFor="accept-proof-reference">
+                Payment Reference (Transaction ID, UPI ID, etc.)
+              </Label>
+              <Input
+                id="accept-proof-reference"
+                value={paymentReference}
+                onChange={(e) => setPaymentReference(e.target.value)}
+                placeholder="Enter transaction reference..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Receipt image (optional)</Label>
+              <ImageUpload
+                value={paymentReceiptUrl}
+                onChange={(url) => setPaymentReceiptUrl(url)}
+                folder="payment-receipts"
+                placeholder="Upload receipt image"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="accept-proof-date">Payment date *</Label>
+              <Input
+                id="accept-proof-date"
+                type="date"
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+              />
+            </div>
+          </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setIsAcceptDialogOpen(false)}
+              onClick={() => setIsAcceptAndProofDialogOpen(false)}
             >
               Cancel
             </Button>
             <Button
-              onClick={handleAcceptRequest}
-              disabled={acceptRequestMutation.isPending}
+              onClick={handleAcceptAndSubmitProof}
+              disabled={acceptRequestMutation.isPending || submitProofMutation.isPending}
             >
-              {acceptRequestMutation.isPending
-                ? "Accepting..."
-                : "Accept Request"}
+              {acceptRequestMutation.isPending || submitProofMutation.isPending
+                ? "Submitting..."
+                : "Accept & submit proof"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Submit Proof Dialog */}
-      <Dialog open={isSubmitProofOpen} onOpenChange={setIsSubmitProofOpen}>
+      {/* Submit Proof Dialog (for requests already accepted without proof) */}
+      <Dialog
+        open={isSubmitProofOpen}
+        onOpenChange={(open) => {
+          setIsSubmitProofOpen(open);
+          if (!open) {
+            setPaymentMethod("CASH");
+            setPaymentReference("");
+            setPaymentReceiptUrl("");
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Submit Payment Proof</DialogTitle>

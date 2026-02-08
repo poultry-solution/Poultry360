@@ -261,68 +261,89 @@ export default function CompanyAccountPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {statement.transactions.map((transaction) => (
-                <div
-                  key={`${transaction.type}-${transaction.id}`}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`p-2 rounded-lg ${transaction.type === "SALE"
-                          ? "bg-blue-100"
-                          : "bg-green-100"
-                        }`}
-                    >
-                      {transaction.type === "SALE" ? (
-                        <Receipt className="h-5 w-5 text-blue-600" />
-                      ) : (
-                        <Wallet className="h-5 w-5 text-green-600" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">
-                          {transaction.type === "SALE" ? "Purchase" : "Payment"}
+              {statement.transactions.map((transaction) => {
+                const hasDiscount =
+                  transaction.type === "SALE" &&
+                  transaction.subtotalAmount != null &&
+                  transaction.discountType &&
+                  Number(transaction.subtotalAmount) > Number(transaction.amount);
+                return (
+                  <div
+                    key={`${transaction.type}-${transaction.id}`}
+                    className="flex items-center justify-between p-4 border rounded-lg"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`p-2 rounded-lg ${transaction.type === "SALE"
+                            ? "bg-blue-100"
+                            : "bg-green-100"
+                          }`}
+                      >
+                        {transaction.type === "SALE" ? (
+                          <Receipt className="h-5 w-5 text-blue-600" />
+                        ) : (
+                          <Wallet className="h-5 w-5 text-green-600" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">
+                            {transaction.type === "SALE" ? "Purchase" : "Payment"}
+                          </p>
+                          {transaction.reference && (
+                            <Badge variant="outline" className="text-xs">
+                              {transaction.reference}
+                            </Badge>
+                          )}
+                          {hasDiscount && (
+                            <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 border-green-200">
+                              Discount applied
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {formatDate(transaction.date)}
                         </p>
-                        {transaction.reference && (
-                          <Badge variant="outline" className="text-xs">
-                            {transaction.reference}
+                        {hasDiscount && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Original {formatCurrency(transaction.subtotalAmount!)}
+                            {transaction.discountType === "PERCENT"
+                              ? ` → ${transaction.discountValue}% off`
+                              : ` → रू ${Number(transaction.discountValue ?? 0).toFixed(2)} off`}
+                            {" "}· Amount: {formatCurrency(transaction.amount)}
+                          </p>
+                        )}
+                        {transaction.notes && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {transaction.notes}
+                          </p>
+                        )}
+                        {transaction.paymentMethod && (
+                          <Badge variant="outline" className="text-xs mt-1">
+                            {transaction.paymentMethod}
                           </Badge>
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDate(transaction.date)}
+                    </div>
+                    <div className="text-right">
+                      <p
+                        className={`text-lg font-bold ${transaction.type === "SALE"
+                            ? "text-red-600"
+                            : "text-green-600"
+                          }`}
+                      >
+                        {transaction.type === "SALE" ? "+" : "-"}
+                        {formatCurrency(transaction.amount)}
                       </p>
-                      {transaction.notes && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {transaction.notes}
+                      {transaction.balanceAfter !== undefined && (
+                        <p className="text-xs text-muted-foreground">
+                          Balance: {formatCurrency(transaction.balanceAfter)}
                         </p>
-                      )}
-                      {transaction.paymentMethod && (
-                        <Badge variant="outline" className="text-xs mt-1">
-                          {transaction.paymentMethod}
-                        </Badge>
                       )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p
-                      className={`text-lg font-bold ${transaction.type === "SALE"
-                          ? "text-red-600"
-                          : "text-green-600"
-                        }`}
-                    >
-                      {transaction.type === "SALE" ? "+" : "-"}
-                      {formatCurrency(transaction.amount)}
-                    </p>
-                    {transaction.balanceAfter !== undefined && (
-                      <p className="text-xs text-muted-foreground">
-                        Balance: {formatCurrency(transaction.balanceAfter)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

@@ -17,6 +17,7 @@ export interface CompanySale {
   invoiceNumber: string;
   date: Date;
   totalAmount: number;
+  subtotalAmount?: number | null;
   isCredit: boolean;
   paymentMethod?: string;
   notes?: string;
@@ -25,6 +26,7 @@ export interface CompanySale {
   dealer?: any;
   items: CompanySaleItem[];
   account?: any; // Link to CompanyDealerAccount
+  discount?: { type: string; value: number } | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -51,6 +53,7 @@ export interface CreateCompanySaleInput {
   notes?: string;
   date?: Date;
   overrideBalanceLimit?: boolean;
+  discount?: { type: "PERCENT" | "FLAT"; value: number };
 }
 
 // AddSalePaymentInput removed - payments recorded at account level via CompanyDealerPayment

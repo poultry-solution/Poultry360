@@ -30,6 +30,13 @@ import { useCreateCompanyConsignment } from "@/fetchers/company/consignmentQueri
 import { useCreateCompanySale } from "@/fetchers/company/companySaleQueries";
 import { useCheckDealerBalanceLimit } from "@/fetchers/company/companyDealerAccountQueries";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -56,6 +63,8 @@ export default function NewCompanySalePage() {
   const [balanceLimitCheck, setBalanceLimitCheck] = useState<any | null>(null);
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
   const [overrideConfirmed, setOverrideConfirmed] = useState(false);
+  const [discountType, setDiscountType] = useState<"PERCENT" | "FLAT">("PERCENT");
+  const [discountValue, setDiscountValue] = useState<number>(0);
 
   // Searchable selects
   const dealerSelect = useSearchableDealerSelect();
@@ -65,7 +74,14 @@ export default function NewCompanySalePage() {
   const createSaleMutation = useCreateCompanySale();
   const checkBalanceLimitMutation = useCheckDealerBalanceLimit();
 
-  const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const discountAmount =
+    discountValue > 0
+      ? discountType === "PERCENT"
+        ? Math.round((Math.min(100, discountValue) / 100) * subtotal * 100) / 100
+        : Math.min(discountValue, subtotal)
+      : 0;
+  const finalTotal = Math.round((subtotal - discountAmount) * 100) / 100;
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -133,7 +149,7 @@ export default function NewCompanySalePage() {
       try {
         const result = await checkBalanceLimitMutation.mutateAsync({
           dealerId,
-          saleAmount: totalAmount,
+          saleAmount: finalTotal,
         });
         setBalanceLimitCheck(result);
         if (!result.allowed) {
@@ -160,6 +176,10 @@ export default function NewCompanySalePage() {
           notes: notes || undefined,
           date: new Date(),
           overrideBalanceLimit: overrideConfirmed,
+          discount:
+            discountValue > 0
+              ? { type: discountType, value: discountValue }
+              : undefined,
         });
 
         toast.success("Sale created successfully!");
@@ -175,6 +195,10 @@ export default function NewCompanySalePage() {
           })),
           notes: notes || undefined,
           overrideBalanceLimit: overrideConfirmed,
+          discount:
+            discountValue > 0
+              ? { type: discountType, value: discountValue }
+              : undefined,
         });
 
         toast.success("Consignment request created successfully!");
@@ -408,6 +432,59 @@ export default function NewCompanySalePage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Discount Section - applies when creating a direct sale (self-created dealer) */}
+          {items.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Discount (Optional)</CardTitle>
+                <CardDescription>
+                  {isSelfCreatedDealer
+                    ? "Apply a global discount to this sale"
+                    : "Discount applies only to direct sales. For consignment requests, discount is not applied."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Type</Label>
+                    <Select
+                      value={discountType}
+                      onValueChange={(v: "PERCENT" | "FLAT") => setDiscountType(v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PERCENT">Percent (%)</SelectItem>
+                        <SelectItem value="FLAT">Flat (रू)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Value</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={discountType === "PERCENT" ? 1 : 0.01}
+                      max={discountType === "PERCENT" ? 100 : subtotal}
+                      value={discountValue || ""}
+                      onChange={(e) =>
+                        setDiscountValue(parseFloat(e.target.value) || 0)
+                      }
+                      placeholder={discountType === "PERCENT" ? "e.g. 10" : "e.g. 100"}
+                    />
+                  </div>
+                </div>
+                {discountValue > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Discount: रू {discountAmount.toFixed(2)}
+                    {discountType === "PERCENT" && ` (${Math.min(100, discountValue)}%)`}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Summary Section */}
@@ -439,11 +516,25 @@ export default function NewCompanySalePage() {
                   )}
                 </div>
 
-                <div className="pt-4 border-t">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium">Total Amount</span>
+                <div className="pt-4 border-t space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="font-medium">{formatCurrency(subtotal)}</span>
+                  </div>
+                  {discountValue > 0 && (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Discount</span>
+                        <span className="font-medium text-green-600">
+                          - {formatCurrency(discountAmount)}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex justify-between items-center pt-2">
+                    <span className="font-medium">Final Total</span>
                     <span className="text-2xl font-bold">
-                      {formatCurrency(totalAmount)}
+                      {formatCurrency(finalTotal)}
                     </span>
                   </div>
                 </div>
@@ -518,10 +609,22 @@ export default function NewCompanySalePage() {
 
                     {/* Grand Total */}
                     <div className="border-t-2 pt-3 mt-3">
-                      <div className="flex justify-between items-center">
+                      {discountValue > 0 && (
+                        <>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Subtotal</span>
+                            <span>{formatCurrency(subtotal)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Discount</span>
+                            <span className="text-green-600">- {formatCurrency(discountAmount)}</span>
+                          </div>
+                        </>
+                      )}
+                      <div className="flex justify-between items-center pt-1">
                         <span className="font-semibold">Grand Total</span>
                         <span className="text-lg font-bold">
-                          {formatCurrency(totalAmount)}
+                          {formatCurrency(finalTotal)}
                         </span>
                       </div>
                     </div>

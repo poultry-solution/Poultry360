@@ -38,6 +38,9 @@ export interface Consignment {
   direction: "COMPANY_TO_DEALER" | "DEALER_TO_COMPANY" | "DEALER_TO_FARMER";
   status: string;
   totalAmount: number;
+  subtotalAmount?: number | null;
+  discountType?: string | null;
+  discountValue?: number | null;
   notes?: string;
   requestedQuantity?: number;
   approvedQuantity?: number;
@@ -184,6 +187,7 @@ export const useCreateCompanyConsignment = () => {
       }>;
       notes?: string;
       overrideBalanceLimit?: boolean;
+      discount?: { type: "PERCENT" | "FLAT"; value: number };
     }) => {
       const { data } = await axiosInstance.post("/consignments/company", input);
       return data;
@@ -209,10 +213,18 @@ export const useApproveConsignment = () => {
         acceptedQuantity: number;
       }>;
       notes?: string;
+      discount?: { type: "PERCENT" | "FLAT"; value: number };
     }) => {
+      const body: { items: typeof input.items; notes?: string; discount?: { type: "PERCENT" | "FLAT"; value: number } } = {
+        items: input.items,
+        notes: input.notes,
+      };
+      if (input.discount && input.discount.value > 0) {
+        body.discount = input.discount;
+      }
       const { data } = await axiosInstance.post(
         `/consignments/company/${input.id}/approve`,
-        { items: input.items, notes: input.notes }
+        body
       );
       return data;
     },

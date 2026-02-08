@@ -1,12 +1,18 @@
 import prisma from "../utils/prisma";
 import {
   ConsignmentStatus,
+  DiscountType as PrismaDiscountType,
   Prisma,
   PaymentRequestStatus,
   PaymentRequestDirection,
   LedgerEntryType,
 } from "@prisma/client";
 import { CompanyDealerAccountService } from "./companyDealerAccountService";
+import {
+  computeDiscountAmount,
+  distributeDiscountToItems,
+  type DiscountType,
+} from "../utils/discountHelpers";
 
 export class CompanyService {
   /**
@@ -25,6 +31,7 @@ export class CompanyService {
     notes?: string;
     date: Date;
     overrideBalanceLimit?: boolean;
+    discount?: { type: DiscountType; value: number };
   }) {
     const {
       companyId,
@@ -35,7 +42,36 @@ export class CompanyService {
       notes,
       date,
       overrideBalanceLimit,
+      discount: discountInput,
     } = data;
+
+    const subtotal = items.reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice,
+      0
+    );
+
+    if (discountInput && discountInput.value > 0) {
+      if (discountInput.type === "PERCENT" && discountInput.value > 100) {
+        throw new Error("Discount percent cannot exceed 100");
+      }
+      if (discountInput.type === "FLAT" && discountInput.value > subtotal) {
+        throw new Error("Flat discount cannot exceed subtotal");
+      }
+    }
+
+    const discountAmount =
+      discountInput && discountInput.value > 0
+        ? computeDiscountAmount(
+            subtotal,
+            discountInput.type,
+            discountInput.value
+          )
+        : 0;
+    const totalAmount = Math.round((subtotal - discountAmount) * 100) / 100;
+    const itemTotals =
+      discountAmount > 0
+        ? distributeDiscountToItems(subtotal, discountAmount, items)
+        : items.map((item) => item.quantity * item.unitPrice);
 
     return await prisma.$transaction(async (tx) => {
       // 1. Validate stock availability for all items
@@ -64,11 +100,6 @@ export class CompanyService {
         throw new Error("Dealer not found");
       }
 
-      // 3. Calculate totals
-      const totalAmount = items.reduce(
-        (sum, item) => sum + item.quantity * item.unitPrice,
-        0
-      );
       const isCredit = paymentMethod === "CREDIT";
 
       // 4. Get or create account for company-dealer pair
@@ -125,6 +156,10 @@ export class CompanyService {
         data: {
           invoiceNumber,
           date,
+          subtotalAmount:
+            discountAmount > 0
+              ? new Prisma.Decimal(subtotal)
+              : undefined,
           totalAmount: new Prisma.Decimal(totalAmount),
           isCredit,
           paymentMethod: paymentMethod || "CASH",
@@ -136,15 +171,27 @@ export class CompanyService {
         },
       });
 
-      // 6. Create sale items and update stock
-      for (const item of items) {
+      if (discountAmount > 0 && discountInput) {
+        await tx.saleDiscount.create({
+          data: {
+            type: discountInput.type as PrismaDiscountType,
+            value: new Prisma.Decimal(discountInput.value),
+            scope: "SALE",
+            companySaleId: sale.id,
+          },
+        });
+      }
+
+      // 6b. Create sale items and update stock
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
         await tx.companySaleItem.create({
           data: {
             saleId: sale.id,
             productId: item.productId,
             quantity: new Prisma.Decimal(item.quantity),
             unitPrice: new Prisma.Decimal(item.unitPrice),
-            totalAmount: new Prisma.Decimal(item.quantity * item.unitPrice),
+            totalAmount: new Prisma.Decimal(itemTotals[i]),
           },
         });
 
@@ -210,6 +257,7 @@ export class CompanyService {
       return await tx.companySale.findUnique({
         where: { id: sale.id },
         include: {
+          discount: true,
           items: {
             include: {
               product: true,

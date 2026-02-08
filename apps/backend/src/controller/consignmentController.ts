@@ -10,7 +10,7 @@ export const createCompanyConsignment = async (
 ): Promise<any> => {
   try {
     const userId = req.userId;
-    const { dealerId, items, notes, overrideBalanceLimit } = req.body;
+    const { dealerId, items, notes, overrideBalanceLimit, discount } = req.body;
 
     if (!dealerId || !items || items.length === 0) {
       return res.status(400).json({
@@ -49,6 +49,10 @@ export const createCompanyConsignment = async (
       })),
       notes,
       overrideBalanceLimit: !!overrideBalanceLimit,
+      discount:
+        discount?.value > 0
+          ? { type: discount.type as "PERCENT" | "FLAT", value: Number(discount.value) }
+          : undefined,
     });
 
     return res.status(201).json({
@@ -148,7 +152,7 @@ export const approveCompanyConsignment = async (
   try {
     const userId = req.userId;
     const { id } = req.params;
-    const { items, notes } = req.body;
+    const { items, notes, discount } = req.body;
 
     if (!items || items.length === 0) {
       return res.status(400).json({
@@ -165,6 +169,14 @@ export const approveCompanyConsignment = async (
       return res.status(404).json({ message: "Company not found" });
     }
 
+    const discountParam =
+      discount &&
+      typeof discount.type === "string" &&
+      typeof discount.value === "number" &&
+      discount.value > 0
+        ? { type: discount.type as "PERCENT" | "FLAT", value: Number(discount.value) }
+        : undefined;
+
     const consignment = await ConsignmentService.acceptConsignment({
       consignmentId: id,
       acceptedById: userId as string,
@@ -173,6 +185,7 @@ export const approveCompanyConsignment = async (
         acceptedQuantity: Number(item.acceptedQuantity),
       })),
       notes,
+      discount: discountParam,
     });
 
     return res.status(200).json({

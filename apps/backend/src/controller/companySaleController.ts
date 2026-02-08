@@ -136,8 +136,15 @@ export const createCompanySale = async (
 ): Promise<any> => {
   try {
     const userId = req.userId;
-    const { dealerId, items, paymentMethod, notes, date, overrideBalanceLimit } =
-      req.body;
+    const {
+      dealerId,
+      items,
+      paymentMethod,
+      notes,
+      date,
+      overrideBalanceLimit,
+      discount,
+    } = req.body;
 
     // Validation
     if (!dealerId) {
@@ -167,6 +174,10 @@ export const createCompanySale = async (
       notes,
       date: date ? new Date(date) : new Date(),
       overrideBalanceLimit,
+      discount:
+        discount && discount.value > 0
+          ? { type: discount.type, value: Number(discount.value) }
+          : undefined,
     });
 
     return res.status(201).json({
@@ -245,6 +256,7 @@ export const getCompanySales = async (
         take: Number(limit),
         include: {
           dealer: true,
+          discount: true,
           items: {
             include: {
               product: true,
@@ -298,6 +310,7 @@ export const getCompanySaleById = async (
       },
       include: {
         dealer: true,
+        discount: true,
         items: {
           include: {
             product: true,

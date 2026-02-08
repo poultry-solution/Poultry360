@@ -85,6 +85,9 @@ export interface FarmerDealerDetailsSale {
   invoiceNumber: string;
   date: string;
   amount: number;
+  subtotalAmount?: number | null;
+  discountType?: string | null;
+  discountValue?: number | null;
   notes?: string;
 }
 

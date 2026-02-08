@@ -164,6 +164,16 @@ enum DealerSalePaymentRequestStatus {
   REJECTED
 }
 
+enum DiscountType {
+  PERCENT
+  FLAT
+}
+
+enum DiscountScope {
+  SALE
+  ITEM
+}
+
 enum LedgerEntryType {
   SALE
   PURCHASE
@@ -1491,14 +1501,15 @@ model DealerProductTransaction {
 }
 
 model DealerSale {
-  id            String   @id @default(cuid())
-  invoiceNumber String?  @unique
-  date          DateTime
-  totalAmount   Decimal  @db.Decimal(10, 2)
-  paidAmount    Decimal  @default(0) @db.Decimal(10, 2)
-  dueAmount     Decimal? @db.Decimal(10, 2)
-  isCredit      Boolean  @default(false)
-  notes         String?
+  id              String    @id @default(cuid())
+  invoiceNumber   String?   @unique
+  date            DateTime
+  subtotalAmount  Decimal?  @db.Decimal(10, 2) // Before discount; null when no discount
+  totalAmount     Decimal   @db.Decimal(10, 2)
+  paidAmount      Decimal   @default(0) @db.Decimal(10, 2)
+  dueAmount       Decimal?  @db.Decimal(10, 2)
+  isCredit        Boolean   @default(false)
+  notes           String?
 
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
@@ -1513,6 +1524,7 @@ model DealerSale {
   accountId String?
   account   DealerFarmerAccount? @relation(fields: [accountId], references: [id])
 
+  discount        SaleDiscount?
   items           DealerSaleItem[]
   transactions    DealerProductTransaction[]
   payments        DealerSalePayment[]
@@ -1615,8 +1627,11 @@ model DealerSaleRequest {
   status        DealerSaleRequestStatus @default(PENDING)
   
   // Amounts
-  totalAmount   Decimal  @db.Decimal(10, 2)
-  paidAmount    Decimal  @default(0) @db.Decimal(10, 2)
+  totalAmount    Decimal  @db.Decimal(10, 2)
+  subtotalAmount Decimal? @db.Decimal(10, 2) // Original before discount; null when no discount
+  discountType   String?  // "PERCENT" | "FLAT" when dealer applied discount
+  discountValue  Decimal? @db.Decimal(10, 2)
+  paidAmount     Decimal  @default(0) @db.Decimal(10, 2)
   
   // Payment details
   paymentMethod String?
@@ -1676,6 +1691,9 @@ model ConsignmentRequest {
   direction     ConsignmentDirection
   status        ConsignmentStatus    @default(CREATED)
   totalAmount   Decimal              @db.Decimal(10, 2)
+  subtotalAmount Decimal?            @db.Decimal(10, 2) // Before discount; null when no discount
+  discountType   String?             // "PERCENT" | "FLAT" when discount applied
+  discountValue  Decimal?            @db.Decimal(10, 2)
   notes         String?
 
   // Quantity tracking (prepare for partial receipt)
@@ -1810,13 +1828,14 @@ model DealerLedgerEntry {
 
 // ==================== COMPANY SALES ====================
 model CompanySale {
-  id            String   @id @default(cuid())
-  invoiceNumber String?  @unique
-  date          DateTime @default(now())
-  totalAmount   Decimal  @db.Decimal(10, 2)
-  isCredit      Boolean  @default(false)
-  paymentMethod String   @default("CASH")
-  notes         String?
+  id              String   @id @default(cuid())
+  invoiceNumber   String?  @unique
+  date            DateTime @default(now())
+  subtotalAmount  Decimal? @db.Decimal(10, 2) // Before discount; null when no discount
+  totalAmount     Decimal  @db.Decimal(10, 2)
+  isCredit        Boolean  @default(false)
+  paymentMethod   String   @default("CASH")
+  notes           String?
 
   companyId String
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -1838,6 +1857,7 @@ model CompanySale {
   // Optional invoice image (for future use)
   invoiceImageUrl String?
 
+  discount        SaleDiscount?
   items           CompanySaleItem[]
   ledgerEntries   CompanyLedgerEntry[]
   paymentRequests PaymentRequest[]
@@ -1869,6 +1889,25 @@ model CompanySaleItem {
 
   @@index([saleId])
   @@index([productId])
+}
+
+// Global or item-level discount on a sale (one per sale for scope SALE; future: scope ITEM per item)
+model SaleDiscount {
+  id            String        @id @default(cuid())
+  type          DiscountType
+  value         Decimal       @db.Decimal(10, 2)
+  scope         DiscountScope @default(SALE)
+
+  dealerSaleId  String?       @unique
+  dealerSale    DealerSale?   @relation(fields: [dealerSaleId], references: [id], onDelete: Cascade)
+
+  companySaleId String?       @unique
+  companySale   CompanySale?  @relation(fields: [companySaleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([dealerSaleId])
+  @@index([companySaleId])
 }
 
 // CompanySalePayment model removed - now using CompanyDealerPayment for account-level payments

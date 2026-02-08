@@ -222,9 +222,11 @@ export class CompanyDealerAccountService {
           id: true,
           invoiceNumber: true,
           date: true,
+          subtotalAmount: true,
           totalAmount: true,
           notes: true,
           invoiceImageUrl: true,
+          discount: { select: { type: true, value: true } },
         },
         orderBy: { date: "desc" },
         skip,
@@ -262,12 +264,15 @@ export class CompanyDealerAccountService {
       prisma.companyDealerPayment.count({ where: paymentsWhere }),
     ]);
 
-    // Format sales
+    // Format sales (include discount for statement UI)
     const formattedSales = sales.map((sale) => ({
       id: sale.id,
       invoiceNumber: sale.invoiceNumber,
       date: sale.date,
       amount: Number(sale.totalAmount),
+      subtotalAmount: sale.subtotalAmount != null ? Number(sale.subtotalAmount) : null,
+      discountType: sale.discount?.type ?? null,
+      discountValue: sale.discount?.value != null ? Number(sale.discount.value) : null,
       notes: sale.notes,
       invoiceImageUrl: sale.invoiceImageUrl,
     }));
@@ -292,6 +297,9 @@ export class CompanyDealerAccountService {
         id: sale.id,
         date: sale.date,
         amount: sale.amount,
+        subtotalAmount: sale.subtotalAmount,
+        discountType: sale.discountType,
+        discountValue: sale.discountValue,
         reference: sale.invoiceNumber,
         notes: sale.notes,
         imageUrl: sale.invoiceImageUrl,

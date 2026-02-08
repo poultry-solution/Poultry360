@@ -55,6 +55,9 @@ export interface AccountTransaction {
   paymentMethod?: string;
   imageUrl?: string;
   balanceAfter?: number;
+  subtotalAmount?: number | null;
+  discountType?: string | null;
+  discountValue?: number | null;
 }
 
 export interface AccountStatement {

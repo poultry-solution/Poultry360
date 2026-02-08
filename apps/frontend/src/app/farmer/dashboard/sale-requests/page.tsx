@@ -41,6 +41,9 @@ interface SaleRequest {
   requestNumber: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   totalAmount: number;
+  subtotalAmount?: number | null;
+  discountType?: string | null;
+  discountValue?: number | null;
   paidAmount: number;
   date: string;
   reviewedAt?: string;
@@ -310,12 +313,48 @@ export default function FarmerSaleRequestsPage() {
                     )}
                   </div>
                 </div>
+                {/* Discount breakdown - when dealer applied discount */}
+                {request.subtotalAmount != null &&
+                  request.discountType &&
+                  Number(request.subtotalAmount) > Number(request.totalAmount) && (
+                    <div className="mt-3 p-3 rounded-lg bg-muted/60 border border-border/60 text-sm">
+                      <p className="font-medium mb-2 text-muted-foreground">
+                        Price breakdown (discount applied by dealer)
+                      </p>
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Original amount</span>
+                          <span>{formatCurrency(Number(request.subtotalAmount))}</span>
+                        </div>
+                        <div className="flex justify-between text-green-600">
+                          <span>
+                            Discount by dealer
+                            {request.discountType === "PERCENT"
+                              ? ` (${request.discountValue}%)`
+                              : ` (रू ${Number(request.discountValue || 0).toFixed(2)})`}
+                          </span>
+                          <span>
+                            - {formatCurrency(Number(request.subtotalAmount) - Number(request.totalAmount))}
+                          </span>
+                        </div>
+                        <div className="flex justify-between font-semibold pt-1 border-t border-border/60">
+                          <span>Amount you pay</span>
+                          <span>{formatCurrency(request.totalAmount)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
               </CardHeader>
               <CardContent className="p-3 md:p-6 pt-0">
                 <div className="space-y-3">
                   {/* Items - scrollable on mobile */}
                   <div>
                     <h4 className="font-medium mb-2">{t("farmer.saleRequests.itemsTitle")}</h4>
+                    {request.subtotalAmount != null && request.discountType && (
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Unit prices and totals below are after dealer&apos;s discount.
+                      </p>
+                    )}
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -409,12 +448,37 @@ export default function FarmerSaleRequestsPage() {
                 <span className="text-muted-foreground">{t("farmer.saleRequests.dealerLabel")}</span>
                 <span className="font-medium">{selectedRequest.dealer.name}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t("farmer.saleRequests.totalAmountLabel")}</span>
-                <span className="font-bold">
-                  {formatCurrency(selectedRequest.totalAmount)}
-                </span>
-              </div>
+              {selectedRequest.subtotalAmount != null &&
+              selectedRequest.discountType &&
+              Number(selectedRequest.subtotalAmount) > Number(selectedRequest.totalAmount) ? (
+                <div className="p-3 rounded-lg bg-muted/60 border border-border/60 text-sm space-y-1">
+                  <p className="font-medium mb-2 text-muted-foreground">Price breakdown</p>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Original amount</span>
+                    <span>{formatCurrency(Number(selectedRequest.subtotalAmount))}</span>
+                  </div>
+                  <div className="flex justify-between text-green-600">
+                    <span>
+                      Discount by dealer
+                      {selectedRequest.discountType === "PERCENT"
+                        ? ` (${selectedRequest.discountValue}%)`
+                        : ` (रू ${Number(selectedRequest.discountValue || 0).toFixed(2)})`}
+                    </span>
+                    <span>
+                      - {formatCurrency(Number(selectedRequest.subtotalAmount) - Number(selectedRequest.totalAmount))}
+                    </span>
+                  </div>
+                  <div className="flex justify-between font-semibold pt-1 border-t border-border/60">
+                    <span>{t("farmer.saleRequests.totalAmountLabel")}</span>
+                    <span className="font-bold">{formatCurrency(selectedRequest.totalAmount)}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">{t("farmer.saleRequests.totalAmountLabel")}</span>
+                  <span className="font-bold">{formatCurrency(selectedRequest.totalAmount)}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t("farmer.saleRequests.itemsCountLabel")}</span>
                 <span>{t("farmer.saleRequests.itemsCountValue", { count: selectedRequest.items.length })}</span>
