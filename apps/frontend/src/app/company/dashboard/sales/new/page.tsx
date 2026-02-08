@@ -262,8 +262,8 @@ export default function NewCompanySalePage() {
               {/* Sale Type Info */}
               {selectedDealer && (
                 <div className={`p-3 rounded-lg text-sm ${isConnectedDealer
-                    ? "bg-blue-50 border border-blue-200 text-blue-800"
-                    : "bg-green-50 border border-green-200 text-green-800"
+                  ? "bg-blue-50 border border-blue-200 text-blue-800"
+                  : "bg-green-50 border border-green-200 text-green-800"
                   }`}>
                   {isConnectedDealer ? (
                     <>
