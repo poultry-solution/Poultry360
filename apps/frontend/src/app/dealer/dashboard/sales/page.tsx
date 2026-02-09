@@ -25,9 +25,11 @@ import {
   useGetDealerSales,
   type DealerSale,
 } from "@/fetchers/dealer/dealerSaleQueries";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function DealerSalesPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [isPaidFilter, setIsPaidFilter] = useState<string>("ALL");
@@ -64,9 +66,9 @@ export default function DealerSalesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Sales Management</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t("dealer.sales.title")}</h1>
           <p className="text-sm md:text-base text-muted-foreground">
-            Track and manage sales to your customers
+            {t("dealer.sales.subtitle")}
           </p>
         </div>
         <div className="flex gap-2">
@@ -76,8 +78,8 @@ export default function DealerSalesPage() {
             className="flex-1 sm:flex-none hover:bg-green-50 hover:text-green-700 border-green-200"
           >
             <FileCheck className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Sale Requests</span>
-            <span className="sm:hidden">Requests</span>
+            <span className="hidden sm:inline">{t("dealer.sales.buttons.requests")}</span>
+            <span className="sm:hidden">{t("dealer.sales.buttons.requests")}</span>
           </Button>
           <Button
             onClick={() => router.push("/dealer/dashboard/sales/new")}
@@ -85,8 +87,8 @@ export default function DealerSalesPage() {
             className="flex-1 sm:flex-none hover:bg-green-50 hover:text-green-700 border-green-200"
           >
             <Plus className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">New Sale</span>
-            <span className="sm:hidden">New</span>
+            <span className="hidden sm:inline">{t("dealer.sales.buttons.newSale")}</span>
+            <span className="sm:hidden">{t("dealer.sales.buttons.newSale")}</span>
           </Button>
         </div>
       </div>
@@ -100,7 +102,7 @@ export default function DealerSalesPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder="Search sales..."
+                    placeholder={t("dealer.sales.filters.searchPlaceholder")}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="pl-10"
@@ -113,26 +115,26 @@ export default function DealerSalesPage() {
               >
                 <SelectTrigger className="w-full sm:w-[140px]">
                   <Filter className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Status" />
+                  <SelectValue placeholder={t("dealer.sales.filters.statusPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALL">All Sales</SelectItem>
-                  <SelectItem value="PAID">Paid</SelectItem>
-                  <SelectItem value="UNPAID">Unpaid</SelectItem>
+                  <SelectItem value="ALL">{t("dealer.sales.filters.all")}</SelectItem>
+                  <SelectItem value="PAID">{t("dealer.sales.filters.paid")}</SelectItem>
+                  <SelectItem value="UNPAID">{t("dealer.sales.filters.unpaid")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="flex gap-2">
               <Input
                 type="date"
-                placeholder="Start"
+                placeholder={t("dealer.sales.filters.start")}
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="flex-1"
               />
               <Input
                 type="date"
-                placeholder="End"
+                placeholder={t("dealer.sales.filters.end")}
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 className="flex-1"
@@ -145,20 +147,20 @@ export default function DealerSalesPage() {
       {/* Sales Table - Unified DataTable */}
       <Card>
         <CardHeader className="p-3 md:p-6">
-          <CardTitle className="text-base md:text-lg">Sales Records</CardTitle>
+          <CardTitle className="text-base md:text-lg">{t("dealer.sales.table.title")}</CardTitle>
           <CardDescription className="text-xs md:text-sm">
-            {pagination?.total || 0} total sales transactions
+            {t("dealer.sales.table.description", { count: pagination?.total || 0 })}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <DataTable
             data={sales}
             loading={isLoading}
-            emptyMessage="No sales found. Record your first sale to get started."
+            emptyMessage={t("dealer.sales.table.empty")}
             columns={[
               {
                 key: 'invoiceNumber',
-                label: 'Invoice',
+                label: t("dealer.sales.table.invoice"),
                 width: '100px',
                 render: (val, row) => (
                   <span className="font-medium">
@@ -168,7 +170,7 @@ export default function DealerSalesPage() {
               },
               {
                 key: 'date',
-                label: 'Date',
+                label: t("dealer.sales.table.date"),
                 width: '110px',
                 render: (val) => (
                   <div className="flex items-center gap-1.5">
@@ -179,7 +181,7 @@ export default function DealerSalesPage() {
               },
               {
                 key: 'customer',
-                label: 'Customer',
+                label: t("dealer.sales.table.customer"),
                 width: '140px',
                 render: (val, row) => (
                   val ? (
@@ -197,7 +199,7 @@ export default function DealerSalesPage() {
               },
               {
                 key: 'totalAmount',
-                label: 'Amount',
+                label: t("dealer.sales.table.amount"),
                 align: 'right',
                 width: '120px',
                 render: (val, row) => {
@@ -206,15 +208,15 @@ export default function DealerSalesPage() {
                   const total = Number(val);
                   const discountLabel = row.discount
                     ? row.discount.type === "PERCENT"
-                      ? `${row.discount.value}% off`
-                      : `रू ${Number(row.discount.value || 0).toFixed(2)} off`
+                      ? t("dealer.sales.table.off", { amount: `${row.discount.value}%` })
+                      : t("dealer.sales.table.off", { amount: `रू ${Number(row.discount.value || 0).toFixed(2)}` })
                     : "";
                   return (
                     <div className="flex flex-col items-end gap-0.5">
                       <span className="font-medium">{formatCurrency(total)}</span>
                       {hasDiscount && (
                         <span className="text-[10px] text-muted-foreground leading-tight">
-                          Was {formatCurrency(subtotal)}
+                          {t("dealer.sales.table.was", { amount: formatCurrency(subtotal) })}
                           {discountLabel && ` · ${discountLabel}`}
                         </span>
                       )}
@@ -224,17 +226,17 @@ export default function DealerSalesPage() {
               },
               {
                 key: 'isCredit',
-                label: 'Type',
+                label: t("dealer.sales.table.type"),
                 width: '70px',
                 render: (val) => (
                   <Badge variant={val ? "secondary" : "default"} className="text-xs">
-                    {val ? "Credit" : "Cash"}
+                    {val ? t("dealer.sales.badges.credit") : t("dealer.sales.badges.cash")}
                   </Badge>
                 )
               },
               {
                 key: 'actions',
-                label: 'Actions',
+                label: t("dealer.sales.table.actions"),
                 align: 'right',
                 width: '90px',
                 render: (_, row) => (

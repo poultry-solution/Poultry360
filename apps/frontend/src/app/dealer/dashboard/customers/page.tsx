@@ -28,6 +28,7 @@ import axiosInstance from "@/common/lib/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGetDealerFarmerRequests, useGetConnectedFarmers } from "@/fetchers/dealer/dealerFarmerQueries";
 import { DealerAddPaymentDialog } from "@/components/dealer/DealerAddPaymentDialog";
+import { useI18n } from "@/i18n/useI18n";
 
 interface Customer {
   id: string;
@@ -44,6 +45,7 @@ interface Customer {
 
 export default function DealerCustomersPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -138,11 +140,11 @@ export default function DealerCustomersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
-      toast.success("Customer created successfully");
+      toast.success(t("dealer.customers.messages.createSuccess"));
       handleCloseDialog();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to create customer");
+      toast.error(error.response?.data?.message || t("dealer.customers.messages.createFailed"));
     },
   });
 
@@ -154,10 +156,10 @@ export default function DealerCustomersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
-      toast.success("Customer deleted successfully");
+      toast.success(t("dealer.customers.messages.deleteSuccess"));
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to delete customer");
+      toast.error(error.response?.data?.message || t("dealer.customers.messages.deleteFailed"));
     },
   });
 
@@ -197,20 +199,20 @@ export default function DealerCustomersPage() {
     e.preventDefault();
 
     if (!formData.name || !formData.phone) {
-      toast.error("Name and phone are required");
+      toast.error(t("dealer.customers.messages.required"));
       return;
     }
 
     if (editingCustomer) {
       // Update customer (if endpoint exists)
-      toast.info("Update functionality coming soon");
+      toast.info(t("dealer.customers.messages.updateSoon"));
     } else {
       createMutation.mutate(formData);
     }
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+    if (!confirm(t("dealer.customers.messages.deleteConfirm", { name }))) return;
     deleteMutation.mutate(id);
   };
 
@@ -221,9 +223,9 @@ export default function DealerCustomersPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Customer Management</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t("dealer.customers.title")}</h1>
           <p className="text-sm md:text-base text-muted-foreground">
-            Manage your customers and farmers
+            {t("dealer.customers.subtitle")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -233,8 +235,8 @@ export default function DealerCustomersPage() {
             className="flex-1 sm:flex-none hover:bg-green-50 hover:text-green-700 border-green-200"
           >
             <DollarSign className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Payment Request</span>
-            <span className="sm:hidden">Payments</span>
+            <span className="hidden sm:inline">{t("dealer.customers.buttons.paymentRequest")}</span>
+            <span className="sm:hidden">{t("dealer.customers.buttons.paymentRequestMobile")}</span>
           </Button>
           <Button
             variant="outline"
@@ -242,8 +244,8 @@ export default function DealerCustomersPage() {
             className="flex-1 sm:flex-none relative hover:bg-green-50 hover:text-green-700 border-green-200"
           >
             <CheckCircle2 className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Verification</span>
-            <span className="sm:hidden">Verify</span>
+            <span className="hidden sm:inline">{t("dealer.customers.buttons.verification")}</span>
+            <span className="sm:hidden">{t("dealer.customers.buttons.verificationMobile")}</span>
             {pendingVerificationCount > 0 && (
               <Badge className="ml-2 bg-yellow-500 text-white text-xs px-1.5 py-0.5 min-w-[20px] h-5">
                 {pendingVerificationCount}
@@ -256,8 +258,8 @@ export default function DealerCustomersPage() {
             className="flex-1 sm:flex-none hover:bg-green-50 hover:text-green-700 border-green-200"
           >
             <Plus className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Add Customer</span>
-            <span className="sm:hidden">Add</span>
+            <span className="hidden sm:inline">{t("dealer.customers.buttons.add")}</span>
+            <span className="sm:hidden">{t("dealer.customers.buttons.addMobile")}</span>
           </Button>
         </div>
       </div>
@@ -268,7 +270,7 @@ export default function DealerCustomersPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search customers..."
+              placeholder={t("dealer.customers.searchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10"
@@ -282,9 +284,9 @@ export default function DealerCustomersPage() {
         <CardHeader className="p-3 md:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <CardTitle className="text-base md:text-lg">Customers</CardTitle>
+              <CardTitle className="text-base md:text-lg">{t("dealer.customers.table.title")}</CardTitle>
               <CardDescription className="text-xs md:text-sm">
-                {customers.length} {customers.length === 1 ? "customer" : "customers"} registered
+                {t(customers.length === 1 ? "dealer.customers.table.description" : "dealer.customers.table.descriptionPlural", { count: customers.length, singular_customer: "customer" })}
               </CardDescription>
             </div>
             <Button
@@ -294,7 +296,7 @@ export default function DealerCustomersPage() {
               className="w-full sm:w-auto hover:bg-green-50 hover:text-green-700 border-green-200"
             >
               <DollarSign className="mr-2 h-4 w-4" />
-              Add Payment
+              {t("dealer.customers.addPayment")}
             </Button>
           </div>
         </CardHeader>
@@ -302,11 +304,11 @@ export default function DealerCustomersPage() {
           <DataTable
             data={customers}
             loading={isLoading}
-            emptyMessage="No customers found. Add your first customer to get started."
+            emptyMessage={t("dealer.customers.table.empty")}
             columns={[
               {
                 key: 'name',
-                label: 'Name',
+                label: t("dealer.customers.table.name"),
                 width: '160px',
                 render: (val, row) => (
                   <div className="flex items-center gap-2">
@@ -317,7 +319,7 @@ export default function DealerCustomersPage() {
                         className="bg-blue-100 text-blue-800 hover:bg-blue-100 text-[10px] px-1"
                       >
                         <Link2 className="h-2.5 w-2.5 mr-0.5" />
-                        <span className="hidden sm:inline">Connected</span>
+                        <span className="hidden sm:inline">{t("dealer.customers.table.connected")}</span>
                       </Badge>
                     )}
                   </div>
@@ -325,7 +327,7 @@ export default function DealerCustomersPage() {
               },
               {
                 key: 'phone',
-                label: 'Phone',
+                label: t("dealer.customers.table.phone"),
                 width: '120px',
                 render: (val) => (
                   <div className="flex items-center gap-1.5">
@@ -336,7 +338,7 @@ export default function DealerCustomersPage() {
               },
               {
                 key: 'address',
-                label: 'Address',
+                label: t("dealer.customers.table.address"),
                 width: '150px',
                 render: (val) => val ? (
                   <div className="flex items-center gap-1.5">
@@ -347,7 +349,7 @@ export default function DealerCustomersPage() {
               },
               {
                 key: 'category',
-                label: 'Category',
+                label: t("dealer.customers.table.category"),
                 width: '100px',
                 render: (val) => val ? (
                   <span className="px-2 py-0.5 bg-muted rounded-md text-xs">{val}</span>
@@ -355,7 +357,7 @@ export default function DealerCustomersPage() {
               },
               {
                 key: 'balance',
-                label: 'Balance',
+                label: t("dealer.customers.table.balance"),
                 align: 'right',
                 width: '130px',
                 render: (val) => (
@@ -364,16 +366,16 @@ export default function DealerCustomersPage() {
                       val < 0 ? "text-green-600 font-semibold" : ""
                   }>
                     {val > 0
-                      ? `रू ${Math.abs(val).toFixed(2)} (Due)`
+                      ? t("dealer.customers.table.due", { amount: `रू ${Math.abs(val).toFixed(2)}` })
                       : val < 0
-                        ? `रू ${Math.abs(val).toFixed(2)} (Adv)`
+                        ? t("dealer.customers.table.adv", { amount: `रू ${Math.abs(val).toFixed(2)}` })
                         : "रू 0.00"}
                   </span>
                 )
               },
               {
                 key: 'actions',
-                label: 'Actions',
+                label: t("dealer.customers.table.actions"),
                 align: 'right',
                 width: '140px',
                 render: (_, row) => (
@@ -384,8 +386,8 @@ export default function DealerCustomersPage() {
                       className="h-7 text-xs px-2"
                       onClick={() => router.push(`/dealer/dashboard/customers/${row.id}/account`)}
                     >
-                      <span className="hidden sm:inline">View</span>
-                      <span className="sm:hidden">Acct</span>
+                      <span className="hidden sm:inline">{t("dealer.customers.table.view")}</span>
+                      <span className="sm:hidden">{t("dealer.customers.table.viewMobile")}</span>
                     </Button>
                     <Button
                       variant="ghost"
@@ -417,31 +419,31 @@ export default function DealerCustomersPage() {
           <form onSubmit={handleSubmit}>
             <DialogHeader>
               <DialogTitle>
-                {editingCustomer ? "Edit Customer" : "Add New Customer"}
+                {editingCustomer ? t("dealer.customers.dialog.editTitle") : t("dealer.customers.dialog.addTitle")}
               </DialogTitle>
               <DialogDescription>
                 {editingCustomer
-                  ? "Update customer information"
-                  : "Add a new customer to your list"}
+                  ? t("dealer.customers.dialog.editDescription")
+                  : t("dealer.customers.dialog.addDescription")}
               </DialogDescription>
             </DialogHeader>
 
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Customer Name *</Label>
+                <Label htmlFor="name">{t("dealer.customers.dialog.name")}</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
-                  placeholder="Enter customer name"
+                  placeholder={t("dealer.customers.dialog.namePlaceholder")}
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number *</Label>
+                <Label htmlFor="phone">{t("dealer.customers.dialog.phone")}</Label>
                 <Input
                   id="phone"
                   type="tel"
@@ -449,32 +451,32 @@ export default function DealerCustomersPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, phone: e.target.value })
                   }
-                  placeholder="Enter phone number"
+                  placeholder={t("dealer.customers.dialog.phonePlaceholder")}
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
+                <Label htmlFor="address">{t("dealer.customers.dialog.address")}</Label>
                 <Input
                   id="address"
                   value={formData.address}
                   onChange={(e) =>
                     setFormData({ ...formData, address: e.target.value })
                   }
-                  placeholder="Enter address (optional)"
+                  placeholder={t("dealer.customers.dialog.addressPlaceholder")}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
+                <Label htmlFor="category">{t("dealer.customers.dialog.category")}</Label>
                 <Input
                   id="category"
                   value={formData.category}
                   onChange={(e) =>
                     setFormData({ ...formData, category: e.target.value })
                   }
-                  placeholder="e.g., Farmer, Retailer (optional)"
+                  placeholder={t("dealer.customers.dialog.categoryPlaceholder")}
                 />
               </div>
             </div>
@@ -485,17 +487,17 @@ export default function DealerCustomersPage() {
                 variant="outline"
                 onClick={handleCloseDialog}
               >
-                Cancel
+                {t("dealer.customers.dialog.cancel")}
               </Button>
               <Button
                 type="submit"
                 disabled={createMutation.isPending}
               >
                 {createMutation.isPending
-                  ? "Saving..."
+                  ? t("dealer.customers.dialog.saving")
                   : editingCustomer
-                    ? "Update Customer"
-                    : "Add Customer"}
+                    ? t("dealer.customers.dialog.update")
+                    : t("dealer.customers.dialog.save")}
               </Button>
             </DialogFooter>
           </form>

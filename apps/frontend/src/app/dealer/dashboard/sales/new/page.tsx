@@ -43,6 +43,7 @@ import {
   useCreateDealerSale,
   useCreateCustomer,
 } from "@/fetchers/dealer/dealerSaleQueries";
+import { useI18n } from "@/i18n/useI18n";
 
 interface SaleItem {
   productId: string;
@@ -52,6 +53,7 @@ interface SaleItem {
 
 export default function NewSalePage() {
   const router = useRouter();
+  const { t } = useI18n();
 
   // Form state
   const [customerId, setCustomerId] = useState("");
@@ -90,7 +92,7 @@ export default function NewSalePage() {
   const handleAddProduct = (productId: string, option?: any) => {
     // Check if product already added
     if (items.some((item) => item.productId === productId)) {
-      toast.error("Product already added");
+      toast.error(t("dealer.newSale.messages.productExists"));
       return;
     }
 
@@ -106,7 +108,7 @@ export default function NewSalePage() {
 
     setItems([...items, newItem]);
     setSelectedProductId(""); // Clear selection
-    toast.success("Product added");
+    toast.success(t("dealer.newSale.messages.productAdded"));
   };
 
   const removeItem = (index: number) => {
@@ -121,7 +123,7 @@ export default function NewSalePage() {
 
   const handleCreateCustomer = async () => {
     if (!newCustomerData.name || !newCustomerData.phone) {
-      toast.error("Name and phone are required");
+      toast.error(t("dealer.newSale.messages.customerRequired"));
       return;
     }
 
@@ -131,28 +133,28 @@ export default function NewSalePage() {
       setSelectedCustomer(result.data);
       setIsCreateCustomerOpen(false);
       setNewCustomerData({ name: "", phone: "", address: "", category: "" });
-      toast.success("Customer created successfully");
+      toast.success(t("dealer.newSale.messages.customerCreated"));
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to create customer");
+      toast.error(error.response?.data?.message || t("dealer.newSale.messages.customerFailed"));
     }
   };
 
   const handleSubmit = async () => {
     if (!customerId || items.length === 0) {
-      toast.error("Please select customer and add items");
+      toast.error(t("dealer.newSale.messages.selectRequired"));
       return;
     }
 
     // Validate items
     for (const item of items) {
       if (!item.productId || item.quantity <= 0 || item.unitPrice <= 0) {
-        toast.error("Please fill all product details with valid values");
+        toast.error(t("dealer.newSale.messages.productInvalid"));
         return;
       }
     }
 
     if (paidAmount < 0 || paidAmount > finalTotal) {
-      toast.error("Paid amount must be between 0 and final total");
+      toast.error(t("dealer.newSale.messages.paidInvalid"));
       return;
     }
 
@@ -174,10 +176,10 @@ export default function NewSalePage() {
             : undefined,
       });
 
-      toast.success("Sale created successfully!");
+      toast.success(t("dealer.newSale.messages.success"));
       router.push("/dealer/dashboard/sales");
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to create sale");
+      toast.error(error.response?.data?.message || t("dealer.newSale.messages.failed"));
     }
   };
 
@@ -205,10 +207,10 @@ export default function NewSalePage() {
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">
-            Create New Sale
+            {t("dealer.newSale.title")}
           </h1>
           <p className="text-muted-foreground">
-            Create a sale transaction to a customer
+            {t("dealer.newSale.subtitle")}
           </p>
         </div>
       </div>
@@ -220,19 +222,19 @@ export default function NewSalePage() {
           {/* Customer Selection */}
           <Card>
             <CardHeader>
-              <CardTitle>Customer Information</CardTitle>
-              <CardDescription>Select the customer for this sale</CardDescription>
+              <CardTitle>{t("dealer.newSale.customer.title")}</CardTitle>
+              <CardDescription>{t("dealer.newSale.customer.description")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>Select Customer *</Label>
+                <Label>{t("dealer.newSale.customer.label")}</Label>
                 <SearchableSelect
                   value={customerId}
                   onValueChange={handleCustomerChange}
                   options={customerSelect.options}
-                  placeholder="Search and select customer..."
-                  searchPlaceholder="Search customers..."
-                  emptyText="No customers found."
+                  placeholder={t("dealer.newSale.customer.placeholder")}
+                  searchPlaceholder={t("dealer.newSale.customer.searchPlaceholder")}
+                  emptyText={t("dealer.newSale.customer.empty")}
                   isLoading={customerSelect.isLoading}
                   onSearch={customerSelect.onSearch}
                 />
@@ -258,7 +260,7 @@ export default function NewSalePage() {
                 className="w-full"
               >
                 <UserPlus className="mr-2 h-4 w-4" />
-                Create New Customer
+                {t("dealer.newSale.customer.create")}
               </Button>
             </CardContent>
           </Card>
@@ -266,8 +268,8 @@ export default function NewSalePage() {
           {/* Products Section */}
           <Card>
             <CardHeader>
-              <CardTitle>Products</CardTitle>
-              <CardDescription>Search and add products to this sale</CardDescription>
+              <CardTitle>{t("dealer.newSale.products.title")}</CardTitle>
+              <CardDescription>{t("dealer.newSale.products.description")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Product Search & Add */}
@@ -277,9 +279,9 @@ export default function NewSalePage() {
                     value={selectedProductId}
                     onValueChange={(value, option) => handleAddProduct(value, option)}
                     options={productSelect.options}
-                    placeholder="Search and select product to add..."
-                    searchPlaceholder="Search products..."
-                    emptyText="No products found."
+                    placeholder={t("dealer.newSale.products.placeholder")}
+                    searchPlaceholder={t("dealer.newSale.products.searchPlaceholder")}
+                    emptyText={t("dealer.newSale.products.empty")}
                     isLoading={productSelect.isLoading}
                     onSearch={productSelect.onSearch}
                   />
@@ -290,7 +292,7 @@ export default function NewSalePage() {
               {items.length > 0 ? (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <Label className="text-base">Added Products ({items.length})</Label>
+                    <Label className="text-base">{t("dealer.newSale.products.added", { 0: items.length })}</Label>
                   </div>
 
                   {items.map((item, index) => {
@@ -302,9 +304,9 @@ export default function NewSalePage() {
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <h4 className="font-medium">{product?.name || "Unknown Product"}</h4>
+                            <h4 className="font-medium">{product?.name || t("dealer.newSale.products.unknown")}</h4>
                             <p className="text-sm text-muted-foreground">
-                              Stock: {product?.currentStock || 0} {product?.unit || ""}
+                              {t("dealer.newSale.products.stock", { stock: product?.currentStock || 0, unit: product?.unit || "" })}
                             </p>
                           </div>
                           <Button
@@ -320,7 +322,7 @@ export default function NewSalePage() {
 
                         <div className="grid grid-cols-3 gap-3">
                           <div>
-                            <Label htmlFor={`quantity-${index}`} className="text-xs">Quantity</Label>
+                            <Label htmlFor={`quantity-${index}`} className="text-xs">{t("dealer.newSale.products.quantity")}</Label>
                             <Input
                               id={`quantity-${index}`}
                               type="number"
@@ -335,7 +337,7 @@ export default function NewSalePage() {
                           </div>
 
                           <div>
-                            <Label htmlFor={`unitPrice-${index}`} className="text-xs">Unit Price</Label>
+                            <Label htmlFor={`unitPrice-${index}`} className="text-xs">{t("dealer.newSale.products.unitPrice")}</Label>
                             <Input
                               id={`unitPrice-${index}`}
                               type="number"
@@ -350,7 +352,7 @@ export default function NewSalePage() {
                           </div>
 
                           <div>
-                            <Label className="text-xs">Total</Label>
+                            <Label className="text-xs">{t("dealer.newSale.products.total")}</Label>
                             <div className="h-9 flex items-center font-semibold">
                               {formatCurrency(item.quantity * item.unitPrice)}
                             </div>
@@ -364,7 +366,7 @@ export default function NewSalePage() {
                 <div className="text-center py-8 border-2 border-dashed rounded-lg">
                   <Package className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
                   <p className="text-sm text-muted-foreground">
-                    No products added yet. Search and select products above.
+                    {t("dealer.newSale.products.noneAdded")}
                   </p>
                 </div>
               )}
@@ -375,13 +377,13 @@ export default function NewSalePage() {
           {items.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Discount (Optional)</CardTitle>
-                <CardDescription>Apply a global discount to this sale</CardDescription>
+                <CardTitle>{t("dealer.newSale.discount.title")}</CardTitle>
+                <CardDescription>{t("dealer.newSale.discount.description")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Type</Label>
+                    <Label>{t("dealer.newSale.discount.type")}</Label>
                     <Select
                       value={discountType}
                       onValueChange={(v: "PERCENT" | "FLAT") => setDiscountType(v)}
@@ -390,13 +392,13 @@ export default function NewSalePage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="PERCENT">Percent (%)</SelectItem>
-                        <SelectItem value="FLAT">Flat (रू)</SelectItem>
+                        <SelectItem value="PERCENT">{t("dealer.newSale.discount.percent")}</SelectItem>
+                        <SelectItem value="FLAT">{t("dealer.newSale.discount.flat")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Value</Label>
+                    <Label>{t("dealer.newSale.discount.value")}</Label>
                     <Input
                       type="number"
                       min={0}
@@ -412,8 +414,7 @@ export default function NewSalePage() {
                 </div>
                 {discountValue > 0 && (
                   <p className="text-sm text-muted-foreground">
-                    Discount: रू {discountAmount.toFixed(2)}
-                    {discountType === "PERCENT" && ` (${Math.min(100, discountValue)}%)`}
+                    {t("dealer.newSale.discount.label", { amount: discountAmount.toFixed(2), percent: Math.min(100, discountValue) })}
                   </p>
                 )}
               </CardContent>
@@ -424,28 +425,28 @@ export default function NewSalePage() {
           {items.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Payment Information</CardTitle>
-                <CardDescription>Enter payment details for this sale</CardDescription>
+                <CardTitle>{t("dealer.newSale.payment.title")}</CardTitle>
+                <CardDescription>{t("dealer.newSale.payment.description")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="paymentMethod">Payment Method *</Label>
+                    <Label htmlFor="paymentMethod">{t("dealer.newSale.payment.method")}</Label>
                     <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="CASH">Cash</SelectItem>
-                        <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                        <SelectItem value="CHEQUE">Cheque</SelectItem>
-                        <SelectItem value="OTHER">Other</SelectItem>
+                        <SelectItem value="CASH">{t("dealer.newSale.payment.methods.cash")}</SelectItem>
+                        <SelectItem value="BANK_TRANSFER">{t("dealer.newSale.payment.methods.bank")}</SelectItem>
+                        <SelectItem value="CHEQUE">{t("dealer.newSale.payment.methods.cheque")}</SelectItem>
+                        <SelectItem value="OTHER">{t("dealer.newSale.payment.methods.other")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="paidAmount">Paid Amount *</Label>
+                    <Label htmlFor="paidAmount">{t("dealer.newSale.payment.paid")}</Label>
                     <Input
                       id="paidAmount"
                       type="number"
@@ -458,7 +459,7 @@ export default function NewSalePage() {
                       className="h-9"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Leave 0 for full credit sale
+                      {t("dealer.newSale.payment.creditHint")}
                     </p>
                   </div>
                 </div>
@@ -466,13 +467,13 @@ export default function NewSalePage() {
                 {dueAmount > 0 && (
                   <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
                     <div className="flex justify-between items-center">
-                      <span className="font-medium text-orange-800">Due Amount:</span>
+                      <span className="font-medium text-orange-800">{t("dealer.newSale.payment.due")}</span>
                       <span className="font-bold text-lg text-orange-600">
                         {formatCurrency(dueAmount)}
                       </span>
                     </div>
                     <p className="text-sm text-orange-700 mt-1">
-                      This will be recorded as a credit sale
+                      {t("dealer.newSale.payment.creditNote")}
                     </p>
                   </div>
                 )}
@@ -483,17 +484,17 @@ export default function NewSalePage() {
           {/* Notes Section */}
           <Card>
             <CardHeader>
-              <CardTitle>Additional Information</CardTitle>
-              <CardDescription>Add any notes or special instructions</CardDescription>
+              <CardTitle>{t("dealer.newSale.notes.title")}</CardTitle>
+              <CardDescription>{t("dealer.newSale.notes.description")}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Label htmlFor="notes">{t("dealer.newSale.notes.label")}</Label>
                 <Textarea
                   id="notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Add any notes or special instructions..."
+                  placeholder={t("dealer.newSale.notes.placeholder")}
                   rows={4}
                 />
               </div>
@@ -506,23 +507,23 @@ export default function NewSalePage() {
           <div className="sticky top-6 space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Summary</CardTitle>
+                <CardTitle>{t("dealer.newSale.summary.title")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Total Items</span>
+                    <span className="text-muted-foreground">{t("dealer.newSale.summary.items")}</span>
                     <span className="font-medium">{items.length}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Total Quantity</span>
+                    <span className="text-muted-foreground">{t("dealer.newSale.summary.quantity")}</span>
                     <span className="font-medium">
                       {items.reduce((sum, item) => sum + item.quantity, 0).toFixed(2)}
                     </span>
                   </div>
                   {paidAmount > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Paid Amount</span>
+                      <span className="text-muted-foreground">{t("dealer.newSale.summary.paid")}</span>
                       <span className="font-medium text-green-600">
                         {formatCurrency(paidAmount)}
                       </span>
@@ -530,7 +531,7 @@ export default function NewSalePage() {
                   )}
                   {dueAmount > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Due Amount</span>
+                      <span className="text-muted-foreground">{t("dealer.newSale.summary.due")}</span>
                       <span className="font-medium text-orange-600">
                         {formatCurrency(dueAmount)}
                       </span>
@@ -540,19 +541,19 @@ export default function NewSalePage() {
 
                 <div className="pt-4 border-t space-y-1">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="text-muted-foreground">{t("dealer.newSale.summary.subtotal")}</span>
                     <span className="font-medium">{formatCurrency(subtotal)}</span>
                   </div>
                   {discountValue > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Discount</span>
+                      <span className="text-muted-foreground">{t("dealer.newSale.summary.discount")}</span>
                       <span className="font-medium text-green-600">
                         - {formatCurrency(discountAmount)}
                       </span>
                     </div>
                   )}
                   <div className="flex justify-between items-center pt-2">
-                    <span className="font-medium">Final Total</span>
+                    <span className="font-medium">{t("dealer.newSale.summary.final")}</span>
                     <span className="text-2xl font-bold">
                       {formatCurrency(finalTotal)}
                     </span>
@@ -565,14 +566,14 @@ export default function NewSalePage() {
                     disabled={createSaleMutation.isPending || !customerId || items.length === 0}
                     className="w-full"
                   >
-                    {createSaleMutation.isPending ? "Creating Sale..." : "Create Sale"}
+                    {createSaleMutation.isPending ? t("dealer.newSale.summary.creating") : t("dealer.newSale.summary.create")}
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => router.back()}
                     className="w-full"
                   >
-                    Cancel
+                    {t("dealer.newSale.summary.cancel")}
                   </Button>
                 </div>
               </CardContent>
@@ -581,7 +582,7 @@ export default function NewSalePage() {
             {items.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-sm">Bill Summary</CardTitle>
+                  <CardTitle className="text-sm">{t("dealer.newSale.summary.bill")}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
@@ -611,32 +612,32 @@ export default function NewSalePage() {
                       {discountValue > 0 && (
                         <>
                           <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Subtotal</span>
+                            <span className="text-muted-foreground">{t("dealer.newSale.summary.subtotal")}</span>
                             <span>{formatCurrency(subtotal)}</span>
                           </div>
                           <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Discount</span>
+                            <span className="text-muted-foreground">{t("dealer.newSale.summary.discount")}</span>
                             <span className="text-green-600">- {formatCurrency(discountAmount)}</span>
                           </div>
                         </>
                       )}
                       <div className="flex justify-between items-center pt-1">
-                        <span className="font-semibold">Grand Total</span>
+                        <span className="font-semibold">{t("dealer.newSale.summary.grand")}</span>
                         <span className="text-lg font-bold">
                           {formatCurrency(finalTotal)}
                         </span>
                       </div>
                       {paidAmount > 0 && (
                         <div className="flex justify-between items-center mt-2 text-xs">
-                          <span className="text-muted-foreground">Paid</span>
-                          <span className="text-green-600 font-semibold">
+                          <span className="text-muted-foreground">{t("dealer.newSale.summary.paid")}</span>
+                          <span className="font-medium text-green-600">
                             {formatCurrency(paidAmount)}
                           </span>
                         </div>
                       )}
                       {dueAmount > 0 && (
                         <div className="flex justify-between items-center mt-1 text-xs">
-                          <span className="text-muted-foreground">Due</span>
+                          <span className="text-muted-foreground">{t("dealer.newSale.summary.due")}</span>
                           <span className="text-orange-600 font-semibold">
                             {formatCurrency(dueAmount)}
                           </span>
@@ -655,14 +656,14 @@ export default function NewSalePage() {
       <Dialog open={isCreateCustomerOpen} onOpenChange={setIsCreateCustomerOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create New Customer</DialogTitle>
+            <DialogTitle>{t("dealer.newSale.createCustomer.title")}</DialogTitle>
             <DialogDescription>
-              Add a new customer to your list
+              {t("dealer.newSale.createCustomer.description")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="new-customer-name">Name *</Label>
+              <Label htmlFor="new-customer-name">{t("dealer.newSale.createCustomer.name")}</Label>
               <Input
                 id="new-customer-name"
                 value={newCustomerData.name}
@@ -673,7 +674,7 @@ export default function NewSalePage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="new-customer-phone">Phone *</Label>
+              <Label htmlFor="new-customer-phone">{t("dealer.newSale.createCustomer.phone")}</Label>
               <Input
                 id="new-customer-phone"
                 type="tel"
@@ -685,7 +686,7 @@ export default function NewSalePage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="new-customer-address">Address</Label>
+              <Label htmlFor="new-customer-address">{t("dealer.newSale.createCustomer.address")}</Label>
               <Input
                 id="new-customer-address"
                 value={newCustomerData.address}
@@ -695,14 +696,14 @@ export default function NewSalePage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="new-customer-category">Category</Label>
+              <Label htmlFor="new-customer-category">{t("dealer.newSale.createCustomer.category")}</Label>
               <Input
                 id="new-customer-category"
                 value={newCustomerData.category}
                 onChange={(e) =>
                   setNewCustomerData({ ...newCustomerData, category: e.target.value })
                 }
-                placeholder="e.g., Farmer, Retailer"
+                placeholder={t("dealer.newSale.createCustomer.placeholder")}
               />
             </div>
           </div>
@@ -711,13 +712,13 @@ export default function NewSalePage() {
               variant="outline"
               onClick={() => setIsCreateCustomerOpen(false)}
             >
-              Cancel
+              {t("dealer.newSale.summary.cancel")}
             </Button>
             <Button
               onClick={handleCreateCustomer}
               disabled={createCustomerMutation.isPending}
             >
-              {createCustomerMutation.isPending ? "Creating..." : "Create Customer"}
+              {createCustomerMutation.isPending ? t("dealer.newSale.createCustomer.creating") : t("dealer.newSale.createCustomer.create")}
             </Button>
           </DialogFooter>
         </DialogContent>

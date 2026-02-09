@@ -49,8 +49,10 @@ import {
   useDeleteDealerProduct,
   type CreateDealerProductInput,
 } from "@/fetchers/dealer/dealerProductQueries";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function DealerInventoryPage() {
+  const { t } = useI18n();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("");
@@ -132,14 +134,14 @@ export default function DealerInventoryPage() {
           id: editingProduct.id,
           ...formData,
         });
-        toast.success("Product updated successfully");
+        toast.success(t("dealer.inventory.messages.updateSuccess"));
       } else {
         await createMutation.mutateAsync(formData);
-        toast.success("Product created successfully");
+        toast.success(t("dealer.inventory.messages.createSuccess"));
       }
       handleCloseDialog();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "An error occurred");
+      toast.error(error.response?.data?.message || t("dealer.inventory.messages.error"));
     }
   };
 
@@ -152,9 +154,9 @@ export default function DealerInventoryPage() {
 
     try {
       await deleteMutation.mutateAsync(productToDelete);
-      toast.success("Product deleted successfully");
+      toast.success(t("dealer.inventory.messages.deleteSuccess"));
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to delete product");
+      toast.error(error.response?.data?.message || t("dealer.inventory.messages.deleteFailed"));
     } finally {
       setProductToDelete(null);
     }
@@ -168,14 +170,14 @@ export default function DealerInventoryPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Products</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t("dealer.inventory.title")}</h1>
           <p className="text-sm md:text-base text-muted-foreground">
-            Manage your product inventory and pricing
+            {t("dealer.inventory.subtitle")}
           </p>
         </div>
         <Button variant="outline" onClick={() => handleOpenDialog()} className="w-full sm:w-auto hover:bg-green-50 hover:text-green-700 border-green-200">
           <Plus className="mr-2 h-4 w-4" />
-          Add Product
+          {t("dealer.inventory.addProduct")}
         </Button>
       </div>
 
@@ -184,7 +186,7 @@ export default function DealerInventoryPage() {
         <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
             <CardTitle className="text-xs md:text-sm font-medium">
-              Products
+              {t("dealer.inventory.stats.products")}
             </CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -193,14 +195,14 @@ export default function DealerInventoryPage() {
               {summaryLoading ? "..." : summary?.totalProducts || 0}
             </div>
             <p className="text-[10px] md:text-xs text-muted-foreground">
-              In inventory
+              {t("dealer.inventory.stats.inInventory")}
             </p>
           </CardContent>
         </Card>
 
         <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm font-medium">Low Stock</CardTitle>
+            <CardTitle className="text-xs md:text-sm font-medium">{t("dealer.inventory.stats.lowStock")}</CardTitle>
             <AlertTriangle className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent className="p-3 md:p-4 pt-0">
@@ -208,14 +210,14 @@ export default function DealerInventoryPage() {
               {summaryLoading ? "..." : summary?.lowStockProducts || 0}
             </div>
             <p className="text-[10px] md:text-xs text-muted-foreground">
-              Below minimum
+              {t("dealer.inventory.stats.belowMin")}
             </p>
           </CardContent>
         </Card>
 
         <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm font-medium">Out of Stock</CardTitle>
+            <CardTitle className="text-xs md:text-sm font-medium">{t("dealer.inventory.stats.outOfStock")}</CardTitle>
             <AlertTriangle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent className="p-3 md:p-4 pt-0">
@@ -223,7 +225,7 @@ export default function DealerInventoryPage() {
               {summaryLoading ? "..." : summary?.outOfStockProducts || 0}
             </div>
             <p className="text-[10px] md:text-xs text-muted-foreground">
-              Zero stock
+              {t("dealer.inventory.stats.zeroStock")}
             </p>
           </CardContent>
         </Card>
@@ -231,7 +233,7 @@ export default function DealerInventoryPage() {
         <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
             <CardTitle className="text-xs md:text-sm font-medium">
-              Value
+              {t("dealer.inventory.stats.value")}
             </CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -242,7 +244,7 @@ export default function DealerInventoryPage() {
                 : `रू ${(summary?.totalInventoryValue || 0).toLocaleString()}`}
             </div>
             <p className="text-[10px] md:text-xs text-muted-foreground">
-              Total cost
+              {t("dealer.inventory.stats.totalCost")}
             </p>
           </CardContent>
         </Card>
@@ -256,7 +258,7 @@ export default function DealerInventoryPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search products..."
+                  placeholder={t("dealer.inventory.filters.searchPlaceholder")}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-10"
@@ -266,12 +268,12 @@ export default function DealerInventoryPage() {
             <Select value={typeFilter || "ALL"} onValueChange={(value) => setTypeFilter(value === "ALL" ? "" : value)}>
               <SelectTrigger className="w-full sm:w-[140px]">
                 <Filter className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="All Types" />
+                <SelectValue placeholder={t("dealer.inventory.filters.allTypes")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All Types</SelectItem>
-                <SelectItem value="FEED">Feed</SelectItem>
-                <SelectItem value="OTHER">Other</SelectItem>
+                <SelectItem value="ALL">{t("dealer.inventory.filters.allTypes")}</SelectItem>
+                <SelectItem value="FEED">{t("dealer.inventory.filters.feed")}</SelectItem>
+                <SelectItem value="OTHER">{t("dealer.inventory.filters.other")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -281,20 +283,20 @@ export default function DealerInventoryPage() {
       {/* Products Table - Unified DataTable */}
       <Card>
         <CardHeader className="p-3 md:p-6">
-          <CardTitle className="text-base md:text-lg">Products</CardTitle>
+          <CardTitle className="text-base md:text-lg">{t("dealer.inventory.title")}</CardTitle>
           <CardDescription className="text-xs md:text-sm">
-            {pagination?.total || 0} total products
+            {pagination?.total || 0} {t("dealer.inventory.stats.products")}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <DataTable
             data={products}
             loading={isLoading}
-            emptyMessage="No products found. Add your first product to get started."
+            emptyMessage={t("dealer.inventory.table.empty")}
             columns={[
               {
                 key: 'name',
-                label: 'Name',
+                label: t("dealer.inventory.table.name"),
                 width: '180px',
                 render: (val, row) => (
                   <div>
@@ -307,7 +309,7 @@ export default function DealerInventoryPage() {
               },
               {
                 key: 'type',
-                label: 'Type',
+                label: t("dealer.inventory.table.type"),
                 width: '80px',
                 render: (val) => (
                   <Badge variant="secondary" className="text-xs">
@@ -317,12 +319,12 @@ export default function DealerInventoryPage() {
               },
               {
                 key: 'unit',
-                label: 'Unit',
+                label: t("dealer.inventory.table.unit"),
                 width: '60px'
               },
               {
                 key: 'costPrice',
-                label: 'Cost',
+                label: t("dealer.inventory.table.cost"),
                 type: 'currency',
                 align: 'right',
                 width: '100px',
@@ -330,7 +332,7 @@ export default function DealerInventoryPage() {
               },
               {
                 key: 'sellingPrice',
-                label: 'Sell (Click to Edit)',
+                label: t("dealer.inventory.table.sell"),
                 align: 'right',
                 width: '140px',
                 render: (val, row) => {
@@ -354,10 +356,10 @@ export default function DealerInventoryPage() {
                                   id: row.id,
                                   sellingPrice: Number(tempPrice),
                                 });
-                                toast.success("Price updated");
+                                toast.success(t("dealer.inventory.messages.priceUpdated"));
                                 setEditingPriceId(null);
                               } catch (err) {
-                                toast.error("Failed to update");
+                                toast.error(t("dealer.inventory.messages.updateFailed"));
                               }
                             } else if (e.key === "Escape") {
                               setEditingPriceId(null);
@@ -386,7 +388,7 @@ export default function DealerInventoryPage() {
               },
               {
                 key: 'currentStock',
-                label: 'Stock',
+                label: t("dealer.inventory.table.stock"),
                 align: 'right',
                 width: '80px',
                 render: (val, row) => (
@@ -401,14 +403,14 @@ export default function DealerInventoryPage() {
               },
               {
                 key: 'minStock',
-                label: 'Min',
+                label: t("dealer.inventory.table.min"),
                 align: 'right',
                 width: '70px',
                 render: (val) => val ? Number(val).toFixed(2) : '-'
               },
               {
                 key: 'actions',
-                label: 'Actions',
+                label: t("dealer.inventory.table.actions"),
                 align: 'right',
                 width: '100px',
                 render: (_, row) => (
@@ -473,19 +475,19 @@ export default function DealerInventoryPage() {
           <form onSubmit={handleSubmit}>
             <DialogHeader>
               <DialogTitle>
-                {editingProduct ? "Edit Product" : "Add New Product"}
+                {editingProduct ? t("dealer.inventory.dialogs.editTitle") : t("dealer.inventory.dialogs.addTitle")}
               </DialogTitle>
               <DialogDescription>
                 {editingProduct
-                  ? "Update product details and pricing"
-                  : "Add a new product to your inventory"}
+                  ? t("dealer.inventory.dialogs.editDesc")
+                  : t("dealer.inventory.dialogs.addDesc")}
               </DialogDescription>
             </DialogHeader>
 
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Product Name *</Label>
+                  <Label htmlFor="name">{t("dealer.inventory.dialogs.name")}</Label>
                   <Input
                     id="name"
                     value={formData.name}
@@ -496,7 +498,7 @@ export default function DealerInventoryPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="sku">SKU</Label>
+                  <Label htmlFor="sku">{t("dealer.inventory.dialogs.sku")}</Label>
                   <Input
                     id="sku"
                     value={formData.sku}
@@ -508,7 +510,7 @@ export default function DealerInventoryPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">{t("dealer.inventory.dialogs.description")}</Label>
                 <Input
                   id="description"
                   value={formData.description}
@@ -520,7 +522,7 @@ export default function DealerInventoryPage() {
 
               <div className="grid grid-cols-2 gap-4 ">
                 <div className="space-y-2">
-                  <Label htmlFor="type">Type *</Label>
+                  <Label htmlFor="type">{t("dealer.inventory.dialogs.type")}</Label>
                   <Select
                     value={formData.type}
                     onValueChange={(value) =>
@@ -531,20 +533,20 @@ export default function DealerInventoryPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white">
-                      <SelectItem value="FEED">Feed</SelectItem>
-                      <SelectItem value="OTHER">Other</SelectItem>
+                      <SelectItem value="FEED">{t("dealer.inventory.filters.feed")}</SelectItem>
+                      <SelectItem value="OTHER">{t("dealer.inventory.filters.other")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="unit">Unit *</Label>
+                  <Label htmlFor="unit">{t("dealer.inventory.dialogs.unit")}</Label>
                   <Input
                     id="unit"
                     value={formData.unit}
                     onChange={(e) =>
                       setFormData({ ...formData, unit: e.target.value })
                     }
-                    placeholder="e.g., kg, pcs, liters"
+                    placeholder={t("dealer.inventory.dialogs.unitPlaceholder")}
                     required
                   />
                 </div>
@@ -552,7 +554,7 @@ export default function DealerInventoryPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="costPrice">Cost Price *</Label>
+                  <Label htmlFor="costPrice">{t("dealer.inventory.dialogs.costPrice")}</Label>
                   <Input
                     id="costPrice"
                     type="number"
@@ -568,7 +570,7 @@ export default function DealerInventoryPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="sellingPrice">Selling Price *</Label>
+                  <Label htmlFor="sellingPrice">{t("dealer.inventory.dialogs.sellingPrice")}</Label>
                   <Input
                     id="sellingPrice"
                     type="number"
@@ -588,7 +590,7 @@ export default function DealerInventoryPage() {
               <div className="grid grid-cols-2 gap-4">
                 {!editingProduct && (
                   <div className="space-y-2">
-                    <Label htmlFor="currentStock">Initial Stock</Label>
+                    <Label htmlFor="currentStock">{t("dealer.inventory.dialogs.initialStock")}</Label>
                     <Input
                       id="currentStock"
                       type="number"
@@ -604,7 +606,7 @@ export default function DealerInventoryPage() {
                   </div>
                 )}
                 <div className="space-y-2">
-                  <Label htmlFor="minStock">Minimum Stock Alert</Label>
+                  <Label htmlFor="minStock">{t("dealer.inventory.dialogs.minStock")}</Label>
                   <Input
                     id="minStock"
                     type="number"
@@ -627,17 +629,17 @@ export default function DealerInventoryPage() {
                 variant="outline"
                 onClick={handleCloseDialog}
               >
-                Cancel
+                {t("dealer.inventory.dialogs.cancel")}
               </Button>
               <Button
                 type="submit"
                 disabled={createMutation.isPending || updateMutation.isPending}
               >
                 {createMutation.isPending || updateMutation.isPending
-                  ? "Saving..."
+                  ? t("dealer.inventory.dialogs.saving")
                   : editingProduct
-                    ? "Update Product"
-                    : "Add Product"}
+                    ? t("dealer.inventory.dialogs.update")
+                    : t("dealer.inventory.dialogs.save")}
               </Button>
             </DialogFooter>
           </form>
@@ -650,18 +652,18 @@ export default function DealerInventoryPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Product</AlertDialogTitle>
+            <AlertDialogTitle>{t("dealer.inventory.dialogs.deleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this product? This action cannot be undone.
+              {t("dealer.inventory.dialogs.deleteDesc")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("dealer.inventory.dialogs.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDeleteProduct}
               className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
             >
-              Delete
+              {t("dealer.inventory.dialogs.deleteConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

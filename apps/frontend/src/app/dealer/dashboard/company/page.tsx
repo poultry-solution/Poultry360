@@ -57,8 +57,10 @@ import {
 } from "@/fetchers/dealer/dealerVerificationQueries";
 import { useGetAllCompanyAccounts } from "@/fetchers/dealer/dealerCompanyAccountQueries";
 import { PublicCompanySearchSelect } from "@/common/components/forms/PublicCompanySearchSelect";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function DealerCompanyPage() {
+    const { t } = useI18n();
     const router = useRouter();
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -207,21 +209,21 @@ export default function DealerCompanyPage() {
                 return (
                     <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
                         <Clock className="mr-1 h-3 w-3" />
-                        Pending
+                        {t("dealer.company.badges.pending")}
                     </Badge>
                 );
             case "APPROVED":
                 return (
                     <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
                         <CheckCircle className="mr-1 h-3 w-3" />
-                        Approved
+                        {t("dealer.company.badges.approved")}
                     </Badge>
                 );
             case "REJECTED":
                 return (
                     <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
                         <XCircle className="mr-1 h-3 w-3" />
-                        Rejected
+                        {t("dealer.company.badges.rejected")}
                     </Badge>
                 );
             default:
@@ -231,7 +233,7 @@ export default function DealerCompanyPage() {
 
     const getRetryMessage = (request: DealerVerificationRequest): string => {
         if (request.rejectedCount >= 3) {
-            return "Cannot retry - 3 rejections reached";
+            return t("dealer.company.requests.card.cannotRetry");
         }
         if (request.lastRejectedAt) {
             const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -240,7 +242,7 @@ export default function DealerCompanyPage() {
                 const minutesRemaining = Math.ceil(
                     (lastRejected.getTime() - oneHourAgo.getTime()) / (60 * 1000)
                 );
-                return `Wait ${minutesRemaining} more minutes before retrying`;
+                return t("dealer.company.requests.card.waitRetry", { minutes: minutesRemaining });
             }
         }
         return "";
@@ -282,9 +284,9 @@ export default function DealerCompanyPage() {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">My Companies</h1>
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t("dealer.company.title")}</h1>
                     <p className="text-sm md:text-base text-muted-foreground">
-                        Manage your company connections and verification requests
+                        {t("dealer.company.subtitle")}
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -294,8 +296,8 @@ export default function DealerCompanyPage() {
                         onClick={() => router.push("/dealer/dashboard/consignments")}
                     >
                         <Truck className="mr-2 h-4 w-4" />
-                        <span className="hidden sm:inline">Consignments</span>
-                        <span className="sm:hidden">Consign</span>
+                        <span className="hidden sm:inline">{t("dealer.company.buttons.consignments")}</span>
+                        <span className="sm:hidden">{t("dealer.company.buttons.consignments")}</span>
                     </Button>
                     <Button
                         variant="outline"
@@ -303,8 +305,8 @@ export default function DealerCompanyPage() {
                         onClick={() => router.push("/dealer/dashboard/payments")}
                     >
                         <CreditCard className="mr-2 h-4 w-4" />
-                        <span className="hidden sm:inline">Payment Request</span>
-                        <span className="sm:hidden">Payments</span>
+                        <span className="hidden sm:inline">{t("dealer.company.buttons.paymentRequest")}</span>
+                        <span className="sm:hidden">{t("dealer.company.buttons.paymentRequest")}</span>
                     </Button>
                     <Button
                         variant="outline"
@@ -312,8 +314,8 @@ export default function DealerCompanyPage() {
                         className="flex-1 sm:flex-none hover:bg-green-50 hover:text-green-700 border-green-200"
                     >
                         <Plus className="mr-2 h-4 w-4" />
-                        <span className="hidden sm:inline">Apply to Company</span>
-                        <span className="sm:hidden">Apply</span>
+                        <span className="hidden sm:inline">{t("dealer.company.buttons.apply")}</span>
+                        <span className="sm:hidden">{t("dealer.company.buttons.apply")}</span>
                     </Button>
                 </div>
             </div>
@@ -331,14 +333,14 @@ export default function DealerCompanyPage() {
                     <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-5">
                         <Card className="p-0">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-                                <CardTitle className="text-xs md:text-sm font-medium">Connected</CardTitle>
+                                <CardTitle className="text-xs md:text-sm font-medium">{t("dealer.company.stats.connected")}</CardTitle>
                                 <CheckCircle className="h-4 w-4 text-green-600" />
                             </CardHeader>
                             <CardContent className="p-3 md:p-4 pt-0">
                                 <div className="flex items-baseline gap-1">
                                     <div className="text-xl md:text-2xl font-bold">{connectedCompanies.length}</div>
                                     {archivedCompanies.length > 0 && (
-                                        <span className="text-xs text-muted-foreground">/{archivedCompanies.length} archived</span>
+                                        <span className="text-xs text-muted-foreground">/{archivedCompanies.length} {t("dealer.company.stats.archived")}</span>
                                     )}
                                 </div>
                             </CardContent>
@@ -346,7 +348,7 @@ export default function DealerCompanyPage() {
 
                         <Card className="p-0">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-                                <CardTitle className="text-xs md:text-sm font-medium">Balance Owed</CardTitle>
+                                <CardTitle className="text-xs md:text-sm font-medium">{t("dealer.company.stats.balanceOwed")}</CardTitle>
                                 <Wallet className="h-4 w-4 text-red-600" />
                             </CardHeader>
                             <CardContent className="p-3 md:p-4 pt-0">
@@ -358,7 +360,7 @@ export default function DealerCompanyPage() {
 
                         <Card className="p-0">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-                                <CardTitle className="text-xs md:text-sm font-medium">Advance</CardTitle>
+                                <CardTitle className="text-xs md:text-sm font-medium">{t("dealer.company.stats.advance")}</CardTitle>
                                 <Wallet className="h-4 w-4 text-green-600" />
                             </CardHeader>
                             <CardContent className="p-3 md:p-4 pt-0">
@@ -370,7 +372,7 @@ export default function DealerCompanyPage() {
 
                         <Card className="p-0">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-                                <CardTitle className="text-xs md:text-sm font-medium">Pending</CardTitle>
+                                <CardTitle className="text-xs md:text-sm font-medium">{t("dealer.company.stats.pending")}</CardTitle>
                                 <Clock className="h-4 w-4 text-yellow-600" />
                             </CardHeader>
                             <CardContent className="p-3 md:p-4 pt-0">
@@ -380,7 +382,7 @@ export default function DealerCompanyPage() {
 
                         <Card className="p-0">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-                                <CardTitle className="text-xs md:text-sm font-medium">Rejected</CardTitle>
+                                <CardTitle className="text-xs md:text-sm font-medium">{t("dealer.company.stats.rejected")}</CardTitle>
                                 <XCircle className="h-4 w-4 text-red-600" />
                             </CardHeader>
                             <CardContent className="p-3 md:p-4 pt-0">
@@ -399,7 +401,7 @@ export default function DealerCompanyPage() {
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
-                                    placeholder="Search companies..."
+                                    placeholder={t("dealer.company.filters.searchPlaceholder")}
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                     className="pl-10"
@@ -412,12 +414,12 @@ export default function DealerCompanyPage() {
                                 onValueChange={(value) => setStatusFilter(value)}
                             >
                                 <SelectTrigger className="w-full sm:w-[140px]">
-                                    <SelectValue placeholder="All Status" />
+                                    <SelectValue placeholder={t("dealer.company.filters.allStatus")} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="ALL">All Status</SelectItem>
-                                    <SelectItem value="PENDING">Pending</SelectItem>
-                                    <SelectItem value="REJECTED">Rejected</SelectItem>
+                                    <SelectItem value="ALL">{t("dealer.company.filters.allStatus")}</SelectItem>
+                                    <SelectItem value="PENDING">{t("dealer.company.filters.pending")}</SelectItem>
+                                    <SelectItem value="REJECTED">{t("dealer.company.filters.rejected")}</SelectItem>
                                 </SelectContent>
                             </Select>
                         )}
@@ -434,7 +436,7 @@ export default function DealerCompanyPage() {
                         : "text-muted-foreground hover:text-foreground"
                         }`}
                 >
-                    Active
+                    {t("dealer.company.tabs.active")}
                 </button>
                 <button
                     onClick={() => setViewTab("archived")}
@@ -443,7 +445,7 @@ export default function DealerCompanyPage() {
                         : "text-muted-foreground hover:text-foreground"
                         }`}
                 >
-                    Archived ({archivedCompanies.length})
+                    {t("dealer.company.tabs.archived", { count: archivedCompanies.length })}
                 </button>
             </div>
 
@@ -452,25 +454,25 @@ export default function DealerCompanyPage() {
                     {/* Connected Companies Section */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>My Connected Companies</CardTitle>
+                            <CardTitle>{t("dealer.company.connected.title")}</CardTitle>
                             <CardDescription>
-                                {filteredConnectedCompanies.length} company(ies) connected
+                                {t("dealer.company.connected.subtitle", { count: filteredConnectedCompanies.length })}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
                             {filteredConnectedCompanies.length === 0 ? (
                                 <div className="text-center py-8">
                                     <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                                    <h3 className="text-lg font-semibold mb-2">No connected companies</h3>
+                                    <h3 className="text-lg font-semibold mb-2">{t("dealer.company.connected.empty.title")}</h3>
                                     <p className="text-muted-foreground mb-4">
                                         {search
-                                            ? "No companies match your search."
-                                            : "Apply to a company to get started and once approved, you'll see them here."}
+                                            ? t("dealer.company.connected.empty.descSearch")
+                                            : t("dealer.company.connected.empty.descDefault")}
                                     </p>
                                     {!search && (
                                         <Button onClick={() => setIsApplyDialogOpen(true)}>
                                             <Plus className="mr-2 h-4 w-4" />
-                                            Apply to Company
+                                            {t("dealer.company.buttons.apply")}
                                         </Button>
                                     )}
                                 </div>
@@ -490,7 +492,7 @@ export default function DealerCompanyPage() {
                                                     </div>
                                                     <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
                                                         <CheckCircle className="mr-1 h-3 w-3" />
-                                                        Connected
+                                                        {t("dealer.company.badges.connected")}
                                                     </Badge>
                                                 </div>
                                             </CardHeader>
@@ -502,7 +504,7 @@ export default function DealerCompanyPage() {
                                                             <div className="space-y-2 text-sm">
                                                                 {/* Balance Display */}
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-muted-foreground">Balance:</span>
+                                                                    <span className="text-muted-foreground">{t("dealer.company.connected.card.balance")}</span>
                                                                     <span
                                                                         className={`font-bold ${balance > 0
                                                                             ? "text-red-600"
@@ -512,26 +514,26 @@ export default function DealerCompanyPage() {
                                                                             }`}
                                                                     >
                                                                         {balance > 0
-                                                                            ? `${formatCurrency(balance)} (Owed)`
+                                                                            ? `${formatCurrency(balance)} ${t("dealer.company.connected.card.owed")}`
                                                                             : balance < 0
-                                                                                ? `${formatCurrency(balance)} (Advance)`
+                                                                                ? `${formatCurrency(balance)} ${t("dealer.company.connected.card.advance")}`
                                                                                 : "रू 0.00"}
                                                                     </span>
                                                                 </div>
                                                                 {company.owner && (
                                                                     <>
                                                                         <div className="flex justify-between">
-                                                                            <span className="text-muted-foreground">Owner:</span>
+                                                                            <span className="text-muted-foreground">{t("dealer.company.connected.card.owner")}</span>
                                                                             <span className="font-medium">{company.owner.name}</span>
                                                                         </div>
                                                                         <div className="flex justify-between">
-                                                                            <span className="text-muted-foreground">Contact:</span>
+                                                                            <span className="text-muted-foreground">{t("dealer.company.connected.card.contact")}</span>
                                                                             <span className="font-medium">{company.owner.phone}</span>
                                                                         </div>
                                                                     </>
                                                                 )}
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-muted-foreground">Connected:</span>
+                                                                    <span className="text-muted-foreground">{t("dealer.company.connected.card.connected")}</span>
                                                                     <span className="font-medium text-green-600">
                                                                         {new Date(company.connectedAt).toLocaleDateString()}
                                                                     </span>
@@ -546,7 +548,7 @@ export default function DealerCompanyPage() {
                                                                     onClick={() => router.push(`/dealer/dashboard/companies/${company.id}/account`)}
                                                                 >
                                                                     <Wallet className="mr-2 h-4 w-4" />
-                                                                    View Account
+                                                                    {t("dealer.company.buttons.viewAccount")}
                                                                 </Button>
                                                                 <Button
                                                                     variant="outline"
@@ -557,7 +559,7 @@ export default function DealerCompanyPage() {
                                                                     }}
                                                                 >
                                                                     <Eye className="mr-2 h-4 w-4" />
-                                                                    View Catalog
+                                                                    {t("dealer.company.buttons.viewCatalog")}
                                                                 </Button>
                                                                 <Button
                                                                     variant="ghost"
@@ -582,20 +584,20 @@ export default function DealerCompanyPage() {
                     {/* Verification Requests Section */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Verification Requests</CardTitle>
+                            <CardTitle>{t("dealer.company.requests.title")}</CardTitle>
                             <CardDescription>
-                                {filteredVerificationRequests.length} pending/rejected request(s)
+                                {t("dealer.company.requests.subtitle", { count: filteredVerificationRequests.length })}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
                             {filteredVerificationRequests.length === 0 ? (
                                 <div className="text-center py-8">
                                     <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                                    <h3 className="text-lg font-semibold mb-2">No verification requests</h3>
+                                    <h3 className="text-lg font-semibold mb-2">{t("dealer.company.requests.empty.title")}</h3>
                                     <p className="text-muted-foreground mb-4">
                                         {search || statusFilter !== "ALL"
-                                            ? "No requests match your filters."
-                                            : "You don't have any pending or rejected verification requests."}
+                                            ? t("dealer.company.requests.empty.descSearch")
+                                            : t("dealer.company.requests.empty.descDefault")}
                                     </p>
                                 </div>
                             ) : (
@@ -620,11 +622,11 @@ export default function DealerCompanyPage() {
                                             <CardContent>
                                                 <div className="space-y-2 text-sm">
                                                     <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">Status:</span>
+                                                        <span className="text-muted-foreground">{t("dealer.company.requests.card.status")}</span>
                                                         <span className="font-medium">{request.status}</span>
                                                     </div>
                                                     <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">Applied:</span>
+                                                        <span className="text-muted-foreground">{t("dealer.company.requests.card.applied")}</span>
                                                         <span className="font-medium">
                                                             {new Date(request.createdAt).toLocaleDateString()}
                                                         </span>
@@ -632,14 +634,14 @@ export default function DealerCompanyPage() {
                                                     {request.status === "REJECTED" && (
                                                         <>
                                                             <div className="flex justify-between">
-                                                                <span className="text-muted-foreground">Rejection Count:</span>
+                                                                <span className="text-muted-foreground">{t("dealer.company.requests.card.rejectionCount")}</span>
                                                                 <span className="font-medium text-red-600">
                                                                     {request.rejectedCount}/3
                                                                 </span>
                                                             </div>
                                                             {request.lastRejectedAt && (
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-muted-foreground">Last Rejected:</span>
+                                                                    <span className="text-muted-foreground">{t("dealer.company.requests.card.lastRejected")}</span>
                                                                     <span className="font-medium">
                                                                         {new Date(request.lastRejectedAt).toLocaleDateString()}
                                                                     </span>
@@ -659,7 +661,7 @@ export default function DealerCompanyPage() {
                                                             disabled={createRequestMutation.isPending}
                                                         >
                                                             <RefreshCw className="mr-2 h-4 w-4" />
-                                                            Retry
+                                                            {t("dealer.company.buttons.retry")}
                                                         </Button>
                                                     )}
                                                     {request.status === "REJECTED" && !canRetry(request) && (
@@ -673,7 +675,7 @@ export default function DealerCompanyPage() {
                                                         <>
                                                             <div className="flex-1">
                                                                 <p className="text-xs text-yellow-600 text-center font-medium">
-                                                                    Waiting for company approval
+                                                                    {t("dealer.company.requests.card.waiting")}
                                                                 </p>
                                                             </div>
                                                             <Button
@@ -683,7 +685,7 @@ export default function DealerCompanyPage() {
                                                                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                                             >
                                                                 <X className="mr-1 h-4 w-4" />
-                                                                Cancel
+                                                                {t("dealer.company.buttons.cancel")}
                                                             </Button>
                                                         </>
                                                     )}
@@ -700,18 +702,18 @@ export default function DealerCompanyPage() {
                 /* Archived Companies Tab */
                 <Card>
                     <CardHeader>
-                        <CardTitle>Archived Companies</CardTitle>
+                        <CardTitle>{t("dealer.company.archived.title")}</CardTitle>
                         <CardDescription>
-                            {archivedCompanies.length} archived company(ies)
+                            {t("dealer.company.archived.subtitle", { count: archivedCompanies.length })}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         {archivedCompanies.length === 0 ? (
                             <div className="text-center py-8">
                                 <Archive className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                                <h3 className="text-lg font-semibold mb-2">No archived companies</h3>
+                                <h3 className="text-lg font-semibold mb-2">{t("dealer.company.archived.empty.title")}</h3>
                                 <p className="text-muted-foreground">
-                                    Connections you archive will appear here and can be restored anytime.
+                                    {t("dealer.company.archived.empty.desc")}
                                 </p>
                             </div>
                         ) : (
@@ -730,7 +732,7 @@ export default function DealerCompanyPage() {
                                                 </div>
                                                 <Badge className="bg-gray-200 text-gray-700 hover:bg-gray-200">
                                                     <Archive className="mr-1 h-3 w-3" />
-                                                    Archived
+                                                    {t("dealer.company.badges.archived")}
                                                 </Badge>
                                             </div>
                                         </CardHeader>
@@ -739,17 +741,17 @@ export default function DealerCompanyPage() {
                                                 {company.owner && (
                                                     <>
                                                         <div className="flex justify-between">
-                                                            <span className="text-muted-foreground">Owner:</span>
+                                                            <span className="text-muted-foreground">{t("dealer.company.connected.card.owner")}</span>
                                                             <span className="font-medium">{company.owner.name}</span>
                                                         </div>
                                                         <div className="flex justify-between">
-                                                            <span className="text-muted-foreground">Contact:</span>
+                                                            <span className="text-muted-foreground">{t("dealer.company.connected.card.contact")}</span>
                                                             <span className="font-medium">{company.owner.phone}</span>
                                                         </div>
                                                     </>
                                                 )}
                                                 <div className="flex justify-between">
-                                                    <span className="text-muted-foreground">Connected:</span>
+                                                    <span className="text-muted-foreground">{t("dealer.company.connected.card.connected")}</span>
                                                     <span className="font-medium">
                                                         {new Date(company.connectedAt).toLocaleDateString()}
                                                     </span>
@@ -765,7 +767,7 @@ export default function DealerCompanyPage() {
                                                     disabled={unarchiveMutation.isPending}
                                                 >
                                                     <ArchiveRestore className="mr-2 h-4 w-4" />
-                                                    Restore Connection
+                                                    {t("dealer.company.buttons.restore")}
                                                 </Button>
                                             </div>
                                         </CardContent>
@@ -782,21 +784,20 @@ export default function DealerCompanyPage() {
                 <Dialog open={!!archiveConfirm} onOpenChange={() => setArchiveConfirm(null)}>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>Archive Connection</DialogTitle>
+                            <DialogTitle>{t("dealer.company.dialogs.archive.title")}</DialogTitle>
                             <DialogDescription>
-                                Are you sure you want to archive your connection with {archiveConfirm.name}?
-                                You can restore it later from the Archived tab.
+                                {t("dealer.company.dialogs.archive.description", { name: archiveConfirm.name })}
                             </DialogDescription>
                         </DialogHeader>
                         <DialogFooter>
                             <Button variant="outline" onClick={() => setArchiveConfirm(null)}>
-                                Cancel
+                                {t("dealer.company.dialogs.archive.cancel")}
                             </Button>
                             <Button
                                 onClick={() => handleArchive(archiveConfirm.id)}
                                 disabled={archiveMutation.isPending}
                             >
-                                Archive
+                                {t("dealer.company.dialogs.archive.confirm")}
                             </Button>
                         </DialogFooter>
                     </DialogContent>
@@ -822,7 +823,7 @@ export default function DealerCompanyPage() {
                                 onClick={() => handleCancelRequest(cancelConfirm.id)}
                                 disabled={cancelRequestMutation.isPending}
                             >
-                                Yes, Cancel Request
+                                {t("dealer.company.dialogs.cancelRequest.confirm")}
                             </Button>
                         </DialogFooter>
                     </DialogContent>
@@ -833,25 +834,23 @@ export default function DealerCompanyPage() {
             <Dialog open={isApplyDialogOpen} onOpenChange={setIsApplyDialogOpen}>
                 <DialogContent className="max-w-2xl bg-white">
                     <DialogHeader>
-                        <DialogTitle>Apply to Company</DialogTitle>
+                        <DialogTitle>{t("dealer.company.dialogs.apply.title")}</DialogTitle>
                         <DialogDescription>
-                            Search and select a company to send a verification request
+                            {t("dealer.company.dialogs.apply.description")}
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Select Company</label>
+                            <label className="text-sm font-medium">{t("dealer.company.dialogs.apply.selectLabel")}</label>
                             <PublicCompanySearchSelect
                                 value={selectedCompanyId || undefined}
                                 onValueChange={(companyId) => setSelectedCompanyId(companyId || null)}
-                                placeholder="Search for a company..."
+                                placeholder={t("dealer.company.dialogs.apply.placeholder")}
                             />
                             {selectedCompanyId && (
                                 <p className="text-xs text-muted-foreground">
-                                    You can only have one pending request per company. If already approved,
-                                    you&apos;re connected. If rejected, wait 1 hour before retrying (max 3
-                                    retries).
+                                    {t("dealer.company.dialogs.apply.helpText")}
                                 </p>
                             )}
                         </div>
@@ -866,14 +865,14 @@ export default function DealerCompanyPage() {
                             }}
                             disabled={createRequestMutation.isPending}
                         >
-                            Cancel
+                            {t("dealer.company.dialogs.archive.cancel")}
                         </Button>
                         <Button
                             onClick={handleApply}
                             disabled={!selectedCompanyId || createRequestMutation.isPending}
                             className="bg-primary"
                         >
-                            {createRequestMutation.isPending ? "Sending..." : "Apply to Company"}
+                            {createRequestMutation.isPending ? t("dealer.company.dialogs.apply.sending") : t("dealer.company.dialogs.apply.confirm")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

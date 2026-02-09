@@ -40,6 +40,7 @@ import {
 } from "@/fetchers/payment/paymentRequestQueries";
 import { useGetConnectedFarmers, useGetFarmerAccount } from "@/fetchers/dealer/dealerFarmerQueries";
 import { toast } from "sonner";
+import { useI18n } from "@/i18n/useI18n";
 
 import {
   Tabs,
@@ -49,6 +50,7 @@ import {
 } from "@/common/components/ui/tabs";
 
 export default function DealerPaymentRequestsPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -83,15 +85,15 @@ export default function DealerPaymentRequestsPage() {
   const handleApprove = async (requestId: string) => {
     try {
       await approveMutation.mutateAsync(requestId);
-      toast.success("Payment request approved successfully");
+      toast.success(t("dealer.paymentRequests.messages.approved"));
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to approve request");
+      toast.error(error.response?.data?.message || t("dealer.paymentRequests.messages.approveFailed"));
     }
   };
 
   const handleReject = async () => {
     if (!selectedRequest || !rejectionReason.trim()) {
-      toast.error("Please provide a rejection reason");
+      toast.error(t("dealer.paymentRequests.messages.provideReason"));
       return;
     }
 
@@ -100,22 +102,22 @@ export default function DealerPaymentRequestsPage() {
         requestId: selectedRequest.id,
         rejectionReason,
       });
-      toast.success("Payment request rejected");
+      toast.success(t("dealer.paymentRequests.messages.rejected"));
       setIsRejectDialogOpen(false);
       setSelectedRequest(null);
       setRejectionReason("");
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to reject request");
+      toast.error(error.response?.data?.message || t("dealer.paymentRequests.messages.rejectFailed"));
     }
   };
 
   const handleCreateRequest = async () => {
     if (!selectedFarmerId) {
-      toast.error("Please select a farmer");
+      toast.error(t("dealer.paymentRequests.messages.selectFarmer"));
       return;
     }
     if (!createAmount || Number(createAmount) <= 0) {
-      toast.error("Please enter a valid amount");
+      toast.error(t("dealer.paymentRequests.messages.invalidAmount"));
       return;
     }
 
@@ -125,13 +127,13 @@ export default function DealerPaymentRequestsPage() {
         amount: Number(createAmount),
         description: createDescription || undefined,
       });
-      toast.success("Payment request created successfully");
+      toast.success(t("dealer.paymentRequests.messages.created"));
       setIsCreateDialogOpen(false);
       setSelectedFarmerId("");
       setCreateAmount("");
       setCreateDescription("");
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to create payment request");
+      toast.error(error.response?.data?.message || t("dealer.paymentRequests.messages.createFailed"));
     }
   };
 
@@ -149,9 +151,9 @@ export default function DealerPaymentRequestsPage() {
 
   const getStatusBadge = (status: string) => {
     const variants = {
-      PENDING: <Badge variant="outline" className="bg-yellow-100 text-yellow-800"><Clock className="h-3 w-3 mr-1" />Pending</Badge>,
-      APPROVED: <Badge variant="outline" className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Approved</Badge>,
-      REJECTED: <Badge variant="outline" className="bg-red-100 text-red-800"><XCircle className="h-3 w-3 mr-1" />Rejected</Badge>,
+      PENDING: <Badge variant="outline" className="bg-yellow-100 text-yellow-800"><Clock className="h-3 w-3 mr-1" />{t("dealer.paymentRequests.stats.pending")}</Badge>,
+      APPROVED: <Badge variant="outline" className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />{t("dealer.paymentRequests.stats.approved")}</Badge>,
+      REJECTED: <Badge variant="outline" className="bg-red-100 text-red-800"><XCircle className="h-3 w-3 mr-1" />{t("dealer.paymentRequests.stats.rejected")}</Badge>,
     };
     return variants[status as keyof typeof variants] || status;
   };
@@ -179,15 +181,15 @@ export default function DealerPaymentRequestsPage() {
             className="text-xs md:text-sm"
           >
             <ArrowLeft className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" />
-            <span className="hidden sm:inline">Back to Customers</span>
-            <span className="sm:hidden">Back</span>
+            <span className="hidden sm:inline">{t("dealer.paymentRequests.back")}</span>
+            <span className="sm:hidden">{t("common.back")}</span>
           </Button>
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Payment Requests</h1>
+            <h1 className="text-2xl md:text-3xl font-bold">{t("dealer.paymentRequests.title")}</h1>
             <p className="text-sm md:text-base text-muted-foreground">
-              Manage payment requests from farmers
+              {t("dealer.paymentRequests.subtitle")}
             </p>
           </div>
           <Button
@@ -195,7 +197,7 @@ export default function DealerPaymentRequestsPage() {
             className="hidden sm:flex"
           >
             <Plus className="h-4 w-4 mr-2" />
-            Create Request
+            {t("dealer.paymentRequests.createRequest")}
           </Button>
           <Button
             size="sm"
@@ -211,7 +213,7 @@ export default function DealerPaymentRequestsPage() {
       <div className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-4">
         <Card>
           <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">Pending</CardTitle>
+            <CardTitle className="text-[10px] md:text-sm font-medium">{t("dealer.paymentRequests.stats.pending")}</CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
             <div className="text-base md:text-2xl font-bold">{stats.pending}</div>
@@ -223,7 +225,7 @@ export default function DealerPaymentRequestsPage() {
         </Card>
         <Card>
           <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">Approved</CardTitle>
+            <CardTitle className="text-[10px] md:text-sm font-medium">{t("dealer.paymentRequests.stats.approved")}</CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
             <div className="text-base md:text-2xl font-bold text-green-600">{stats.approved}</div>
@@ -231,7 +233,7 @@ export default function DealerPaymentRequestsPage() {
         </Card>
         <Card>
           <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">Rejected</CardTitle>
+            <CardTitle className="text-[10px] md:text-sm font-medium">{t("dealer.paymentRequests.stats.rejected")}</CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
             <div className="text-base md:text-2xl font-bold text-red-600">{stats.rejected}</div>
@@ -239,7 +241,7 @@ export default function DealerPaymentRequestsPage() {
         </Card>
         <Card>
           <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">Total</CardTitle>
+            <CardTitle className="text-[10px] md:text-sm font-medium">{t("dealer.paymentRequests.stats.total")}</CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
             <div className="text-base md:text-2xl font-bold">{stats.total}</div>
@@ -252,7 +254,7 @@ export default function DealerPaymentRequestsPage() {
         <div className="relative w-full sm:w-[200px]">
           <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search..."
+            placeholder={t("dealer.paymentRequests.filters.search")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-8 h-9 text-xs bg-background"
@@ -260,13 +262,13 @@ export default function DealerPaymentRequestsPage() {
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="h-9 text-xs w-full sm:w-[130px] bg-background">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder={t("dealer.paymentRequests.filters.status")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="ALL">All</SelectItem>
-            <SelectItem value="PENDING">Pending</SelectItem>
-            <SelectItem value="APPROVED">Approved</SelectItem>
-            <SelectItem value="REJECTED">Rejected</SelectItem>
+            <SelectItem value="ALL">{t("dealer.paymentRequests.filters.all")}</SelectItem>
+            <SelectItem value="PENDING">{t("dealer.paymentRequests.filters.pending")}</SelectItem>
+            <SelectItem value="APPROVED">{t("dealer.paymentRequests.filters.approved")}</SelectItem>
+            <SelectItem value="REJECTED">{t("dealer.paymentRequests.filters.rejected")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -274,7 +276,7 @@ export default function DealerPaymentRequestsPage() {
       <Tabs defaultValue="received" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger value="received">
-            Received (From Farmers)
+            {t("dealer.paymentRequests.tabs.received")}
             {requests.filter((r: any) => !r.requestNumber?.startsWith("DPR-")).length > 0 && (
               <Badge variant="secondary" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center">
                 {requests.filter((r: any) => !r.requestNumber?.startsWith("DPR-")).length}
@@ -282,7 +284,7 @@ export default function DealerPaymentRequestsPage() {
             )}
           </TabsTrigger>
           <TabsTrigger value="sent">
-            Sent (To Farmers)
+            {t("dealer.paymentRequests.tabs.sent")}
             {requests.filter((r: any) => r.requestNumber?.startsWith("DPR-")).length > 0 && (
               <Badge variant="secondary" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center">
                 {requests.filter((r: any) => r.requestNumber?.startsWith("DPR-")).length}
@@ -294,26 +296,26 @@ export default function DealerPaymentRequestsPage() {
         <TabsContent value="received">
           <Card>
             <CardHeader className="p-3 md:p-6">
-              <CardTitle className="text-base md:text-lg">Payment Requests from Farmers</CardTitle>
+              <CardTitle className="text-base md:text-lg">{t("dealer.paymentRequests.table.titleReceived")}</CardTitle>
               <CardDescription className="text-xs md:text-sm">
-                Requests initiated by farmers (e.g., payment proofs)
+                {t("dealer.paymentRequests.table.descReceived")}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <DataTable
                 data={requests.filter((r: any) => !r.requestNumber?.startsWith("DPR-"))}
                 loading={isLoading}
-                emptyMessage="No payment requests received from farmers"
+                emptyMessage={t("dealer.paymentRequests.table.emptyReceived")}
                 columns={[
                   {
                     key: 'requestNumber',
-                    label: 'Request',
+                    label: t("dealer.paymentRequests.table.request"),
                     width: '90px',
                     render: (val) => <span className="font-medium">{val}</span>
                   },
                   {
                     key: 'farmer',
-                    label: 'Farmer',
+                    label: t("dealer.paymentRequests.table.farmer"),
                     width: '120px',
                     render: (val) => (
                       <div>
@@ -324,26 +326,26 @@ export default function DealerPaymentRequestsPage() {
                   },
                   {
                     key: 'amount',
-                    label: 'Amount',
+                    label: t("dealer.paymentRequests.table.amount"),
                     align: 'right',
                     width: '90px',
                     render: (val) => <span className="font-semibold">{formatCurrency(val)}</span>
                   },
                   {
                     key: 'createdAt',
-                    label: 'Date',
+                    label: t("dealer.paymentRequests.table.date"),
                     width: '90px',
                     render: (val) => formatDate(val)
                   },
                   {
                     key: 'status',
-                    label: 'Status',
+                    label: t("dealer.paymentRequests.table.status"),
                     width: '100px',
                     render: (val) => getStatusBadge(val)
                   },
                   {
                     key: 'proofOfPaymentUrl',
-                    label: 'Proof',
+                    label: t("dealer.paymentRequests.table.proof"),
                     width: '60px',
                     align: 'center',
                     render: (val, row) => val ? (
@@ -410,26 +412,26 @@ export default function DealerPaymentRequestsPage() {
         <TabsContent value="sent">
           <Card>
             <CardHeader className="p-3 md:p-6">
-              <CardTitle className="text-base md:text-lg">Payment Requests Sent to Farmers</CardTitle>
+              <CardTitle className="text-base md:text-lg">{t("dealer.paymentRequests.table.titleSent")}</CardTitle>
               <CardDescription className="text-xs md:text-sm">
-                Requests you sent asking farmers for payment
+                {t("dealer.paymentRequests.table.descSent")}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <DataTable
                 data={requests.filter((r: any) => r.requestNumber?.startsWith("DPR-"))}
                 loading={isLoading}
-                emptyMessage="No payment requests sent to farmers"
+                emptyMessage={t("dealer.paymentRequests.table.emptySent")}
                 columns={[
                   {
                     key: 'requestNumber',
-                    label: 'Request',
+                    label: t("dealer.paymentRequests.table.request"),
                     width: '90px',
                     render: (val) => <span className="font-medium">{val}</span>
                   },
                   {
                     key: 'farmer',
-                    label: 'Farmer',
+                    label: t("dealer.paymentRequests.table.farmer"),
                     width: '120px',
                     render: (val) => (
                       <div>
@@ -440,26 +442,26 @@ export default function DealerPaymentRequestsPage() {
                   },
                   {
                     key: 'amount',
-                    label: 'Amount',
+                    label: t("dealer.paymentRequests.table.amount"),
                     align: 'right',
                     width: '90px',
                     render: (val) => <span className="font-semibold">{formatCurrency(val)}</span>
                   },
                   {
                     key: 'createdAt',
-                    label: 'Date',
+                    label: t("dealer.paymentRequests.table.date"),
                     width: '90px',
                     render: (val) => formatDate(val)
                   },
                   {
                     key: 'status',
-                    label: 'Status',
+                    label: t("dealer.paymentRequests.table.status"),
                     width: '100px',
                     render: (val) => getStatusBadge(val)
                   },
                   {
                     key: 'proofOfPaymentUrl',
-                    label: 'Proof',
+                    label: t("dealer.paymentRequests.table.proof"),
                     width: '60px',
                     align: 'center',
                     render: (val, row) => val ? (
@@ -480,7 +482,7 @@ export default function DealerPaymentRequestsPage() {
                   },
                   {
                     key: 'actions',
-                    label: 'Actions',
+                    label: t("dealer.paymentRequests.table.actions"),
                     align: 'right',
                     width: '120px',
                     render: (_, request) => (
@@ -493,7 +495,6 @@ export default function DealerPaymentRequestsPage() {
                               className="h-7 w-7 p-0 bg-green-50 text-green-700 hover:bg-green-100"
                               onClick={() => handleApprove(request.id)}
                               disabled={approveMutation.isPending}
-                              title="Approve Payment"
                             >
                               <CheckCircle className="h-3.5 w-3.5" />
                             </Button>
@@ -505,7 +506,6 @@ export default function DealerPaymentRequestsPage() {
                                 setSelectedRequest(request);
                                 setIsRejectDialogOpen(true);
                               }}
-                              title="Reject Payment"
                             >
                               <XCircle className="h-3.5 w-3.5" />
                             </Button>
@@ -530,17 +530,17 @@ export default function DealerPaymentRequestsPage() {
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Payment Request</DialogTitle>
+            <DialogTitle>{t("dealer.paymentRequests.dialogs.create.title")}</DialogTitle>
             <DialogDescription>
-              Request payment from a farmer.
+              {t("dealer.paymentRequests.dialogs.create.desc")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="farmer">Select Farmer</Label>
+              <Label htmlFor="farmer">{t("dealer.paymentRequests.dialogs.create.selectFarmer")}</Label>
               <Select value={selectedFarmerId} onValueChange={setSelectedFarmerId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a farmer" />
+                  <SelectValue placeholder={t("dealer.paymentRequests.dialogs.create.placeholderFarmer")} />
                 </SelectTrigger>
                 <SelectContent>
                   {connectedFarmers.map((farmer) => (
@@ -554,7 +554,7 @@ export default function DealerPaymentRequestsPage() {
 
             {selectedFarmerId && selectedFarmerAccount && (
               <div className="p-3 bg-muted rounded-lg">
-                <div className="text-sm text-muted-foreground">Current Balance</div>
+                <div className="text-sm text-muted-foreground">{t("dealer.paymentRequests.dialogs.create.currentBalance")}</div>
                 <div className="text-lg font-bold">
                   {formatCurrency(selectedFarmerAccount.balance)}
                 </div>
@@ -562,24 +562,24 @@ export default function DealerPaymentRequestsPage() {
             )}
 
             <div>
-              <Label htmlFor="amount">Amount (रू)</Label>
+              <Label htmlFor="amount">{t("dealer.paymentRequests.dialogs.create.amount")}</Label>
               <Input
                 id="amount"
                 type="number"
                 value={createAmount}
                 onChange={(e) => setCreateAmount(e.target.value)}
-                placeholder="Enter amount"
+                placeholder={t("dealer.paymentRequests.dialogs.create.placeholderAmount")}
                 min="1"
               />
             </div>
 
             <div>
-              <Label htmlFor="description">Description (Optional)</Label>
+              <Label htmlFor="description">{t("dealer.paymentRequests.dialogs.create.description")}</Label>
               <Textarea
                 id="description"
                 value={createDescription}
                 onChange={(e) => setCreateDescription(e.target.value)}
-                placeholder="Enter description..."
+                placeholder={t("dealer.paymentRequests.dialogs.create.placeholderDesc")}
                 rows={3}
               />
             </div>
@@ -594,13 +594,13 @@ export default function DealerPaymentRequestsPage() {
                 setCreateDescription("");
               }}
             >
-              Cancel
+              {t("dealer.paymentRequests.dialogs.create.cancel")}
             </Button>
             <Button
               onClick={handleCreateRequest}
               disabled={createMutation.isPending || !selectedFarmerId || !createAmount}
             >
-              {createMutation.isPending ? "Creating..." : "Create Request"}
+              {createMutation.isPending ? t("dealer.paymentRequests.dialogs.create.submitting") : t("dealer.paymentRequests.dialogs.create.submit")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -610,19 +610,19 @@ export default function DealerPaymentRequestsPage() {
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject Payment Request</DialogTitle>
+            <DialogTitle>{t("dealer.paymentRequests.dialogs.reject.title")}</DialogTitle>
             <DialogDescription>
-              Please provide a reason for rejecting this payment request.
+              {t("dealer.paymentRequests.dialogs.reject.desc")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="rejectionReason">Rejection Reason</Label>
+              <Label htmlFor="rejectionReason">{t("dealer.paymentRequests.dialogs.reject.reason")}</Label>
               <Textarea
                 id="rejectionReason"
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Enter reason for rejection..."
+                placeholder={t("dealer.paymentRequests.dialogs.reject.placeholderReason")}
                 rows={4}
               />
             </div>
@@ -636,14 +636,14 @@ export default function DealerPaymentRequestsPage() {
                 setSelectedRequest(null);
               }}
             >
-              Cancel
+              {t("dealer.paymentRequests.dialogs.reject.cancel")}
             </Button>
             <Button
               variant="destructive"
               onClick={handleReject}
               disabled={rejectMutation.isPending || !rejectionReason.trim()}
             >
-              Reject Request
+              {t("dealer.paymentRequests.dialogs.reject.submit")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -653,7 +653,7 @@ export default function DealerPaymentRequestsPage() {
       <Dialog open={isImageDialogOpen} onOpenChange={setIsImageDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Payment Proof</DialogTitle>
+            <DialogTitle>{t("dealer.paymentRequests.dialogs.proof.title")}</DialogTitle>
           </DialogHeader>
           <div className="flex items-center justify-center p-4">
             {selectedRequest?.proofOfPaymentUrl ? (
@@ -664,7 +664,7 @@ export default function DealerPaymentRequestsPage() {
               />
             ) : (
               <div className="text-center text-muted-foreground p-8">
-                No proof image available
+                {t("dealer.paymentRequests.dialogs.proof.noImage")}
               </div>
             )}
           </div>
@@ -673,7 +673,7 @@ export default function DealerPaymentRequestsPage() {
               {selectedRequest?.requestNumber}
             </div>
             <Button variant="secondary" onClick={() => setIsImageDialogOpen(false)}>
-              Close
+              {t("dealer.paymentRequests.dialogs.proof.close")}
             </Button>
           </DialogFooter>
         </DialogContent>

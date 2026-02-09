@@ -63,10 +63,12 @@ import {
   useCreateFarmerPaymentRequest,
 } from "@/fetchers/farmer/farmerPaymentRequestQueries";
 import { toast } from "sonner";
+import { useI18n } from "@/i18n/useI18n";
 
 type EntityType = "ALL" | "DEALER" | "HATCHERY" | "CUSTOMER" | "MEDICINE_SUPPLIER";
 
 export default function AccountsPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<EntityType>("ALL");
   const [transactionTypeFilter, setTransactionTypeFilter] = useState<string>("");
@@ -176,7 +178,7 @@ export default function AccountsPage() {
     e.preventDefault();
 
     if (!selectedDealer || !paymentAmount || Number(paymentAmount) <= 0) {
-      toast.error("Please enter a valid amount");
+      toast.error(t("farmer.accountLedger.paymentDialog.errors.invalidAmount"));
       return;
     }
 
@@ -190,10 +192,10 @@ export default function AccountsPage() {
         description: paymentNotes || undefined,
       });
 
-      toast.success("Payment request created! Awaiting dealer approval.");
+      toast.success(t("farmer.accountLedger.paymentDialog.errors.success"));
       closePaymentDialog();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to create payment request");
+      toast.error(error.response?.data?.message || t("farmer.accountLedger.paymentDialog.errors.fail"));
     }
   };
 
@@ -222,12 +224,12 @@ export default function AccountsPage() {
 
   // Table columns
   const columns: Column<AccountTransaction>[] = [
-    createColumn("date", "Date", {
+    createColumn("date", t("farmer.accountLedger.table.date"), {
       type: "date",
       width: "120px",
       render: (value) => <DateDisplay date={value} format="short" />,
     }),
-    createColumn("entityType", "Entity Type", {
+    createColumn("entityType", t("farmer.accountLedger.table.entityType"), {
       width: "140px",
       render: (value) => {
         const colors: Record<string, string> = {
@@ -237,10 +239,10 @@ export default function AccountsPage() {
           MEDICINE_SUPPLIER: "bg-orange-100 text-orange-800",
         };
         const labels: Record<string, string> = {
-          DEALER: "Dealer",
-          HATCHERY: "Hatchery",
-          CUSTOMER: "Customer",
-          MEDICINE_SUPPLIER: "Medicine",
+          DEALER: t("farmer.accountLedger.entityTypes.dealer"),
+          HATCHERY: t("farmer.accountLedger.entityTypes.hatchery"),
+          CUSTOMER: t("farmer.accountLedger.entityTypes.customer"),
+          MEDICINE_SUPPLIER: t("farmer.accountLedger.entityTypes.medicine"),
         };
         return (
           <Badge className={colors[value] || "bg-gray-100 text-gray-800"}>
@@ -249,7 +251,7 @@ export default function AccountsPage() {
         );
       },
     }),
-    createColumn("entityName", "Entity Name", {
+    createColumn("entityName", t("farmer.accountLedger.table.entityName"), {
       width: "180px",
       render: (value, row) => (
         <button
@@ -261,7 +263,7 @@ export default function AccountsPage() {
         </button>
       ),
     }),
-    createColumn("type", "Transaction Type", {
+    createColumn("type", t("farmer.accountLedger.table.transactionType"), {
       width: "140px",
       render: (value) => {
         const colors: Record<string, string> = {
@@ -271,10 +273,10 @@ export default function AccountsPage() {
           SALE: "bg-green-100 text-green-800",
         };
         const labels: Record<string, string> = {
-          PURCHASE: "Purchase",
-          PAYMENT: "Payment",
-          RECEIPT: "Receipt",
-          SALE: "Sale",
+          PURCHASE: t("farmer.accountLedger.transactionTypes.purchase"),
+          PAYMENT: t("farmer.accountLedger.transactionTypes.payment"),
+          RECEIPT: t("farmer.accountLedger.transactionTypes.receipt"),
+          SALE: t("farmer.accountLedger.transactionTypes.sale"),
         };
         return (
           <Badge className={colors[value] || "bg-gray-100 text-gray-800"}>
@@ -283,21 +285,21 @@ export default function AccountsPage() {
         );
       },
     }),
-    createColumn("description", "Description", {
+    createColumn("description", t("farmer.accountLedger.table.description"), {
       width: "200px",
       render: (value, row) => (
         <div>
           <div className="font-medium">{value || row.itemName || "—"}</div>
           {row.quantity && (
             <div className="text-xs text-gray-500">
-              Qty: {row.quantity}
-              {row.freeQuantity ? ` + ${row.freeQuantity} free` : ""}
+              {t("farmer.accountLedger.table.qty", { qty: row.quantity })}
+              {row.freeQuantity ? ` ${t("farmer.accountLedger.table.freeQty", { qty: row.freeQuantity })}` : ""}
             </div>
           )}
         </div>
       ),
     }),
-    createColumn("debit", "Debit", {
+    createColumn("debit", t("farmer.accountLedger.table.debit"), {
       type: "currency",
       align: "right",
       width: "120px",
@@ -307,7 +309,7 @@ export default function AccountsPage() {
         </span>
       ),
     }),
-    createColumn("credit", "Credit", {
+    createColumn("credit", t("farmer.accountLedger.table.credit"), {
       type: "currency",
       align: "right",
       width: "120px",
@@ -317,7 +319,7 @@ export default function AccountsPage() {
         </span>
       ),
     }),
-    createColumn("runningBalance", "Balance", {
+    createColumn("runningBalance", t("farmer.accountLedger.table.balance"), {
       type: "currency",
       align: "right",
       width: "140px",
@@ -333,7 +335,7 @@ export default function AccountsPage() {
         </span>
       ),
     }),
-    createColumn("reference", "Reference", {
+    createColumn("reference", t("farmer.accountLedger.table.reference"), {
       width: "120px",
       render: (value) => (
         <span className="text-sm text-gray-600">{value || "—"}</span>
@@ -346,9 +348,9 @@ export default function AccountsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Account Ledger</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t("farmer.accountLedger.title")}</h1>
           <p className="text-sm md:text-base text-muted-foreground">
-            Bookkeeping for all transactions.
+            {t("farmer.accountLedger.subtitle")}
           </p>
         </div>
       </div>
@@ -356,11 +358,11 @@ export default function AccountsPage() {
       {/* Tabs */}
       <div className="flex gap-1 bg-muted p-1 rounded-lg overflow-x-auto">
         {[
-          { id: "ALL", label: "All", icon: BookOpen },
-          { id: "DEALER", label: "Dealers", icon: Users },
-          { id: "HATCHERY", label: "Hatchery", icon: Egg },
-          { id: "CUSTOMER", label: "Customers", icon: ShoppingCart },
-          { id: "MEDICINE_SUPPLIER", label: "Meds", icon: Pill },
+          { id: "ALL", label: t("farmer.accountLedger.tabs.all"), icon: BookOpen },
+          { id: "DEALER", label: t("farmer.accountLedger.tabs.dealers"), icon: Users },
+          { id: "HATCHERY", label: t("farmer.accountLedger.tabs.hatchery"), icon: Egg },
+          { id: "CUSTOMER", label: t("farmer.accountLedger.tabs.customers"), icon: ShoppingCart },
+          { id: "MEDICINE_SUPPLIER", label: t("farmer.accountLedger.tabs.medicine"), icon: Pill },
         ].map((tab) => (
           <Button
             key={tab.id}
@@ -371,7 +373,7 @@ export default function AccountsPage() {
           >
             <tab.icon className="h-3.5 w-3.5 md:h-4 md:w-4" />
             <span className="hidden sm:inline">{tab.label}</span>
-            <span className="sm:hidden">{tab.id === "ALL" ? "All" : tab.id === "DEALER" ? "D" : tab.id === "HATCHERY" ? "H" : tab.id === "CUSTOMER" ? "C" : "M"}</span>
+            <span className="sm:hidden">{tab.id === "ALL" ? t("farmer.accountLedger.filters.allTypes") : tab.id === "DEALER" ? "D" : tab.id === "HATCHERY" ? "H" : tab.id === "CUSTOMER" ? "C" : "M"}</span>
           </Button>
         ))}
       </div>
@@ -383,31 +385,31 @@ export default function AccountsPage() {
           <div className="grid gap-2 grid-cols-3 mb-4">
             <Card>
               <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
-                <CardTitle className="text-[10px] md:text-sm font-medium">Dealers</CardTitle>
+                <CardTitle className="text-[10px] md:text-sm font-medium">{t("farmer.accountLedger.dealerTab.stats.dealers")}</CardTitle>
               </CardHeader>
               <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
                 <div className="text-base md:text-2xl font-bold">{dealers.length}</div>
-                <p className="text-[9px] md:text-xs text-muted-foreground">Connected</p>
+                <p className="text-[9px] md:text-xs text-muted-foreground">{t("farmer.accountLedger.dealerTab.stats.connected")}</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
-                <CardTitle className="text-[10px] md:text-sm font-medium">Due</CardTitle>
+                <CardTitle className="text-[10px] md:text-sm font-medium">{t("farmer.accountLedger.dealerTab.stats.due")}</CardTitle>
               </CardHeader>
               <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
                 <div className="text-base md:text-2xl font-bold text-red-600">
                   <span className="hidden md:inline">रू</span>{dealers.reduce((sum: number, d: any) => sum + Math.max(0, d.balance || 0), 0).toLocaleString()}
                 </div>
-                <p className="text-[9px] md:text-xs text-muted-foreground">Outstanding</p>
+                <p className="text-[9px] md:text-xs text-muted-foreground">{t("farmer.accountLedger.dealerTab.stats.outstanding")}</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
-                <CardTitle className="text-[10px] md:text-sm font-medium">Pending</CardTitle>
+                <CardTitle className="text-[10px] md:text-sm font-medium">{t("farmer.accountLedger.dealerTab.stats.pending")}</CardTitle>
               </CardHeader>
               <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
                 <div className="text-base md:text-2xl font-bold text-yellow-600">{stats.pending}</div>
-                <p className="text-[9px] md:text-xs text-muted-foreground">Requests</p>
+                <p className="text-[9px] md:text-xs text-muted-foreground">{t("farmer.accountLedger.dealerTab.stats.requests")}</p>
               </CardContent>
             </Card>
           </div>
@@ -415,33 +417,33 @@ export default function AccountsPage() {
           {/* Dealers Table */}
           <Card>
             <CardHeader className="p-3 md:p-6">
-              <CardTitle className="text-base md:text-lg">Dealers & Balances</CardTitle>
+              <CardTitle className="text-base md:text-lg">{t("farmer.accountLedger.dealerTab.table.title")}</CardTitle>
               <CardDescription className="text-xs md:text-sm">
-                {dealers.length} dealer{dealers.length !== 1 ? "s" : ""}
+                {t("farmer.accountLedger.dealerTab.table.subtitle", { count: dealers.length })}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               {dealersLoading ? (
                 <div className="flex items-center justify-center py-6">
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  <span className="ml-2 text-sm">Loading...</span>
+                  <span className="ml-2 text-sm">{t("farmer.accountLedger.dealerTab.table.loading")}</span>
                 </div>
               ) : dealers.length === 0 ? (
                 <div className="text-center py-6">
                   <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                  <h3 className="text-base font-semibold mb-1">No dealers found</h3>
-                  <p className="text-sm text-muted-foreground">Dealers will appear here.</p>
+                  <h3 className="text-base font-semibold mb-1">{t("farmer.accountLedger.dealerTab.table.emptyTitle")}</h3>
+                  <p className="text-sm text-muted-foreground">{t("farmer.accountLedger.dealerTab.table.emptyDesc")}</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-xs">Name</TableHead>
-                        <TableHead className="text-xs hidden md:table-cell">Contact</TableHead>
-                        <TableHead className="text-xs text-right">Due</TableHead>
-                        <TableHead className="text-xs hidden sm:table-cell">Last Txn</TableHead>
-                        <TableHead className="text-xs text-right">Action</TableHead>
+                        <TableHead className="text-xs">{t("farmer.accountLedger.dealerTab.table.columns.name")}</TableHead>
+                        <TableHead className="text-xs hidden md:table-cell">{t("farmer.accountLedger.dealerTab.table.columns.contact")}</TableHead>
+                        <TableHead className="text-xs text-right">{t("farmer.accountLedger.dealerTab.table.columns.due")}</TableHead>
+                        <TableHead className="text-xs hidden sm:table-cell">{t("farmer.accountLedger.dealerTab.table.columns.lastTxn")}</TableHead>
+                        <TableHead className="text-xs text-right">{t("farmer.accountLedger.dealerTab.table.columns.action")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -484,11 +486,11 @@ export default function AccountsPage() {
                                 onClick={() => openPaymentDialog(dealer)}
                               >
                                 <Plus className="h-3.5 w-3.5 md:mr-1" />
-                                <span className="hidden md:inline">Pay</span>
+                                <span className="hidden md:inline">{t("farmer.accountLedger.dealerTab.table.pay")}</span>
                               </Button>
                             ) : dealer.balance < 0 ? (
                               <span className="text-[10px] md:text-xs text-green-600 font-medium">
-                                Credit
+                                {t("farmer.accountLedger.dealerTab.table.credit")}
                               </span>
                             ) : null}
                           </TableCell>
@@ -504,31 +506,31 @@ export default function AccountsPage() {
           {/* Payment Requests Table */}
           <Card>
             <CardHeader>
-              <CardTitle>Payment Requests</CardTitle>
+              <CardTitle>{t("farmer.accountLedger.dealerTab.requests.title")}</CardTitle>
               <CardDescription>
-                Track status of your payment requests to dealers
+                {t("farmer.accountLedger.dealerTab.requests.subtitle")}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {requestsLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin" />
-                  <span className="ml-2">Loading requests...</span>
+                  <span className="ml-2">{t("farmer.accountLedger.dealerTab.requests.loading")}</span>
                 </div>
               ) : paymentRequests.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No payment requests yet
+                  {t("farmer.accountLedger.dealerTab.requests.empty")}
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Request #</TableHead>
-                      <TableHead>Dealer</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date</TableHead>
+                      <TableHead>{t("farmer.accountLedger.dealerTab.requests.columns.requestNum")}</TableHead>
+                      <TableHead>{t("farmer.accountLedger.dealerTab.requests.columns.dealer")}</TableHead>
+                      <TableHead className="text-right">{t("farmer.accountLedger.dealerTab.requests.columns.amount")}</TableHead>
+                      <TableHead>{t("farmer.accountLedger.dealerTab.requests.columns.type")}</TableHead>
+                      <TableHead>{t("farmer.accountLedger.dealerTab.requests.columns.status")}</TableHead>
+                      <TableHead>{t("farmer.accountLedger.dealerTab.requests.columns.date")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -543,10 +545,10 @@ export default function AccountsPage() {
                         </TableCell>
                         <TableCell>
                           {request.isLedgerLevel ? (
-                            <Badge variant="secondary">General Payment</Badge>
+                            <Badge variant="secondary">{t("farmer.accountLedger.dealerTab.requests.types.general")}</Badge>
                           ) : (
                             <Badge variant="outline">
-                              Bill: {request.dealerSale?.invoiceNumber || "N/A"}
+                              {t("farmer.accountLedger.dealerTab.requests.types.bill", { billId: request.dealerSale?.invoiceNumber || "N/A" })}
                             </Badge>
                           )}
                         </TableCell>
@@ -559,8 +561,8 @@ export default function AccountsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                        <DateDisplay date={request.createdAt} format="long" />
-                      </TableCell>
+                          <DateDisplay date={request.createdAt} format="long" />
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -576,18 +578,18 @@ export default function AccountsPage() {
             <CardHeader className="p-3 md:p-6">
               <CardTitle className="flex items-center gap-2 text-base md:text-lg">
                 <Filter className="h-4 w-4 md:h-5 md:w-5" />
-                Filters
+                {t("farmer.accountLedger.filters.title")}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 md:p-6 pt-0">
               <div className="grid gap-2 md:gap-4 grid-cols-2 lg:grid-cols-5">
                 <div className="col-span-2 lg:col-span-1">
-                  <Label htmlFor="search" className="text-xs">Search</Label>
+                  <Label htmlFor="search" className="text-xs">{t("farmer.accountLedger.filters.searchLabel")}</Label>
                   <div className="relative">
                     <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                     <Input
                       id="search"
-                      placeholder="Search..."
+                      placeholder={t("farmer.accountLedger.filters.searchPlaceholder")}
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       className="pl-8 h-8 text-xs"
@@ -595,26 +597,26 @@ export default function AccountsPage() {
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="transactionType" className="text-xs">Type</Label>
+                  <Label htmlFor="transactionType" className="text-xs">{t("farmer.accountLedger.filters.typeLabel")}</Label>
                   <Select
                     value={transactionTypeFilter}
                     onValueChange={(value) => setTransactionTypeFilter(value)}
                   >
                     <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="All" />
+                      <SelectValue placeholder={t("farmer.accountLedger.filters.allTypes")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="PURCHASE">Purchase</SelectItem>
-                      <SelectItem value="PAYMENT">Payment</SelectItem>
-                      <SelectItem value="RECEIPT">Receipt</SelectItem>
-                      <SelectItem value="SALE">Sale</SelectItem>
+                      <SelectItem value="all">{t("farmer.accountLedger.filters.allTypes")}</SelectItem>
+                      <SelectItem value="PURCHASE">{t("farmer.accountLedger.filters.purchase")}</SelectItem>
+                      <SelectItem value="PAYMENT">{t("farmer.accountLedger.filters.payment")}</SelectItem>
+                      <SelectItem value="RECEIPT">{t("farmer.accountLedger.filters.receipt")}</SelectItem>
+                      <SelectItem value="SALE">{t("farmer.accountLedger.filters.sale")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
                   <DateInput
-                    label="From"
+                    label={t("farmer.accountLedger.filters.from")}
                     value={startDate}
                     onChange={(value) => {
                       const datePart = value.includes("T") ? value.split("T")[0] : value;
@@ -624,7 +626,7 @@ export default function AccountsPage() {
                 </div>
                 <div>
                   <DateInput
-                    label="To"
+                    label={t("farmer.accountLedger.filters.to")}
                     value={endDate}
                     onChange={(value) => {
                       const datePart = value.includes("T") ? value.split("T")[0] : value;
@@ -645,7 +647,7 @@ export default function AccountsPage() {
                       setSearch("");
                     }}
                   >
-                    Clear
+                    {t("farmer.accountLedger.filters.clear")}
                   </Button>
                 </div>
               </div>
@@ -655,22 +657,22 @@ export default function AccountsPage() {
           {/* Transactions Table */}
           <Card>
             <CardHeader className="p-3 md:p-6">
-              <CardTitle className="text-base md:text-lg">All Transactions</CardTitle>
+              <CardTitle className="text-base md:text-lg">{t("farmer.accountLedger.transactions.title")}</CardTitle>
               <CardDescription className="text-xs md:text-sm">
                 {pagination
-                  ? `${pagination.total} transactions`
-                  : "Loading..."}
+                  ? t("farmer.accountLedger.transactions.count", { count: pagination.total })
+                  : t("farmer.accountLedger.transactions.loading")}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               {isLoading ? (
                 <div className="flex items-center justify-center py-6">
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  <span className="ml-2 text-sm">Loading...</span>
+                  <span className="ml-2 text-sm">{t("farmer.accountLedger.transactions.loading")}</span>
                 </div>
               ) : error ? (
                 <div className="text-center py-6">
-                  <p className="text-red-600 text-sm">Failed to load. Try again.</p>
+                  <p className="text-red-600 text-sm">{t("farmer.accountLedger.transactions.error")}</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -681,14 +683,11 @@ export default function AccountsPage() {
                     footerContent={
                       <div className="flex items-center justify-between text-xs text-muted-foreground px-3 py-2">
                         <span>
-                          {transactions.length} of {pagination?.total || 0}
-                        </span>
-                        <span>
-                          Page {pagination?.page || 1}/{pagination?.totalPages || 1}
+                          {t("farmer.accountLedger.transactions.pageInfo", { count: transactions.length, total: pagination?.total || 0, page: pagination?.page || 1, totalPages: pagination?.totalPages || 1 })}
                         </span>
                       </div>
                     }
-                    emptyMessage="No transactions found"
+                    emptyMessage={t("farmer.accountLedger.transactions.empty")}
                   />
                 </div>
               )}
@@ -701,9 +700,9 @@ export default function AccountsPage() {
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Create Payment Request</DialogTitle>
+            <DialogTitle>{t("farmer.accountLedger.paymentDialog.title")}</DialogTitle>
             <DialogDescription>
-              Submit a general payment to {selectedDealer?.name}
+              {t("farmer.accountLedger.paymentDialog.subtitle", { name: selectedDealer?.name })}
             </DialogDescription>
           </DialogHeader>
 
@@ -712,14 +711,14 @@ export default function AccountsPage() {
               {/* Dealer Info Display */}
               {selectedDealer && (
                 <div className="bg-muted p-3 rounded-md">
-                  <p className="text-sm"><strong>Dealer:</strong> {selectedDealer.name}</p>
-                  <p className="text-sm"><strong>Current Balance:</strong> {formatCurrency(selectedDealer.balance)}</p>
+                  <p className="text-sm"><strong>{t("farmer.accountLedger.paymentDialog.dealerInfo")}</strong> {selectedDealer.name}</p>
+                  <p className="text-sm"><strong>{t("farmer.accountLedger.paymentDialog.balanceInfo")}</strong> {formatCurrency(selectedDealer.balance)}</p>
                 </div>
               )}
 
               {/* Form Fields */}
               <div className="space-y-2">
-                <Label htmlFor="amount">Amount *</Label>
+                <Label htmlFor="amount">{t("farmer.accountLedger.paymentDialog.amountLabel")}</Label>
                 <Input
                   id="amount"
                   type="number"
@@ -727,40 +726,40 @@ export default function AccountsPage() {
                   min="0"
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
-                  placeholder="Enter amount"
+                  placeholder={t("farmer.accountLedger.paymentDialog.amountPlaceholder")}
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="paymentMethod">Payment Method</Label>
+                <Label htmlFor="paymentMethod">{t("farmer.accountLedger.paymentDialog.methodLabel")}</Label>
                 <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="CASH">Cash</SelectItem>
-                    <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                    <SelectItem value="UPI">UPI</SelectItem>
-                    <SelectItem value="CHEQUE">Cheque</SelectItem>
-                    <SelectItem value="OTHER">Other</SelectItem>
+                    <SelectItem value="CASH">{t("farmer.accountLedger.paymentDialog.methods.cash")}</SelectItem>
+                    <SelectItem value="BANK_TRANSFER">{t("farmer.accountLedger.paymentDialog.methods.bank")}</SelectItem>
+                    <SelectItem value="UPI">{t("farmer.accountLedger.paymentDialog.methods.upi")}</SelectItem>
+                    <SelectItem value="CHEQUE">{t("farmer.accountLedger.paymentDialog.methods.cheque")}</SelectItem>
+                    <SelectItem value="OTHER">{t("farmer.accountLedger.paymentDialog.methods.other")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="reference">Reference / Bill ID</Label>
+                <Label htmlFor="reference">{t("farmer.accountLedger.paymentDialog.referenceLabel")}</Label>
                 <Input
                   id="reference"
                   value={paymentReference}
                   onChange={(e) => setPaymentReference(e.target.value)}
-                  placeholder="Transaction ID / Bill #"
+                  placeholder={t("farmer.accountLedger.paymentDialog.referencePlaceholder")}
                 />
               </div>
 
               <div className="space-y-2">
                 <DateInput
-                  label="Payment Date"
+                  label={t("farmer.accountLedger.paymentDialog.dateLabel")}
                   value={paymentDate}
                   onChange={(v) =>
                     setPaymentDate(v.includes("T") ? v.split("T")[0] : v)
@@ -769,12 +768,12 @@ export default function AccountsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Label htmlFor="notes">{t("farmer.accountLedger.paymentDialog.notesLabel")}</Label>
                 <Input
                   id="notes"
                   value={paymentNotes}
                   onChange={(e) => setPaymentNotes(e.target.value)}
-                  placeholder="Additional details"
+                  placeholder={t("farmer.accountLedger.paymentDialog.notesPlaceholder")}
                 />
               </div>
             </div>
@@ -785,13 +784,13 @@ export default function AccountsPage() {
                 variant="outline"
                 onClick={closePaymentDialog}
               >
-                Cancel
+                {t("farmer.accountLedger.paymentDialog.cancel")}
               </Button>
               <Button
                 type="submit"
                 disabled={createPaymentRequest.isPending}
               >
-                {createPaymentRequest.isPending ? "Submitting..." : "Create Request"}
+                {createPaymentRequest.isPending ? t("farmer.accountLedger.paymentDialog.submitting") : t("farmer.accountLedger.paymentDialog.submit")}
               </Button>
             </DialogFooter>
           </form>

@@ -50,8 +50,10 @@ import {
   useUnarchiveDealerFarmer,
   useGetArchivedDealerFarmers,
 } from "@/fetchers/dealer/dealerFarmerQueries";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function DealerVerificationPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -102,11 +104,11 @@ export default function DealerVerificationPage() {
 
     try {
       await approveMutation.mutateAsync(actionRequest.id);
-      toast.success(`Request from ${actionRequest.farmerName} approved successfully`);
+      toast.success(t("dealer.verification.messages.approved", { name: actionRequest.farmerName }));
       setActionRequest(null);
     } catch (error: any) {
       toast.error(
-        error.response?.data?.message || "Failed to approve request"
+        error.response?.data?.message || t("dealer.verification.messages.approveFailed")
       );
     }
   };
@@ -116,11 +118,11 @@ export default function DealerVerificationPage() {
 
     try {
       await rejectMutation.mutateAsync(actionRequest.id);
-      toast.success(`Request from ${actionRequest.farmerName} rejected`);
+      toast.success(t("dealer.verification.messages.rejected", { name: actionRequest.farmerName }));
       setActionRequest(null);
     } catch (error: any) {
       toast.error(
-        error.response?.data?.message || "Failed to reject request"
+        error.response?.data?.message || t("dealer.verification.messages.rejectFailed")
       );
     }
   };
@@ -128,19 +130,19 @@ export default function DealerVerificationPage() {
   const handleArchive = async (connectionId: string) => {
     try {
       await archiveMutation.mutateAsync(connectionId);
-      toast.success("Connection archived successfully");
+      toast.success(t("dealer.verification.messages.archived"));
       setArchiveConfirm(null);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to archive connection");
+      toast.error(error.response?.data?.message || t("dealer.verification.messages.archiveFailed"));
     }
   };
 
   const handleUnarchive = async (connectionId: string, farmerName: string) => {
     try {
       await unarchiveMutation.mutateAsync(connectionId);
-      toast.success(`Connection with ${farmerName} restored successfully`);
+      toast.success(t("dealer.verification.messages.restored", { name: farmerName }));
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to restore connection");
+      toast.error(error.response?.data?.message || t("dealer.verification.messages.restoreFailed"));
     }
   };
 
@@ -184,15 +186,15 @@ export default function DealerVerificationPage() {
             className="text-xs md:text-sm"
           >
             <ArrowLeft className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" />
-            <span className="hidden sm:inline">Back to Customers</span>
-            <span className="sm:hidden">Back</span>
+            <span className="hidden sm:inline">{t("dealer.verification.back")}</span>
+            <span className="sm:hidden">{t("common.back")}</span>
           </Button>
         </div>
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-          Verification Requests
+          {t("dealer.verification.title")}
         </h1>
         <p className="text-sm md:text-base text-muted-foreground">
-          Review farmer connection requests
+          {t("dealer.verification.subtitle")}
         </p>
       </div>
 
@@ -200,14 +202,14 @@ export default function DealerVerificationPage() {
       <div className="grid grid-cols-2 gap-2 md:gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">Connected</CardTitle>
+            <CardTitle className="text-[10px] md:text-sm font-medium">{t("dealer.verification.stats.connected")}</CardTitle>
             <CheckCircle className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
             <div className="flex items-baseline gap-1">
               <div className="text-base md:text-2xl font-bold">{connectedFarmers.length}</div>
               {archivedFarmers.length > 0 && (
-                <span className="text-[9px] md:text-xs text-muted-foreground">+{archivedFarmers.length} archived</span>
+                <span className="text-[9px] md:text-xs text-muted-foreground">+{archivedFarmers.length} {t("dealer.verification.stats.archived")}</span>
               )}
             </div>
           </CardContent>
@@ -215,7 +217,7 @@ export default function DealerVerificationPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">Pending</CardTitle>
+            <CardTitle className="text-[10px] md:text-sm font-medium">{t("dealer.verification.stats.pending")}</CardTitle>
             <Clock className="h-3 w-3 md:h-4 md:w-4 text-yellow-600" />
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -225,7 +227,7 @@ export default function DealerVerificationPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">Approved</CardTitle>
+            <CardTitle className="text-[10px] md:text-sm font-medium">{t("dealer.verification.stats.approved")}</CardTitle>
             <CheckCircle className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -235,7 +237,7 @@ export default function DealerVerificationPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">Rejected</CardTitle>
+            <CardTitle className="text-[10px] md:text-sm font-medium">{t("dealer.verification.stats.rejected")}</CardTitle>
             <XCircle className="h-3 w-3 md:h-4 md:w-4 text-red-600" />
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -252,7 +254,7 @@ export default function DealerVerificationPage() {
               <div className="relative">
                 <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search farmer..."
+                  placeholder={t("dealer.verification.filters.search")}
                   value={search}
                   onChange={(e) => {
                     setSearch(e.target.value);
@@ -270,13 +272,13 @@ export default function DealerVerificationPage() {
               }}
             >
               <SelectTrigger className="h-8 text-xs w-full sm:w-[120px]">
-                <SelectValue placeholder="Status" />
+                <SelectValue placeholder={t("dealer.verification.filters.status")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All</SelectItem>
-                <SelectItem value="PENDING">Pending</SelectItem>
-                <SelectItem value="APPROVED">Approved</SelectItem>
-                <SelectItem value="REJECTED">Rejected</SelectItem>
+                <SelectItem value="ALL">{t("dealer.verification.filters.all")}</SelectItem>
+                <SelectItem value="PENDING">{t("dealer.verification.filters.pending")}</SelectItem>
+                <SelectItem value="APPROVED">{t("dealer.verification.filters.approved")}</SelectItem>
+                <SelectItem value="REJECTED">{t("dealer.verification.filters.rejected")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -292,7 +294,7 @@ export default function DealerVerificationPage() {
             : "text-muted-foreground hover:text-foreground"
             }`}
         >
-          Active
+          {t("dealer.verification.tabs.active")}
         </button>
         <button
           onClick={() => setViewTab("archived")}
@@ -301,7 +303,7 @@ export default function DealerVerificationPage() {
             : "text-muted-foreground hover:text-foreground"
             }`}
         >
-          Archived ({archivedFarmers.length})
+          {t("dealer.verification.tabs.archived")} ({archivedFarmers.length})
         </button>
       </div>
 
@@ -319,9 +321,9 @@ export default function DealerVerificationPage() {
               {connectedFarmers.length === 0 ? (
                 <div className="text-center py-6">
                   <UserCircle className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                  <h3 className="text-base font-semibold mb-1">No connected farmers</h3>
+                  <h3 className="text-base font-semibold mb-1">{t("dealer.verification.empty.connectedTitle")}</h3>
                   <p className="text-sm text-muted-foreground">
-                    Farmers will appear here once approved.
+                    {t("dealer.verification.empty.connectedDesc")}
                   </p>
                 </div>
               ) : (
@@ -341,7 +343,7 @@ export default function DealerVerificationPage() {
                           </div>
                           <Badge className="bg-green-100 text-green-800 hover:bg-green-100 text-[9px] md:text-xs shrink-0">
                             <CheckCircle className="mr-0.5 h-2.5 w-2.5" />
-                            <span className="hidden sm:inline">Connected</span>
+                            <span className="hidden sm:inline">{t("dealer.verification.cards.connectedBadge")}</span>
                           </Badge>
                         </div>
                       </CardHeader>
@@ -356,7 +358,7 @@ export default function DealerVerificationPage() {
                           onClick={() => setArchiveConfirm({ id: farmer.dealerFarmerId, name: farmer.name })}
                         >
                           <Archive className="h-3.5 w-3.5 md:mr-1" />
-                          <span className="hidden sm:inline">Archive</span>
+                          <span className="hidden sm:inline">{t("dealer.verification.cards.archive")}</span>
                         </Button>
                       </CardContent>
                     </Card>
@@ -378,16 +380,16 @@ export default function DealerVerificationPage() {
               {requestsLoading ? (
                 <div className="text-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Loading requests...</p>
+                  <p className="text-sm text-muted-foreground">{t("dealer.verification.empty.loading")}</p>
                 </div>
               ) : requests.length === 0 ? (
                 <div className="text-center py-8">
                   <UserCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No farmer requests</h3>
+                  <h3 className="text-lg font-semibold mb-2">{t("dealer.verification.empty.requestsTitle")}</h3>
                   <p className="text-muted-foreground">
                     {search || statusFilter !== "PENDING"
-                      ? "No requests match your filters."
-                      : "No farmers have requested to connect with your dealership yet."}
+                      ? t("dealer.verification.empty.requestsDescFilter")
+                      : t("dealer.verification.empty.requestsDescEmpty")}
                   </p>
                 </div>
               ) : (
@@ -416,11 +418,11 @@ export default function DealerVerificationPage() {
                         <CardContent>
                           <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
-                              <span className="text-muted-foreground">Status:</span>
+                              <span className="text-muted-foreground">{t("dealer.verification.cards.status")}</span>
                               <span className="font-medium">{request.status}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-muted-foreground">Requested:</span>
+                              <span className="text-muted-foreground">{t("dealer.verification.cards.requested")}</span>
                               <span className="font-medium">
                                 {new Date(request.createdAt).toLocaleDateString()}
                               </span>
@@ -428,7 +430,7 @@ export default function DealerVerificationPage() {
                             {request.status === "REJECTED" && (
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">
-                                  Rejection Count:
+                                  {t("dealer.verification.cards.rejectionCount")}
                                 </span>
                                 <span className="font-medium text-red-600">
                                   {request.rejectedCount}/3
@@ -455,7 +457,7 @@ export default function DealerVerificationPage() {
                                 }
                               >
                                 <CheckCircle className="mr-2 h-4 w-4" />
-                                Approve
+                                {t("dealer.verification.cards.approve")}
                               </Button>
                               <Button
                                 variant="outline"
@@ -473,7 +475,7 @@ export default function DealerVerificationPage() {
                                 }
                               >
                                 <XCircle className="mr-2 h-4 w-4" />
-                                Reject
+                                {t("dealer.verification.cards.reject")}
                               </Button>
                             </div>
                           )}
@@ -539,9 +541,9 @@ export default function DealerVerificationPage() {
             {archivedFarmers.length === 0 ? (
               <div className="text-center py-8">
                 <Archive className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No archived farmers</h3>
+                <h3 className="text-lg font-semibold mb-2">{t("dealer.verification.empty.archivedTitle")}</h3>
                 <p className="text-muted-foreground">
-                  Connections you archive will appear here and can be restored anytime.
+                  {t("dealer.verification.empty.archivedDesc")}
                 </p>
               </div>
             ) : (
@@ -561,7 +563,7 @@ export default function DealerVerificationPage() {
                         </div>
                         <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100 text-xs">
                           <Archive className="mr-1 h-3 w-3" />
-                          Archived
+                          {t("dealer.verification.cards.archivedBadge")}
                         </Badge>
                       </div>
                     </CardHeader>
@@ -577,7 +579,7 @@ export default function DealerVerificationPage() {
                         disabled={unarchiveMutation.isPending}
                       >
                         <ArchiveRestore className="mr-2 h-4 w-4" />
-                        Restore
+                        {t("dealer.verification.cards.restore")}
                       </Button>
                     </CardContent>
                   </Card>
@@ -598,13 +600,13 @@ export default function DealerVerificationPage() {
             <DialogHeader>
               <DialogTitle>
                 {actionRequest.action === "approve"
-                  ? "Approve Verification Request"
-                  : "Reject Verification Request"}
+                  ? t("dealer.verification.dialogs.action.approveTitle")
+                  : t("dealer.verification.dialogs.action.rejectTitle")}
               </DialogTitle>
               <DialogDescription>
                 {actionRequest.action === "approve"
-                  ? `Are you sure you want to approve the request from ${actionRequest.farmerName}? This will establish a connection between your dealership and this farmer.`
-                  : `Are you sure you want to reject the request from ${actionRequest.farmerName}? They will be able to retry after 1 hour (up to 3 rejections total).`}
+                  ? t("dealer.verification.dialogs.action.approveDesc", { name: actionRequest.farmerName })
+                  : t("dealer.verification.dialogs.action.rejectDesc", { name: actionRequest.farmerName })}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -613,7 +615,7 @@ export default function DealerVerificationPage() {
                 onClick={() => setActionRequest(null)}
                 disabled={approveMutation.isPending || rejectMutation.isPending}
               >
-                Cancel
+                {t("dealer.verification.dialogs.action.cancel")}
               </Button>
               <Button
                 onClick={
@@ -629,10 +631,10 @@ export default function DealerVerificationPage() {
                 }
               >
                 {approveMutation.isPending || rejectMutation.isPending
-                  ? "Processing..."
+                  ? t("dealer.verification.cards.processing")
                   : actionRequest.action === "approve"
-                    ? "Approve"
-                    : "Reject"}
+                    ? t("dealer.verification.dialogs.action.approve")
+                    : t("dealer.verification.dialogs.action.reject")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -644,21 +646,20 @@ export default function DealerVerificationPage() {
         <Dialog open={!!archiveConfirm} onOpenChange={() => setArchiveConfirm(null)}>
           <DialogContent className="bg-white">
             <DialogHeader>
-              <DialogTitle>Archive Connection</DialogTitle>
+              <DialogTitle>{t("dealer.verification.dialogs.archive.title")}</DialogTitle>
               <DialogDescription>
-                Are you sure you want to archive your connection with {archiveConfirm.name}?
-                You can restore it later from the Archived tab.
+                {t("dealer.verification.dialogs.archive.desc", { name: archiveConfirm.name })}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button variant="outline" onClick={() => setArchiveConfirm(null)}>
-                Cancel
+                {t("dealer.verification.dialogs.archive.cancel")}
               </Button>
               <Button
                 onClick={() => handleArchive(archiveConfirm.id)}
                 disabled={archiveMutation.isPending}
               >
-                Archive
+                {t("dealer.verification.dialogs.archive.submit")}
               </Button>
             </DialogFooter>
           </DialogContent>

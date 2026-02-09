@@ -26,6 +26,7 @@ import {
   useRecordFarmerPayment,
   RecordFarmerPaymentInput,
 } from "@/fetchers/dealer/dealerFarmerQueries";
+import { useI18n } from "@/i18n/useI18n";
 
 export interface DealerAddPaymentCustomer {
   id: string;
@@ -66,6 +67,7 @@ export function DealerAddPaymentDialog({
   onSuccess,
   formatCurrency = defaultFormatCurrency,
 }: DealerAddPaymentDialogProps) {
+  const { t } = useI18n();
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [amount, setAmount] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState("CASH");
@@ -103,11 +105,11 @@ export function DealerAddPaymentDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (amount <= 0) {
-      toast.error("Please enter a valid amount");
+      toast.error(t("dealer.addPaymentDialog.messages.invalidAmount"));
       return;
     }
     if (!effectiveCustomerId && mode === "select") {
-      toast.error("Please select a customer");
+      toast.error(t("dealer.addPaymentDialog.messages.selectCustomer"));
       return;
     }
     if (mode === "single" && isFarmer && farmerId) {
@@ -121,12 +123,12 @@ export function DealerAddPaymentDialog({
           reference: reference || undefined,
           receiptImageUrl: receiptImageUrl || undefined,
         } as RecordFarmerPaymentInput);
-        toast.success("Payment recorded successfully");
+        toast.success(t("dealer.addPaymentDialog.messages.success"));
         onOpenChange(false);
         onSuccess?.();
       } catch (error: any) {
         toast.error(
-          error.response?.data?.message || "Failed to record payment"
+          error.response?.data?.message || t("dealer.addPaymentDialog.messages.failed")
         );
       }
       return;
@@ -141,19 +143,19 @@ export function DealerAddPaymentDialog({
         receiptImageUrl: receiptImageUrl || undefined,
         reference: reference || undefined,
       });
-      toast.success("Payment recorded successfully");
+      toast.success(t("dealer.addPaymentDialog.messages.success"));
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to add payment");
+      toast.error(error.response?.data?.message || t("dealer.addPaymentDialog.messages.failed"));
     }
   };
 
-  const title = mode === "single" ? "Record Payment" : "Add Payment";
+  const title = mode === "single" ? t("dealer.addPaymentDialog.titleRecord") : t("dealer.addPaymentDialog.titleAdd");
   const description =
     mode === "single" && customer
-      ? `Record a payment received from ${customer.name}`
-      : "Record an account-level payment. Select a customer; for connected farmers, payment is applied to their farmer account.";
+      ? t("dealer.addPaymentDialog.descriptionRecord", { name: customer.name })
+      : t("dealer.addPaymentDialog.descriptionAdd");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -167,13 +169,13 @@ export function DealerAddPaymentDialog({
           <div className="space-y-4 py-4">
             {mode === "select" && (
               <div className="space-y-2">
-                <Label htmlFor="payment-customer">Customer *</Label>
+                <Label htmlFor="payment-customer">{t("dealer.addPaymentDialog.customer")}</Label>
                 <Select
                   value={selectedCustomerId}
                   onValueChange={setSelectedCustomerId}
                 >
                   <SelectTrigger id="payment-customer">
-                    <SelectValue placeholder="Select customer" />
+                    <SelectValue placeholder={t("dealer.addPaymentDialog.selectCustomer")} />
                   </SelectTrigger>
                   <SelectContent>
                     {customers.map((c) => (
@@ -198,15 +200,14 @@ export function DealerAddPaymentDialog({
                     )}
                   </div>
                   <div className="text-right">
-                    <p className="text-muted-foreground">Balance</p>
+                    <p className="text-muted-foreground">{t("dealer.addPaymentDialog.balance")}</p>
                     <p
-                      className={`font-bold ${
-                        Number(effectiveCustomer.balance ?? 0) > 0
-                          ? "text-red-600"
-                          : Number(effectiveCustomer.balance ?? 0) < 0
-                            ? "text-green-600"
-                            : ""
-                      }`}
+                      className={`font-bold ${Number(effectiveCustomer.balance ?? 0) > 0
+                        ? "text-red-600"
+                        : Number(effectiveCustomer.balance ?? 0) < 0
+                          ? "text-green-600"
+                          : ""
+                        }`}
                     >
                       {formatCurrency(
                         Number(effectiveCustomer.balance ?? 0)
@@ -219,7 +220,7 @@ export function DealerAddPaymentDialog({
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="payment-amount">Amount *</Label>
+                <Label htmlFor="payment-amount">{t("dealer.addPaymentDialog.amount")}</Label>
                 <Input
                   id="payment-amount"
                   type="number"
@@ -229,12 +230,12 @@ export function DealerAddPaymentDialog({
                   onChange={(e) =>
                     setAmount(parseFloat(e.target.value) || 0)
                   }
-                  placeholder="0.00"
+                  placeholder={t("dealer.addPaymentDialog.amountPlaceholder")}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="payment-method">Method *</Label>
+                <Label htmlFor="payment-method">{t("dealer.addPaymentDialog.method")}</Label>
                 <Select
                   value={paymentMethod}
                   onValueChange={setPaymentMethod}
@@ -243,11 +244,11 @@ export function DealerAddPaymentDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="CASH">Cash</SelectItem>
-                    <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                    <SelectItem value="CHEQUE">Cheque</SelectItem>
-                    <SelectItem value="UPI">UPI</SelectItem>
-                    <SelectItem value="OTHER">Other</SelectItem>
+                    <SelectItem value="CASH">{t("dealer.addPaymentDialog.methods.cash")}</SelectItem>
+                    <SelectItem value="BANK_TRANSFER">{t("dealer.addPaymentDialog.methods.bank_transfer")}</SelectItem>
+                    <SelectItem value="CHEQUE">{t("dealer.addPaymentDialog.methods.cheque")}</SelectItem>
+                    <SelectItem value="UPI">{t("dealer.addPaymentDialog.methods.upi")}</SelectItem>
+                    <SelectItem value="OTHER">{t("dealer.addPaymentDialog.methods.other")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -255,7 +256,7 @@ export function DealerAddPaymentDialog({
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="payment-date">Date *</Label>
+                <Label htmlFor="payment-date">{t("dealer.addPaymentDialog.date")}</Label>
                 <Input
                   id="payment-date"
                   type="date"
@@ -265,33 +266,33 @@ export function DealerAddPaymentDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="payment-reference">Reference</Label>
+                <Label htmlFor="payment-reference">{t("dealer.addPaymentDialog.reference")}</Label>
                 <Input
                   id="payment-reference"
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
-                  placeholder="Ref #"
+                  placeholder={t("dealer.addPaymentDialog.referencePlaceholder")}
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="payment-notes">Notes (Optional)</Label>
+              <Label htmlFor="payment-notes">{t("dealer.addPaymentDialog.notes")}</Label>
               <Input
                 id="payment-notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add payment notes..."
+                placeholder={t("dealer.addPaymentDialog.notesPlaceholder")}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Payment Receipt (Optional)</Label>
+              <Label>{t("dealer.addPaymentDialog.receipt")}</Label>
               <ImageUpload
                 value={receiptImageUrl}
                 onChange={setReceiptImageUrl}
                 folder="payment-receipts"
-                placeholder="Upload receipt"
+                placeholder={t("dealer.addPaymentDialog.uploadReceipt")}
               />
             </div>
           </div>
@@ -303,14 +304,14 @@ export function DealerAddPaymentDialog({
               onClick={() => onOpenChange(false)}
               disabled={isPending}
             >
-              Cancel
+              {t("dealer.addPaymentDialog.cancel")}
             </Button>
             <Button type="submit" disabled={isPending}>
               {isPending
-                ? "Recording..."
+                ? t("dealer.addPaymentDialog.submitting")
                 : mode === "single"
-                  ? "Record Payment"
-                  : "Add Payment"}
+                  ? t("dealer.addPaymentDialog.submitRecord")
+                  : t("dealer.addPaymentDialog.submitAdd")}
             </Button>
           </DialogFooter>
         </form>
