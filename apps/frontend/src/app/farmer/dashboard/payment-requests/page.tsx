@@ -205,7 +205,7 @@ export default function FarmerPaymentRequestsPage() {
         </div>
         <Button onClick={() => setIsCreateOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Create payment request
+          {t("farmer.paymentRequests.create.title")}
         </Button>
       </div>
 
@@ -556,17 +556,17 @@ export default function FarmerPaymentRequestsPage() {
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create payment request</DialogTitle>
+            <DialogTitle>{t("farmer.paymentRequests.create.title")}</DialogTitle>
             <DialogDescription>
-              Send payment proof to a dealer. They can accept or reject. On accept, the payment is recorded on your account with that dealer.
+              {t("farmer.paymentRequests.create.description")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="create-dealer">Dealer *</Label>
+              <Label htmlFor="create-dealer">{t("farmer.paymentRequests.create.dealerLabel")}</Label>
               <Select value={createDealerId} onValueChange={setCreateDealerId}>
                 <SelectTrigger id="create-dealer">
-                  <SelectValue placeholder="Select dealer" />
+                  <SelectValue placeholder={t("farmer.paymentRequests.create.dealerPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {connectedDealers.map((dealer: { id: string; name: string; contact?: string }) => (
@@ -578,7 +578,7 @@ export default function FarmerPaymentRequestsPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="create-amount">Amount *</Label>
+              <Label htmlFor="create-amount">{t("farmer.paymentRequests.create.amountLabel")}</Label>
               <Input
                 id="create-amount"
                 type="number"
@@ -586,36 +586,36 @@ export default function FarmerPaymentRequestsPage() {
                 step="0.01"
                 value={createAmount || ""}
                 onChange={(e) => setCreateAmount(parseFloat(e.target.value) || 0)}
-                placeholder="0.00"
+                placeholder={t("farmer.paymentRequests.create.amountPlaceholder")}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="create-method">Payment method *</Label>
+              <Label htmlFor="create-method">{t("farmer.paymentRequests.create.methodLabel")}</Label>
               <Select value={createPaymentMethod} onValueChange={setCreatePaymentMethod}>
                 <SelectTrigger id="create-method">
-                  <SelectValue placeholder="Select method" />
+                  <SelectValue placeholder={t("farmer.paymentRequests.create.methodPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="CASH">Cash</SelectItem>
-                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                  <SelectItem value="MOBILE_BANKING">Mobile Banking</SelectItem>
-                  <SelectItem value="CHEQUE">Cheque</SelectItem>
-                  <SelectItem value="UPI">UPI</SelectItem>
-                  <SelectItem value="OTHER">Other</SelectItem>
+                  <SelectItem value="CASH">{t("farmer.paymentRequests.create.methods.cash")}</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">{t("farmer.paymentRequests.create.methods.bank")}</SelectItem>
+                  <SelectItem value="MOBILE_BANKING">{t("farmer.paymentRequests.create.methods.mobile")}</SelectItem>
+                  <SelectItem value="CHEQUE">{t("farmer.paymentRequests.create.methods.cheque")}</SelectItem>
+                  <SelectItem value="UPI">{t("farmer.paymentRequests.create.methods.upi")}</SelectItem>
+                  <SelectItem value="OTHER">{t("farmer.paymentRequests.create.methods.other")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="create-reference">Payment reference (optional)</Label>
+              <Label htmlFor="create-reference">{t("farmer.paymentRequests.create.referenceLabel")}</Label>
               <Input
                 id="create-reference"
                 value={createReference}
                 onChange={(e) => setCreateReference(e.target.value)}
-                placeholder="Transaction ID, receipt number, etc."
+                placeholder={t("farmer.paymentRequests.create.referencePlaceholder")}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="create-date">Payment date</Label>
+              <Label htmlFor="create-date">{t("farmer.paymentRequests.create.dateLabel")}</Label>
               <Input
                 id="create-date"
                 type="date"
@@ -624,34 +624,34 @@ export default function FarmerPaymentRequestsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="create-description">Description (optional)</Label>
+              <Label htmlFor="create-description">{t("farmer.paymentRequests.create.descriptionLabel")}</Label>
               <Textarea
                 id="create-description"
                 value={createDescription}
                 onChange={(e) => setCreateDescription(e.target.value)}
-                placeholder="Optional note"
+                placeholder={t("farmer.paymentRequests.create.descriptionPlaceholder")}
                 rows={2}
               />
             </div>
             <div className="space-y-2">
-              <Label>Payment Receipt (Optional)</Label>
+              <Label>{t("farmer.paymentRequests.create.receiptLabel")}</Label>
               <ImageUpload
                 value={createReceiptUrl}
                 onChange={setCreateReceiptUrl}
                 folder="payment-receipts"
-                placeholder="Upload receipt"
+                placeholder={t("farmer.paymentRequests.create.receiptPlaceholder")}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
-              Cancel
+              {t("farmer.paymentRequests.create.cancel")}
             </Button>
             <Button
               onClick={handleCreatePaymentRequest}
               disabled={createMutation.isPending || !createDealerId || !createAmount || createAmount <= 0 || !createPaymentMethod}
             >
-              {createMutation.isPending ? "Sending..." : "Send payment request"}
+              {createMutation.isPending ? t("farmer.paymentRequests.create.submitting") : t("farmer.paymentRequests.create.submit")}
             </Button>
           </DialogFooter>
         </DialogContent>

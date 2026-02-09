@@ -28,8 +28,10 @@ import {
 import { TransactionType } from "@myapp/shared-types";
 import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function HatcheryLedgerPage() {
+  const { t } = useI18n();
   const [activeHatcheryId, setActiveHatcheryId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddHatcheryOpen, setIsAddHatcheryOpen] = useState(false);
@@ -119,7 +121,7 @@ export default function HatcheryLedgerPage() {
         address: newHatchery.address.trim() || undefined,
       });
 
-      toast.success("Hatchery added successfully!");
+      toast.success(t("farmer.hatcheryLedger.toasts.hatcheryAdded"));
       setIsAddHatcheryOpen(false);
       setNewHatchery({ name: "", contact: "", address: "" });
     } catch (error) {
@@ -163,7 +165,7 @@ export default function HatcheryLedgerPage() {
         },
       });
 
-      toast.success("Transaction added successfully!");
+      toast.success(t("farmer.hatcheryLedger.toasts.txnAdded"));
       setIsAddEntryOpen(false);
       setNewEntry({
         item: "",
@@ -216,7 +218,7 @@ export default function HatcheryLedgerPage() {
         },
       });
 
-      toast.success("Payment recorded successfully!");
+      toast.success(t("farmer.hatcheryLedger.toasts.paymentRecorded"));
       setIsPaymentModalOpen(false);
       setSelectedEntry(null);
       setPaymentForm({ amount: "", date: "", note: "" });
@@ -266,14 +268,14 @@ export default function HatcheryLedgerPage() {
       setPasswordForm({ password: "" });
 
       if (failed === 0) {
-        toast.success("Selected entries deleted successfully");
+        toast.success(t("farmer.hatcheryLedger.toasts.entriesDeleted"));
       } else {
         toast.error(
-          `Failed to delete ${failed} entr${failed === 1 ? "y" : "ies"}`
+          t("farmer.hatcheryLedger.toasts.deleteFailed", { count: failed, suffix: failed === 1 ? "y" : "ies" })
         );
       }
     } catch (error) {
-      toast.error("Password verification failed. Deletion cancelled.");
+      toast.error(t("farmer.hatcheryLedger.toasts.passwordFailed"));
       setIsPasswordModalOpen(false);
       setPasswordForm({ password: "" });
     }
@@ -289,12 +291,12 @@ export default function HatcheryLedgerPage() {
 
   // Column configuration for DataTable
   const ledgerColumns: Column[] = [
-    createColumn("itemName", "Item"),
-    createColumn("rate", "Rate", {
+    createColumn("itemName", t("farmer.hatcheryLedger.table.item")),
+    createColumn("rate", t("farmer.hatcheryLedger.table.rate"), {
       type: "currency",
       align: "right",
     }),
-    createColumn("quantity", "Quantity", {
+    createColumn("quantity", t("farmer.hatcheryLedger.table.quantity"), {
       type: "number",
       align: "right",
       render: (_, row) => {
@@ -306,21 +308,21 @@ export default function HatcheryLedgerPage() {
             <div>
               <span className="font-medium">{paid}</span>
               {free > 0 && (
-                <span className="ml-1 text-xs text-muted-foreground">+ {free} free</span>
+                <span className="ml-1 text-xs text-muted-foreground">{t("farmer.hatcheryLedger.table.free", { count: free })}</span>
               )}
             </div>
             {free > 0 && (
-              <div className="text-xs text-gray-600">= {delivered} delivered</div>
+              <div className="text-xs text-gray-600">{t("farmer.hatcheryLedger.table.delivered", { count: delivered })}</div>
             )}
           </div>
         );
       },
     }),
-    createColumn("totalAmount", "Amount", {
+    createColumn("totalAmount", t("farmer.hatcheryLedger.table.amount"), {
       type: "currency",
       align: "right",
     }),
-    createColumn("amountDue", "Amount Due", {
+    createColumn("amountDue", t("farmer.hatcheryLedger.table.amountDue"), {
       type: "currency",
       align: "right",
       render: (_, row) => {
@@ -343,17 +345,17 @@ export default function HatcheryLedgerPage() {
                 className="ml-2 h-6 px-2 text-xs bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
                 onClick={() => openPaymentModal(activeHatcheryId, row.id)}
               >
-                Pay
+                {t("farmer.hatcheryLedger.table.pay")}
               </Button>
             )}
           </div>
         );
       },
     }),
-    createColumn("date", "Date", {
+    createColumn("date", t("farmer.hatcheryLedger.table.date"), {
       type: "date",
     }),
-    createColumn("dueDate", "Due Date", {
+    createColumn("dueDate", t("farmer.hatcheryLedger.table.dueDate"), {
       render: (_, row) =>
         row.date ? (
           <DateDisplay date={getRowDueDateDate(row.date)} format="short" />
@@ -361,7 +363,7 @@ export default function HatcheryLedgerPage() {
           "—"
         ),
     }),
-    createColumn("payments", "Payment History", {
+    createColumn("payments", t("farmer.hatcheryLedger.table.paymentHistory"), {
       render: (_, row) => {
         const history = row.payments || [];
         const totalPayments = history.length;
@@ -375,8 +377,10 @@ export default function HatcheryLedgerPage() {
             className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline"
             onClick={() => openHistoryModal(activeHatcheryId, row.id)}
           >
-            {totalPayments} payment{totalPayments !== 1 ? "s" : ""} (₹
-            {totalPaid.toLocaleString()})
+            {t("farmer.hatcheryLedger.table.historyText", {
+              count: totalPayments,
+              amount: `₹${totalPaid.toLocaleString()}`,
+            })}
           </div>
         );
       },
@@ -387,9 +391,9 @@ export default function HatcheryLedgerPage() {
     <div className="space-y-4 md:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Hatchery Ledger</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t("farmer.hatcheryLedger.title")}</h1>
           <p className="text-sm md:text-base text-muted-foreground">
-            Manage chick purchases and balances.
+            {t("farmer.hatcheryLedger.subtitle")}
           </p>
         </div>
         <div className="flex gap-2">
@@ -399,7 +403,7 @@ export default function HatcheryLedgerPage() {
             onClick={() => setIsAddHatcheryOpen(true)}
           >
             <Plus className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
-            <span className="hidden sm:inline">Add </span>Dealer
+            <span className="hidden sm:inline">{t("farmer.hatcheryLedger.addDealer").replace("Dealer", "")}</span>{t("farmer.hatcheryLedger.addDealer").replace("Add", "")}
           </Button>
         </div>
       </div>
@@ -411,7 +415,7 @@ export default function HatcheryLedgerPage() {
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
             <CardTitle className="text-[10px] md:text-sm font-medium">
-              Dealers
+              {t("farmer.hatcheryLedger.stats.dealers")}
             </CardTitle>
             <Egg className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
@@ -423,13 +427,13 @@ export default function HatcheryLedgerPage() {
                 {statistics.totalHatcheries || 0}
               </div>
             )}
-            <p className="text-[9px] md:text-xs text-muted-foreground">Chicks</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">{t("farmer.hatcheryLedger.stats.chicks")}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">Due</CardTitle>
+            <CardTitle className="text-[10px] md:text-sm font-medium">{t("farmer.hatcheryLedger.stats.due")}</CardTitle>
             <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -440,13 +444,13 @@ export default function HatcheryLedgerPage() {
                 <span className="hidden md:inline">रू</span>{(statistics.outstandingAmount || 0).toLocaleString()}
               </div>
             )}
-            <p className="text-[9px] md:text-xs text-muted-foreground">Outstanding</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">{t("farmer.hatcheryLedger.stats.outstanding")}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">Month</CardTitle>
+            <CardTitle className="text-[10px] md:text-sm font-medium">{t("farmer.hatcheryLedger.stats.month")}</CardTitle>
             <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -457,7 +461,7 @@ export default function HatcheryLedgerPage() {
                 <span className="hidden md:inline">रू</span>{(statistics.thisMonthAmount || 0).toLocaleString()}
               </div>
             )}
-            <p className="text-[9px] md:text-xs text-muted-foreground">Purchases</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">{t("farmer.hatcheryLedger.stats.purchases")}</p>
           </CardContent>
         </Card>
       </div>
@@ -465,18 +469,18 @@ export default function HatcheryLedgerPage() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Hatcheries – Amount Due"
+        title={t("farmer.hatcheryLedger.summaryModal.title")}
       >
         <ModalContent>
           <div className="space-y-3">
             {hatcheriesLoading ? (
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="h-6 w-6 animate-spin" />
-                <span className="ml-2">Loading hatcheries...</span>
+                <span className="ml-2">{t("farmer.hatcheryLedger.summaryModal.loading")}</span>
               </div>
             ) : hatcheriesError ? (
               <div className="text-center py-4 text-red-600">
-                Failed to load hatcheries
+                {t("farmer.hatcheryLedger.summaryModal.error")}
               </div>
             ) : (
               hatcheries.map((hatchery: any) => (
@@ -487,7 +491,7 @@ export default function HatcheryLedgerPage() {
                   <div>
                     <div className="font-medium">{hatchery.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      Contact: {hatchery.contact}
+                      {t("farmer.hatcheryLedger.summaryModal.contact")}: {hatchery.contact}
                     </div>
                   </div>
                   <div className="text-right font-medium">
@@ -500,7 +504,7 @@ export default function HatcheryLedgerPage() {
         </ModalContent>
         <ModalFooter>
           <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-            Close
+            {t("farmer.hatcheryLedger.summaryModal.close")}
           </Button>
         </ModalFooter>
       </Modal>
@@ -509,27 +513,22 @@ export default function HatcheryLedgerPage() {
       <Modal
         isOpen={isDeleteHatcheryOpen}
         onClose={() => setIsDeleteHatcheryOpen(false)}
-        title="Delete Hatchery"
+        title={t("farmer.hatcheryLedger.deleteHatcheryModal.title")}
       >
         <ModalContent>
           <div className="space-y-4">
             <div className="p-4 bg-red-50 rounded-lg border border-red-200">
               <p className="text-sm text-red-800">
-                <strong>Warning:</strong> This will permanently delete hatchery{" "}
-                <strong>
-                  {activeHatchery?.name ? ` ${activeHatchery.name}` : ""}
-                </strong>
-                .
+                <strong>{t("farmer.hatcheryLedger.deleteHatcheryModal.warning")}</strong> {t("farmer.hatcheryLedger.deleteHatcheryModal.body", { name: activeHatchery?.name ? activeHatchery.name : "" })}
               </p>
               {activeHatchery?.transactionTable?.length > 0 && (
                 <p className="text-sm text-red-700 mt-2">
-                  This hatchery has {activeHatchery.transactionTable.length}{" "}
-                  transaction(s). You must delete all transactions first.
+                  {t("farmer.hatcheryLedger.deleteHatcheryModal.transactionWarning", { count: activeHatchery.transactionTable.length })}
                 </p>
               )}
             </div>
             <p className="text-sm text-muted-foreground">
-              Are you sure you want to proceed?
+              {t("farmer.hatcheryLedger.deleteHatcheryModal.proceed")}
             </p>
           </div>
         </ModalContent>
@@ -538,7 +537,7 @@ export default function HatcheryLedgerPage() {
             variant="outline"
             onClick={() => setIsDeleteHatcheryOpen(false)}
           >
-            Cancel
+            {t("farmer.hatcheryLedger.deleteHatcheryModal.cancel")}
           </Button>
           <Button
             className="bg-red-600 hover:bg-red-700 text-white"
@@ -567,10 +566,10 @@ export default function HatcheryLedgerPage() {
           >
             {deleteHatcheryMutation.isPending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("farmer.hatcheryLedger.deleteHatcheryModal.deleting")}
               </>
             ) : (
-              "Delete Hatchery"
+              t("farmer.hatcheryLedger.deleteHatcheryModal.delete")
             )}
           </Button>
         </ModalFooter>
@@ -580,12 +579,11 @@ export default function HatcheryLedgerPage() {
       <Modal
         isOpen={isConfirmDeleteOpen}
         onClose={() => setIsConfirmDeleteOpen(false)}
-        title={`Delete ${selectedIds.size} entr${selectedIds.size === 1 ? "y" : "ies"}?`}
+        title={t("farmer.hatcheryLedger.confirmDeleteModal.title", { count: selectedIds.size })}
       >
         <ModalContent>
           <p className="text-sm text-muted-foreground">
-            This action cannot be undone. The selected entries will be
-            permanently removed.
+            {t("farmer.hatcheryLedger.confirmDeleteModal.body")}
           </p>
         </ModalContent>
         <ModalFooter>
@@ -593,7 +591,7 @@ export default function HatcheryLedgerPage() {
             variant="outline"
             onClick={() => setIsConfirmDeleteOpen(false)}
           >
-            Cancel
+            {t("farmer.hatcheryLedger.confirmDeleteModal.cancel")}
           </Button>
           <Button
             className="bg-red-600 hover:bg-red-700 text-white"
@@ -605,10 +603,10 @@ export default function HatcheryLedgerPage() {
           >
             {deleteTxn.isPending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("farmer.hatcheryLedger.confirmDeleteModal.deleting")}
               </>
             ) : (
-              "Delete"
+              t("farmer.hatcheryLedger.confirmDeleteModal.delete")
             )}
           </Button>
         </ModalFooter>
@@ -621,27 +619,25 @@ export default function HatcheryLedgerPage() {
           setIsPasswordModalOpen(false);
           setPasswordForm({ password: "" });
         }}
-        title="Confirm Deletion"
+        title={t("farmer.hatcheryLedger.passwordModal.title")}
       >
         <ModalContent>
           <div className="space-y-4">
             <div className="p-4 bg-red-50 rounded-lg border border-red-200">
               <p className="text-sm text-red-800">
-                <strong>Warning:</strong> This action cannot be undone. You are
-                about to delete {selectedIds.size} transaction
-                {selectedIds.size !== 1 ? "s" : ""}.
+                <strong>{t("farmer.hatcheryLedger.passwordModal.warning")}</strong> {t("farmer.hatcheryLedger.passwordModal.body", { count: selectedIds.size })}
               </p>
             </div>
             <div>
               <Label htmlFor="password">
-                Enter your password to confirm deletion
+                {t("farmer.hatcheryLedger.passwordModal.label")}
               </Label>
               <Input
                 id="password"
                 type="password"
                 value={passwordForm.password}
                 onChange={(e) => setPasswordForm({ password: e.target.value })}
-                placeholder="Enter your password"
+                placeholder={t("farmer.hatcheryLedger.passwordModal.placeholder")}
                 required
                 className="mt-1"
               />
@@ -656,7 +652,7 @@ export default function HatcheryLedgerPage() {
               setPasswordForm({ password: "" });
             }}
           >
-            Cancel
+            {t("farmer.hatcheryLedger.passwordModal.cancel")}
           </Button>
           <Button
             className="bg-red-600 hover:bg-red-700 text-white"
@@ -665,10 +661,10 @@ export default function HatcheryLedgerPage() {
           >
             {deleteTxn.isPending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("farmer.hatcheryLedger.passwordModal.deleting")}
               </>
             ) : (
-              "Confirm Deletion"
+              t("farmer.hatcheryLedger.passwordModal.confirm")
             )}
           </Button>
         </ModalFooter>
@@ -678,13 +674,13 @@ export default function HatcheryLedgerPage() {
       <Modal
         isOpen={isAddHatcheryOpen}
         onClose={() => setIsAddHatcheryOpen(false)}
-        title="Add Chicks Dealer"
+        title={t("farmer.hatcheryLedger.addHatcheryModal.title")}
       >
         <form onSubmit={handleAddHatchery}>
           <ModalContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="hname">Dealer Name</Label>
+                <Label htmlFor="hname">{t("farmer.hatcheryLedger.addHatcheryModal.name")}</Label>
                 <Input
                   id="hname"
                   value={newHatchery.name}
@@ -695,7 +691,7 @@ export default function HatcheryLedgerPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="hcontact">Contact</Label>
+                <Label htmlFor="hcontact">{t("farmer.hatcheryLedger.addHatcheryModal.contact")}</Label>
                 <Input
                   id="hcontact"
                   value={newHatchery.contact}
@@ -706,7 +702,7 @@ export default function HatcheryLedgerPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="haddress">Address (optional)</Label>
+                <Label htmlFor="haddress">{t("farmer.hatcheryLedger.addHatcheryModal.address")}</Label>
                 <Input
                   id="haddress"
                   value={newHatchery.address}
@@ -723,7 +719,7 @@ export default function HatcheryLedgerPage() {
               variant="outline"
               onClick={() => setIsAddHatcheryOpen(false)}
             >
-              Cancel
+              {t("farmer.hatcheryLedger.addHatcheryModal.cancel")}
             </Button>
             <Button
               type="submit"
@@ -733,10 +729,10 @@ export default function HatcheryLedgerPage() {
               {createHatcheryMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding...
+                  {t("farmer.hatcheryLedger.addHatcheryModal.adding")}
                 </>
               ) : (
-                "Add"
+                t("farmer.hatcheryLedger.addHatcheryModal.add")
               )}
             </Button>
           </ModalFooter>
@@ -747,13 +743,13 @@ export default function HatcheryLedgerPage() {
       <Modal
         isOpen={isAddEntryOpen}
         onClose={() => setIsAddEntryOpen(false)}
-        title={`Add Entry – ${activeHatchery?.name || "Hatchery"}`}
+        title={t("farmer.hatcheryLedger.addEntryModal.title", { name: activeHatchery?.name || "Hatchery" })}
       >
         <form onSubmit={handleAddEntry}>
           <ModalContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="item">Hatchery Name</Label>
+                <Label htmlFor="item">{t("farmer.hatcheryLedger.addEntryModal.item")}</Label>
                 <Input
                   id="item"
                   value={newEntry.item}
@@ -765,7 +761,7 @@ export default function HatcheryLedgerPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="rate">Rate</Label>
+                  <Label htmlFor="rate">{t("farmer.hatcheryLedger.addEntryModal.rate")}</Label>
                   <Input
                     id="rate"
                     type="number"
@@ -777,7 +773,7 @@ export default function HatcheryLedgerPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="quantity">Quantity</Label>
+                  <Label htmlFor="quantity">{t("farmer.hatcheryLedger.addEntryModal.quantity")}</Label>
                   <Input
                     id="quantity"
                     type="number"
@@ -789,7 +785,7 @@ export default function HatcheryLedgerPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="paid">Paid</Label>
+                  <Label htmlFor="paid">{t("farmer.hatcheryLedger.addEntryModal.paid")}</Label>
                   <Input
                     id="paid"
                     type="number"
@@ -803,7 +799,7 @@ export default function HatcheryLedgerPage() {
 
               {/* Free chicks input */}
               <div className="space-y-2">
-                <Label>Free chicks</Label>
+                <Label>{t("farmer.hatcheryLedger.addEntryModal.freeChicks")}</Label>
                 <div className="flex items-center gap-2">
                   <Button
                     type="button"
@@ -811,7 +807,7 @@ export default function HatcheryLedgerPage() {
                     onClick={() => setFreeMode("count")}
                     className="h-8 px-3"
                   >
-                    Count
+                    {t("farmer.hatcheryLedger.addEntryModal.freeCount")}
                   </Button>
                   <Button
                     type="button"
@@ -819,13 +815,13 @@ export default function HatcheryLedgerPage() {
                     onClick={() => setFreeMode("percent")}
                     className="h-8 px-3"
                   >
-                    Percentage
+                    {t("farmer.hatcheryLedger.addEntryModal.freePercent")}
                   </Button>
                   <Input
                     id="freeValue"
                     type="number"
                     placeholder={
-                      freeMode === "count" ? "e.g. 20" : "e.g. 20 (for 20%)"
+                      freeMode === "count" ? t("farmer.hatcheryLedger.addEntryModal.countPlaceholder") : t("farmer.hatcheryLedger.addEntryModal.percentPlaceholder")
                     }
                     value={freeValue}
                     onChange={(e) => setFreeValue(e.target.value)}
@@ -833,7 +829,7 @@ export default function HatcheryLedgerPage() {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Cost applies only to paid quantity. Free chicks are zero-cost.
+                  {t("farmer.hatcheryLedger.addEntryModal.helperText")}
                 </p>
                 {(() => {
                   const qty = Number(newEntry.quantity || 0);
@@ -846,12 +842,12 @@ export default function HatcheryLedgerPage() {
                     qty + (Number.isFinite(freeCount) ? freeCount : 0);
                   return (
                     <div className="text-sm">
-                      <span className="font-medium">Paid:</span>{" "}
+                      <span className="font-medium">{t("farmer.hatcheryLedger.addEntryModal.summary.paid")}</span>{" "}
                       {isNaN(qty) ? 0 : qty} &nbsp;|
-                      <span className="font-medium ml-2">Free:</span>{" "}
+                      <span className="font-medium ml-2">{t("farmer.hatcheryLedger.addEntryModal.summary.free")}</span>{" "}
                       {isNaN(freeCount) ? 0 : freeCount} &nbsp;|
                       <span className="font-medium ml-2">
-                        Total Delivered:
+                        {t("farmer.hatcheryLedger.addEntryModal.summary.delivered")}
                       </span>{" "}
                       {isNaN(totalDelivered) ? 0 : totalDelivered}
                     </div>
@@ -861,7 +857,7 @@ export default function HatcheryLedgerPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <DateInput
-                    label="Date"
+                    label={t("farmer.hatcheryLedger.addEntryModal.date")}
                     value={newEntry.date}
                     onChange={(value) => setNewEntry({ ...newEntry, date: value })}
                     preferNativeInput
@@ -869,7 +865,7 @@ export default function HatcheryLedgerPage() {
                 </div>
                 <div>
                   <DateInput
-                    label="Due Date (optional)"
+                    label={`${t("farmer.hatcheryLedger.table.dueDate")} (optional)`}
                     value={newEntry.dueDate}
                     onChange={(value) => setNewEntry({ ...newEntry, dueDate: value })}
                     preferNativeInput
@@ -884,7 +880,7 @@ export default function HatcheryLedgerPage() {
               variant="outline"
               onClick={() => setIsAddEntryOpen(false)}
             >
-              Cancel
+              {t("farmer.hatcheryLedger.addEntryModal.cancel")}
             </Button>
             <Button
               type="submit"
@@ -894,10 +890,10 @@ export default function HatcheryLedgerPage() {
               {addTransactionMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  {t("farmer.hatcheryLedger.addEntryModal.saving")}
                 </>
               ) : (
-                "Save"
+                t("farmer.hatcheryLedger.addEntryModal.save")
               )}
             </Button>
           </ModalFooter>
@@ -908,7 +904,7 @@ export default function HatcheryLedgerPage() {
       <Modal
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
-        title="Add Payment"
+        title={t("farmer.hatcheryLedger.paymentModal.title")}
       >
         <form onSubmit={handleAddPayment}>
           <ModalContent>
@@ -916,10 +912,10 @@ export default function HatcheryLedgerPage() {
               {selectedEntry && (
                 <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-sm text-blue-800">
-                    <strong>Entry:</strong> {selectedEntry.entryId}
+                    <strong>{t("farmer.hatcheryLedger.paymentModal.entry")}:</strong> {selectedEntry.entryId}
                   </p>
                   <p className="text-sm text-blue-800">
-                    <strong>Amount Due:</strong> ₹
+                    <strong>{t("farmer.hatcheryLedger.paymentModal.outstanding")}:</strong> ₹
                     {(() => {
                       const entry = activeHatchery?.transactionTable?.find(
                         (e: any) => e.id === selectedEntry.entryId
@@ -943,14 +939,14 @@ export default function HatcheryLedgerPage() {
               </div>
               <div>
                 <DateInput
-                  label="Payment Date"
+                  label={t("farmer.hatcheryLedger.paymentModal.date")}
                   value={paymentForm.date}
                   onChange={(value) => setPaymentForm({ ...paymentForm, date: value })}
                   preferNativeInput
                 />
               </div>
               <div>
-                <Label htmlFor="paymentNote">Note (optional)</Label>
+                <Label htmlFor="paymentNote">{t("farmer.hatcheryLedger.paymentModal.note")}</Label>
                 <Input
                   id="paymentNote"
                   value={paymentForm.note}
@@ -967,7 +963,7 @@ export default function HatcheryLedgerPage() {
               variant="outline"
               onClick={() => setIsPaymentModalOpen(false)}
             >
-              Cancel
+              {t("farmer.hatcheryLedger.paymentModal.cancel")}
             </Button>
             <Button
               type="submit"
@@ -977,10 +973,10 @@ export default function HatcheryLedgerPage() {
               {addTransactionMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Recording...
+                  {t("farmer.hatcheryLedger.paymentModal.recording")}
                 </>
               ) : (
-                "Record Payment"
+                t("farmer.hatcheryLedger.paymentModal.record")
               )}
             </Button>
           </ModalFooter>
@@ -991,7 +987,7 @@ export default function HatcheryLedgerPage() {
       <Modal
         isOpen={isHistoryModalOpen}
         onClose={() => setIsHistoryModalOpen(false)}
-        title="Payment History"
+        title={t("farmer.hatcheryLedger.historyModal.title")}
       >
         <ModalContent>
           <div className="space-y-4">
@@ -1013,19 +1009,19 @@ export default function HatcheryLedgerPage() {
                       </h3>
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <span className="text-gray-600">Total Amount:</span>
+                          <span className="text-gray-600">{t("farmer.hatcheryLedger.historyModal.totalAmount")}:</span>
                           <span className="ml-2 font-medium">
                             ₹{totalAmount.toLocaleString()}
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-600">Total Paid:</span>
+                          <span className="text-gray-600">{t("farmer.hatcheryLedger.historyModal.totalPaid")}:</span>
                           <span className="ml-2 font-medium text-green-600">
                             ₹{totalPaid.toLocaleString()}
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-600">Remaining:</span>
+                          <span className="text-gray-600">{t("farmer.hatcheryLedger.historyModal.remaining")}:</span>
                           <span
                             className={`ml-2 font-medium ${remaining > 0 ? "text-red-600" : "text-green-600"}`}
                           >
@@ -1033,7 +1029,7 @@ export default function HatcheryLedgerPage() {
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-600">Payments:</span>
+                          <span className="text-gray-600">{t("farmer.hatcheryLedger.historyModal.payments")}:</span>
                           <span className="ml-2 font-medium">
                             {history.length}
                           </span>
@@ -1043,11 +1039,11 @@ export default function HatcheryLedgerPage() {
 
                     <div className="space-y-3">
                       <h4 className="font-medium text-gray-900">
-                        Payment Details
+                        {t("farmer.hatcheryLedger.historyModal.paymentDetails")}
                       </h4>
                       {history.length === 0 ? (
                         <p className="text-gray-500 text-center py-4">
-                          No payments recorded yet
+                          {t("farmer.hatcheryLedger.historyModal.noPayments")}
                         </p>
                       ) : (
                         <div className="space-y-2">
@@ -1070,7 +1066,7 @@ export default function HatcheryLedgerPage() {
                                 )}
                               </div>
                               <div className="text-sm text-gray-500">
-                                Payment #{index + 1}
+                                {t("farmer.hatcheryLedger.historyModal.paymentNum", { number: index + 1 })}
                               </div>
                             </div>
                           ))}
@@ -1081,13 +1077,13 @@ export default function HatcheryLedgerPage() {
                 );
               })()}
           </div>
-        </ModalContent>
+        </ModalContent >
         <ModalFooter>
           <Button
             variant="outline"
             onClick={() => setIsHistoryModalOpen(false)}
           >
-            Close
+            {t("farmer.hatcheryLedger.historyModal.close")}
           </Button>
         </ModalFooter>
       </Modal>
@@ -1098,10 +1094,10 @@ export default function HatcheryLedgerPage() {
           {hatcheriesLoading ? (
             <div className="flex items-center">
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              <span className="text-sm">Loading...</span>
+              <span className="text-sm">{t("farmer.hatcheryLedger.summaryModal.loading")}</span>
             </div>
           ) : hatcheriesError ? (
-            <div className="text-red-600 text-sm">Failed to load</div>
+            <div className="text-red-600 text-sm">{t("farmer.hatcheryLedger.summaryModal.error")}</div>
           ) : (
             hatcheries.map((hatchery: any) => (
               <Button
@@ -1111,8 +1107,8 @@ export default function HatcheryLedgerPage() {
                 }
                 size="sm"
                 className={`text-xs md:text-sm whitespace-nowrap ${activeHatcheryId === hatchery.id
-                    ? "bg-primary hover:bg-primary/90"
-                    : ""
+                  ? "bg-primary hover:bg-primary/90"
+                  : ""
                   }`}
                 onClick={() => setActiveHatcheryId(hatchery.id)}
               >
@@ -1127,7 +1123,7 @@ export default function HatcheryLedgerPage() {
             onClick={() => setIsAddHatcheryOpen(true)}
           >
             <Plus className="mr-1 h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Add </span>Dealer
+            <span className="hidden sm:inline">{t("farmer.hatcheryLedger.addDealer").replace("Dealer", "")}</span>{t("farmer.hatcheryLedger.addDealer").replace("Add", "")}
           </Button>
         </div>
 
@@ -1141,7 +1137,7 @@ export default function HatcheryLedgerPage() {
                     Loading...
                   </div>
                 ) : (
-                  activeHatchery?.name || "Select a hatchery"
+                  activeHatchery?.name || t("farmer.hatcheryLedger.table.selectHatchery")
                 )}
               </CardTitle>
               <div className="flex gap-1 md:gap-2 flex-wrap">
@@ -1154,7 +1150,7 @@ export default function HatcheryLedgerPage() {
                     disabled={!activeHatcheryId}
                   >
                     <Trash2 className="h-3.5 w-3.5 md:hidden" />
-                    <span className="hidden md:inline">Delete Hatchery</span>
+                    <span className="hidden md:inline">{t("farmer.hatcheryLedger.deleteHatcheryModal.delete")}</span>
                   </Button>
                 )}
                 {isDeleteMode ? (
@@ -1169,7 +1165,7 @@ export default function HatcheryLedgerPage() {
                       }}
                     >
                       <X className="mr-1 h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Cancel</span>
+                      <span className="hidden sm:inline">{t("farmer.hatcheryLedger.buttons.cancel")}</span>
                     </Button>
                     <Button
                       size="sm"
@@ -1178,7 +1174,7 @@ export default function HatcheryLedgerPage() {
                       onClick={() => setIsConfirmDeleteOpen(true)}
                     >
                       <Trash2 className="mr-1 h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Delete </span>({selectedIds.size})
+                      <span className="hidden sm:inline">{t("farmer.hatcheryLedger.buttons.delete")} </span>({selectedIds.size})
                     </Button>
                   </>
                 ) : (
@@ -1191,7 +1187,7 @@ export default function HatcheryLedgerPage() {
                       disabled={!activeHatcheryId}
                     >
                       <Trash2 className="h-3.5 w-3.5 md:mr-1" />
-                      <span className="hidden md:inline">Delete</span>
+                      <span className="hidden md:inline">{t("farmer.hatcheryLedger.buttons.delete")}</span>
                     </Button>
                     <Button
                       size="sm"
@@ -1200,19 +1196,19 @@ export default function HatcheryLedgerPage() {
                       disabled={!activeHatcheryId}
                     >
                       <Plus className="mr-1 h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Add </span>Entry
+                      <span className="hidden sm:inline">{t("farmer.hatcheryLedger.buttons.addEntry").replace("Entry", "")}</span>{t("farmer.hatcheryLedger.buttons.addEntry").replace("Add", "")}
                     </Button>
                   </>
                 )}
               </div>
             </div>
-            <CardDescription className="text-xs md:text-sm">Ledger for this hatchery</CardDescription>
+            <CardDescription className="text-xs md:text-sm">{t("farmer.hatcheryLedger.table.cardDescription")}</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {activeHatcheryLoading ? (
               <div className="flex items-center justify-center py-6">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                <span className="ml-2 text-sm">Loading...</span>
+                <span className="ml-2 text-sm">{t("farmer.hatcheryLedger.summaryModal.loading")}</span>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -1253,7 +1249,7 @@ export default function HatcheryLedgerPage() {
                   footerContent={
                     <div className="grid grid-cols-9 gap-4 text-sm">
                       <div className="col-span-3 font-semibold text-gray-900">
-                        Total
+                        {t("farmer.hatcheryLedger.table.total")}
                       </div>
                       <div className="text-right font-medium">
                         ₹
@@ -1281,7 +1277,7 @@ export default function HatcheryLedgerPage() {
                       <div></div>
                     </div>
                   }
-                  emptyMessage="No entries for this hatchery"
+                  emptyMessage={t("farmer.hatcheryLedger.table.empty")}
                 />
               </div>
             )}

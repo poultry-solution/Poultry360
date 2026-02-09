@@ -32,9 +32,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { TransactionType } from "@myapp/shared-types";
 import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function DealerLedgerPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [activeDealerId, setActiveDealerId] = useState<string>("");
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isAddDealerOpen, setIsAddDealerOpen] = useState(false);
@@ -145,24 +147,25 @@ export default function DealerLedgerPage() {
 
   // Column configuration for DataTable
   const ledgerColumns: Column[] = [
-    createColumn("itemName", "Item"),
-    createColumn("rate", "Rate", {
+    createColumn("itemName", t("farmer.dealerLedger.table.description")),
+    createColumn("rate", t("farmer.dealerLedger.table.amount"), {
       type: "currency",
       align: "right",
     }),
-    createColumn("quantity", "Quantity", {
+    createColumn("quantity", t("farmer.dealerLedger.table.quantity"), {
       type: "number",
       align: "right",
     }),
-    createColumn("totalAmount", "Amount", {
+    createColumn("totalAmount", t("farmer.dealerLedger.table.amount"), {
       type: "currency",
       align: "right",
     }),
-    createColumn("amountPaid", "Amount Paid", {
+    createColumn("amountPaid", t("farmer.dealerLedger.table.paid"), {
       type: "currency",
       align: "right",
     }),
-    createColumn("amountDue", "Amount Due", {
+    // ... (rest of simple columns)
+    createColumn("amountDue", t("farmer.dealerLedger.table.balance"), {
       type: "currency",
       align: "right",
       render: (_, row) => {
@@ -185,17 +188,17 @@ export default function DealerLedgerPage() {
                 className="ml-2 h-6 px-2 text-xs bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
                 onClick={() => openPaymentModal(activeDealerId, row.id)}
               >
-                Pay
+                {t("farmer.dealerLedger.transactionTypes.payment")}
               </Button>
             )}
           </div>
         );
       },
     }),
-    createColumn("date", "Date", {
+    createColumn("date", t("farmer.dealerLedger.table.date"), {
       type: "date",
     }),
-    createColumn("dueDate", "Due Date", {
+    createColumn("dueDate", t("farmer.dealerLedger.table.dueDate"), {
       render: (_, row) =>
         row.date ? (
           <DateDisplay date={getRowDueDateDate(row.date)} format="short" />
@@ -203,7 +206,7 @@ export default function DealerLedgerPage() {
           "—"
         ),
     }),
-    createColumn("payments", "Payment History", {
+    createColumn("payments", t("farmer.dealerLedger.table.history"), {
       render: (_, row) => {
         const history = row.payments || [];
         const totalPayments = history.length;
@@ -217,13 +220,14 @@ export default function DealerLedgerPage() {
             className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline"
             onClick={() => openHistoryModal(activeDealerId, row.id)}
           >
-            {totalPayments} payment{totalPayments !== 1 ? "s" : ""} (₹
+            {totalPayments} {t("farmer.dealerLedger.dialogs.history.paymentsCount").toLowerCase()}{totalPayments !== 1 ? "s" : ""} (₹
             {totalPaid.toLocaleString()})
           </div>
         );
       },
     }),
   ];
+
 
   function toggleAll() {
     if (!activeDealer?.transactionTable) return;
@@ -423,10 +427,10 @@ export default function DealerLedgerPage() {
       <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-3xl font-bold tracking-tight">
-            Feed Dealer Ledger
+            {t("farmer.dealerLedger.title")}
           </h1>
           <p className="text-xs md:text-sm text-muted-foreground">
-            Manage dealer purchases
+            {t("farmer.dealerLedger.subtitle")}
           </p>
         </div>
 
@@ -438,7 +442,7 @@ export default function DealerLedgerPage() {
             onClick={() => router.push("/farmer/dashboard/dealers")}
           >
             <Users className="mr-2 h-4 w-4" />
-            My Dealers
+            {t("farmer.dealers.title")}
           </Button>
           <Button
             variant="outline"
@@ -447,7 +451,7 @@ export default function DealerLedgerPage() {
             onClick={() => router.push("/farmer/dashboard/sale-requests")}
           >
             <FileCheck className="mr-2 h-4 w-4" />
-            Sale Requests
+            {t("farmer.dealers.buttons.saleRequests")}
           </Button>
           <Button
             variant="outline"
@@ -456,7 +460,7 @@ export default function DealerLedgerPage() {
             onClick={() => router.push("/farmer/dashboard/payment-requests")}
           >
             <DollarSign className="mr-2 h-4 w-4" />
-            Payment Requests
+            {t("farmer.dealers.buttons.paymentRequests")}
           </Button>
         </div>
       </div>
@@ -467,7 +471,7 @@ export default function DealerLedgerPage() {
           className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white"
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">Dealers</CardTitle>
+            <CardTitle className="text-[10px] md:text-sm font-medium">{t("farmer.dealers.labels.dealer")}s</CardTitle>
             <Users className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -478,13 +482,13 @@ export default function DealerLedgerPage() {
                 {statistics.totalDealers || 0}
               </div>
             )}
-            <p className="text-[9px] md:text-xs text-muted-foreground hidden sm:block">Active</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground hidden sm:block">{t("farmer.dealers.stats.active")}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">Due</CardTitle>
+            <CardTitle className="text-[10px] md:text-sm font-medium">{t("farmer.dealerLedger.stats.toPay")}</CardTitle>
             <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -496,13 +500,13 @@ export default function DealerLedgerPage() {
                 <span className="md:hidden">₹{Math.round(statistics.outstandingAmount || 0).toLocaleString()}</span>
               </div>
             )}
-            <p className="text-[9px] md:text-xs text-muted-foreground hidden sm:block">Outstanding</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground hidden sm:block">{t("farmer.dealerLedger.stats.dealersOwe", { amount: "" }).replace(":", "")}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">Month</CardTitle>
+            <CardTitle className="text-[10px] md:text-sm font-medium">{t("farmer.dashboard.stats.thisMonth")}</CardTitle>
             <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -514,7 +518,7 @@ export default function DealerLedgerPage() {
                 <span className="md:hidden">₹{Math.round(statistics.thisMonthAmount || 0).toLocaleString()}</span>
               </div>
             )}
-            <p className="text-[9px] md:text-xs text-muted-foreground hidden sm:block">Purchases</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground hidden sm:block">{t("farmer.dealerLedger.transactionTypes.purchase")}s</p>
           </CardContent>
         </Card>
       </div>
@@ -523,18 +527,18 @@ export default function DealerLedgerPage() {
       <Modal
         isOpen={isSummaryOpen}
         onClose={() => setIsSummaryOpen(false)}
-        title="Dealers – Amount Due"
+        title={t("farmer.dealerLedger.stats.netBalance")}
       >
         <ModalContent>
           <div className="space-y-3">
             {dealersLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin" />
-                <span className="ml-2">Loading dealers...</span>
+                <span className="ml-2">{t("farmer.dealerLedger.loading")}</span>
               </div>
             ) : dealers.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-muted-foreground">No dealers found</p>
+                <p className="text-muted-foreground">{t("farmer.dealers.connectedSection.emptyTitle")}</p>
               </div>
             ) : (
               dealers.map((dealer: any) => (
@@ -545,7 +549,7 @@ export default function DealerLedgerPage() {
                   <div>
                     <div className="font-medium">{dealer.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      Contact: {dealer.contact}
+                      {t("farmer.dealers.labels.contact")}: {dealer.contact}
                     </div>
                   </div>
                   <div className="text-right font-medium">
@@ -558,7 +562,7 @@ export default function DealerLedgerPage() {
         </ModalContent>
         <ModalFooter>
           <Button variant="outline" onClick={() => setIsSummaryOpen(false)}>
-            Close
+            {t("farmer.dashboard.close")}
           </Button>
         </ModalFooter>
       </Modal>
@@ -574,31 +578,26 @@ export default function DealerLedgerPage() {
             {activeDealer?.connectionType === "CONNECTED" ? (
               <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                 <p className="text-sm text-yellow-800">
-                  <strong>Notice:</strong> This is a connected dealer and cannot be deleted.
+                  <strong>{t("farmer.dealerLedger.dialogs.warnings.connectedDealer")}</strong>
                 </p>
                 <p className="text-sm text-yellow-700 mt-2">
-                  You can archive this connection from your Connected Dealers page instead.
+                  {t("farmer.dealerLedger.dialogs.warnings.connectedHint")}
                 </p>
               </div>
             ) : (
               <>
                 <div className="p-4 bg-red-50 rounded-lg border border-red-200">
                   <p className="text-sm text-red-800">
-                    <strong>Warning:</strong> This will permanently delete dealer{" "}
-                    <strong>
-                      {activeDealer?.name ? ` ${activeDealer.name}` : ""}
-                    </strong>
-                    .
+                    <strong>{t("farmer.dealerLedger.dialogs.warnings.deleteDealer", { name: activeDealer?.name || "" })}</strong>
                   </p>
                   {activeDealer?.transactions?.length > 0 && (
                     <p className="text-sm text-red-700 mt-2">
-                      This dealer has {activeDealer.transactions.length}{" "}
-                      transaction(s). You must delete all transactions first.
+                      {t("farmer.dealerLedger.dialogs.warnings.deleteTransactionsFirst", { count: activeDealer?.transactions?.length })}
                     </p>
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Are you sure you want to proceed?
+                  {t("farmer.dealerLedger.dialogs.warnings.confirmProceed")}
                 </p>
               </>
             )}
@@ -609,7 +608,7 @@ export default function DealerLedgerPage() {
             variant="outline"
             onClick={() => setIsDeleteDealerOpen(false)}
           >
-            {activeDealer?.connectionType === "CONNECTED" ? "Close" : "Cancel"}
+            {activeDealer?.connectionType === "CONNECTED" ? t("farmer.dashboard.close") : t("farmer.dealers.dialogs.applyCancel")}
           </Button>
           {activeDealer?.connectionType !== "CONNECTED" && (
             <Button
@@ -655,10 +654,10 @@ export default function DealerLedgerPage() {
             >
               {deleteDealerMutation.isPending ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("farmer.dealerLedger.dialogs.buttons.deleting")}
                 </>
               ) : (
-                "Delete Dealer"
+                t("farmer.dealerLedger.dialogs.buttons.delete")
               )}
             </Button>
           )}
@@ -669,12 +668,11 @@ export default function DealerLedgerPage() {
       <Modal
         isOpen={isConfirmDeleteOpen}
         onClose={() => setIsConfirmDeleteOpen(false)}
-        title={`Delete ${selectedIds.size} entr${selectedIds.size === 1 ? "y" : "ies"}?`}
+        title={t("farmer.dealerLedger.dialogs.confirmDeleteEntriesTitle", { count: selectedIds.size })}
       >
         <ModalContent>
           <p className="text-sm text-muted-foreground">
-            This action cannot be undone. The selected entries will be
-            permanently removed.
+            {t("farmer.dealerLedger.dialogs.warnings.deleteEntries")}
           </p>
         </ModalContent>
         <ModalFooter>
@@ -682,7 +680,7 @@ export default function DealerLedgerPage() {
             variant="outline"
             onClick={() => setIsConfirmDeleteOpen(false)}
           >
-            Cancel
+            {t("farmer.dealerLedger.dialogs.buttons.cancel")}
           </Button>
           <Button
             className="bg-red-600 hover:bg-red-700 text-white"
@@ -691,10 +689,10 @@ export default function DealerLedgerPage() {
           >
             {deleteTxn.isPending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("farmer.dealerLedger.dialogs.buttons.deleting")}
               </>
             ) : (
-              "Delete"
+              t("farmer.dealerLedger.dialogs.buttons.delete")
             )}
           </Button>
         </ModalFooter>
@@ -707,27 +705,25 @@ export default function DealerLedgerPage() {
           setIsPasswordModalOpen(false);
           setPasswordForm({ password: "" });
         }}
-        title="Confirm Deletion"
+        title={t("farmer.dealerLedger.dialogs.confirmDeletionTitle")}
       >
         <ModalContent>
           <div className="space-y-4">
             <div className="p-4 bg-red-50 rounded-lg border border-red-200">
               <p className="text-sm text-red-800">
-                <strong>Warning:</strong> This action cannot be undone. You are
-                about to delete {selectedIds.size} transaction
-                {selectedIds.size !== 1 ? "s" : ""}.
+                <strong>{t("farmer.dealerLedger.dialogs.warnings.deleteEntriesCount", { count: selectedIds.size })}</strong>
               </p>
             </div>
             <div>
               <Label htmlFor="password">
-                Enter your password to confirm deletion
+                {t("farmer.dealerLedger.dialogs.labels.password")}
               </Label>
               <Input
                 id="password"
                 type="password"
                 value={passwordForm.password}
                 onChange={(e) => setPasswordForm({ password: e.target.value })}
-                placeholder="Enter your password"
+                placeholder={t("farmer.dealerLedger.dialogs.labels.passwordPlaceholder")}
                 required
                 className="mt-1"
               />
@@ -742,7 +738,7 @@ export default function DealerLedgerPage() {
               setPasswordForm({ password: "" });
             }}
           >
-            Cancel
+            {t("farmer.dealerLedger.dialogs.buttons.cancel")}
           </Button>
           <Button
             className="bg-red-600 hover:bg-red-700 text-white"
@@ -751,26 +747,134 @@ export default function DealerLedgerPage() {
           >
             {deleteTxn.isPending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("farmer.dealerLedger.dialogs.buttons.deleting")}
               </>
             ) : (
-              "Confirm Deletion"
+              t("farmer.dealerLedger.dialogs.buttons.confirm")
             )}
           </Button>
         </ModalFooter>
       </Modal>
 
+      {/* Payment History Modal */}
+      <Modal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        title={t("farmer.dealerLedger.dialogs.paymentHistoryTitle")}
+      >
+        <ModalContent>
+          <div className="space-y-4">
+            {selectedHistoryEntry &&
+              activeDealer &&
+              (() => {
+                const entry = activeDealer.transactionTable?.find(
+                  (e: any) => e.id === selectedHistoryEntry.entryId
+                );
+                const history = entry?.payments || [];
+                const totalAmount = entry?.totalAmount || 0;
+                const totalPaid = history.reduce(
+                  (sum: number, payment: any) => sum + payment.amount,
+                  0
+                );
+                const remaining = totalAmount - totalPaid;
+
+                return (
+                  <>
+                    <div className="p-4 bg-gray-50 rounded-lg border">
+                      <h3 className="font-semibold text-lg mb-2">
+                        {entry?.itemName || "Transaction"}
+                      </h3>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-600">{t("farmer.dealerLedger.dialogs.history.totalAmount")}:</span>
+                          <span className="ml-2 font-medium">
+                            ₹{totalAmount.toLocaleString()}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">{t("farmer.dealerLedger.dialogs.history.totalPaid")}:</span>
+                          <span className="ml-2 font-medium text-green-600">
+                            ₹{totalPaid.toLocaleString()}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">{t("farmer.dealerLedger.dialogs.history.remaining")}:</span>
+                          <span
+                            className={`ml-2 font-medium ${remaining > 0 ? "text-red-600" : "text-green-600"}`}
+                          >
+                            ₹{remaining.toLocaleString()}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">{t("farmer.dealerLedger.dialogs.history.paymentsCount")}:</span>
+                          <span className="ml-2 font-medium">
+                            {history.length}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-gray-900">
+                        {t("farmer.dealerLedger.dialogs.history.paymentDetails")}
+                      </h4>
+                      {history.length === 0 ? (
+                        <p className="text-gray-500 text-center py-4">
+                          {t("farmer.dealerLedger.dialogs.history.noPayments")}
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {history.map((payment: any, index: number) => (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between p-3 bg-white border rounded-lg"
+                            >
+                              <div>
+                                <div className="font-medium">
+                                  ₹{payment.amount.toLocaleString()}
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  <DateDisplay date={payment.date} format="short" />
+                                </div>
+                                {payment.reference && (
+                                  <div className="text-sm text-gray-500">
+                                    {payment.reference}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {t("farmer.dealerLedger.dialogs.history.paymentNum", { number: index + 1 })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+          </div>
+        </ModalContent>
+        <ModalFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsHistoryModalOpen(false)}
+          >
+            {t("farmer.dealerLedger.dialogs.buttons.close")}
+          </Button>
+        </ModalFooter>
+      </Modal>
       {/* Add Dealer Modal */}
       <Modal
         isOpen={isAddDealerOpen}
         onClose={() => setIsAddDealerOpen(false)}
-        title="Add Dealer"
+        title={t("farmer.dealerLedger.dialogs.addDealerTitle")}
       >
         <form onSubmit={handleAddDealer}>
           <ModalContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="dname">Dealer Name</Label>
+                <Label htmlFor="dname">{t("farmer.dealerLedger.dialogs.labels.dealerName")}</Label>
                 <Input
                   id="dname"
                   value={newDealer.name}
@@ -781,7 +885,7 @@ export default function DealerLedgerPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="dcontact">Contact</Label>
+                <Label htmlFor="dcontact">{t("farmer.dealerLedger.dialogs.labels.contact")}</Label>
                 <Input
                   id="dcontact"
                   value={newDealer.contact}
@@ -792,7 +896,7 @@ export default function DealerLedgerPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="daddress">Address (optional)</Label>
+                <Label htmlFor="daddress">{t("farmer.dealerLedger.dialogs.labels.address")}</Label>
                 <Input
                   id="daddress"
                   value={newDealer.address}
@@ -809,7 +913,7 @@ export default function DealerLedgerPage() {
               variant="outline"
               onClick={() => setIsAddDealerOpen(false)}
             >
-              Cancel
+              {t("farmer.dealerLedger.dialogs.buttons.cancel")}
             </Button>
             <Button
               type="submit"
@@ -819,10 +923,10 @@ export default function DealerLedgerPage() {
               {createDealerMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding...
+                  {t("farmer.dealerLedger.dialogs.buttons.adding")}
                 </>
               ) : (
-                "Add Dealer"
+                t("farmer.dealerLedger.dialogs.buttons.addDealer")
               )}
             </Button>
           </ModalFooter>
@@ -833,26 +937,26 @@ export default function DealerLedgerPage() {
       <Modal
         isOpen={isAddEntryOpen}
         onClose={() => setIsAddEntryOpen(false)}
-        title={`Add Entry – ${activeDealer?.name || "Dealer"}`}
+        title={t("farmer.dealerLedger.dialogs.addEntryTitle", { dealer: activeDealer?.name || t("farmer.dealers.labels.dealer") })}
       >
         <form onSubmit={handleAddEntry}>
           <ModalContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="item">Item</Label>
+                <Label htmlFor="item">{t("farmer.dealerLedger.dialogs.labels.item")}</Label>
                 <Input
                   id="item"
                   value={newEntry.item}
                   onChange={(e) =>
                     setNewEntry({ ...newEntry, item: e.target.value })
                   }
-                  placeholder="Feed brand"
+                  placeholder={t("farmer.dealerLedger.dialogs.labels.itemPlaceholder")}
                   required
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="rate">Rate (per kg)</Label>
+                  <Label htmlFor="rate">{t("farmer.dealerLedger.dialogs.labels.rate")}</Label>
                   <Input
                     id="rate"
                     type="number"
@@ -864,7 +968,7 @@ export default function DealerLedgerPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="quantity">Quantity (kg)</Label>
+                  <Label htmlFor="quantity">{t("farmer.dealerLedger.dialogs.labels.quantity")}</Label>
                   <Input
                     id="quantity"
                     type="number"
@@ -876,7 +980,7 @@ export default function DealerLedgerPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="paid">Paid Amount</Label>
+                  <Label htmlFor="paid">{t("farmer.dealerLedger.dialogs.labels.paidAmount")}</Label>
                   <Input
                     id="paid"
                     type="number"
@@ -889,7 +993,7 @@ export default function DealerLedgerPage() {
               </div>
               <div>
                 <DateInput
-                  label="Date"
+                  label={t("farmer.dealerLedger.dialogs.labels.date")}
                   value={newEntry.date}
                   onChange={(value) => setNewEntry({ ...newEntry, date: value })}
                 />
@@ -902,7 +1006,7 @@ export default function DealerLedgerPage() {
               variant="outline"
               onClick={() => setIsAddEntryOpen(false)}
             >
-              Cancel
+              {t("farmer.dealerLedger.dialogs.buttons.cancel")}
             </Button>
             <Button
               type="submit"
@@ -912,10 +1016,10 @@ export default function DealerLedgerPage() {
               {addTransactionMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  {t("farmer.dealerLedger.dialogs.buttons.saving")}
                 </>
               ) : (
-                "Save Entry"
+                t("farmer.dealerLedger.dialogs.buttons.save")
               )}
             </Button>
           </ModalFooter>
@@ -926,7 +1030,7 @@ export default function DealerLedgerPage() {
       <Modal
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
-        title="Add Payment"
+        title={t("farmer.dealerLedger.dialogs.addPaymentTitle")}
       >
         <form onSubmit={handleAddPayment}>
           <ModalContent>
@@ -934,19 +1038,19 @@ export default function DealerLedgerPage() {
               {selectedEntry && activeDealer && (
                 <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-sm text-blue-800">
-                    <strong>Entry:</strong> {selectedEntry.entryId}
+                    <strong>{t("farmer.dealerLedger.dialogs.paymentInfo.entry")}:</strong> {selectedEntry.entryId}
                   </p>
                   <p className="text-sm text-blue-800">
-                    <strong>Dealer:</strong> {activeDealer.name}
+                    <strong>{t("farmer.dealerLedger.dialogs.paymentInfo.dealer")}:</strong> {activeDealer.name}
                   </p>
                   <p className="text-sm text-blue-800">
-                    <strong>Outstanding Balance:</strong> ₹
+                    <strong>{t("farmer.dealerLedger.dialogs.paymentInfo.outstanding")}:</strong> ₹
                     {(activeDealer.balance || 0).toLocaleString()}
                   </p>
                 </div>
               )}
               <div>
-                <Label htmlFor="paymentAmount">Payment Amount</Label>
+                <Label htmlFor="paymentAmount">{t("farmer.dealerLedger.dialogs.labels.paymentAmount")}</Label>
                 <Input
                   id="paymentAmount"
                   type="number"
@@ -959,13 +1063,13 @@ export default function DealerLedgerPage() {
               </div>
               <div>
                 <DateInput
-                  label="Payment Date"
+                  label={t("farmer.dealerLedger.dialogs.labels.paymentDate")}
                   value={paymentForm.date}
                   onChange={(value) => setPaymentForm({ ...paymentForm, date: value })}
                 />
               </div>
               <div>
-                <Label htmlFor="paymentNote">Note (optional)</Label>
+                <Label htmlFor="paymentNote">{t("farmer.dealerLedger.dialogs.labels.note")}</Label>
                 <Input
                   id="paymentNote"
                   value={paymentForm.note}
@@ -982,7 +1086,7 @@ export default function DealerLedgerPage() {
               variant="outline"
               onClick={() => setIsPaymentModalOpen(false)}
             >
-              Cancel
+              {t("farmer.dealerLedger.dialogs.buttons.cancel")}
             </Button>
             <Button
               type="submit"
@@ -992,10 +1096,10 @@ export default function DealerLedgerPage() {
               {addTransactionMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Recording...
+                  {t("farmer.dealerLedger.dialogs.buttons.recording")}
                 </>
               ) : (
-                "Record Payment"
+                t("farmer.dealerLedger.dialogs.buttons.record")
               )}
             </Button>
           </ModalFooter>
@@ -1112,227 +1216,233 @@ export default function DealerLedgerPage() {
       </Modal>
 
       {/* Loading State */}
-      {dealersLoading && (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin" />
-          <span className="ml-2">Loading dealers...</span>
-        </div>
-      )}
+      {
+        dealersLoading && (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <span className="ml-2">Loading dealers...</span>
+          </div>
+        )
+      }
 
       {/* Error State */}
-      {dealersError && (
-        <div className="text-center py-8">
-          <p className="text-red-600">
-            Failed to load dealers. Please try again.
-          </p>
-        </div>
-      )}
+      {
+        dealersError && (
+          <div className="text-center py-8">
+            <p className="text-red-600">
+              Failed to load dealers. Please try again.
+            </p>
+          </div>
+        )
+      }
 
       {/* Tabs: one per dealer */}
-      {!dealersLoading && !dealersError && (
-        <div className="space-y-3">
-          <div className="overflow-x-auto pb-2">
-            <div className="flex gap-2 min-w-max">
-              {dealers.map((dealer: any) => (
-                <Button
-                  key={dealer.id}
-                  variant={activeDealerId === dealer.id ? "default" : "outline"}
-                  size="sm"
-                  className={
-                    `text-xs md:text-sm whitespace-nowrap ${activeDealerId === dealer.id
-                      ? "bg-primary hover:bg-primary/90"
-                      : ""}`
-                  }
-                  onClick={() => setActiveDealerId(dealer.id)}
-                >
-                  <span className="flex items-center gap-1">
-                    {dealer.name}
-                    {dealer.connectionType === "CONNECTED" && (
-                      <Badge
-                        variant="secondary"
-                        className="ml-1 bg-blue-100 text-blue-800 hover:bg-blue-100 text-[9px] md:text-xs px-1"
-                      >
-                        <Link2 className="h-2.5 w-2.5 mr-0.5" />
-                        <span className="hidden sm:inline">Connected</span>
-                      </Badge>
-                    )}
-                  </span>
-                </Button>
-              ))}
-              <Button variant="outline" size="sm" className="text-xs md:text-sm whitespace-nowrap" onClick={() => setIsAddDealerOpen(true)}>
-                <Plus className="mr-1 h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Add Feed Dealer</span>
-                <span className="sm:hidden">Add</span>
-              </Button>
-            </div>
-          </div>
-
-          {dealers.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-6">
-                <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                <h3 className="text-base font-semibold mb-2">No dealers found</h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Create your first dealer.
-                </p>
-                <Button size="sm" onClick={() => setIsAddDealerOpen(true)}>
-                  <Plus className="mr-1 h-3.5 w-3.5" />
-                  Add Dealer
-                </Button>
-              </CardContent>
-            </Card>
-          ) : activeDealerId ? (
-            <Card>
-              <CardHeader className="p-3 md:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <CardTitle className="text-base md:text-lg">
-                    {activeDealer?.name || "Select a dealer"}
-                  </CardTitle>
-                  <div className="flex flex-wrap gap-1.5">
-                    {activeDealerId && !isDeleteMode && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-red-600 border-red-200 hover:bg-red-50 h-7 text-xs"
-                        onClick={() => setIsDeleteDealerOpen(true)}
-                        disabled={!activeDealerId}
-                      >
-                        <Trash2 className="h-3 w-3 mr-1 sm:mr-0" />
-                        <span className="hidden sm:inline sm:ml-1">Delete</span>
-                      </Button>
-                    )}
-                    {isDeleteMode ? (
-                      <>
-                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={exitDeleteMode}>
-                          <X className="h-3 w-3 mr-1" /> Cancel
-                        </Button>
-                        <Button
-                          className="bg-red-600 hover:bg-red-700 text-white h-7 text-xs"
-                          size="sm"
-                          disabled={
-                            selectedIds.size === 0 || deleteTxn.isPending
-                          }
-                          onClick={() => setIsConfirmDeleteOpen(true)}
+      {
+        !dealersLoading && !dealersError && (
+          <div className="space-y-3">
+            <div className="overflow-x-auto pb-2">
+              <div className="flex gap-2 min-w-max">
+                {dealers.map((dealer: any) => (
+                  <Button
+                    key={dealer.id}
+                    variant={activeDealerId === dealer.id ? "default" : "outline"}
+                    size="sm"
+                    className={
+                      `text-xs md:text-sm whitespace-nowrap ${activeDealerId === dealer.id
+                        ? "bg-primary hover:bg-primary/90"
+                        : ""}`
+                    }
+                    onClick={() => setActiveDealerId(dealer.id)}
+                  >
+                    <span className="flex items-center gap-1">
+                      {dealer.name}
+                      {dealer.connectionType === "CONNECTED" && (
+                        <Badge
+                          variant="secondary"
+                          className="ml-1 bg-blue-100 text-blue-800 hover:bg-blue-100 text-[9px] md:text-xs px-1"
                         >
-                          <Trash2 className="h-3 w-3 mr-1" />
-                          {selectedIds.size}
-                        </Button>
-                      </>
-                    ) : (
-                      <>
+                          <Link2 className="h-2.5 w-2.5 mr-0.5" />
+                          <span className="hidden sm:inline">Connected</span>
+                        </Badge>
+                      )}
+                    </span>
+                  </Button>
+                ))}
+                <Button variant="outline" size="sm" className="text-xs md:text-sm whitespace-nowrap" onClick={() => setIsAddDealerOpen(true)}>
+                  <Plus className="mr-1 h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{t("farmer.dealerLedger.dialogs.addDealerBtn")}</span>
+                  <span className="sm:hidden">{t("farmer.dealerLedger.dialogs.buttons.add")}</span>
+                </Button>
+              </div>
+            </div>
+
+            {dealers.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-6">
+                  <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                  <h3 className="text-base font-semibold mb-2">No dealers found</h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Create your first dealer.
+                  </p>
+                  <Button size="sm" onClick={() => setIsAddDealerOpen(true)}>
+                    <Plus className="mr-1 h-3.5 w-3.5" />
+                    {t("farmer.dealerLedger.dialogs.addDealerBtn")}
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : activeDealerId ? (
+              <Card>
+                <CardHeader className="p-3 md:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <CardTitle className="text-base md:text-lg">
+                      {activeDealer?.name || t("farmer.dealerLedger.dialogs.applySelectDealer")}
+                    </CardTitle>
+                    <div className="flex flex-wrap gap-1.5">
+                      {activeDealerId && !isDeleteMode && (
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => setIsDeleteMode(true)}
+                          className="text-red-600 border-red-200 hover:bg-red-50 h-7 text-xs"
+                          onClick={() => setIsDeleteDealerOpen(true)}
                           disabled={!activeDealerId}
                         >
                           <Trash2 className="h-3 w-3 mr-1 sm:mr-0" />
-                          <span className="hidden sm:inline sm:ml-1">Entries</span>
+                          <span className="hidden sm:inline sm:ml-1">{t("farmer.dealerLedger.dialogs.buttons.delete")}</span>
                         </Button>
-                        <Button
-                          className="bg-primary hover:bg-primary/90 h-7 text-xs"
-                          size="sm"
-                          onClick={() => setIsAddEntryOpen(true)}
-                          disabled={!activeDealerId}
-                        >
-                          <Plus className="h-3 w-3 mr-1" />
-                          <span className="hidden sm:inline">Add</span>
-                        </Button>
-                      </>
-                    )}
+                      )}
+                      {isDeleteMode ? (
+                        <>
+                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={exitDeleteMode}>
+                            <X className="h-3 w-3 mr-1" /> {t("farmer.dealerLedger.dialogs.buttons.cancel")}
+                          </Button>
+                          <Button
+                            className="bg-red-600 hover:bg-red-700 text-white h-7 text-xs"
+                            size="sm"
+                            disabled={
+                              selectedIds.size === 0 || deleteTxn.isPending
+                            }
+                            onClick={() => setIsConfirmDeleteOpen(true)}
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            {selectedIds.size}
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => setIsDeleteMode(true)}
+                            disabled={!activeDealerId}
+                          >
+                            <Trash2 className="h-3 w-3 mr-1 sm:mr-0" />
+                            <span className="hidden sm:inline sm:ml-1">{t("farmer.dealerLedger.dialogs.buttons.entries")}</span>
+                          </Button>
+                          <Button
+                            className="bg-primary hover:bg-primary/90 h-7 text-xs"
+                            size="sm"
+                            onClick={() => setIsAddEntryOpen(true)}
+                            disabled={!activeDealerId}
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            <span className="hidden sm:inline">{t("farmer.dealerLedger.dialogs.buttons.add")}</span>
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <CardDescription className="text-[10px] md:text-sm mt-1">
-                  {activeDealer
-                    ? `Ledger for ${activeDealer.name}`
-                    : "Select a dealer"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-0 overflow-x-auto">
-                {activeDealerLoading ? (
-                  <div className="flex items-center justify-center py-6 text-sm">
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    <span className="ml-2">Loading...</span>
-                  </div>
-                ) : (
-                  <DataTable
-                    data={activeDealer?.transactionTable || []}
-                    columns={ledgerColumns}
-                    selectable={isDeleteMode}
-                    isAllSelected={
-                      !!activeDealer?.transactionTable &&
-                      selectedIds.size > 0 &&
-                      selectedIds.size === activeDealer.transactionTable.length
-                    }
-                    onToggleAll={toggleAll}
-                    isRowSelected={(row: any) =>
-                      selectedIds.has(row.id)
-                    }
-                    onToggleRow={toggleOne}
-                    getRowKey={(row: any) => row.id}
-                    showFooter={true}
-                    footerContent={
-                      <div className="grid grid-cols-9 gap-4 text-sm">
-                        <div className="col-span-3 font-semibold text-gray-900">
-                          Total
+                  <CardDescription className="text-[10px] md:text-sm mt-1">
+                    {activeDealer
+                      ? `Ledger for ${activeDealer.name}`
+                      : t("farmer.dealerLedger.dialogs.applySelectDealer")}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0 overflow-x-auto">
+                  {activeDealerLoading ? (
+                    <div className="flex items-center justify-center py-6 text-sm">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span className="ml-2">Loading...</span>
+                    </div>
+                  ) : (
+                    <DataTable
+                      data={activeDealer?.transactionTable || []}
+                      columns={ledgerColumns}
+                      selectable={isDeleteMode}
+                      isAllSelected={
+                        !!activeDealer?.transactionTable &&
+                        selectedIds.size > 0 &&
+                        selectedIds.size === activeDealer.transactionTable.length
+                      }
+                      onToggleAll={toggleAll}
+                      isRowSelected={(row: any) =>
+                        selectedIds.has(row.id)
+                      }
+                      onToggleRow={toggleOne}
+                      getRowKey={(row: any) => row.id}
+                      showFooter={true}
+                      footerContent={
+                        <div className="grid grid-cols-9 gap-4 text-sm">
+                          <div className="col-span-3 font-semibold text-gray-900">
+                            Total
+                          </div>
+                          <div className="text-right font-medium">
+                            ₹
+                            {(
+                              activeDealer?.transactionTable?.reduce(
+                                (sum: number, r: any) => sum + r.totalAmount,
+                                0
+                              ) || 0
+                            ).toLocaleString()}
+                          </div>
+                          <div className="text-right font-medium">
+                            ₹
+                            {(
+                              activeDealer?.transactionTable?.reduce(
+                                (sum: number, r: any) => sum + r.amountPaid,
+                                0
+                              ) || 0
+                            ).toLocaleString()}
+                          </div>
+                          <div className="text-right font-medium">
+                            ₹
+                            {(
+                              activeDealer?.transactionTable?.reduce(
+                                (sum: number, r: any) => sum + r.amountDue,
+                                0
+                              ) || 0
+                            ).toLocaleString()}
+                          </div>
+                          <div></div>
+                          <div></div>
+                          <div></div>
                         </div>
-                        <div className="text-right font-medium">
-                          ₹
-                          {(
-                            activeDealer?.transactionTable?.reduce(
-                              (sum: number, r: any) => sum + r.totalAmount,
-                              0
-                            ) || 0
-                          ).toLocaleString()}
-                        </div>
-                        <div className="text-right font-medium">
-                          ₹
-                          {(
-                            activeDealer?.transactionTable?.reduce(
-                              (sum: number, r: any) => sum + r.amountPaid,
-                              0
-                            ) || 0
-                          ).toLocaleString()}
-                        </div>
-                        <div className="text-right font-medium">
-                          ₹
-                          {(
-                            activeDealer?.transactionTable?.reduce(
-                              (sum: number, r: any) => sum + r.amountDue,
-                              0
-                            ) || 0
-                          ).toLocaleString()}
-                        </div>
-                        <div></div>
-                        <div></div>
-                        <div></div>
-                      </div>
-                    }
-                    emptyMessage="No transactions for this dealer"
-                  />
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="text-center py-6">
-                <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                <h3 className="text-base font-semibold mb-2">
-                  No dealer selected
-                </h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Create a new dealer to get started.
-                </p>
-                <Button size="sm" onClick={() => setIsAddDealerOpen(true)}>
-                  <Plus className="mr-1 h-3.5 w-3.5" />
-                  Add Dealer
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
-    </div>
+                      }
+                      emptyMessage="No transactions for this dealer"
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="text-center py-6">
+                  <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                  <h3 className="text-base font-semibold mb-2">
+                    No dealer selected
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Create a new dealer to get started.
+                  </p>
+                  <Button size="sm" onClick={() => setIsAddDealerOpen(true)}>
+                    <Plus className="mr-1 h-3.5 w-3.5" />
+                    Add Dealer
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )
+      }
+    </div >
   );
 }

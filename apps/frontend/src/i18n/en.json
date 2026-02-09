@@ -281,7 +281,35 @@
       "date": "Date",
       "reference": "Reference",
       "description": "Description",
-      "rejectionReason": "Rejection Reason"
+      "rejectionReason": "Rejection Reason",
+      "create": {
+        "title": "Create payment request",
+        "description": "Send payment proof to a dealer. They can accept or reject. On accept, the payment is recorded on your account with that dealer.",
+        "dealerLabel": "Dealer *",
+        "dealerPlaceholder": "Select dealer",
+        "amountLabel": "Amount *",
+        "amountPlaceholder": "0.00",
+        "methodLabel": "Payment method *",
+        "methodPlaceholder": "Select method",
+        "referenceLabel": "Payment reference (optional)",
+        "referencePlaceholder": "Transaction ID, receipt number, etc.",
+        "dateLabel": "Payment date",
+        "descriptionLabel": "Description (optional)",
+        "descriptionPlaceholder": "Optional note",
+        "receiptLabel": "Payment Receipt (Optional)",
+        "receiptPlaceholder": "Upload receipt",
+        "cancel": "Cancel",
+        "submit": "Send payment request",
+        "submitting": "Sending...",
+        "methods": {
+          "cash": "Cash",
+          "bank": "Bank Transfer",
+          "mobile": "Mobile Banking",
+          "cheque": "Cheque",
+          "upi": "UPI",
+          "other": "Other"
+        }
+      }
     },
     "saleRequests": {
       "title": "Sale Requests",
@@ -400,7 +428,12 @@
         "status": "Status:",
         "applied": "Applied:",
         "rejectionCount": "Rejection Count:",
-        "lastRejected": "Last Rejected:"
+        "lastRejected": "Last Rejected:",
+        "balance": "Balance",
+        "actions": "Actions",
+        "address": "Address",
+        "rejected": "Rejected",
+        "statusLabel": "Status"
       },
       "messages": {
         "waitingApproval": "Waiting for dealer approval",
@@ -442,6 +475,26 @@
       "welcome": "Welcome, {name}!",
       "allFarmsTitle": "All Farms",
       "allBatchesTitle": "All Batches",
+      "batchPerformance": {
+        "title": "Batch Performance Overview",
+        "tabs": {
+          "all": "All",
+          "active": "Active",
+          "completed": "Completed"
+        },
+        "columns": {
+          "batchName": "Batch Name",
+          "days": "Days",
+          "mortality": "Mortality",
+          "fcr": "FCR",
+          "expenses": "Expenses",
+          "sales": "Sales",
+          "avgWeight": "Avg Wt (kg)",
+          "profitLoss": "Profit/Loss"
+        },
+        "loading": "Loading batch data...",
+        "empty": "No batches found"
+      },
       "noFarmsFound": "No farms found",
       "noBatchesFound": "No batches found",
       "farmCapacity": "Capacity {count} birds",
@@ -449,7 +502,50 @@
       "batchInfo": "{farm} • Birds {count} • Age {days} days",
       "close": "Close",
       "moneyToReceive": "Money to Receive",
-      "moneyToPay": "Money to Pay"
+      "moneyToPay": "Money to Pay",
+      "stats": {
+        "farms": "Farms",
+        "totalLocations": "Total locations",
+        "batches": "Batches",
+        "active": "Active",
+        "profit": "Profit",
+        "allTime": "All-time",
+        "revenue": "Revenue",
+        "thisMonth": "This month",
+        "toReceive": "To Receive",
+        "creditSales": "Credit sales",
+        "toPay": "To Pay",
+        "suppliers": "Suppliers",
+        "expenses": "Expenses"
+      },
+      "quickActions": {
+        "expense": "Expense",
+        "sale": "Sale",
+        "mortality": "Mortality",
+        "weight": "Weight"
+      },
+      "recentActivity": {
+        "title": "Recent Activity",
+        "description": "Latest updates from your farms and batches.",
+        "failed": "Failed to load recent activity",
+        "empty": "No recent activity"
+      },
+      "reminders": {
+        "title": "Reminders",
+        "description": "Your upcoming tasks and reminders.",
+        "pendingOverdue": "({pending} pending, {overdue} overdue)",
+        "add": "Add",
+        "loading": "Loading reminders...",
+        "failed": "Failed to load reminders",
+        "overdueTitle": "Overdue ({count})",
+        "upcomingTitle": "Upcoming ({count})",
+        "empty": "No reminders yet",
+        "addFirst": "Add First Reminder",
+        "inMin": "in {count} min",
+        "inHr": "in {count} hr",
+        "inDay": "in {count} day{s}",
+        "now": "now"
+      }
     },
     "batches": {
       "title": "Batches",
@@ -630,6 +726,358 @@
       },
       "toasts": {
         "added": "Item added successfully!"
+      }
+    },
+    "dealerLedger": {
+      "title": "Dealer Ledger",
+      "subtitle": "Track your transactions with dealers.",
+      "stats": {
+        "toReceive": "To Receive",
+        "toPay": "To Pay",
+        "netBalance": "Net Balance",
+        "youOwe": "You owe: {amount}",
+        "dealersOwe": "Dealers owe: {amount}",
+        "settled": "Settled"
+      },
+      "filters": {
+        "allDealers": "All Dealers",
+        "dateRange": "Date Range",
+        "apply": "Apply",
+        "clear": "Clear"
+      },
+      "table": {
+        "date": "Date",
+        "dealer": "Dealer",
+        "description": "Description",
+        "type": "Type",
+        "amount": "Amount",
+        "quantity": "Quantity",
+        "paid": "Paid",
+        "balance": "Balance",
+        "dueDate": "Due Date",
+        "history": "History",
+        "status": "Status",
+        "action": "Action"
+      },
+      "transactionTypes": {
+        "sale": "Sale",
+        "purchase": "Purchase",
+        "payment": "Payment",
+        "receipt": "Receipt"
+      },
+      "empty": "No transactions found",
+      "loading": "Loading ledger...",
+      "error": "Failed to load ledger",
+      "dialogs": {
+        "addDealerTitle": "Add Dealer",
+        "addDealerBtn": "Add Dealer",
+        "addEntryTitle": "Add Entry – {dealer}",
+        "addPaymentTitle": "Add Payment",
+        "paymentHistoryTitle": "Payment History",
+        "deleteDealerTitle": "Delete Dealer",
+        "confirmDeleteEntriesTitle": "Delete entires?",
+        "confirmDeletionTitle": "Confirm Deletion",
+        "applySelectDealer": "Select a dealer",
+        "labels": {
+          "dealerName": "Dealer Name",
+          "contact": "Contact",
+          "address": "Address (optional)",
+          "item": "Item",
+          "itemPlaceholder": "Feed brand",
+          "rate": "Rate (per kg)",
+          "quantity": "Quantity (kg)",
+          "paidAmount": "Paid Amount",
+          "paymentAmount": "Payment Amount",
+          "date": "Date",
+          "paymentDate": "Payment Date",
+          "note": "Note (optional)",
+          "password": "Enter your password to confirm deletion",
+          "passwordPlaceholder": "Enter your password"
+        },
+        "buttons": {
+          "cancel": "Cancel",
+          "close": "Close",
+          "add": "Add",
+          "addDealer": "Add Dealer",
+          "entries": "Entries",
+          "adding": "Adding...",
+          "save": "Save Entry",
+          "saving": "Saving...",
+          "record": "Record Payment",
+          "recording": "Recording...",
+          "delete": "Delete",
+          "deleting": "Deleting...",
+          "confirm": "Confirm Deletion"
+        },
+        "warnings": {
+          "connectedDealer": "Notice: This is a connected dealer and cannot be deleted.",
+          "connectedHint": "You can archive this connection from your Connected Dealers page instead.",
+          "deleteDealer": "Warning: This will permanently delete dealer {name}.",
+          "deleteTransactionsFirst": "This dealer has {count} transaction(s). You must delete all transactions first.",
+          "confirmProceed": "Are you sure you want to proceed?",
+          "deleteEntries": "This action cannot be undone. The selected entries will be permanently removed.",
+          "deleteEntriesCount": "Warning: This action cannot be undone. You are about to delete {count} transaction(s)."
+        },
+        "history": {
+          "totalAmount": "Total Amount",
+          "totalPaid": "Total Paid",
+          "remaining": "Remaining",
+          "paymentsCount": "Payments",
+          "paymentDetails": "Payment Details",
+          "noPayments": "No payments recorded yet",
+          "paymentNum": "Payment #{number}"
+        },
+        "paymentInfo": {
+          "entry": "Entry",
+          "dealer": "Dealer",
+          "outstanding": "Outstanding Balance"
+        }
+      }
+    },
+    "medicalLedger": {
+      "title": "Medical Supplier Ledger",
+      "subtitle": "Track medicine purchases and balances.",
+      "addSupplier": "Add Supplier",
+      "loadingSuppliers": "Loading suppliers...",
+      "failedLoad": "Failed to load suppliers. Please try again.",
+      "stats": {
+        "suppliers": "Suppliers",
+        "medicine": "Medicine",
+        "due": "Due",
+        "outstanding": "Outstanding",
+        "month": "Month",
+        "purchases": "Purchases"
+      },
+      "summaryModal": {
+        "title": "Suppliers – Amount Due",
+        "contact": "Contact",
+        "noSuppliers": "No suppliers found",
+        "close": "Close"
+      },
+      "deleteSupplierModal": {
+        "title": "Delete Supplier",
+        "warning": "Warning:",
+        "deleteBody": "This will permanently delete supplier {name}.",
+        "transactionWarning": "This supplier has {count} transaction(s). You must delete all transactions first.",
+        "proceed": "Are you sure you want to proceed?",
+        "cancel": "Cancel",
+        "delete": "Delete Supplier",
+        "deleting": "Deleting..."
+      },
+      "confirmDeleteModal": {
+        "title": "Delete {count} entries?",
+        "body": "This action cannot be undone. The selected entries will be permanently removed.",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "deleting": "Deleting..."
+      },
+      "passwordModal": {
+        "title": "Confirm Deletion",
+        "warning": "Warning:",
+        "body": "This action cannot be undone. You are about to delete {count} transactions.",
+        "label": "Confirm Password",
+        "placeholder": "Enter your password",
+        "cancel": "Cancel",
+        "confirm": "Confirm Deletion",
+        "deleting": "Deleting..."
+      },
+      "addSupplierModal": {
+        "title": "Add Supplier",
+        "name": "Supplier Name",
+        "contact": "Contact",
+        "address": "Address (optional)",
+        "cancel": "Cancel",
+        "add": "Add",
+        "adding": "Adding..."
+      },
+      "addEntryModal": {
+        "title": "Add Entry – {name}",
+        "item": "Item",
+        "rate": "Rate (per liter/Kg)",
+        "quantity": "Quantity (Liter/Kg)",
+        "paidAmount": "Paid Amount",
+        "date": "Date",
+        "cancel": "Cancel",
+        "save": "Save Entry",
+        "saving": "Saving..."
+      },
+      "paymentModal": {
+        "title": "Add Payment",
+        "entry": "Entry",
+        "outstanding": "Outstanding Balance",
+        "amount": "Payment Amount",
+        "placeholder": "Enter amount",
+        "date": "Payment Date",
+        "note": "Note (optional)",
+        "notePlaceholder": "Payment reference or note",
+        "cancel": "Cancel",
+        "record": "Record Payment",
+        "recording": "Recording..."
+      },
+      "historyModal": {
+        "title": "Payment History",
+        "totalAmount": "Total Amount",
+        "totalPaid": "Total Paid",
+        "remaining": "Remaining",
+        "payments": "Payments",
+        "paymentDetails": "Payment Details",
+        "noPayments": "No payments recorded yet",
+        "paymentNum": "Payment #{number}",
+        "close": "Close"
+      },
+      "table": {
+        "item": "Item",
+        "rate": "Rate",
+        "quantity": "Quantity",
+        "amount": "Amount",
+        "paid": "Amount Paid",
+        "due": "Amount Due",
+        "pay": "Pay",
+        "date": "Date",
+        "dueDate": "Due Date",
+        "paymentHistory": "Payment History",
+        "historyText": "{count} payments ({amount})",
+        "total": "Total",
+        "empty": "No entries for this supplier",
+        "selectSupplier": "Select a supplier"
+      },
+      "buttons": {
+        "delete": "Delete",
+        "cancel": "Cancel",
+        "addEntry": "Add Entry"
+      }
+    },
+    "hatcheryLedger": {
+      "title": "Hatchery Ledger",
+      "subtitle": "Manage chick purchases and balances.",
+      "addDealer": "Add Dealer",
+      "stats": {
+        "dealers": "Dealers",
+        "chicks": "Chicks",
+        "due": "Due",
+        "outstanding": "Outstanding",
+        "month": "Month",
+        "purchases": "Purchases"
+      },
+      "summaryModal": {
+        "title": "Hatcheries – Amount Due",
+        "contact": "Contact",
+        "loading": "Loading hatcheries...",
+        "error": "Failed to load hatcheries",
+        "close": "Close"
+      },
+      "deleteHatcheryModal": {
+        "title": "Delete Hatchery",
+        "warning": "Warning:",
+        "body": "This will permanently delete hatchery {name}.",
+        "transactionWarning": "This hatchery has {count} transaction(s). You must delete all transactions first.",
+        "proceed": "Are you sure you want to proceed?",
+        "cancel": "Cancel",
+        "delete": "Delete Hatchery",
+        "deleting": "Deleting..."
+      },
+      "confirmDeleteModal": {
+        "title": "Delete {count} entries?",
+        "body": "This action cannot be undone. The selected entries will be permanently removed.",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "deleting": "Deleting..."
+      },
+      "passwordModal": {
+        "title": "Confirm Deletion",
+        "warning": "Warning:",
+        "body": "This action cannot be undone. You are about to delete {count} transaction(s).",
+        "label": "Enter your password to confirm deletion",
+        "placeholder": "Enter your password",
+        "cancel": "Cancel",
+        "confirm": "Confirm Deletion",
+        "deleting": "Deleting..."
+      },
+      "addHatcheryModal": {
+        "title": "Add Chicks Dealer",
+        "name": "Dealer Name",
+        "contact": "Contact",
+        "address": "Address (optional)",
+        "cancel": "Cancel",
+        "add": "Add",
+        "adding": "Adding..."
+      },
+      "addEntryModal": {
+        "title": "Add Entry – {name}",
+        "item": "Hatchery Name",
+        "rate": "Rate",
+        "quantity": "Quantity",
+        "paid": "Paid",
+        "freeChicks": "Free Chicks",
+        "freeCount": "Count",
+        "freePercent": "Percent",
+        "countPlaceholder": "Number of free chicks",
+        "percentPlaceholder": "Percentage (e.g., 2)",
+        "helperText": "Cost applies only to paid quantity. Free chicks are zero-cost.",
+        "summary": {
+          "paid": "Paid:",
+          "free": "Free:",
+          "delivered": "Total Delivered:"
+        },
+        "date": "Date",
+        "cancel": "Cancel",
+        "save": "Save Entry",
+        "saving": "Saving..."
+      },
+      "paymentModal": {
+        "title": "Add Payment",
+        "entry": "Entry",
+        "outstanding": "Outstanding Balance",
+        "amount": "Payment Amount",
+        "placeholder": "Enter amount",
+        "date": "Payment Date",
+        "note": "Note (optional)",
+        "notePlaceholder": "Payment reference or note",
+        "cancel": "Cancel",
+        "record": "Record Payment",
+        "recording": "Recording..."
+      },
+      "historyModal": {
+        "title": "Payment History",
+        "totalAmount": "Total Amount",
+        "totalPaid": "Total Paid",
+        "remaining": "Remaining",
+        "payments": "Payments",
+        "paymentDetails": "Payment Details",
+        "noPayments": "No payments recorded yet",
+        "paymentNum": "Payment #{number}",
+        "close": "Close"
+      },
+      "table": {
+        "item": "Item",
+        "rate": "Rate",
+        "quantity": "Quantity",
+        "free": "+ {count} free",
+        "delivered": "= {count} delivered",
+        "amount": "Amount",
+        "amountDue": "Amount Due",
+        "pay": "Pay",
+        "date": "Date",
+        "dueDate": "Due Date",
+        "paymentHistory": "Payment History",
+        "historyText": "{count} payment{s} ({amount})",
+        "total": "Total",
+        "empty": "No entries for this hatchery",
+        "selectHatchery": "Select a hatchery",
+        "cardDescription": "Ledger for this hatchery"
+      },
+      "buttons": {
+        "delete": "Delete",
+        "cancel": "Cancel",
+        "addEntry": "Add Entry"
+      },
+      "toasts": {
+        "hatcheryAdded": "Hatchery added successfully!",
+        "txnAdded": "Transaction added successfully!",
+        "paymentRecorded": "Payment recorded successfully!",
+        "entriesDeleted": "Selected entries deleted successfully",
+        "deleteFailed": "Failed to delete {count} entr{suffix}",
+        "passwordFailed": "Password verification failed. Deletion cancelled."
       }
     }
   }

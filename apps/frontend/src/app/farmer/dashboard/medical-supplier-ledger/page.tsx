@@ -29,8 +29,10 @@ import {
 import { TransactionType } from "@myapp/shared-types";
 import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function MedicalSupplierLedgerPage() {
+  const { t } = useI18n();
   const [activeSupplierId, setActiveSupplierId] = useState<string | null>(null);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
@@ -185,24 +187,24 @@ export default function MedicalSupplierLedgerPage() {
 
   // Column configuration for DataTable
   const ledgerColumns: Column[] = [
-    createColumn("itemName", "Item"),
-    createColumn("rate", "Rate", {
+    createColumn("itemName", t("farmer.medicalLedger.table.item")),
+    createColumn("rate", t("farmer.medicalLedger.table.rate"), {
       type: "currency",
       align: "right",
     }),
-    createColumn("quantity", "Quantity", {
+    createColumn("quantity", t("farmer.medicalLedger.table.quantity"), {
       type: "number",
       align: "right",
     }),
-    createColumn("totalAmount", "Amount", {
+    createColumn("totalAmount", t("farmer.medicalLedger.table.amount"), {
       type: "currency",
       align: "right",
     }),
-    createColumn("amountPaid", "Amount Paid", {
+    createColumn("amountPaid", t("farmer.medicalLedger.table.paid"), {
       type: "currency",
       align: "right",
     }),
-    createColumn("amountDue", "Amount Due", {
+    createColumn("amountDue", t("farmer.medicalLedger.table.due"), {
       type: "currency",
       align: "right",
       render: (_, row) => {
@@ -225,17 +227,17 @@ export default function MedicalSupplierLedgerPage() {
                 className="ml-2 h-6 px-2 text-xs bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
                 onClick={() => openPaymentModal(activeSupplierId, row.id)}
               >
-                Pay
+                {t("farmer.medicalLedger.table.pay")}
               </Button>
             )}
           </div>
         );
       },
     }),
-    createColumn("date", "Date", {
+    createColumn("date", t("farmer.medicalLedger.table.date"), {
       type: "date",
     }),
-    createColumn("dueDate", "Due Date", {
+    createColumn("dueDate", t("farmer.medicalLedger.table.dueDate"), {
       render: (_, row) =>
         row.date ? (
           <DateDisplay date={getRowDueDateDate(row.date)} format="short" />
@@ -243,7 +245,7 @@ export default function MedicalSupplierLedgerPage() {
           "—"
         ),
     }),
-    createColumn("payments", "Payment History", {
+    createColumn("payments", t("farmer.medicalLedger.table.paymentHistory"), {
       render: (_, row) => {
         const history = row.payments || [];
         const totalPayments = history.length;
@@ -257,8 +259,10 @@ export default function MedicalSupplierLedgerPage() {
             className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline"
             onClick={() => openHistoryModal(activeSupplierId, row.id)}
           >
-            {totalPayments} payment{totalPayments !== 1 ? "s" : ""} (₹
-            {totalPaid.toLocaleString()})
+            {t("farmer.medicalLedger.table.historyText", {
+              count: totalPayments,
+              amount: `₹${totalPaid.toLocaleString()}`,
+            })}
           </div>
         );
       },
@@ -380,10 +384,10 @@ export default function MedicalSupplierLedgerPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-            Medical Supplier Ledger
+            {t("farmer.medicalLedger.title")}
           </h1>
           <p className="text-sm md:text-base text-muted-foreground">
-            Track medicine purchases and balances.
+            {t("farmer.medicalLedger.subtitle")}
           </p>
         </div>
         <div className="flex gap-2">
@@ -393,7 +397,8 @@ export default function MedicalSupplierLedgerPage() {
             onClick={() => setIsAddSupplierOpen(true)}
           >
             <Plus className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
-            <span className="hidden sm:inline">Add </span>Supplier
+            <Plus className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">{t("farmer.medicalLedger.addSupplier").replace("Supplier", "")}</span>{t("farmer.medicalLedger.addSupplier").replace("Add", "")}
           </Button>
         </div>
       </div>
@@ -405,7 +410,7 @@ export default function MedicalSupplierLedgerPage() {
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
             <CardTitle className="text-[10px] md:text-sm font-medium">
-              Suppliers
+              {t("farmer.medicalLedger.stats.suppliers")}
             </CardTitle>
             <Pill className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
@@ -417,13 +422,13 @@ export default function MedicalSupplierLedgerPage() {
                 {statistics.totalSuppliers || 0}
               </div>
             )}
-            <p className="text-[9px] md:text-xs text-muted-foreground">Medicine</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">{t("farmer.medicalLedger.stats.medicine")}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">Due</CardTitle>
+            <CardTitle className="text-[10px] md:text-sm font-medium">{t("farmer.medicalLedger.stats.due")}</CardTitle>
             <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -434,13 +439,13 @@ export default function MedicalSupplierLedgerPage() {
                 <span className="hidden md:inline">रू</span>{(statistics.outstandingAmount || 0).toLocaleString()}
               </div>
             )}
-            <p className="text-[9px] md:text-xs text-muted-foreground">Outstanding</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">{t("farmer.medicalLedger.stats.outstanding")}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">Month</CardTitle>
+            <CardTitle className="text-[10px] md:text-sm font-medium">{t("farmer.medicalLedger.stats.month")}</CardTitle>
             <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -451,7 +456,7 @@ export default function MedicalSupplierLedgerPage() {
                 <span className="hidden md:inline">रू</span>{(statistics.thisMonthAmount || 0).toLocaleString()}
               </div>
             )}
-            <p className="text-[9px] md:text-xs text-muted-foreground">Purchases</p>
+            <p className="text-[9px] md:text-xs text-muted-foreground">{t("farmer.medicalLedger.stats.purchases")}</p>
           </CardContent>
         </Card>
       </div>
@@ -460,18 +465,18 @@ export default function MedicalSupplierLedgerPage() {
       <Modal
         isOpen={isSummaryOpen}
         onClose={() => setIsSummaryOpen(false)}
-        title="Suppliers – Amount Due"
+        title={t("farmer.medicalLedger.summaryModal.title")}
       >
         <ModalContent>
           <div className="space-y-3">
             {suppliersLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin" />
-                <span className="ml-2">Loading suppliers...</span>
+                <span className="ml-2">{t("farmer.medicalLedger.loadingSuppliers")}</span>
               </div>
             ) : suppliers.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-muted-foreground">No suppliers found</p>
+                <p className="text-muted-foreground">{t("farmer.medicalLedger.summaryModal.noSuppliers")}</p>
               </div>
             ) : (
               suppliers.map((supplier: any) => (
@@ -482,7 +487,7 @@ export default function MedicalSupplierLedgerPage() {
                   <div>
                     <div className="font-medium">{supplier.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      Contact: {supplier.contact}
+                      {t("farmer.medicalLedger.summaryModal.contact")}: {supplier.contact}
                     </div>
                   </div>
                   <div className="text-right font-medium">
@@ -495,7 +500,7 @@ export default function MedicalSupplierLedgerPage() {
         </ModalContent>
         <ModalFooter>
           <Button variant="outline" onClick={() => setIsSummaryOpen(false)}>
-            Close
+            {t("farmer.medicalLedger.summaryModal.close")}
           </Button>
         </ModalFooter>
       </Modal>
@@ -504,7 +509,7 @@ export default function MedicalSupplierLedgerPage() {
       <Modal
         isOpen={isDeleteSupplierOpen}
         onClose={() => setIsDeleteSupplierOpen(false)}
-        title="Delete Supplier"
+        title={t("farmer.medicalLedger.deleteSupplierModal.title")}
       >
         <ModalContent>
           <div className="space-y-4">
@@ -519,12 +524,12 @@ export default function MedicalSupplierLedgerPage() {
                 </p>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">Are you sure you want to proceed?</p>
+            <p className="text-sm text-muted-foreground">{t("farmer.medicalLedger.deleteSupplierModal.proceed")}</p>
           </div>
         </ModalContent>
         <ModalFooter>
           <Button variant="outline" onClick={() => setIsDeleteSupplierOpen(false)}>
-            Cancel
+            {t("farmer.medicalLedger.deleteSupplierModal.cancel")}
           </Button>
           <Button
             className="bg-red-600 hover:bg-red-700 text-white"
@@ -545,10 +550,10 @@ export default function MedicalSupplierLedgerPage() {
           >
             {deleteSupplierMutation.isPending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("farmer.medicalLedger.deleteSupplierModal.deleting")}
               </>
             ) : (
-              "Delete Supplier"
+              t("farmer.medicalLedger.deleteSupplierModal.delete")
             )}
           </Button>
         </ModalFooter>
@@ -558,16 +563,16 @@ export default function MedicalSupplierLedgerPage() {
       <Modal
         isOpen={isConfirmDeleteOpen}
         onClose={() => setIsConfirmDeleteOpen(false)}
-        title={`Delete ${selectedIds.size} entr${selectedIds.size === 1 ? 'y' : 'ies'}?`}
+        title={t("farmer.medicalLedger.confirmDeleteModal.title", { count: selectedIds.size })}
       >
         <ModalContent>
           <p className="text-sm text-muted-foreground">
-            This action cannot be undone. The selected entries will be permanently removed.
+            {t("farmer.medicalLedger.confirmDeleteModal.body")}
           </p>
         </ModalContent>
         <ModalFooter>
           <Button variant="outline" onClick={() => setIsConfirmDeleteOpen(false)}>
-            Cancel
+            {t("farmer.medicalLedger.confirmDeleteModal.cancel")}
           </Button>
           <Button
             className="bg-red-600 hover:bg-red-700 text-white"
@@ -576,10 +581,10 @@ export default function MedicalSupplierLedgerPage() {
           >
             {deleteTxn.isPending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("farmer.medicalLedger.confirmDeleteModal.deleting")}
               </>
             ) : (
-              "Delete"
+              t("farmer.medicalLedger.confirmDeleteModal.delete")
             )}
           </Button>
         </ModalFooter>
@@ -592,23 +597,23 @@ export default function MedicalSupplierLedgerPage() {
           setIsPasswordModalOpen(false);
           setPasswordForm({ password: "" });
         }}
-        title="Confirm Deletion"
+        title={t("farmer.medicalLedger.passwordModal.title")}
       >
         <ModalContent>
           <div className="space-y-4">
             <div className="p-4 bg-red-50 rounded-lg border border-red-200">
               <p className="text-sm text-red-800">
-                <strong>Warning:</strong> This action cannot be undone. You are about to delete {selectedIds.size} transaction{selectedIds.size !== 1 ? 's' : ''}.
+                <strong>{t("farmer.medicalLedger.passwordModal.warning")}</strong> {t("farmer.medicalLedger.passwordModal.body", { count: selectedIds.size })}
               </p>
             </div>
             <div>
-              <Label htmlFor="password">Enter your password to confirm deletion</Label>
+              <Label htmlFor="password">{t("farmer.medicalLedger.passwordModal.label")}</Label>
               <Input
                 id="password"
                 type="password"
                 value={passwordForm.password}
                 onChange={(e) => setPasswordForm({ password: e.target.value })}
-                placeholder="Enter your password"
+                placeholder={t("farmer.medicalLedger.passwordModal.placeholder")}
                 required
                 className="mt-1"
               />
@@ -623,7 +628,7 @@ export default function MedicalSupplierLedgerPage() {
               setPasswordForm({ password: "" });
             }}
           >
-            Cancel
+            {t("farmer.medicalLedger.passwordModal.cancel")}
           </Button>
           <Button
             className="bg-red-600 hover:bg-red-700 text-white"
@@ -632,10 +637,10 @@ export default function MedicalSupplierLedgerPage() {
           >
             {deleteTxn.isPending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("farmer.medicalLedger.passwordModal.deleting")}
               </>
             ) : (
-              "Confirm Deletion"
+              t("farmer.medicalLedger.passwordModal.confirm")
             )}
           </Button>
         </ModalFooter>
@@ -645,13 +650,13 @@ export default function MedicalSupplierLedgerPage() {
       <Modal
         isOpen={isAddSupplierOpen}
         onClose={() => setIsAddSupplierOpen(false)}
-        title="Add Supplier"
+        title={t("farmer.medicalLedger.addSupplierModal.title")}
       >
         <form onSubmit={handleAddSupplier}>
           <ModalContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="sname">Supplier Name</Label>
+                <Label htmlFor="sname">{t("farmer.medicalLedger.addSupplierModal.name")}</Label>
                 <Input
                   id="sname"
                   value={newSupplier.name}
@@ -662,7 +667,7 @@ export default function MedicalSupplierLedgerPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="scontact">Contact</Label>
+                <Label htmlFor="scontact">{t("farmer.medicalLedger.addSupplierModal.contact")}</Label>
                 <Input
                   id="scontact"
                   value={newSupplier.contact}
@@ -673,7 +678,7 @@ export default function MedicalSupplierLedgerPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="saddress">Address (optional)</Label>
+                <Label htmlFor="saddress">{t("farmer.medicalLedger.addSupplierModal.address")}</Label>
                 <Input
                   id="saddress"
                   value={newSupplier.address}
@@ -690,7 +695,7 @@ export default function MedicalSupplierLedgerPage() {
               variant="outline"
               onClick={() => setIsAddSupplierOpen(false)}
             >
-              Cancel
+              {t("farmer.medicalLedger.addSupplierModal.cancel")}
             </Button>
             <Button
               type="submit"
@@ -700,10 +705,10 @@ export default function MedicalSupplierLedgerPage() {
               {createSupplierMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding...
+                  {t("farmer.medicalLedger.addSupplierModal.adding")}
                 </>
               ) : (
-                "Add"
+                t("farmer.medicalLedger.addSupplierModal.add")
               )}
             </Button>
           </ModalFooter>
@@ -714,13 +719,13 @@ export default function MedicalSupplierLedgerPage() {
       <Modal
         isOpen={isAddEntryOpen}
         onClose={() => setIsAddEntryOpen(false)}
-        title={`Add Entry – ${activeSupplier?.name || "Supplier"}`}
+        title={t("farmer.medicalLedger.addEntryModal.title", { name: activeSupplier?.name || "Supplier" })}
       >
         <form onSubmit={handleAddEntry}>
           <ModalContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="item">Item</Label>
+                <Label htmlFor="item">{t("farmer.medicalLedger.addEntryModal.item")}</Label>
                 <Input
                   id="item"
                   value={newEntry.item}
@@ -732,7 +737,7 @@ export default function MedicalSupplierLedgerPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="rate">Rate (per liter/Kg)</Label>
+                  <Label htmlFor="rate">{t("farmer.medicalLedger.addEntryModal.rate")}</Label>
                   <Input
                     id="rate"
                     type="number"
@@ -744,7 +749,7 @@ export default function MedicalSupplierLedgerPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="quantity">Quantity (Liter/Kg) </Label>
+                  <Label htmlFor="quantity">{t("farmer.medicalLedger.addEntryModal.quantity")}</Label>
                   <Input
                     id="quantity"
                     type="number"
@@ -756,7 +761,7 @@ export default function MedicalSupplierLedgerPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="paid">Paid Amount</Label>
+                  <Label htmlFor="paid">{t("farmer.medicalLedger.addEntryModal.paidAmount")}</Label>
                   <Input
                     id="paid"
                     type="number"
@@ -769,7 +774,7 @@ export default function MedicalSupplierLedgerPage() {
               </div>
               <div>
                 <DateInput
-                  label="Date"
+                  label={t("farmer.medicalLedger.addEntryModal.date")}
                   value={newEntry.date}
                   onChange={(value) => setNewEntry({ ...newEntry, date: value })}
                 />
@@ -782,7 +787,7 @@ export default function MedicalSupplierLedgerPage() {
               variant="outline"
               onClick={() => setIsAddEntryOpen(false)}
             >
-              Cancel
+              {t("farmer.medicalLedger.addEntryModal.cancel")}
             </Button>
             <Button
               type="submit"
@@ -792,10 +797,10 @@ export default function MedicalSupplierLedgerPage() {
               {addTransactionMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  {t("farmer.medicalLedger.addEntryModal.saving")}
                 </>
               ) : (
-                "Save Entry"
+                t("farmer.medicalLedger.addEntryModal.save")
               )}
             </Button>
           </ModalFooter>
@@ -806,7 +811,7 @@ export default function MedicalSupplierLedgerPage() {
       <Modal
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
-        title="Add Payment"
+        title={t("farmer.medicalLedger.paymentModal.title")}
       >
         <form onSubmit={handleAddPayment}>
           <ModalContent>
@@ -814,16 +819,16 @@ export default function MedicalSupplierLedgerPage() {
               {selectedEntry && activeSupplier && (
                 <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-sm text-blue-800">
-                    <strong>Entry:</strong> {selectedEntry.entryId}
+                    <strong>{t("farmer.medicalLedger.paymentModal.entry")}:</strong> {selectedEntry.entryId}
                   </p>
                   <p className="text-sm text-blue-800">
-                    <strong>Outstanding Balance:</strong> ₹
+                    <strong>{t("farmer.medicalLedger.paymentModal.outstanding")}:</strong> ₹
                     {(activeSupplier.balance || 0).toLocaleString()}
                   </p>
                 </div>
               )}
               <div>
-                <Label htmlFor="paymentAmount">Payment Amount</Label>
+                <Label htmlFor="paymentAmount">{t("farmer.medicalLedger.paymentModal.amount")}</Label>
                 <Input
                   id="paymentAmount"
                   type="number"
@@ -831,26 +836,26 @@ export default function MedicalSupplierLedgerPage() {
                   onChange={(e) =>
                     setPaymentForm({ ...paymentForm, amount: e.target.value })
                   }
-                  placeholder="Enter amount"
+                  placeholder={t("farmer.medicalLedger.paymentModal.placeholder")}
                   required
                 />
               </div>
               <div>
                 <DateInput
-                  label="Payment Date"
+                  label={t("farmer.medicalLedger.paymentModal.date")}
                   value={paymentForm.date}
                   onChange={(value) => setPaymentForm({ ...paymentForm, date: value })}
                 />
               </div>
               <div>
-                <Label htmlFor="paymentNote">Note (optional)</Label>
+                <Label htmlFor="paymentNote">{t("farmer.medicalLedger.paymentModal.note")}</Label>
                 <Input
                   id="paymentNote"
                   value={paymentForm.note}
                   onChange={(e) =>
                     setPaymentForm({ ...paymentForm, note: e.target.value })
                   }
-                  placeholder="Payment reference or note"
+                  placeholder={t("farmer.medicalLedger.paymentModal.notePlaceholder")}
                 />
               </div>
             </div>
@@ -861,7 +866,7 @@ export default function MedicalSupplierLedgerPage() {
               variant="outline"
               onClick={() => setIsPaymentModalOpen(false)}
             >
-              Cancel
+              {t("farmer.medicalLedger.paymentModal.cancel")}
             </Button>
             <Button
               type="submit"
@@ -871,10 +876,10 @@ export default function MedicalSupplierLedgerPage() {
               {addTransactionMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Recording...
+                  {t("farmer.medicalLedger.paymentModal.recording")}
                 </>
               ) : (
-                "Record Payment"
+                t("farmer.medicalLedger.paymentModal.record")
               )}
             </Button>
           </ModalFooter>
@@ -885,7 +890,7 @@ export default function MedicalSupplierLedgerPage() {
       <Modal
         isOpen={isHistoryModalOpen}
         onClose={() => setIsHistoryModalOpen(false)}
-        title="Payment History"
+        title={t("farmer.medicalLedger.historyModal.title")}
       >
         <ModalContent>
           <div className="space-y-4">
@@ -911,19 +916,19 @@ export default function MedicalSupplierLedgerPage() {
                       </h3>
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <span className="text-gray-600">Total Amount:</span>
+                          <span className="text-gray-600">{t("farmer.medicalLedger.historyModal.totalAmount")}:</span>
                           <span className="ml-2 font-medium">
                             ₹{totalAmount.toLocaleString()}
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-600">Total Paid:</span>
+                          <span className="text-gray-600">{t("farmer.medicalLedger.historyModal.totalPaid")}:</span>
                           <span className="ml-2 font-medium text-green-600">
                             ₹{totalPaid.toLocaleString()}
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-600">Remaining:</span>
+                          <span className="text-gray-600">{t("farmer.medicalLedger.historyModal.remaining")}:</span>
                           <span
                             className={`ml-2 font-medium ${remaining > 0 ? "text-red-600" : "text-green-600"}`}
                           >
@@ -931,7 +936,7 @@ export default function MedicalSupplierLedgerPage() {
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-600">Payments:</span>
+                          <span className="text-gray-600">{t("farmer.medicalLedger.historyModal.payments")}:</span>
                           <span className="ml-2 font-medium">
                             {history.length}
                           </span>
@@ -941,11 +946,11 @@ export default function MedicalSupplierLedgerPage() {
 
                     <div className="space-y-3">
                       <h4 className="font-medium text-gray-900">
-                        Payment Details
+                        {t("farmer.medicalLedger.historyModal.paymentDetails")}
                       </h4>
                       {history.length === 0 ? (
                         <p className="text-gray-500 text-center py-4">
-                          No payments recorded yet
+                          {t("farmer.medicalLedger.historyModal.noPayments")}
                         </p>
                       ) : (
                         <div className="space-y-2">
@@ -968,7 +973,7 @@ export default function MedicalSupplierLedgerPage() {
                                 )}
                               </div>
                               <div className="text-sm text-gray-500">
-                                Payment #{index + 1}
+                                {t("farmer.medicalLedger.historyModal.paymentNum", { number: index + 1 })}
                               </div>
                             </div>
                           ))}
@@ -985,7 +990,7 @@ export default function MedicalSupplierLedgerPage() {
             variant="outline"
             onClick={() => setIsHistoryModalOpen(false)}
           >
-            Close
+            {t("farmer.medicalLedger.historyModal.close")}
           </Button>
         </ModalFooter>
       </Modal>
@@ -994,7 +999,7 @@ export default function MedicalSupplierLedgerPage() {
       {suppliersLoading && (
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin" />
-          <span className="ml-2">Loading suppliers...</span>
+          <span className="ml-2">{t("farmer.medicalLedger.loadingSuppliers")}</span>
         </div>
       )}
 
@@ -1002,7 +1007,7 @@ export default function MedicalSupplierLedgerPage() {
       {suppliersError && (
         <div className="text-center py-8">
           <p className="text-red-600">
-            Failed to load suppliers. Please try again.
+            {t("farmer.medicalLedger.failedLoad")}
           </p>
         </div>
       )}
@@ -1034,7 +1039,7 @@ export default function MedicalSupplierLedgerPage() {
               onClick={() => setIsAddSupplierOpen(true)}
             >
               <Plus className="mr-1 h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Add </span>Supplier
+              <span className="hidden sm:inline">{t("farmer.medicalLedger.addSupplier").replace("Supplier", "")}</span>{t("farmer.medicalLedger.addSupplier").replace("Add", "")}
             </Button>
           </div>
 
@@ -1042,7 +1047,7 @@ export default function MedicalSupplierLedgerPage() {
             <CardHeader className="p-3 md:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <CardTitle className="text-base md:text-lg truncate">
-                  {activeSupplier?.name || "Select a supplier"}
+                  {activeSupplier?.name || t("farmer.medicalLedger.table.selectSupplier")}
                 </CardTitle>
                 <div className="flex gap-1 md:gap-2 flex-wrap">
                   {activeSupplierId && !isDeleteMode && (
@@ -1054,7 +1059,7 @@ export default function MedicalSupplierLedgerPage() {
                       disabled={!activeSupplierId}
                     >
                       <Trash2 className="h-3.5 w-3.5 md:hidden" />
-                      <span className="hidden md:inline">Delete Supplier</span>
+                      <span className="hidden md:inline">{t("farmer.medicalLedger.deleteSupplierModal.delete")}</span>
                     </Button>
                   )}
                   {isDeleteMode ? (
@@ -1066,7 +1071,7 @@ export default function MedicalSupplierLedgerPage() {
                         onClick={exitDeleteMode}
                       >
                         <X className="mr-1 h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Cancel</span>
+                        <span className="hidden sm:inline">{t("farmer.medicalLedger.buttons.cancel")}</span>
                       </Button>
                       <Button
                         size="sm"
@@ -1075,7 +1080,7 @@ export default function MedicalSupplierLedgerPage() {
                         onClick={() => setIsConfirmDeleteOpen(true)}
                       >
                         <Trash2 className="mr-1 h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Delete </span>({selectedIds.size})
+                        <span className="hidden sm:inline">{t("farmer.medicalLedger.buttons.delete")} </span>({selectedIds.size})
                       </Button>
                     </>
                   ) : (
@@ -1088,7 +1093,7 @@ export default function MedicalSupplierLedgerPage() {
                         disabled={!activeSupplierId}
                       >
                         <Trash2 className="h-3.5 w-3.5 md:mr-1" />
-                        <span className="hidden md:inline">Delete</span>
+                        <span className="hidden md:inline">{t("farmer.medicalLedger.buttons.delete")}</span>
                       </Button>
                       <Button
                         size="sm"
@@ -1097,7 +1102,7 @@ export default function MedicalSupplierLedgerPage() {
                         disabled={!activeSupplierId}
                       >
                         <Plus className="mr-1 h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Add </span>Entry
+                        <span className="hidden sm:inline">{t("farmer.medicalLedger.buttons.addEntry").replace("Entry", "")}</span>{t("farmer.medicalLedger.buttons.addEntry").replace("Add", "")}
                       </Button>
                     </>
                   )}
@@ -1106,14 +1111,14 @@ export default function MedicalSupplierLedgerPage() {
               <CardDescription className="text-xs md:text-sm">
                 {activeSupplier
                   ? `Ledger for ${activeSupplier.name}`
-                  : "Select a supplier"}
+                  : t("farmer.medicalLedger.table.selectSupplier")}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               {activeSupplierLoading ? (
                 <div className="flex items-center justify-center py-6">
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  <span className="ml-2 text-sm">Loading...</span>
+                  <span className="ml-2 text-sm">{t("farmer.medicalLedger.loadingSuppliers")}</span>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -1134,7 +1139,7 @@ export default function MedicalSupplierLedgerPage() {
                     footerContent={
                       <div className="grid grid-cols-9 gap-4 text-sm">
                         <div className="col-span-3 font-semibold text-gray-900">
-                          Total
+                          {t("farmer.medicalLedger.table.total")}
                         </div>
                         <div className="text-right font-medium">
                           ₹
@@ -1168,7 +1173,7 @@ export default function MedicalSupplierLedgerPage() {
                         <div></div>
                       </div>
                     }
-                    emptyMessage="No entries for this supplier"
+                    emptyMessage={t("farmer.medicalLedger.table.empty")}
                   />
                 </div>
               )}
