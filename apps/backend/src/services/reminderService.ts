@@ -1,6 +1,5 @@
-import { PrismaClient, Reminder, ReminderType, ReminderStatus, RecurrencePattern } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { Reminder, ReminderType, ReminderStatus, RecurrencePattern } from '@prisma/client';
+import prisma from '../utils/prisma';
 
 export interface CreateReminderData {
   title: string;

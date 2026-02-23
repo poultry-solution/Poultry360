@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, Filter, Edit, Trash2, Package, AlertTriangle, TrendingUp } from "lucide-react";
+import { Plus, Search, Filter, Edit, Trash2, Package, AlertTriangle, TrendingUp, PackagePlus } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -47,6 +47,7 @@ import {
   useCreateDealerProduct,
   useUpdateDealerProduct,
   useDeleteDealerProduct,
+  useAdjustProductStock,
   type CreateDealerProductInput,
 } from "@/fetchers/dealer/dealerProductQueries";
 import { useI18n } from "@/i18n/useI18n";
@@ -61,6 +62,8 @@ export default function DealerInventoryPage() {
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [tempPrice, setTempPrice] = useState("");
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
+  const [stockProduct, setStockProduct] = useState<any>(null);
+  const [stockQty, setStockQty] = useState("");
 
   // Form state
   const [formData, setFormData] = useState<CreateDealerProductInput>({
@@ -89,6 +92,7 @@ export default function DealerInventoryPage() {
   const createMutation = useCreateDealerProduct();
   const updateMutation = useUpdateDealerProduct();
   const deleteMutation = useDeleteDealerProduct();
+  const adjustStockMutation = useAdjustProductStock();
 
   const handleOpenDialog = (product?: any) => {
     if (product) {
@@ -159,6 +163,29 @@ export default function DealerInventoryPage() {
       toast.error(error.response?.data?.message || t("dealer.inventory.messages.deleteFailed"));
     } finally {
       setProductToDelete(null);
+    }
+  };
+
+  const confirmAddStock = async () => {
+    if (!stockProduct || !stockQty) return;
+    const qty = parseFloat(stockQty);
+    if (isNaN(qty) || qty <= 0) {
+      toast.error("Please enter a valid quantity");
+      return;
+    }
+    try {
+      await adjustStockMutation.mutateAsync({
+        id: stockProduct.id,
+        quantity: qty,
+        type: "PURCHASE",
+        description: `Added ${qty} ${stockProduct.unit} to stock`,
+      });
+      toast.success(`Added ${qty} ${stockProduct.unit} to ${stockProduct.name}`);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to update stock");
+    } finally {
+      setStockProduct(null);
+      setStockQty("");
     }
   };
 
@@ -273,6 +300,7 @@ export default function DealerInventoryPage() {
               <SelectContent>
                 <SelectItem value="ALL">{t("dealer.inventory.filters.allTypes")}</SelectItem>
                 <SelectItem value="FEED">{t("dealer.inventory.filters.feed")}</SelectItem>
+                <SelectItem value="CHICKS">Chicks</SelectItem>
                 <SelectItem value="OTHER">{t("dealer.inventory.filters.other")}</SelectItem>
               </SelectContent>
             </Select>
@@ -419,6 +447,18 @@ export default function DealerInventoryPage() {
                       variant="ghost"
                       size="sm"
                       className="h-7 w-7 p-0"
+                      title="Add Stock"
+                      onClick={() => {
+                        setStockProduct(row);
+                        setStockQty("");
+                      }}
+                    >
+                      <PackagePlus className="h-3.5 w-3.5 text-green-600" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
                       onClick={() => handleOpenDialog(row)}
                     >
                       <Edit className="h-3.5 w-3.5" />
@@ -526,7 +566,11 @@ export default function DealerInventoryPage() {
                   <Select
                     value={formData.type}
                     onValueChange={(value) =>
-                      setFormData({ ...formData, type: value })
+                      setFormData({
+                        ...formData,
+                        type: value,
+                        ...(value === "CHICKS" ? { unit: "pcs" } : {}),
+                      })
                     }
                   >
                     <SelectTrigger className="bg-white">
@@ -534,6 +578,7 @@ export default function DealerInventoryPage() {
                     </SelectTrigger>
                     <SelectContent className="bg-white">
                       <SelectItem value="FEED">{t("dealer.inventory.filters.feed")}</SelectItem>
+                      <SelectItem value="CHICKS">Chicks</SelectItem>
                       <SelectItem value="OTHER">{t("dealer.inventory.filters.other")}</SelectItem>
                     </SelectContent>
                   </Select>
@@ -668,6 +713,38 @@ export default function DealerInventoryPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Add Stock Dialog */}
+      <Dialog open={!!stockProduct} onOpenChange={(open) => { if (!open) { setStockProduct(null); setStockQty(""); } }}>
+        <DialogContent className="max-w-sm bg-white">
+          <DialogHeader>
+            <DialogTitle>Add Stock</DialogTitle>
+            <DialogDescription>
+              Add quantity to <strong>{stockProduct?.name}</strong>. Current stock: <strong>{stockProduct ? Number(stockProduct.currentStock).toFixed(2) : 0} {stockProduct?.unit}</strong>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="addStockQty">Quantity to Add ({stockProduct?.unit})</Label>
+            <Input
+              id="addStockQty"
+              type="number"
+              step="0.01"
+              min="0.01"
+              placeholder="e.g. 50"
+              value={stockQty}
+              onChange={(e) => setStockQty(e.target.value)}
+              autoFocus
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); confirmAddStock(); } }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setStockProduct(null); setStockQty(""); }}>Cancel</Button>
+            <Button onClick={confirmAddStock} disabled={adjustStockMutation.isPending || !stockQty}>
+              {adjustStockMutation.isPending ? "Adding..." : "Add Stock"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,10 +1,8 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../utils/prisma';
 import { getSocketService } from '../services/socketService';
 import { generatePresignedViewUrl, deleteFile as deleteR2File } from '../services/r2Service';
 import { notificationService, NotificationType } from '../services/webpushService';
-
-const prisma = new PrismaClient();
 
 // Helper function to get notification content based on message type
 const getNotificationContent = (message: any) => {

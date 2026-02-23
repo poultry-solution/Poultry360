@@ -1,7 +1,7 @@
-import { PrismaClient, VaccinationStatus } from '@prisma/client';
+import { VaccinationStatus } from '@prisma/client';
+import prisma from '../utils/prisma';
 import { getReminderService } from './reminderService';
 
-const prisma = new PrismaClient();
 const reminderService = getReminderService();
 
 export interface BatchAgeInfo {
@@ -207,11 +207,11 @@ export class StandardVaccinationService {
     type: string
   ): string {
     const baseDescription = `${schedule.vaccineName} vaccination for Batch ${batchInfo.batchNumber}`;
-    
+
     if (schedule.description) {
       return `${baseDescription} - ${schedule.description}`;
     }
-    
+
     return baseDescription;
   }
 
