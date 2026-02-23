@@ -174,10 +174,10 @@ export function DealerAddPaymentDialog({
                   value={selectedCustomerId}
                   onValueChange={setSelectedCustomerId}
                 >
-                  <SelectTrigger id="payment-customer">
+                  <SelectTrigger id="payment-customer" className="bg-white">
                     <SelectValue placeholder={t("dealer.addPaymentDialog.selectCustomer")} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     {customers.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}
@@ -240,10 +240,10 @@ export function DealerAddPaymentDialog({
                   value={paymentMethod}
                   onValueChange={setPaymentMethod}
                 >
-                  <SelectTrigger id="payment-method">
+                  <SelectTrigger id="payment-method" className="bg-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     <SelectItem value="CASH">{t("dealer.addPaymentDialog.methods.cash")}</SelectItem>
                     <SelectItem value="BANK_TRANSFER">{t("dealer.addPaymentDialog.methods.bank_transfer")}</SelectItem>
                     <SelectItem value="CHEQUE">{t("dealer.addPaymentDialog.methods.cheque")}</SelectItem>

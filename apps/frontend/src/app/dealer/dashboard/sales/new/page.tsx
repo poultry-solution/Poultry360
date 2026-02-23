@@ -388,10 +388,10 @@ export default function NewSalePage() {
                       value={discountType}
                       onValueChange={(v: "PERCENT" | "FLAT") => setDiscountType(v)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-white">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-white">
                         <SelectItem value="PERCENT">{t("dealer.newSale.discount.percent")}</SelectItem>
                         <SelectItem value="FLAT">{t("dealer.newSale.discount.flat")}</SelectItem>
                       </SelectContent>
@@ -433,10 +433,10 @@ export default function NewSalePage() {
                   <div className="space-y-2">
                     <Label htmlFor="paymentMethod">{t("dealer.newSale.payment.method")}</Label>
                     <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-white">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-white">
                         <SelectItem value="CASH">{t("dealer.newSale.payment.methods.cash")}</SelectItem>
                         <SelectItem value="BANK_TRANSFER">{t("dealer.newSale.payment.methods.bank")}</SelectItem>
                         <SelectItem value="CHEQUE">{t("dealer.newSale.payment.methods.cheque")}</SelectItem>
