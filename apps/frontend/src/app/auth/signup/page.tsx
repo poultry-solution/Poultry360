@@ -138,26 +138,6 @@ export default function SignupPage() {
     return `${formData.countryCode}${formData.phone}`;
   };
 
-  const fillTestData = () => {
-    const now = new Date();
-    const timestamp = now.getTime();
-
-    const phone = `98${timestamp.toString().slice(-8)}`;
-
-    setFormData({
-      name: `Test User ${timestamp}`,
-      companyName: `Test Farm Company ${timestamp}`,
-      province: "Bagmati",
-      location: `Test City ${timestamp}`,
-      countryCode: "+977",
-      phone: phone,
-      password: "test123",
-      confirmPassword: "test123",
-      language: "ENGLISH",
-      calendarType: "AD",
-      dealerId: null,
-    });
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -185,13 +165,7 @@ export default function SignupPage() {
                 <p className="text-sm text-muted-foreground mt-1">
                   {t("auth.signup.subtitle")}
                 </p>
-                <button
-                  type="button"
-                  onClick={fillTestData}
-                  className="mt-3 px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md border"
-                >
-                  🧪 {t("auth.signup.fillTestData")}
-                </button>
+
               </div>
 
               {error && (
