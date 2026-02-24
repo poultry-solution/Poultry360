@@ -54,7 +54,6 @@ export const farmerNavigation: NavigationItem[] = [
     href: "/farmer/dashboard/chat-doctor",
     icon: MessageCircle,
   },
-  { nameKey: "sidebar.nav.accounts", href: "/farmer/dashboard/accounts", icon: CreditCard },
   { nameKey: "sidebar.nav.vaccinations", href: "/farmer/dashboard/vaccinations", icon: Syringe },
 ];
 
