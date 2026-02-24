@@ -1940,6 +1940,8 @@
       "descriptionRecord": "Record a payment received from {name}",
       "customer": "Customer *",
       "selectCustomer": "Select customer",
+      "searchCustomer": "Search customer...",
+      "noCustomerFound": "No customer found.",
       "balance": "Balance",
       "amount": "Amount *",
       "amountPlaceholder": "0.00",

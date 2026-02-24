@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/common/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/common/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { toast } from "sonner";
 import { useAddDealerPayment } from "@/fetchers/dealer/dealerLedgerQueries";
@@ -27,6 +40,8 @@ import {
   RecordFarmerPaymentInput,
 } from "@/fetchers/dealer/dealerFarmerQueries";
 import { useI18n } from "@/i18n/useI18n";
+import { ChevronsUpDown, Check } from "lucide-react";
+import { cn } from "@/common/lib/utils";
 
 export interface DealerAddPaymentCustomer {
   id: string;
@@ -69,6 +84,7 @@ export function DealerAddPaymentDialog({
 }: DealerAddPaymentDialogProps) {
   const { t } = useI18n();
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
   const [amount, setAmount] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
@@ -90,6 +106,7 @@ export function DealerAddPaymentDialog({
 
   const resetForm = () => {
     setSelectedCustomerId("");
+    setCustomerPopoverOpen(false);
     setAmount(0);
     setPaymentMethod("CASH");
     setDate(new Date().toISOString().split("T")[0]);
@@ -157,6 +174,11 @@ export function DealerAddPaymentDialog({
       ? t("dealer.addPaymentDialog.descriptionRecord", { name: customer.name })
       : t("dealer.addPaymentDialog.descriptionAdd");
 
+  const selectedCustomerLabel = useMemo(() => {
+    if (!selectedCustomerId) return null;
+    return customers.find((c) => c.id === selectedCustomerId);
+  }, [selectedCustomerId, customers]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
@@ -169,22 +191,55 @@ export function DealerAddPaymentDialog({
           <div className="space-y-4 py-4">
             {mode === "select" && (
               <div className="space-y-2">
-                <Label htmlFor="payment-customer">{t("dealer.addPaymentDialog.customer")}</Label>
-                <Select
-                  value={selectedCustomerId}
-                  onValueChange={setSelectedCustomerId}
-                >
-                  <SelectTrigger id="payment-customer" className="bg-white">
-                    <SelectValue placeholder={t("dealer.addPaymentDialog.selectCustomer")} />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white">
-                    {customers.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>{t("dealer.addPaymentDialog.customer")}</Label>
+                <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={customerPopoverOpen}
+                      className="w-full justify-between bg-white font-normal"
+                    >
+                      {selectedCustomerLabel
+                        ? selectedCustomerLabel.name
+                        : t("dealer.addPaymentDialog.selectCustomer")}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0 bg-white z-50 border shadow-md" align="start">
+                    <Command>
+                      <CommandInput placeholder={t("dealer.addPaymentDialog.searchCustomer") || "Search customer..."} />
+                      <CommandList>
+                        <CommandEmpty>{t("dealer.addPaymentDialog.noCustomerFound") || "No customer found."}</CommandEmpty>
+                        <CommandGroup>
+                          {customers.map((c) => (
+                            <CommandItem
+                              key={c.id}
+                              value={c.name}
+                              onSelect={() => {
+                                setSelectedCustomerId(c.id);
+                                setCustomerPopoverOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedCustomerId === c.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <div className="flex flex-col">
+                                <span>{c.name}</span>
+                                {c.phone && (
+                                  <span className="text-xs text-muted-foreground">{c.phone}</span>
+                                )}
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
 
@@ -319,3 +374,4 @@ export function DealerAddPaymentDialog({
     </Dialog>
   );
 }
+

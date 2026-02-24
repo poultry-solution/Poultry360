@@ -1939,6 +1939,8 @@
       "descriptionRecord": "{name} बाट प्राप्त भुक्तानी रेकर्ड गर्नुहोस्",
       "customer": "ग्राहक *",
       "selectCustomer": "ग्राहक छान्नुहोस्",
+      "searchCustomer": "ग्राहक खोज्नुहोस्...",
+      "noCustomerFound": "कुनै ग्राहक फेला परेन।",
       "balance": "बाँकी रकम",
       "amount": "रकम *",
       "amountPlaceholder": "0.00",

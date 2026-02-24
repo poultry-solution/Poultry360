@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Search, Package, AlertTriangle, TrendingUp } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Search, Package, AlertTriangle, TrendingUp, Check, X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -23,8 +23,93 @@ import { Badge } from "@/common/components/ui/badge";
 import {
   useGetDealerProducts,
   useGetInventorySummary,
+  useUpdateDealerProduct,
 } from "@/fetchers/dealer/dealerProductQueries";
 import { useI18n } from "@/i18n/useI18n";
+import { toast } from "sonner";
+
+// Inline editable price cell component
+function EditablePriceCell({ value, productId }: { value: number; productId: string }) {
+  const { t } = useI18n();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(String(value));
+  const inputRef = useRef<HTMLInputElement>(null);
+  const updateMutation = useUpdateDealerProduct();
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleSave = () => {
+    const newPrice = parseFloat(editValue);
+    if (isNaN(newPrice) || newPrice < 0) {
+      setEditValue(String(value));
+      setIsEditing(false);
+      return;
+    }
+    if (newPrice === value) {
+      setIsEditing(false);
+      return;
+    }
+    updateMutation.mutate(
+      { id: productId, sellingPrice: newPrice },
+      {
+        onSuccess: () => {
+          toast.success(t("dealer.inventory.messages.priceUpdated"));
+          setIsEditing(false);
+        },
+        onError: () => {
+          toast.error(t("dealer.inventory.messages.updateFailed"));
+          setEditValue(String(value));
+          setIsEditing(false);
+        },
+      }
+    );
+  };
+
+  const handleCancel = () => {
+    setEditValue(String(value));
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSave();
+    if (e.key === "Escape") handleCancel();
+  };
+
+  if (isEditing) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-muted-foreground">रू</span>
+        <input
+          ref={inputRef}
+          type="number"
+          step="0.01"
+          min="0"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={handleSave}
+          className="w-20 h-7 px-1.5 text-sm border rounded text-right focus:outline-none focus:ring-1 focus:ring-primary"
+          disabled={updateMutation.isPending}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setIsEditing(true)}
+      className="font-medium text-primary hover:underline cursor-pointer bg-transparent border-none p-0"
+      title={t("dealer.inventory.table.sell")}
+    >
+      रू {Number(value).toFixed(2)}
+    </button>
+  );
+}
 
 export default function DealerInventoryPage() {
   const { t } = useI18n();
@@ -79,7 +164,7 @@ export default function DealerInventoryPage() {
         <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
             <CardTitle className="text-xs md:text-sm font-medium">
-              {t("dealer.inventory.stats.totalValue")}
+              {t("dealer.inventory.stats.value")}
             </CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -88,7 +173,7 @@ export default function DealerInventoryPage() {
               रू {summaryLoading ? "..." : (summary?.totalInventoryValue?.toFixed(2) || "0.00")}
             </div>
             <p className="text-[10px] md:text-xs text-muted-foreground">
-              {t("dealer.inventory.stats.atCost")}
+              {t("dealer.inventory.stats.totalCost")}
             </p>
           </CardContent>
         </Card>
@@ -122,7 +207,7 @@ export default function DealerInventoryPage() {
               {summaryLoading ? "..." : summary?.outOfStockProducts || 0}
             </div>
             <p className="text-[10px] md:text-xs text-muted-foreground">
-              {t("dealer.inventory.stats.needsRestock")}
+              {t("dealer.inventory.stats.zeroStock")}
             </p>
           </CardContent>
         </Card>
@@ -135,7 +220,7 @@ export default function DealerInventoryPage() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder={t("dealer.inventory.filters.search")}
+                placeholder={t("dealer.inventory.filters.searchPlaceholder")}
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 className="pl-10"
@@ -208,9 +293,9 @@ export default function DealerInventoryPage() {
                 key: 'sellingPrice',
                 label: t("dealer.inventory.table.sell"),
                 align: 'right',
-                width: '100px',
-                render: (val) => (
-                  <span className="font-medium">रू {Number(val).toFixed(2)}</span>
+                width: '120px',
+                render: (val, row) => (
+                  <EditablePriceCell value={Number(val)} productId={row.id} />
                 )
               },
               {
@@ -272,3 +357,4 @@ export default function DealerInventoryPage() {
     </div>
   );
 }
+
