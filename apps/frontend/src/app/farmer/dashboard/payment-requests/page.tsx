@@ -497,10 +497,10 @@ export default function FarmerPaymentRequestsPage() {
             <div>
               <Label htmlFor="paymentMethod">Payment Method</Label>
               <Select value={proofPaymentMethod} onValueChange={setProofPaymentMethod}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-white">
                   <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white">
                   <SelectItem value="CASH">Cash</SelectItem>
                   <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
                   <SelectItem value="MOBILE_BANKING">Mobile Banking</SelectItem>
@@ -554,7 +554,7 @@ export default function FarmerPaymentRequestsPage() {
 
       {/* Create payment request dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>{t("farmer.paymentRequests.create.title")}</DialogTitle>
             <DialogDescription>
@@ -565,10 +565,10 @@ export default function FarmerPaymentRequestsPage() {
             <div className="space-y-2">
               <Label htmlFor="create-dealer">{t("farmer.paymentRequests.create.dealerLabel")}</Label>
               <Select value={createDealerId} onValueChange={setCreateDealerId}>
-                <SelectTrigger id="create-dealer">
+                <SelectTrigger id="create-dealer" className="bg-white">
                   <SelectValue placeholder={t("farmer.paymentRequests.create.dealerPlaceholder")} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white">
                   {connectedDealers.map((dealer: { id: string; name: string; contact?: string }) => (
                     <SelectItem key={dealer.id} value={dealer.id}>
                       {dealer.name} {dealer.contact ? `– ${dealer.contact}` : ""}
@@ -592,10 +592,10 @@ export default function FarmerPaymentRequestsPage() {
             <div className="space-y-2">
               <Label htmlFor="create-method">{t("farmer.paymentRequests.create.methodLabel")}</Label>
               <Select value={createPaymentMethod} onValueChange={setCreatePaymentMethod}>
-                <SelectTrigger id="create-method">
+                <SelectTrigger id="create-method" className="bg-white">
                   <SelectValue placeholder={t("farmer.paymentRequests.create.methodPlaceholder")} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white">
                   <SelectItem value="CASH">{t("farmer.paymentRequests.create.methods.cash")}</SelectItem>
                   <SelectItem value="BANK_TRANSFER">{t("farmer.paymentRequests.create.methods.bank")}</SelectItem>
                   <SelectItem value="MOBILE_BANKING">{t("farmer.paymentRequests.create.methods.mobile")}</SelectItem>

@@ -171,27 +171,15 @@ export default function DealerLedgerPage() {
       render: (_, row) => {
         const due = row.amountDue;
         return (
-          <div className="flex items-center justify-between">
-            <span
-              className={
-                due > 0
-                  ? "text-red-600 font-medium"
-                  : "text-green-600 font-medium"
-              }
-            >
-              ₹{due.toLocaleString()}
-            </span>
-            {due > 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="ml-2 h-6 px-2 text-xs bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
-                onClick={() => openPaymentModal(activeDealerId, row.id)}
-              >
-                {t("farmer.dealerLedger.transactionTypes.payment")}
-              </Button>
-            )}
-          </div>
+          <span
+            className={
+              due > 0
+                ? "text-red-600 font-medium"
+                : "text-green-600 font-medium"
+            }
+          >
+            ₹{due.toLocaleString()}
+          </span>
         );
       },
     }),

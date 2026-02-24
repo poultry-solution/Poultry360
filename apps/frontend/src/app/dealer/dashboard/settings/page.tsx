@@ -165,10 +165,10 @@ export default function SettingsPage() {
               value={uiLanguage === "ne" ? "NEPALI" : "ENGLISH"}
               onValueChange={handleLanguageChange}
             >
-              <SelectTrigger>
+              <SelectTrigger className="bg-white">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white">
                 <SelectItem value="ENGLISH">{t("settings.languageEnglish")}</SelectItem>
                 <SelectItem value="NEPALI">{t("settings.languageNepali")}</SelectItem>
               </SelectContent>
@@ -178,10 +178,10 @@ export default function SettingsPage() {
           <div>
             <Label>{t("settings.calendar")}</Label>
             <Select value={calendarType} onValueChange={handleCalendarChange}>
-              <SelectTrigger>
+              <SelectTrigger className="bg-white">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white">
                 <SelectItem value="AD">{t("settings.calendarAD")}</SelectItem>
                 <SelectItem value="BS">{t("settings.calendarBS")}</SelectItem>
               </SelectContent>

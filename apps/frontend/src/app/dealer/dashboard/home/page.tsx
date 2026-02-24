@@ -13,7 +13,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/common/components/ui/alert";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
-import { Package, Users, Receipt, TrendingUp, Loader2, X, CheckCircle, Clock, XCircle, AlertCircle, Plus, Truck } from "lucide-react";
+import { Package, Users, Receipt, TrendingUp, Loader2, X, CheckCircle, Clock, XCircle, AlertCircle, Plus, Truck, DollarSign } from "lucide-react";
 import {
   useGetDealerVerificationRequests,
   useAcknowledgeVerificationRequest,
@@ -23,6 +23,7 @@ import { useGetInventorySummary } from "@/fetchers/dealer/dealerProductQueries";
 import { useGetSalesStatistics, useGetDealerSales } from "@/fetchers/dealer/dealerSaleQueries";
 import { useGetDealerProducts } from "@/fetchers/dealer/dealerProductQueries";
 import { useGetLedgerSummary } from "@/fetchers/dealer/dealerLedgerQueries";
+import { useGetDealerProfitSummary } from "@/fetchers/dealer/dealerManualCompanyQueries";
 import { useI18n } from "@/i18n/useI18n";
 
 export default function DealerHomePage() {
@@ -86,10 +87,10 @@ export default function DealerHomePage() {
           variant: "destructive" as const,
           title: t("dealer.dashboard.banner.rejected.title"),
           description: `${t("dealer.dashboard.banner.rejected.description", { companyName })} ${request.rejectedCount >= 3
-              ? t("dealer.dashboard.banner.rejected.limitReached")
-              : request.rejectedCount === 2
-                ? t("dealer.dashboard.banner.rejected.secondRejection")
-                : t("dealer.dashboard.banner.rejected.retry")
+            ? t("dealer.dashboard.banner.rejected.limitReached")
+            : request.rejectedCount === 2
+              ? t("dealer.dashboard.banner.rejected.secondRejection")
+              : t("dealer.dashboard.banner.rejected.retry")
             }`,
           icon: XCircle,
           className: "bg-red-50 border-red-200 text-red-900",
@@ -130,9 +131,10 @@ export default function DealerHomePage() {
     limit: 10,
   });
   const { data: ledgerSummaryData, isLoading: ledgerLoading } = useGetLedgerSummary();
+  const { data: profitData, isLoading: profitLoading } = useGetDealerProfitSummary();
 
   // Combine loading states
-  const isLoading = inventoryLoading || salesStatsLoading || recentSalesLoading || lowStockLoading || ledgerLoading;
+  const isLoading = inventoryLoading || salesStatsLoading || recentSalesLoading || lowStockLoading || ledgerLoading || profitLoading;
 
   // Extract data
   const inventory = inventoryData?.data;
@@ -217,7 +219,7 @@ export default function DealerHomePage() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-5">
         <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
             <CardTitle className="text-xs md:text-sm font-medium">{t("dealer.dashboard.stats.totalInventory")}</CardTitle>
@@ -275,6 +277,28 @@ export default function DealerHomePage() {
               <div className="text-lg md:text-2xl font-bold">{formatCurrency(stats.monthlyRevenue)}</div>
             )}
             <p className="text-[10px] md:text-xs text-muted-foreground">{t("dealer.dashboard.stats.thisMonth")}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="p-0 col-span-2 md:col-span-1">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Profit</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="p-3 md:p-4 pt-0">
+            {isLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <>
+                <div className={`text-lg md:text-2xl font-bold ${(profitData?.profit || 0) >= 0 ? "text-green-600" : "text-red-600"
+                  }`}>
+                  {formatCurrency(profitData?.profit || 0)}
+                </div>
+                <div className="text-[10px] md:text-xs text-muted-foreground mt-1">
+                  Sales: {formatCurrency(profitData?.totalSales || 0)} • Purchases: {formatCurrency(profitData?.totalPurchases || 0)}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
