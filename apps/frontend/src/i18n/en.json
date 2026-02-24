@@ -1936,7 +1936,7 @@
     "addPaymentDialog": {
       "titleAdd": "Add Payment",
       "titleRecord": "Record Payment",
-      "descriptionAdd": "Record an account-level payment. Select a customer; for non-connected farmers, payment is applied to that customer's  account [This is not for connected farmer Kinldy use payment request method of connected farmers].",
+      "descriptionAdd": "Record payment for manual customers only. For connected farmers, please use Payment Requests.",
       "descriptionRecord": "Record a payment received from {name}",
       "customer": "Customer *",
       "selectCustomer": "Select customer",
