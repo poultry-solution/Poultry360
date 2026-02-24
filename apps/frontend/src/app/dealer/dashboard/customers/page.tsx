@@ -508,12 +508,14 @@ export default function DealerCustomersPage() {
         open={isAddPaymentOpen}
         onOpenChange={setIsAddPaymentOpen}
         mode="select"
-        customers={customers.map((c) => ({
-          id: c.id,
-          name: c.name,
-          phone: c.phone,
-          balance: c.balance,
-        }))}
+        customers={customers
+          .filter(c => c.source !== "CONNECTED")
+          .map((c) => ({
+            id: c.id,
+            name: c.name,
+            phone: c.phone,
+            balance: c.balance,
+          }))}
         onSuccess={async () => {
           await queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
           await queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] }); // Catches dealer-ledger-parties and others

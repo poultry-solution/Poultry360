@@ -542,7 +542,7 @@ export default function DealerPaymentRequestsPage() {
                 <SelectTrigger>
                   <SelectValue placeholder={t("dealer.paymentRequests.dialogs.create.placeholderFarmer")} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white">
                   {connectedFarmers.map((farmer) => (
                     <SelectItem key={farmer.id} value={farmer.id}>
                       {farmer.name} ({farmer.phone})

@@ -126,21 +126,6 @@ export interface FarmerAccountStatement {
   };
 }
 
-export interface RecordFarmerPaymentInput {
-  farmerId: string;
-  amount: number;
-  paymentMethod?: string;
-  paymentDate?: string;
-  notes?: string;
-  reference?: string;
-  receiptImageUrl?: string;
-  proofImageUrl?: string;
-}
-
-export interface SetFarmerBalanceLimitInput {
-  farmerId: string;
-  balanceLimit: number | null;
-}
 
 export interface CheckFarmerBalanceLimitInput {
   farmerId: string;
@@ -354,34 +339,10 @@ export const useGetFarmerAccountStatement = (
   });
 };
 
-// Record payment to farmer account
-export const useRecordFarmerPayment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ farmerId, ...input }: RecordFarmerPaymentInput) => {
-      const { data } = await axiosInstance.post(
-        `${farmerAccountsBase}/${farmerId}/payments`,
-        input
-      );
-      return data;
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: dealerFarmerKeys.account(variables.farmerId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: dealerFarmerKeys.accounts(),
-      });
-      queryClient.invalidateQueries({
-        queryKey: [...dealerFarmerAccountKey, "statement", variables.farmerId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: dealerFarmerKeys.all,
-      });
-    },
-  });
-};
+export interface SetFarmerBalanceLimitInput {
+  farmerId: string;
+  balanceLimit: number | null;
+}
 
 // Set balance limit for a farmer account
 export const useSetFarmerBalanceLimit = () => {

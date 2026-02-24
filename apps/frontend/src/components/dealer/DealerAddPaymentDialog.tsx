@@ -35,10 +35,6 @@ import {
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { toast } from "sonner";
 import { useAddDealerPayment } from "@/fetchers/dealer/dealerLedgerQueries";
-import {
-  useRecordFarmerPayment,
-  RecordFarmerPaymentInput,
-} from "@/fetchers/dealer/dealerFarmerQueries";
 import { useI18n } from "@/i18n/useI18n";
 import { ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/common/lib/utils";
@@ -59,10 +55,6 @@ export interface DealerAddPaymentDialogProps {
   customers?: DealerAddPaymentCustomer[];
   /** For mode "single": the customer to show (payment will be recorded for this customer) */
   customer?: DealerAddPaymentCustomer;
-  /** For mode "single": when true, use farmer account API instead of dealer ledger */
-  isFarmer?: boolean;
-  /** For mode "single" + isFarmer: farmer user id for recordFarmerPayment */
-  farmerId?: string;
   /** Called after successful payment (e.g. to invalidate queries) */
   onSuccess?: () => void;
   /** Optional: format currency for display */
@@ -77,8 +69,6 @@ export function DealerAddPaymentDialog({
   mode,
   customers = [],
   customer,
-  isFarmer = false,
-  farmerId,
   onSuccess,
   formatCurrency = defaultFormatCurrency,
 }: DealerAddPaymentDialogProps) {
@@ -93,7 +83,6 @@ export function DealerAddPaymentDialog({
   const [receiptImageUrl, setReceiptImageUrl] = useState("");
 
   const addDealerPayment = useAddDealerPayment();
-  const recordFarmerPayment = useRecordFarmerPayment();
 
   const effectiveCustomerId =
     mode === "single" && customer ? customer.id : selectedCustomerId;
@@ -101,8 +90,7 @@ export function DealerAddPaymentDialog({
     mode === "single" && customer
       ? customer
       : customers.find((c) => c.id === selectedCustomerId);
-  const isPending =
-    addDealerPayment.isPending || recordFarmerPayment.isPending;
+  const isPending = addDealerPayment.isPending;
 
   const resetForm = () => {
     setSelectedCustomerId("");
@@ -129,27 +117,7 @@ export function DealerAddPaymentDialog({
       toast.error(t("dealer.addPaymentDialog.messages.selectCustomer"));
       return;
     }
-    if (mode === "single" && isFarmer && farmerId) {
-      try {
-        await recordFarmerPayment.mutateAsync({
-          farmerId,
-          amount,
-          paymentMethod,
-          paymentDate: date,
-          notes: notes || undefined,
-          reference: reference || undefined,
-          receiptImageUrl: receiptImageUrl || undefined,
-        } as RecordFarmerPaymentInput);
-        toast.success(t("dealer.addPaymentDialog.messages.success"));
-        onOpenChange(false);
-        onSuccess?.();
-      } catch (error: any) {
-        toast.error(
-          error.response?.data?.message || t("dealer.addPaymentDialog.messages.failed")
-        );
-      }
-      return;
-    }
+
     try {
       await addDealerPayment.mutateAsync({
         customerId: effectiveCustomerId,

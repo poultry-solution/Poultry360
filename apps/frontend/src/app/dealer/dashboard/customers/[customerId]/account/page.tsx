@@ -121,8 +121,8 @@ export default function CustomerAccountPage() {
   const payments = isFarmer
     ? transactions.filter((t: any) => t.type === "PAYMENT")
     : ledgerEntries.filter((entry: any) =>
-        entry.type === "PAYMENT_RECEIVED" || entry.type === "PAYMENT"
-      );
+      entry.type === "PAYMENT_RECEIVED" || entry.type === "PAYMENT"
+    );
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -191,10 +191,12 @@ export default function CustomerAccountPage() {
           </p>
         </div>
         {/* For connected farmers, only account-level payment (no bill-level) */}
-        <Button onClick={() => setIsPaymentDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {isFarmer ? "Record payment (account)" : "Record Payment"}
-        </Button>
+        {!isFarmer && (
+          <Button onClick={() => setIsPaymentDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Record Payment
+          </Button>
+        )}
       </div>
 
       {/* Account Summary Cards */}
@@ -208,13 +210,12 @@ export default function CustomerAccountPage() {
           </CardHeader>
           <CardContent>
             <div
-              className={`text-2xl font-bold ${
-                currentBalance > 0
-                  ? "text-red-600"
-                  : currentBalance < 0
+              className={`text-2xl font-bold ${currentBalance > 0
+                ? "text-red-600"
+                : currentBalance < 0
                   ? "text-green-600"
                   : ""
-              }`}
+                }`}
             >
               {formatCurrency(Math.abs(currentBalance))}
             </div>
@@ -222,8 +223,8 @@ export default function CustomerAccountPage() {
               {currentBalance > 0
                 ? "Outstanding"
                 : currentBalance < 0
-                ? "Advance/Credit"
-                : "Settled"}
+                  ? "Advance/Credit"
+                  : "Settled"}
             </p>
           </CardContent>
         </Card>
@@ -440,8 +441,6 @@ export default function CustomerAccountPage() {
           phone: customer.phone,
           balance: currentBalance,
         }}
-        isFarmer={!!isFarmer}
-        farmerId={farmerId}
         onSuccess={() => {
           queryClient.invalidateQueries({
             queryKey: ["dealer-customer", customerId],
