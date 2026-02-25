@@ -4,7 +4,7 @@ This document describes how dates are converted, displayed, and received from us
 
 ## Overview
 
-- **User-facing**: Users can view and select dates in either **English (AD)** or **Nepali (BS)** calendar, based on their Settings preference.
+- **User-facing**: The app uses **Nepali (BS)** calendar for all date display and input. The AD/BS toggle is hidden in UI but the switching logic remains for future re-enablement (see `common/config/calendar.ts`: `EFFECTIVE_CALENDAR_TYPE`, `CALENDAR_TOGGLE_VISIBLE`).
 - **Storage & API**: All dates are stored and transmitted as **AD (Gregorian)** in ISO format.
 - **Layer**: This is a **presentation-layer only** feature. No backend or schema changes.
 
@@ -24,7 +24,7 @@ This document describes how dates are converted, displayed, and received from us
 ```mermaid
 flowchart LR
     subgraph user [User]
-        U1[Selects date in BS or AD]
+        U1[Selects date in BS]
     end
     subgraph frontend [Frontend]
         DateInput[DateInput component]
@@ -41,17 +41,16 @@ flowchart LR
     nepaliDate -->|AD ISO string| API
     API -->|AD ISO string| DateDisplay
     DateDisplay --> useCalendar
-    useCalendar -->|Convert to BS if preference| U1
+    useCalendar -->|Always BS display| U1
 ```
 
 ---
 
 ## User Preference
 
-- **Setting**: Chosen on the Settings page (English / Nepali).
-- **Storage**: `user.calendarType` in auth store; persisted to backend via `PATCH /users/preferences`.
-- **Default**: `AD` if not set.
-- **Effect**: All date pickers and displays use this preference. Changing it updates the UI immediately (store is synced after API success).
+- **Effective default**: Nepali (BS) for all users. The effective calendar is forced at runtime via `common/config/calendar.ts` (`EFFECTIVE_CALENDAR_TYPE = "BS"`); any stored preference is overridden for display/input.
+- **Storage**: `user.calendarType` is still stored in auth store and persisted via `PATCH /users/preferences` when the calendar toggle is re-enabled.
+- **Toggle visibility**: The Settings (and signup) calendar selector is hidden when `CALENDAR_TOGGLE_VISIBLE` is false. When re-enabled, the existing preference and API contract remain.
 
 ---
 
@@ -59,8 +58,9 @@ flowchart LR
 
 | Module | Role |
 |--------|------|
+| [`common/config/calendar.ts`](../src/common/config/calendar.ts) | `EFFECTIVE_CALENDAR_TYPE` (default BS), `CALENDAR_TOGGLE_VISIBLE` (hide AD/BS toggle). |
 | [`common/lib/nepali-date.ts`](../src/common/lib/nepali-date.ts) | Pure conversion utilities. Single source of truth. |
-| [`common/hooks/useCalendar.ts`](../src/common/hooks/useCalendar.ts) | React hook that exposes conversion and display based on user preference. |
+| [`common/hooks/useCalendar.ts`](../src/common/hooks/useCalendar.ts) | React hook that uses effective calendar (BS) for display/input; conversion and AD support remain for re-enablement. |
 | [`common/components/ui/date-input.tsx`](../src/common/components/ui/date-input.tsx) | Date input. BS mode: popover with Nepali calendar picker; AD mode: HTML5 date picker. Always emits AD ISO. |
 | [`common/components/ui/date-display.tsx`](../src/common/components/ui/date-display.tsx) | Renders dates in user's preferred format (BS or AD). |
 

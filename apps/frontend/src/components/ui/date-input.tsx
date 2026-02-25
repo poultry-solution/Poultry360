@@ -2,6 +2,7 @@
 
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
+import { CALENDAR_TOGGLE_VISIBLE } from "@/common/config/calendar";
 import { useCalendar } from "@/common/hooks/useCalendar";
 
 interface DateInputProps {
@@ -48,7 +49,7 @@ export function DateInput({
         min={min}
         max={max}
       />
-      {calendarType === "BS" && (
+      {CALENDAR_TOGGLE_VISIBLE && calendarType === "BS" && (
         <p className="text-xs text-muted-foreground mt-1">
           Bikram Sambat (BS) Calendar
         </p>

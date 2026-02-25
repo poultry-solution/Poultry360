@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/common/components/ui/select";
+import { CALENDAR_TOGGLE_VISIBLE } from "@/common/config/calendar";
 import { useAuth } from "@/common/store/store";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -175,18 +176,20 @@ export default function SettingsPage() {
             </Select>
           </div>
 
-          <div>
-            <Label>{t("settings.calendar")}</Label>
-            <Select value={calendarType} onValueChange={handleCalendarChange}>
-              <SelectTrigger className="bg-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-white">
-                <SelectItem value="AD">{t("settings.calendarAD")}</SelectItem>
-                <SelectItem value="BS">{t("settings.calendarBS")}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {CALENDAR_TOGGLE_VISIBLE && (
+            <div>
+              <Label>{t("settings.calendar")}</Label>
+              <Select value={calendarType} onValueChange={handleCalendarChange}>
+                <SelectTrigger className="bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  <SelectItem value="AD">{t("settings.calendarAD")}</SelectItem>
+                  <SelectItem value="BS">{t("settings.calendarBS")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

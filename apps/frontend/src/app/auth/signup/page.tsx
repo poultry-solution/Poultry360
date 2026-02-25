@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Button } from "@/common/components/ui/button";
+import { CALENDAR_TOGGLE_VISIBLE } from "@/common/config/calendar";
 import { useAuth, useAuthStore } from "@/common/store/store";
 import { PublicDealerSearchSelect } from "@/common/components/forms/PublicDealerSearchSelect";
 import { Eye, EyeOff, CheckCircle } from "lucide-react";
@@ -32,7 +33,7 @@ export default function SignupPage() {
     password: "",
     confirmPassword: "",
     language: "ENGLISH",
-    calendarType: "AD",
+    calendarType: "BS",
     dealerId: null as string | null,
   });
 
@@ -99,7 +100,7 @@ export default function SignupPage() {
         companyName: formData.companyName,
         companyFarmLocation,
         language: formData.language as "ENGLISH" | "NEPALI",
-        calendarType: formData.calendarType as "AD" | "BS",
+        calendarType: (CALENDAR_TOGGLE_VISIBLE ? formData.calendarType : "BS") as "AD" | "BS",
         dealerId: formData.dealerId || undefined,
       };
 
@@ -257,19 +258,21 @@ export default function SignupPage() {
                     </select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="calendarType">{t("auth.signup.calendarLabel")}</Label>
-                    <select
-                      id="calendarType"
-                      name="calendarType"
-                      value={formData.calendarType}
-                      onChange={handleInputChange}
-                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                    >
-                      <option value="AD">{t("settings.calendarAD")}</option>
-                      <option value="BS">{t("settings.calendarBS")}</option>
-                    </select>
-                  </div>
+                  {CALENDAR_TOGGLE_VISIBLE && (
+                    <div className="space-y-2">
+                      <Label htmlFor="calendarType">{t("auth.signup.calendarLabel")}</Label>
+                      <select
+                        id="calendarType"
+                        name="calendarType"
+                        value={formData.calendarType}
+                        onChange={handleInputChange}
+                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      >
+                        <option value="AD">{t("settings.calendarAD")}</option>
+                        <option value="BS">{t("settings.calendarBS")}</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
