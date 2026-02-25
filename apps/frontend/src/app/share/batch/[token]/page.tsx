@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui/card";
-import { Loader2, Activity, Leaf, Syringe, TrendingDown, Calendar, Eye, Clock, MapPin, Bird } from "lucide-react";
+import { Loader2, Activity, Leaf, TrendingDown, Calendar, Eye, Clock, MapPin, Bird } from "lucide-react";
 import { useGetBatchShareByToken } from "@/fetchers/batchShare/batchShareQueries";
 import { DateDisplay } from "@/common/components/ui/date-display";
 
@@ -183,19 +183,6 @@ export default function SharedBatchPage() {
             </CardContent>
           </Card>
 
-          <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300 border-primary/10 hover:border-primary/30">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-semibold text-muted-foreground">Vaccinations</CardTitle>
-              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                <Syringe className="h-5 w-5 text-blue-600 dark:text-blue-500" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold tracking-tight">{Array.isArray(health.vaccinations) ? health.vaccinations.length : 0}</div>
-              <p className="text-xs text-muted-foreground mt-2">Completed or scheduled</p>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Overview Card */}

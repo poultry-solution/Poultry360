@@ -14,7 +14,6 @@ import {
   MessageCircle,
   ChevronLeft,
   Receipt,
-  Syringe,
   BarChart3,
   DollarSign,
   Truck,
@@ -54,7 +53,6 @@ export const farmerNavigation: NavigationItem[] = [
     href: "/farmer/dashboard/chat-doctor",
     icon: MessageCircle,
   },
-  { nameKey: "sidebar.nav.vaccinations", href: "/farmer/dashboard/vaccinations", icon: Syringe },
 ];
 
 const doctorNavigation: NavigationItem[] = [

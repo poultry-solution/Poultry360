@@ -22,14 +22,14 @@ export const useNotificationActions = () => {
       // Check if this is a notification action message
       if (event.data?.type === 'NOTIFICATION_ACTION') {
         const { action, data } = event.data;
-        
+
         console.log('🔔 Processing NOTIFICATION_ACTION:', {
           action,
           notificationType: data?.notificationType,
           reminderId: data?.reminderId,
           hasUserId: !!user?.id
         });
-        
+
         // Validate we have all required data
         if (!data?.notificationType) {
           console.error('❌ Missing notificationType in action data');
@@ -46,56 +46,39 @@ export const useNotificationActions = () => {
           return;
         }
 
-        // Handle reminder notifications (including vaccination reminders)
-        if (data.notificationType === 'reminder' || data.notificationType === 'vaccination') {
-          console.log('✅ Valid reminder/vaccination action, processing...', {
+        // Handle reminder notifications
+        if (data.notificationType === 'reminder') {
+          console.log('✅ Valid reminder action, processing...', {
             action,
             reminderId: data.reminderId,
-            vaccinationId: data.vaccinationId,
             notificationType: data.notificationType,
             userId: user.id
           });
-          
+
           // Map the action from service worker to API action
           const apiAction = action as 'mark-completed' | 'mark-not-done';
-          
-          // Call the API with vaccination ID if available
+
           const requestData: any = {
             action: apiAction,
             reminderId: data.reminderId,
             userId: user.id,
           };
-          
-          // Add vaccinationId if this is a vaccination notification
-          if (data.vaccinationId) {
-            requestData.vaccinationId = data.vaccinationId;
-          }
-          
+
           handleNotificationAction(requestData).then((result) => {
             if (result.success) {
-              console.log('✅ Reminder/vaccination action completed successfully:', {
+              console.log('✅ Reminder action completed successfully:', {
                 action: apiAction,
                 reminderId: data.reminderId,
-                vaccinationId: data.vaccinationId,
                 result: result.data
               });
-              
-              // Optional: Show success toast
-              // toast.success(`Reminder marked as ${action === 'mark-completed' ? 'completed' : 'not done'}`);
-              
-              // Optional: Trigger a refetch of reminders list if on that page
-              // queryClient.invalidateQueries(['reminders']);
             } else {
-              console.error('❌ Failed to handle reminder/vaccination action:', {
+              console.error('❌ Failed to handle reminder action:', {
                 action: apiAction,
                 error: result.error
               });
-              
-              // Optional: Show error toast
-              // toast.error('Failed to update reminder');
             }
           }).catch((error) => {
-            console.error('❌ Exception while handling reminder/vaccination action:', error);
+            console.error('❌ Exception while handling reminder action:', error);
           });
         } else {
           console.log('ℹ️ Non-reminder notification type:', data.notificationType);
