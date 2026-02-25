@@ -575,38 +575,23 @@ export const addDealerPayment = async (
         return res.status(403).json({ message: "Sale not found or access denied" });
       }
 
-      if (sale.accountId && sale.farmerId) {
-        // Farmer-linked sale: record at account level
-        await DealerFarmerAccountService.recordPayment({
-          dealerId: dealer.id,
-          farmerId: sale.farmerId,
-          amount: Number(amount),
-          paymentMethod: paymentMethod || "CASH",
-          paymentDate: date ? new Date(date) : new Date(),
-          notes: notes || `Payment received`,
-          recordedById: userId as string,
-          receiptImageUrl,
-          reference,
-        });
-      } else {
-        // Manual customer: use bill-level payment
-        await DealerService.addSalePayment({
-          saleId,
-          amount: Number(amount),
-          paymentMethod: paymentMethod || "CASH",
-          date: date ? new Date(date) : new Date(),
-          description: notes || `Payment received`,
-          receiptUrl: receiptImageUrl,
-          // reference not directly supported in addSalePayment args? let me check DealerService.addSalePayment signature
-        });
-      }
+      // Manual customer: use bill-level payment
+      await DealerService.addSalePayment({
+        saleId,
+        amount: Number(amount),
+        paymentMethod: paymentMethod || "CASH",
+        date: date ? new Date(date) : new Date(),
+        description: notes || `Payment received`,
+        receiptUrl: receiptImageUrl,
+        // reference not directly supported in addSalePayment args? let me check DealerService.addSalePayment signature
+      });
 
       return res.status(200).json({
         success: true,
         message: "Payment added successfully",
       });
     } else {
-      // General payment - use account for connected farmers, FIFO for manual customers
+      // General payment
       const customer = await prisma.customer.findUnique({
         where: { id: customerId },
         select: { userId: true, farmerId: true },
@@ -616,39 +601,21 @@ export const addDealerPayment = async (
         return res.status(403).json({ message: "Customer not found or access denied" });
       }
 
-      if (customer.farmerId) {
-        // Connected farmer: record at account level
-        await DealerFarmerAccountService.recordPayment({
-          dealerId: dealer.id,
-          farmerId: customer.farmerId,
-          amount: Number(amount),
-          paymentMethod: paymentMethod || "CASH",
-          paymentDate: date ? new Date(date) : new Date(),
-          notes: notes || `General payment`,
-          recordedById: userId as string,
-          receiptImageUrl,
-        });
-      } else {
-        // Manual customer: FIFO allocation
-        const result = await DealerService.addGeneralPayment({
-          customerId,
-          dealerId: dealer.id,
-          amount: Number(amount),
-          paymentMethod: paymentMethod || "CASH",
-          date: date ? new Date(date) : new Date(),
-          description: notes || `General payment`,
-          receiptUrl: receiptImageUrl,
-        });
-        return res.status(200).json({
-          success: true,
-          message: "Payment added successfully",
-          data: result,
-        });
-      }
+      // Manual customer: FIFO allocation
+      const result = await DealerService.addGeneralPayment({
+        customerId,
+        dealerId: dealer.id,
+        amount: Number(amount),
+        paymentMethod: paymentMethod || "CASH",
+        date: date ? new Date(date) : new Date(),
+        description: notes || `General payment`,
+        receiptUrl: receiptImageUrl,
+      });
 
       return res.status(200).json({
         success: true,
         message: "Payment added successfully",
+        data: result,
       });
     }
   } catch (error: any) {

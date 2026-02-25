@@ -406,7 +406,7 @@ export default function FarmerDealersPage() {
           {/* Connected Dealers Table */}
           <Card>
             <CardHeader className="p-3 md:p-6">
-              <CardTitle className="text-base md:text-lg">My Connected Dealers</CardTitle>
+              <CardTitle className="text-base md:text-lg">{t("farmer.dealers.connectedSection.title")}</CardTitle>
               <CardDescription className="text-xs md:text-sm">
                 {t("farmer.dealers.connectedSection.description", { count: filteredConnectedDealers.length })}
               </CardDescription>
@@ -435,7 +435,7 @@ export default function FarmerDealersPage() {
                   },
                   {
                     key: "balance",
-                    label: "Balance",
+                    label: t("farmer.dealers.labels.balance"),
                     align: "right",
                     width: "130px",
                     render: (val) => {
@@ -485,7 +485,7 @@ export default function FarmerDealersPage() {
                   },
                   {
                     key: "status",
-                    label: "Status",
+                    label: t("farmer.dealers.labels.statusLabel"),
                     width: "100px",
                     render: () => (
                       <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
@@ -496,7 +496,7 @@ export default function FarmerDealersPage() {
                   },
                   {
                     key: "actions",
-                    label: "Actions",
+                    label: t("farmer.dealers.labels.actions"),
                     align: "right",
                     width: "160px",
                     render: (_, dealer) => (
@@ -537,7 +537,7 @@ export default function FarmerDealersPage() {
           {/* Verification Requests Table */}
           <Card>
             <CardHeader className="p-3 md:p-6">
-              <CardTitle className="text-base md:text-lg">Verification Requests</CardTitle>
+              <CardTitle className="text-base md:text-lg">{t("farmer.dealers.verificationSection.title")}</CardTitle>
               <CardDescription className="text-xs md:text-sm">
                 {t("farmer.dealers.verificationSection.description", { count: filteredVerificationRequests.length })}
               </CardDescription>
@@ -568,7 +568,7 @@ export default function FarmerDealersPage() {
                   },
                   {
                     key: "status",
-                    label: t("farmer.dealers.labels.status") || "Status",
+                    label: t("farmer.dealers.labels.statusLabel") || "Status",
                     width: "100px",
                     render: (_, row) => getStatusBadge(row.status),
                   },
@@ -580,7 +580,7 @@ export default function FarmerDealersPage() {
                   },
                   {
                     key: "rejectedInfo",
-                    label: "Rejected",
+                    label: t("farmer.dealers.labels.rejected"),
                     width: "100px",
                     render: (_, row) =>
                       row.status === "REJECTED" ? (
@@ -598,7 +598,7 @@ export default function FarmerDealersPage() {
                   },
                   {
                     key: "actions",
-                    label: "Actions",
+                    label: t("farmer.dealers.labels.actions"),
                     align: "right",
                     width: "180px",
                     render: (_, request) => (
@@ -673,7 +673,7 @@ export default function FarmerDealersPage() {
                 },
                 {
                   key: "address",
-                  label: "Address",
+                  label: t("farmer.dealers.labels.address"),
                   width: "140px",
                   render: (val) => (val ? <span className="truncate max-w-[120px] block">{val}</span> : "—"),
                 },
@@ -691,7 +691,7 @@ export default function FarmerDealersPage() {
                 },
                 {
                   key: "actions",
-                  label: "Actions",
+                  label: t("farmer.dealers.labels.actions"),
                   align: "right",
                   width: "120px",
                   render: (_, dealer) => (

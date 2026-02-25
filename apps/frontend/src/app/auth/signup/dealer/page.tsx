@@ -123,8 +123,8 @@ export default function DealerSignupPage() {
     } catch (err: any) {
       setError(
         err.response?.data?.message ||
-          err.message ||
-          t("auth.dealerSignup.errors.registrationFailed")
+        err.message ||
+        t("auth.dealerSignup.errors.registrationFailed")
       );
       console.error("Registration error:", err);
     } finally {

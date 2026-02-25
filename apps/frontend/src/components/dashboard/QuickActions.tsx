@@ -2,6 +2,7 @@
 
 import { Plus } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
+import { useI18n } from "@/i18n/useI18n";
 
 interface QuickActionsProps {
   onAddExpense: () => void;
@@ -16,6 +17,7 @@ export function QuickActions({
   onAddMortality,
   onRecordWeight,
 }: QuickActionsProps) {
+  const { t } = useI18n();
   return (
     <div className="flex items-center gap-1 md:gap-2 flex-wrap justify-end">
       <Button
@@ -25,7 +27,7 @@ export function QuickActions({
         onClick={onAddExpense}
       >
         <Plus className="h-3 w-3 md:h-4 md:w-4" />
-        Expense
+        {t("farmer.dashboard.quickActions.expense")}
       </Button>
       <Button
         variant="outline"
@@ -34,7 +36,7 @@ export function QuickActions({
         onClick={onAddSale}
       >
         <Plus className="h-3 w-3 md:h-4 md:w-4" />
-        Sale
+        {t("farmer.dashboard.quickActions.sale")}
       </Button>
       <Button
         variant="outline"
@@ -43,7 +45,7 @@ export function QuickActions({
         onClick={onAddMortality}
       >
         <Plus className="h-3 w-3 md:h-4 md:w-4" />
-        Mortality
+        {t("farmer.dashboard.quickActions.mortality")}
       </Button>
       <Button
         variant="outline"
@@ -52,7 +54,7 @@ export function QuickActions({
         onClick={onRecordWeight}
       >
         <Plus className="h-3 w-3 md:h-4 md:w-4" />
-        Weight
+        {t("farmer.dashboard.quickActions.weight")}
       </Button>
     </div>
   );

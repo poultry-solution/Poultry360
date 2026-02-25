@@ -41,6 +41,18 @@ CREATE TYPE "public"."ConsignmentStatus" AS ENUM ('CREATED', 'ACCEPTED_PENDING_D
 CREATE TYPE "public"."ConsignmentDirection" AS ENUM ('COMPANY_TO_DEALER', 'DEALER_TO_COMPANY', 'DEALER_TO_FARMER');
 
 -- CreateEnum
+CREATE TYPE "public"."DealerSaleRequestStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
+
+-- CreateEnum
+CREATE TYPE "public"."DealerSalePaymentRequestStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
+
+-- CreateEnum
+CREATE TYPE "public"."DiscountType" AS ENUM ('PERCENT', 'FLAT');
+
+-- CreateEnum
+CREATE TYPE "public"."DiscountScope" AS ENUM ('SALE', 'ITEM');
+
+-- CreateEnum
 CREATE TYPE "public"."LedgerEntryType" AS ENUM ('SALE', 'PURCHASE', 'PAYMENT_RECEIVED', 'PAYMENT_MADE', 'RETURN', 'ADJUSTMENT', 'OPENING_BALANCE', 'ADVANCE_RECEIVED', 'CONSIGNMENT_INVOICE', 'CONSIGNMENT_SETTLED');
 
 -- CreateEnum
@@ -48,6 +60,15 @@ CREATE TYPE "public"."PaymentRequestStatus" AS ENUM ('PENDING', 'ACCEPTED', 'PAY
 
 -- CreateEnum
 CREATE TYPE "public"."PaymentRequestDirection" AS ENUM ('COMPANY_TO_DEALER', 'DEALER_TO_COMPANY');
+
+-- CreateEnum
+CREATE TYPE "public"."DealerVerificationStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
+
+-- CreateEnum
+CREATE TYPE "public"."BatchType" AS ENUM ('BROILER', 'LAYERS');
+
+-- CreateEnum
+CREATE TYPE "public"."EggCategory" AS ENUM ('LARGE', 'MEDIUM', 'SMALL');
 
 -- CreateEnum
 CREATE TYPE "public"."CategoryType" AS ENUM ('EXPENSE', 'SALES', 'INVENTORY');
@@ -125,6 +146,7 @@ CREATE TABLE "public"."Batch" (
     "startDate" TIMESTAMP(3) NOT NULL,
     "endDate" TIMESTAMP(3),
     "status" "public"."BatchStatus" NOT NULL DEFAULT 'ACTIVE',
+    "batchType" "public"."BatchType" NOT NULL DEFAULT 'BROILER',
     "initialChicks" INTEGER NOT NULL,
     "notes" TEXT,
     "currentWeight" DECIMAL(6,2),
@@ -136,16 +158,44 @@ CREATE TABLE "public"."Batch" (
 );
 
 -- CreateTable
+CREATE TABLE "public"."EggProduction" (
+    "id" TEXT NOT NULL,
+    "batchId" TEXT NOT NULL,
+    "date" TIMESTAMP(3) NOT NULL,
+    "largeCount" INTEGER NOT NULL DEFAULT 0,
+    "mediumCount" INTEGER NOT NULL DEFAULT 0,
+    "smallCount" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "EggProduction_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."EggInventory" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "eggCategory" "public"."EggCategory" NOT NULL,
+    "quantity" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "EggInventory_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "public"."Product" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
     "type" "public"."InventoryItemType" NOT NULL,
     "unit" TEXT NOT NULL,
-    "price" DECIMAL(10,2) NOT NULL,
+    "unitSellingPrice" DECIMAL(10,2) NOT NULL,
+    "unitCostPrice" DECIMAL(10,2) NOT NULL DEFAULT 0,
     "quantity" DECIMAL(10,2) NOT NULL,
     "currentStock" DECIMAL(10,2) NOT NULL DEFAULT 0,
     "totalPrice" DECIMAL(10,2) NOT NULL,
+    "imageUrl" TEXT,
     "supplierId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -194,6 +244,7 @@ CREATE TABLE "public"."Sale" (
     "unitPrice" DECIMAL(10,2) NOT NULL,
     "description" TEXT,
     "itemType" "public"."SalesItemType" NOT NULL DEFAULT 'Chicken_Meat',
+    "eggCategory" "public"."EggCategory",
     "isCredit" BOOLEAN NOT NULL DEFAULT false,
     "paidAmount" DECIMAL(10,2) NOT NULL DEFAULT 0,
     "dueAmount" DECIMAL(10,2) DEFAULT 0,
@@ -214,6 +265,7 @@ CREATE TABLE "public"."SalePayment" (
     "amount" DECIMAL(10,2) NOT NULL,
     "date" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "description" TEXT,
+    "receiptUrl" TEXT,
     "saleId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -282,6 +334,7 @@ CREATE TABLE "public"."EntityTransaction" (
     "date" TIMESTAMP(3) NOT NULL,
     "description" TEXT,
     "reference" TEXT,
+    "imageUrl" TEXT,
     "dealerId" TEXT,
     "hatcheryId" TEXT,
     "medicineSupplierId" TEXT,
@@ -307,9 +360,32 @@ CREATE TABLE "public"."Dealer" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "userId" TEXT,
     "ownerId" TEXT,
-    "companyId" TEXT,
 
     CONSTRAINT "Dealer_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."DealerCart" (
+    "id" TEXT NOT NULL,
+    "dealerId" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DealerCart_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."DealerCartItem" (
+    "id" TEXT NOT NULL,
+    "cartId" TEXT NOT NULL,
+    "productId" TEXT NOT NULL,
+    "quantity" DECIMAL(10,2) NOT NULL,
+    "unitPrice" DECIMAL(10,2) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DealerCartItem_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -346,6 +422,8 @@ CREATE TABLE "public"."Customer" (
     "category" TEXT,
     "address" TEXT,
     "balance" DECIMAL(10,2) NOT NULL DEFAULT 0,
+    "source" TEXT NOT NULL DEFAULT 'MANUAL',
+    "farmerId" TEXT,
     "userId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -361,6 +439,7 @@ CREATE TABLE "public"."CustomerTransaction" (
     "date" TIMESTAMP(3) NOT NULL,
     "description" TEXT,
     "reference" TEXT,
+    "imageUrl" TEXT,
     "customerId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -488,6 +567,103 @@ CREATE TABLE "public"."Notification" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Notification_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."DealerCompany" (
+    "id" TEXT NOT NULL,
+    "dealerId" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
+    "connectedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "connectedVia" TEXT,
+    "archivedByDealer" BOOLEAN NOT NULL DEFAULT false,
+    "archivedByCompany" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DealerCompany_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."DealerFarmer" (
+    "id" TEXT NOT NULL,
+    "dealerId" TEXT NOT NULL,
+    "farmerId" TEXT NOT NULL,
+    "connectedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "connectedVia" TEXT,
+    "archivedByDealer" BOOLEAN NOT NULL DEFAULT false,
+    "archivedByFarmer" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DealerFarmer_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."DealerFarmerAccount" (
+    "id" TEXT NOT NULL,
+    "dealerId" TEXT NOT NULL,
+    "farmerId" TEXT NOT NULL,
+    "balance" DECIMAL(10,2) NOT NULL DEFAULT 0,
+    "totalSales" DECIMAL(10,2) NOT NULL DEFAULT 0,
+    "totalPayments" DECIMAL(10,2) NOT NULL DEFAULT 0,
+    "lastSaleDate" TIMESTAMP(3),
+    "lastPaymentDate" TIMESTAMP(3),
+    "balanceLimit" DECIMAL(10,2),
+    "balanceLimitSetAt" TIMESTAMP(3),
+    "balanceLimitSetBy" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DealerFarmerAccount_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."DealerFarmerPayment" (
+    "id" TEXT NOT NULL,
+    "accountId" TEXT NOT NULL,
+    "amount" DECIMAL(10,2) NOT NULL,
+    "paymentMethod" TEXT NOT NULL DEFAULT 'CASH',
+    "paymentDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "notes" TEXT,
+    "reference" TEXT,
+    "receiptImageUrl" TEXT,
+    "proofImageUrl" TEXT,
+    "balanceAfter" DECIMAL(10,2) NOT NULL,
+    "recordedById" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "DealerFarmerPayment_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."DealerVerificationRequest" (
+    "id" TEXT NOT NULL,
+    "dealerId" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
+    "status" "public"."DealerVerificationStatus" NOT NULL DEFAULT 'PENDING',
+    "rejectedCount" INTEGER NOT NULL DEFAULT 0,
+    "lastRejectedAt" TIMESTAMP(3),
+    "acknowledgedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DealerVerificationRequest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."FarmerVerificationRequest" (
+    "id" TEXT NOT NULL,
+    "farmerId" TEXT NOT NULL,
+    "dealerId" TEXT NOT NULL,
+    "status" "public"."DealerVerificationStatus" NOT NULL DEFAULT 'PENDING',
+    "rejectedCount" INTEGER NOT NULL DEFAULT 0,
+    "lastRejectedAt" TIMESTAMP(3),
+    "acknowledgedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "FarmerVerificationRequest_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -619,6 +795,7 @@ CREATE TABLE "public"."DealerSale" (
     "id" TEXT NOT NULL,
     "invoiceNumber" TEXT,
     "date" TIMESTAMP(3) NOT NULL,
+    "subtotalAmount" DECIMAL(10,2),
     "totalAmount" DECIMAL(10,2) NOT NULL,
     "paidAmount" DECIMAL(10,2) NOT NULL DEFAULT 0,
     "dueAmount" DECIMAL(10,2),
@@ -627,6 +804,7 @@ CREATE TABLE "public"."DealerSale" (
     "customerId" TEXT,
     "farmerId" TEXT,
     "dealerId" TEXT NOT NULL,
+    "accountId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -660,12 +838,78 @@ CREATE TABLE "public"."DealerSalePayment" (
 );
 
 -- CreateTable
+CREATE TABLE "public"."DealerSalePaymentRequest" (
+    "id" TEXT NOT NULL,
+    "requestNumber" TEXT NOT NULL,
+    "status" "public"."DealerSalePaymentRequestStatus" NOT NULL DEFAULT 'PENDING',
+    "amount" DECIMAL(10,2) NOT NULL,
+    "description" TEXT,
+    "paymentMethod" TEXT,
+    "paymentReference" TEXT,
+    "proofOfPaymentUrl" TEXT,
+    "paymentDate" TIMESTAMP(3),
+    "dealerSaleId" TEXT,
+    "isLedgerLevel" BOOLEAN NOT NULL DEFAULT false,
+    "dealerId" TEXT NOT NULL,
+    "farmerId" TEXT NOT NULL,
+    "customerId" TEXT NOT NULL,
+    "reviewedAt" TIMESTAMP(3),
+    "rejectionReason" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DealerSalePaymentRequest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."DealerSaleRequest" (
+    "id" TEXT NOT NULL,
+    "requestNumber" TEXT NOT NULL,
+    "status" "public"."DealerSaleRequestStatus" NOT NULL DEFAULT 'PENDING',
+    "totalAmount" DECIMAL(10,2) NOT NULL,
+    "subtotalAmount" DECIMAL(10,2),
+    "discountType" TEXT,
+    "discountValue" DECIMAL(10,2),
+    "paidAmount" DECIMAL(10,2) NOT NULL DEFAULT 0,
+    "paymentMethod" TEXT,
+    "notes" TEXT,
+    "date" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "reviewedAt" TIMESTAMP(3),
+    "rejectionReason" TEXT,
+    "dealerId" TEXT NOT NULL,
+    "farmerId" TEXT NOT NULL,
+    "customerId" TEXT NOT NULL,
+    "dealerSaleId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DealerSaleRequest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."DealerSaleRequestItem" (
+    "id" TEXT NOT NULL,
+    "quantity" DECIMAL(10,2) NOT NULL,
+    "unitPrice" DECIMAL(10,2) NOT NULL,
+    "totalAmount" DECIMAL(10,2) NOT NULL,
+    "requestId" TEXT NOT NULL,
+    "productId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DealerSaleRequestItem_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "public"."ConsignmentRequest" (
     "id" TEXT NOT NULL,
     "requestNumber" TEXT NOT NULL,
     "direction" "public"."ConsignmentDirection" NOT NULL,
     "status" "public"."ConsignmentStatus" NOT NULL DEFAULT 'CREATED',
     "totalAmount" DECIMAL(10,2) NOT NULL,
+    "subtotalAmount" DECIMAL(10,2),
+    "discountType" TEXT,
+    "discountValue" DECIMAL(10,2),
     "notes" TEXT,
     "requestedQuantity" DECIMAL(10,2),
     "approvedQuantity" DECIMAL(10,2),
@@ -679,6 +923,7 @@ CREATE TABLE "public"."ConsignmentRequest" (
     "dispatchedById" TEXT,
     "receivedById" TEXT,
     "companySaleId" TEXT,
+    "overrideBalanceLimit" BOOLEAN DEFAULT false,
     "fromCompanyId" TEXT,
     "fromDealerId" TEXT,
     "toDealerId" TEXT,
@@ -733,6 +978,7 @@ CREATE TABLE "public"."DealerLedgerEntry" (
     "date" TIMESTAMP(3) NOT NULL,
     "description" TEXT,
     "reference" TEXT,
+    "imageUrl" TEXT,
     "dealerId" TEXT NOT NULL,
     "saleId" TEXT,
     "consignmentId" TEXT,
@@ -748,9 +994,8 @@ CREATE TABLE "public"."CompanySale" (
     "id" TEXT NOT NULL,
     "invoiceNumber" TEXT,
     "date" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "subtotalAmount" DECIMAL(10,2),
     "totalAmount" DECIMAL(10,2) NOT NULL,
-    "paidAmount" DECIMAL(10,2) NOT NULL DEFAULT 0,
-    "dueAmount" DECIMAL(10,2),
     "isCredit" BOOLEAN NOT NULL DEFAULT false,
     "paymentMethod" TEXT NOT NULL DEFAULT 'CASH',
     "notes" TEXT,
@@ -758,6 +1003,8 @@ CREATE TABLE "public"."CompanySale" (
     "dealerId" TEXT NOT NULL,
     "soldById" TEXT NOT NULL,
     "consignmentId" TEXT,
+    "accountId" TEXT,
+    "invoiceImageUrl" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -778,16 +1025,53 @@ CREATE TABLE "public"."CompanySaleItem" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."CompanySalePayment" (
+CREATE TABLE "public"."SaleDiscount" (
     "id" TEXT NOT NULL,
-    "amount" DECIMAL(10,2) NOT NULL,
-    "method" TEXT NOT NULL DEFAULT 'CASH',
-    "paymentDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "notes" TEXT,
-    "companySaleId" TEXT NOT NULL,
+    "type" "public"."DiscountType" NOT NULL,
+    "value" DECIMAL(10,2) NOT NULL,
+    "scope" "public"."DiscountScope" NOT NULL DEFAULT 'SALE',
+    "dealerSaleId" TEXT,
+    "companySaleId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "CompanySalePayment_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "SaleDiscount_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."CompanyDealerAccount" (
+    "id" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
+    "dealerId" TEXT NOT NULL,
+    "balance" DECIMAL(10,2) NOT NULL DEFAULT 0,
+    "totalSales" DECIMAL(10,2) NOT NULL DEFAULT 0,
+    "totalPayments" DECIMAL(10,2) NOT NULL DEFAULT 0,
+    "lastSaleDate" TIMESTAMP(3),
+    "lastPaymentDate" TIMESTAMP(3),
+    "balanceLimit" DECIMAL(10,2),
+    "balanceLimitSetAt" TIMESTAMP(3),
+    "balanceLimitSetBy" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "CompanyDealerAccount_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."CompanyDealerPayment" (
+    "id" TEXT NOT NULL,
+    "accountId" TEXT NOT NULL,
+    "amount" DECIMAL(10,2) NOT NULL,
+    "paymentMethod" TEXT NOT NULL DEFAULT 'CASH',
+    "paymentDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "notes" TEXT,
+    "reference" TEXT,
+    "receiptImageUrl" TEXT,
+    "proofImageUrl" TEXT,
+    "balanceAfter" DECIMAL(10,2) NOT NULL,
+    "recordedById" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "CompanyDealerPayment_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -879,6 +1163,18 @@ CREATE INDEX "Batch_farmId_startDate_idx" ON "public"."Batch"("farmId", "startDa
 CREATE UNIQUE INDEX "Batch_farmId_batchNumber_key" ON "public"."Batch"("farmId", "batchNumber");
 
 -- CreateIndex
+CREATE INDEX "EggProduction_batchId_date_idx" ON "public"."EggProduction"("batchId", "date");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "EggProduction_batchId_date_key" ON "public"."EggProduction"("batchId", "date");
+
+-- CreateIndex
+CREATE INDEX "EggInventory_userId_idx" ON "public"."EggInventory"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "EggInventory_userId_eggCategory_key" ON "public"."EggInventory"("userId", "eggCategory");
+
+-- CreateIndex
 CREATE INDEX "Category_userId_type_idx" ON "public"."Category"("userId", "type");
 
 -- CreateIndex
@@ -951,6 +1247,24 @@ CREATE INDEX "Dealer_ownerId_idx" ON "public"."Dealer"("ownerId");
 CREATE UNIQUE INDEX "Dealer_userId_name_key" ON "public"."Dealer"("userId", "name");
 
 -- CreateIndex
+CREATE INDEX "DealerCart_dealerId_idx" ON "public"."DealerCart"("dealerId");
+
+-- CreateIndex
+CREATE INDEX "DealerCart_companyId_idx" ON "public"."DealerCart"("companyId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DealerCart_dealerId_companyId_key" ON "public"."DealerCart"("dealerId", "companyId");
+
+-- CreateIndex
+CREATE INDEX "DealerCartItem_cartId_idx" ON "public"."DealerCartItem"("cartId");
+
+-- CreateIndex
+CREATE INDEX "DealerCartItem_productId_idx" ON "public"."DealerCartItem"("productId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DealerCartItem_cartId_productId_key" ON "public"."DealerCartItem"("cartId", "productId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Hatchery_userId_name_key" ON "public"."Hatchery"("userId", "name");
 
 -- CreateIndex
@@ -958,6 +1272,9 @@ CREATE UNIQUE INDEX "MedicineSupplier_userId_name_key" ON "public"."MedicineSupp
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Customer_userId_name_key" ON "public"."Customer"("userId", "name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Customer_userId_farmerId_key" ON "public"."Customer"("userId", "farmerId");
 
 -- CreateIndex
 CREATE INDEX "CustomerTransaction_customerId_date_idx" ON "public"."CustomerTransaction"("customerId", "date");
@@ -1023,6 +1340,78 @@ CREATE INDEX "Reminder_type_dueDate_idx" ON "public"."Reminder"("type", "dueDate
 CREATE INDEX "Reminder_vaccinationId_idx" ON "public"."Reminder"("vaccinationId");
 
 -- CreateIndex
+CREATE INDEX "DealerCompany_dealerId_idx" ON "public"."DealerCompany"("dealerId");
+
+-- CreateIndex
+CREATE INDEX "DealerCompany_companyId_idx" ON "public"."DealerCompany"("companyId");
+
+-- CreateIndex
+CREATE INDEX "DealerCompany_companyId_dealerId_idx" ON "public"."DealerCompany"("companyId", "dealerId");
+
+-- CreateIndex
+CREATE INDEX "DealerCompany_dealerId_archivedByDealer_idx" ON "public"."DealerCompany"("dealerId", "archivedByDealer");
+
+-- CreateIndex
+CREATE INDEX "DealerCompany_companyId_archivedByCompany_idx" ON "public"."DealerCompany"("companyId", "archivedByCompany");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DealerCompany_dealerId_companyId_key" ON "public"."DealerCompany"("dealerId", "companyId");
+
+-- CreateIndex
+CREATE INDEX "DealerFarmer_dealerId_idx" ON "public"."DealerFarmer"("dealerId");
+
+-- CreateIndex
+CREATE INDEX "DealerFarmer_farmerId_idx" ON "public"."DealerFarmer"("farmerId");
+
+-- CreateIndex
+CREATE INDEX "DealerFarmer_farmerId_dealerId_idx" ON "public"."DealerFarmer"("farmerId", "dealerId");
+
+-- CreateIndex
+CREATE INDEX "DealerFarmer_dealerId_archivedByDealer_idx" ON "public"."DealerFarmer"("dealerId", "archivedByDealer");
+
+-- CreateIndex
+CREATE INDEX "DealerFarmer_farmerId_archivedByFarmer_idx" ON "public"."DealerFarmer"("farmerId", "archivedByFarmer");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DealerFarmer_dealerId_farmerId_key" ON "public"."DealerFarmer"("dealerId", "farmerId");
+
+-- CreateIndex
+CREATE INDEX "DealerFarmerAccount_dealerId_idx" ON "public"."DealerFarmerAccount"("dealerId");
+
+-- CreateIndex
+CREATE INDEX "DealerFarmerAccount_farmerId_idx" ON "public"."DealerFarmerAccount"("farmerId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DealerFarmerAccount_dealerId_farmerId_key" ON "public"."DealerFarmerAccount"("dealerId", "farmerId");
+
+-- CreateIndex
+CREATE INDEX "DealerFarmerPayment_accountId_paymentDate_idx" ON "public"."DealerFarmerPayment"("accountId", "paymentDate");
+
+-- CreateIndex
+CREATE INDEX "DealerVerificationRequest_dealerId_idx" ON "public"."DealerVerificationRequest"("dealerId");
+
+-- CreateIndex
+CREATE INDEX "DealerVerificationRequest_companyId_idx" ON "public"."DealerVerificationRequest"("companyId");
+
+-- CreateIndex
+CREATE INDEX "DealerVerificationRequest_companyId_status_idx" ON "public"."DealerVerificationRequest"("companyId", "status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DealerVerificationRequest_dealerId_companyId_status_key" ON "public"."DealerVerificationRequest"("dealerId", "companyId", "status");
+
+-- CreateIndex
+CREATE INDEX "FarmerVerificationRequest_farmerId_idx" ON "public"."FarmerVerificationRequest"("farmerId");
+
+-- CreateIndex
+CREATE INDEX "FarmerVerificationRequest_dealerId_idx" ON "public"."FarmerVerificationRequest"("dealerId");
+
+-- CreateIndex
+CREATE INDEX "FarmerVerificationRequest_dealerId_status_idx" ON "public"."FarmerVerificationRequest"("dealerId", "status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "FarmerVerificationRequest_farmerId_dealerId_status_key" ON "public"."FarmerVerificationRequest"("farmerId", "dealerId", "status");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Conversation_farmerId_doctorId_key" ON "public"."Conversation"("farmerId", "doctorId");
 
 -- CreateIndex
@@ -1050,7 +1439,7 @@ CREATE INDEX "DealerProduct_dealerId_idx" ON "public"."DealerProduct"("dealerId"
 CREATE INDEX "DealerProduct_companyProductId_idx" ON "public"."DealerProduct"("companyProductId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "DealerProduct_dealerId_name_key" ON "public"."DealerProduct"("dealerId", "name");
+CREATE UNIQUE INDEX "DealerProduct_dealerId_name_costPrice_sellingPrice_key" ON "public"."DealerProduct"("dealerId", "name", "costPrice", "sellingPrice");
 
 -- CreateIndex
 CREATE INDEX "DealerProductTransaction_productId_date_idx" ON "public"."DealerProductTransaction"("productId", "date");
@@ -1074,6 +1463,9 @@ CREATE INDEX "DealerSale_farmerId_idx" ON "public"."DealerSale"("farmerId");
 CREATE INDEX "DealerSale_invoiceNumber_idx" ON "public"."DealerSale"("invoiceNumber");
 
 -- CreateIndex
+CREATE INDEX "DealerSale_accountId_idx" ON "public"."DealerSale"("accountId");
+
+-- CreateIndex
 CREATE INDEX "DealerSaleItem_saleId_idx" ON "public"."DealerSaleItem"("saleId");
 
 -- CreateIndex
@@ -1081,6 +1473,39 @@ CREATE INDEX "DealerSaleItem_productId_idx" ON "public"."DealerSaleItem"("produc
 
 -- CreateIndex
 CREATE INDEX "DealerSalePayment_saleId_date_idx" ON "public"."DealerSalePayment"("saleId", "date");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DealerSalePaymentRequest_requestNumber_key" ON "public"."DealerSalePaymentRequest"("requestNumber");
+
+-- CreateIndex
+CREATE INDEX "DealerSalePaymentRequest_dealerSaleId_status_idx" ON "public"."DealerSalePaymentRequest"("dealerSaleId", "status");
+
+-- CreateIndex
+CREATE INDEX "DealerSalePaymentRequest_dealerId_status_idx" ON "public"."DealerSalePaymentRequest"("dealerId", "status");
+
+-- CreateIndex
+CREATE INDEX "DealerSalePaymentRequest_farmerId_status_idx" ON "public"."DealerSalePaymentRequest"("farmerId", "status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DealerSaleRequest_requestNumber_key" ON "public"."DealerSaleRequest"("requestNumber");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DealerSaleRequest_dealerSaleId_key" ON "public"."DealerSaleRequest"("dealerSaleId");
+
+-- CreateIndex
+CREATE INDEX "DealerSaleRequest_dealerId_status_idx" ON "public"."DealerSaleRequest"("dealerId", "status");
+
+-- CreateIndex
+CREATE INDEX "DealerSaleRequest_farmerId_status_idx" ON "public"."DealerSaleRequest"("farmerId", "status");
+
+-- CreateIndex
+CREATE INDEX "DealerSaleRequest_customerId_idx" ON "public"."DealerSaleRequest"("customerId");
+
+-- CreateIndex
+CREATE INDEX "DealerSaleRequestItem_requestId_idx" ON "public"."DealerSaleRequestItem"("requestId");
+
+-- CreateIndex
+CREATE INDEX "DealerSaleRequestItem_productId_idx" ON "public"."DealerSaleRequestItem"("productId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ConsignmentRequest_requestNumber_key" ON "public"."ConsignmentRequest"("requestNumber");
@@ -1155,13 +1580,37 @@ CREATE INDEX "CompanySale_invoiceNumber_idx" ON "public"."CompanySale"("invoiceN
 CREATE INDEX "CompanySale_consignmentId_idx" ON "public"."CompanySale"("consignmentId");
 
 -- CreateIndex
+CREATE INDEX "CompanySale_accountId_idx" ON "public"."CompanySale"("accountId");
+
+-- CreateIndex
 CREATE INDEX "CompanySaleItem_saleId_idx" ON "public"."CompanySaleItem"("saleId");
 
 -- CreateIndex
 CREATE INDEX "CompanySaleItem_productId_idx" ON "public"."CompanySaleItem"("productId");
 
 -- CreateIndex
-CREATE INDEX "CompanySalePayment_companySaleId_paymentDate_idx" ON "public"."CompanySalePayment"("companySaleId", "paymentDate");
+CREATE UNIQUE INDEX "SaleDiscount_dealerSaleId_key" ON "public"."SaleDiscount"("dealerSaleId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SaleDiscount_companySaleId_key" ON "public"."SaleDiscount"("companySaleId");
+
+-- CreateIndex
+CREATE INDEX "SaleDiscount_dealerSaleId_idx" ON "public"."SaleDiscount"("dealerSaleId");
+
+-- CreateIndex
+CREATE INDEX "SaleDiscount_companySaleId_idx" ON "public"."SaleDiscount"("companySaleId");
+
+-- CreateIndex
+CREATE INDEX "CompanyDealerAccount_companyId_idx" ON "public"."CompanyDealerAccount"("companyId");
+
+-- CreateIndex
+CREATE INDEX "CompanyDealerAccount_dealerId_idx" ON "public"."CompanyDealerAccount"("dealerId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "CompanyDealerAccount_companyId_dealerId_key" ON "public"."CompanyDealerAccount"("companyId", "dealerId");
+
+-- CreateIndex
+CREATE INDEX "CompanyDealerPayment_accountId_paymentDate_idx" ON "public"."CompanyDealerPayment"("accountId", "paymentDate");
 
 -- CreateIndex
 CREATE INDEX "CompanyLedgerEntry_companyId_date_idx" ON "public"."CompanyLedgerEntry"("companyId", "date");
@@ -1216,6 +1665,12 @@ ALTER TABLE "public"."Farm" ADD CONSTRAINT "Farm_ownerId_fkey" FOREIGN KEY ("own
 
 -- AddForeignKey
 ALTER TABLE "public"."Batch" ADD CONSTRAINT "Batch_farmId_fkey" FOREIGN KEY ("farmId") REFERENCES "public"."Farm"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."EggProduction" ADD CONSTRAINT "EggProduction_batchId_fkey" FOREIGN KEY ("batchId") REFERENCES "public"."Batch"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."EggInventory" ADD CONSTRAINT "EggInventory_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."Product" ADD CONSTRAINT "Product_supplierId_fkey" FOREIGN KEY ("supplierId") REFERENCES "public"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1299,7 +1754,16 @@ ALTER TABLE "public"."Dealer" ADD CONSTRAINT "Dealer_userId_fkey" FOREIGN KEY ("
 ALTER TABLE "public"."Dealer" ADD CONSTRAINT "Dealer_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "public"."User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "public"."Dealer" ADD CONSTRAINT "Dealer_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "public"."Company"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "public"."DealerCart" ADD CONSTRAINT "DealerCart_dealerId_fkey" FOREIGN KEY ("dealerId") REFERENCES "public"."Dealer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerCart" ADD CONSTRAINT "DealerCart_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "public"."Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerCartItem" ADD CONSTRAINT "DealerCartItem_cartId_fkey" FOREIGN KEY ("cartId") REFERENCES "public"."DealerCart"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerCartItem" ADD CONSTRAINT "DealerCartItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "public"."Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."Hatchery" ADD CONSTRAINT "Hatchery_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1309,6 +1773,9 @@ ALTER TABLE "public"."MedicineSupplier" ADD CONSTRAINT "MedicineSupplier_userId_
 
 -- AddForeignKey
 ALTER TABLE "public"."Customer" ADD CONSTRAINT "Customer_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."Customer" ADD CONSTRAINT "Customer_farmerId_fkey" FOREIGN KEY ("farmerId") REFERENCES "public"."User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."CustomerTransaction" ADD CONSTRAINT "CustomerTransaction_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "public"."Customer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1354,6 +1821,45 @@ ALTER TABLE "public"."Notification" ADD CONSTRAINT "Notification_batchId_fkey" F
 
 -- AddForeignKey
 ALTER TABLE "public"."Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerCompany" ADD CONSTRAINT "DealerCompany_dealerId_fkey" FOREIGN KEY ("dealerId") REFERENCES "public"."Dealer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerCompany" ADD CONSTRAINT "DealerCompany_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "public"."Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerFarmer" ADD CONSTRAINT "DealerFarmer_dealerId_fkey" FOREIGN KEY ("dealerId") REFERENCES "public"."Dealer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerFarmer" ADD CONSTRAINT "DealerFarmer_farmerId_fkey" FOREIGN KEY ("farmerId") REFERENCES "public"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerFarmerAccount" ADD CONSTRAINT "DealerFarmerAccount_dealerId_fkey" FOREIGN KEY ("dealerId") REFERENCES "public"."Dealer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerFarmerAccount" ADD CONSTRAINT "DealerFarmerAccount_farmerId_fkey" FOREIGN KEY ("farmerId") REFERENCES "public"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerFarmerAccount" ADD CONSTRAINT "DealerFarmerAccount_balanceLimitSetBy_fkey" FOREIGN KEY ("balanceLimitSetBy") REFERENCES "public"."User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerFarmerPayment" ADD CONSTRAINT "DealerFarmerPayment_accountId_fkey" FOREIGN KEY ("accountId") REFERENCES "public"."DealerFarmerAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerFarmerPayment" ADD CONSTRAINT "DealerFarmerPayment_recordedById_fkey" FOREIGN KEY ("recordedById") REFERENCES "public"."User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerVerificationRequest" ADD CONSTRAINT "DealerVerificationRequest_dealerId_fkey" FOREIGN KEY ("dealerId") REFERENCES "public"."Dealer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerVerificationRequest" ADD CONSTRAINT "DealerVerificationRequest_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "public"."Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."FarmerVerificationRequest" ADD CONSTRAINT "FarmerVerificationRequest_farmerId_fkey" FOREIGN KEY ("farmerId") REFERENCES "public"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."FarmerVerificationRequest" ADD CONSTRAINT "FarmerVerificationRequest_dealerId_fkey" FOREIGN KEY ("dealerId") REFERENCES "public"."Dealer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."AuditLog" ADD CONSTRAINT "AuditLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -1413,6 +1919,9 @@ ALTER TABLE "public"."DealerSale" ADD CONSTRAINT "DealerSale_farmerId_fkey" FORE
 ALTER TABLE "public"."DealerSale" ADD CONSTRAINT "DealerSale_dealerId_fkey" FOREIGN KEY ("dealerId") REFERENCES "public"."Dealer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "public"."DealerSale" ADD CONSTRAINT "DealerSale_accountId_fkey" FOREIGN KEY ("accountId") REFERENCES "public"."DealerFarmerAccount"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "public"."DealerSaleItem" ADD CONSTRAINT "DealerSaleItem_saleId_fkey" FOREIGN KEY ("saleId") REFERENCES "public"."DealerSale"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -1420,6 +1929,36 @@ ALTER TABLE "public"."DealerSaleItem" ADD CONSTRAINT "DealerSaleItem_productId_f
 
 -- AddForeignKey
 ALTER TABLE "public"."DealerSalePayment" ADD CONSTRAINT "DealerSalePayment_saleId_fkey" FOREIGN KEY ("saleId") REFERENCES "public"."DealerSale"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerSalePaymentRequest" ADD CONSTRAINT "DealerSalePaymentRequest_dealerSaleId_fkey" FOREIGN KEY ("dealerSaleId") REFERENCES "public"."DealerSale"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerSalePaymentRequest" ADD CONSTRAINT "DealerSalePaymentRequest_dealerId_fkey" FOREIGN KEY ("dealerId") REFERENCES "public"."Dealer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerSalePaymentRequest" ADD CONSTRAINT "DealerSalePaymentRequest_farmerId_fkey" FOREIGN KEY ("farmerId") REFERENCES "public"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerSalePaymentRequest" ADD CONSTRAINT "DealerSalePaymentRequest_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "public"."Customer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerSaleRequest" ADD CONSTRAINT "DealerSaleRequest_dealerId_fkey" FOREIGN KEY ("dealerId") REFERENCES "public"."Dealer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerSaleRequest" ADD CONSTRAINT "DealerSaleRequest_farmerId_fkey" FOREIGN KEY ("farmerId") REFERENCES "public"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerSaleRequest" ADD CONSTRAINT "DealerSaleRequest_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "public"."Customer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerSaleRequest" ADD CONSTRAINT "DealerSaleRequest_dealerSaleId_fkey" FOREIGN KEY ("dealerSaleId") REFERENCES "public"."DealerSale"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerSaleRequestItem" ADD CONSTRAINT "DealerSaleRequestItem_requestId_fkey" FOREIGN KEY ("requestId") REFERENCES "public"."DealerSaleRequest"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."DealerSaleRequestItem" ADD CONSTRAINT "DealerSaleRequestItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "public"."DealerProduct"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."ConsignmentRequest" ADD CONSTRAINT "ConsignmentRequest_dispatchedById_fkey" FOREIGN KEY ("dispatchedById") REFERENCES "public"."User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -1476,13 +2015,34 @@ ALTER TABLE "public"."CompanySale" ADD CONSTRAINT "CompanySale_dealerId_fkey" FO
 ALTER TABLE "public"."CompanySale" ADD CONSTRAINT "CompanySale_soldById_fkey" FOREIGN KEY ("soldById") REFERENCES "public"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "public"."CompanySale" ADD CONSTRAINT "CompanySale_accountId_fkey" FOREIGN KEY ("accountId") REFERENCES "public"."CompanyDealerAccount"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "public"."CompanySaleItem" ADD CONSTRAINT "CompanySaleItem_saleId_fkey" FOREIGN KEY ("saleId") REFERENCES "public"."CompanySale"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."CompanySaleItem" ADD CONSTRAINT "CompanySaleItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "public"."Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "public"."CompanySalePayment" ADD CONSTRAINT "CompanySalePayment_companySaleId_fkey" FOREIGN KEY ("companySaleId") REFERENCES "public"."CompanySale"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "public"."SaleDiscount" ADD CONSTRAINT "SaleDiscount_dealerSaleId_fkey" FOREIGN KEY ("dealerSaleId") REFERENCES "public"."DealerSale"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."SaleDiscount" ADD CONSTRAINT "SaleDiscount_companySaleId_fkey" FOREIGN KEY ("companySaleId") REFERENCES "public"."CompanySale"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."CompanyDealerAccount" ADD CONSTRAINT "CompanyDealerAccount_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "public"."Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."CompanyDealerAccount" ADD CONSTRAINT "CompanyDealerAccount_dealerId_fkey" FOREIGN KEY ("dealerId") REFERENCES "public"."Dealer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."CompanyDealerAccount" ADD CONSTRAINT "CompanyDealerAccount_balanceLimitSetBy_fkey" FOREIGN KEY ("balanceLimitSetBy") REFERENCES "public"."User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."CompanyDealerPayment" ADD CONSTRAINT "CompanyDealerPayment_accountId_fkey" FOREIGN KEY ("accountId") REFERENCES "public"."CompanyDealerAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."CompanyDealerPayment" ADD CONSTRAINT "CompanyDealerPayment_recordedById_fkey" FOREIGN KEY ("recordedById") REFERENCES "public"."User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."CompanyLedgerEntry" ADD CONSTRAINT "CompanyLedgerEntry_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "public"."Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;

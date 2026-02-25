@@ -86,7 +86,6 @@
       "hatcheryLedger": "Hatchery Ledger",
       "inventory": "Inventory",
       "chatWithDoctor": "Chat with Doctor",
-      "accounts": "Accounts",
       "vaccinations": "Vaccinations",
       "dashboard": "Dashboard",
       "chat": "Chat",
@@ -209,7 +208,7 @@
       "alreadyHaveAccount": "Already have an account?",
       "login": "Log in",
       "registerOwner": "Want to register as a farm owner?",
-      "signupOwner": "Sign up as Owner",
+      "signupOwner": "Sign up as Farm Owner ",
       "registerDealer": "Want to register as a dealer?",
       "signupDealer": "Sign up as Dealer",
       "errors": {
@@ -281,7 +280,35 @@
       "date": "Date",
       "reference": "Reference",
       "description": "Description",
-      "rejectionReason": "Rejection Reason"
+      "rejectionReason": "Rejection Reason",
+      "create": {
+        "title": "Create payment request",
+        "description": "Send payment proof to a dealer. They can accept or reject. On accept, the payment is recorded on your account with that dealer.",
+        "dealerLabel": "Dealer *",
+        "dealerPlaceholder": "Select dealer",
+        "amountLabel": "Amount *",
+        "amountPlaceholder": "0.00",
+        "methodLabel": "Payment method *",
+        "methodPlaceholder": "Select method",
+        "referenceLabel": "Payment reference (optional)",
+        "referencePlaceholder": "Transaction ID, receipt number, etc.",
+        "dateLabel": "Payment date",
+        "descriptionLabel": "Description (optional)",
+        "descriptionPlaceholder": "Optional note",
+        "receiptLabel": "Payment Receipt (Optional)",
+        "receiptPlaceholder": "Upload receipt",
+        "cancel": "Cancel",
+        "submit": "Send payment request",
+        "submitting": "Sending...",
+        "methods": {
+          "cash": "Cash",
+          "bank": "Bank Transfer",
+          "mobile": "Mobile Banking",
+          "cheque": "Cheque",
+          "upi": "UPI",
+          "other": "Other"
+        }
+      }
     },
     "saleRequests": {
       "title": "Sale Requests",
@@ -400,7 +427,12 @@
         "status": "Status:",
         "applied": "Applied:",
         "rejectionCount": "Rejection Count:",
-        "lastRejected": "Last Rejected:"
+        "lastRejected": "Last Rejected:",
+        "balance": "Balance",
+        "actions": "Actions",
+        "address": "Address",
+        "rejected": "Rejected",
+        "statusLabel": "Status"
       },
       "messages": {
         "waitingApproval": "Waiting for dealer approval",
@@ -442,6 +474,26 @@
       "welcome": "Welcome, {name}!",
       "allFarmsTitle": "All Farms",
       "allBatchesTitle": "All Batches",
+      "batchPerformance": {
+        "title": "Batch Performance Overview",
+        "tabs": {
+          "all": "All",
+          "active": "Active",
+          "completed": "Completed"
+        },
+        "columns": {
+          "batchName": "Batch Name",
+          "days": "Days",
+          "mortality": "Mortality",
+          "fcr": "FCR",
+          "expenses": "Expenses",
+          "sales": "Sales",
+          "avgWeight": "Avg Wt (kg)",
+          "profitLoss": "Profit/Loss"
+        },
+        "loading": "Loading batch data...",
+        "empty": "No batches found"
+      },
       "noFarmsFound": "No farms found",
       "noBatchesFound": "No batches found",
       "farmCapacity": "Capacity {count} birds",
@@ -449,7 +501,50 @@
       "batchInfo": "{farm} • Birds {count} • Age {days} days",
       "close": "Close",
       "moneyToReceive": "Money to Receive",
-      "moneyToPay": "Money to Pay"
+      "moneyToPay": "Money to Pay",
+      "stats": {
+        "farms": "Farms",
+        "totalLocations": "Total locations",
+        "batches": "Batches",
+        "active": "Active",
+        "profit": "Profit",
+        "allTime": "All-time",
+        "revenue": "Revenue",
+        "thisMonth": "This month",
+        "toReceive": "To Receive",
+        "creditSales": "Credit sales",
+        "toPay": "To Pay",
+        "suppliers": "Suppliers",
+        "expenses": "Expenses"
+      },
+      "quickActions": {
+        "expense": "Expense",
+        "sale": "Sale",
+        "mortality": "Mortality",
+        "weight": "Weight"
+      },
+      "recentActivity": {
+        "title": "Recent Activity",
+        "description": "Latest updates from your farms and batches.",
+        "failed": "Failed to load recent activity",
+        "empty": "No recent activity"
+      },
+      "reminders": {
+        "title": "Reminders",
+        "description": "Your upcoming tasks and reminders.",
+        "pendingOverdue": "({pending} pending, {overdue} overdue)",
+        "add": "Add",
+        "loading": "Loading reminders...",
+        "failed": "Failed to load reminders",
+        "overdueTitle": "Overdue ({count})",
+        "upcomingTitle": "Upcoming ({count})",
+        "empty": "No reminders yet",
+        "addFirst": "Add First Reminder",
+        "inMin": "in {count} min",
+        "inHr": "in {count} hr",
+        "inDay": "in {count} day{s}",
+        "now": "now"
+      }
     },
     "batches": {
       "title": "Batches",
@@ -631,6 +726,1489 @@
       "toasts": {
         "added": "Item added successfully!"
       }
+    },
+    "dealerLedger": {
+      "title": "Dealer Ledger",
+      "subtitle": "Track your transactions with dealers.",
+      "stats": {
+        "toReceive": "To Receive",
+        "toPay": "To Pay",
+        "netBalance": "Net Balance",
+        "youOwe": "You owe: {amount}",
+        "dealersOwe": "Dealers owe: {amount}",
+        "settled": "Settled"
+      },
+      "filters": {
+        "allDealers": "All Dealers",
+        "dateRange": "Date Range",
+        "apply": "Apply",
+        "clear": "Clear"
+      },
+      "table": {
+        "date": "Date",
+        "dealer": "Dealer",
+        "description": "Description",
+        "type": "Type",
+        "amount": "Amount",
+        "quantity": "Quantity",
+        "paid": "Paid",
+        "balance": "Balance",
+        "dueDate": "Due Date",
+        "history": "History",
+        "status": "Status",
+        "action": "Action"
+      },
+      "transactionTypes": {
+        "sale": "Sale",
+        "purchase": "Purchase",
+        "payment": "Payment",
+        "receipt": "Receipt"
+      },
+      "empty": "No transactions found",
+      "loading": "Loading ledger...",
+      "error": "Failed to load ledger",
+      "dialogs": {
+        "addDealerTitle": "Add Dealer",
+        "addDealerBtn": "Add Dealer",
+        "addEntryTitle": "Add Entry – {dealer}",
+        "addPaymentTitle": "Add Payment",
+        "paymentHistoryTitle": "Payment History",
+        "deleteDealerTitle": "Delete Dealer",
+        "confirmDeleteEntriesTitle": "Delete entires?",
+        "confirmDeletionTitle": "Confirm Deletion",
+        "applySelectDealer": "Select a dealer",
+        "labels": {
+          "dealerName": "Dealer Name",
+          "contact": "Contact",
+          "address": "Address (optional)",
+          "item": "Item",
+          "itemPlaceholder": "Feed brand",
+          "rate": "Rate (per kg)",
+          "quantity": "Quantity (kg)",
+          "paidAmount": "Paid Amount",
+          "paymentAmount": "Payment Amount",
+          "date": "Date",
+          "paymentDate": "Payment Date",
+          "note": "Note (optional)",
+          "password": "Enter your password to confirm deletion",
+          "passwordPlaceholder": "Enter your password"
+        },
+        "buttons": {
+          "cancel": "Cancel",
+          "close": "Close",
+          "add": "Add",
+          "addDealer": "Add Dealer",
+          "entries": "Entries",
+          "adding": "Adding...",
+          "save": "Save Entry",
+          "saving": "Saving...",
+          "record": "Record Payment",
+          "recording": "Recording...",
+          "delete": "Delete",
+          "deleting": "Deleting...",
+          "confirm": "Confirm Deletion"
+        },
+        "warnings": {
+          "connectedDealer": "Notice: This is a connected dealer and cannot be deleted.",
+          "connectedHint": "You can archive this connection from your Connected Dealers page instead.",
+          "deleteDealer": "Warning: This will permanently delete dealer {name}.",
+          "deleteTransactionsFirst": "This dealer has {count} transaction(s). You must delete all transactions first.",
+          "confirmProceed": "Are you sure you want to proceed?",
+          "deleteEntries": "This action cannot be undone. The selected entries will be permanently removed.",
+          "deleteEntriesCount": "Warning: This action cannot be undone. You are about to delete {count} transaction(s)."
+        },
+        "history": {
+          "totalAmount": "Total Amount",
+          "totalPaid": "Total Paid",
+          "remaining": "Remaining",
+          "paymentsCount": "Payments",
+          "paymentDetails": "Payment Details",
+          "noPayments": "No payments recorded yet",
+          "paymentNum": "Payment #{number}"
+        },
+        "paymentInfo": {
+          "entry": "Entry",
+          "dealer": "Dealer",
+          "outstanding": "Outstanding Balance"
+        }
+      }
+    },
+    "medicalLedger": {
+      "title": "Medical Supplier Ledger",
+      "subtitle": "Track medicine purchases and balances.",
+      "addSupplier": "Add Supplier",
+      "loadingSuppliers": "Loading suppliers...",
+      "failedLoad": "Failed to load suppliers. Please try again.",
+      "stats": {
+        "suppliers": "Suppliers",
+        "medicine": "Medicine",
+        "due": "Due",
+        "outstanding": "Outstanding",
+        "month": "Month",
+        "purchases": "Purchases"
+      },
+      "summaryModal": {
+        "title": "Suppliers – Amount Due",
+        "contact": "Contact",
+        "noSuppliers": "No suppliers found",
+        "close": "Close"
+      },
+      "deleteSupplierModal": {
+        "title": "Delete Supplier",
+        "warning": "Warning:",
+        "deleteBody": "This will permanently delete supplier {name}.",
+        "transactionWarning": "This supplier has {count} transaction(s). You must delete all transactions first.",
+        "proceed": "Are you sure you want to proceed?",
+        "cancel": "Cancel",
+        "delete": "Delete Supplier",
+        "deleting": "Deleting..."
+      },
+      "confirmDeleteModal": {
+        "title": "Delete {count} entries?",
+        "body": "This action cannot be undone. The selected entries will be permanently removed.",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "deleting": "Deleting..."
+      },
+      "passwordModal": {
+        "title": "Confirm Deletion",
+        "warning": "Warning:",
+        "body": "This action cannot be undone. You are about to delete {count} transactions.",
+        "label": "Confirm Password",
+        "placeholder": "Enter your password",
+        "cancel": "Cancel",
+        "confirm": "Confirm Deletion",
+        "deleting": "Deleting..."
+      },
+      "addSupplierModal": {
+        "title": "Add Supplier",
+        "name": "Supplier Name",
+        "contact": "Contact",
+        "address": "Address (optional)",
+        "cancel": "Cancel",
+        "add": "Add",
+        "adding": "Adding..."
+      },
+      "addEntryModal": {
+        "title": "Add Entry – {name}",
+        "item": "Item",
+        "rate": "Rate (per liter/Kg)",
+        "quantity": "Quantity (Liter/Kg)",
+        "paidAmount": "Paid Amount",
+        "date": "Date",
+        "cancel": "Cancel",
+        "save": "Save Entry",
+        "saving": "Saving..."
+      },
+      "paymentModal": {
+        "title": "Add Payment",
+        "entry": "Entry",
+        "outstanding": "Outstanding Balance",
+        "amount": "Payment Amount",
+        "placeholder": "Enter amount",
+        "date": "Payment Date",
+        "note": "Note (optional)",
+        "notePlaceholder": "Payment reference or note",
+        "cancel": "Cancel",
+        "record": "Record Payment",
+        "recording": "Recording..."
+      },
+      "historyModal": {
+        "title": "Payment History",
+        "totalAmount": "Total Amount",
+        "totalPaid": "Total Paid",
+        "remaining": "Remaining",
+        "payments": "Payments",
+        "paymentDetails": "Payment Details",
+        "noPayments": "No payments recorded yet",
+        "paymentNum": "Payment #{number}",
+        "close": "Close"
+      },
+      "table": {
+        "item": "Item",
+        "rate": "Rate",
+        "quantity": "Quantity",
+        "amount": "Amount",
+        "paid": "Amount Paid",
+        "due": "Amount Due",
+        "pay": "Pay",
+        "date": "Date",
+        "dueDate": "Due Date",
+        "paymentHistory": "Payment History",
+        "historyText": "{count} payments ({amount})",
+        "total": "Total",
+        "empty": "No entries for this supplier",
+        "selectSupplier": "Select a supplier"
+      },
+      "buttons": {
+        "delete": "Delete",
+        "cancel": "Cancel",
+        "addEntry": "Add Entry"
+      }
+    },
+    "hatcheryLedger": {
+      "title": "Hatchery Ledger",
+      "subtitle": "Manage chick purchases and balances.",
+      "addDealer": "Add Dealer",
+      "stats": {
+        "dealers": "Dealers",
+        "chicks": "Chicks",
+        "due": "Due",
+        "outstanding": "Outstanding",
+        "month": "Month",
+        "purchases": "Purchases"
+      },
+      "summaryModal": {
+        "title": "Hatcheries – Amount Due",
+        "contact": "Contact",
+        "loading": "Loading hatcheries...",
+        "error": "Failed to load hatcheries",
+        "close": "Close"
+      },
+      "deleteHatcheryModal": {
+        "title": "Delete Hatchery",
+        "warning": "Warning:",
+        "body": "This will permanently delete hatchery {name}.",
+        "transactionWarning": "This hatchery has {count} transaction(s). You must delete all transactions first.",
+        "proceed": "Are you sure you want to proceed?",
+        "cancel": "Cancel",
+        "delete": "Delete Hatchery",
+        "deleting": "Deleting..."
+      },
+      "confirmDeleteModal": {
+        "title": "Delete {count} entries?",
+        "body": "This action cannot be undone. The selected entries will be permanently removed.",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "deleting": "Deleting..."
+      },
+      "passwordModal": {
+        "title": "Confirm Deletion",
+        "warning": "Warning:",
+        "body": "This action cannot be undone. You are about to delete {count} transaction(s).",
+        "label": "Enter your password to confirm deletion",
+        "placeholder": "Enter your password",
+        "cancel": "Cancel",
+        "confirm": "Confirm Deletion",
+        "deleting": "Deleting..."
+      },
+      "addHatcheryModal": {
+        "title": "Add Chicks Dealer",
+        "name": "Dealer Name",
+        "contact": "Contact",
+        "address": "Address (optional)",
+        "cancel": "Cancel",
+        "add": "Add",
+        "adding": "Adding..."
+      },
+      "addEntryModal": {
+        "title": "Add Entry – {name}",
+        "item": "Hatchery Name",
+        "rate": "Rate",
+        "quantity": "Quantity",
+        "paid": "Paid",
+        "freeChicks": "Free Chicks",
+        "freeCount": "Count",
+        "freePercent": "Percent",
+        "countPlaceholder": "Number of free chicks",
+        "percentPlaceholder": "Percentage (e.g., 2)",
+        "helperText": "Cost applies only to paid quantity. Free chicks are zero-cost.",
+        "summary": {
+          "paid": "Paid:",
+          "free": "Free:",
+          "delivered": "Total Delivered:"
+        },
+        "date": "Date",
+        "cancel": "Cancel",
+        "save": "Save Entry",
+        "saving": "Saving..."
+      },
+      "paymentModal": {
+        "title": "Add Payment",
+        "entry": "Entry",
+        "outstanding": "Outstanding Balance",
+        "amount": "Payment Amount",
+        "placeholder": "Enter amount",
+        "date": "Payment Date",
+        "note": "Note (optional)",
+        "notePlaceholder": "Payment reference or note",
+        "cancel": "Cancel",
+        "record": "Record Payment",
+        "recording": "Recording..."
+      },
+      "historyModal": {
+        "title": "Payment History",
+        "totalAmount": "Total Amount",
+        "totalPaid": "Total Paid",
+        "remaining": "Remaining",
+        "payments": "Payments",
+        "paymentDetails": "Payment Details",
+        "noPayments": "No payments recorded yet",
+        "paymentNum": "Payment #{number}",
+        "close": "Close"
+      },
+      "table": {
+        "item": "Item",
+        "rate": "Rate",
+        "quantity": "Quantity",
+        "free": "+ {count} free",
+        "delivered": "= {count} delivered",
+        "amount": "Amount",
+        "amountDue": "Amount Due",
+        "pay": "Pay",
+        "date": "Date",
+        "dueDate": "Due Date",
+        "paymentHistory": "Payment History",
+        "historyText": "{count} payment{s} ({amount})",
+        "total": "Total",
+        "empty": "No entries for this hatchery",
+        "selectHatchery": "Select a hatchery",
+        "cardDescription": "Ledger for this hatchery"
+      },
+      "buttons": {
+        "delete": "Delete",
+        "cancel": "Cancel",
+        "addEntry": "Add Entry"
+      },
+      "toasts": {
+        "hatcheryAdded": "Hatchery added successfully!",
+        "txnAdded": "Transaction added successfully!",
+        "paymentRecorded": "Payment recorded successfully!",
+        "entriesDeleted": "Selected entries deleted successfully",
+        "deleteFailed": "Failed to delete {count} entr{suffix}",
+        "passwordFailed": "Password verification failed. Deletion cancelled."
+      }
+    },
+    "accountLedger": {
+      "title": "Account Ledger",
+      "subtitle": "Bookkeeping for all transactions.",
+      "tabs": {
+        "all": "All",
+        "dealers": "Dealers",
+        "hatchery": "Hatchery",
+        "customers": "Customers",
+        "medicine": "Meds"
+      },
+      "filters": {
+        "title": "Filters",
+        "searchLabel": "Search",
+        "searchPlaceholder": "Search...",
+        "typeLabel": "Type",
+        "allTypes": "All",
+        "purchase": "Purchase",
+        "payment": "Payment",
+        "receipt": "Receipt",
+        "sale": "Sale",
+        "from": "From",
+        "to": "To",
+        "clear": "Clear"
+      },
+      "transactions": {
+        "title": "All Transactions",
+        "count": "{count} transactions",
+        "loading": "Loading...",
+        "error": "Failed to load. Try again.",
+        "empty": "No transactions found",
+        "pageInfo": "{count} of {total} Page {page}/{totalPages}"
+      },
+      "table": {
+        "date": "Date",
+        "entityType": "Entity Type",
+        "entityName": "Entity Name",
+        "transactionType": "Transaction Type",
+        "description": "Description",
+        "qty": "Qty: {qty}",
+        "freeQty": "+ {qty} free",
+        "debit": "Debit",
+        "credit": "Credit",
+        "balance": "Balance",
+        "reference": "Reference"
+      },
+      "entityTypes": {
+        "dealer": "Dealer",
+        "hatchery": "Hatchery",
+        "customer": "Customer",
+        "medicine": "Medicine"
+      },
+      "transactionTypes": {
+        "purchase": "Purchase",
+        "payment": "Payment",
+        "receipt": "Receipt",
+        "sale": "Sale"
+      },
+      "dealerTab": {
+        "stats": {
+          "dealers": "Dealers",
+          "connected": "Connected",
+          "due": "Due",
+          "outstanding": "Outstanding",
+          "pending": "Pending",
+          "requests": "Requests"
+        },
+        "table": {
+          "title": "Dealers & Balances",
+          "subtitle": "{count} dealer{s}",
+          "loading": "Loading...",
+          "emptyTitle": "No dealers found",
+          "emptyDesc": "Dealers will appear here.",
+          "columns": {
+            "name": "Name",
+            "contact": "Contact",
+            "due": "Due",
+            "lastTxn": "Last Txn",
+            "action": "Action"
+          },
+          "pay": "Pay",
+          "credit": "Credit"
+        },
+        "requests": {
+          "title": "Payment Requests",
+          "subtitle": "Track status of your payment requests to dealers",
+          "loading": "Loading requests...",
+          "empty": "No payment requests yet",
+          "columns": {
+            "requestNum": "Request #",
+            "dealer": "Dealer",
+            "amount": "Amount",
+            "type": "Type",
+            "status": "Status",
+            "date": "Date"
+          },
+          "types": {
+            "general": "General Payment",
+            "bill": "Bill: {billId}"
+          }
+        }
+      },
+      "paymentDialog": {
+        "title": "Create Payment Request",
+        "subtitle": "Submit a general payment to {name}",
+        "dealerInfo": "Dealer:",
+        "balanceInfo": "Current Balance:",
+        "amountLabel": "Amount *",
+        "amountPlaceholder": "Enter amount",
+        "methodLabel": "Payment Method",
+        "referenceLabel": "Reference / Bill ID",
+        "referencePlaceholder": "Transaction ID / Bill #",
+        "dateLabel": "Payment Date",
+        "notesLabel": "Notes (Optional)",
+        "notesPlaceholder": "Additional details",
+        "cancel": "Cancel",
+        "submit": "Create Request",
+        "submitting": "Submitting...",
+        "methods": {
+          "cash": "Cash",
+          "bank": "Bank Transfer",
+          "upi": "UPI",
+          "cheque": "Cheque",
+          "other": "Other"
+        },
+        "errors": {
+          "invalidAmount": "Please enter a valid amount",
+          "success": "Payment request created! Awaiting dealer approval.",
+          "fail": "Failed to create payment request"
+        }
+      }
+    }
+  },
+  "dealer": {
+    "dashboard": {
+      "title": "Dealer Dashboard",
+      "subtitle": "Manage your inventory, customers, and sales.",
+      "buttons": {
+        "addSale": "Add Sale",
+        "consignments": "Consignments"
+      },
+      "stats": {
+        "totalInventory": "Total Inventory",
+        "itemsInStock": "Items in stock",
+        "totalCustomers": "Total Customers",
+        "activeCustomers": "Active customers",
+        "totalSales": "Total Sales",
+        "thisMonth": "This month",
+        "revenue": "Revenue"
+      },
+      "recentSales": {
+        "title": "Recent Sales",
+        "subtitle": "Latest sales transactions",
+        "noSales": "No recent sales",
+        "items": "{count} items"
+      },
+      "lowStock": {
+        "title": "Low Stock Items",
+        "subtitle": "Items that need restocking",
+        "noItems": "No low stock items",
+        "stock": "Stock: {stock} {unit}",
+        "min": "Min: {min} {unit}",
+        "outOfStock": "Out of Stock",
+        "lowStock": "Low Stock"
+      },
+      "banner": {
+        "approved": {
+          "title": "Connection Approved!",
+          "description": "Congratulations! You are now connected with {companyName}. You can now interact with them through your Companies page."
+        },
+        "rejected": {
+          "title": "Request Rejected",
+          "description": "Your request to join {companyName} was rejected.",
+          "limitReached": "You have reached the maximum rejection limit (3) and cannot apply again.",
+          "secondRejection": "This is your 2nd rejection. One more rejection and you won't be able to apply again.",
+          "retry": "You can retry after 1 hour from the Companies page."
+        },
+        "pending": {
+          "title": "Request Pending",
+          "description": "Your request to join {companyName} is pending approval. We'll notify you once the company responds."
+        }
+      }
+    },
+    "company": {
+      "title": "My Companies",
+      "subtitle": "Manage your company connections and verification requests",
+      "buttons": {
+        "consignments": "Consignments",
+        "paymentRequest": "Payment Request",
+        "apply": "Apply to Company",
+        "viewAccount": "View Account",
+        "viewCatalog": "View Catalog",
+        "restore": "Restore Connection",
+        "cancel": "Cancel",
+        "retry": "Retry",
+        "archive": "Archive"
+      },
+      "stats": {
+        "connected": "Connected",
+        "balanceOwed": "Balance Owed",
+        "advance": "Advance",
+        "pending": "Pending",
+        "rejected": "Rejected",
+        "archived": "archived"
+      },
+      "filters": {
+        "searchPlaceholder": "Search companies...",
+        "allStatus": "All Status",
+        "pending": "Pending",
+        "rejected": "Rejected"
+      },
+      "tabs": {
+        "active": "Active",
+        "archived": "Archived ({count})"
+      },
+      "connected": {
+        "title": "My Connected Companies",
+        "subtitle": "{count} company(ies) connected",
+        "empty": {
+          "title": "No connected companies",
+          "descSearch": "No companies match your search.",
+          "descDefault": "Apply to a company to get started and once approved, you'll see them here."
+        },
+        "card": {
+          "balance": "Balance:",
+          "owner": "Owner:",
+          "contact": "Contact:",
+          "connected": "Connected:",
+          "owed": "(Owed)",
+          "advance": "(Advance)"
+        }
+      },
+      "requests": {
+        "title": "Verification Requests",
+        "subtitle": "{count} pending/rejected request(s)",
+        "empty": {
+          "title": "No verification requests",
+          "descSearch": "No requests match your filters.",
+          "descDefault": "You don't have any pending or rejected verification requests."
+        },
+        "card": {
+          "status": "Status:",
+          "applied": "Applied:",
+          "rejectionCount": "Rejection Count:",
+          "lastRejected": "Last Rejected:",
+          "waiting": "Waiting for company approval",
+          "cannotRetry": "Cannot retry - 3 rejections reached",
+          "waitRetry": "Wait {minutes} more minutes before retrying"
+        }
+      },
+      "archived": {
+        "title": "Archived Companies",
+        "subtitle": "{count} archived company(ies)",
+        "empty": {
+          "title": "No archived companies",
+          "desc": "Connections you archive will appear here and can be restored anytime."
+        }
+      },
+      "dialogs": {
+        "archive": {
+          "title": "Archive Connection",
+          "description": "Are you sure you want to archive your connection with {name}? You can restore it later from the Archived tab.",
+          "confirm": "Archive",
+          "cancel": "Cancel"
+        },
+        "cancelRequest": {
+          "confirm": "Yes, Cancel Request"
+        },
+        "apply": {
+          "title": "Apply to Company",
+          "description": "Search and apply to a company to start trading with them.",
+          "selectLabel": "Select Company",
+          "placeholder": "Search for a company...",
+          "helpText": "You can only have one pending request per company. If already approved, you're connected. If rejected, wait 1 hour before retrying (max 3 retries).",
+          "sending": "Sending...",
+          "confirm": "Apply to Company"
+        }
+      },
+      "badges": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "connected": "Connected",
+        "archived": "Archived"
+      }
+    },
+    "consignments": {
+      "title": "Consignment Management",
+      "subtitle": "Manage consignments from companies",
+      "buttons": {
+        "back": "Back",
+        "received": "Received",
+        "close": "Close"
+      },
+      "filters": {
+        "searchPlaceholder": "Search by request number...",
+        "status": "Status",
+        "allStatuses": "All Statuses",
+        "created": "Created",
+        "accepted": "Accepted",
+        "dispatched": "Dispatched",
+        "received": "Received",
+        "settled": "Settled",
+        "rejected": "Rejected",
+        "cancelled": "Cancelled"
+      },
+      "tabs": {
+        "received": "Received from Company",
+        "requested": "My Requests"
+      },
+      "list": {
+        "receivedTitle": "Received Consignments",
+        "receivedSubtitle": "{count} consignments from companies",
+        "receivedEmpty": "No consignments received. Companies can send you consignments through catalog orders.",
+        "requestedTitle": "My Requests",
+        "requestedSubtitle": "{count} requests sent to companies",
+        "requestedEmpty": "No requests sent. Consignment requests are created when you place orders through company catalogs.",
+        "columns": {
+          "requestNumber": "Request #",
+          "company": "Company",
+          "items": "Items",
+          "amount": "Amount",
+          "status": "Status",
+          "date": "Date",
+          "actions": "Actions"
+        }
+      },
+      "dialogs": {
+        "accept": {
+          "title": "Accept Consignment",
+          "description": "Accept {number} as sent by the company (quantities cannot be changed).",
+          "itemsLabel": "Items (quantities as sent by company)",
+          "quantity": "Quantity: {qty}",
+          "unitPrice": "Unit Price: {price}",
+          "notesLabel": "Notes (Optional)",
+          "notesPlaceholder": "Add notes...",
+          "cancel": "Cancel",
+          "confirm": "Accept",
+          "confirming": "Accepting..."
+        },
+        "receipt": {
+          "title": "Confirm Consignment Receipt",
+          "description": "Confirm receipt of {number}. This will create a sale and update your inventory.",
+          "important": {
+            "title": "⚠️ Important",
+            "desc": "Confirming receipt will:",
+            "point1": "Create a sale record in your name",
+            "point2": "Add products to your dealer inventory",
+            "point3": "Create an accounts payable balance",
+            "point4": "Apply any advance payments you've made"
+          },
+          "summary": "Consignment Summary",
+          "itemsCount": "Items",
+          "productsCount": "{count} products",
+          "subtotal": "Subtotal",
+          "discount": "Discount",
+          "total": "Total Amount",
+          "sellingPrices": "Set Selling Prices",
+          "sellingPricesDesc": "Review and adjust the selling price for each item. Default is set to 20% markup on cost price.",
+          "qty": "Qty: {qty}",
+          "cost": "Cost: {cost}",
+          "sellingPriceLabel": "Selling Price (per unit)",
+          "notesLabel": "Notes (Optional)",
+          "notesPlaceholder": "Add any notes about the received goods...",
+          "cancel": "Cancel",
+          "confirm": "Confirm Receipt",
+          "confirming": "Confirming..."
+        },
+        "reject": {
+          "title": "Reject Consignment",
+          "description": "Reject consignment {number}",
+          "reasonLabel": "Reason for Rejection *",
+          "reasonPlaceholder": "Explain why you're rejecting this consignment...",
+          "cancel": "Cancel",
+          "confirm": "Reject",
+          "confirming": "Rejecting..."
+        },
+        "details": {
+          "title": "Consignment Details",
+          "labels": {
+            "status": "Status",
+            "direction": "Direction",
+            "company": "Company",
+            "subtotal": "Subtotal",
+            "discount": "Discount",
+            "total": "Total Amount",
+            "notes": "Notes"
+          },
+          "table": {
+            "product": "Product",
+            "requested": "Requested",
+            "approved": "Approved",
+            "received": "Received",
+            "unitPrice": "Unit Price",
+            "total": "Total"
+          },
+          "dispatch": {
+            "title": "Dispatch Information",
+            "reference": "Reference",
+            "tracking": "Tracking",
+            "dispatchedOn": "Dispatched On"
+          },
+          "receipt": {
+            "title": "Receipt Information",
+            "grn": "GRN Reference",
+            "receivedOn": "Received On"
+          },
+          "linkedSale": {
+            "title": "Linked Sale",
+            "invoice": "Invoice #",
+            "subtotal": "Subtotal",
+            "discount": "Discount",
+            "total": "Total",
+            "balance": "Account Balance"
+          }
+        },
+        "rejectionReason": {
+          "title": "Rejection Reason",
+          "description": "Reason provided for rejection",
+          "loading": "Loading details...",
+          "reasonLabel": "Reason:",
+          "noReason": "No specific reason provided.",
+          "rejectedBy": "Rejected by {name} on {date}",
+          "noDetails": "No rejection details found.",
+          "close": "Close"
+        }
+      },
+      "messages": {
+        "specifyQuantities": "Please specify accepted quantities",
+        "acceptedSuccess": "Consignment accepted successfully",
+        "acceptFailed": "Failed to accept consignment",
+        "receiptConfirmed": "Receipt confirmed! Sale created and inventory updated.",
+        "receiptFailed": "Failed to confirm receipt",
+        "rejectedSuccess": "Consignment rejected",
+        "rejectFailed": "Failed to reject consignment"
+      }
+    },
+    "payments": {
+      "title": "Payment Requests",
+      "subtitle": "Manage payment requests with companies",
+      "buttons": {
+        "back": "Back to Companies",
+        "submit": "Submit Payment"
+      },
+      "stats": {
+        "pending": "Pending",
+        "accepted": "Accepted",
+        "amount": "Amount",
+        "awaiting": "Awaiting",
+        "ready": "Ready"
+      },
+      "status": {
+        "submitted": "Payment Submitted",
+        "verified": "Verified",
+        "rejected": "Rejected",
+        "cancelled": "Cancelled"
+      },
+      "tabs": {
+        "received": "Received",
+        "sent": "Sent"
+      },
+      "received": {
+        "title": "Received Requests",
+        "description": "From companies",
+        "empty": "No payment requests. Requests will appear here."
+      },
+      "sent": {
+        "title": "Sent Requests",
+        "description": "Submitted to companies",
+        "empty": "No requests sent. Submit a payment to get started."
+      },
+      "filters": {
+        "searchPlaceholder": "Search...",
+        "statusPlaceholder": "Status",
+        "all": "All"
+      },
+      "columns": {
+        "date": "Date",
+        "company": "Company",
+        "invoice": "Invoice",
+        "amount": "Amount",
+        "status": "Status",
+        "method": "Method",
+        "actions": "Actions"
+      },
+      "dialogs": {
+        "view": {
+          "title": "Payment Request Details",
+          "description": "View payment request information",
+          "requestNumber": "Request Number",
+          "status": "Status",
+          "company": "Company",
+          "dealer": "Dealer",
+          "invoiceNumber": "Invoice Number",
+          "dueAmount": "Due Amount",
+          "paymentMethod": "Payment Method",
+          "paymentReference": "Payment Reference",
+          "paymentDate": "Payment Date",
+          "descriptionLabel": "Description",
+          "reviewNotes": "Review Notes",
+          "receipt": "Payment Receipt",
+          "viewReceipt": "View Receipt Image",
+          "close": "Close"
+        },
+        "acceptProof": {
+          "title": "Accept & submit proof",
+          "description": "Accept this payment request and submit your payment proof in one step",
+          "submit": "Accept & submit proof",
+          "submitting": "Submitting..."
+        },
+        "submitProof": {
+          "title": "Submit Payment Proof",
+          "description": "Submit payment proof for verification",
+          "submit": "Submit Proof",
+          "submitting": "Submitting..."
+        },
+        "create": {
+          "title": "Submit Payment Proof",
+          "description": "Submit proof of payment you've already made to the company for verification and balance reduction",
+          "submit": "Submit Payment",
+          "submitting": "Submitting...",
+          "note": "Note: Submitting proof for verification."
+        },
+        "cancel": {
+          "title": "Cancel Payment Request",
+          "description": "Are you sure you want to cancel this payment request? This action cannot be undone.",
+          "confirm": "Yes, Cancel Request",
+          "keep": "No, Keep It"
+        },
+        "common": {
+          "amount": "Amount",
+          "company": "Company",
+          "selectCompany": "Select Company",
+          "method": "Payment Method *",
+          "reference": "Payment Reference",
+          "referencePlaceholder": "Enter transaction reference...",
+          "receipt": "Receipt Image (Optional)",
+          "uploadPlaceholder": "Upload receipt image",
+          "date": "Payment Date *",
+          "cancel": "Cancel",
+          "saleId": "Sale ID (Optional)",
+          "saleIdPlaceholder": "Enter sale ID if known",
+          "description": "Description",
+          "descriptionPlaceholder": "Add note..."
+        }
+      },
+      "methods": {
+        "CASH": "Cash",
+        "BANK_TRANSFER": "Bank Transfer",
+        "CHEQUE": "Cheque",
+        "UPI": "UPI",
+        "OTHER": "Other"
+      },
+      "messages": {
+        "fillRequired": "Please fill in all required fields",
+        "acceptSuccess": "Payment request accepted and proof submitted successfully",
+        "acceptFailed": "Failed to accept or submit proof",
+        "submitSuccess": "Payment proof submitted successfully",
+        "submitFailed": "Failed to submit proof",
+        "createSuccess": "Payment proof submitted successfully. Waiting for company verification.",
+        "createFailed": "Failed to create request",
+        "cancelSuccess": "Payment request cancelled successfully",
+        "cancelFailed": "Failed to cancel request"
+      }
+    },
+    "inventory": {
+      "title": "Products",
+      "subtitle": "Manage your product inventory and pricing",
+      "addProduct": "Add Product",
+      "stats": {
+        "products": "Products",
+        "inInventory": "In inventory",
+        "lowStock": "Low Stock",
+        "belowMin": "Below minimum",
+        "outOfStock": "Out of Stock",
+        "zeroStock": "Zero stock",
+        "value": "Value",
+        "totalCost": "Total cost"
+      },
+      "filters": {
+        "searchPlaceholder": "Search products...",
+        "allTypes": "All Types",
+        "feed": "Feed",
+        "other": "Other"
+      },
+      "table": {
+        "name": "Name",
+        "type": "Type",
+        "unit": "Unit",
+        "cost": "Cost",
+        "sell": "Sell (Click to Edit)",
+        "stock": "Stock",
+        "min": "Min",
+        "actions": "Actions",
+        "empty": "No products found. Add your first product to get started."
+      },
+      "dialogs": {
+        "addTitle": "Add New Product",
+        "editTitle": "Edit Product",
+        "addDesc": "Add a new product to your inventory",
+        "editDesc": "Update product details and pricing",
+        "name": "Product Name *",
+        "sku": "SKU",
+        "description": "Description",
+        "type": "Type *",
+        "unit": "Unit *",
+        "unitPlaceholder": "e.g., kg, pcs, liters",
+        "costPrice": "Cost Price *",
+        "sellingPrice": "Selling Price *",
+        "initialStock": "Initial Stock",
+        "minStock": "Minimum Stock Alert",
+        "cancel": "Cancel",
+        "save": "Add Product",
+        "update": "Update Product",
+        "saving": "Saving...",
+        "deleteTitle": "Delete Product",
+        "deleteDesc": "Are you sure you want to delete this product? This action cannot be undone.",
+        "deleteConfirm": "Delete"
+      },
+      "messages": {
+        "createSuccess": "Product created successfully",
+        "updateSuccess": "Product updated successfully",
+        "deleteSuccess": "Product deleted successfully",
+        "deleteFailed": "Failed to delete product",
+        "priceUpdated": "Price updated",
+        "updateFailed": "Failed to update",
+        "error": "An error occurred"
+      }
+    },
+    "sales": {
+      "title": "Sales Management",
+      "subtitle": "Track and manage sales to your customers",
+      "buttons": {
+        "requests": "Sale Requests",
+        "newSale": "New Sale"
+      },
+      "filters": {
+        "searchPlaceholder": "Search sales...",
+        "statusPlaceholder": "Status",
+        "all": "All Sales",
+        "paid": "Paid",
+        "unpaid": "Unpaid",
+        "start": "Start",
+        "end": "End"
+      },
+      "table": {
+        "title": "Sales Records",
+        "description": "{count} total sales transactions",
+        "invoice": "Invoice",
+        "date": "Date",
+        "customer": "Customer",
+        "amount": "Amount",
+        "type": "Type",
+        "actions": "Actions",
+        "empty": "No sales found. Record your first sale to get started.",
+        "was": "Was {amount}",
+        "off": "{amount} off"
+      },
+      "badges": {
+        "credit": "Credit",
+        "cash": "Cash"
+      }
+    },
+    "saleRequests": {
+      "title": "Sale Requests",
+      "subtitle": "Track sale requests to farmers",
+      "back": "Back to Sales",
+      "backMobile": "Back",
+      "stats": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "total": "Total"
+      },
+      "filters": {
+        "searchPlaceholder": "Search...",
+        "statusPlaceholder": "Status",
+        "all": "All",
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      },
+      "table": {
+        "request": "Request",
+        "farmer": "Farmer",
+        "date": "Date",
+        "items": "Items",
+        "amount": "Amount",
+        "status": "Status",
+        "view": "View",
+        "empty": "No sale requests. Requests will appear when you create sales.",
+        "paid": "Paid: {amount}"
+      },
+      "pagination": {
+        "prev": "Prev",
+        "next": "Next"
+      }
+    },
+    "newSale": {
+      "title": "Create New Sale",
+      "subtitle": "Create a sale transaction to a customer",
+      "customer": {
+        "title": "Customer Information",
+        "description": "Select the customer for this sale",
+        "label": "Select Customer *",
+        "placeholder": "Search and select customer...",
+        "searchPlaceholder": "Search customers...",
+        "empty": "No customers found.",
+        "create": "Create New Customer"
+      },
+      "products": {
+        "title": "Products",
+        "description": "Search and add products to this sale",
+        "placeholder": "Search and select product to add...",
+        "searchPlaceholder": "Search products...",
+        "empty": "No products found.",
+        "added": "Added Products ({0})",
+        "unknown": "Unknown Product",
+        "stock": "Stock: {stock} {unit}",
+        "quantity": "Quantity",
+        "unitPrice": "Unit Price",
+        "total": "Total",
+        "noneAdded": "No products added yet. Search and select products above."
+      },
+      "discount": {
+        "title": "Discount (Optional)",
+        "description": "Apply a global discount to this sale",
+        "type": "Type",
+        "percent": "Percent (%)",
+        "flat": "Flat (रू)",
+        "value": "Value",
+        "label": "Discount: {amount} ({percent}%)"
+      },
+      "payment": {
+        "title": "Payment Information",
+        "description": "Enter payment details for this sale",
+        "method": "Payment Method *",
+        "methods": {
+          "cash": "Cash",
+          "bank": "Bank Transfer",
+          "cheque": "Cheque",
+          "other": "Other"
+        },
+        "paid": "Paid Amount *",
+        "creditHint": "Leave 0 for full credit sale",
+        "due": "Due Amount:",
+        "creditNote": "This will be recorded as a credit sale"
+      },
+      "notes": {
+        "title": "Additional Information",
+        "description": "Add any notes or special instructions",
+        "label": "Notes (Optional)",
+        "placeholder": "Add any notes or special instructions..."
+      },
+      "summary": {
+        "title": "Summary",
+        "items": "Total Items",
+        "quantity": "Total Quantity",
+        "subtotal": "Subtotal",
+        "discount": "Discount",
+        "final": "Final Total",
+        "grand": "Grand Total",
+        "paid": "Paid Amount",
+        "due": "Due Amount",
+        "create": "Create Sale",
+        "creating": "Creating Sale...",
+        "cancel": "Cancel",
+        "bill": "Bill Summary"
+      },
+      "createCustomer": {
+        "title": "Create New Customer",
+        "description": "Add a new customer to your list",
+        "name": "Name *",
+        "phone": "Phone *",
+        "address": "Address",
+        "category": "Category",
+        "placeholder": "e.g., Farmer, Retailer",
+        "create": "Create Customer",
+        "creating": "Creating..."
+      },
+      "messages": {
+        "productExists": "Product already added",
+        "productAdded": "Product added",
+        "customerRequired": "Name and phone are required",
+        "customerCreated": "Customer created successfully",
+        "customerFailed": "Failed to create customer",
+        "selectRequired": "Please select customer and add items",
+        "productInvalid": "Please fill all product details with valid values",
+        "paidInvalid": "Paid amount must be between 0 and final total",
+        "success": "Sale created successfully!",
+        "failed": "Failed to create sale"
+      }
+    },
+    "customers": {
+      "title": "Customer Management",
+      "subtitle": "Manage your customers and farmers",
+      "searchPlaceholder": "Search customers...",
+      "addCustomer": "Add Customer",
+      "addPayment": "Add Payment",
+      "paymentRequest": "Payment Request",
+      "verification": "Verification",
+      "table": {
+        "title": "Customers",
+        "description": "{count} {singular_customer} registered",
+        "descriptionPlural": "{count} customers registered",
+        "name": "Name",
+        "phone": "Phone",
+        "address": "Address",
+        "category": "Category",
+        "balance": "Balance",
+        "actions": "Actions",
+        "connected": "Connected",
+        "empty": "No customers found. Add your first customer to get started.",
+        "view": "View",
+        "viewMobile": "Acct",
+        "due": "{amount} (Due)",
+        "adv": "{amount} (Adv)"
+      },
+      "dialog": {
+        "addTitle": "Add New Customer",
+        "editTitle": "Edit Customer",
+        "addDescription": "Add a new customer to your list",
+        "editDescription": "Update customer information",
+        "name": "Customer Name *",
+        "namePlaceholder": "Enter customer name",
+        "phone": "Phone Number *",
+        "phonePlaceholder": "Enter phone number",
+        "address": "Address",
+        "addressPlaceholder": "Enter address (optional)",
+        "category": "Category",
+        "categoryPlaceholder": "e.g., Farmer, Retailer (optional)",
+        "cancel": "Cancel",
+        "save": "Add Customer",
+        "update": "Update Customer",
+        "saving": "Saving..."
+      },
+      "messages": {
+        "required": "Name and phone are required",
+        "updateSoon": "Update functionality coming soon",
+        "deleteConfirm": "Are you sure you want to delete \"{name}\"?",
+        "createSuccess": "Customer created successfully",
+        "createFailed": "Failed to create customer",
+        "deleteSuccess": "Customer deleted successfully",
+        "deleteFailed": "Failed to delete customer"
+      },
+      "buttons": {
+        "paymentRequest": "Payment Request",
+        "paymentRequestMobile": "Payments",
+        "verification": "Verification",
+        "verificationMobile": "Verify",
+        "add": "Add Customer",
+        "addMobile": "Add"
+      }
+    },
+    "addPaymentDialog": {
+      "titleAdd": "Add Payment",
+      "titleRecord": "Record Payment",
+      "descriptionAdd": "Record payment for manual customers only. For connected farmers, please use Payment Requests.",
+      "descriptionRecord": "Record a payment received from {name}",
+      "customer": "Customer *",
+      "selectCustomer": "Select customer",
+      "searchCustomer": "Search customer...",
+      "noCustomerFound": "No customer found.",
+      "balance": "Balance",
+      "amount": "Amount *",
+      "amountPlaceholder": "0.00",
+      "method": "Method *",
+      "methods": {
+        "cash": "Cash",
+        "bank_transfer": "Bank Transfer",
+        "cheque": "Cheque",
+        "upi": "UPI",
+        "other": "Other"
+      },
+      "date": "Date *",
+      "reference": "Reference",
+      "referencePlaceholder": "Ref #",
+      "notes": "Notes (Optional)",
+      "notesPlaceholder": "Add payment notes...",
+      "receipt": "Payment Receipt (Optional)",
+      "uploadReceipt": "Upload receipt",
+      "cancel": "Cancel",
+      "submitAdd": "Add Payment",
+      "submitRecord": "Record Payment",
+      "submitting": "Recording...",
+      "messages": {
+        "success": "Payment recorded successfully",
+        "failed": "Failed to record payment",
+        "invalidAmount": "Please enter a valid amount",
+        "selectCustomer": "Please select a customer"
+      }
+    },
+    "paymentRequests": {
+      "title": "Payment Requests",
+      "subtitle": "Manage payment requests from farmers",
+      "back": "Back to Customers",
+      "createRequest": "Create Request",
+      "stats": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "total": "Total"
+      },
+      "filters": {
+        "search": "Search...",
+        "status": "Status",
+        "all": "All",
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      },
+      "tabs": {
+        "received": "Received (From Farmers)",
+        "sent": "Sent (To Farmers)"
+      },
+      "table": {
+        "titleReceived": "Payment Requests from Farmers",
+        "descReceived": "Requests initiated by farmers (e.g., payment proofs)",
+        "titleSent": "Payment Requests Sent to Farmers",
+        "descSent": "Requests you sent asking farmers for payment",
+        "request": "Request",
+        "farmer": "Farmer",
+        "amount": "Amount",
+        "date": "Date",
+        "status": "Status",
+        "proof": "Proof",
+        "actions": "Actions",
+        "emptyReceived": "No payment requests received from farmers",
+        "emptySent": "No payment requests sent to farmers"
+      },
+      "dialogs": {
+        "proof": {
+          "title": "Payment Proof",
+          "noImage": "No proof image available",
+          "close": "Close"
+        },
+        "create": {
+          "title": "Create Payment Request",
+          "desc": "Request payment from a farmer.",
+          "selectFarmer": "Select Farmer",
+          "placeholderFarmer": "Select a farmer",
+          "currentBalance": "Current Balance",
+          "amount": "Amount",
+          "placeholderAmount": "Enter amount",
+          "description": "Description (Optional)",
+          "placeholderDesc": "Enter description...",
+          "cancel": "Cancel",
+          "submit": "Create Request",
+          "submitting": "Creating..."
+        },
+        "reject": {
+          "title": "Reject Payment Request",
+          "desc": "Please provide a reason for rejecting this payment request.",
+          "reason": "Rejection Reason",
+          "placeholderReason": "Enter reason for rejection...",
+          "cancel": "Cancel",
+          "submit": "Reject Request"
+        }
+      },
+      "messages": {
+        "approved": "Payment request approved successfully",
+        "approveFailed": "Failed to approve request",
+        "rejected": "Payment request rejected",
+        "rejectFailed": "Failed to reject request",
+        "created": "Payment request created successfully",
+        "createFailed": "Failed to create payment request",
+        "selectFarmer": "Please select a farmer",
+        "invalidAmount": "Please enter a valid amount",
+        "provideReason": "Please provide a rejection reason"
+      }
+    },
+    "verification": {
+      "title": "Verification Requests",
+      "subtitle": "Review farmer connection requests",
+      "back": "Back to Customers",
+      "stats": {
+        "connected": "Connected",
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "archived": "archived"
+      },
+      "filters": {
+        "search": "Search farmer...",
+        "status": "Status",
+        "all": "All",
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      },
+      "tabs": {
+        "active": "Active",
+        "archived": "Archived"
+      },
+      "empty": {
+        "connectedTitle": "No connected farmers",
+        "connectedDesc": "Farmers will appear here once approved.",
+        "requestsTitle": "No farmer requests",
+        "requestsDescFilter": "No requests match your filters.",
+        "requestsDescEmpty": "No farmers have requested to connect with your dealership yet.",
+        "loading": "Loading requests...",
+        "archivedTitle": "No archived farmers",
+        "archivedDesc": "Connections you archive will appear here and can be restored anytime."
+      },
+      "cards": {
+        "status": "Status:",
+        "requested": "Requested:",
+        "rejectionCount": "Rejection Count:",
+        "connectedBadge": "Connected",
+        "archivedBadge": "Archived",
+        "approve": "Approve",
+        "reject": "Reject",
+        "archive": "Archive",
+        "restore": "Restore",
+        "processing": "Processing..."
+      },
+      "dialogs": {
+        "action": {
+          "approveTitle": "Approve Verification Request",
+          "rejectTitle": "Reject Verification Request",
+          "approveDesc": "Are you sure you want to approve the request from {name}? This will establish a connection between your dealership and this farmer.",
+          "rejectDesc": "Are you sure you want to reject the request from {name}? They will be able to retry after 1 hour (up to 3 rejections total).",
+          "cancel": "Cancel",
+          "approve": "Approve",
+          "reject": "Reject"
+        },
+        "archive": {
+          "title": "Archive Connection",
+          "desc": "Are you sure you want to archive your connection with {name}? You can restore it later from the Archived tab.",
+          "cancel": "Cancel",
+          "submit": "Archive"
+        }
+      },
+      "messages": {
+        "approved": "Request from {name} approved successfully",
+        "approveFailed": "Failed to approve request",
+        "rejected": "Request from {name} rejected",
+        "rejectFailed": "Failed to reject request",
+        "archived": "Connection archived successfully",
+        "archiveFailed": "Failed to archive connection",
+        "restored": "Connection with {name} restored successfully",
+        "restoreFailed": "Failed to restore connection"
+      }
+    }
+  },
+  "landing": {
+    "navbar": {
+      "features": "Features",
+      "reviews": "Reviews",
+      "contact": "Contact",
+      "getStarted": "Get Started",
+      "signUpAs": "Sign Up As",
+      "signUpDescription": "Choose your account type to get started with Poultry360",
+      "farmer": "Farmer",
+      "dealer": "Dealer",
+      "company": "Company",
+      "alreadyHaveAccount": "Already have an account?",
+      "login": "Log in"
+    },
+    "hero": {
+      "trustBadge": "Trusted by 500+ Poultry Farmers",
+      "headingMain": "Manage Your Poultry Business",
+      "headingHighlight": " Anytime, Anywhere",
+      "description": "Poultry360 makes your poultry business simple, smart, and stress-free. Easily track sales, manage expenses, maintain ledgers, control inventory & more so you can focus on growing your poultry business.",
+      "useWeb": "Use Web Version",
+      "download": "Download Poultry360",
+      "notifications": "Notifications",
+      "paymentDue": "Payment Due",
+      "lowStockAlert": "Low Stock Alert",
+      "birds": "Birds",
+      "revenue": "Revenue",
+      "health": "Health"
+    },
+    "features": {
+      "badge": "Key Features",
+      "title": "All in One Poultry Management App",
+      "subtitle": "Manage your poultry farm, finances, inventory, and operations effortlessly with Poultry360, everything your farm needs, all in one place.",
+      "recordTransactions": "Record Transactions",
+      "recordTransactionsDesc": "Add sales, purchases & expenses",
+      "manageBirds": "Manage Birds",
+      "manageBirdsDesc": "Track bird health & production",
+      "manageInventory": "Manage Inventory",
+      "manageInventoryDesc": "Keep track of feed & supplies",
+      "farmInsights": "Farm Insights",
+      "farmInsightsDesc": "View farm performance reports",
+      "vaccinationSchedule": "Vaccination Schedule",
+      "vaccinationScheduleDesc": "Track & manage vaccination programs",
+      "feedCalculator": "Feed Calculator",
+      "feedCalculatorDesc": "Calculate optimal feed requirements",
+      "mortalityTracking": "Mortality Tracking",
+      "mortalityTrackingDesc": "Monitor & analyze bird losses",
+      "mortalityRate": "Mortality Rate: 2.3%",
+      "productionPlanning": "Production Planning",
+      "productionPlanningDesc": "Plan & schedule production cycles",
+      "add": "Add",
+      "feed": "Feed",
+      "remove": "Remove"
+    },
+    "contact": {
+      "title": "Get in Touch",
+      "subtitle": "Ready to transform your poultry business? Contact us today and let's discuss how Poultry360 can help you succeed.",
+      "sendMessage": "Send us a Message",
+      "firstName": "First Name",
+      "firstNamePlaceholder": "Enter your first name",
+      "lastName": "Last Name",
+      "lastNamePlaceholder": "Enter your last name",
+      "email": "Email Address",
+      "emailPlaceholder": "Enter your email address",
+      "phone": "Phone Number",
+      "phonePlaceholder": "Enter your phone number",
+      "farmType": "Farm Type",
+      "farmTypePlaceholder": "Select your farm type",
+      "farmBroiler": "Broiler Farming",
+      "farmLayer": "Layer Farming",
+      "farmHatchery": "Hatchery",
+      "farmFeedDealer": "Feed Dealer",
+      "farmMixed": "Mixed Farming",
+      "farmOther": "Other",
+      "message": "Message",
+      "messagePlaceholder": "Tell us about your poultry farming needs...",
+      "sendBtn": "Send Message",
+      "contactInfo": "Contact Information",
+      "contactInfoDesc": "Have questions about Poultry360? We're here to help you get started with smart poultry management.",
+      "emailLabel": "Email",
+      "phoneLabel": "Phone",
+      "officeLabel": "Office",
+      "businessHours": "Business Hours",
+      "monFri": "Monday - Friday",
+      "saturday": "Saturday",
+      "sunday": "Sunday",
+      "closed": "Closed"
     }
   }
 }

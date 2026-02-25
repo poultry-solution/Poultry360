@@ -15,14 +15,14 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const { t, language: uiLanguage, setLanguage } = useI18n();
   const [calendarType, setCalendarType] = useState<'AD' | 'BS'>(user?.calendarType || 'AD');
-  
+
   // Fetch owned and managed farms
   const { data: ownedFarmsResponse, isLoading: ownedFarmsLoading } = useGetUserFarms("owned");
   const { data: managedFarmsResponse, isLoading: managedFarmsLoading } = useGetUserFarms("managed");
-  
+
   const ownedFarms = ownedFarmsResponse?.data || [];
   const managedFarms = managedFarmsResponse?.data || [];
-  
+
   const handleLanguageChange = async (newLanguage: string) => {
     try {
       const nextUiLanguage = newLanguage === "NEPALI" ? "ne" : "en";
@@ -33,7 +33,7 @@ export default function SettingsPage() {
       toast.error(t("settings.languageUpdateFailed"));
     }
   };
-  
+
   const handleCalendarChange = async (newCalendar: string) => {
     try {
       const { data } = await axiosInstance.patch<{ success: boolean; data: typeof user }>(
@@ -49,11 +49,11 @@ export default function SettingsPage() {
       toast.error(t("settings.calendarUpdateFailed"));
     }
   };
-  
+
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold">{t("settings.title")}</h1>
-      
+
       {/* Owner Information */}
       {user && (
         <Card>
@@ -108,7 +108,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       )}
-      
+
       {/* Owned Farms */}
       {ownedFarms.length > 0 && (
         <Card>
@@ -209,7 +209,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       )}
-      
+
       {/* User Preferences */}
       <Card>
         <CardHeader>
@@ -222,23 +222,23 @@ export default function SettingsPage() {
               value={uiLanguage === "ne" ? "NEPALI" : "ENGLISH"}
               onValueChange={handleLanguageChange}
             >
-              <SelectTrigger>
+              <SelectTrigger className="bg-white">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white">
                 <SelectItem value="ENGLISH">{t("settings.languageEnglish")}</SelectItem>
                 <SelectItem value="NEPALI">{t("settings.languageNepali")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          
+
           <div>
             <Label>{t("settings.calendar")}</Label>
             <Select value={calendarType} onValueChange={handleCalendarChange}>
-              <SelectTrigger>
+              <SelectTrigger className="bg-white">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white">
                 <SelectItem value="AD">{t("settings.calendarAD")}</SelectItem>
                 <SelectItem value="BS">{t("settings.calendarBS")}</SelectItem>
               </SelectContent>

@@ -7,12 +7,14 @@ import { useGetBatchPerformance } from "@/fetchers/dashboard/dashboardQueries";
 import { useRouter } from "next/navigation";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { useI18n } from "@/i18n/useI18n";
 
 export function BatchPerformanceTable() {
   const router = useRouter();
+  const { t } = useI18n();
   const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'COMPLETED' | 'ALL'>('ALL');
   const [sortConfig, setSortConfig] = useState({ field: 'startDate', order: 'desc' as 'asc' | 'desc' });
-  
+
   const { data, isLoading } = useGetBatchPerformance(
     statusFilter === 'ALL' ? undefined : statusFilter,
     sortConfig.field,
@@ -30,8 +32,8 @@ export function BatchPerformanceTable() {
 
   const getSortIcon = (field: string) => {
     if (sortConfig.field !== field) return <ArrowUpDown className="h-4 w-4" />;
-    return sortConfig.order === 'asc' ? 
-      <ArrowUp className="h-4 w-4" /> : 
+    return sortConfig.order === 'asc' ?
+      <ArrowUp className="h-4 w-4" /> :
       <ArrowDown className="h-4 w-4" />;
   };
 
@@ -43,88 +45,88 @@ export function BatchPerformanceTable() {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Batch Performance Overview</CardTitle>
+          <CardTitle>{t("farmer.dashboard.batchPerformance.title")}</CardTitle>
           <div className="flex gap-2">
             <Button
               variant={statusFilter === 'ALL' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setStatusFilter('ALL')}
             >
-              All
+              {t("farmer.dashboard.batchPerformance.tabs.all")}
             </Button>
             <Button
               variant={statusFilter === 'ACTIVE' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setStatusFilter('ACTIVE')}
             >
-              Active
+              {t("farmer.dashboard.batchPerformance.tabs.active")}
             </Button>
             <Button
               variant={statusFilter === 'COMPLETED' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setStatusFilter('COMPLETED')}
             >
-              Completed
+              {t("farmer.dashboard.batchPerformance.tabs.completed")}
             </Button>
           </div>
         </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="text-center py-8">Loading batch data...</div>
+          <div className="text-center py-8">{t("farmer.dashboard.batchPerformance.loading")}</div>
         ) : batches.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">No batches found</div>
+          <div className="text-center py-8 text-muted-foreground">{t("farmer.dashboard.batchPerformance.empty")}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b bg-muted/50">
                   <th className="text-left p-3 font-semibold cursor-pointer hover:bg-muted"
-                      onClick={() => handleSort('batchNumber')}>
+                    onClick={() => handleSort('batchNumber')}>
                     <div className="flex items-center gap-2">
-                      Batch Name {getSortIcon('batchNumber')}
+                      {t("farmer.dashboard.batchPerformance.columns.batchName")} {getSortIcon('batchNumber')}
                     </div>
                   </th>
                   <th className="text-left p-3 font-semibold cursor-pointer hover:bg-muted"
-                      onClick={() => handleSort('startDate')}>
+                    onClick={() => handleSort('startDate')}>
                     <div className="flex items-center gap-2">
-                      Days {getSortIcon('startDate')}
+                      {t("farmer.dashboard.batchPerformance.columns.days")} {getSortIcon('startDate')}
                     </div>
                   </th>
                   <th className="text-right p-3 font-semibold cursor-pointer hover:bg-muted"
-                      onClick={() => handleSort('mortality')}>
+                    onClick={() => handleSort('mortality')}>
                     <div className="flex items-center justify-end gap-2">
-                      Mortality {getSortIcon('mortality')}
+                      {t("farmer.dashboard.batchPerformance.columns.mortality")} {getSortIcon('mortality')}
                     </div>
                   </th>
                   <th className="text-right p-3 font-semibold cursor-pointer hover:bg-muted"
-                      onClick={() => handleSort('fcr')}>
+                    onClick={() => handleSort('fcr')}>
                     <div className="flex items-center justify-end gap-2">
-                      FCR {getSortIcon('fcr')}
+                      {t("farmer.dashboard.batchPerformance.columns.fcr")} {getSortIcon('fcr')}
                     </div>
                   </th>
                   <th className="text-right p-3 font-semibold cursor-pointer hover:bg-muted"
-                      onClick={() => handleSort('expenses')}>
+                    onClick={() => handleSort('expenses')}>
                     <div className="flex items-center justify-end gap-2">
-                      Expenses {getSortIcon('expenses')}
+                      {t("farmer.dashboard.batchPerformance.columns.expenses")} {getSortIcon('expenses')}
                     </div>
                   </th>
                   <th className="text-right p-3 font-semibold cursor-pointer hover:bg-muted"
-                      onClick={() => handleSort('salesAmount')}>
+                    onClick={() => handleSort('salesAmount')}>
                     <div className="flex items-center justify-end gap-2">
-                      Sales {getSortIcon('salesAmount')}
+                      {t("farmer.dashboard.batchPerformance.columns.sales")} {getSortIcon('salesAmount')}
                     </div>
                   </th>
                   <th className="text-right p-3 font-semibold cursor-pointer hover:bg-muted"
-                      onClick={() => handleSort('avgWeight')}>
+                    onClick={() => handleSort('avgWeight')}>
                     <div className="flex items-center justify-end gap-2">
-                      Avg Wt (kg) {getSortIcon('avgWeight')}
+                      {t("farmer.dashboard.batchPerformance.columns.avgWeight")} {getSortIcon('avgWeight')}
                     </div>
                   </th>
                   <th className="text-right p-3 font-semibold cursor-pointer hover:bg-muted"
-                      onClick={() => handleSort('profitLoss')}>
+                    onClick={() => handleSort('profitLoss')}>
                     <div className="flex items-center justify-end gap-2">
-                      Profit/Loss {getSortIcon('profitLoss')}
+                      {t("farmer.dashboard.batchPerformance.columns.profitLoss")} {getSortIcon('profitLoss')}
                     </div>
                   </th>
                 </tr>
@@ -151,9 +153,8 @@ export function BatchPerformanceTable() {
                     <td className="p-3 text-right">₹{Number(batch.expenses).toLocaleString()}</td>
                     <td className="p-3 text-right">₹{Number(batch.salesAmount).toLocaleString()}</td>
                     <td className="p-3 text-right">{batch.avgWeight}</td>
-                    <td className={`p-3 text-right font-semibold ${
-                      batch.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
+                    <td className={`p-3 text-right font-semibold ${batch.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
                       ₹{Number(batch.profitLoss).toLocaleString()}
                     </td>
                   </tr>

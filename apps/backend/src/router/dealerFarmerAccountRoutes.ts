@@ -3,7 +3,6 @@ import {
   getDealerFarmerAccounts,
   getDealerFarmerAccount,
   getDealerFarmerAccountStatement,
-  recordDealerFarmerPayment,
   setFarmerBalanceLimit,
   checkFarmerBalanceLimit,
 } from "../controller/dealerFarmerAccountController";
@@ -30,8 +29,5 @@ router.post("/:farmerId/check-balance-limit", checkFarmerBalanceLimit);
 
 // Get account statement for a farmer
 router.get("/:farmerId/statement", getDealerFarmerAccountStatement);
-
-// Record direct payment to a farmer's account
-router.post("/:farmerId/payments", recordDealerFarmerPayment);
 
 export default router;

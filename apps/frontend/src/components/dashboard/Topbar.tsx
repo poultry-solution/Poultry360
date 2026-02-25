@@ -114,15 +114,6 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
         {/* Notification Bell */}
         <NotificationBell />
 
-        {/* Settings Button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleSettingsClick}
-          className="cursor-pointer h-9 w-9 hover:bg-gray-100 hover:shadow-sm transition-all duration-200"
-        >
-          <Settings className="h-5 w-5"  />
-        </Button>
 
         {/* User Profile Section */}
         <DropdownMenu>
@@ -141,18 +132,18 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
           >
             <DropdownMenuLabel>{t("topbar.myAccount")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleProfileClick}>
+            <DropdownMenuItem onClick={handleProfileClick} className="cursor-pointer">
               <User className="mr-2 h-4 w-4" />
               {t("topbar.myProfile")}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleSettingsClick}>
+            <DropdownMenuItem onClick={handleSettingsClick} className="cursor-pointer">
               <Settings className="mr-2 h-4 w-4" />
               {t("topbar.settings")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleSignOutClick}
-              className="text-red-600"
+              className="text-red-600 cursor-pointer"
             >
               <LogOut className="mr-2 h-4 w-4" />
               {t("topbar.signOut")}

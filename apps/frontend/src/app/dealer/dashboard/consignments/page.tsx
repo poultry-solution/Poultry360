@@ -64,8 +64,10 @@ import {
   useGetDealerConsignmentAuditLogs,
   type Consignment,
 } from "@/fetchers/dealer/consignmentQueries";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function DealerConsignmentsPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("received");
   const [search, setSearch] = useState("");
@@ -136,49 +138,49 @@ export default function DealerConsignmentsPage() {
         return (
           <Badge variant="secondary">
             <Clock className="h-3 w-3 mr-1" />
-            Created
+            {t("dealer.consignments.filters.created")}
           </Badge>
         );
       case "ACCEPTED_PENDING_DISPATCH":
         return (
           <Badge variant="default" className="bg-blue-600">
             <CheckCircle className="h-3 w-3 mr-1" />
-            Accepted
+            {t("dealer.consignments.filters.accepted")}
           </Badge>
         );
       case "DISPATCHED":
         return (
           <Badge variant="default" className="bg-purple-600">
             <Truck className="h-3 w-3 mr-1" />
-            Dispatched
+            {t("dealer.consignments.filters.dispatched")}
           </Badge>
         );
       case "RECEIVED":
         return (
           <Badge variant="default" className="bg-green-600">
             <Package className="h-3 w-3 mr-1" />
-            Received
+            {t("dealer.consignments.filters.received")}
           </Badge>
         );
       case "SETTLED":
         return (
           <Badge variant="default" className="bg-emerald-600">
             <DollarSign className="h-3 w-3 mr-1" />
-            Settled
+            {t("dealer.consignments.filters.settled")}
           </Badge>
         );
       case "REJECTED":
         return (
           <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
             <XCircle className="h-3 w-3 mr-1" />
-            Rejected
+            {t("dealer.consignments.filters.rejected")}
           </Badge>
         );
       case "CANCELLED":
         return (
           <Badge variant="secondary" className="bg-gray-500">
             <Ban className="h-3 w-3 mr-1" />
-            Cancelled
+            {t("dealer.consignments.filters.cancelled")}
           </Badge>
         );
       default:
@@ -188,7 +190,7 @@ export default function DealerConsignmentsPage() {
 
   const handleAcceptConsignment = async () => {
     if (!selectedConsignment || acceptItems.length === 0) {
-      toast.error("Please specify accepted quantities");
+      toast.error(t("dealer.consignments.messages.specifyQuantities"));
       return;
     }
 
@@ -198,11 +200,11 @@ export default function DealerConsignmentsPage() {
         items: acceptItems,
         notes: acceptNotes || undefined,
       });
-      toast.success("Consignment accepted successfully");
+      toast.success(t("dealer.consignments.messages.acceptedSuccess"));
       setIsAcceptDialogOpen(false);
       setSelectedConsignment(null);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to accept consignment");
+      toast.error(error.response?.data?.message || t("dealer.consignments.messages.acceptFailed"));
     }
   };
 
@@ -231,14 +233,14 @@ export default function DealerConsignmentsPage() {
         notes: receiptNotes || undefined,
         items: itemsPayload,
       });
-      toast.success("Receipt confirmed! Sale created and inventory updated.");
+      toast.success(t("dealer.consignments.messages.receiptConfirmed"));
       setIsConfirmReceiptDialogOpen(false);
       setSelectedConsignment(null);
       setGrnRef("");
       setReceiptNotes("");
       setSellingPrices({});
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to confirm receipt");
+      toast.error(error.response?.data?.message || t("dealer.consignments.messages.receiptFailed"));
     }
   };
 
@@ -250,12 +252,12 @@ export default function DealerConsignmentsPage() {
         id: selectedConsignment.id,
         reason: rejectReason || undefined,
       });
-      toast.success("Consignment rejected");
+      toast.success(t("dealer.consignments.messages.rejectedSuccess"));
       setIsRejectDialogOpen(false);
       setSelectedConsignment(null);
       setRejectReason("");
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to reject consignment");
+      toast.error(error.response?.data?.message || t("dealer.consignments.messages.rejectFailed"));
     }
   };
 
@@ -267,10 +269,10 @@ export default function DealerConsignmentsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-            Consignment Management
+            {t("dealer.consignments.title")}
           </h1>
           <p className="text-sm md:text-base text-muted-foreground">
-            Manage consignments from companies
+            {t("dealer.consignments.subtitle")}
           </p>
         </div>
         <Button
@@ -278,7 +280,7 @@ export default function DealerConsignmentsPage() {
           onClick={() => router.push("/dealer/dashboard/company")}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          <span className="hidden sm:inline">Back</span>
+          <span className="hidden sm:inline">{t("dealer.consignments.buttons.back")}</span>
         </Button>
       </div>
 
@@ -290,7 +292,7 @@ export default function DealerConsignmentsPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search by request number..."
+                  placeholder={t("dealer.consignments.filters.searchPlaceholder")}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-10"
@@ -300,17 +302,17 @@ export default function DealerConsignmentsPage() {
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[180px]">
                 <Filter className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="Status" />
+                <SelectValue placeholder={t("dealer.consignments.filters.status")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All Statuses</SelectItem>
-                <SelectItem value="CREATED">Created</SelectItem>
-                <SelectItem value="ACCEPTED_PENDING_DISPATCH">Accepted</SelectItem>
-                <SelectItem value="DISPATCHED">Dispatched</SelectItem>
-                <SelectItem value="RECEIVED">Received</SelectItem>
-                <SelectItem value="SETTLED">Settled</SelectItem>
-                <SelectItem value="REJECTED">Rejected</SelectItem>
-                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                <SelectItem value="ALL">{t("dealer.consignments.filters.allStatuses")}</SelectItem>
+                <SelectItem value="CREATED">{t("dealer.consignments.filters.created")}</SelectItem>
+                <SelectItem value="ACCEPTED_PENDING_DISPATCH">{t("dealer.consignments.filters.accepted")}</SelectItem>
+                <SelectItem value="DISPATCHED">{t("dealer.consignments.filters.dispatched")}</SelectItem>
+                <SelectItem value="RECEIVED">{t("dealer.consignments.filters.received")}</SelectItem>
+                <SelectItem value="SETTLED">{t("dealer.consignments.filters.settled")}</SelectItem>
+                <SelectItem value="REJECTED">{t("dealer.consignments.filters.rejected")}</SelectItem>
+                <SelectItem value="CANCELLED">{t("dealer.consignments.filters.cancelled")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -320,65 +322,65 @@ export default function DealerConsignmentsPage() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
-          <TabsTrigger value="received">Received from Company</TabsTrigger>
-          <TabsTrigger value="requested">My Requests</TabsTrigger>
+          <TabsTrigger value="received">{t("dealer.consignments.tabs.received")}</TabsTrigger>
+          <TabsTrigger value="requested">{t("dealer.consignments.tabs.requested")}</TabsTrigger>
         </TabsList>
 
         {/* Received Consignments Tab */}
         <TabsContent value="received">
           <Card>
             <CardHeader className="p-3 md:p-6">
-              <CardTitle className="text-base md:text-lg">Received Consignments</CardTitle>
+              <CardTitle className="text-base md:text-lg">{t("dealer.consignments.list.receivedTitle")}</CardTitle>
               <CardDescription className="text-xs md:text-sm">
-                {receivedConsignments.length} consignments from companies
+                {t("dealer.consignments.list.receivedSubtitle", { count: receivedConsignments.length })}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <DataTable
                 data={receivedConsignments}
                 loading={receivedLoading}
-                emptyMessage="No consignments received. Companies can send you consignments through catalog orders."
+                emptyMessage={t("dealer.consignments.list.receivedEmpty")}
                 columns={[
                   {
                     key: 'requestNumber',
-                    label: 'Request #',
+                    label: t("dealer.consignments.list.columns.requestNumber"),
                     width: '100px',
                     render: (val) => <span className="font-medium">{val}</span>
                   },
                   {
                     key: 'fromCompany',
-                    label: 'Company',
+                    label: t("dealer.consignments.list.columns.company"),
                     width: '100px',
                     render: (val) => val?.name || "N/A"
                   },
                   {
                     key: 'items',
-                    label: 'Items',
+                    label: t("dealer.consignments.list.columns.items"),
                     width: '60px',
                     render: (val) => `${val?.length || 0}`
                   },
                   {
                     key: 'totalAmount',
-                    label: 'Amount',
+                    label: t("dealer.consignments.list.columns.amount"),
                     align: 'right',
                     width: '90px',
                     render: (val) => <span className="font-semibold">{formatCurrency(val)}</span>
                   },
                   {
                     key: 'status',
-                    label: 'Status',
+                    label: t("dealer.consignments.list.columns.status"),
                     width: '100px',
                     render: (val) => getStatusBadge(val)
                   },
                   {
                     key: 'createdAt',
-                    label: 'Date',
+                    label: t("dealer.consignments.list.columns.date"),
                     width: '80px',
                     render: (val) => formatDate(val)
                   },
                   {
                     key: 'actions',
-                    label: 'Actions',
+                    label: t("dealer.consignments.list.columns.actions"),
                     align: 'right',
                     width: '160px',
                     render: (_, consignment) => (
@@ -436,7 +438,7 @@ export default function DealerConsignmentsPage() {
                               setIsConfirmReceiptDialogOpen(true);
                             }}
                           >
-                            Received
+                            {t("dealer.consignments.buttons.received")}
                           </Button>
                         )}
                       </div>
@@ -452,57 +454,57 @@ export default function DealerConsignmentsPage() {
         <TabsContent value="requested">
           <Card>
             <CardHeader className="p-3 md:p-6">
-              <CardTitle className="text-base md:text-lg">My Requests</CardTitle>
+              <CardTitle className="text-base md:text-lg">{t("dealer.consignments.list.requestedTitle")}</CardTitle>
               <CardDescription className="text-xs md:text-sm">
-                {requestedConsignments.length} requests sent to companies
+                {t("dealer.consignments.list.requestedSubtitle", { count: requestedConsignments.length })}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <DataTable
                 data={requestedConsignments}
                 loading={requestedLoading}
-                emptyMessage="No requests sent. Consignment requests are created when you place orders through company catalogs."
+                emptyMessage={t("dealer.consignments.list.requestedEmpty")}
                 columns={[
                   {
                     key: 'requestNumber',
-                    label: 'Request #',
+                    label: t("dealer.consignments.list.columns.requestNumber"),
                     width: '100px',
                     render: (val) => <span className="font-medium">{val}</span>
                   },
                   {
                     key: 'fromCompany',
-                    label: 'Company',
+                    label: t("dealer.consignments.list.columns.company"),
                     width: '100px',
                     render: (val) => val?.name || "N/A"
                   },
                   {
                     key: 'items',
-                    label: 'Items',
+                    label: t("dealer.consignments.list.columns.items"),
                     width: '60px',
                     render: (val) => `${val?.length || 0}`
                   },
                   {
                     key: 'totalAmount',
-                    label: 'Amount',
+                    label: t("dealer.consignments.list.columns.amount"),
                     align: 'right',
                     width: '90px',
                     render: (val) => <span className="font-semibold">{formatCurrency(val)}</span>
                   },
                   {
                     key: 'status',
-                    label: 'Status',
+                    label: t("dealer.consignments.list.columns.status"),
                     width: '100px',
                     render: (val) => getStatusBadge(val)
                   },
                   {
                     key: 'createdAt',
-                    label: 'Date',
+                    label: t("dealer.consignments.list.columns.date"),
                     width: '80px',
                     render: (val) => formatDate(val)
                   },
                   {
                     key: 'actions',
-                    label: 'Actions',
+                    label: t("dealer.consignments.list.columns.actions"),
                     align: 'right',
                     width: '130px',
                     render: (_, consignment) => (
@@ -541,7 +543,7 @@ export default function DealerConsignmentsPage() {
                               setIsConfirmReceiptDialogOpen(true);
                             }}
                           >
-                            Received
+                            {t("dealer.consignments.buttons.received")}
                           </Button>
                         )}
                       </div>
@@ -558,14 +560,14 @@ export default function DealerConsignmentsPage() {
       <Dialog open={isAcceptDialogOpen} onOpenChange={setIsAcceptDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Accept Consignment</DialogTitle>
+            <DialogTitle>{t("dealer.consignments.dialogs.accept.title")}</DialogTitle>
             <DialogDescription>
-              Accept {selectedConsignment?.requestNumber} as sent by the company (quantities cannot be changed).
+              {t("dealer.consignments.dialogs.accept.description", { number: selectedConsignment?.requestNumber || "" })}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-3">
-              <Label>Items (quantities as sent by company)</Label>
+              <Label>{t("dealer.consignments.dialogs.accept.itemsLabel")}</Label>
               {acceptItems.map((item) => {
                 const originalItem = selectedConsignment?.items.find(
                   (i) => i.id === item.itemId
@@ -577,8 +579,7 @@ export default function DealerConsignmentsPage() {
                         {originalItem?.companyProduct?.name || "Unknown Product"}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        Quantity: {originalItem?.quantity || 0} • Unit Price:{" "}
-                        {formatCurrency(originalItem?.unitPrice)}
+                        {t("dealer.consignments.dialogs.accept.quantity", { qty: originalItem?.quantity || 0 })} • {t("dealer.consignments.dialogs.accept.unitPrice", { price: formatCurrency(originalItem?.unitPrice) })}
                       </p>
                     </div>
                     <div className="text-right font-medium">
@@ -590,12 +591,12 @@ export default function DealerConsignmentsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="accept-notes">Notes (Optional)</Label>
+              <Label htmlFor="accept-notes">{t("dealer.consignments.dialogs.accept.notesLabel")}</Label>
               <Textarea
                 id="accept-notes"
                 value={acceptNotes}
                 onChange={(e) => setAcceptNotes(e.target.value)}
-                placeholder="Add notes..."
+                placeholder={t("dealer.consignments.dialogs.accept.notesPlaceholder")}
                 rows={3}
               />
             </div>
@@ -608,13 +609,13 @@ export default function DealerConsignmentsPage() {
                 setAcceptNotes("");
               }}
             >
-              Cancel
+              {t("dealer.consignments.dialogs.accept.cancel")}
             </Button>
             <Button
               onClick={handleAcceptConsignment}
               disabled={acceptMutation.isPending}
             >
-              {acceptMutation.isPending ? "Accepting..." : "Accept"}
+              {acceptMutation.isPending ? t("dealer.consignments.dialogs.accept.confirming") : t("dealer.consignments.dialogs.accept.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -624,48 +625,48 @@ export default function DealerConsignmentsPage() {
       <Dialog open={isConfirmReceiptDialogOpen} onOpenChange={setIsConfirmReceiptDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Confirm Consignment Receipt</DialogTitle>
+            <DialogTitle>{t("dealer.consignments.dialogs.receipt.title")}</DialogTitle>
             <DialogDescription>
-              Confirm receipt of {selectedConsignment?.requestNumber}. This will create a sale and update your inventory.
+              {t("dealer.consignments.dialogs.receipt.description", { number: selectedConsignment?.requestNumber || "" })}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
             <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 p-4 rounded-md">
               <p className="text-sm font-medium text-yellow-900 dark:text-yellow-100">
-                ⚠️ Important
+                {t("dealer.consignments.dialogs.receipt.important.title")}
               </p>
               <p className="text-sm text-yellow-800 dark:text-yellow-200 mt-1">
-                Confirming receipt will:
+                {t("dealer.consignments.dialogs.receipt.important.desc")}
               </p>
               <ul className="text-sm text-yellow-800 dark:text-yellow-200 mt-2 ml-4 list-disc space-y-1">
-                <li>Create a sale record in your name</li>
-                <li>Add products to your dealer inventory</li>
-                <li>Create an accounts payable balance</li>
-                <li>Apply any advance payments you've made</li>
+                <li>{t("dealer.consignments.dialogs.receipt.important.point1")}</li>
+                <li>{t("dealer.consignments.dialogs.receipt.important.point2")}</li>
+                <li>{t("dealer.consignments.dialogs.receipt.important.point3")}</li>
+                <li>{t("dealer.consignments.dialogs.receipt.important.point4")}</li>
               </ul>
             </div>
 
             {selectedConsignment && (
               <div className="space-y-4">
                 <div className="bg-muted p-4 rounded-md">
-                  <p className="text-sm font-medium mb-2">Consignment Summary</p>
+                  <p className="text-sm font-medium mb-2">{t("dealer.consignments.dialogs.receipt.summary")}</p>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
-                      <p className="text-muted-foreground">Items</p>
-                      <p className="font-medium">{selectedConsignment.items.length} products</p>
+                      <p className="text-muted-foreground">{t("dealer.consignments.dialogs.receipt.itemsCount")}</p>
+                      <p className="font-medium">{t("dealer.consignments.dialogs.receipt.productsCount", { count: selectedConsignment.items.length })}</p>
                     </div>
                     {selectedConsignment.subtotalAmount != null &&
-                    selectedConsignment.discountType ? (
+                      selectedConsignment.discountType ? (
                       <>
                         <div>
-                          <p className="text-muted-foreground">Subtotal</p>
+                          <p className="text-muted-foreground">{t("dealer.consignments.dialogs.receipt.subtotal")}</p>
                           <p className="font-medium">
                             {formatCurrency(Number(selectedConsignment.subtotalAmount))}
                           </p>
                         </div>
                         <div>
                           <p className="text-muted-foreground">
-                            Discount
+                            {t("dealer.consignments.dialogs.receipt.discount")}
                             {selectedConsignment.discountType === "PERCENT"
                               ? ` (${selectedConsignment.discountValue}%)`
                               : ""}
@@ -674,12 +675,12 @@ export default function DealerConsignmentsPage() {
                             -{" "}
                             {formatCurrency(
                               Number(selectedConsignment.subtotalAmount) -
-                                Number(selectedConsignment.totalAmount)
+                              Number(selectedConsignment.totalAmount)
                             )}
                           </p>
                         </div>
                         <div>
-                          <p className="text-muted-foreground">Total Amount</p>
+                          <p className="text-muted-foreground">{t("dealer.consignments.dialogs.receipt.total")}</p>
                           <p className="font-medium">
                             {formatCurrency(selectedConsignment.totalAmount)}
                           </p>
@@ -687,7 +688,7 @@ export default function DealerConsignmentsPage() {
                       </>
                     ) : (
                       <div>
-                        <p className="text-muted-foreground">Total Amount</p>
+                        <p className="text-muted-foreground">{t("dealer.consignments.dialogs.receipt.total")}</p>
                         <p className="font-medium">
                           {formatCurrency(selectedConsignment.totalAmount)}
                         </p>
@@ -716,14 +717,14 @@ export default function DealerConsignmentsPage() {
                           <div className="flex-1">
                             <p className="font-medium">{item.companyProduct?.name || "Unknown Product"}</p>
                             <div className="flex gap-4 text-sm text-muted-foreground mt-1">
-                              <span>Qty: {item.acceptedQuantity || item.quantity}</span>
-                              <span>Cost: {formatCurrency(costPrice)}</span>
+                              <span>{t("dealer.consignments.dialogs.receipt.qty", { qty: item.acceptedQuantity || item.quantity })}</span>
+                              <span>{t("dealer.consignments.dialogs.receipt.cost", { cost: formatCurrency(costPrice) })}</span>
                             </div>
                           </div>
 
                           <div className="w-full sm:w-48">
                             <Label htmlFor={`price-${item.id}`} className="text-xs mb-1.5 block">
-                              Selling Price (per unit)
+                              {t("dealer.consignments.dialogs.receipt.sellingPriceLabel")}
                             </Label>
                             <div className="relative">
                               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
@@ -755,12 +756,12 @@ export default function DealerConsignmentsPage() {
             )}
 
             <div className="space-y-2 pt-4 border-t">
-              <Label htmlFor="receipt-notes">Notes (Optional)</Label>
+              <Label htmlFor="receipt-notes">{t("dealer.consignments.dialogs.receipt.notesLabel")}</Label>
               <Textarea
                 id="receipt-notes"
                 value={receiptNotes}
                 onChange={(e) => setReceiptNotes(e.target.value)}
-                placeholder="Add any notes about the received goods..."
+                placeholder={t("dealer.consignments.dialogs.receipt.notesPlaceholder")}
                 rows={3}
               />
             </div>
@@ -775,14 +776,14 @@ export default function DealerConsignmentsPage() {
                 setSellingPrices({});
               }}
             >
-              Cancel
+              {t("dealer.consignments.dialogs.receipt.cancel")}
             </Button>
             <Button
               onClick={handleConfirmReceipt}
               disabled={confirmReceiptMutation.isPending}
               className="bg-green-600 hover:bg-green-700"
             >
-              {confirmReceiptMutation.isPending ? "Confirming..." : "Confirm Receipt"}
+              {confirmReceiptMutation.isPending ? t("dealer.consignments.dialogs.receipt.confirming") : t("dealer.consignments.dialogs.receipt.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -792,19 +793,19 @@ export default function DealerConsignmentsPage() {
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject Consignment</DialogTitle>
+            <DialogTitle>{t("dealer.consignments.dialogs.reject.title")}</DialogTitle>
             <DialogDescription>
-              Reject consignment {selectedConsignment?.requestNumber}
+              {t("dealer.consignments.dialogs.reject.description", { number: selectedConsignment?.requestNumber || "" })}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="reject-reason">Reason for Rejection *</Label>
+              <Label htmlFor="reject-reason">{t("dealer.consignments.dialogs.reject.reasonLabel")}</Label>
               <Textarea
                 id="reject-reason"
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Explain why you're rejecting this consignment..."
+                placeholder={t("dealer.consignments.dialogs.reject.reasonPlaceholder")}
                 rows={4}
               />
             </div>
@@ -817,7 +818,7 @@ export default function DealerConsignmentsPage() {
                 setRejectReason("");
               }}
             >
-              Cancel
+              {t("dealer.consignments.dialogs.reject.cancel")}
             </Button>
             <Button
               variant="destructive"
@@ -825,7 +826,7 @@ export default function DealerConsignmentsPage() {
               onClick={handleRejectConsignment}
               disabled={rejectMutation.isPending || !rejectReason}
             >
-              {rejectMutation.isPending ? "Rejecting..." : "Reject"}
+              {rejectMutation.isPending ? t("dealer.consignments.dialogs.reject.confirming") : t("dealer.consignments.dialogs.reject.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -841,7 +842,7 @@ export default function DealerConsignmentsPage() {
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Consignment Details</DialogTitle>
+            <DialogTitle>{t("dealer.consignments.dialogs.details.title")}</DialogTitle>
             <DialogDescription>
               {selectedConsignment?.requestNumber}
             </DialogDescription>
@@ -851,31 +852,31 @@ export default function DealerConsignmentsPage() {
               {/* Basic Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Status</Label>
+                  <Label>{t("dealer.consignments.dialogs.details.labels.status")}</Label>
                   <div className="mt-1">{getStatusBadge(selectedConsignment.status)}</div>
                 </div>
                 <div>
-                  <Label>Direction</Label>
+                  <Label>{t("dealer.consignments.dialogs.details.labels.direction")}</Label>
                   <p className="font-medium mt-1">{selectedConsignment.direction}</p>
                 </div>
                 <div>
-                  <Label>Company</Label>
+                  <Label>{t("dealer.consignments.dialogs.details.labels.company")}</Label>
                   <p className="font-medium mt-1">
                     {selectedConsignment.fromCompany?.name || "N/A"}
                   </p>
                 </div>
                 {selectedConsignment.subtotalAmount != null &&
-                selectedConsignment.discountType ? (
+                  selectedConsignment.discountType ? (
                   <>
                     <div>
-                      <Label>Subtotal</Label>
+                      <Label>{t("dealer.consignments.dialogs.details.labels.subtotal")}</Label>
                       <p className="font-medium mt-1">
                         {formatCurrency(Number(selectedConsignment.subtotalAmount))}
                       </p>
                     </div>
                     <div>
                       <Label>
-                        Discount
+                        {t("dealer.consignments.dialogs.details.labels.discount")}
                         {selectedConsignment.discountType === "PERCENT"
                           ? ` (${selectedConsignment.discountValue}%)`
                           : ` (रू ${Number(selectedConsignment.discountValue || 0).toFixed(2)})`}
@@ -884,12 +885,12 @@ export default function DealerConsignmentsPage() {
                         -{" "}
                         {formatCurrency(
                           Number(selectedConsignment.subtotalAmount) -
-                            Number(selectedConsignment.totalAmount)
+                          Number(selectedConsignment.totalAmount)
                         )}
                       </p>
                     </div>
                     <div>
-                      <Label>Total Amount</Label>
+                      <Label>{t("dealer.consignments.dialogs.details.labels.total")}</Label>
                       <p className="font-medium mt-1">
                         {formatCurrency(selectedConsignment.totalAmount)}
                       </p>
@@ -897,7 +898,7 @@ export default function DealerConsignmentsPage() {
                   </>
                 ) : (
                   <div>
-                    <Label>Total Amount</Label>
+                    <Label>{t("dealer.consignments.dialogs.details.labels.total")}</Label>
                     <p className="font-medium mt-1">
                       {formatCurrency(selectedConsignment.totalAmount)}
                     </p>
@@ -907,16 +908,16 @@ export default function DealerConsignmentsPage() {
 
               {/* Items */}
               <div>
-                <Label>Items</Label>
+                <Label>{t("dealer.consignments.dialogs.details.labels.items")}</Label>
                 <Table className="mt-2">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Product</TableHead>
-                      <TableHead className="text-right">Requested</TableHead>
-                      <TableHead className="text-right">Approved</TableHead>
-                      <TableHead className="text-right">Received</TableHead>
-                      <TableHead className="text-right">Unit Price</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead>{t("dealer.consignments.dialogs.details.table.product")}</TableHead>
+                      <TableHead className="text-right">{t("dealer.consignments.dialogs.details.table.requested")}</TableHead>
+                      <TableHead className="text-right">{t("dealer.consignments.dialogs.details.table.approved")}</TableHead>
+                      <TableHead className="text-right">{t("dealer.consignments.dialogs.details.table.received")}</TableHead>
+                      <TableHead className="text-right">{t("dealer.consignments.dialogs.details.table.unitPrice")}</TableHead>
+                      <TableHead className="text-right">{t("dealer.consignments.dialogs.details.table.total")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -945,21 +946,21 @@ export default function DealerConsignmentsPage() {
               {/* Dispatch Info */}
               {selectedConsignment.dispatchRef && (
                 <div className="space-y-2 p-4 bg-muted rounded-md">
-                  <Label>Dispatch Information</Label>
+                  <Label>{t("dealer.consignments.dialogs.details.dispatch.title")}</Label>
                   <div className="grid grid-cols-2 gap-4 mt-2">
                     <div>
-                      <p className="text-sm text-muted-foreground">Reference</p>
+                      <p className="text-sm text-muted-foreground">{t("dealer.consignments.dialogs.details.dispatch.reference")}</p>
                       <p className="font-medium">{selectedConsignment.dispatchRef}</p>
                     </div>
                     {selectedConsignment.trackingInfo && (
                       <div>
-                        <p className="text-sm text-muted-foreground">Tracking</p>
+                        <p className="text-sm text-muted-foreground">{t("dealer.consignments.dialogs.details.dispatch.tracking")}</p>
                         <p className="font-medium">{selectedConsignment.trackingInfo}</p>
                       </div>
                     )}
                     {selectedConsignment.dispatchedAt && (
                       <div>
-                        <p className="text-sm text-muted-foreground">Dispatched On</p>
+                        <p className="text-sm text-muted-foreground">{t("dealer.consignments.dialogs.details.dispatch.dispatchedOn")}</p>
                         <p className="font-medium">
                           {formatDate(selectedConsignment.dispatchedAt)}
                         </p>
@@ -972,15 +973,15 @@ export default function DealerConsignmentsPage() {
               {/* Receipt Info */}
               {selectedConsignment.grnRef && (
                 <div className="space-y-2 p-4 bg-green-50 dark:bg-green-950 rounded-md">
-                  <Label>Receipt Information</Label>
+                  <Label>{t("dealer.consignments.dialogs.details.receipt.title")}</Label>
                   <div className="grid grid-cols-2 gap-4 mt-2">
                     <div>
-                      <p className="text-sm text-muted-foreground">GRN Reference</p>
+                      <p className="text-sm text-muted-foreground">{t("dealer.consignments.dialogs.details.receipt.grn")}</p>
                       <p className="font-medium">{selectedConsignment.grnRef}</p>
                     </div>
                     {selectedConsignment.receivedAt && (
                       <div>
-                        <p className="text-sm text-muted-foreground">Received On</p>
+                        <p className="text-sm text-muted-foreground">{t("dealer.consignments.dialogs.details.receipt.receivedOn")}</p>
                         <p className="font-medium">
                           {formatDate(selectedConsignment.receivedAt)}
                         </p>
@@ -1007,55 +1008,55 @@ export default function DealerConsignmentsPage() {
                     : `रू ${Number(cs.discount.value).toFixed(2)}`
                   : "";
                 return (
-                <div className="space-y-2 p-4 bg-blue-50 dark:bg-blue-950 rounded-md">
-                  <Label>Linked Sale</Label>
-                  <div className="grid grid-cols-3 gap-4 mt-2">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Invoice #</p>
-                      <p className="font-medium">
-                        {cs.invoiceNumber}
-                      </p>
-                    </div>
-                    {hasSaleDiscount ? (
-                      <>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Subtotal</p>
-                          <p className="font-medium">{formatCurrency(saleSubtotal)}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Discount ({discountLabel})</p>
-                          <p className="font-medium text-green-600">
-                            - {formatCurrency(saleSubtotal - Number(cs.totalAmount))}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Total</p>
-                          <p className="font-medium">{formatCurrency(Number(cs.totalAmount))}</p>
-                        </div>
-                      </>
-                    ) : (
+                  <div className="space-y-2 p-4 bg-blue-50 dark:bg-blue-950 rounded-md">
+                    <Label>{t("dealer.consignments.dialogs.details.linkedSale.title")}</Label>
+                    <div className="grid grid-cols-3 gap-4 mt-2">
                       <div>
-                        <p className="text-sm text-muted-foreground">Total</p>
-                        <p className="font-medium">{formatCurrency(Number(cs.totalAmount))}</p>
-                      </div>
-                    )}
-                    {cs?.account && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">Account Balance</p>
-                        <p className={`font-medium ${Number(cs.account.balance) > 0 ? "text-red-600" : Number(cs.account.balance) < 0 ? "text-green-600" : ""}`}>
-                          {formatCurrency(cs.account.balance)}
+                        <p className="text-sm text-muted-foreground">{t("dealer.consignments.dialogs.details.linkedSale.invoice")}</p>
+                        <p className="font-medium">
+                          {cs.invoiceNumber}
                         </p>
                       </div>
-                    )}
+                      {hasSaleDiscount ? (
+                        <>
+                          <div>
+                            <p className="text-sm text-muted-foreground">{t("dealer.consignments.dialogs.details.linkedSale.subtotal")}</p>
+                            <p className="font-medium">{formatCurrency(saleSubtotal)}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">{t("dealer.consignments.dialogs.details.linkedSale.discount")} ({discountLabel})</p>
+                            <p className="font-medium text-green-600">
+                              - {formatCurrency(saleSubtotal - Number(cs.totalAmount))}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">{t("dealer.consignments.dialogs.details.linkedSale.total")}</p>
+                            <p className="font-medium">{formatCurrency(Number(cs.totalAmount))}</p>
+                          </div>
+                        </>
+                      ) : (
+                        <div>
+                          <p className="text-sm text-muted-foreground">{t("dealer.consignments.dialogs.details.linkedSale.total")}</p>
+                          <p className="font-medium">{formatCurrency(Number(cs.totalAmount))}</p>
+                        </div>
+                      )}
+                      {cs?.account && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">{t("dealer.consignments.dialogs.details.linkedSale.balance")}</p>
+                          <p className={`font-medium ${Number(cs.account.balance) > 0 ? "text-red-600" : Number(cs.account.balance) < 0 ? "text-green-600" : ""}`}>
+                            {formatCurrency(cs.account.balance)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
                 );
               })()}
 
               {/* Notes */}
               {selectedConsignment.notes && (
                 <div>
-                  <Label>Notes</Label>
+                  <Label>{t("dealer.consignments.dialogs.details.labels.notes")}</Label>
                   <p className="mt-1 text-sm">{selectedConsignment.notes}</p>
                 </div>
               )}
@@ -1063,7 +1064,7 @@ export default function DealerConsignmentsPage() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
-              Close
+              {t("dealer.consignments.buttons.close")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1081,6 +1082,7 @@ function RejectionReasonDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useI18n();
   const { data: auditLogs, isLoading } = useGetDealerConsignmentAuditLogs(
     consignmentId || ""
   );
@@ -1091,30 +1093,30 @@ function RejectionReasonDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Rejection Reason</DialogTitle>
+          <DialogTitle>{t("dealer.consignments.dialogs.rejectionReason.title")}</DialogTitle>
           <DialogDescription>
-            Reason provided for rejection
+            {t("dealer.consignments.dialogs.rejectionReason.description")}
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
           {isLoading ? (
             <div className="flex justify-center py-4">
-              <p className="text-muted-foreground">Loading details...</p>
+              <p className="text-muted-foreground">{t("dealer.consignments.dialogs.rejectionReason.loading")}</p>
             </div>
           ) : rejectionLog ? (
             <div className="bg-red-50 p-4 rounded-md border border-red-100 text-red-800">
-              <p className="font-medium mb-1">Reason:</p>
-              <p>{rejectionLog.notes || "No specific reason provided."}</p>
+              <p className="font-medium mb-1">{t("dealer.consignments.dialogs.rejectionReason.reasonLabel")}</p>
+              <p>{rejectionLog.notes || t("dealer.consignments.dialogs.rejectionReason.noReason")}</p>
               <p className="text-xs text-red-600 mt-2 pt-2 border-t border-red-200">
-                Rejected by {rejectionLog.actor?.name} on {new Date(rejectionLog.createdAt).toLocaleDateString()}
+                {t("dealer.consignments.dialogs.rejectionReason.rejectedBy", { name: rejectionLog.actor?.name, date: new Date(rejectionLog.createdAt).toLocaleDateString() })}
               </p>
             </div>
           ) : (
-            <p className="text-muted-foreground text-center py-4">No rejection details found.</p>
+            <p className="text-muted-foreground text-center py-4">{t("dealer.consignments.dialogs.rejectionReason.noDetails")}</p>
           )}
         </div>
         <DialogFooter>
-          <Button onClick={() => onOpenChange(false)}>Close</Button>
+          <Button onClick={() => onOpenChange(false)}>{t("dealer.consignments.dialogs.rejectionReason.close")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -62,6 +62,7 @@ import {
 } from "@/common/components/ui/select";
 import { Textarea } from "@/common/components/ui/textarea";
 import { toast } from "sonner";
+import { useI18n } from "@/i18n/useI18n";
 import {
   useGetDealerPaymentRequests,
   useAcceptDealerPaymentRequest,
@@ -75,6 +76,7 @@ import { ImageUpload } from "@/common/components/ui/image-upload";
 
 export default function DealerPaymentsPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState("received");
   const [search, setSearch] = useState("");
   const [isViewRequestOpen, setIsViewRequestOpen] = useState(false);
@@ -145,10 +147,7 @@ export default function DealerPaymentsPage() {
 
   const formatPaymentMethod = (method: string | undefined | null) => {
     if (!method) return "N/A";
-    return method
-      .split("_")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(" ");
+    return t(`dealer.payments.methods.${method}`) || method;
   };
 
   const getStatusBadge = (status: string) => {
@@ -157,39 +156,39 @@ export default function DealerPaymentsPage() {
         return (
           <Badge variant="secondary">
             <Clock className="h-3 w-3 mr-1" />
-            Pending
+            {t("dealer.payments.stats.pending")}
           </Badge>
         );
       case "ACCEPTED":
         return (
           <Badge variant="default">
             <CheckCircle className="h-3 w-3 mr-1" />
-            Accepted
+            {t("dealer.payments.stats.accepted")}
           </Badge>
         );
       case "PAYMENT_SUBMITTED":
         return (
           <Badge variant="default" className="bg-yellow-600">
             <FileText className="h-3 w-3 mr-1" />
-            Payment Submitted
+            {t("dealer.payments.status.submitted")}
           </Badge>
         );
       case "VERIFIED":
         return (
           <Badge variant="default" className="bg-green-600">
             <CheckCircle className="h-3 w-3 mr-1" />
-            Verified
+            {t("dealer.payments.status.verified")}
           </Badge>
         );
       case "REJECTED":
         return (
           <Badge variant="destructive">
             <XCircle className="h-3 w-3 mr-1" />
-            Rejected
+            {t("dealer.payments.status.rejected")}
           </Badge>
         );
       case "CANCELLED":
-        return <Badge variant="outline">Cancelled</Badge>;
+        return <Badge variant="outline">{t("dealer.payments.status.cancelled")}</Badge>;
       default:
         return <Badge>{status}</Badge>;
     }
@@ -197,7 +196,7 @@ export default function DealerPaymentsPage() {
 
   const handleAcceptAndSubmitProof = async () => {
     if (!selectedRequest || !paymentMethod) {
-      toast.error("Please fill in all required fields (payment method, date)");
+      toast.error(t("dealer.payments.messages.fillRequired"));
       return;
     }
 
@@ -210,7 +209,7 @@ export default function DealerPaymentsPage() {
         paymentReceiptUrl: paymentReceiptUrl || undefined,
         paymentDate,
       });
-      toast.success("Payment request accepted and proof submitted successfully");
+      toast.success(t("dealer.payments.messages.acceptSuccess"));
       setIsAcceptAndProofDialogOpen(false);
       setIsViewRequestOpen(false);
       setSelectedRequest(null);
@@ -218,13 +217,13 @@ export default function DealerPaymentsPage() {
       setPaymentReference("");
       setPaymentReceiptUrl("");
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to accept or submit proof");
+      toast.error(error.response?.data?.message || t("dealer.payments.messages.acceptFailed"));
     }
   };
 
   const handleSubmitProof = async () => {
     if (!selectedRequest || !paymentMethod) {
-      toast.error("Please fill in all required fields");
+      toast.error(t("dealer.payments.messages.fillRequired"));
       return;
     }
 
@@ -236,7 +235,7 @@ export default function DealerPaymentsPage() {
         paymentReceiptUrl: paymentReceiptUrl || undefined,
         paymentDate,
       });
-      toast.success("Payment proof submitted successfully");
+      toast.success(t("dealer.payments.messages.submitSuccess"));
       setIsSubmitProofOpen(false);
       setIsViewRequestOpen(false);
       setSelectedRequest(null);
@@ -244,13 +243,13 @@ export default function DealerPaymentsPage() {
       setPaymentReference("");
       setPaymentReceiptUrl("");
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to submit proof");
+      toast.error(error.response?.data?.message || t("dealer.payments.messages.submitFailed"));
     }
   };
 
   const handleCreateRequest = async () => {
     if (!requestCompanyId || !requestAmount || requestAmount <= 0 || !requestPaymentMethod) {
-      toast.error("Please fill in all required fields");
+      toast.error(t("dealer.payments.messages.fillRequired"));
       return;
     }
 
@@ -265,7 +264,7 @@ export default function DealerPaymentsPage() {
         paymentReceiptUrl: requestPaymentReceiptUrl || undefined,
         paymentDate: requestPaymentDate,
       });
-      toast.success("Payment proof submitted successfully. Waiting for company verification.");
+      toast.success(t("dealer.payments.messages.createSuccess"));
       setIsCreateRequestOpen(false);
       setRequestCompanyId("");
       setRequestSaleId("");
@@ -275,7 +274,7 @@ export default function DealerPaymentsPage() {
       setRequestPaymentReference("");
       setRequestPaymentReceiptUrl("");
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || "Failed to create request";
+      const errorMessage = error.response?.data?.message || error.message || t("dealer.payments.messages.createFailed");
       toast.error(errorMessage);
       console.error("Create payment request error:", error);
     }
@@ -289,9 +288,9 @@ export default function DealerPaymentsPage() {
     if (!paymentToCancel) return;
     try {
       await cancelRequestMutation.mutateAsync(paymentToCancel);
-      toast.success("Payment request cancelled successfully");
+      toast.success(t("dealer.payments.messages.cancelSuccess"));
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to cancel request");
+      toast.error(error.response?.data?.message || t("dealer.payments.messages.cancelFailed"));
     } finally {
       setPaymentToCancel(null);
     }
@@ -320,20 +319,20 @@ export default function DealerPaymentsPage() {
               className="text-xs md:text-sm"
             >
               <ArrowLeft className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" />
-              <span className="hidden sm:inline">Back to Companies</span>
-              <span className="sm:hidden">Back</span>
+              <span className="hidden sm:inline">{t("dealer.payments.buttons.back")}</span>
+              <span className="sm:hidden">{t("dealer.payments.buttons.back")}</span>
             </Button>
           </div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-            Payment Requests
+            {t("dealer.payments.title")}
           </h1>
           <p className="text-sm md:text-base text-muted-foreground">
-            Manage payment requests with companies
+            {t("dealer.payments.subtitle")}
           </p>
         </div>
         <Button onClick={() => setIsCreateRequestOpen(true)} size="sm" className="w-full md:w-auto">
           <Plus className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
-          <span className="hidden sm:inline">Submit </span>Payment
+          <span className="hidden sm:inline">{t("dealer.payments.buttons.submit")}</span>
         </Button>
       </div>
 
@@ -341,19 +340,19 @@ export default function DealerPaymentsPage() {
       <div className="grid grid-cols-3 gap-2 md:gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">Pending</CardTitle>
+            <CardTitle className="text-[10px] md:text-sm font-medium">{t("dealer.payments.stats.pending")}</CardTitle>
             <Clock className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
             <div className="text-base md:text-2xl font-bold">{pendingReceived}</div>
             <p className="text-[9px] md:text-xs text-muted-foreground">
-              Awaiting
+              {t("dealer.payments.stats.awaiting")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">Accepted</CardTitle>
+            <CardTitle className="text-[10px] md:text-sm font-medium">{t("dealer.payments.stats.accepted")}</CardTitle>
             <CheckCircle className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -361,13 +360,13 @@ export default function DealerPaymentsPage() {
               {acceptedRequests}
             </div>
             <p className="text-[9px] md:text-xs text-muted-foreground">
-              Ready
+              {t("dealer.payments.stats.ready")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">Amount</CardTitle>
+            <CardTitle className="text-[10px] md:text-sm font-medium">{t("dealer.payments.stats.amount")}</CardTitle>
             <DollarSign className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -376,7 +375,7 @@ export default function DealerPaymentsPage() {
               <span className="md:hidden">रू{Math.round(pendingAmount).toLocaleString()}</span>
             </div>
             <p className="text-[9px] md:text-xs text-muted-foreground">
-              Pending
+              {t("dealer.payments.stats.pending")}
             </p>
           </CardContent>
         </Card>
@@ -385,8 +384,8 @@ export default function DealerPaymentsPage() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="w-full md:w-auto">
-          <TabsTrigger value="received" className="flex-1 md:flex-none text-xs md:text-sm">Received</TabsTrigger>
-          <TabsTrigger value="sent" className="flex-1 md:flex-none text-xs md:text-sm">Sent</TabsTrigger>
+          <TabsTrigger value="received" className="flex-1 md:flex-none text-xs md:text-sm">{t("dealer.payments.tabs.received")}</TabsTrigger>
+          <TabsTrigger value="sent" className="flex-1 md:flex-none text-xs md:text-sm">{t("dealer.payments.tabs.sent")}</TabsTrigger>
         </TabsList>
 
         {/* Received Requests Tab */}
@@ -395,16 +394,16 @@ export default function DealerPaymentsPage() {
             <CardHeader className="p-3 md:p-6">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div>
-                  <CardTitle className="text-base md:text-lg">Received Requests</CardTitle>
+                  <CardTitle className="text-base md:text-lg">{t("dealer.payments.received.title")}</CardTitle>
                   <CardDescription className="text-xs md:text-sm">
-                    From companies
+                    {t("dealer.payments.received.description")}
                   </CardDescription>
                 </div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                   <div className="relative">
                     <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      placeholder="Search..."
+                      placeholder={t("dealer.payments.filters.searchPlaceholder")}
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       className="pl-8 h-8 text-xs w-full sm:w-[150px]"
@@ -415,16 +414,16 @@ export default function DealerPaymentsPage() {
                     onValueChange={setStatusFilter}
                   >
                     <SelectTrigger className="h-8 text-xs w-full sm:w-[130px]">
-                      <SelectValue placeholder="Status" />
+                      <SelectValue placeholder={t("dealer.payments.filters.statusPlaceholder")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ALL">All</SelectItem>
-                      <SelectItem value="PENDING">Pending</SelectItem>
-                      <SelectItem value="ACCEPTED">Accepted</SelectItem>
-                      <SelectItem value="PAYMENT_SUBMITTED">Submitted</SelectItem>
-                      <SelectItem value="VERIFIED">Verified</SelectItem>
-                      <SelectItem value="REJECTED">Rejected</SelectItem>
-                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                      <SelectItem value="ALL">{t("dealer.payments.filters.all")}</SelectItem>
+                      <SelectItem value="PENDING">{t("dealer.payments.stats.pending")}</SelectItem>
+                      <SelectItem value="ACCEPTED">{t("dealer.payments.stats.accepted")}</SelectItem>
+                      <SelectItem value="PAYMENT_SUBMITTED">{t("dealer.payments.status.submitted")}</SelectItem>
+                      <SelectItem value="VERIFIED">{t("dealer.payments.status.verified")}</SelectItem>
+                      <SelectItem value="REJECTED">{t("dealer.payments.status.rejected")}</SelectItem>
+                      <SelectItem value="CANCELLED">{t("dealer.payments.status.cancelled")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -434,42 +433,42 @@ export default function DealerPaymentsPage() {
               <DataTable
                 data={receivedRequests}
                 loading={receivedLoading}
-                emptyMessage="No payment requests. Requests will appear here."
+                emptyMessage={t("dealer.payments.received.empty")}
                 columns={[
                   {
                     key: 'createdAt',
-                    label: 'Date',
+                    label: t("dealer.payments.columns.date"),
                     width: '90px',
                     render: (val) => formatDate(val)
                   },
                   {
                     key: 'company',
-                    label: 'Company',
+                    label: t("dealer.payments.columns.company"),
                     width: '100px',
                     render: (val) => <span className="font-medium truncate max-w-[80px] block">{val?.name || "N/A"}</span>
                   },
                   {
                     key: 'companySale',
-                    label: 'Invoice',
+                    label: t("dealer.payments.columns.invoice"),
                     width: '80px',
                     render: (val) => val?.invoiceNumber || "General"
                   },
                   {
                     key: 'amount',
-                    label: 'Amount',
+                    label: t("dealer.payments.columns.amount"),
                     align: 'right',
                     width: '90px',
                     render: (val) => <span className="font-semibold">{formatCurrency(val)}</span>
                   },
                   {
                     key: 'status',
-                    label: 'Status',
+                    label: t("dealer.payments.columns.status"),
                     width: '110px',
                     render: (val) => getStatusBadge(val)
                   },
                   {
                     key: 'actions',
-                    label: 'Actions',
+                    label: t("dealer.payments.columns.actions"),
                     align: 'right',
                     width: '110px',
                     render: (_, request) => (
@@ -536,15 +535,15 @@ export default function DealerPaymentsPage() {
             <CardHeader className="p-3 md:p-6">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div>
-                  <CardTitle className="text-base md:text-lg">Sent Requests</CardTitle>
+                  <CardTitle className="text-base md:text-lg">{t("dealer.payments.sent.title")}</CardTitle>
                   <CardDescription className="text-xs md:text-sm">
-                    Submitted to companies
+                    {t("dealer.payments.sent.description")}
                   </CardDescription>
                 </div>
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder="Search..."
+                    placeholder={t("dealer.payments.filters.searchPlaceholder")}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="pl-8 h-8 text-xs w-full sm:w-[150px]"
@@ -556,48 +555,48 @@ export default function DealerPaymentsPage() {
               <DataTable
                 data={sentRequests}
                 loading={sentLoading}
-                emptyMessage="No requests sent. Submit a payment to get started."
+                emptyMessage={t("dealer.payments.sent.empty")}
                 columns={[
                   {
                     key: 'createdAt',
-                    label: 'Date',
+                    label: t("dealer.payments.columns.date"),
                     width: '90px',
                     render: (val) => formatDate(val)
                   },
                   {
                     key: 'company',
-                    label: 'Company',
+                    label: t("dealer.payments.columns.company"),
                     width: '100px',
                     render: (val) => <span className="font-medium truncate max-w-[80px] block">{val?.name || "N/A"}</span>
                   },
                   {
                     key: 'companySale',
-                    label: 'Invoice',
+                    label: t("dealer.payments.columns.invoice"),
                     width: '80px',
                     render: (val) => val?.invoiceNumber || "General"
                   },
                   {
                     key: 'amount',
-                    label: 'Amount',
+                    label: t("dealer.payments.columns.amount"),
                     align: 'right',
                     width: '90px',
                     render: (val) => <span className="font-semibold">{formatCurrency(val)}</span>
                   },
                   {
                     key: 'paymentMethod',
-                    label: 'Method',
+                    label: t("dealer.payments.columns.method"),
                     width: '80px',
                     render: (val) => formatPaymentMethod(val)
                   },
                   {
                     key: 'status',
-                    label: 'Status',
+                    label: t("dealer.payments.columns.status"),
                     width: '110px',
                     render: (val) => getStatusBadge(val)
                   },
                   {
                     key: 'actions',
-                    label: 'Actions',
+                    label: t("dealer.payments.columns.actions"),
                     align: 'right',
                     width: '90px',
                     render: (_, request) => (
@@ -638,27 +637,27 @@ export default function DealerPaymentsPage() {
       <Dialog open={isViewRequestOpen} onOpenChange={setIsViewRequestOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Payment Request Details</DialogTitle>
+            <DialogTitle>{t("dealer.payments.dialogs.view.title")}</DialogTitle>
             <DialogDescription>
-              View payment request information
+              {t("dealer.payments.dialogs.view.description")}
             </DialogDescription>
           </DialogHeader>
           {selectedRequest && (
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Request Number</Label>
+                  <Label>{t("dealer.payments.dialogs.view.requestNumber")}</Label>
                   <p className="font-medium">{selectedRequest.requestNumber}</p>
                 </div>
                 <div>
-                  <Label>Status</Label>
+                  <Label>{t("dealer.payments.dialogs.view.status")}</Label>
                   <div>{getStatusBadge(selectedRequest.status)}</div>
                 </div>
                 <div>
                   <Label>
                     {selectedRequest.direction === "COMPANY_TO_DEALER"
-                      ? "Company"
-                      : "Dealer"}
+                      ? t("dealer.payments.dialogs.view.company")
+                      : t("dealer.payments.dialogs.view.dealer")}
                   </Label>
                   <p className="font-medium">
                     {selectedRequest.direction === "COMPANY_TO_DEALER"
@@ -667,7 +666,7 @@ export default function DealerPaymentsPage() {
                   </p>
                 </div>
                 <div>
-                  <Label>Amount</Label>
+                  <Label>{t("dealer.payments.dialogs.view.dueAmount")}</Label>
                   <p className="font-medium text-lg">
                     {formatCurrency(selectedRequest.amount)}
                   </p>
@@ -675,13 +674,13 @@ export default function DealerPaymentsPage() {
                 {selectedRequest.companySale && (
                   <>
                     <div>
-                      <Label>Invoice Number</Label>
+                      <Label>{t("dealer.payments.dialogs.view.invoiceNumber")}</Label>
                       <p className="font-medium">
                         {selectedRequest.companySale.invoiceNumber || "N/A"}
                       </p>
                     </div>
                     <div>
-                      <Label>Due Amount</Label>
+                      <Label>{t("dealer.payments.dialogs.view.dueAmount")}</Label>
                       <p className="font-medium">
                         {formatCurrency(
                           Number(selectedRequest.companySale.dueAmount || 0)
@@ -692,15 +691,15 @@ export default function DealerPaymentsPage() {
                 )}
                 {selectedRequest.paymentMethod && (
                   <div>
-                    <Label>Payment Method</Label>
+                    <Label>{t("dealer.payments.dialogs.view.paymentMethod")}</Label>
                     <p className="font-medium">
-                      {selectedRequest.paymentMethod}
+                      {formatPaymentMethod(selectedRequest.paymentMethod)}
                     </p>
                   </div>
                 )}
                 {selectedRequest.paymentReference && (
                   <div>
-                    <Label>Payment Reference</Label>
+                    <Label>{t("dealer.payments.dialogs.view.paymentReference")}</Label>
                     <p className="font-medium">
                       {selectedRequest.paymentReference}
                     </p>
@@ -708,7 +707,7 @@ export default function DealerPaymentsPage() {
                 )}
                 {selectedRequest.paymentDate && (
                   <div>
-                    <Label>Payment Date</Label>
+                    <Label>{t("dealer.payments.dialogs.view.paymentDate")}</Label>
                     <p className="font-medium">
                       {formatDate(selectedRequest.paymentDate)}
                     </p>
@@ -717,19 +716,19 @@ export default function DealerPaymentsPage() {
               </div>
               {selectedRequest.description && (
                 <div>
-                  <Label>Description</Label>
+                  <Label>{t("dealer.payments.dialogs.view.descriptionLabel")}</Label>
                   <p className="text-sm">{selectedRequest.description}</p>
                 </div>
               )}
               {selectedRequest.reviewNotes && (
                 <div>
-                  <Label>Review Notes</Label>
+                  <Label>{t("dealer.payments.dialogs.view.reviewNotes")}</Label>
                   <p className="text-sm">{selectedRequest.reviewNotes}</p>
                 </div>
               )}
               {selectedRequest.paymentReceiptUrl && (
                 <div>
-                  <Label>Payment Receipt</Label>
+                  <Label>{t("dealer.payments.dialogs.view.receipt")}</Label>
                   <div className="mt-2">
                     <a
                       href={selectedRequest.paymentReceiptUrl}
@@ -738,7 +737,7 @@ export default function DealerPaymentsPage() {
                       className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 underline"
                     >
                       <Image className="h-4 w-4" />
-                      View Receipt Image
+                      {t("dealer.payments.dialogs.view.viewReceipt")}
                     </a>
                     <div className="mt-2 relative aspect-video w-full max-w-sm rounded-lg border overflow-hidden bg-muted">
                       <img
@@ -754,7 +753,7 @@ export default function DealerPaymentsPage() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsViewRequestOpen(false)}>
-              Close
+              {t("dealer.payments.dialogs.view.close")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -774,22 +773,22 @@ export default function DealerPaymentsPage() {
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Accept & submit proof</DialogTitle>
+            <DialogTitle>{t("dealer.payments.dialogs.acceptProof.title")}</DialogTitle>
             <DialogDescription>
-              Accept this payment request and submit your payment proof in one step
+              {t("dealer.payments.dialogs.acceptProof.description")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {selectedRequest && (
               <div className="p-3 bg-muted rounded-lg">
                 <div className="flex justify-between text-sm mb-2">
-                  <span>Amount:</span>
+                  <span>{t("dealer.payments.dialogs.common.amount")}:</span>
                   <span className="font-bold">
                     {formatCurrency(selectedRequest.amount)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>Company:</span>
+                  <span>{t("dealer.payments.dialogs.common.company")}:</span>
                   <span className="font-medium">
                     {selectedRequest.company?.name || "N/A"}
                   </span>
@@ -798,7 +797,7 @@ export default function DealerPaymentsPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="accept-proof-payment-method">Payment Method *</Label>
+              <Label htmlFor="accept-proof-payment-method">{t("dealer.payments.dialogs.common.method")}</Label>
               <Select
                 value={paymentMethod}
                 onValueChange={setPaymentMethod}
@@ -807,39 +806,39 @@ export default function DealerPaymentsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="CASH">Cash</SelectItem>
-                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                  <SelectItem value="CHEQUE">Cheque</SelectItem>
-                  <SelectItem value="UPI">UPI</SelectItem>
-                  <SelectItem value="OTHER">Other</SelectItem>
+                  <SelectItem value="CASH">{t("dealer.payments.methods.CASH")}</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">{t("dealer.payments.methods.BANK_TRANSFER")}</SelectItem>
+                  <SelectItem value="CHEQUE">{t("dealer.payments.methods.CHEQUE")}</SelectItem>
+                  <SelectItem value="UPI">{t("dealer.payments.methods.UPI")}</SelectItem>
+                  <SelectItem value="OTHER">{t("dealer.payments.methods.OTHER")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="accept-proof-reference">
-                Payment Reference (Transaction ID, UPI ID, etc.)
+                {t("dealer.payments.dialogs.common.reference")}
               </Label>
               <Input
                 id="accept-proof-reference"
                 value={paymentReference}
                 onChange={(e) => setPaymentReference(e.target.value)}
-                placeholder="Enter transaction reference..."
+                placeholder={t("dealer.payments.dialogs.common.referencePlaceholder")}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Receipt image (optional)</Label>
+              <Label>{t("dealer.payments.dialogs.common.receipt")}</Label>
               <ImageUpload
                 value={paymentReceiptUrl}
                 onChange={(url) => setPaymentReceiptUrl(url)}
                 folder="payment-receipts"
-                placeholder="Upload receipt image"
+                placeholder={t("dealer.payments.dialogs.common.uploadPlaceholder")}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="accept-proof-date">Payment date *</Label>
+              <Label htmlFor="accept-proof-date">{t("dealer.payments.dialogs.common.date")}</Label>
               <Input
                 id="accept-proof-date"
                 type="date"
@@ -853,15 +852,15 @@ export default function DealerPaymentsPage() {
               variant="outline"
               onClick={() => setIsAcceptAndProofDialogOpen(false)}
             >
-              Cancel
+              {t("dealer.payments.dialogs.common.cancel")}
             </Button>
             <Button
               onClick={handleAcceptAndSubmitProof}
               disabled={acceptRequestMutation.isPending || submitProofMutation.isPending}
             >
               {acceptRequestMutation.isPending || submitProofMutation.isPending
-                ? "Submitting..."
-                : "Accept & submit proof"}
+                ? t("dealer.payments.dialogs.acceptProof.submitting")
+                : t("dealer.payments.dialogs.acceptProof.submit")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -881,22 +880,22 @@ export default function DealerPaymentsPage() {
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Submit Payment Proof</DialogTitle>
+            <DialogTitle>{t("dealer.payments.dialogs.submitProof.title")}</DialogTitle>
             <DialogDescription>
-              Submit payment proof for verification
+              {t("dealer.payments.dialogs.submitProof.description")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {selectedRequest && (
               <div className="p-3 bg-muted rounded-lg">
                 <div className="flex justify-between text-sm mb-2">
-                  <span>Amount:</span>
+                  <span>{t("dealer.payments.dialogs.common.amount")}:</span>
                   <span className="font-bold">
                     {formatCurrency(selectedRequest.amount)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>Company:</span>
+                  <span>{t("dealer.payments.dialogs.common.company")}:</span>
                   <span className="font-medium">
                     {selectedRequest.company?.name || "N/A"}
                   </span>
@@ -905,7 +904,7 @@ export default function DealerPaymentsPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="payment-method">Payment Method *</Label>
+              <Label htmlFor="payment-method">{t("dealer.payments.dialogs.common.method")}</Label>
               <Select
                 value={paymentMethod}
                 onValueChange={setPaymentMethod}
@@ -914,39 +913,39 @@ export default function DealerPaymentsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="CASH">Cash</SelectItem>
-                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                  <SelectItem value="CHEQUE">Cheque</SelectItem>
-                  <SelectItem value="UPI">UPI</SelectItem>
-                  <SelectItem value="OTHER">Other</SelectItem>
+                  <SelectItem value="CASH">{t("dealer.payments.methods.CASH")}</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">{t("dealer.payments.methods.BANK_TRANSFER")}</SelectItem>
+                  <SelectItem value="CHEQUE">{t("dealer.payments.methods.CHEQUE")}</SelectItem>
+                  <SelectItem value="UPI">{t("dealer.payments.methods.UPI")}</SelectItem>
+                  <SelectItem value="OTHER">{t("dealer.payments.methods.OTHER")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="payment-reference">
-                Payment Reference (Transaction ID, UPI ID, etc.)
+                {t("dealer.payments.dialogs.common.reference")}
               </Label>
               <Input
                 id="payment-reference"
                 value={paymentReference}
                 onChange={(e) => setPaymentReference(e.target.value)}
-                placeholder="Enter transaction reference..."
+                placeholder={t("dealer.payments.dialogs.common.referencePlaceholder")}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Receipt Image (Optional)</Label>
+              <Label>{t("dealer.payments.dialogs.common.receipt")}</Label>
               <ImageUpload
                 value={paymentReceiptUrl}
                 onChange={(url) => setPaymentReceiptUrl(url)}
                 folder="payment-receipts"
-                placeholder="Upload receipt image"
+                placeholder={t("dealer.payments.dialogs.common.uploadPlaceholder")}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="payment-date">Payment Date *</Label>
+              <Label htmlFor="payment-date">{t("dealer.payments.dialogs.common.date")}</Label>
               <Input
                 id="payment-date"
                 type="date"
@@ -960,15 +959,15 @@ export default function DealerPaymentsPage() {
               variant="outline"
               onClick={() => setIsSubmitProofOpen(false)}
             >
-              Cancel
+              {t("dealer.payments.dialogs.common.cancel")}
             </Button>
             <Button
               onClick={handleSubmitProof}
               disabled={submitProofMutation.isPending}
             >
               {submitProofMutation.isPending
-                ? "Submitting..."
-                : "Submit Proof"}
+                ? t("dealer.payments.dialogs.submitProof.submitting")
+                : t("dealer.payments.dialogs.submitProof.submit")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -981,9 +980,9 @@ export default function DealerPaymentsPage() {
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Submit Payment Proof</DialogTitle>
+            <DialogTitle>{t("dealer.payments.dialogs.create.title")}</DialogTitle>
             <DialogDescription>
-              Submit proof of payment you've already made to the company for verification and balance reduction
+              {t("dealer.payments.dialogs.create.description")}
             </DialogDescription>
           </DialogHeader>
 
@@ -992,14 +991,14 @@ export default function DealerPaymentsPage() {
             <CompanySearchSelect
               value={requestCompanyId}
               onValueChange={setRequestCompanyId}
-              placeholder="Select company"
-              label="Company"
+              placeholder={t("dealer.payments.dialogs.common.selectCompany")}
+              label={t("dealer.payments.dialogs.common.company")}
               required
             />
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="request-amount">Amount *</Label>
+                <Label htmlFor="request-amount">{t("dealer.payments.dialogs.common.amount")} *</Label>
                 <Input
                   id="request-amount"
                   type="number"
@@ -1013,7 +1012,7 @@ export default function DealerPaymentsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="request-payment-date">Date *</Label>
+                <Label htmlFor="request-payment-date">{t("dealer.payments.dialogs.common.date")}</Label>
                 <Input
                   id="request-payment-date"
                   type="date"
@@ -1025,7 +1024,7 @@ export default function DealerPaymentsPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="request-payment-method">Method *</Label>
+                <Label htmlFor="request-payment-method">{t("dealer.payments.dialogs.common.method")}</Label>
                 <Select
                   value={requestPaymentMethod}
                   onValueChange={setRequestPaymentMethod}
@@ -1034,16 +1033,16 @@ export default function DealerPaymentsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="CASH">Cash</SelectItem>
-                    <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                    <SelectItem value="CHEQUE">Cheque</SelectItem>
-                    <SelectItem value="UPI">UPI</SelectItem>
-                    <SelectItem value="OTHER">Other</SelectItem>
+                    <SelectItem value="CASH">{t("dealer.payments.methods.CASH")}</SelectItem>
+                    <SelectItem value="BANK_TRANSFER">{t("dealer.payments.methods.BANK_TRANSFER")}</SelectItem>
+                    <SelectItem value="CHEQUE">{t("dealer.payments.methods.CHEQUE")}</SelectItem>
+                    <SelectItem value="UPI">{t("dealer.payments.methods.UPI")}</SelectItem>
+                    <SelectItem value="OTHER">{t("dealer.payments.methods.OTHER")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="request-payment-reference">Reference</Label>
+                <Label htmlFor="request-payment-reference">{t("dealer.payments.dialogs.common.reference")}</Label>
                 <Input
                   id="request-payment-reference"
                   value={requestPaymentReference}
@@ -1054,38 +1053,38 @@ export default function DealerPaymentsPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="sale-id">Sale ID (Optional)</Label>
+              <Label htmlFor="sale-id">{t("dealer.payments.dialogs.common.saleId")}</Label>
               <Input
                 id="sale-id"
                 value={requestSaleId}
                 onChange={(e) => setRequestSaleId(e.target.value)}
-                placeholder="Enter sale ID if known"
+                placeholder={t("dealer.payments.dialogs.common.saleIdPlaceholder")}
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="request-description">Description</Label>
+              <Label htmlFor="request-description">{t("dealer.payments.dialogs.common.description")}</Label>
               <Textarea
                 id="request-description"
                 value={requestDescription}
                 onChange={(e) => setRequestDescription(e.target.value)}
-                placeholder="Add note..."
+                placeholder={t("dealer.payments.dialogs.common.descriptionPlaceholder")}
                 rows={2}
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label>Receipt Image</Label>
+              <Label>{t("dealer.payments.dialogs.common.receipt")}</Label>
               <ImageUpload
                 value={requestPaymentReceiptUrl}
                 onChange={(url) => setRequestPaymentReceiptUrl(url)}
                 folder="payment-receipts"
-                placeholder="Upload receipt"
+                placeholder={t("dealer.payments.dialogs.common.uploadPlaceholder")}
               />
             </div>
 
             <div className="bg-blue-50 dark:bg-blue-950 p-2 rounded-md text-xs text-blue-800 dark:text-blue-200">
-              <strong>Note:</strong> Submitting proof for verification.
+              <strong>{t("dealer.payments.dialogs.create.note")}</strong>
             </div>
           </div>
           <DialogFooter>
@@ -1093,15 +1092,15 @@ export default function DealerPaymentsPage() {
               variant="outline"
               onClick={() => setIsCreateRequestOpen(false)}
             >
-              Cancel
+              {t("dealer.payments.dialogs.common.cancel")}
             </Button>
             <Button
               onClick={handleCreateRequest}
               disabled={createRequestMutation.isPending}
             >
               {createRequestMutation.isPending
-                ? "Submitting..."
-                : "Submit Payment"}
+                ? t("dealer.payments.dialogs.create.submitting")
+                : t("dealer.payments.dialogs.create.submit")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1113,18 +1112,18 @@ export default function DealerPaymentsPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Payment Request</AlertDialogTitle>
+            <AlertDialogTitle>{t("dealer.payments.dialogs.cancel.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to cancel this payment request? This action cannot be undone.
+              {t("dealer.payments.dialogs.cancel.description")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>No, Keep It</AlertDialogCancel>
+            <AlertDialogCancel>{t("dealer.payments.dialogs.cancel.keep")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmCancelRequest}
               className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
             >
-              Yes, Cancel Request
+              {t("dealer.payments.dialogs.cancel.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

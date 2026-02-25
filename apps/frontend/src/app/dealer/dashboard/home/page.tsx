@@ -13,7 +13,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/common/components/ui/alert";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
-import { Package, Users, Receipt, TrendingUp, Loader2, X, CheckCircle, Clock, XCircle, AlertCircle, Plus, Truck } from "lucide-react";
+import { Package, Users, Receipt, TrendingUp, Loader2, X, CheckCircle, Clock, XCircle, AlertCircle, Plus, Truck, DollarSign } from "lucide-react";
 import {
   useGetDealerVerificationRequests,
   useAcknowledgeVerificationRequest,
@@ -23,8 +23,11 @@ import { useGetInventorySummary } from "@/fetchers/dealer/dealerProductQueries";
 import { useGetSalesStatistics, useGetDealerSales } from "@/fetchers/dealer/dealerSaleQueries";
 import { useGetDealerProducts } from "@/fetchers/dealer/dealerProductQueries";
 import { useGetLedgerSummary } from "@/fetchers/dealer/dealerLedgerQueries";
+import { useGetDealerProfitSummary } from "@/fetchers/dealer/dealerManualCompanyQueries";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function DealerHomePage() {
+  const { t } = useI18n();
   const [dismissedBanners, setDismissedBanners] = useState<Set<string>>(new Set());
 
   // Get verification requests to check for unacknowledged messages
@@ -73,8 +76,8 @@ export default function DealerHomePage() {
       case "APPROVED":
         return {
           variant: "default" as const,
-          title: "Connection Approved!",
-          description: `Congratulations! You are now connected with ${companyName}. You can now interact with them through your Companies page.`,
+          title: t("dealer.dashboard.banner.approved.title"),
+          description: t("dealer.dashboard.banner.approved.description", { companyName }),
           icon: CheckCircle,
           className: "bg-green-50 border-green-200 text-green-900",
           iconClassName: "text-green-600",
@@ -82,12 +85,12 @@ export default function DealerHomePage() {
       case "REJECTED":
         return {
           variant: "destructive" as const,
-          title: "Request Rejected",
-          description: `Your request to join ${companyName} was rejected. ${request.rejectedCount >= 3
-            ? "You have reached the maximum rejection limit (3) and cannot apply again."
+          title: t("dealer.dashboard.banner.rejected.title"),
+          description: `${t("dealer.dashboard.banner.rejected.description", { companyName })} ${request.rejectedCount >= 3
+            ? t("dealer.dashboard.banner.rejected.limitReached")
             : request.rejectedCount === 2
-              ? "This is your 2nd rejection. One more rejection and you won't be able to apply again."
-              : "You can retry after 1 hour from the Companies page."
+              ? t("dealer.dashboard.banner.rejected.secondRejection")
+              : t("dealer.dashboard.banner.rejected.retry")
             }`,
           icon: XCircle,
           className: "bg-red-50 border-red-200 text-red-900",
@@ -96,8 +99,8 @@ export default function DealerHomePage() {
       case "PENDING":
         return {
           variant: "default" as const,
-          title: "Request Pending",
-          description: `Your request to join ${companyName} is pending approval. We'll notify you once the company responds.`,
+          title: t("dealer.dashboard.banner.pending.title"),
+          description: t("dealer.dashboard.banner.pending.description", { companyName }),
           icon: Clock,
           className: "bg-yellow-50 border-yellow-200 text-yellow-900",
           iconClassName: "text-yellow-600",
@@ -128,9 +131,10 @@ export default function DealerHomePage() {
     limit: 10,
   });
   const { data: ledgerSummaryData, isLoading: ledgerLoading } = useGetLedgerSummary();
+  const { data: profitData, isLoading: profitLoading } = useGetDealerProfitSummary();
 
   // Combine loading states
-  const isLoading = inventoryLoading || salesStatsLoading || recentSalesLoading || lowStockLoading || ledgerLoading;
+  const isLoading = inventoryLoading || salesStatsLoading || recentSalesLoading || lowStockLoading || ledgerLoading || profitLoading;
 
   // Extract data
   const inventory = inventoryData?.data;
@@ -192,9 +196,9 @@ export default function DealerHomePage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Dealer Dashboard</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t("dealer.dashboard.title")}</h1>
           <p className="text-sm md:text-base text-muted-foreground">
-            Manage your inventory, customers, and sales.
+            {t("dealer.dashboard.subtitle")}
           </p>
         </div>
 
@@ -202,23 +206,23 @@ export default function DealerHomePage() {
           <Link href="/dealer/dashboard/sales/new" className="flex-1 md:flex-none">
             <Button variant="outline" className="w-full md:w-auto gap-2 hover:bg-green-50 hover:text-green-700 border-green-200">
               <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add</span> Sale
+              <span className="hidden sm:inline">{t("dealer.dashboard.buttons.addSale").split(" ")[0]}</span> {t("dealer.dashboard.buttons.addSale").split(" ").slice(1).join(" ")}
             </Button>
           </Link>
           <Link href="/dealer/dashboard/consignments" className="flex-1 md:flex-none">
             <Button variant="outline" className="w-full md:w-auto gap-2 hover:bg-green-50 hover:text-green-700 border-green-200">
               <Truck className="h-4 w-4" />
-              Consignments
+              {t("dealer.dashboard.buttons.consignments")}
             </Button>
           </Link>
         </div>
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-5">
         <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm font-medium">Total Inventory</CardTitle>
+            <CardTitle className="text-xs md:text-sm font-medium">{t("dealer.dashboard.stats.totalInventory")}</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="p-3 md:p-4 pt-0">
@@ -227,13 +231,13 @@ export default function DealerHomePage() {
             ) : (
               <div className="text-xl md:text-2xl font-bold">{stats.totalInventory}</div>
             )}
-            <p className="text-[10px] md:text-xs text-muted-foreground">Items in stock</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">{t("dealer.dashboard.stats.itemsInStock")}</p>
           </CardContent>
         </Card>
 
         <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm font-medium">Total Customers</CardTitle>
+            <CardTitle className="text-xs md:text-sm font-medium">{t("dealer.dashboard.stats.totalCustomers")}</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="p-3 md:p-4 pt-0">
@@ -242,13 +246,13 @@ export default function DealerHomePage() {
             ) : (
               <div className="text-xl md:text-2xl font-bold">{stats.totalCustomers}</div>
             )}
-            <p className="text-[10px] md:text-xs text-muted-foreground">Active customers</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">{t("dealer.dashboard.stats.activeCustomers")}</p>
           </CardContent>
         </Card>
 
         <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm font-medium">Total Sales</CardTitle>
+            <CardTitle className="text-xs md:text-sm font-medium">{t("dealer.dashboard.stats.totalSales")}</CardTitle>
             <Receipt className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="p-3 md:p-4 pt-0">
@@ -257,13 +261,13 @@ export default function DealerHomePage() {
             ) : (
               <div className="text-xl md:text-2xl font-bold">{stats.totalSales}</div>
             )}
-            <p className="text-[10px] md:text-xs text-muted-foreground">This month</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">{t("dealer.dashboard.stats.thisMonth")}</p>
           </CardContent>
         </Card>
 
         <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm font-medium">Revenue</CardTitle>
+            <CardTitle className="text-xs md:text-sm font-medium">{t("dealer.dashboard.stats.revenue")}</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="p-3 md:p-4 pt-0">
@@ -272,7 +276,29 @@ export default function DealerHomePage() {
             ) : (
               <div className="text-lg md:text-2xl font-bold">{formatCurrency(stats.monthlyRevenue)}</div>
             )}
-            <p className="text-[10px] md:text-xs text-muted-foreground">This month</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">{t("dealer.dashboard.stats.thisMonth")}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="p-0 col-span-2 md:col-span-1">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Profit</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="p-3 md:p-4 pt-0">
+            {isLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <>
+                <div className={`text-lg md:text-2xl font-bold ${(profitData?.profit || 0) >= 0 ? "text-green-600" : "text-red-600"
+                  }`}>
+                  {formatCurrency(profitData?.profit || 0)}
+                </div>
+                <div className="text-[10px] md:text-xs text-muted-foreground mt-1">
+                  Sales: {formatCurrency(profitData?.totalSales || 0)} • Purchases: {formatCurrency(profitData?.totalPurchases || 0)}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -283,9 +309,9 @@ export default function DealerHomePage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Receipt className="h-5 w-5" />
-              Recent Sales
+              {t("dealer.dashboard.recentSales.title")}
             </CardTitle>
-            <CardDescription>Latest sales transactions</CardDescription>
+            <CardDescription>{t("dealer.dashboard.recentSales.subtitle")}</CardDescription>
           </CardHeader>
           <CardContent>
             {recentSalesLoading ? (
@@ -294,7 +320,7 @@ export default function DealerHomePage() {
               </div>
             ) : recentSales.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
-                No recent sales
+                {t("dealer.dashboard.recentSales.noSales")}
               </p>
             ) : (
               <div className="space-y-3">
@@ -319,7 +345,7 @@ export default function DealerHomePage() {
                         {formatCurrency(Number(sale.totalAmount))}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {sale.items?.length || 0} items
+                        {t("dealer.dashboard.recentSales.items", { count: sale.items?.length || 0 })}
                       </p>
                     </div>
                   </div>
@@ -333,9 +359,9 @@ export default function DealerHomePage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5" />
-              Low Stock Items
+              {t("dealer.dashboard.lowStock.title")}
             </CardTitle>
-            <CardDescription>Items that need restocking</CardDescription>
+            <CardDescription>{t("dealer.dashboard.lowStock.subtitle")}</CardDescription>
           </CardHeader>
           <CardContent>
             {lowStockLoading ? (
@@ -344,7 +370,7 @@ export default function DealerHomePage() {
               </div>
             ) : lowStockProducts.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
-                No low stock items
+                {t("dealer.dashboard.lowStock.noItems")}
               </p>
             ) : (
               <div className="space-y-3">
@@ -356,11 +382,11 @@ export default function DealerHomePage() {
                     <div className="space-y-1">
                       <p className="text-sm font-medium">{product.name}</p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>Stock: {product.currentStock} {product.unit}</span>
+                        <span>{t("dealer.dashboard.lowStock.stock", { stock: product.currentStock, unit: product.unit })}</span>
                         {product.minStock && (
                           <>
                             <span>•</span>
-                            <span>Min: {product.minStock} {product.unit}</span>
+                            <span>{t("dealer.dashboard.lowStock.min", { min: product.minStock, unit: product.unit })}</span>
                           </>
                         )}
                       </div>
@@ -373,7 +399,7 @@ export default function DealerHomePage() {
                             : "secondary"
                         }
                       >
-                        {product.currentStock === 0 ? "Out of Stock" : "Low Stock"}
+                        {product.currentStock === 0 ? t("dealer.dashboard.lowStock.outOfStock") : t("dealer.dashboard.lowStock.lowStock")}
                       </Badge>
                     </div>
                   </div>

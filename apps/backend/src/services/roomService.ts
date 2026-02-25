@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../utils/prisma';
 import { Server as SocketIOServer } from 'socket.io';
-
-const prisma = new PrismaClient();
 
 export interface RoomUser {
   userId: string;

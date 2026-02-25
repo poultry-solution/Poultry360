@@ -1,13 +1,11 @@
 import {
-  PrismaClient,
   Vaccination,
   VaccinationStatus,
   ReminderType,
 } from "@prisma/client";
+import prisma from '../utils/prisma';
 import { getReminderService } from "./reminderService";
 import { getStandardVaccinationService, BatchAgeInfo } from "./standardVaccinationService";
-
-const prisma = new PrismaClient();
 const reminderService = getReminderService();
 
 export interface CreateVaccinationData {
@@ -514,7 +512,7 @@ export class VaccinationService {
       if (vaccination.reminderId) {
         await reminderService.deleteReminder(vaccination.reminderId, userId);
       }
-      
+
       await prisma.vaccination.delete({
         where: { id: vaccination.id },
       });
@@ -572,7 +570,7 @@ export class VaccinationService {
     vaccinations.forEach((vaccination) => {
       // Create a unique key for each schedule
       const key = `${vaccination.vaccineName}-${vaccination.batchId || 'no-batch'}-${vaccination.farmId || 'no-farm'}`;
-      
+
       if (!scheduleMap.has(key)) {
         // Create schedule entry with first vaccination as template
         scheduleMap.set(key, {
@@ -596,7 +594,7 @@ export class VaccinationService {
       }
 
       const schedule = scheduleMap.get(key)!;
-      
+
       // Add dose to schedule
       schedule.doses.push({
         id: vaccination.id,
@@ -698,7 +696,7 @@ export class VaccinationService {
   ): Promise<void> {
     // Get batch information with farm details
     const batch = await prisma.batch.findFirst({
-      where: { 
+      where: {
         id: batchId,
         farm: { ownerId: userId } // Check ownership through farm
       },

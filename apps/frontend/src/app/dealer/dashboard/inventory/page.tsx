@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Search, Filter, Edit, Trash2, Package, AlertTriangle, TrendingUp } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Search, Package, AlertTriangle, TrendingUp, Check, X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -21,57 +21,101 @@ import {
 import { DataTable, Column } from "@/common/components/ui/data-table";
 import { Badge } from "@/common/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/common/components/ui/alert-dialog";
-import { Label } from "@/common/components/ui/label";
-import { toast } from "sonner";
-import {
   useGetDealerProducts,
   useGetInventorySummary,
-  useCreateDealerProduct,
   useUpdateDealerProduct,
-  useDeleteDealerProduct,
-  type CreateDealerProductInput,
 } from "@/fetchers/dealer/dealerProductQueries";
+import { useI18n } from "@/i18n/useI18n";
+import { toast } from "sonner";
+
+// Inline editable price cell component
+function EditablePriceCell({ value, productId }: { value: number; productId: string }) {
+  const { t } = useI18n();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(String(value));
+  const inputRef = useRef<HTMLInputElement>(null);
+  const updateMutation = useUpdateDealerProduct();
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleSave = () => {
+    const newPrice = parseFloat(editValue);
+    if (isNaN(newPrice) || newPrice < 0) {
+      setEditValue(String(value));
+      setIsEditing(false);
+      return;
+    }
+    if (newPrice === value) {
+      setIsEditing(false);
+      return;
+    }
+    updateMutation.mutate(
+      { id: productId, sellingPrice: newPrice },
+      {
+        onSuccess: () => {
+          toast.success(t("dealer.inventory.messages.priceUpdated"));
+          setIsEditing(false);
+        },
+        onError: () => {
+          toast.error(t("dealer.inventory.messages.updateFailed"));
+          setEditValue(String(value));
+          setIsEditing(false);
+        },
+      }
+    );
+  };
+
+  const handleCancel = () => {
+    setEditValue(String(value));
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSave();
+    if (e.key === "Escape") handleCancel();
+  };
+
+  if (isEditing) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-muted-foreground">रू</span>
+        <input
+          ref={inputRef}
+          type="number"
+          step="0.01"
+          min="0"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={handleSave}
+          className="w-20 h-7 px-1.5 text-sm border rounded text-right focus:outline-none focus:ring-1 focus:ring-primary"
+          disabled={updateMutation.isPending}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setIsEditing(true)}
+      className="font-medium text-primary hover:underline cursor-pointer bg-transparent border-none p-0"
+      title={t("dealer.inventory.table.sell")}
+    >
+      रू {Number(value).toFixed(2)}
+    </button>
+  );
+}
 
 export default function DealerInventoryPage() {
+  const { t } = useI18n();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<any>(null);
-  const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
-  const [tempPrice, setTempPrice] = useState("");
-  const [productToDelete, setProductToDelete] = useState<string | null>(null);
-
-  // Form state
-  const [formData, setFormData] = useState<CreateDealerProductInput>({
-    name: "",
-    description: "",
-    type: "FEED",
-    unit: "kg",
-    costPrice: 0,
-    sellingPrice: 0,
-    currentStock: 0,
-    minStock: 0,
-    sku: "",
-  });
 
   // Queries
   const { data: summaryData, isLoading: summaryLoading } = useGetInventorySummary();
@@ -83,83 +127,6 @@ export default function DealerInventoryPage() {
   });
 
   const summary = summaryData?.data;
-
-  const createMutation = useCreateDealerProduct();
-  const updateMutation = useUpdateDealerProduct();
-  const deleteMutation = useDeleteDealerProduct();
-
-  const handleOpenDialog = (product?: any) => {
-    if (product) {
-      setEditingProduct(product);
-      setFormData({
-        name: product.name,
-        description: product.description || "",
-        type: product.type,
-        unit: product.unit,
-        costPrice: Number(product.costPrice),
-        sellingPrice: Number(product.sellingPrice),
-        minStock: product.minStock ? Number(product.minStock) : 0,
-        sku: product.sku || "",
-      });
-    } else {
-      setEditingProduct(null);
-      setFormData({
-        name: "",
-        description: "",
-        type: "FEED",
-        unit: "kg",
-        costPrice: 0,
-        sellingPrice: 0,
-        currentStock: 0,
-        minStock: 0,
-        sku: "",
-      });
-    }
-    setIsDialogOpen(true);
-  };
-
-  const handleCloseDialog = () => {
-    setIsDialogOpen(false);
-    setEditingProduct(null);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    try {
-      if (editingProduct) {
-        await updateMutation.mutateAsync({
-          id: editingProduct.id,
-          ...formData,
-        });
-        toast.success("Product updated successfully");
-      } else {
-        await createMutation.mutateAsync(formData);
-        toast.success("Product created successfully");
-      }
-      handleCloseDialog();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "An error occurred");
-    }
-  };
-
-  const handleDeleteProduct = (id: string) => {
-    setProductToDelete(id);
-  };
-
-  const confirmDeleteProduct = async () => {
-    if (!productToDelete) return;
-
-    try {
-      await deleteMutation.mutateAsync(productToDelete);
-      toast.success("Product deleted successfully");
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to delete product");
-    } finally {
-      setProductToDelete(null);
-    }
-  };
-
   const products = productsData?.data || [];
   const pagination = productsData?.pagination;
 
@@ -168,15 +135,11 @@ export default function DealerInventoryPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Products</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t("dealer.inventory.title")}</h1>
           <p className="text-sm md:text-base text-muted-foreground">
-            Manage your product inventory and pricing
+            {t("dealer.inventory.subtitle")}
           </p>
         </div>
-        <Button variant="outline" onClick={() => handleOpenDialog()} className="w-full sm:w-auto hover:bg-green-50 hover:text-green-700 border-green-200">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Product
-        </Button>
       </div>
 
       {/* Summary Cards */}
@@ -184,7 +147,7 @@ export default function DealerInventoryPage() {
         <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
             <CardTitle className="text-xs md:text-sm font-medium">
-              Products
+              {t("dealer.inventory.stats.products")}
             </CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -193,37 +156,7 @@ export default function DealerInventoryPage() {
               {summaryLoading ? "..." : summary?.totalProducts || 0}
             </div>
             <p className="text-[10px] md:text-xs text-muted-foreground">
-              In inventory
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="p-0">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm font-medium">Low Stock</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent className="p-3 md:p-4 pt-0">
-            <div className="text-xl md:text-2xl font-bold text-orange-600">
-              {summaryLoading ? "..." : summary?.lowStockProducts || 0}
-            </div>
-            <p className="text-[10px] md:text-xs text-muted-foreground">
-              Below minimum
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="p-0">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm font-medium">Out of Stock</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent className="p-3 md:p-4 pt-0">
-            <div className="text-xl md:text-2xl font-bold text-red-600">
-              {summaryLoading ? "..." : summary?.outOfStockProducts || 0}
-            </div>
-            <p className="text-[10px] md:text-xs text-muted-foreground">
-              Zero stock
+              {t("dealer.inventory.stats.inInventory")}
             </p>
           </CardContent>
         </Card>
@@ -231,70 +164,98 @@ export default function DealerInventoryPage() {
         <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
             <CardTitle className="text-xs md:text-sm font-medium">
-              Value
+              {t("dealer.inventory.stats.value")}
             </CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="p-3 md:p-4 pt-0">
-            <div className="text-lg md:text-2xl font-bold">
-              {summaryLoading
-                ? "..."
-                : `रू ${(summary?.totalInventoryValue || 0).toLocaleString()}`}
+            <div className="text-xl md:text-2xl font-bold">
+              रू {summaryLoading ? "..." : (summary?.totalInventoryValue?.toFixed(2) || "0.00")}
             </div>
             <p className="text-[10px] md:text-xs text-muted-foreground">
-              Total cost
+              {t("dealer.inventory.stats.totalCost")}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="p-0">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">
+              {t("dealer.inventory.stats.lowStock")}
+            </CardTitle>
+            <AlertTriangle className="h-4 w-4 text-yellow-600" />
+          </CardHeader>
+          <CardContent className="p-3 md:p-4 pt-0">
+            <div className="text-xl md:text-2xl font-bold text-yellow-600">
+              {summaryLoading ? "..." : summary?.lowStockProducts || 0}
+            </div>
+            <p className="text-[10px] md:text-xs text-muted-foreground">
+              {t("dealer.inventory.stats.belowMin")}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="p-0">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">
+              {t("dealer.inventory.stats.outOfStock")}
+            </CardTitle>
+            <AlertTriangle className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent className="p-3 md:p-4 pt-0">
+            <div className="text-xl md:text-2xl font-bold text-red-600">
+              {summaryLoading ? "..." : summary?.outOfStockProducts || 0}
+            </div>
+            <p className="text-[10px] md:text-xs text-muted-foreground">
+              {t("dealer.inventory.stats.zeroStock")}
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
+      {/* Products Table */}
       <Card>
-        <CardContent className="pt-4 pb-4">
+        <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search products..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder={t("dealer.inventory.filters.searchPlaceholder")}
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                className="pl-10"
+              />
             </div>
-            <Select value={typeFilter || "ALL"} onValueChange={(value) => setTypeFilter(value === "ALL" ? "" : value)}>
-              <SelectTrigger className="w-full sm:w-[140px]">
-                <Filter className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="All Types" />
+            <Select
+              value={typeFilter}
+              onValueChange={(value) => { setTypeFilter(value === "ALL" ? "" : value); setPage(1); }}
+            >
+              <SelectTrigger className="w-full sm:w-[140px] bg-white">
+                <SelectValue placeholder={t("dealer.inventory.filters.allTypes")} />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Types</SelectItem>
-                <SelectItem value="FEED">Feed</SelectItem>
-                <SelectItem value="OTHER">Other</SelectItem>
+              <SelectContent className="bg-white">
+                <SelectItem value="ALL">{t("dealer.inventory.filters.allTypes")}</SelectItem>
+                <SelectItem value="FEED">{t("dealer.inventory.filters.feed")}</SelectItem>
+                <SelectItem value="CHICKS">Chicks</SelectItem>
+                <SelectItem value="MEDICINE">Medicine</SelectItem>
+                <SelectItem value="EQUIPMENT">Equipment</SelectItem>
+                <SelectItem value="OTHER">{t("dealer.inventory.filters.other")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Products Table - Unified DataTable */}
-      <Card>
-        <CardHeader className="p-3 md:p-6">
-          <CardTitle className="text-base md:text-lg">Products</CardTitle>
           <CardDescription className="text-xs md:text-sm">
-            {pagination?.total || 0} total products
+            {pagination?.total || 0} {t("dealer.inventory.stats.products")}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <DataTable
             data={products}
             loading={isLoading}
-            emptyMessage="No products found. Add your first product to get started."
+            emptyMessage={t("dealer.inventory.table.empty")}
             columns={[
               {
                 key: 'name',
-                label: 'Name',
+                label: t("dealer.inventory.table.name"),
                 width: '180px',
                 render: (val, row) => (
                   <div>
@@ -307,7 +268,7 @@ export default function DealerInventoryPage() {
               },
               {
                 key: 'type',
-                label: 'Type',
+                label: t("dealer.inventory.table.type"),
                 width: '80px',
                 render: (val) => (
                   <Badge variant="secondary" className="text-xs">
@@ -317,12 +278,12 @@ export default function DealerInventoryPage() {
               },
               {
                 key: 'unit',
-                label: 'Unit',
+                label: t("dealer.inventory.table.unit"),
                 width: '60px'
               },
               {
                 key: 'costPrice',
-                label: 'Cost',
+                label: t("dealer.inventory.table.cost"),
                 type: 'currency',
                 align: 'right',
                 width: '100px',
@@ -330,63 +291,16 @@ export default function DealerInventoryPage() {
               },
               {
                 key: 'sellingPrice',
-                label: 'Sell (Click to Edit)',
+                label: t("dealer.inventory.table.sell"),
                 align: 'right',
-                width: '140px',
-                render: (val, row) => {
-                  const isEditing = editingPriceId === row.id;
-
-                  if (isEditing) {
-                    return (
-                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                        <Input
-                          autoFocus
-                          type="number"
-                          step="0.01"
-                          className="h-8 w-24 px-2 text-right"
-                          value={tempPrice}
-                          onChange={(e) => setTempPrice(e.target.value)}
-                          onBlur={() => setEditingPriceId(null)}
-                          onKeyDown={async (e) => {
-                            if (e.key === "Enter") {
-                              try {
-                                await updateMutation.mutateAsync({
-                                  id: row.id,
-                                  sellingPrice: Number(tempPrice),
-                                });
-                                toast.success("Price updated");
-                                setEditingPriceId(null);
-                              } catch (err) {
-                                toast.error("Failed to update");
-                              }
-                            } else if (e.key === "Escape") {
-                              setEditingPriceId(null);
-                            }
-                          }}
-                        />
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div
-                      className="cursor-pointer hover:bg-muted/50 py-1 px-2 rounded flex items-center justify-end gap-2 group transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingPriceId(row.id);
-                        setTempPrice(Number(val).toString());
-                      }}
-                      title="Click to edit selling price"
-                    >
-                      <span className="font-medium">रू {Number(val).toFixed(2)}</span>
-                      <Edit className="h-3 w-3 opacity-0 group-hover:opacity-50 text-muted-foreground" />
-                    </div>
-                  );
-                },
+                width: '120px',
+                render: (val, row) => (
+                  <EditablePriceCell value={Number(val)} productId={row.id} />
+                )
               },
               {
                 key: 'currentStock',
-                label: 'Stock',
+                label: t("dealer.inventory.table.stock"),
                 align: 'right',
                 width: '80px',
                 render: (val, row) => (
@@ -401,37 +315,11 @@ export default function DealerInventoryPage() {
               },
               {
                 key: 'minStock',
-                label: 'Min',
+                label: t("dealer.inventory.table.min"),
                 align: 'right',
                 width: '70px',
                 render: (val) => val ? Number(val).toFixed(2) : '-'
               },
-              {
-                key: 'actions',
-                label: 'Actions',
-                align: 'right',
-                width: '100px',
-                render: (_, row) => (
-                  <div className="flex justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={() => handleOpenDialog(row)}
-                    >
-                      <Edit className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={() => handleDeleteProduct(row.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5 text-red-600" />
-                    </Button>
-                  </div>
-                )
-              }
             ] as Column[]}
           />
 
@@ -466,206 +354,6 @@ export default function DealerInventoryPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* Create/Edit Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
-          <form onSubmit={handleSubmit}>
-            <DialogHeader>
-              <DialogTitle>
-                {editingProduct ? "Edit Product" : "Add New Product"}
-              </DialogTitle>
-              <DialogDescription>
-                {editingProduct
-                  ? "Update product details and pricing"
-                  : "Add a new product to your inventory"}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Product Name *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sku">SKU</Label>
-                  <Input
-                    id="sku"
-                    value={formData.sku}
-                    onChange={(e) =>
-                      setFormData({ ...formData, sku: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Input
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 ">
-                <div className="space-y-2">
-                  <Label htmlFor="type">Type *</Label>
-                  <Select
-                    value={formData.type}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, type: value })
-                    }
-                  >
-                    <SelectTrigger className="bg-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white">
-                      <SelectItem value="FEED">Feed</SelectItem>
-                      <SelectItem value="OTHER">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="unit">Unit *</Label>
-                  <Input
-                    id="unit"
-                    value={formData.unit}
-                    onChange={(e) =>
-                      setFormData({ ...formData, unit: e.target.value })
-                    }
-                    placeholder="e.g., kg, pcs, liters"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="costPrice">Cost Price *</Label>
-                  <Input
-                    id="costPrice"
-                    type="number"
-                    step="0.01"
-                    value={formData.costPrice}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        costPrice: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sellingPrice">Selling Price *</Label>
-                  <Input
-                    id="sellingPrice"
-                    type="number"
-                    step="0.01"
-                    value={formData.sellingPrice}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        sellingPrice: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                {!editingProduct && (
-                  <div className="space-y-2">
-                    <Label htmlFor="currentStock">Initial Stock</Label>
-                    <Input
-                      id="currentStock"
-                      type="number"
-                      step="0.01"
-                      value={formData.currentStock}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          currentStock: parseFloat(e.target.value) || 0,
-                        })
-                      }
-                    />
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="minStock">Minimum Stock Alert</Label>
-                  <Input
-                    id="minStock"
-                    type="number"
-                    step="0.01"
-                    value={formData.minStock}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        minStock: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCloseDialog}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={createMutation.isPending || updateMutation.isPending}
-              >
-                {createMutation.isPending || updateMutation.isPending
-                  ? "Saving..."
-                  : editingProduct
-                    ? "Update Product"
-                    : "Add Product"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog
-        open={!!productToDelete}
-        onOpenChange={(open) => !open && setProductToDelete(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Product</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this product? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDeleteProduct}
-              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

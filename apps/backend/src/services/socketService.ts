@@ -1,12 +1,10 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../utils/prisma';
 import { getRoomService } from './roomService';
 import { getMessageService } from './messageService';
 import { notificationService, NotificationType } from './webpushService';
-
-const prisma = new PrismaClient();
 const messageService = getMessageService();
 
 interface AuthenticatedSocket extends Socket {

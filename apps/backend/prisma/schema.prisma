@@ -784,6 +784,7 @@ model Dealer {
   carts                DealerCart[]
   companyAccounts      CompanyDealerAccount[]
   farmerAccounts       DealerFarmerAccount[]
+  manualCompanies      DealerManualCompany[]
 
   @@unique([userId, name])
   @@index([ownerId])
@@ -1466,10 +1467,11 @@ model DealerProduct {
   companyProductId String?
   companyProduct   Product? @relation(fields: [companyProductId], references: [id], onDelete: SetNull)
 
-  transactions     DealerProductTransaction[]
-  saleItems        DealerSaleItem[]
-  consignmentItems ConsignmentItem[]
-  saleRequestItems DealerSaleRequestItem[]
+  transactions         DealerProductTransaction[]
+  saleItems            DealerSaleItem[]
+  consignmentItems     ConsignmentItem[]
+  saleRequestItems     DealerSaleRequestItem[]
+  manualPurchaseItems  DealerManualPurchaseItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2064,4 +2066,90 @@ model PaymentRequest {
   @@index([acceptedById])
   @@index([submittedById])
   @@index([reviewedById])
+}
+
+// ==================== DEALER MANUAL COMPANY MODELS ====================
+
+model DealerManualCompany {
+  id       String  @id @default(cuid())
+  name     String
+  phone    String?
+  address  String?
+
+  dealerId String
+  dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
+  // Running balance (positive = dealer owes company)
+  balance        Decimal @default(0) @db.Decimal(10, 2)
+  totalPurchases Decimal @default(0) @db.Decimal(10, 2)
+  totalPayments  Decimal @default(0) @db.Decimal(10, 2)
+
+  purchases DealerManualPurchase[]
+  payments  DealerManualCompanyPayment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dealerId, name])
+  @@index([dealerId])
+}
+
+model DealerManualPurchase {
+  id          String   @id @default(cuid())
+  date        DateTime @default(now())
+  totalAmount Decimal  @db.Decimal(10, 2)
+  notes       String?
+  reference   String?
+
+  manualCompanyId String
+  manualCompany   DealerManualCompany @relation(fields: [manualCompanyId], references: [id], onDelete: Cascade)
+
+  items DealerManualPurchaseItem[]
+
+  createdAt DateTime @default(now())
+
+  @@index([manualCompanyId, date])
+}
+
+model DealerManualPurchaseItem {
+  id          String  @id @default(cuid())
+  productName String
+  type        InventoryItemType
+  unit        String
+  quantity    Decimal @db.Decimal(10, 2)
+  costPrice   Decimal @db.Decimal(10, 2)
+  sellingPrice Decimal @db.Decimal(10, 2)
+  totalAmount Decimal @db.Decimal(10, 2)
+
+  purchaseId String
+  purchase   DealerManualPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  // Link to DealerProduct created/updated
+  dealerProductId String?
+  dealerProduct   DealerProduct? @relation(fields: [dealerProductId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([purchaseId])
+  @@index([dealerProductId])
+}
+
+model DealerManualCompanyPayment {
+  id            String   @id @default(cuid())
+  amount        Decimal  @db.Decimal(10, 2)
+  paymentMethod String   @default("CASH")
+  paymentDate   DateTime @default(now())
+  notes         String?
+  reference     String?
+  receiptUrl    String?
+
+  // Balance snapshot after this payment
+  balanceAfter Decimal @db.Decimal(10, 2)
+
+  manualCompanyId String
+  manualCompany   DealerManualCompany @relation(fields: [manualCompanyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([manualCompanyId, paymentDate])
 }

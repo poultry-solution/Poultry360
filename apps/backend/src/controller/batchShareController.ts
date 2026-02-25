@@ -1,7 +1,5 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from "../utils/prisma";
 
 export const createBatchShare = async (req: Request, res: Response) => {
   try {
@@ -66,12 +64,12 @@ export const createBatchShare = async (req: Request, res: Response) => {
       if (nameLower.includes("feed")) unit = "kg";
       else if (nameLower.includes("chick")) unit = "birds";
       else if (nameLower.includes("med")) unit = "units";
-      
+
       // Get item name from inventory usages (non-financial)
       const itemNames = exp.inventoryUsages?.map((usage: any) => usage.item?.name).filter(Boolean) || [];
       // Fall back to category name if no inventory items are linked
       const itemName = itemNames.length > 0 ? itemNames.join(", ") : rawName;
-      
+
       // Push structured, non-financial activity
       acc[key].push({
         date: exp.date,
@@ -219,7 +217,7 @@ export const getBatchShareByToken = async (req: Request, res: Response) => {
         where: { id: share.id },
         data: { viewCount: { increment: 1 } },
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return res.json({
       share: {

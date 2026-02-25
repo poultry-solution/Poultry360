@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "@/common/components/ui/card";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { useI18n } from "@/i18n/useI18n";
 
 interface RecentActivityProps {
   recentActivity: any[];
@@ -20,12 +21,13 @@ export function RecentActivity({
   statsLoading,
   statsError,
 }: RecentActivityProps) {
+  const { t } = useI18n();
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Recent Activity</CardTitle>
+        <CardTitle>{t("farmer.dashboard.recentActivity.title")}</CardTitle>
         <CardDescription>
-          Latest updates from your farms and batches.
+          {t("farmer.dashboard.recentActivity.description")}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -43,11 +45,11 @@ export function RecentActivity({
           </div>
         ) : statsError ? (
           <div className="text-center py-8 text-red-600">
-            <p>Failed to load recent activity</p>
+            <p>{t("farmer.dashboard.recentActivity.failed")}</p>
           </div>
         ) : recentActivity.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            <p>No recent activity</p>
+            <p>{t("farmer.dashboard.recentActivity.empty")}</p>
           </div>
         ) : (
           <div className="space-y-4">
