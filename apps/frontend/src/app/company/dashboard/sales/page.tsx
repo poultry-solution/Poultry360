@@ -25,6 +25,8 @@ import {
   useGetCompanySales,
   type CompanySale,
 } from "@/fetchers/company/companySaleQueries";
+import { DateDisplay } from "@/common/components/ui/date-display";
+import { DateInput } from "@/common/components/ui/date-input";
 
 export default function CompanySalesPage() {
   const router = useRouter();
@@ -44,14 +46,6 @@ export default function CompanySalesPage() {
 
   const sales: CompanySale[] = salesData?.data || [];
   const pagination = salesData?.pagination;
-
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -93,18 +87,16 @@ export default function CompanySalesPage() {
               </div>
             </div>
             <div className="flex gap-2">
-              <Input
-                type="date"
-                placeholder="Start"
+              <DateInput
+                label="Start"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={setStartDate}
                 className="flex-1 sm:w-[130px]"
               />
-              <Input
-                type="date"
-                placeholder="End"
+              <DateInput
+                label="End"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={setEndDate}
                 className="flex-1 sm:w-[130px]"
               />
             </div>
@@ -136,7 +128,7 @@ export default function CompanySalesPage() {
                 key: 'date',
                 label: 'Date',
                 width: '100px',
-                render: (val) => formatDate(val)
+                render: (val) => <DateDisplay date={val} />
               },
               {
                 key: 'dealer',

@@ -43,6 +43,8 @@ import {
 } from "@/common/components/ui/select";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { toast } from "sonner";
+import { DateDisplay } from "@/common/components/ui/date-display";
+import { DateInput } from "@/common/components/ui/date-input";
 import {
   useGetDealerAccount,
   useGetDealerAccountStatement,
@@ -62,7 +64,7 @@ export default function DealerAccountPage() {
   const [paymentData, setPaymentData] = useState({
     amount: 0,
     paymentMethod: "CASH",
-    paymentDate: new Date().toISOString().split("T")[0],
+    paymentDate: new Date().toISOString(),
     notes: "",
     reference: "",
     receiptImageUrl: "",
@@ -114,7 +116,7 @@ export default function DealerAccountPage() {
       setPaymentData({
         amount: 0,
         paymentMethod: "CASH",
-        paymentDate: new Date().toISOString().split("T")[0],
+        paymentDate: new Date().toISOString(),
         notes: "",
         reference: "",
         receiptImageUrl: "",
@@ -126,14 +128,6 @@ export default function DealerAccountPage() {
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
-  };
-
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString("en-IN", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
   };
 
   if (accountLoading || statementLoading) {
@@ -217,7 +211,7 @@ export default function DealerAccountPage() {
             </div>
             {account?.lastSaleDate && (
               <p className="text-xs text-muted-foreground mt-1">
-                Last: {formatDate(account.lastSaleDate)}
+                Last: <DateDisplay date={account.lastSaleDate} />
               </p>
             )}
           </CardContent>
@@ -236,7 +230,7 @@ export default function DealerAccountPage() {
             </div>
             {account?.lastPaymentDate && (
               <p className="text-xs text-muted-foreground mt-1">
-                Last: {formatDate(account.lastPaymentDate)}
+                Last: <DateDisplay date={account.lastPaymentDate} />
               </p>
             )}
           </CardContent>
@@ -309,7 +303,7 @@ export default function DealerAccountPage() {
                 {account?.balanceLimitSetAt && (
                   <p className="text-xs text-muted-foreground">
                     Last updated:{" "}
-                    {new Date(account.balanceLimitSetAt).toLocaleDateString()}
+                    <DateDisplay date={account.balanceLimitSetAt} />
                   </p>
                 )}
               </div>
@@ -388,7 +382,7 @@ export default function DealerAccountPage() {
                               )}
                             </div>
                             <p className="text-sm text-muted-foreground">
-                              {formatDate(sale.date)}
+                              <DateDisplay date={sale.date} />
                             </p>
                             {hasDiscount && (
                               <p className="text-xs text-muted-foreground mt-1">
@@ -452,7 +446,7 @@ export default function DealerAccountPage() {
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            {formatDate(payment.paymentDate)}
+                            <DateDisplay date={payment.paymentDate} />
                           </p>
                           {payment.notes && (
                             <p className="text-sm text-muted-foreground mt-1">
@@ -584,14 +578,12 @@ export default function DealerAccountPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="paymentDate">Payment Date *</Label>
-                <Input
-                  id="paymentDate"
-                  type="date"
+                <DateInput
+                  label="Payment Date"
                   value={paymentData.paymentDate}
-                  onChange={(e) =>
-                    setPaymentData({ ...paymentData, paymentDate: e.target.value })
+                  onChange={(val) =>
+                    setPaymentData({ ...paymentData, paymentDate: val })
                   }
-                  required
                 />
               </div>
 

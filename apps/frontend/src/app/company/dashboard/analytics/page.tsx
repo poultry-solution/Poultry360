@@ -32,10 +32,12 @@ import {
   PieChart,
 } from "lucide-react";
 import { useGetCompanyAnalytics } from "@/fetchers/company/companyAnalyticsQueries";
+import { useCalendar } from "@/common/hooks/useCalendar";
 
 export default function CompanyAnalyticsPage() {
   const [period, setPeriod] = useState("30");
   const { data: analytics, isLoading } = useGetCompanyAnalytics(period);
+  const { toDisplayDate } = useCalendar();
 
   const formatCurrency = (amount: number | undefined) => {
     if (amount === undefined || amount === null) return "रू 0";
@@ -201,7 +203,7 @@ export default function CompanyAnalyticsPage() {
                             height: `${height}%`,
                             minHeight: '20px' // Ensure minimum pixel height
                           }}
-                          title={`${new Date(trend.date).toLocaleDateString()}: ${formatCurrency(trend.revenue)} (${trend.salesCount} sales)`}
+                          title={`${toDisplayDate(trend.date)}: ${formatCurrency(trend.revenue)} (${trend.salesCount} sales)`}
                         />
                         {/* Value label on hover */}
                         <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-popover text-popover-foreground text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10">
@@ -209,7 +211,7 @@ export default function CompanyAnalyticsPage() {
                         </div>
                       </div>
                       <span className="text-xs text-muted-foreground mt-2 text-center leading-tight">
-                        {new Date(trend.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        {toDisplayDate(trend.date, "short")}
                       </span>
                     </div>
                   );

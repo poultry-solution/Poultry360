@@ -23,6 +23,7 @@ import {
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
 import { useGetManualCompanyStatement } from "@/fetchers/dealer/dealerManualCompanyQueries";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 export default function ManualCompanyAccountPage() {
     const params = useParams();
@@ -197,10 +198,7 @@ export default function ManualCompanyAccountPage() {
                                                             <p className="font-medium">Purchase</p>
                                                             <p className="text-xs text-muted-foreground flex items-center gap-1">
                                                                 <Calendar className="h-3 w-3" />
-                                                                {new Date(txn.date).toLocaleDateString("en-US", {
-                                                                    year: "numeric", month: "short", day: "numeric",
-                                                                    hour: "2-digit", minute: "2-digit",
-                                                                })}
+                                                                <DateDisplay date={txn.date} format="long" />
                                                             </p>
                                                         </div>
                                                     </div>
@@ -264,10 +262,7 @@ export default function ManualCompanyAccountPage() {
                                                             <p className="font-medium">Payment</p>
                                                             <p className="text-xs text-muted-foreground flex items-center gap-1">
                                                                 <Calendar className="h-3 w-3" />
-                                                                {new Date(txn.date).toLocaleDateString("en-US", {
-                                                                    year: "numeric", month: "short", day: "numeric",
-                                                                    hour: "2-digit", minute: "2-digit",
-                                                                })}
+                                                                <DateDisplay date={txn.date} format="long" />
                                                             </p>
                                                         </div>
                                                     </div>

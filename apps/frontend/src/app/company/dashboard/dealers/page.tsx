@@ -53,6 +53,7 @@ import { useRecordDealerPayment } from "@/fetchers/company/companyDealerAccountQ
 import { useGetCompanyVerificationRequests } from "@/fetchers/company/companyVerificationQueries";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
 import { Badge } from "@/common/components/ui/badge";
+import { DateInput } from "@/common/components/ui/date-input";
 
 interface Dealer {
   id: string;
@@ -162,7 +163,7 @@ export default function CompanyDealersPage() {
     dealerId: "",
     amount: 0,
     paymentMethod: "CASH",
-    paymentDate: new Date().toISOString().split("T")[0],
+    paymentDate: new Date().toISOString(),
     notes: "",
     reference: "",
     receiptImageUrl: "",
@@ -198,7 +199,7 @@ export default function CompanyDealersPage() {
         dealerId: "",
         amount: 0,
         paymentMethod: "CASH",
-        paymentDate: new Date().toISOString().split("T")[0],
+        paymentDate: new Date().toISOString(),
         notes: "",
         reference: "",
         receiptImageUrl: "",
@@ -722,14 +723,12 @@ export default function CompanyDealersPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="paymentDate">Payment Date *</Label>
-                <Input
-                  id="paymentDate"
-                  type="date"
+                <DateInput
+                  label="Payment Date"
                   value={paymentData.paymentDate}
-                  onChange={(e) =>
-                    setPaymentData({ ...paymentData, paymentDate: e.target.value })
+                  onChange={(val) =>
+                    setPaymentData({ ...paymentData, paymentDate: val })
                   }
-                  required
                 />
               </div>
 

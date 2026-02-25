@@ -25,6 +25,7 @@ import { useGetDealerProducts } from "@/fetchers/dealer/dealerProductQueries";
 import { useGetLedgerSummary } from "@/fetchers/dealer/dealerLedgerQueries";
 import { useGetDealerProfitSummary } from "@/fetchers/dealer/dealerManualCompanyQueries";
 import { useI18n } from "@/i18n/useI18n";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 export default function DealerHomePage() {
   const { t } = useI18n();
@@ -149,12 +150,6 @@ export default function DealerHomePage() {
     return `₹ ${amount.toLocaleString("en-IN")}`;
   };
 
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   // Calculate stats
   const stats = {
@@ -337,7 +332,7 @@ export default function DealerHomePage() {
                         <span className="font-mono">{sale.invoiceNumber}</span>
                         <span>•</span>
                         <Clock className="h-3 w-3" />
-                        {formatDate(sale.date)}
+                        <DateDisplay date={sale.date} />
                       </div>
                     </div>
                     <div className="text-right">

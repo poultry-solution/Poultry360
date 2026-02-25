@@ -23,6 +23,7 @@ import { Badge } from "@/common/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 import { useI18n } from "@/i18n/useI18n";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 interface SaleRequest {
   id: string;
@@ -97,13 +98,6 @@ export default function DealerSaleRequestsPage() {
   const pagination = requestsData?.pagination;
   const stats = statsData?.data || { pending: 0, approved: 0, rejected: 0, pendingAmount: 0 };
 
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   const formatCurrency = (amount: number | string) => {
     return `रू ${Number(amount).toFixed(2)}`;
@@ -266,7 +260,7 @@ export default function DealerSaleRequestsPage() {
                 key: 'date',
                 label: t("dealer.saleRequests.table.date"),
                 width: '80px',
-                render: (val) => formatDate(val)
+                render: (val) => <DateDisplay date={val} />
               },
               {
                 key: 'items',

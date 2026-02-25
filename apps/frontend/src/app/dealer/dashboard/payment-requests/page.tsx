@@ -41,6 +41,7 @@ import {
 import { useGetConnectedFarmers, useGetFarmerAccount } from "@/fetchers/dealer/dealerFarmerQueries";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n/useI18n";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 import {
   Tabs,
@@ -141,13 +142,6 @@ export default function DealerPaymentRequestsPage() {
     return `रू ${Number(amount).toLocaleString()}`;
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   const getStatusBadge = (status: string) => {
     const variants = {
@@ -335,7 +329,7 @@ export default function DealerPaymentRequestsPage() {
                     key: 'createdAt',
                     label: t("dealer.paymentRequests.table.date"),
                     width: '90px',
-                    render: (val) => formatDate(val)
+                    render: (val) => <DateDisplay date={val} />
                   },
                   {
                     key: 'status',
@@ -451,7 +445,7 @@ export default function DealerPaymentRequestsPage() {
                     key: 'createdAt',
                     label: t("dealer.paymentRequests.table.date"),
                     width: '90px',
-                    render: (val) => formatDate(val)
+                    render: (val) => <DateDisplay date={val} />
                   },
                   {
                     key: 'status',

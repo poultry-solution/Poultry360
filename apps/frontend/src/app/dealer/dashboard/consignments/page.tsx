@@ -65,6 +65,8 @@ import {
   type Consignment,
 } from "@/fetchers/dealer/consignmentQueries";
 import { useI18n } from "@/i18n/useI18n";
+import { DateDisplay } from "@/common/components/ui/date-display";
+import { useCalendar } from "@/common/hooks/useCalendar";
 
 export default function DealerConsignmentsPage() {
   const { t } = useI18n();
@@ -118,13 +120,6 @@ export default function DealerConsignmentsPage() {
   const receivedConsignments = receivedData?.data || [];
   const requestedConsignments = requestedData?.data || [];
 
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   const formatCurrency = (amount: number | string | null | undefined) => {
     const num = typeof amount === "string" ? parseFloat(amount) : (amount || 0);
@@ -376,7 +371,7 @@ export default function DealerConsignmentsPage() {
                     key: 'createdAt',
                     label: t("dealer.consignments.list.columns.date"),
                     width: '80px',
-                    render: (val) => formatDate(val)
+                    render: (val) => <DateDisplay date={val} />
                   },
                   {
                     key: 'actions',
@@ -500,7 +495,7 @@ export default function DealerConsignmentsPage() {
                     key: 'createdAt',
                     label: t("dealer.consignments.list.columns.date"),
                     width: '80px',
-                    render: (val) => formatDate(val)
+                    render: (val) => <DateDisplay date={val} />
                   },
                   {
                     key: 'actions',
@@ -962,7 +957,7 @@ export default function DealerConsignmentsPage() {
                       <div>
                         <p className="text-sm text-muted-foreground">{t("dealer.consignments.dialogs.details.dispatch.dispatchedOn")}</p>
                         <p className="font-medium">
-                          {formatDate(selectedConsignment.dispatchedAt)}
+                          <DateDisplay date={selectedConsignment.dispatchedAt} />
                         </p>
                       </div>
                     )}
@@ -983,7 +978,7 @@ export default function DealerConsignmentsPage() {
                       <div>
                         <p className="text-sm text-muted-foreground">{t("dealer.consignments.dialogs.details.receipt.receivedOn")}</p>
                         <p className="font-medium">
-                          {formatDate(selectedConsignment.receivedAt)}
+                          <DateDisplay date={selectedConsignment.receivedAt} />
                         </p>
                       </div>
                     )}
@@ -1083,6 +1078,7 @@ function RejectionReasonDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useI18n();
+  const { toDisplayDate } = useCalendar();
   const { data: auditLogs, isLoading } = useGetDealerConsignmentAuditLogs(
     consignmentId || ""
   );
@@ -1108,7 +1104,7 @@ function RejectionReasonDialog({
               <p className="font-medium mb-1">{t("dealer.consignments.dialogs.rejectionReason.reasonLabel")}</p>
               <p>{rejectionLog.notes || t("dealer.consignments.dialogs.rejectionReason.noReason")}</p>
               <p className="text-xs text-red-600 mt-2 pt-2 border-t border-red-200">
-                {t("dealer.consignments.dialogs.rejectionReason.rejectedBy", { name: rejectionLog.actor?.name, date: new Date(rejectionLog.createdAt).toLocaleDateString() })}
+                {t("dealer.consignments.dialogs.rejectionReason.rejectedBy", { name: rejectionLog.actor?.name, date: toDisplayDate(rejectionLog.createdAt) })}
               </p>
             </div>
           ) : (

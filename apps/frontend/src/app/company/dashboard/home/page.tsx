@@ -28,6 +28,7 @@ import { useGetCompanyLedgerSummary } from "@/fetchers/company/companyLedgerQuer
 import { useGetCompanyProductSummary } from "@/fetchers/company/companyProductQueries";
 import { useGetCompanyConsignments } from "@/fetchers/company/consignmentQueries";
 import { useGetCompanySales } from "@/fetchers/company/companySaleQueries";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 export default function CompanyHomePage() {
   // Fetch real data
@@ -50,13 +51,6 @@ export default function CompanyHomePage() {
   const formatCurrency = (amount: number | undefined) => {
     if (amount === undefined || amount === null) return "रू 0";
     return `रू ${amount.toLocaleString("en-IN")}`;
-  };
-
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -269,7 +263,7 @@ export default function CompanyHomePage() {
                       </p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
-                        {formatDate(consignment.createdAt)}
+                        <DateDisplay date={consignment.createdAt} />
                         <span>•</span>
                         <span>{consignment.items.length} items</span>
                       </div>
@@ -319,7 +313,7 @@ export default function CompanyHomePage() {
                         <span className="font-mono">{sale.invoiceNumber}</span>
                         <span>•</span>
                         <Clock className="h-3 w-3" />
-                        {formatDate(sale.date)}
+                        <DateDisplay date={sale.date} />
                       </div>
                     </div>
                     <div className="text-right">

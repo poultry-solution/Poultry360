@@ -78,6 +78,8 @@ import {
   type Consignment,
   type AuditLog,
 } from "@/fetchers/company/consignmentQueries";
+import { DateDisplay } from "@/common/components/ui/date-display";
+import { useCalendar } from "@/common/hooks/useCalendar";
 
 export default function CompanyConsignmentsPage() {
   const router = useRouter();
@@ -132,14 +134,6 @@ export default function CompanyConsignmentsPage() {
 
   const sentConsignments = sentData?.data || [];
   const receivedConsignments = receivedData?.data || [];
-
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   const formatCurrency = (amount: number | string | null | undefined) => {
     const num = typeof amount === "string" ? parseFloat(amount) : (amount || 0);
@@ -402,7 +396,7 @@ export default function CompanyConsignmentsPage() {
                           {formatCurrency(consignment.totalAmount)}
                         </TableCell>
                         <TableCell>{getStatusBadge(consignment.status)}</TableCell>
-                        <TableCell>{formatDate(consignment.createdAt)}</TableCell>
+                        <TableCell>{<DateDisplay date={consignment.createdAt} />}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
@@ -514,7 +508,7 @@ export default function CompanyConsignmentsPage() {
                           {formatCurrency(consignment.totalAmount)}
                         </TableCell>
                         <TableCell>{getStatusBadge(consignment.status)}</TableCell>
-                        <TableCell>{formatDate(consignment.createdAt)}</TableCell>
+                        <TableCell>{<DateDisplay date={consignment.createdAt} />}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
@@ -966,7 +960,7 @@ export default function CompanyConsignmentsPage() {
                       <div>
                         <p className="text-sm text-muted-foreground">Dispatched On</p>
                         <p className="font-medium">
-                          {formatDate(selectedConsignment.dispatchedAt)}
+                          <DateDisplay date={selectedConsignment.dispatchedAt} format="long" />
                         </p>
                       </div>
                     )}
@@ -987,7 +981,7 @@ export default function CompanyConsignmentsPage() {
                       <div>
                         <p className="text-sm text-muted-foreground">Received On</p>
                         <p className="font-medium">
-                          {formatDate(selectedConsignment.receivedAt)}
+                          <DateDisplay date={selectedConsignment.receivedAt} format="long" />
                         </p>
                       </div>
                     )}
@@ -1076,6 +1070,7 @@ function RejectionReasonDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { toDisplayDate } = useCalendar();
   const { data: auditLogs, isLoading } = useGetConsignmentAuditLogs(
     consignmentId || ""
   );
@@ -1101,7 +1096,7 @@ function RejectionReasonDialog({
               <p className="font-medium mb-1">Reason:</p>
               <p>{rejectionLog.notes || "No specific reason provided."}</p>
               <p className="text-xs text-red-600 mt-2 pt-2 border-t border-red-200">
-                Rejected by {rejectionLog.actor?.name} on {new Date(rejectionLog.createdAt).toLocaleDateString()}
+                Rejected by {rejectionLog.actor?.name} on {toDisplayDate(rejectionLog.createdAt)}
               </p>
             </div>
           ) : (
