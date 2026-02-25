@@ -2,20 +2,20 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Button } from "@/common/components/ui/button";
 import { useAuth, useAuthStore } from "@/common/store/store";
 import { PublicDealerSearchSelect } from "@/common/components/forms/PublicDealerSearchSelect";
-// import { crossPortAuth } from "@myapp/shared-auth"; // Removed - no longer using shared packages
 import { Eye, EyeOff, CheckCircle } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
+import { useLoginRedirect } from "@/common/hooks/useRoleBasedRouting";
+import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
 
 export default function SignupPage() {
-  const router = useRouter();
   const { register, isLoading, error, clearError } = useAuth();
   const { t } = useI18n();
+  const { isRedirecting, handleLoginRedirect } = useLoginRedirect();
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -105,30 +105,8 @@ export default function SignupPage() {
 
       await register(registerData);
 
-      // Check user role and redirect accordingly
-      const { user, accessToken } = useAuthStore.getState();
-      // TODO: Handle doctor cross-port navigation when implementing unified architecture
-      // if (user?.role === "DOCTOR") {
-      //   // Store auth data and navigate to doctor app using shared-auth
-      //   crossPortAuth.setAuthData({
-      //     accessToken: accessToken!,
-      //     user: {
-      //       id: user.id,
-      //       name: user.name,
-      //       phone: user.phone,
-      //       role: user.role,
-      //       companyName: user.companyName,
-      //     },
-      //   });
-      //   setTimeout(() => {
-      //     crossPortAuth.navigateToDoctorApp();
-      //   }, 1000);
-      // } else {
-      // Redirect farmers/managers to farmer dashboard
-      setTimeout(() => {
-        router.push("/dashboard/home");
-      }, 1000);
-      // }
+      const { user } = useAuthStore.getState();
+      await handleLoginRedirect(user?.role || "OWNER");
     } catch (err) {
       console.error("Registration failed:", err);
     }
@@ -138,6 +116,10 @@ export default function SignupPage() {
     return `${formData.countryCode}${formData.phone}`;
   };
 
+
+  if (isRedirecting) {
+    return <AppLoadingScreen message={t("auth.login.redirecting")} />;
+  }
 
   return (
     <div className="min-h-screen bg-background">

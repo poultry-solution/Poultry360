@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Button } from "@/common/components/ui/button";
@@ -10,10 +9,12 @@ import { Eye, EyeOff, Building2 } from "lucide-react";
 import axiosInstance from "@/common/lib/axios";
 import { useAuthStore } from "@/common/store/store";
 import { useI18n } from "@/i18n/useI18n";
+import { useLoginRedirect } from "@/common/hooks/useRoleBasedRouting";
+import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
 
 export default function CompanySignupPage() {
-    const router = useRouter();
     const { t } = useI18n();
+    const { isRedirecting, handleLoginRedirect } = useLoginRedirect();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showPassword, setShowPassword] = useState(false);
@@ -110,12 +111,10 @@ export default function CompanySignupPage() {
                 },
                 accessToken,
                 isAuthenticated: true,
+                isInitialized: true,
             });
 
-            // Redirect to company dashboard
-            setTimeout(() => {
-                router.push("/company/dashboard/home");
-            }, 1000);
+            await handleLoginRedirect(user.role || "COMPANY");
         } catch (err: any) {
             setError(
                 err.response?.data?.message ||
@@ -127,6 +126,10 @@ export default function CompanySignupPage() {
             setIsLoading(false);
         }
     };
+
+    if (isRedirecting) {
+        return <AppLoadingScreen message={t("auth.login.redirecting")} />;
+    }
 
     return (
         <div className="min-h-screen bg-background">

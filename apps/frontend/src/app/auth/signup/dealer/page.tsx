@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Button } from "@/common/components/ui/button";
@@ -11,10 +10,12 @@ import axiosInstance from "@/common/lib/axios";
 import { useAuthStore } from "@/common/store/store";
 import { PublicCompanySearchSelect } from "@/common/components/forms/PublicCompanySearchSelect";
 import { useI18n } from "@/i18n/useI18n";
+import { useLoginRedirect } from "@/common/hooks/useRoleBasedRouting";
+import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
 
 export default function DealerSignupPage() {
-  const router = useRouter();
   const { t } = useI18n();
+  const { isRedirecting, handleLoginRedirect } = useLoginRedirect();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -114,12 +115,10 @@ export default function DealerSignupPage() {
         },
         accessToken,
         isAuthenticated: true,
+        isInitialized: true,
       });
 
-      // Redirect to dealer dashboard
-      setTimeout(() => {
-        router.push("/dealer/dashboard/home");
-      }, 1000);
+      await handleLoginRedirect(user.role || "DEALER");
     } catch (err: any) {
       setError(
         err.response?.data?.message ||
@@ -131,6 +130,10 @@ export default function DealerSignupPage() {
       setIsLoading(false);
     }
   };
+
+  if (isRedirecting) {
+    return <AppLoadingScreen message={t("auth.login.redirecting")} />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
