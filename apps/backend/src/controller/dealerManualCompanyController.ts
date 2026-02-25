@@ -215,7 +215,7 @@ export const recordManualPurchase = async (
             for (const item of items) {
                 const { productName, type, unit, quantity, costPrice, sellingPrice } = item;
 
-                if (!productName || !type || !unit || !quantity || !costPrice || !sellingPrice) {
+                if (!productName || !type || !unit || !quantity || costPrice === undefined || costPrice === null || sellingPrice === undefined || sellingPrice === null) {
                     throw new Error("Each item must have productName, type, unit, quantity, costPrice, and sellingPrice");
                 }
 

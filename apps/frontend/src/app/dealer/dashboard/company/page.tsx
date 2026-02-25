@@ -329,7 +329,7 @@ export default function DealerCompanyPage() {
 
     const handleRecordPurchase = async () => {
         if (!purchaseCompany) return;
-        const validItems = purchaseItems.filter(i => i.productName && i.quantity > 0 && i.costPrice > 0 && i.sellingPrice > 0);
+        const validItems = purchaseItems.filter(i => i.productName && i.quantity > 0 && i.costPrice >= 0 && i.sellingPrice >= 0);
         if (validItems.length === 0) {
             toast.error("Add at least one valid item");
             return;
