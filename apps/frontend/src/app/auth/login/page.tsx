@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Button } from "@/common/components/ui/button";
@@ -11,10 +10,18 @@ import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
 import { useI18n } from "@/i18n/useI18n";
 
 export default function LoginPage() {
-  const router = useRouter();
   const { login, isLoading, error, clearError } = useAuth();
   const { isRedirecting, handleLoginRedirect } = useLoginRedirect();
   const { t } = useI18n();
+  const { isAuthenticated, isInitialized } = useAuthStore();
+
+  // Redirect to dashboard if already authenticated (e.g. user navigates to /auth/login with valid session)
+  useEffect(() => {
+    if (isInitialized && isAuthenticated) {
+      const { user } = useAuthStore.getState();
+      handleLoginRedirect(user?.role || "OWNER");
+    }
+  }, [isInitialized, isAuthenticated, handleLoginRedirect]);
 
   const [formData, setFormData] = useState({
     // emailOrPhone will hold ONLY the 10 local digits; +977 is shown separately

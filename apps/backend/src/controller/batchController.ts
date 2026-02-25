@@ -7,8 +7,6 @@ import {
   BatchSchema,
   CloseBatchSchema,
 } from "@myapp/shared-types";
-import { getVaccinationService } from "../services/vaccinationService";
-import { getStandardVaccinationService } from "../services/standardVaccinationService";
 
 // ==================== GET ALL BATCHES ====================
 export const getAllBatches = async (
@@ -552,19 +550,6 @@ export const createBatch = async (
 
       return { batch, usages };
     });
-
-    // Create standard vaccination reminders for the new batch
-    try {
-      const vaccinationService = getVaccinationService();
-      await vaccinationService.createStandardVaccinationRemindersForBatch(
-        result.batch.id,
-        currentUserId as string
-      );
-      console.log(`✅ Created standard vaccination reminders for batch ${result.batch.batchNumber}`);
-    } catch (vaccinationError) {
-      console.error("⚠️ Failed to create standard vaccination reminders:", vaccinationError);
-      // Don't fail the batch creation if vaccination reminders fail
-    }
 
     return res.status(201).json({
       success: true,
@@ -1336,7 +1321,6 @@ export const getBatchAnalytics = async (
       totalSales,
       totalFeedConsumption,
       latestWeight,
-      vaccinationStats,
     ] = await Promise.all([
       prisma.mortality.aggregate({
         where: {
@@ -1379,11 +1363,6 @@ export const getBatchAnalytics = async (
           date: true,
         },
       }),
-      prisma.vaccination.groupBy({
-        by: ["status"],
-        where: { batchId: id },
-        _count: { status: true },
-      }),
     ]);
 
     console.log(saleMortality);
@@ -1392,8 +1371,6 @@ export const getBatchAnalytics = async (
     console.log(totalSales);
     console.log(totalFeedConsumption);
     console.log(latestWeight);
-    console.log(vaccinationStats);
-
     const currentChicks =
       batch.initialChicks -
       (Number(saleMortality._sum.count || 0) +
@@ -1438,9 +1415,8 @@ export const getBatchAnalytics = async (
       (new Date().getTime() - batch.startDate.getTime()) / (1000 * 60 * 60 * 24)
     );
 
-    // Calculate batch age (same as days active for now, but can be different if needed)
-    const standardVaccinationService = getStandardVaccinationService();
-    const batchAge = standardVaccinationService.calculateBatchAge(batch.startDate);
+    // Calculate batch age
+    const batchAge = Math.floor((Date.now() - new Date(batch.startDate).getTime()) / (1000 * 60 * 60 * 24));
 
     // also include total sales quantity
     const totalSalesQuantity = Number(totalSales._sum.quantity || 0);
@@ -1479,13 +1455,6 @@ export const getBatchAnalytics = async (
         },
         daysActive,
         batchAge,
-        vaccinationStats: vaccinationStats.reduce(
-          (acc, stat) => {
-            acc[stat.status] = stat._count.status;
-            return acc;
-          },
-          {} as Record<string, number>
-        ),
         status: batch.status,
         startDate: batch.startDate,
         endDate: batch.endDate,

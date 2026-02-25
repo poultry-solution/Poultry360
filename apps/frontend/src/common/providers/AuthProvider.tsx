@@ -30,14 +30,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     }
   }, [initialize, isInitialized]);
 
-  // On auth pages, always show children
-  if (isAuthPage || isPublicSharePage) {
+  // Public share pages render immediately — no auth needed
+  if (isPublicSharePage) {
     return <>{children}</>;
   }
 
-  // Show loading fallback during initialization
+  // Show loading fallback during initialization for all routes (including auth pages)
+  // This prevents the login form from flashing before we know if user is already authenticated
   if (!isInitialized || isLoading) {
-    // Use custom fallback if provided, otherwise use appropriate loading screen
     if (fallback) {
       return <>{fallback}</>;
     }

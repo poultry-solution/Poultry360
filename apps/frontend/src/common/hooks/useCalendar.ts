@@ -1,3 +1,4 @@
+import { EFFECTIVE_CALENDAR_TYPE } from "@/common/config/calendar";
 import { useUser } from "@/common/store/store";
 import {
   convertADtoBS,
@@ -11,13 +12,13 @@ import {
 export type { CalendarType };
 
 /**
- * Hook for calendar operations based on user preference
- * Always stores dates as AD (ISO format) in database
- * Displays dates according to user's calendar preference (BS or AD)
+ * Hook for calendar operations. Effective calendar is forced to Nepali (BS) for all users;
+ * stored preference and toggle UI are kept internally for future re-enablement.
+ * Always stores dates as AD (ISO format) in database; displays in effective calendar (BS).
  */
 export const useCalendar = () => {
-  const user = useUser();
-  const calendarType: CalendarType = (user?.calendarType || "AD") as CalendarType;
+  useUser(); // keep subscription so hook still updates when user changes
+  const calendarType: CalendarType = EFFECTIVE_CALENDAR_TYPE;
   const isBS = calendarType === "BS";
 
   /**

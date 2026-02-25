@@ -167,6 +167,7 @@ export const useAuthStore = create<AuthState>()(
               accessToken,
               isAuthenticated: true,
               isLoading: false,
+              isInitialized: true,
               error: null,
             });
           } catch (error) {
@@ -214,6 +215,7 @@ export const useAuthStore = create<AuthState>()(
               accessToken,
               isAuthenticated: true,
               isLoading: false,
+              isInitialized: true,
               error: null,
             });
           } catch (error) {
