@@ -100,7 +100,8 @@
       "financial": "वित्तीय",
       "suppliers": "आपूर्तिकर्ता",
       "performance": "कार्यसम्पादन",
-      "reports": "प्रतिवेदन"
+      "reports": "प्रतिवेदन",
+      "purchaseRequests": "खरिद अनुरोध"
     }
   },
   "settings": {

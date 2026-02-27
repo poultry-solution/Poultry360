@@ -101,7 +101,8 @@
       "suppliers": "Suppliers",
       "performance": "Performance",
       "reports": "Reports",
-      "businessInsights": "Business Insights"
+      "businessInsights": "Business Insights",
+      "purchaseRequests": "Purchase Requests"
     }
   },
   "settings": {

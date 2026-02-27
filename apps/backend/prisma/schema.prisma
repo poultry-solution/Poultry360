@@ -321,6 +321,10 @@ model User {
   farmerPaymentsRecorded          DealerFarmerPayment[]          @relation("DealerFarmerPaymentRecorder")
   dealerFarmerBalanceLimitsSet    DealerFarmerAccount[]          @relation("DealerFarmerBalanceLimitSetter")
 
+  // Farmer purchase request relationships
+  farmerCarts              FarmerCart[]              @relation("FarmerCarts")
+  farmerPurchaseRequests   FarmerPurchaseRequest[]   @relation("FarmerPurchaseRequests")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -807,6 +811,8 @@ model Dealer {
   companyAccounts      CompanyDealerAccount[]
   farmerAccounts       DealerFarmerAccount[]
   manualCompanies      DealerManualCompany[]
+  farmerCarts          FarmerCart[]              @relation("DealerFarmerCarts")
+  farmerPurchaseRequests FarmerPurchaseRequest[] @relation("DealerPurchaseRequests")
 
   @@unique([userId, name])
   @@index([ownerId])
@@ -911,6 +917,7 @@ model Customer {
   dealerSales         DealerSale[]
   saleRequests        DealerSaleRequest[]
   salePaymentRequests DealerSalePaymentRequest[]
+  farmerPurchaseRequests FarmerPurchaseRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1494,6 +1501,8 @@ model DealerProduct {
   consignmentItems     ConsignmentItem[]
   saleRequestItems     DealerSaleRequestItem[]
   manualPurchaseItems  DealerManualPurchaseItem[]
+  farmerCartItems             FarmerCartItem[]              @relation("FarmerCartProducts")
+  farmerPurchaseRequestItems  FarmerPurchaseRequestItem[]   @relation("FarmerPurchaseRequestProducts")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1557,6 +1566,7 @@ model DealerSale {
   paymentRequests DealerSalePaymentRequest[]
   ledgerEntries   DealerLedgerEntry[]
   saleRequest     DealerSaleRequest?
+  purchaseRequest FarmerPurchaseRequest?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2174,4 +2184,99 @@ model DealerManualCompanyPayment {
   createdAt DateTime @default(now())
 
   @@index([manualCompanyId, paymentDate])
+}
+
+// ==================== FARMER CART & PURCHASE REQUEST ====================
+
+enum FarmerPurchaseRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model FarmerCart {
+  id       String          @id @default(cuid())
+  farmerId String
+  farmer   User            @relation("FarmerCarts", fields: [farmerId], references: [id], onDelete: Cascade)
+  dealerId String
+  dealer   Dealer          @relation("DealerFarmerCarts", fields: [dealerId], references: [id], onDelete: Cascade)
+  items    FarmerCartItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([farmerId, dealerId])
+  @@index([farmerId])
+  @@index([dealerId])
+}
+
+model FarmerCartItem {
+  id        String        @id @default(cuid())
+  cartId    String
+  cart      FarmerCart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   DealerProduct @relation("FarmerCartProducts", fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Decimal       @db.Decimal(10, 2)
+  unitPrice Decimal       @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, productId])
+  @@index([cartId])
+  @@index([productId])
+}
+
+model FarmerPurchaseRequest {
+  id              String                       @id @default(cuid())
+  requestNumber   String                       @unique
+  status          FarmerPurchaseRequestStatus   @default(PENDING)
+
+  totalAmount     Decimal  @db.Decimal(10, 2)
+  subtotalAmount  Decimal? @db.Decimal(10, 2)
+  discountType    String?
+  discountValue   Decimal? @db.Decimal(10, 2)
+
+  notes           String?
+  date            DateTime @default(now())
+
+  reviewedAt      DateTime?
+  rejectionReason String?
+
+  farmerId   String
+  farmer     User     @relation("FarmerPurchaseRequests", fields: [farmerId], references: [id], onDelete: Cascade)
+  dealerId   String
+  dealer     Dealer   @relation("DealerPurchaseRequests", fields: [dealerId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  dealerSaleId String?     @unique
+  dealerSale   DealerSale? @relation(fields: [dealerSaleId], references: [id])
+
+  items FarmerPurchaseRequestItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([farmerId, status])
+  @@index([dealerId, status])
+  @@index([customerId])
+}
+
+model FarmerPurchaseRequestItem {
+  id          String  @id @default(cuid())
+  quantity    Decimal @db.Decimal(10, 2)
+  unitPrice   Decimal @db.Decimal(10, 2)
+  totalAmount Decimal @db.Decimal(10, 2)
+
+  requestId String
+  request   FarmerPurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  productId String
+  product   DealerProduct         @relation("FarmerPurchaseRequestProducts", fields: [productId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([requestId])
+  @@index([productId])
 }

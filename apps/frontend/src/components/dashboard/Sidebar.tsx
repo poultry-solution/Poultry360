@@ -19,6 +19,7 @@ import {
   FileText,
   CreditCard,
   Lightbulb,
+  ShoppingCart,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { useAuth } from "@/common/store/store";
@@ -38,6 +39,7 @@ export const farmerNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.farms", href: "/farmer/dashboard/farms", icon: Building2 },
   { nameKey: "sidebar.nav.batches", href: "/farmer/dashboard/batches", icon: Layers },
   { nameKey: "sidebar.nav.supplierLedger", href: "/farmer/dashboard/supplier-ledger", icon: Truck },
+  { nameKey: "sidebar.nav.purchaseRequests", href: "/farmer/dashboard/purchase-requests", icon: ShoppingCart },
   { nameKey: "sidebar.nav.salesLedger", href: "/farmer/dashboard/sales-ledger", icon: Receipt },
   { nameKey: "sidebar.nav.inventory", href: "/farmer/dashboard/inventory", icon: Package },
   {
@@ -59,7 +61,7 @@ export const dealerNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.inventory", href: "/dealer/dashboard/inventory", icon: Package },
   { nameKey: "sidebar.nav.customers", href: "/dealer/dashboard/customers", icon: Users },
   { nameKey: "sidebar.nav.sales", href: "/dealer/dashboard/sales", icon: Receipt },
-
+  { nameKey: "sidebar.nav.purchaseRequests", href: "/dealer/dashboard/purchase-requests", icon: ShoppingCart },
 ];
 
 export const companyNavigation: NavigationItem[] = [
