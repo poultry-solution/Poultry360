@@ -73,6 +73,8 @@ import {
 } from "@/fetchers/dealer/paymentRequestQueries";
 import { CompanySearchSelect } from "@/common/components/forms/CompanySearchSelect";
 import { ImageUpload } from "@/common/components/ui/image-upload";
+import { DateInput } from "@/common/components/ui/date-input";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 export default function DealerPaymentsPage() {
   const router = useRouter();
@@ -93,7 +95,7 @@ export default function DealerPaymentsPage() {
   const [paymentReference, setPaymentReference] = useState("");
   const [paymentReceiptUrl, setPaymentReceiptUrl] = useState("");
   const [paymentDate, setPaymentDate] = useState(
-    new Date().toISOString().split("T")[0]
+    new Date().toISOString()
   );
 
   // Form state for creating request
@@ -105,7 +107,7 @@ export default function DealerPaymentsPage() {
   const [requestPaymentReference, setRequestPaymentReference] = useState("");
   const [requestPaymentReceiptUrl, setRequestPaymentReceiptUrl] = useState("");
   const [requestPaymentDate, setRequestPaymentDate] = useState(
-    new Date().toISOString().split("T")[0]
+    new Date().toISOString()
   );
 
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -129,14 +131,6 @@ export default function DealerPaymentsPage() {
 
   const receivedRequests = receivedData?.data || [];
   const sentRequests = sentData?.data || [];
-
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   const formatCurrency = (amount: number | string | undefined | null) => {
     if (amount === undefined || amount === null) return "रू 0.00";
@@ -439,7 +433,7 @@ export default function DealerPaymentsPage() {
                     key: 'createdAt',
                     label: t("dealer.payments.columns.date"),
                     width: '90px',
-                    render: (val) => formatDate(val)
+                    render: (val) => <DateDisplay date={val} />
                   },
                   {
                     key: 'company',
@@ -494,7 +488,7 @@ export default function DealerPaymentsPage() {
                               setPaymentMethod("CASH");
                               setPaymentReference("");
                               setPaymentReceiptUrl("");
-                              setPaymentDate(new Date().toISOString().split("T")[0]);
+                              setPaymentDate(new Date().toISOString());
                               setIsAcceptAndProofDialogOpen(true);
                             }}
                             title="Accept & submit proof"
@@ -512,7 +506,7 @@ export default function DealerPaymentsPage() {
                               setPaymentMethod("CASH");
                               setPaymentReference("");
                               setPaymentReceiptUrl("");
-                              setPaymentDate(new Date().toISOString().split("T")[0]);
+                              setPaymentDate(new Date().toISOString());
                               setIsSubmitProofOpen(true);
                             }}
                             title="Submit proof"
@@ -561,7 +555,7 @@ export default function DealerPaymentsPage() {
                     key: 'createdAt',
                     label: t("dealer.payments.columns.date"),
                     width: '90px',
-                    render: (val) => formatDate(val)
+                    render: (val) => <DateDisplay date={val} />
                   },
                   {
                     key: 'company',
@@ -709,7 +703,7 @@ export default function DealerPaymentsPage() {
                   <div>
                     <Label>{t("dealer.payments.dialogs.view.paymentDate")}</Label>
                     <p className="font-medium">
-                      {formatDate(selectedRequest.paymentDate)}
+                      <DateDisplay date={selectedRequest.paymentDate} />
                     </p>
                   </div>
                 )}
@@ -838,12 +832,10 @@ export default function DealerPaymentsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="accept-proof-date">{t("dealer.payments.dialogs.common.date")}</Label>
-              <Input
-                id="accept-proof-date"
-                type="date"
+              <DateInput
+                label={t("dealer.payments.dialogs.common.date")}
                 value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
+                onChange={setPaymentDate}
               />
             </div>
           </div>
@@ -945,12 +937,10 @@ export default function DealerPaymentsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="payment-date">{t("dealer.payments.dialogs.common.date")}</Label>
-              <Input
-                id="payment-date"
-                type="date"
+              <DateInput
+                label={t("dealer.payments.dialogs.common.date")}
                 value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
+                onChange={setPaymentDate}
               />
             </div>
           </div>
@@ -1012,12 +1002,10 @@ export default function DealerPaymentsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="request-payment-date">{t("dealer.payments.dialogs.common.date")}</Label>
-                <Input
-                  id="request-payment-date"
-                  type="date"
+                <DateInput
+                  label={t("dealer.payments.dialogs.common.date")}
                   value={requestPaymentDate}
-                  onChange={(e) => setRequestPaymentDate(e.target.value)}
+                  onChange={setRequestPaymentDate}
                 />
               </div>
             </div>

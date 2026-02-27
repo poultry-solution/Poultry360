@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Search, Filter, Eye, CreditCard, Calendar, FileCheck, User, Phone, Package, FileText, Check, X as XIcon, Wallet } from "lucide-react";
+import { DateInput } from "@/common/components/ui/date-input";
+import { DateDisplay } from "@/common/components/ui/date-display";
 import {
   Card,
   CardContent,
@@ -61,24 +63,6 @@ export default function DealerSalesPage() {
   const sales: DealerSale[] = salesData?.data || [];
   const pagination = salesData?.pagination;
   const sale = saleDetailData?.data;
-
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
-  const formatDateTime = (date: Date | string) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -161,18 +145,16 @@ export default function DealerSalesPage() {
               </Select>
             </div>
             <div className="flex gap-2">
-              <Input
-                type="date"
-                placeholder={t("dealer.sales.filters.start")}
+              <DateInput
+                label={t("dealer.sales.filters.start")}
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={setStartDate}
                 className="flex-1"
               />
-              <Input
-                type="date"
-                placeholder={t("dealer.sales.filters.end")}
+              <DateInput
+                label={t("dealer.sales.filters.end")}
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={setEndDate}
                 className="flex-1"
               />
             </div>
@@ -211,7 +193,7 @@ export default function DealerSalesPage() {
                 render: (val) => (
                   <div className="flex items-center gap-1.5">
                     <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span>{formatDate(val)}</span>
+                    <DateDisplay date={val} />
                   </div>
                 )
               },
@@ -332,7 +314,7 @@ export default function DealerSalesPage() {
               Invoice #{sale?.invoiceNumber || sale?.id?.slice(0, 8) || "..."}
             </DialogTitle>
             <DialogDescription>
-              {sale ? `Sale created on ${formatDateTime(sale.date)}` : "Loading..."}
+              {sale ? <span>Sale created on <DateDisplay date={sale.date} format="long" /></span> : "Loading..."}
             </DialogDescription>
           </DialogHeader>
 
@@ -490,7 +472,7 @@ export default function DealerSalesPage() {
                       <div key={payment.id} className="flex justify-between items-start p-2 bg-muted/20 rounded">
                         <div>
                           <div className="font-medium text-sm">{formatCurrency(Number(payment.amount))}</div>
-                          <div className="text-xs text-muted-foreground">{formatDateTime(payment.paymentDate ?? payment.date)}</div>
+                          <div className="text-xs text-muted-foreground"><DateDisplay date={payment.paymentDate ?? payment.date} format="long" /></div>
                           {payment.notes && <div className="text-xs text-muted-foreground mt-1">{payment.notes}</div>}
                         </div>
                         <Badge variant="secondary" className="text-xs">

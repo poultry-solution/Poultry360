@@ -63,6 +63,7 @@ import {
 import { useGetAllCompanyAccounts } from "@/fetchers/dealer/dealerCompanyAccountQueries";
 import { PublicCompanySearchSelect } from "@/common/components/forms/PublicCompanySearchSelect";
 import { useI18n } from "@/i18n/useI18n";
+import { DateDisplay } from "@/common/components/ui/date-display";
 import {
     useGetManualCompanies,
     useCreateManualCompany,
@@ -563,7 +564,7 @@ export default function DealerCompanyPage() {
                                                                 <div className="flex justify-between">
                                                                     <span className="text-muted-foreground">{t("dealer.company.connected.card.connected")}</span>
                                                                     <span className="font-medium text-green-600">
-                                                                        {new Date(company.connectedAt).toLocaleDateString()}
+                                                                        <DateDisplay date={company.connectedAt} />
                                                                     </span>
                                                                 </div>
                                                             </div>
@@ -792,7 +793,7 @@ export default function DealerCompanyPage() {
                                                     <div className="flex justify-between">
                                                         <span className="text-muted-foreground">{t("dealer.company.requests.card.applied")}</span>
                                                         <span className="font-medium">
-                                                            {new Date(request.createdAt).toLocaleDateString()}
+                                                            <DateDisplay date={request.createdAt} />
                                                         </span>
                                                     </div>
                                                     {request.status === "REJECTED" && (
@@ -807,7 +808,7 @@ export default function DealerCompanyPage() {
                                                                 <div className="flex justify-between">
                                                                     <span className="text-muted-foreground">{t("dealer.company.requests.card.lastRejected")}</span>
                                                                     <span className="font-medium">
-                                                                        {new Date(request.lastRejectedAt).toLocaleDateString()}
+                                                                        <DateDisplay date={request.lastRejectedAt} />
                                                                     </span>
                                                                 </div>
                                                             )}
@@ -919,7 +920,7 @@ export default function DealerCompanyPage() {
                                                 <div className="flex justify-between">
                                                     <span className="text-muted-foreground">{t("dealer.company.connected.card.connected")}</span>
                                                     <span className="font-medium">
-                                                        {new Date(company.connectedAt).toLocaleDateString()}
+                                                        <DateDisplay date={company.connectedAt} />
                                                     </span>
                                                 </div>
                                             </div>

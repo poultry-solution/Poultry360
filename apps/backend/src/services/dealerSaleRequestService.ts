@@ -187,8 +187,9 @@ export class DealerSaleRequestService {
   static async approveSaleRequest(data: {
     requestId: string;
     farmerId: string;
+    purchaseCategory?: string;
   }) {
-    const { requestId, farmerId } = data;
+    const { requestId, farmerId, purchaseCategory } = data;
 
     // 1. Fetch the request BEFORE transaction (to use data after transaction).
     // Include dealer.ownerId so upfront payments can use a valid User ID for recordedById.
@@ -437,6 +438,7 @@ export class DealerSaleRequestService {
         date: request.date,
         description: `Purchase - Invoice ${invoiceNumber}`,
         reference: invoiceNumber,
+        purchaseCategory: purchaseCategory as any,
         userId: request.farmerId,
       });
     }

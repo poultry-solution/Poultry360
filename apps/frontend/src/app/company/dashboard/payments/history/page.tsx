@@ -38,8 +38,8 @@ import {
 } from "@/common/components/ui/dialog";
 import { useGetAllCompanyPayments } from "@/fetchers/company/companyDealerAccountQueries";
 import { useGetCompanyDealers } from "@/fetchers/company/companyDealerQueries";
-import { format } from "date-fns";
 import Image from "next/image";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 export default function AllPaymentsPage() {
     const router = useRouter();
@@ -69,10 +69,6 @@ export default function AllPaymentsPage() {
 
     const formatCurrency = (amount: number) => {
         return `रू ${amount.toFixed(2)}`;
-    };
-
-    const formatDate = (date: Date | string) => {
-        return format(new Date(date), "MMM d, yyyy");
     };
 
     const formatPaymentMethod = (method: string) => {
@@ -167,7 +163,7 @@ export default function AllPaymentsPage() {
                                 render: (val) => (
                                     <div className="flex items-center gap-2">
                                         <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                                        <span>{formatDate(val)}</span>
+                                        <DateDisplay date={val} />
                                     </div>
                                 ),
                             },

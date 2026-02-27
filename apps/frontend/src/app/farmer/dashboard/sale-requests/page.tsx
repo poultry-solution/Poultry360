@@ -30,6 +30,13 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/common/components/ui/label";
 import { Textarea } from "@/common/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 import { toast } from "sonner";
@@ -81,6 +88,7 @@ export default function FarmerSaleRequestsPage() {
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [purchaseCategory, setPurchaseCategory] = useState("");
 
   // Get sale requests
   const { data: requestsData, isLoading } = useQuery({
@@ -102,9 +110,10 @@ export default function FarmerSaleRequestsPage() {
 
   // Approve mutation
   const approveMutation = useMutation({
-    mutationFn: async (requestId: string) => {
+    mutationFn: async ({ requestId, purchaseCategory }: { requestId: string; purchaseCategory?: string }) => {
       const { data } = await axiosInstance.post(
-        `/farmer/sale-requests/${requestId}/approve`
+        `/farmer/sale-requests/${requestId}/approve`,
+        { purchaseCategory: purchaseCategory || undefined }
       );
       return data;
     },
@@ -114,6 +123,7 @@ export default function FarmerSaleRequestsPage() {
       toast.success(t("farmer.saleRequests.toast.approved"));
       setIsApproveDialogOpen(false);
       setSelectedRequest(null);
+      setPurchaseCategory("");
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || t("farmer.saleRequests.toast.approveFailed"));
@@ -179,6 +189,7 @@ export default function FarmerSaleRequestsPage() {
 
   const handleApprove = (request: SaleRequest) => {
     setSelectedRequest(request);
+    setPurchaseCategory("");
     setIsApproveDialogOpen(true);
   };
 
@@ -189,7 +200,10 @@ export default function FarmerSaleRequestsPage() {
 
   const confirmApprove = () => {
     if (selectedRequest) {
-      approveMutation.mutate(selectedRequest.id);
+      approveMutation.mutate({
+        requestId: selectedRequest.id,
+        purchaseCategory: purchaseCategory || undefined,
+      });
     }
   };
 
@@ -209,7 +223,7 @@ export default function FarmerSaleRequestsPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => router.push("/farmer/dashboard/dealer-ledger")}
+          onClick={() => router.push("/farmer/dashboard/supplier-ledger")}
           className="h-7 w-7 md:h-8 md:w-8 shrink-0"
         >
           <ArrowLeft className="h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -482,6 +496,26 @@ export default function FarmerSaleRequestsPage() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t("farmer.saleRequests.itemsCountLabel")}</span>
                 <span>{t("farmer.saleRequests.itemsCountValue", { count: selectedRequest.items.length })}</span>
+              </div>
+
+              {/* Purchase Category Selection */}
+              <div className="pt-3 border-t">
+                <Label className="text-sm font-medium">Purchase Category</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Select the category for inventory tracking
+                </p>
+                <Select value={purchaseCategory} onValueChange={setPurchaseCategory}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="FEED">Feed</SelectItem>
+                    <SelectItem value="MEDICINE">Medicine</SelectItem>
+                    <SelectItem value="CHICKS">Chicks</SelectItem>
+                    <SelectItem value="EQUIPMENT">Equipment</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           )}

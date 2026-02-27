@@ -44,6 +44,7 @@ import {
   useGetCompanyAccount,
   useGetCompanyAccountStatement,
 } from "@/fetchers/dealer/dealerCompanyAccountQueries";
+import { DateDisplay } from "@/common/components/ui/date-display";
 import { useCreateDealerPaymentRequest } from "@/fetchers/dealer/paymentRequestQueries";
 
 export default function CompanyAccountPage() {
@@ -101,13 +102,6 @@ export default function CompanyAccountPage() {
     return `रू ${amount.toFixed(2)}`;
   };
 
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString("en-IN", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   if (accountLoading || statementLoading) {
     return (
@@ -192,7 +186,7 @@ export default function CompanyAccountPage() {
             </div>
             {account?.lastSaleDate && (
               <p className="text-xs text-muted-foreground mt-1">
-                Last: {formatDate(account.lastSaleDate)}
+                Last: <DateDisplay date={account.lastSaleDate} />
               </p>
             )}
           </CardContent>
@@ -211,7 +205,7 @@ export default function CompanyAccountPage() {
             </div>
             {account?.lastPaymentDate && (
               <p className="text-xs text-muted-foreground mt-1">
-                Last: {formatDate(account.lastPaymentDate)}
+                Last: <DateDisplay date={account.lastPaymentDate} />
               </p>
             )}
           </CardContent>
@@ -302,7 +296,7 @@ export default function CompanyAccountPage() {
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {formatDate(transaction.date)}
+                          <DateDisplay date={transaction.date} />
                         </p>
                         {hasDiscount && (
                           <p className="text-xs text-muted-foreground mt-1">

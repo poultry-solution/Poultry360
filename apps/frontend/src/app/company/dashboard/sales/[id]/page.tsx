@@ -19,6 +19,7 @@ import { Button } from "@/common/components/ui/button";
 import { DataTable, Column } from "@/common/components/ui/data-table";
 import { Badge } from "@/common/components/ui/badge";
 import { useGetCompanySaleById } from "@/fetchers/company/companySaleQueries";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 export default function CompanySaleDetailPage() {
   const router = useRouter();
@@ -27,16 +28,6 @@ export default function CompanySaleDetailPage() {
 
   const { data: saleData, isLoading } = useGetCompanySaleById(saleId);
   const sale = saleData?.data;
-
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -82,7 +73,7 @@ export default function CompanySaleDetailPage() {
               Invoice #{sale.invoiceNumber || sale.id.slice(0, 8)}
             </h1>
             <p className="text-muted-foreground">
-              Sale created on {formatDate(sale.date)}
+              Sale created on <DateDisplay date={sale.date} format="long" />
             </p>
           </div>
         </div>
@@ -187,7 +178,7 @@ export default function CompanySaleDetailPage() {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Date</span>
-                <span className="font-medium text-sm">{formatDate(sale.date)}</span>
+                <span className="font-medium text-sm"><DateDisplay date={sale.date} format="long" /></span>
               </div>
             </div>
           </CardContent>

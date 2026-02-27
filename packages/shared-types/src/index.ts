@@ -59,6 +59,9 @@ export type AuditAction = z.infer<typeof AuditActionSchema>;
 export const CategoryTypeSchema = z.enum(["EXPENSE", "SALES", "INVENTORY"]);
 export type CategoryType = z.infer<typeof CategoryTypeSchema>;
 
+export const PurchaseCategorySchema = z.enum(["FEED", "MEDICINE", "CHICKS", "EQUIPMENT", "OTHER"]);
+export type PurchaseCategory = z.infer<typeof PurchaseCategorySchema>;
+
 // ==================== REMINDER SCHEMAS ====================
 
 export const ReminderTypeSchema = z.enum([
@@ -739,6 +742,7 @@ export const DealerSchema = BaseSchema.extend({
   contact: z.string(),
   address: z.string().nullable(),
   userId: z.string(),
+  classification: z.string().default("SELF_CREATED"), // "SELF_CREATED" | "CONNECTED"
 });
 
 export type Dealer = z.infer<typeof DealerSchema>;
@@ -766,12 +770,16 @@ export const DealerTransactionSchema = z.object({
   type: TransactionTypeSchema,
   amount: z.number(),
   quantity: z.number().int().nullable(),
+  freeQuantity: z.number().int().nullable().optional(),
   itemName: z.string().nullable(),
+  purchaseCategory: PurchaseCategorySchema.nullable().optional(),
   date: z.date(),
   description: z.string().nullable(),
   reference: z.string().nullable(),
+  imageUrl: z.string().nullable().optional(),
   entityType: z.string(),
   entityId: z.string(),
+  paymentToPurchaseId: z.string().nullable().optional(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
@@ -783,6 +791,7 @@ export const DealerResponseSchema = BaseSchema.extend({
   contact: z.string(),
   address: z.string().nullable(),
   userId: z.string(),
+  classification: z.string().default("SELF_CREATED"),
   balance: z.number().nonnegative(), // Computed field
   thisMonthAmount: z.number().nonnegative(), // Computed field
   totalTransactions: z.number().int().nonnegative(), // Computed field
@@ -805,9 +814,41 @@ export const DealerDetailResponseSchema = BaseSchema.extend({
   contact: z.string(),
   address: z.string().nullable(),
   userId: z.string(),
-  balance: z.number().nonnegative(),
+  classification: z.string().default("SELF_CREATED"),
+  balance: z.number(),
   thisMonthAmount: z.number().nonnegative(),
   totalTransactions: z.number().int().nonnegative(),
+
+  // Purchase entries (EntityTransaction where type=PURCHASE)
+  purchases: z.array(
+    z.object({
+      id: z.string(),
+      itemName: z.string().nullable(),
+      purchaseCategory: PurchaseCategorySchema.nullable().optional(),
+      quantity: z.number().nullable(),
+      freeQuantity: z.number().nullable().optional(),
+      unitPrice: z.number(),
+      totalAmount: z.number(),
+      date: z.date(),
+      description: z.string().nullable(),
+      reference: z.string().nullable(),
+      imageUrl: z.string().nullable().optional(),
+    })
+  ),
+
+  // Payment entries (EntityTransaction where type=PAYMENT)
+  payments: z.array(
+    z.object({
+      id: z.string(),
+      amount: z.number(),
+      date: z.date(),
+      description: z.string().nullable(),
+      reference: z.string().nullable(),
+      imageUrl: z.string().nullable().optional(),
+    })
+  ),
+
+  // Keep legacy transactionTable for backward compatibility (old dealer-ledger page)
   transactionTable: z.array(
     z.object({
       itemName: z.string(),
@@ -826,7 +867,8 @@ export const DealerDetailResponseSchema = BaseSchema.extend({
         })
       ),
     })
-  ),
+  ).optional(),
+
   summary: z.object({
     totalPurchases: z.number().int().nonnegative(),
     totalPayments: z.number().int().nonnegative(),

@@ -51,6 +51,7 @@ import {
   useGetArchivedDealerFarmers,
 } from "@/fetchers/dealer/dealerFarmerQueries";
 import { useI18n } from "@/i18n/useI18n";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 export default function DealerVerificationPage() {
   const { t } = useI18n();
@@ -349,7 +350,7 @@ export default function DealerVerificationPage() {
                       </CardHeader>
                       <CardContent className="p-2 md:p-4 pt-0">
                         <div className="text-[10px] md:text-xs text-muted-foreground mb-2">
-                          {new Date(farmer.connectedAt).toLocaleDateString()}
+                          <DateDisplay date={farmer.connectedAt} />
                         </div>
                         <Button
                           variant="outline"
@@ -424,7 +425,7 @@ export default function DealerVerificationPage() {
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">{t("dealer.verification.cards.requested")}</span>
                               <span className="font-medium">
-                                {new Date(request.createdAt).toLocaleDateString()}
+                                <DateDisplay date={request.createdAt} />
                               </span>
                             </div>
                             {request.status === "REJECTED" && (
@@ -569,7 +570,7 @@ export default function DealerVerificationPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-xs text-muted-foreground mb-3">
-                        Connected: {new Date(farmer.connectedAt).toLocaleDateString()}
+                        Connected: <DateDisplay date={farmer.connectedAt} />
                       </div>
                       <Button
                         variant="outline"

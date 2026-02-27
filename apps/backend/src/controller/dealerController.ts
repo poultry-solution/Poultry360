@@ -7,6 +7,7 @@ import {
   DealerSchema,
 } from "@myapp/shared-types";
 import { InventoryService } from "../services/inventoryService";
+import { DealerFarmerAccountService } from "../services/dealerFarmerAccountService";
 
 // ==================== GET ALL DEALERS ====================
 export const getAllDealers = async (
@@ -146,6 +147,33 @@ export const getAllDealers = async (
       prisma.dealer.count({ where }),
     ]);
 
+    // Pre-fetch DealerFarmerAccount balances for connected dealers (farmer users only)
+    let farmerAccountBalances: Map<string, { balance: number; totalSales: number; totalPayments: number }> = new Map();
+    if (currentUserRole !== UserRole.COMPANY) {
+      const connectedDealerIds = Array.from(dealerFarmerConnections.keys());
+      if (connectedDealerIds.length > 0) {
+        const accounts = await prisma.dealerFarmerAccount.findMany({
+          where: {
+            farmerId: currentUserId,
+            dealerId: { in: connectedDealerIds },
+          },
+          select: {
+            dealerId: true,
+            balance: true,
+            totalSales: true,
+            totalPayments: true,
+          },
+        });
+        accounts.forEach((a) => {
+          farmerAccountBalances.set(a.dealerId, {
+            balance: Number(a.balance),
+            totalSales: Number(a.totalSales),
+            totalPayments: Number(a.totalPayments),
+          });
+        });
+      }
+    }
+
     // Calculate balance for each dealer
     const dealersWithBalance = await Promise.all(
       dealers.map(async (dealer) => {
@@ -154,9 +182,18 @@ export const getAllDealers = async (
         let totalTransactions = 0;
         let recentTransactions: any[] = [];
 
+        // Determine connection type first
+        let connectionInfo;
+        if (currentUserRole === UserRole.COMPANY) {
+          connectionInfo = dealerCompanyConnections.get(dealer.id);
+        } else {
+          connectionInfo = dealerFarmerConnections.get(dealer.id);
+        }
+        const connectionType = connectionInfo ? "CONNECTED" : "MANUAL";
+        const isOwnedDealer = !!dealer.ownerId;
+
         // For company users, fetch balance from CompanyDealerAccount
         if (currentUserRole === UserRole.COMPANY && company) {
-          // Get account balance (account-based system)
           const account = await prisma.companyDealerAccount.findUnique({
             where: {
               companyId_dealerId: {
@@ -173,7 +210,6 @@ export const getAllDealers = async (
 
           balance = account ? Number(account.balance) : 0;
 
-          // Get sales for this month statistics
           const currentMonth = new Date();
           currentMonth.setDate(1);
           currentMonth.setHours(0, 0, 0, 0);
@@ -197,7 +233,6 @@ export const getAllDealers = async (
             0
           );
 
-          // Get total transaction count
           const totalSalesCount = await prisma.companySale.count({
             where: {
               companyId: company.id,
@@ -207,68 +242,81 @@ export const getAllDealers = async (
 
           totalTransactions = totalSalesCount;
           recentTransactions = sales;
-        } else {
-          // For other users, calculate from EntityTransaction (as before)
-          const transactions = await prisma.entityTransaction.findMany({
-            where: {
-              dealerId: dealer.id,
-            },
-            orderBy: { date: "desc" },
-          });
+        } else if (connectionType === "CONNECTED") {
+          // For connected dealers: use DealerFarmerAccount balance
+          const accountData = farmerAccountBalances.get(dealer.id);
+          balance = accountData?.balance ?? 0;
 
-          // Calculate balance: PURCHASE/ADJUSTMENT (positive) - PAYMENT/RECEIPT (negative)
-          balance = transactions.reduce((sum, transaction) => {
-            if (
-              transaction.type === "PURCHASE" ||
-              transaction.type === "ADJUSTMENT"
-            ) {
-              return sum + Number(transaction.amount);
-            } else if (
-              transaction.type === "PAYMENT" ||
-              transaction.type === "RECEIPT"
-            ) {
-              return sum - Number(transaction.amount);
-            }
-            return sum;
-          }, 0);
-
-          // Get recent transactions for this month
+          // Get recent transactions from EntityTransaction for display
           const currentMonth = new Date();
           currentMonth.setDate(1);
           currentMonth.setHours(0, 0, 0, 0);
 
-          const thisMonthTransactions = transactions.filter(
-            (t) => new Date(t.date) >= currentMonth
+          const transactions = await prisma.entityTransaction.findMany({
+            where: { dealerId: dealer.id },
+            orderBy: { date: "desc" },
+            take: 5,
+          });
+
+          const thisMonthTxns = await prisma.entityTransaction.findMany({
+            where: {
+              dealerId: dealer.id,
+              type: "PURCHASE",
+              date: { gte: currentMonth },
+            },
+            select: { amount: true },
+          });
+
+          thisMonthAmount = thisMonthTxns.reduce(
+            (sum, t) => sum + Number(t.amount), 0
           );
 
-          thisMonthAmount = thisMonthTransactions
-            .filter((t) => t.type === "PURCHASE")
-            .reduce((sum, t) => sum + Number(t.amount), 0);
-
-          totalTransactions = transactions.length;
-          recentTransactions = transactions.slice(0, 5);
-        }
-
-        // Determine connection type
-        const isManualDealer = dealer.userId === currentUserId;
-        let connectionInfo;
-        if (currentUserRole === UserRole.COMPANY) {
-          connectionInfo = dealerCompanyConnections.get(dealer.id);
+          totalTransactions = await prisma.entityTransaction.count({
+            where: { dealerId: dealer.id },
+          });
+          recentTransactions = transactions;
         } else {
-          connectionInfo = dealerFarmerConnections.get(dealer.id);
+          // For manual dealers: use dealer.balance stored field
+          balance = Number(dealer.balance);
+
+          const currentMonth = new Date();
+          currentMonth.setDate(1);
+          currentMonth.setHours(0, 0, 0, 0);
+
+          const transactions = await prisma.entityTransaction.findMany({
+            where: { dealerId: dealer.id },
+            orderBy: { date: "desc" },
+            take: 5,
+          });
+
+          const thisMonthTxns = await prisma.entityTransaction.findMany({
+            where: {
+              dealerId: dealer.id,
+              type: "PURCHASE",
+              date: { gte: currentMonth },
+            },
+            select: { amount: true },
+          });
+
+          thisMonthAmount = thisMonthTxns.reduce(
+            (sum, t) => sum + Number(t.amount), 0
+          );
+
+          totalTransactions = await prisma.entityTransaction.count({
+            where: { dealerId: dealer.id },
+          });
+          recentTransactions = transactions;
         }
-        const connectionType = connectionInfo ? "CONNECTED" : "MANUAL";
-        const isOwnedDealer = !!dealer.ownerId;
 
         return {
           ...dealer,
-          balance: balance, // Preserve negative balance for advances
+          balance,
           thisMonthAmount,
           totalTransactions,
           recentTransactions,
-          connectionType, // NEW: "MANUAL" | "CONNECTED"
-          connectionId: connectionInfo?.connectionId, // NEW: DealerCompany.id or DealerFarmer.id if connected
-          isOwnedDealer, // NEW: true if dealer has ownerId (registered dealer)
+          connectionType,
+          connectionId: connectionInfo?.connectionId,
+          isOwnedDealer,
         };
       })
     );
@@ -325,29 +373,116 @@ export const getDealerById = async (
     const connectionType = dealerFarmerConnection ? "CONNECTED" : "MANUAL";
     const isOwnedDealer = !!dealer.ownerId;
 
-    // Get transactions directly from entityTransaction table
+    // ── Connected dealers: use DealerFarmerAccount + DealerSale/DealerFarmerPayment ──
+    if (connectionType === "CONNECTED") {
+      const account = await prisma.dealerFarmerAccount.findFirst({
+        where: { dealerId: id, farmerId: currentUserId },
+        select: {
+          id: true,
+          balance: true,
+          totalSales: true,
+          totalPayments: true,
+        },
+      });
+
+      const balance = account ? Number(account.balance) : 0;
+      const totalSales = account ? Number(account.totalSales) : 0;
+      const totalPaymentsAmt = account ? Number(account.totalPayments) : 0;
+
+      // Get sales (purchases from farmer's perspective) from DealerSale
+      const sales = account
+        ? await prisma.dealerSale.findMany({
+            where: { accountId: account.id },
+            orderBy: { date: "desc" },
+            include: {
+              items: { include: { product: { select: { name: true } } } },
+              discount: true,
+            },
+          })
+        : [];
+
+      // Get payments from DealerFarmerPayment
+      const farmerPayments = account
+        ? await prisma.dealerFarmerPayment.findMany({
+            where: { accountId: account.id },
+            orderBy: { paymentDate: "desc" },
+          })
+        : [];
+
+      // Map sales to purchases format for the frontend
+      const purchases = sales.map((sale) => ({
+        id: sale.id,
+        itemName:
+          sale.items.map((i: any) => i.product?.name || "Item").join(", ") ||
+          "Sale",
+        purchaseCategory: null,
+        quantity: sale.items.reduce((sum: number, i: any) => sum + i.quantity, 0),
+        freeQuantity: 0,
+        amount: Number(sale.totalAmount),
+        subtotalAmount: sale.subtotalAmount ? Number(sale.subtotalAmount) : null,
+        discountType: sale.discount?.type || null,
+        discountValue: sale.discount?.value ? Number(sale.discount.value) : null,
+        date: sale.date,
+        description: sale.notes,
+        reference: sale.invoiceNumber,
+      }));
+
+      // Map DealerFarmerPayment to payments format
+      const paymentsList = farmerPayments.map((p) => ({
+        id: p.id,
+        amount: Number(p.amount),
+        date: p.paymentDate,
+        description: p.notes,
+        reference: p.reference,
+        paymentMethod: p.paymentMethod,
+        balanceAfter: Number(p.balanceAfter),
+      }));
+
+      const currentMonth = new Date();
+      currentMonth.setDate(1);
+      currentMonth.setHours(0, 0, 0, 0);
+
+      const thisMonthPurchases = sales.filter(
+        (s) => new Date(s.date) >= currentMonth
+      );
+      const thisMonthAmount = thisMonthPurchases.reduce(
+        (sum, s) => sum + Number(s.totalAmount),
+        0
+      );
+
+      return res.json({
+        success: true,
+        data: {
+          ...dealer,
+          balance,
+          thisMonthAmount,
+          totalTransactions: sales.length + farmerPayments.length,
+          transactionTable: [],
+          purchases,
+          payments: paymentsList,
+          connectionType,
+          connectionId: dealerFarmerConnection?.id,
+          isOwnedDealer,
+          summary: {
+            totalPurchases: purchases.length,
+            totalPayments: paymentsList.length,
+            outstandingAmount: balance,
+            totalPurchasedAmount: totalSales,
+            totalPaidAmount: totalPaymentsAmt,
+            thisMonthPurchases: thisMonthPurchases.length,
+          },
+        },
+      });
+    }
+
+    // ── Manual dealers: use dealer.balance + EntityTransaction ──
+    const balance = Number(dealer.balance);
+
     const transactions = await prisma.entityTransaction.findMany({
-      where: {
-        dealerId: id,
-      },
+      where: { dealerId: id },
       orderBy: { date: "desc" },
     });
-    const balance = transactions.reduce((sum, transaction) => {
-      if (
-        transaction.type === "PURCHASE" ||
-        transaction.type === "ADJUSTMENT"
-      ) {
-        return sum + Number(transaction.amount);
-      } else if (
-        transaction.type === "PAYMENT" ||
-        transaction.type === "RECEIPT"
-      ) {
-        return sum - Number(transaction.amount);
-      }
-      return sum;
-    }, 0);
 
-    // Get this month's transactions
     const currentMonth = new Date();
     currentMonth.setDate(1);
     currentMonth.setHours(0, 0, 0, 0);
@@ -377,7 +512,7 @@ export const getDealerById = async (
             date: transaction.date,
             dueDate: new Date(
               transaction.date.getTime() + 30 * 24 * 60 * 60 * 1000
-            ), // 30 days from purchase
+            ),
             payments: [],
           };
         }
@@ -388,11 +523,10 @@ export const getDealerById = async (
       return groups;
     }, {} as any);
 
-    // 🔗 Apply payments to purchases using direct relationship only (no FIFO fallback)
     const purchaseGroups = Object.values(transactionGroups) as any[];
-    const payments = transactions.filter((t) => t.type === "PAYMENT");
+    const paymentsRaw = transactions.filter((t) => t.type === "PAYMENT");
 
-    for (const payment of payments) {
+    for (const payment of paymentsRaw) {
       const paymentAmount = Number(payment.amount);
       if (!payment.paymentToPurchaseId) continue;
 
@@ -416,23 +550,48 @@ export const getDealerById = async (
 
     const transactionTable = Object.values(transactionGroups);
 
+    const purchases = transactions
+      .filter((t) => t.type === "PURCHASE")
+      .map((t) => ({
+        id: t.id,
+        itemName: t.itemName,
+        purchaseCategory: t.purchaseCategory,
+        quantity: t.quantity,
+        freeQuantity: t.freeQuantity,
+        amount: Number(t.amount),
+        date: t.date,
+        description: t.description,
+        reference: t.reference,
+      }));
+
+    const paymentsList = transactions
+      .filter((t) => t.type === "PAYMENT")
+      .map((t) => ({
+        id: t.id,
+        amount: Number(t.amount),
+        date: t.date,
+        description: t.description,
+        reference: t.reference,
+        paymentToPurchaseId: t.paymentToPurchaseId,
+      }));
+
     return res.json({
       success: true,
       data: {
         ...dealer,
-        balance: Math.max(0, balance),
+        balance,
         thisMonthAmount,
         totalTransactions: transactions.length,
         transactionTable,
-        connectionType, // NEW: "MANUAL" | "CONNECTED"
-        connectionId: dealerFarmerConnection?.id, // NEW: DealerFarmer.id if connected
-        isOwnedDealer, // NEW: true if dealer has ownerId
+        purchases,
+        payments: paymentsList,
+        connectionType,
+        connectionId: dealerFarmerConnection?.id,
+        isOwnedDealer,
         summary: {
-          totalPurchases: transactions.filter((t) => t.type === "PURCHASE")
-            .length,
-          totalPayments: transactions.filter((t) => t.type === "PAYMENT")
-            .length,
-          outstandingAmount: Math.max(0, balance),
+          totalPurchases: purchases.length,
+          totalPayments: paymentsList.length,
+          outstandingAmount: balance,
           thisMonthPurchases: thisMonthTransactions.filter(
             (t) => t.type === "PURCHASE"
           ).length,
@@ -775,15 +934,18 @@ export const addDealerTransaction = async (
       type,
       amount,
       quantity,
+      freeQuantity,
       itemName,
+      purchaseCategory,
       date,
       description,
       reference,
       unitPrice,
-      // 🔗 NEW: single-request optional initial payment
+      imageUrl,
+      // single-request optional initial payment
       paymentAmount,
       paymentDescription,
-      // 🔗 NEW: link standalone PAYMENT to a purchase
+      // link standalone PAYMENT to a purchase (optional for khata-style)
       paymentToPurchaseId,
     } = req.body;
 
@@ -842,16 +1004,19 @@ export const addDealerTransaction = async (
         return res.status(400).json({ message: "Initial payment must be a positive number" });
       }
 
-      // 🔗 Use inventory service for purchases
+      // Use inventory service for purchases
+      const numericFreeQuantity = freeQuantity !== undefined && freeQuantity !== null ? Number(freeQuantity) : 0;
       const result = await InventoryService.processSupplierPurchase({
         dealerId: id,
         itemName,
         quantity: Number(numericQuantity),
+        freeQuantity: numericFreeQuantity,
         unitPrice: Number(unitPrice || numericAmount / Number(numericQuantity)),
         totalAmount: Number(numericAmount),
         date: new Date(date),
         description,
         reference,
+        purchaseCategory: purchaseCategory || undefined,
         userId: currentUserId,
       });
 
@@ -882,28 +1047,28 @@ export const addDealerTransaction = async (
     } else {
       // PAYMENT validation and overpayment prevention
       if (type === TransactionType.PAYMENT) {
-        if (!paymentToPurchaseId) {
-          return res.status(400).json({ message: "paymentToPurchaseId is required for PAYMENT transactions" });
-        }
-        const purchaseTxn = await prisma.entityTransaction.findFirst({
-          where: { id: paymentToPurchaseId, dealerId: id, type: TransactionType.PURCHASE },
-          select: { id: true, amount: true, reference: true },
-        });
-        if (!purchaseTxn) {
-          return res.status(400).json({ message: "Invalid paymentToPurchaseId: target purchase not found" });
-        }
-        const alreadyPaidAgg = await prisma.entityTransaction.aggregate({
-          _sum: { amount: true },
-          where: { type: TransactionType.PAYMENT, paymentToPurchaseId, dealerId: id },
-        });
-        const alreadyPaid = Number(alreadyPaidAgg._sum.amount || 0);
-        const purchaseTotal = Number(purchaseTxn.amount);
-        const remainingDue = Math.max(0, purchaseTotal - alreadyPaid);
-        if (numericAmount > remainingDue) {
-          return res.status(400).json({ message: `Payment exceeds remaining due. Remaining: ${remainingDue}` });
-        }
+        // paymentToPurchaseId is OPTIONAL — if provided, validate and check overpayment
+        // If not provided, this is a khata-style general payment (just reduces overall balance)
+        if (paymentToPurchaseId) {
+          const purchaseTxn = await prisma.entityTransaction.findFirst({
+            where: { id: paymentToPurchaseId, dealerId: id, type: TransactionType.PURCHASE },
+            select: { id: true, amount: true, reference: true },
+          });
+          if (!purchaseTxn) {
+            return res.status(400).json({ message: "Invalid paymentToPurchaseId: target purchase not found" });
+          }
+          const alreadyPaidAgg = await prisma.entityTransaction.aggregate({
+            _sum: { amount: true },
+            where: { type: TransactionType.PAYMENT, paymentToPurchaseId, dealerId: id },
+          });
+          const alreadyPaid = Number(alreadyPaidAgg._sum.amount || 0);
+          const purchaseTotal = Number(purchaseTxn.amount);
+          const remainingDue = Math.max(0, purchaseTotal - alreadyPaid);
+          if (numericAmount > remainingDue) {
+            return res.status(400).json({ message: `Payment exceeds remaining due. Remaining: ${remainingDue}` });
+          }
 
-        // 🔗 NEW: Check if this is a connected dealer - create payment request instead
+        // Check if this is a connected dealer - create payment request instead
         if (dealerFarmerConnection && purchaseTxn.reference) {
           // Find the DealerSale that corresponds to this purchase (by invoice number)
           const dealerSale = await prisma.dealerSale.findFirst({
@@ -938,6 +1103,7 @@ export const addDealerTransaction = async (
             });
           }
         }
+        } // end if (paymentToPurchaseId)
       }
 
       const transaction = await prisma.entityTransaction.create({
@@ -956,6 +1122,33 @@ export const addDealerTransaction = async (
         },
       });
       transactions.push(transaction);
+    }
+
+    // Update stored balance on dealer for manual dealers
+    if (isManualDealer && !dealerFarmerConnection) {
+      let balanceIncrement = 0;
+      let purchaseIncrement = 0;
+      let paymentIncrement = 0;
+
+      for (const txn of transactions) {
+        const amt = Number(txn.amount);
+        if (txn.type === "PURCHASE" || txn.type === "ADJUSTMENT") {
+          balanceIncrement += amt;
+          purchaseIncrement += amt;
+        } else if (txn.type === "PAYMENT" || txn.type === "RECEIPT") {
+          balanceIncrement -= amt;
+          paymentIncrement += amt;
+        }
+      }
+
+      await prisma.dealer.update({
+        where: { id },
+        data: {
+          balance: { increment: balanceIncrement },
+          totalPurchases: { increment: purchaseIncrement },
+          totalPayments: { increment: paymentIncrement },
+        },
+      });
     }
 
     return res.status(201).json({
@@ -1152,11 +1345,73 @@ export const deleteDealerTransaction = async (
       console.log("✅ Transaction successfully deleted and verified");
     }
 
-    // Also check if there are any remaining transactions for this dealer
-    const remainingTransactions = await prisma.entityTransaction.findMany({
-      where: { dealerId: id },
-    });
-    console.log("🔍 Remaining transactions for dealer after deletion:", remainingTransactions);
+    // Update stored balance on dealer for manual dealers
+    if (isManualDealer && !dealerFarmerConnection) {
+      const txnAmount = Number(txn.amount);
+      let balanceDecrement = 0;
+      let purchaseDecrement = 0;
+      let paymentDecrement = 0;
+
+      if (txn.type === "PURCHASE" || txn.type === "ADJUSTMENT") {
+        // Reverse the purchase: balance goes down
+        balanceDecrement = txnAmount;
+        purchaseDecrement = txnAmount;
+
+        // Also reverse any related payments that were deleted with the purchase
+        const relatedPayments = await prisma.entityTransaction.findMany({
+          where: { dealerId: id, type: "PAYMENT", paymentToPurchaseId: transactionId },
+        });
+        // These were already deleted in the $transaction above, but we captured txn.amount before
+        // We need to count the payments that were deleted — they no longer exist in DB
+        // So we track them separately: each deleted payment reversed the balance reduction
+        // Actually those payments are gone, so let's compute from what we know
+        // The related payments were found and deleted inside the $transaction
+        // Their deletion means balance should go UP (less was paid)
+        // Net effect: purchase deletion = -purchase + deleted_payments
+        // But we can't query them now. Let's use a simpler approach:
+        // We'll compute from remaining transactions vs stored balance
+      } else if (txn.type === "PAYMENT" || txn.type === "RECEIPT") {
+        // Reverse the payment: balance goes up (we owe more again)
+        balanceDecrement = -txnAmount;
+        paymentDecrement = txnAmount;
+      }
+
+      // For purchases, related payments were also deleted - recalculate balance from scratch
+      if (txn.type === "PURCHASE") {
+        // Recalculate from remaining transactions for accuracy
+        const remainingTxns = await prisma.entityTransaction.findMany({
+          where: { dealerId: id },
+        });
+        const newBalance = remainingTxns.reduce((sum, t) => {
+          if (t.type === "PURCHASE" || t.type === "ADJUSTMENT") return sum + Number(t.amount);
+          if (t.type === "PAYMENT" || t.type === "RECEIPT") return sum - Number(t.amount);
+          return sum;
+        }, 0);
+        const newTotalPurchases = remainingTxns
+          .filter((t) => t.type === "PURCHASE")
+          .reduce((sum, t) => sum + Number(t.amount), 0);
+        const newTotalPayments = remainingTxns
+          .filter((t) => t.type === "PAYMENT")
+          .reduce((sum, t) => sum + Number(t.amount), 0);
+
+        await prisma.dealer.update({
+          where: { id },
+          data: {
+            balance: newBalance,
+            totalPurchases: newTotalPurchases,
+            totalPayments: newTotalPayments,
+          },
+        });
+      } else {
+        await prisma.dealer.update({
+          where: { id },
+          data: {
+            balance: { decrement: balanceDecrement },
+            totalPayments: { decrement: paymentDecrement },
+          },
+        });
+      }
+    }
 
     return res.json({ success: true, message: "Transaction deleted successfully" });
   } catch (error) {
@@ -1199,6 +1454,22 @@ export const getDealerStatistics = async (
       where: dealerWhere,
     });
 
+    // Pre-fetch DealerFarmerAccount balances for connected dealers
+    const connectedDealerIdSet = new Set(connectedDealerIds);
+    let farmerAccountBalances: Map<string, number> = new Map();
+    if (connectedDealerIds.length > 0) {
+      const accounts = await prisma.dealerFarmerAccount.findMany({
+        where: {
+          farmerId: currentUserId,
+          dealerId: { in: connectedDealerIds },
+        },
+        select: { dealerId: true, balance: true },
+      });
+      accounts.forEach((a) => {
+        farmerAccountBalances.set(a.dealerId, Number(a.balance));
+      });
+    }
+
     // Calculate statistics
     let totalDealers = dealers.length;
     let activeDealers = 0;
@@ -1210,41 +1481,30 @@ export const getDealerStatistics = async (
     currentMonth.setHours(0, 0, 0, 0);
 
     for (const dealer of dealers) {
-      // Get transactions directly from entityTransaction table
-      const transactions = await prisma.entityTransaction.findMany({
-        where: {
-          dealerId: dealer.id,
-        },
-      });
-
-      const balance = transactions.reduce((sum, transaction) => {
-        if (
-          transaction.type === "PURCHASE" ||
-          transaction.type === "ADJUSTMENT"
-        ) {
-          return sum + Number(transaction.amount);
-        } else if (
-          transaction.type === "PAYMENT" ||
-          transaction.type === "RECEIPT"
-        ) {
-          return sum - Number(transaction.amount);
-        }
-        return sum;
-      }, 0);
+      // Get balance from correct source
+      let balance = 0;
+      if (connectedDealerIdSet.has(dealer.id)) {
+        balance = farmerAccountBalances.get(dealer.id) ?? 0;
+      } else {
+        balance = Number(dealer.balance);
+      }
 
       if (balance > 0) {
         activeDealers++;
         outstandingAmount += balance;
       }
 
-      // This month's purchases
-      const thisMonthPurchases = transactions
-        .filter(
-          (t) => t.type === "PURCHASE" && new Date(t.date) >= currentMonth
-        )
-        .reduce((sum, t) => sum + Number(t.amount), 0);
+      // This month's purchases (still from EntityTransaction for stats)
+      const thisMonthPurchases = await prisma.entityTransaction.aggregate({
+        _sum: { amount: true },
+        where: {
+          dealerId: dealer.id,
+          type: "PURCHASE",
+          date: { gte: currentMonth },
+        },
+      });
 
-      thisMonthAmount += thisMonthPurchases;
+      thisMonthAmount += Number(thisMonthPurchases._sum.amount || 0);
     }
 
     return res.json({

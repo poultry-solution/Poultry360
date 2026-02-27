@@ -14,6 +14,7 @@ import {
   X,
   Wallet,
 } from "lucide-react";
+import { DateDisplay } from "@/common/components/ui/date-display";
 import {
   Card,
   CardContent,
@@ -37,16 +38,6 @@ export default function SaleDetailPage() {
   // Payments for connected farmers are managed at account level (no bill-level payment UI)
   const isFarmerAccountSale = Boolean(sale?.accountId ?? sale?.farmerId ?? sale?.customer?.farmerId);
   const farmerId = sale?.farmerId ?? sale?.customer?.farmerId;
-
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -94,7 +85,7 @@ export default function SaleDetailPage() {
               Invoice #{sale.invoiceNumber || sale.id.slice(0, 8)}
             </h1>
             <p className="text-muted-foreground">
-              Sale created on {formatDate(sale.date)}
+              Sale created on <DateDisplay date={sale.date} format="long" />
             </p>
           </div>
         </div>
@@ -319,7 +310,7 @@ export default function SaleDetailPage() {
                                 {formatCurrency(Number(payment.amount))}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {formatDate(payment.paymentDate ?? payment.date)}
+                                <DateDisplay date={payment.paymentDate ?? payment.date} format="long" />
                               </div>
                             </div>
                             <Badge variant="secondary" className="text-xs">

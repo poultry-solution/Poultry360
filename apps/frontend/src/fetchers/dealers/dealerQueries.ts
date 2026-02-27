@@ -188,15 +188,16 @@ export const useAddDealerTransaction = () => {
         type: TransactionType;
         amount: number;
         quantity?: number;
+        freeQuantity?: number;
         itemName?: string;
+        purchaseCategory?: string;
         date: string;
         description?: string;
         reference?: string;
         unitPrice?: number;
-        // 🔗 NEW: Optional payment data for single request (initial payment)
+        imageUrl?: string;
         paymentAmount?: number;
         paymentDescription?: string;
-        // 🔗 NEW: Link standalone PAYMENT to a specific purchase
         paymentToPurchaseId?: string;
       };
     }) => {

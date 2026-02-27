@@ -31,6 +31,7 @@ import {
 import axiosInstance from "@/common/lib/axios";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DealerAddPaymentDialog } from "@/components/dealer/DealerAddPaymentDialog";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 export default function CustomerAccountPage() {
   const params = useParams();
@@ -128,13 +129,6 @@ export default function CustomerAccountPage() {
     return `रू ${amount.toFixed(2)}`;
   };
 
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString("en-IN", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   const dataLoading = isFarmer
     ? accountLoading || statementLoading || salesLoading
@@ -336,7 +330,7 @@ export default function CustomerAccountPage() {
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            {formatDate(sale.date)}
+                            <DateDisplay date={sale.date} />
                           </p>
                           {sale.notes && (
                             <p className="text-sm text-muted-foreground mt-1">
@@ -403,7 +397,7 @@ export default function CustomerAccountPage() {
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            {formatDate(payment.date || payment.paymentDate)}
+                            <DateDisplay date={payment.date || payment.paymentDate} />
                           </p>
                           {(payment.description ?? payment.notes) && (
                             <p className="text-sm text-muted-foreground mt-1">

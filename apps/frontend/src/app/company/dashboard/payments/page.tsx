@@ -69,6 +69,7 @@ import {
 } from "@/fetchers/company/paymentRequestQueries";
 import { useGetCompanyDealers } from "@/fetchers/company/companyDealerQueries";
 import { useGetDealerAccount } from "@/fetchers/company/companyDealerAccountQueries";
+import { DateDisplay } from "@/common/components/ui/date-display";
 
 export default function CompanyPaymentsPage() {
   const router = useRouter();
@@ -114,14 +115,6 @@ export default function CompanyPaymentsPage() {
   const receivedRequests = receivedData?.data || [];
   const sentRequests = sentData?.data || [];
   const dealers = dealersData?.data || [];
-
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   const formatCurrency = (amount: number | string | undefined | null) => {
     if (amount === undefined || amount === null) return "रू 0.00";
@@ -373,7 +366,7 @@ export default function CompanyPaymentsPage() {
                     key: 'createdAt',
                     label: 'Date',
                     width: '90px',
-                    render: (val) => formatDate(val)
+                    render: (val) => <DateDisplay date={val} />
                   },
                   {
                     key: 'dealer',
@@ -533,7 +526,7 @@ export default function CompanyPaymentsPage() {
                     key: 'createdAt',
                     label: 'Date',
                     width: '90px',
-                    render: (val) => formatDate(val)
+                    render: (val) => <DateDisplay date={val} />
                   },
                   {
                     key: 'dealer',
@@ -809,7 +802,7 @@ export default function CompanyPaymentsPage() {
                   <div>
                     <Label>Payment Date</Label>
                     <p className="font-medium">
-                      {formatDate(selectedRequest.paymentDate)}
+                      <DateDisplay date={selectedRequest.paymentDate} />
                     </p>
                   </div>
                 )}

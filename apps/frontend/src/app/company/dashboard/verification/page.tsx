@@ -50,6 +50,7 @@ import {
   DialogTitle,
 } from "@/common/components/ui/dialog";
 import { toast } from "sonner";
+import { DateDisplay } from "@/common/components/ui/date-display";
 import {
   useGetCompanyVerificationRequests,
   useApproveVerificationRequest,
@@ -340,7 +341,7 @@ export default function CompanyVerificationPage() {
                           </TableCell>
                           <TableCell>{getStatusBadge(request.status)}</TableCell>
                           <TableCell>
-                            {new Date(request.createdAt).toLocaleDateString()}
+                            <DateDisplay date={request.createdAt} />
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
@@ -488,7 +489,7 @@ export default function CompanyVerificationPage() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Requested Date:</span>
                     <span className="font-medium">
-                      {new Date(selectedRequest.createdAt).toLocaleString()}
+                      <DateDisplay date={selectedRequest.createdAt} format="long" />
                     </span>
                   </div>
                   {selectedRequest.status === "REJECTED" && selectedRequest.rejectedCount > 0 && (
@@ -501,7 +502,7 @@ export default function CompanyVerificationPage() {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Last Rejected:</span>
                       <span className="font-medium">
-                        {new Date(selectedRequest.lastRejectedAt).toLocaleString()}
+                        <DateDisplay date={selectedRequest.lastRejectedAt} format="long" />
                       </span>
                     </div>
                   )}

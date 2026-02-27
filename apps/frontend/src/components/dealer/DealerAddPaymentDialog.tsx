@@ -33,6 +33,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { ImageUpload } from "@/common/components/ui/image-upload";
+import { DateInput } from "@/common/components/ui/date-input";
 import { toast } from "sonner";
 import { useAddDealerPayment } from "@/fetchers/dealer/dealerLedgerQueries";
 import { useI18n } from "@/i18n/useI18n";
@@ -77,7 +78,7 @@ export function DealerAddPaymentDialog({
   const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
   const [amount, setAmount] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState("CASH");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(new Date().toISOString());
   const [notes, setNotes] = useState("");
   const [reference, setReference] = useState("");
   const [receiptImageUrl, setReceiptImageUrl] = useState("");
@@ -97,7 +98,7 @@ export function DealerAddPaymentDialog({
     setCustomerPopoverOpen(false);
     setAmount(0);
     setPaymentMethod("CASH");
-    setDate(new Date().toISOString().split("T")[0]);
+    setDate(new Date().toISOString());
     setNotes("");
     setReference("");
     setReceiptImageUrl("");
@@ -279,13 +280,10 @@ export function DealerAddPaymentDialog({
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="payment-date">{t("dealer.addPaymentDialog.date")}</Label>
-                <Input
-                  id="payment-date"
-                  type="date"
+                <DateInput
+                  label={t("dealer.addPaymentDialog.date")}
                   value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  required
+                  onChange={setDate}
                 />
               </div>
               <div className="space-y-2">

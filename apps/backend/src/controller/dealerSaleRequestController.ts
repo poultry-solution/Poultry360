@@ -496,11 +496,13 @@ export const approveSaleRequest = async (
   try {
     const userId = req.userId; // Farmer's user ID
     const { id } = req.params;
+    const { purchaseCategory } = req.body || {};
 
     // Approve using service
     const sale = await DealerSaleRequestService.approveSaleRequest({
       requestId: id,
       farmerId: userId as string,
+      purchaseCategory: purchaseCategory || undefined,
     });
 
     return res.status(200).json({
