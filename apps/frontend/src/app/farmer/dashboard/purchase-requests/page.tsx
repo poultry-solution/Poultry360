@@ -11,6 +11,7 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  ArrowLeft,
 } from "lucide-react";
 import {
   Card,
@@ -89,6 +90,15 @@ export default function FarmerPurchaseRequestsPage() {
   return (
     <div className="space-y-6">
       <div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mb-2"
+          onClick={() => router.push("/farmer/dashboard/supplier-ledger")}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Supplier Ledger
+        </Button>
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
           Purchase Requests
         </h1>

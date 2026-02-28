@@ -143,6 +143,7 @@
       "phoneLabel": "Phone",
       "phonePlaceholder": "98XXXXXXXX",
       "phoneHelp": "Enter the 10-digit Nepal number (without country code).",
+      "phoneFormatError": "Enter 10 digits without +977 (e.g. 98XXXXXXXX).",
       "password": "Password",
       "submit": "Log in",
       "submitting": "Logging in...",

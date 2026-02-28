@@ -39,7 +39,6 @@ export const farmerNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.farms", href: "/farmer/dashboard/farms", icon: Building2 },
   { nameKey: "sidebar.nav.batches", href: "/farmer/dashboard/batches", icon: Layers },
   { nameKey: "sidebar.nav.supplierLedger", href: "/farmer/dashboard/supplier-ledger", icon: Truck },
-  { nameKey: "sidebar.nav.purchaseRequests", href: "/farmer/dashboard/purchase-requests", icon: ShoppingCart },
   { nameKey: "sidebar.nav.salesLedger", href: "/farmer/dashboard/sales-ledger", icon: Receipt },
   { nameKey: "sidebar.nav.inventory", href: "/farmer/dashboard/inventory", icon: Package },
   {
