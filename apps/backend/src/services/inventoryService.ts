@@ -3,6 +3,7 @@ import {
   TransactionType,
   InventoryItemType,
   CategoryType,
+  PurchaseCategory,
 } from "@prisma/client";
 
 // ==================== INVENTORY SERVICE ====================
@@ -28,6 +29,10 @@ export class InventoryService {
     description?: string;
     reference?: string;
 
+    // Optional: Purchase category override (for unified supplier system)
+    // When dealerId is used, this determines InventoryItemType instead of defaulting to FEED
+    purchaseCategory?: PurchaseCategory;
+
     // User context (inventory is global, not farm-specific)
     userId: string;
 
@@ -47,17 +52,33 @@ export class InventoryService {
       date,
       description,
       reference,
+      purchaseCategory,
       userId,
       paymentAmount,
       paymentDescription,
     } = data;
 
-    // Determine item type based on supplier
+    // Determine item type based on supplier or explicit purchaseCategory
     let itemType: InventoryItemType;
-    if (dealerId) itemType = InventoryItemType.FEED;
-    else if (hatcheryId) itemType = InventoryItemType.CHICKS;
-    else if (medicineSupplierId) itemType = InventoryItemType.MEDICINE;
-    else itemType = InventoryItemType.OTHER;
+    if (dealerId && purchaseCategory) {
+      // Unified supplier system: use explicit category
+      const categoryToItemType: Record<PurchaseCategory, InventoryItemType> = {
+        FEED: InventoryItemType.FEED,
+        MEDICINE: InventoryItemType.MEDICINE,
+        CHICKS: InventoryItemType.CHICKS,
+        EQUIPMENT: InventoryItemType.EQUIPMENT,
+        OTHER: InventoryItemType.OTHER,
+      };
+      itemType = categoryToItemType[purchaseCategory];
+    } else if (dealerId) {
+      itemType = InventoryItemType.FEED; // Backward compatible default
+    } else if (hatcheryId) {
+      itemType = InventoryItemType.CHICKS;
+    } else if (medicineSupplierId) {
+      itemType = InventoryItemType.MEDICINE;
+    } else {
+      itemType = InventoryItemType.OTHER;
+    }
 
     return await prisma.$transaction(
       async (tx) => {
@@ -165,6 +186,13 @@ export class InventoryService {
       });
 
       // 8. Create entity transaction (supplier ledger)
+      // Determine purchaseCategory for the transaction
+      const resolvedCategory: PurchaseCategory | undefined =
+        purchaseCategory ??
+        (hatcheryId ? PurchaseCategory.CHICKS :
+         medicineSupplierId ? PurchaseCategory.MEDICINE :
+         dealerId ? PurchaseCategory.FEED : undefined);
+
       const entityTransaction = await tx.entityTransaction.create({
         data: {
           type: TransactionType.PURCHASE,
@@ -180,6 +208,7 @@ export class InventoryService {
           medicineSupplierId,
           inventoryItemId: inventoryItem.id,
           expenseId: expense.id,
+          purchaseCategory: resolvedCategory,
           entityType: dealerId
             ? "DEALER"
             : hatcheryId

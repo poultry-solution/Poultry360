@@ -277,7 +277,7 @@ export default function FarmerDealersPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => router.push("/farmer/dashboard/dealer-ledger")}
+            onClick={() => router.push("/farmer/dashboard/supplier-ledger")}
             className="h-7 w-7 md:h-8 md:w-8 shrink-0"
           >
             <ArrowLeft className="h-3.5 w-3.5 md:h-4 md:w-4" />

@@ -207,6 +207,14 @@ enum DealerVerificationStatus {
   REJECTED
 }
 
+enum PurchaseCategory {
+  FEED
+  MEDICINE
+  CHICKS
+  EQUIPMENT
+  OTHER
+}
+
 model User {
   id    String @id @default(cuid())
   phone String @unique
@@ -729,6 +737,10 @@ model EntityTransaction {
   entityType String? // "DEALER", "HATCHERY", "MEDICINE_SUPPLIER", "CUSTOMER"
   entityId   String? // The actual entity ID (for custom entities)
 
+  // Purchase category: what type of item was purchased (for unified supplier tracking)
+  // Only set on PURCHASE transactions; null for PAYMENT, ADJUSTMENT, legacy rows
+  purchaseCategory PurchaseCategory?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -748,6 +760,16 @@ model Dealer {
   name    String
   contact String
   address String?
+
+  // Classification: how this dealer was created
+  // "SELF_CREATED" = farmer created locally, "CONNECTED" = connected via verification
+  classification String @default("SELF_CREATED")
+
+  // Running balance for self-created (manual) dealers
+  // Positive = farmer owes dealer, Negative = advance/overpayment
+  balance       Decimal @default(0) @db.Decimal(10, 2)
+  totalPurchases Decimal @default(0) @db.Decimal(10, 2)
+  totalPayments  Decimal @default(0) @db.Decimal(10, 2)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
