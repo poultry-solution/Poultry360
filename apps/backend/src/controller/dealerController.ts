@@ -559,6 +559,8 @@ export const getDealerById = async (
         quantity: t.quantity,
         freeQuantity: t.freeQuantity,
         amount: Number(t.amount),
+        unitPrice: t.unitPrice ? Number(t.unitPrice) : null,
+        unit: t.unit || null,
         date: t.date,
         description: t.description,
         reference: t.reference,
@@ -942,6 +944,7 @@ export const addDealerTransaction = async (
       reference,
       unitPrice,
       imageUrl,
+      unit,
       // single-request optional initial payment
       paymentAmount,
       paymentDescription,
@@ -1018,6 +1021,7 @@ export const addDealerTransaction = async (
         reference,
         purchaseCategory: purchaseCategory || undefined,
         userId: currentUserId,
+        unit: unit || undefined,
       });
 
       const purchaseTransaction = result.entityTransaction;

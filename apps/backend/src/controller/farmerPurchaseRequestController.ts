@@ -59,7 +59,7 @@ export const addItemToFarmerCart = async (
 ): Promise<any> => {
   try {
     const userId = req.userId;
-    const { dealerId, productId, quantity } = req.body;
+    const { dealerId, productId, quantity, unit } = req.body;
 
     if (!dealerId || !productId || !quantity) {
       return res.status(400).json({ message: "dealerId, productId, and quantity are required" });
@@ -124,7 +124,8 @@ export const addItemToFarmerCart = async (
           cartId: cart.id,
           productId,
           quantity: new Prisma.Decimal(quantity),
-          unitPrice: product.sellingPrice, // Freeze selling price
+          unitPrice: product.sellingPrice,
+          unit: unit || null,
         },
         include: { product: true },
       });
@@ -288,6 +289,7 @@ export const checkoutFarmerCart = async (
         productId: item.productId,
         quantity: Number(item.quantity),
         unitPrice: Number(item.unitPrice),
+        unit: item.unit || undefined,
       })),
       notes: notes || undefined,
       date: new Date(),
@@ -360,6 +362,12 @@ export const getDealerCatalogProducts = async (
           unit: true,
           sellingPrice: true,
           currentStock: true,
+          unitConversions: true,
+          companyProduct: {
+            select: {
+              unitConversions: true,
+            },
+          },
         },
       }),
       prisma.dealerProduct.count({ where }),

@@ -19,7 +19,6 @@ import {
   FileText,
   CreditCard,
   Lightbulb,
-  ShoppingCart,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { useAuth } from "@/common/store/store";
@@ -60,7 +59,6 @@ export const dealerNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.inventory", href: "/dealer/dashboard/inventory", icon: Package },
   { nameKey: "sidebar.nav.customers", href: "/dealer/dashboard/customers", icon: Users },
   { nameKey: "sidebar.nav.sales", href: "/dealer/dashboard/sales", icon: Receipt },
-  { nameKey: "sidebar.nav.purchaseRequests", href: "/dealer/dashboard/purchase-requests", icon: ShoppingCart },
 ];
 
 export const companyNavigation: NavigationItem[] = [

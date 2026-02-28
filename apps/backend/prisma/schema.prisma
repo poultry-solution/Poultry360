@@ -503,6 +503,7 @@ model Product {
   consignmentItems ConsignmentItem[]
   companySaleItems CompanySaleItem[]
   cartItems        DealerCartItem[]
+  unitConversions  ProductUnitConversion[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -658,6 +659,7 @@ model InventoryTransaction {
   totalAmount Decimal         @db.Decimal(10, 2)
   date        DateTime
   description String?
+  unit        String?
 
   // Relationships
   itemId String
@@ -744,6 +746,9 @@ model EntityTransaction {
   // Purchase category: what type of item was purchased (for unified supplier tracking)
   // Only set on PURCHASE transactions; null for PAYMENT, ADJUSTMENT, legacy rows
   purchaseCategory PurchaseCategory?
+
+  unit      String?
+  unitPrice Decimal? @db.Decimal(10, 2)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1503,6 +1508,7 @@ model DealerProduct {
   manualPurchaseItems  DealerManualPurchaseItem[]
   farmerCartItems             FarmerCartItem[]              @relation("FarmerCartProducts")
   farmerPurchaseRequestItems  FarmerPurchaseRequestItem[]   @relation("FarmerPurchaseRequestProducts")
+  unitConversions             DealerProductUnitConversion[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1521,6 +1527,7 @@ model DealerProductTransaction {
   date        DateTime
   description String?
   reference   String?
+  unit        String?
 
   productId String
   product   DealerProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
@@ -1579,10 +1586,12 @@ model DealerSale {
 }
 
 model DealerSaleItem {
-  id          String  @id @default(cuid())
-  quantity    Decimal @db.Decimal(10, 2)
-  unitPrice   Decimal @db.Decimal(10, 2)
-  totalAmount Decimal @db.Decimal(10, 2)
+  id           String   @id @default(cuid())
+  quantity     Decimal  @db.Decimal(10, 2)
+  unitPrice    Decimal  @db.Decimal(10, 2)
+  totalAmount  Decimal  @db.Decimal(10, 2)
+  unit         String?
+  baseQuantity Decimal? @db.Decimal(10, 2)
 
   saleId String
   sale   DealerSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
@@ -1703,20 +1712,22 @@ model DealerSaleRequest {
 }
 
 model DealerSaleRequestItem {
-  id          String  @id @default(cuid())
-  quantity    Decimal @db.Decimal(10, 2)
-  unitPrice   Decimal @db.Decimal(10, 2)
-  totalAmount Decimal @db.Decimal(10, 2)
-  
+  id           String   @id @default(cuid())
+  quantity     Decimal  @db.Decimal(10, 2)
+  unitPrice    Decimal  @db.Decimal(10, 2)
+  totalAmount  Decimal  @db.Decimal(10, 2)
+  unit         String?
+  baseQuantity Decimal? @db.Decimal(10, 2)
+
   requestId   String
   request     DealerSaleRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  
+
   productId   String
   product     DealerProduct @relation(fields: [productId], references: [id])
-  
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   @@index([requestId])
   @@index([productId])
 }
@@ -1794,6 +1805,8 @@ model ConsignmentItem {
   totalAmount      Decimal  @db.Decimal(10, 2)
   isAccepted       Boolean  @default(false)
   rejectionReason  String?
+  unit             String?
+  baseQuantity     Decimal? @db.Decimal(10, 2)
 
   consignmentId String
   consignment   ConsignmentRequest @relation(fields: [consignmentId], references: [id], onDelete: Cascade)
@@ -1910,10 +1923,12 @@ model CompanySale {
 }
 
 model CompanySaleItem {
-  id          String  @id @default(cuid())
-  quantity    Decimal @db.Decimal(10, 2)
-  unitPrice   Decimal @db.Decimal(10, 2)
-  totalAmount Decimal @db.Decimal(10, 2)
+  id           String   @id @default(cuid())
+  quantity     Decimal  @db.Decimal(10, 2)
+  unitPrice    Decimal  @db.Decimal(10, 2)
+  totalAmount  Decimal  @db.Decimal(10, 2)
+  unit         String?
+  baseQuantity Decimal? @db.Decimal(10, 2)
 
   saleId String
   sale   CompanySale @relation(fields: [saleId], references: [id], onDelete: Cascade)
@@ -2144,14 +2159,15 @@ model DealerManualPurchase {
 }
 
 model DealerManualPurchaseItem {
-  id          String  @id @default(cuid())
-  productName String
-  type        InventoryItemType
-  unit        String
-  quantity    Decimal @db.Decimal(10, 2)
-  costPrice   Decimal @db.Decimal(10, 2)
-  sellingPrice Decimal @db.Decimal(10, 2)
-  totalAmount Decimal @db.Decimal(10, 2)
+  id           String   @id @default(cuid())
+  productName  String
+  type         InventoryItemType
+  unit         String
+  quantity     Decimal  @db.Decimal(10, 2)
+  baseQuantity Decimal? @db.Decimal(10, 2)
+  costPrice    Decimal  @db.Decimal(10, 2)
+  sellingPrice Decimal  @db.Decimal(10, 2)
+  totalAmount  Decimal  @db.Decimal(10, 2)
 
   purchaseId String
   purchase   DealerManualPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
@@ -2218,6 +2234,7 @@ model FarmerCartItem {
   product   DealerProduct @relation("FarmerCartProducts", fields: [productId], references: [id], onDelete: Cascade)
   quantity  Decimal       @db.Decimal(10, 2)
   unitPrice Decimal       @db.Decimal(10, 2)
+  unit      String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2264,10 +2281,12 @@ model FarmerPurchaseRequest {
 }
 
 model FarmerPurchaseRequestItem {
-  id          String  @id @default(cuid())
-  quantity    Decimal @db.Decimal(10, 2)
-  unitPrice   Decimal @db.Decimal(10, 2)
-  totalAmount Decimal @db.Decimal(10, 2)
+  id           String   @id @default(cuid())
+  quantity     Decimal  @db.Decimal(10, 2)
+  unitPrice    Decimal  @db.Decimal(10, 2)
+  totalAmount  Decimal  @db.Decimal(10, 2)
+  unit         String?
+  baseQuantity Decimal? @db.Decimal(10, 2)
 
   requestId String
   request   FarmerPurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
@@ -2279,4 +2298,32 @@ model FarmerPurchaseRequestItem {
 
   @@index([requestId])
   @@index([productId])
+}
+
+// ==================== UNIT CONVERSION MODELS ====================
+
+model ProductUnitConversion {
+  id               String   @id @default(cuid())
+  unitName         String
+  conversionFactor Decimal  @db.Decimal(10, 4)
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([productId, unitName])
+  @@index([productId])
+}
+
+model DealerProductUnitConversion {
+  id               String        @id @default(cuid())
+  unitName         String
+  conversionFactor Decimal       @db.Decimal(10, 4)
+  dealerProductId  String
+  dealerProduct    DealerProduct @relation(fields: [dealerProductId], references: [id], onDelete: Cascade)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@unique([dealerProductId, unitName])
+  @@index([dealerProductId])
 }

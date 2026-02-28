@@ -46,6 +46,8 @@ import { useCreateFarmerPaymentRequest } from "@/fetchers/farmer/farmerPaymentRe
 import { useGetFarmerDealers } from "@/fetchers/farmer/farmerVerificationQueries";
 import { useI18n } from "@/i18n/useI18n";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { DateInput } from "@/common/components/ui/date-input";
+import { getNowLocalDateTime } from "@/common/lib/utils";
 import { toast } from "sonner";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 
@@ -75,7 +77,7 @@ export default function FarmerPaymentRequestsPage() {
   const [createAmount, setCreateAmount] = useState<number>(0);
   const [createPaymentMethod, setCreatePaymentMethod] = useState("");
   const [createReference, setCreateReference] = useState("");
-  const [createDate, setCreateDate] = useState(new Date().toISOString().split("T")[0]);
+  const [createDate, setCreateDate] = useState(getNowLocalDateTime());
   const [createDescription, setCreateDescription] = useState("");
   const [createReceiptUrl, setCreateReceiptUrl] = useState("");
 
@@ -137,7 +139,7 @@ export default function FarmerPaymentRequestsPage() {
       setCreateAmount(0);
       setCreatePaymentMethod("");
       setCreateReference("");
-      setCreateDate(new Date().toISOString().split("T")[0]);
+      setCreateDate(getNowLocalDateTime());
       setCreateDescription("");
       setCreateReceiptUrl("");
     } catch (error: any) {
@@ -615,12 +617,10 @@ export default function FarmerPaymentRequestsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="create-date">{t("farmer.paymentRequests.create.dateLabel")}</Label>
-              <Input
-                id="create-date"
-                type="date"
+              <DateInput
+                label={t("farmer.paymentRequests.create.dateLabel")}
                 value={createDate}
-                onChange={(e) => setCreateDate(e.target.value)}
+                onChange={(value) => setCreateDate(value)}
               />
             </div>
             <div className="space-y-2">

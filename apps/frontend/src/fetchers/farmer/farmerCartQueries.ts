@@ -52,6 +52,7 @@ export const useAddToFarmerCart = () => {
       dealerId: string;
       productId: string;
       quantity: number;
+      unit?: string;
     }) => {
       const { data } = await axiosInstance.post("/farmer/cart/items", input);
       return data;

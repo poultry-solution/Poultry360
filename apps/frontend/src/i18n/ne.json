@@ -101,7 +101,8 @@
       "suppliers": "आपूर्तिकर्ता",
       "performance": "कार्यसम्पादन",
       "reports": "प्रतिवेदन",
-      "purchaseRequests": "खरिद अनुरोध"
+      "purchaseRequests": "खरिद अनुरोध",
+      "saleRequests": "बिक्री अनुरोध"
     }
   },
   "settings": {
@@ -724,6 +725,17 @@
       },
       "toasts": {
         "added": "आइटम सफलतापूर्वक थपियो!"
+      },
+      "reorder": {
+        "button": "पुन: अर्डर",
+        "title": "छिटो पुन: अर्डर",
+        "heading": "आपूर्तिकर्ताबाट पुन: अर्डर",
+        "quantityPlaceholder": "परिमाण प्रविष्ट गर्नुहोस्",
+        "date": "मिति",
+        "total": "जम्मा",
+        "submit": "अर्डर गर्नुहोस्",
+        "submitting": "अर्डर गर्दै...",
+        "success": "पुन: अर्डर सफलतापूर्वक राखियो!"
       }
     },
     "dealerLedger": {

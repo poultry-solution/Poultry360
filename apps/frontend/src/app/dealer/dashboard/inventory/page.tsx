@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Search, Package, AlertTriangle, TrendingUp, Check, X } from "lucide-react";
+import { Search, Package, AlertTriangle, TrendingUp, Check, X, ArrowRightLeft } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -279,7 +279,27 @@ export default function DealerInventoryPage() {
               {
                 key: 'unit',
                 label: t("dealer.inventory.table.unit"),
-                width: '60px'
+                width: '120px',
+                render: (val: string, row: any) => {
+                  const conversions: Array<{ unitName: string; conversionFactor: number }> =
+                    row.unitConversions || row.companyProduct?.unitConversions || [];
+                  if (conversions.length === 0) {
+                    return <span>{val}</span>;
+                  }
+                  return (
+                    <div>
+                      <span className="font-medium">{val}</span>
+                      <div className="mt-0.5 space-y-0.5">
+                        {conversions.map((conv: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <ArrowRightLeft className="h-2.5 w-2.5 shrink-0" />
+                            <span>1 {conv.unitName} = {conv.conversionFactor} {val}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
               },
               {
                 key: 'costPrice',
@@ -302,15 +322,16 @@ export default function DealerInventoryPage() {
                 key: 'currentStock',
                 label: t("dealer.inventory.table.stock"),
                 align: 'right',
-                width: '80px',
+                width: '100px',
                 render: (val, row) => (
-                  <span className={
+                  <div className={
                     row.minStock && Number(val) <= Number(row.minStock)
                       ? "text-red-600 font-semibold"
                       : ""
                   }>
-                    {Number(val).toFixed(2)}
-                  </span>
+                    <span>{Number(val).toFixed(2)}</span>
+                    <span className="text-[10px] text-muted-foreground ml-1">{row.unit}</span>
+                  </div>
                 )
               },
               {

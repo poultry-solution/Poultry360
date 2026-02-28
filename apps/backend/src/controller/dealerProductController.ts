@@ -21,6 +21,7 @@ export const createDealerProduct = async (
       minStock,
       sku,
       companyProductId,
+      unitConversions,
     } = req.body;
 
     // Validation
@@ -56,7 +57,7 @@ export const createDealerProduct = async (
       });
     }
 
-    // Create product
+    // Create product with optional unit conversions
     const product = await prisma.dealerProduct.create({
       data: {
         name,
@@ -70,7 +71,16 @@ export const createDealerProduct = async (
         sku,
         dealerId: dealer.id,
         companyProductId,
+        ...(unitConversions && unitConversions.length > 0 && {
+          unitConversions: {
+            create: unitConversions.map((uc: { unitName: string; conversionFactor: number }) => ({
+              unitName: uc.unitName,
+              conversionFactor: new Prisma.Decimal(uc.conversionFactor),
+            })),
+          },
+        }),
       },
+      include: { unitConversions: true },
     });
 
     return res.status(201).json({
@@ -134,7 +144,10 @@ export const getDealerProducts = async (
         take: Number(limit),
         orderBy: { createdAt: "desc" },
         include: {
-          companyProduct: true,
+          companyProduct: {
+            include: { unitConversions: true },
+          },
+          unitConversions: true,
         },
       }),
       prisma.dealerProduct.count({ where }),
@@ -180,11 +193,14 @@ export const getDealerProductById = async (
         dealerId: dealer.id,
       },
       include: {
-        companyProduct: true,
+        companyProduct: {
+          include: { unitConversions: true },
+        },
         transactions: {
           orderBy: { date: "desc" },
           take: 10,
         },
+        unitConversions: true,
       },
     });
 
@@ -220,6 +236,7 @@ export const updateDealerProduct = async (
       sellingPrice,
       minStock,
       sku,
+      unitConversions,
     } = req.body;
 
     // Get the dealer record
@@ -278,19 +295,35 @@ export const updateDealerProduct = async (
       }
     }
 
-    // Update product
-    const updatedProduct = await prisma.dealerProduct.update({
-      where: { id },
-      data: {
-        name,
-        description,
-        type,
-        unit,
-        costPrice: costPrice ? new Prisma.Decimal(costPrice) : undefined,
-        sellingPrice: sellingPrice ? new Prisma.Decimal(sellingPrice) : undefined,
-        minStock: minStock !== undefined ? (minStock ? new Prisma.Decimal(minStock) : null) : undefined,
-        sku,
-      },
+    // Update product and unit conversions in a transaction
+    const updatedProduct = await prisma.$transaction(async (tx) => {
+      if (unitConversions !== undefined) {
+        await tx.dealerProductUnitConversion.deleteMany({ where: { dealerProductId: id } });
+        if (unitConversions.length > 0) {
+          await tx.dealerProductUnitConversion.createMany({
+            data: unitConversions.map((uc: { unitName: string; conversionFactor: number }) => ({
+              dealerProductId: id,
+              unitName: uc.unitName,
+              conversionFactor: new Prisma.Decimal(uc.conversionFactor),
+            })),
+          });
+        }
+      }
+
+      return tx.dealerProduct.update({
+        where: { id },
+        data: {
+          name,
+          description,
+          type,
+          unit,
+          costPrice: costPrice ? new Prisma.Decimal(costPrice) : undefined,
+          sellingPrice: sellingPrice ? new Prisma.Decimal(sellingPrice) : undefined,
+          minStock: minStock !== undefined ? (minStock ? new Prisma.Decimal(minStock) : null) : undefined,
+          sku,
+        },
+        include: { unitConversions: true },
+      });
     });
 
     return res.status(200).json({

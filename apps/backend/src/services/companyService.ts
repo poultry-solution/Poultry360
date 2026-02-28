@@ -26,6 +26,7 @@ export class CompanyService {
       productId: string;
       quantity: number;
       unitPrice: number;
+      unit?: string;
     }>;
     paymentMethod?: string;
     notes?: string;
@@ -192,6 +193,7 @@ export class CompanyService {
             quantity: new Prisma.Decimal(item.quantity),
             unitPrice: new Prisma.Decimal(item.unitPrice),
             totalAmount: new Prisma.Decimal(itemTotals[i]),
+            unit: item.unit || null,
           },
         });
 
@@ -282,6 +284,7 @@ export class CompanyService {
       productId: string;
       quantity: number;
       unitPrice: number;
+      unit?: string;
     }>;
     notes?: string;
   }) {
@@ -337,6 +340,7 @@ export class CompanyService {
             quantity: new Prisma.Decimal(item.quantity),
             unitPrice: new Prisma.Decimal(item.unitPrice),
             totalAmount: new Prisma.Decimal(item.quantity * item.unitPrice),
+            unit: item.unit || null,
           },
         });
       }

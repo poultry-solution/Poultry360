@@ -794,32 +794,23 @@ export const getInventoryTableData = async (
       where.itemType = itemType as InventoryItemType;
     }
 
-    const items = await prisma.inventoryItem.findMany({
-      where,
+    // Get all purchase transactions for this user's inventory items
+    const entityTransactions = await prisma.entityTransaction.findMany({
+      where: {
+        type: "PURCHASE",
+        inventoryItem: where,
+      },
       include: {
-        category: {
+        inventoryItem: {
           select: {
             id: true,
             name: true,
-            type: true,
+            itemType: true,
+            unit: true,
+            minStock: true,
+            category: { select: { name: true } },
           },
         },
-        transactions: {
-          where: { type: "PURCHASE" },
-          orderBy: { date: "desc" },
-          take: 1, // Get latest purchase info
-        },
-      },
-      orderBy: { name: "asc" },
-    });
-
-    // Get supplier information from EntityTransaction
-    const entityTransactions = await prisma.entityTransaction.findMany({
-      where: {
-        inventoryItemId: { in: items.map((item) => item.id) },
-        type: "PURCHASE",
-      },
-      include: {
         dealer: { select: { id: true, name: true } },
         hatchery: { select: { id: true, name: true } },
         medicineSupplier: { select: { id: true, name: true } },
@@ -827,57 +818,91 @@ export const getInventoryTableData = async (
       orderBy: { date: "desc" },
     });
 
-    // Group by inventory item to get latest supplier
-    const supplierMap = new Map();
-    entityTransactions.forEach((et) => {
-      if (!supplierMap.has(et.inventoryItemId)) {
+    // Collect unique dealer IDs to batch-check connections
+    const dealerIds = [...new Set(
+      entityTransactions
+        .filter((et) => et.dealerId)
+        .map((et) => et.dealerId!)
+    )];
+
+    const connections = dealerIds.length > 0
+      ? await prisma.dealerFarmer.findMany({
+          where: {
+            dealerId: { in: dealerIds },
+            farmerId: currentUserId,
+            archivedByFarmer: false,
+          },
+          select: { dealerId: true },
+        })
+      : [];
+    const connectedDealerIds = new Set(connections.map((c) => c.dealerId));
+
+    // Group transactions by (item name + unit price + supplier) — merge same, separate different prices
+    const groupMap = new Map<string, {
+      id: string;
+      name: string;
+      itemType: string;
+      quantity: number;
+      unit: string;
+      rate: number;
+      supplier: string;
+      minStock: any;
+      category: string;
+      lastPurchaseDate: Date;
+      dealerId: string | null;
+      entityType: string | null;
+      purchaseCategory: string | null;
+      isConnectedDealer: boolean;
+    }>();
+
+    entityTransactions
+      .filter((et) => et.inventoryItem)
+      .forEach((et) => {
+        const item = et.inventoryItem!;
+        const quantity = Number(et.quantity) || 0;
+        const unitPrice = et.unitPrice ? Number(et.unitPrice) : (quantity > 0 ? Number(et.amount) / quantity : 0);
+
         let supplierName = "Unknown";
         if (et.dealer) supplierName = et.dealer.name;
         else if (et.hatchery) supplierName = et.hatchery.name;
         else if (et.medicineSupplier) supplierName = et.medicineSupplier.name;
 
-        supplierMap.set(et.inventoryItemId, {
-          name: supplierName,
-          date: et.date,
-        });
-      }
-    });
+        const unit = et.unit || item.unit;
+        const groupKey = `${item.name}||${unitPrice}||${supplierName}||${unit}`;
 
-    // Transform data for table view
-    const tableData = items.map((item) => {
-      const latestTransaction = item.transactions[0];
-      const unitPrice = latestTransaction
-        ? Number(latestTransaction.unitPrice)
-        : 0;
-      const currentStock = Number(item.currentStock);
-      const totalValue = unitPrice * currentStock;
+        const existing = groupMap.get(groupKey);
+        if (existing) {
+          existing.quantity += quantity;
+          // Keep the most recent date
+          if (et.date > existing.lastPurchaseDate) {
+            existing.lastPurchaseDate = et.date;
+            existing.id = et.id;
+          }
+        } else {
+          groupMap.set(groupKey, {
+            id: et.id,
+            name: item.name,
+            itemType: item.itemType,
+            quantity,
+            unit,
+            rate: unitPrice,
+            supplier: supplierName,
+            minStock: item.minStock,
+            category: item.category.name,
+            lastPurchaseDate: et.date,
+            dealerId: et.dealerId || null,
+            entityType: et.entityType || (et.dealerId ? "DEALER" : et.hatcheryId ? "HATCHERY" : et.medicineSupplierId ? "MEDICINE_SUPPLIER" : null),
+            purchaseCategory: et.purchaseCategory || null,
+            isConnectedDealer: et.dealerId ? connectedDealerIds.has(et.dealerId) : false,
+          });
+        }
+      });
 
-      const supplierInfo = supplierMap.get(item.id);
-      const supplierName = supplierInfo?.name || "Unknown";
-
-      // Determine status
-      let status = "In Stock";
-      if (item.minStock && currentStock <= Number(item.minStock)) {
-        status = "Low Stock";
-      } else if (currentStock === 0) {
-        status = "Out of Stock";
-      }
-
-      return {
-        id: item.id,
-        name: item.name,
-        itemType: item.itemType,
-        quantity: currentStock,
-        unit: item.unit,
-        rate: unitPrice,
-        value: totalValue,
-        supplier: supplierName,
-        status,
-        minStock: item.minStock,
-        category: item.category.name,
-        lastPurchaseDate: supplierInfo?.date || latestTransaction?.date,
-      };
-    });
+    const tableData = Array.from(groupMap.values()).map((row) => ({
+      ...row,
+      value: row.quantity * row.rate,
+      status: row.quantity === 0 ? "Out of Stock" : "In Stock",
+    }));
 
     return res.json({
       success: true,

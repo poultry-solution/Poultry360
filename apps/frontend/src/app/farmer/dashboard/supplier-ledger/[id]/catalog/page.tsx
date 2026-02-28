@@ -75,6 +75,9 @@ export default function DealerCatalogPage() {
   const [addingToCart, setAddingToCart] = useState<{ [key: string]: number }>(
     {}
   );
+  const [selectedUnits, setSelectedUnits] = useState<{ [key: string]: string }>(
+    {}
+  );
 
   const { data: productsData, isLoading: productsLoading } =
     useGetDealerCatalogProducts(dealerId, {
@@ -86,7 +89,7 @@ export default function DealerCatalogPage() {
 
   const { data: cart, isLoading: cartLoading } = useGetFarmerCart(dealerId);
 
-  const addToCartMutation = useAddToFarmerCart();
+  const addToCeartMutation = useAddToFarmerCart();
   const updateCartItemMutation = useUpdateFarmerCartItem();
   const removeCartItemMutation = useRemoveFarmerCartItem();
   const clearCartMutation = useClearFarmerCart();
@@ -102,7 +105,8 @@ export default function DealerCatalogPage() {
       return;
     }
     try {
-      await addToCartMutation.mutateAsync({ dealerId, productId, quantity });
+      const unit = selectedUnits[productId] || undefined;
+      await addToCeartMutation.mutateAsync({ dealerId, productId, quantity, unit });
       toast.success("Product added to cart");
       setAddingToCart((prev) => ({ ...prev, [productId]: 0 }));
     } catch (error: any) {
@@ -154,6 +158,27 @@ export default function DealerCatalogPage() {
         error.response?.data?.message || "Failed to place order"
       );
     }
+  };
+
+  const getProductConversions = (product: any) => {
+    const conversions = [
+      ...(product.unitConversions || []),
+      ...(product.companyProduct?.unitConversions || []),
+    ];
+    return conversions;
+  };
+
+  const getSelectedUnit = (product: any) => {
+    return selectedUnits[product.id] || product.unit;
+  };
+
+  const getDisplayPrice = (product: any) => {
+    const unit = getSelectedUnit(product);
+    if (unit === product.unit) return Number(product.sellingPrice);
+    const conversions = getProductConversions(product);
+    const conv = conversions.find((c: any) => c.unitName === unit);
+    if (conv) return Number(product.sellingPrice) * Number(conv.conversionFactor);
+    return Number(product.sellingPrice);
   };
 
   const getProductTypeColor = (type: string) => {
@@ -280,6 +305,10 @@ export default function DealerCatalogPage() {
                     {products.map((product: any) => {
                       const inCartQty = getCartItemQuantity(product.id);
                       const addQty = addingToCart[product.id] || 1;
+                      const conversions = getProductConversions(product);
+                      const hasAlternateUnits = conversions.length > 0;
+                      const currentUnit = getSelectedUnit(product);
+                      const displayPrice = getDisplayPrice(product);
 
                       return (
                         <Card
@@ -308,13 +337,36 @@ export default function DealerCatalogPage() {
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-3">
+                              {hasAlternateUnits && (
+                                <div>
+                                  <span className="text-xs text-muted-foreground">Buy in</span>
+                                  <Select
+                                    value={currentUnit}
+                                    onValueChange={(value) =>
+                                      setSelectedUnits((prev) => ({ ...prev, [product.id]: value }))
+                                    }
+                                  >
+                                    <SelectTrigger className="mt-1 h-8">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value={product.unit}>{product.unit} (base)</SelectItem>
+                                      {conversions.map((c: any) => (
+                                        <SelectItem key={c.unitName} value={c.unitName}>
+                                          {c.unitName} (1 = {Number(c.conversionFactor)} {product.unit})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
+
                               <div className="flex justify-between items-center">
                                 <span className="text-sm text-muted-foreground">
-                                  Price per {product.unit}
+                                  Price per {currentUnit}
                                 </span>
                                 <span className="text-lg font-bold">
-                                  रू{" "}
-                                  {Number(product.sellingPrice).toFixed(2)}
+                                  रू {displayPrice.toFixed(2)}
                                 </span>
                               </div>
                               <div className="flex justify-between items-center">
@@ -384,7 +436,7 @@ export default function DealerCatalogPage() {
                                   onClick={() =>
                                     handleAddToCart(product.id, addQty)
                                   }
-                                  disabled={addToCartMutation.isPending}
+                                  disabled={addToCeartMutation.isPending}
                                 >
                                   <ShoppingCart className="mr-2 h-4 w-4" />
                                   Add
