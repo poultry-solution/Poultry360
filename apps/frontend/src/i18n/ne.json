@@ -142,6 +142,7 @@
       "phoneLabel": "फोन",
       "phonePlaceholder": "98XXXXXXXX",
       "phoneHelp": "१० अंकको नेपाली नम्बर प्रविष्ट गर्नुहोस् (देश कोड बिना)।",
+      "phoneFormatError": "+977 बिना १० अंक प्रविष्ट गर्नुहोस् (जस्तै 98XXXXXXXX)।",
       "password": "पासवर्ड",
       "submit": "लगइन",
       "submitting": "लगइन हुँदैछ...",

@@ -28,6 +28,7 @@ export default function LoginPage() {
     emailOrPhone: "",
     password: "",
   });
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -39,15 +40,21 @@ export default function LoginPage() {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
     if (error) clearError();
+    setValidationError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationError(null);
     try {
       // Normalize Nepal phone number: always prefix with +977 and require 10 digits
-      const localDigits = formData.emailOrPhone.replace(/\D/g, "");
+      let localDigits = formData.emailOrPhone.replace(/\D/g, "");
+      // Strip leading 977 if user included country code (avoids +977977...)
+      if (localDigits.startsWith("977")) {
+        localDigits = localDigits.slice(3);
+      }
       if (localDigits.length !== 10) {
-        // Do not proceed if not exactly 10 digits
+        setValidationError(t("auth.login.phoneFormatError") || "Enter 10 digits without +977");
         return;
       }
       const normalizedPhone = `+977${localDigits}`;
@@ -96,9 +103,9 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {error && (
+        {(error || validationError) && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-600">{error}</p>
+            <p className="text-sm text-red-600">{error || validationError}</p>
           </div>
         )}
 

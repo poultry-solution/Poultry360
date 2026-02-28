@@ -174,7 +174,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
           companyName: companyName,
           CompanyFarmLocation: companyFarmLocation,
           language: language || "ENGLISH",
-          calendarType: calendarType || "AD",
+          calendarType: calendarType || "BS",
         },
         include: {
           managedFarms: {

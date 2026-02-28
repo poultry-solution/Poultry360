@@ -17,6 +17,7 @@ import {
   Link2,
   DollarSign,
   FileCheck,
+  ShoppingCart,
   Eye,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
@@ -514,6 +515,15 @@ export default function SupplierLedgerPage() {
           >
             <FileCheck className="mr-2 h-4 w-4" />
             Sale Requests
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm h-9"
+            onClick={() => router.push("/farmer/dashboard/purchase-requests")}
+          >
+            <ShoppingCart className="mr-2 h-4 w-4" />
+            Purchase Requests
           </Button>
           <Button
             variant="outline"
@@ -1515,16 +1525,33 @@ export default function SupplierLedgerPage() {
                           <DollarSign className="h-3 w-3 mr-1" />
                           <span className="hidden sm:inline">Pay</span>
                         </Button>
-                        <Button
-                          className="bg-primary hover:bg-primary/90 h-7 text-xs"
-                          size="sm"
-                          onClick={() => setIsAddEntryOpen(true)}
-                          disabled={!activeSupplierId}
-                        >
-                          <Plus className="h-3 w-3 mr-1" />
-                          <span className="hidden sm:inline">Add Entry</span>
-                          <span className="sm:hidden">Add</span>
-                        </Button>
+                        {isConnectedSupplier ? (
+                          <Button
+                            className="bg-primary hover:bg-primary/90 h-7 text-xs"
+                            size="sm"
+                            onClick={() =>
+                              router.push(
+                                `/farmer/dashboard/supplier-ledger/${activeSupplierId}/catalog`
+                              )
+                            }
+                            disabled={!activeSupplierId}
+                          >
+                            <ShoppingCart className="h-3 w-3 mr-1" />
+                            <span className="hidden sm:inline">Order</span>
+                            <span className="sm:hidden">Order</span>
+                          </Button>
+                        ) : (
+                          <Button
+                            className="bg-primary hover:bg-primary/90 h-7 text-xs"
+                            size="sm"
+                            onClick={() => setIsAddEntryOpen(true)}
+                            disabled={!activeSupplierId}
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            <span className="hidden sm:inline">Add Entry</span>
+                            <span className="sm:hidden">Add</span>
+                          </Button>
+                        )}
                       </>
                     )}
                   </div>
