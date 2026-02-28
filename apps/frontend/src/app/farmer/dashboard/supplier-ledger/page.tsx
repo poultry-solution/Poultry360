@@ -935,7 +935,7 @@ export default function SupplierLedgerPage() {
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     {PURCHASE_CATEGORIES.map((cat) => (
                       <SelectItem key={cat.value} value={cat.value}>
                         {cat.label}
@@ -1257,7 +1257,7 @@ export default function SupplierLedgerPage() {
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select method" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     <SelectItem value="CASH">Cash</SelectItem>
                     <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
                     <SelectItem value="CHEQUE">Cheque</SelectItem>
@@ -1364,11 +1364,10 @@ export default function SupplierLedgerPage() {
                     activeSupplierId === supplier.id ? "default" : "outline"
                   }
                   size="sm"
-                  className={`text-xs md:text-sm whitespace-nowrap ${
-                    activeSupplierId === supplier.id
-                      ? "bg-primary hover:bg-primary/90"
-                      : ""
-                  }`}
+                  className={`text-xs md:text-sm whitespace-nowrap ${activeSupplierId === supplier.id
+                    ? "bg-primary hover:bg-primary/90"
+                    : ""
+                    }`}
                   onClick={() => {
                     setActiveSupplierId(supplier.id);
                     exitDeleteMode();
@@ -1591,7 +1590,7 @@ export default function SupplierLedgerPage() {
                           !!activeSupplier?.purchases &&
                           selectedIds.size > 0 &&
                           selectedIds.size ===
-                            activeSupplier.purchases.length
+                          activeSupplier.purchases.length
                         }
                         onToggleAll={toggleAll}
                         isRowSelected={(row: any) => selectedIds.has(row.id)}
@@ -1627,7 +1626,7 @@ export default function SupplierLedgerPage() {
                           !!activeSupplier?.payments &&
                           selectedIds.size > 0 &&
                           selectedIds.size ===
-                            activeSupplier.payments.length
+                          activeSupplier.payments.length
                         }
                         onToggleAll={toggleAll}
                         isRowSelected={(row: any) => selectedIds.has(row.id)}

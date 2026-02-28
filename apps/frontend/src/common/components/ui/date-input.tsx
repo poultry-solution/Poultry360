@@ -33,7 +33,7 @@ export function DateInput({
   // Normalize value to AD date string (YYYY-MM-DD)
   const getADValue = (): string => {
     if (!value) return "";
-    
+
     try {
       if (typeof value === "string") {
         return value.includes("T") ? value.split("T")[0] : value;
@@ -86,7 +86,7 @@ export function DateInput({
         console.error("Error converting current value to BS:", err);
       }
     }
-    
+
     // Fallback to today
     try {
       const today = new Date().toISOString().split("T")[0];
@@ -100,7 +100,7 @@ export function DateInput({
   return (
     <div className={className}>
       {label && <Label className="mb-2 block">{label}</Label>}
-      
+
       {useBSInput ? (
         <Calendar
           key={adValue || "empty"}
