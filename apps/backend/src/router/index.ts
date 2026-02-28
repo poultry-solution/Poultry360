@@ -50,6 +50,9 @@ import dealerPaymentRequestRoutes from "./dealerPaymentRequestRoutes";
 import farmerPaymentRequestRoutes from "./farmerPaymentRequestRoutes";
 import dealerFarmerAccountRoutes from "./dealerFarmerAccountRoutes";
 import dealerManualCompanyRoutes from "./dealerManualCompanyRoutes";
+import farmerCartRoutes from "./farmerCartRoutes";
+import farmerPurchaseRequestRoutes from "./farmerPurchaseRequestRoutes";
+import dealerPurchaseRequestRoutes from "./dealerPurchaseRequestRoutes";
 import uploadRoutes from "./uploadRoutes";
 
 // Test routes (only in test environment)
@@ -79,6 +82,9 @@ router.use("/farmer/payment-requests", farmerPaymentRequestRoutes);
 router.use("/dealer/farmer-accounts", dealerFarmerAccountRoutes);
 router.use("/dealer/ledger", dealerLedgerRoutes);
 router.use("/dealer/manual-companies", dealerManualCompanyRoutes);
+router.use("/farmer/cart", farmerCartRoutes);
+router.use("/farmer/purchase-requests", farmerPurchaseRequestRoutes);
+router.use("/dealer/purchase-requests", dealerPurchaseRequestRoutes);
 router.use("/company/products", companyProductRoutes);
 router.use("/company/sales", companySaleRoutes);
 router.use("/company/ledger", companyLedgerRoutes);

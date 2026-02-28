@@ -348,14 +348,6 @@ export default function DealerCustomersPage() {
                 ) : '-'
               },
               {
-                key: 'category',
-                label: t("dealer.customers.table.category"),
-                width: '100px',
-                render: (val) => val ? (
-                  <span className="px-2 py-0.5 bg-muted rounded-md text-xs">{val}</span>
-                ) : '-'
-              },
-              {
                 key: 'balance',
                 label: t("dealer.customers.table.balance"),
                 align: 'right',

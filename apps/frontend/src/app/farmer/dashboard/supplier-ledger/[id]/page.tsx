@@ -11,6 +11,7 @@ import {
   Receipt,
   Loader2,
   Store,
+  ShoppingCart,
 } from "lucide-react";
 import {
   Card,
@@ -128,12 +129,26 @@ export default function SupplierDetailPage() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Supplier Ledger
         </Button>
-        <div className="flex items-center gap-2 flex-wrap">
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-            {supplier.name}
-          </h1>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+              {supplier.name}
+            </h1>
+            {supplier.connectionType === "CONNECTED" && (
+              <Badge className="bg-blue-100 text-blue-800">Connected</Badge>
+            )}
+          </div>
           {supplier.connectionType === "CONNECTED" && (
-            <Badge className="bg-blue-100 text-blue-800">Connected</Badge>
+            <Button
+              onClick={() =>
+                router.push(
+                  `/farmer/dashboard/supplier-ledger/${supplierId}/catalog`
+                )
+              }
+            >
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              Order Products
+            </Button>
           )}
         </div>
         <p className="text-muted-foreground">
@@ -298,9 +313,21 @@ export default function SupplierDetailPage() {
                         </div>
                       </div>
                       <div className="text-right">
+                        {purchase.subtotalAmount != null && (
+                          <p className="text-xs text-muted-foreground line-through">
+                            {formatCurrency(Number(purchase.subtotalAmount))}
+                          </p>
+                        )}
                         <p className="text-lg font-bold text-red-600">
                           +{formatCurrency(Number(purchase.amount))}
                         </p>
+                        {purchase.discountType && purchase.discountValue != null && (
+                          <p className="text-xs text-green-600">
+                            {purchase.discountType === "PERCENT"
+                              ? `${Number(purchase.discountValue)}% off`
+                              : `रू ${Number(purchase.discountValue)} off`}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}

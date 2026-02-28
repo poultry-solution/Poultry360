@@ -429,7 +429,8 @@ export const getDealerLedgerParties = async (
         name: true,
         phone: true,
         address: true,
-        balance: true, // Include the balance field!
+        balance: true,
+        farmerId: true,
         dealerSales: {
           where: { dealerId: dealer.id },
           select: {
@@ -443,12 +444,20 @@ export const getDealerLedgerParties = async (
       },
     });
 
+    // Exclude farmers who already appear as a connected Customer to avoid duplicates
+    const connectedFarmerIds = staticCustomers
+      .map((c) => c.farmerId)
+      .filter((id): id is string => id != null);
+
     // Get all farmers (users) who have sales with this dealer
     const farmersWithSales = await prisma.user.findMany({
       where: {
         dealerSalesReceived: {
           some: { dealerId: dealer.id },
         },
+        ...(connectedFarmerIds.length > 0
+          ? { id: { notIn: connectedFarmerIds } }
+          : {}),
         ...(search
           ? {
             OR: [
