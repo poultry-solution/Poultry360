@@ -196,6 +196,7 @@ export const useAddDealerTransaction = () => {
         reference?: string;
         unitPrice?: number;
         imageUrl?: string;
+        unit?: string;
         paymentAmount?: number;
         paymentDescription?: string;
         paymentToPurchaseId?: string;

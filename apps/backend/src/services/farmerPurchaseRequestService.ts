@@ -21,6 +21,7 @@ export class FarmerPurchaseRequestService {
       productId: string;
       quantity: number;
       unitPrice: number;
+      unit?: string;
     }>;
     notes?: string;
     date: Date;
@@ -75,6 +76,7 @@ export class FarmerPurchaseRequestService {
               quantity: new Prisma.Decimal(item.quantity),
               unitPrice: new Prisma.Decimal(item.unitPrice),
               totalAmount: new Prisma.Decimal(lineTotal),
+              unit: item.unit || null,
             },
           });
         }
@@ -233,13 +235,19 @@ export class FarmerPurchaseRequestService {
               quantity: requestItem.quantity,
               unitPrice: new Prisma.Decimal(Math.round(unitPriceAfterDiscount * 100) / 100),
               totalAmount: new Prisma.Decimal(Math.round(lineTotal * 100) / 100),
+              unit: (requestItem as any).unit || null,
+              baseQuantity: (requestItem as any).baseQuantity || null,
             },
           });
 
+          // Decrement stock by baseQuantity (base unit) if available, else by quantity
+          const stockDecrement = (requestItem as any).baseQuantity
+            ? new Prisma.Decimal(Number((requestItem as any).baseQuantity))
+            : requestItem.quantity;
           await tx.dealerProduct.update({
             where: { id: requestItem.productId },
             data: {
-              currentStock: { decrement: requestItem.quantity },
+              currentStock: { decrement: stockDecrement },
             },
           });
 
@@ -254,6 +262,7 @@ export class FarmerPurchaseRequestService {
               reference: invoiceNumber,
               productId: requestItem.productId,
               dealerSaleId: sale.id,
+              unit: (requestItem as any).unit || null,
             },
           });
         }
@@ -339,6 +348,7 @@ export class FarmerPurchaseRequestService {
         reference: invoiceNumber,
         purchaseCategory: requestItem.product.type as any,
         userId: request.farmerId,
+        unit: (requestItem as any).unit || undefined,
       });
     }
 

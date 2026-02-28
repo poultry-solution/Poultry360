@@ -45,10 +45,17 @@ import {
 } from "@/fetchers/dealer/dealerSaleQueries";
 import { useI18n } from "@/i18n/useI18n";
 
+interface UnitConversion {
+  unitName: string;
+  conversionFactor: number;
+}
+
 interface SaleItem {
   productId: string;
   quantity: number;
   unitPrice: number;
+  unit?: string;
+  baseUnitPrice: number; // original price per base unit, used for recalculation
 }
 
 export default function NewSalePage() {
@@ -100,10 +107,13 @@ export default function NewSalePage() {
     const selectedProduct = option?.data;
 
     // Add new item with prefilled price
+    const basePrice = Number(selectedProduct?.sellingPrice) || 0;
     const newItem: SaleItem = {
       productId,
       quantity: 1, // Default quantity
-      unitPrice: Number(selectedProduct?.sellingPrice) || 0,
+      unitPrice: basePrice,
+      unit: selectedProduct?.unit || undefined,
+      baseUnitPrice: basePrice,
     };
 
     setItems([...items, newItem]);
@@ -118,6 +128,41 @@ export default function NewSalePage() {
   const updateItem = (index: number, field: keyof SaleItem, value: any) => {
     const updated = [...items];
     updated[index] = { ...updated[index], [field]: value };
+    setItems(updated);
+  };
+
+  // Get all available units (base + alternate) for a product
+  const getAvailableUnits = (product: any): Array<{ unitName: string; conversionFactor: number }> => {
+    if (!product) return [];
+    const baseUnit = product.unit || "Unit";
+    const units: Array<{ unitName: string; conversionFactor: number }> = [
+      { unitName: baseUnit, conversionFactor: 1 },
+    ];
+    // Collect unit conversions from the product itself or from companyProduct
+    const conversions: UnitConversion[] =
+      product.unitConversions || product.companyProduct?.unitConversions || [];
+    for (const conv of conversions) {
+      if (conv.unitName && conv.conversionFactor && conv.unitName !== baseUnit) {
+        units.push({ unitName: conv.unitName, conversionFactor: conv.conversionFactor });
+      }
+    }
+    return units;
+  };
+
+  // Handle unit change for a sale item - recalculate unit price
+  const handleUnitChange = (index: number, newUnit: string) => {
+    const item = items[index];
+    const product = productSelect.products.find((p: any) => p.id === item.productId);
+    const availableUnits = getAvailableUnits(product);
+    const selectedUnit = availableUnits.find((u) => u.unitName === newUnit);
+    const conversionFactor = selectedUnit?.conversionFactor || 1;
+
+    const updated = [...items];
+    updated[index] = {
+      ...updated[index],
+      unit: newUnit,
+      unitPrice: Math.round(updated[index].baseUnitPrice * conversionFactor * 100) / 100,
+    };
     setItems(updated);
   };
 
@@ -165,6 +210,7 @@ export default function NewSalePage() {
           productId: item.productId,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
+          unit: item.unit || undefined,
         })),
         paidAmount,
         paymentMethod,
@@ -297,6 +343,8 @@ export default function NewSalePage() {
 
                   {items.map((item, index) => {
                     const product = productSelect.products.find((p: any) => p.id === item.productId);
+                    const availableUnits = getAvailableUnits(product);
+                    const hasAlternateUnits = availableUnits.length > 1;
                     return (
                       <div
                         key={index}
@@ -320,7 +368,29 @@ export default function NewSalePage() {
                           </Button>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className={`grid gap-3 ${hasAlternateUnits ? "grid-cols-4" : "grid-cols-3"}`}>
+                          {/* Unit selector - only shown when alternate units exist */}
+                          {hasAlternateUnits && (
+                            <div>
+                              <Label htmlFor={`unit-${index}`} className="text-xs">Unit</Label>
+                              <Select
+                                value={item.unit || product?.unit || ""}
+                                onValueChange={(value) => handleUnitChange(index, value)}
+                              >
+                                <SelectTrigger className="h-9 bg-white">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white">
+                                  {availableUnits.map((u) => (
+                                    <SelectItem key={u.unitName} value={u.unitName}>
+                                      {u.unitName}{u.conversionFactor !== 1 ? ` (${u.conversionFactor} ${product?.unit})` : ""}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+
                           <div>
                             <Label htmlFor={`quantity-${index}`} className="text-xs">{t("dealer.newSale.products.quantity")}</Label>
                             <Input
@@ -337,7 +407,10 @@ export default function NewSalePage() {
                           </div>
 
                           <div>
-                            <Label htmlFor={`unitPrice-${index}`} className="text-xs">{t("dealer.newSale.products.unitPrice")}</Label>
+                            <Label htmlFor={`unitPrice-${index}`} className="text-xs">
+                              {t("dealer.newSale.products.unitPrice")}
+                              {item.unit && item.unit !== product?.unit ? ` / ${item.unit}` : ""}
+                            </Label>
                             <Input
                               id={`unitPrice-${index}`}
                               type="number"
@@ -589,12 +662,13 @@ export default function NewSalePage() {
                     {items.map((item, index) => {
                       const product = productSelect.products.find((p: any) => p.id === item.productId);
                       const lineTotal = item.quantity * item.unitPrice;
+                      const displayUnit = item.unit && item.unit !== product?.unit ? item.unit : product?.unit || "";
                       return (
                         <div key={index} className="text-sm space-y-1">
                           <div className="font-medium">{product?.name || "Unknown"}</div>
                           <div className="text-xs text-muted-foreground flex justify-between">
                             <span>
-                              {item.quantity} × रू {item.unitPrice.toFixed(2)}
+                              {item.quantity} {displayUnit} × रू {item.unitPrice.toFixed(2)}
                             </span>
                             <span className="font-semibold text-foreground">
                               रू {lineTotal.toFixed(2)}

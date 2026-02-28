@@ -10,7 +10,7 @@ export const createCompanyProduct = async (
   try {
     const userId = req.userId;
 
-    const { name, description, type, unit, unitSellingPrice, unitCostPrice, quantity, imageUrl } = req.body;
+    const { name, description, type, unit, unitSellingPrice, unitCostPrice, quantity, imageUrl, unitConversions } = req.body;
 
     // Validation
     if (!name || !type || !unit || !unitSellingPrice || !quantity) {
@@ -28,12 +28,9 @@ export const createCompanyProduct = async (
       return res.status(404).json({ message: "Company not found" });
     }
 
-    // Calculate total price (using unitSellingPrice as the basis for value for now, or maybe cost? User didn't specify, but previously it was price * quantity. "price" was selling price. So I will keep it as selling price * quantity)
-    // Actually, "Total Price" usually means total inventory value which is cost. But to be safe and consistent with previous "price" usage:
-    // If I change "price" to "unitSellingPrice", I should probably use that.
     const totalPrice = Number(unitSellingPrice) * Number(quantity);
 
-    // Create product
+    // Create product with optional unit conversions
     const product = await prisma.product.create({
       data: {
         name,
@@ -43,11 +40,20 @@ export const createCompanyProduct = async (
         unitSellingPrice: new Prisma.Decimal(unitSellingPrice),
         unitCostPrice: unitCostPrice ? new Prisma.Decimal(unitCostPrice) : new Prisma.Decimal(0),
         quantity: new Prisma.Decimal(quantity),
-        currentStock: new Prisma.Decimal(quantity), // Set initial stock
+        currentStock: new Prisma.Decimal(quantity),
         totalPrice: new Prisma.Decimal(totalPrice),
         imageUrl: imageUrl || null,
         supplierId: userId as string,
+        ...(unitConversions && unitConversions.length > 0 && {
+          unitConversions: {
+            create: unitConversions.map((uc: { unitName: string; conversionFactor: number }) => ({
+              unitName: uc.unitName,
+              conversionFactor: new Prisma.Decimal(uc.conversionFactor),
+            })),
+          },
+        }),
       },
+      include: { unitConversions: true },
     });
 
     return res.status(201).json({
@@ -94,6 +100,7 @@ export const getCompanyProducts = async (
         skip,
         take: Number(limit),
         orderBy: { createdAt: "desc" },
+        include: { unitConversions: true },
       }),
       prisma.product.count({ where }),
     ]);
@@ -140,6 +147,7 @@ export const getCompanyProductById = async (
             },
           },
         },
+        unitConversions: true,
       },
     });
 
@@ -166,7 +174,7 @@ export const updateCompanyProduct = async (
     const userId = req.userId;
     const { id } = req.params;
 
-    const { name, description, type, unit, unitSellingPrice, unitCostPrice, quantity, imageUrl } = req.body;
+    const { name, description, type, unit, unitSellingPrice, unitCostPrice, quantity, imageUrl, unitConversions } = req.body;
 
     // Check if product exists and belongs to company
     const existingProduct = await prisma.product.findFirst({
@@ -185,21 +193,38 @@ export const updateCompanyProduct = async (
     const newQuantity = quantity !== undefined ? Number(quantity) : Number(existingProduct.quantity);
     const totalPrice = newPrice * newQuantity;
 
-    // Update product
-    const updatedProduct = await prisma.product.update({
-      where: { id },
-      data: {
-        name,
-        description,
-        type,
-        unit,
-        unitSellingPrice: unitSellingPrice !== undefined ? new Prisma.Decimal(unitSellingPrice) : undefined,
-        unitCostPrice: unitCostPrice !== undefined ? new Prisma.Decimal(unitCostPrice) : undefined,
-        quantity: quantity !== undefined ? new Prisma.Decimal(quantity) : undefined,
-        currentStock: quantity !== undefined ? new Prisma.Decimal(quantity) : undefined, // Update stock when quantity changes
-        totalPrice: new Prisma.Decimal(totalPrice),
-        imageUrl: imageUrl !== undefined ? imageUrl : undefined,
-      },
+    // Update product and unit conversions in a transaction
+    const updatedProduct = await prisma.$transaction(async (tx) => {
+      // If unitConversions provided, replace all existing conversions
+      if (unitConversions !== undefined) {
+        await tx.productUnitConversion.deleteMany({ where: { productId: id } });
+        if (unitConversions.length > 0) {
+          await tx.productUnitConversion.createMany({
+            data: unitConversions.map((uc: { unitName: string; conversionFactor: number }) => ({
+              productId: id,
+              unitName: uc.unitName,
+              conversionFactor: new Prisma.Decimal(uc.conversionFactor),
+            })),
+          });
+        }
+      }
+
+      return tx.product.update({
+        where: { id },
+        data: {
+          name,
+          description,
+          type,
+          unit,
+          unitSellingPrice: unitSellingPrice !== undefined ? new Prisma.Decimal(unitSellingPrice) : undefined,
+          unitCostPrice: unitCostPrice !== undefined ? new Prisma.Decimal(unitCostPrice) : undefined,
+          quantity: quantity !== undefined ? new Prisma.Decimal(quantity) : undefined,
+          currentStock: quantity !== undefined ? new Prisma.Decimal(quantity) : undefined,
+          totalPrice: new Prisma.Decimal(totalPrice),
+          imageUrl: imageUrl !== undefined ? imageUrl : undefined,
+        },
+        include: { unitConversions: true },
+      });
     });
 
     return res.status(200).json({

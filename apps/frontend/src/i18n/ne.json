@@ -101,7 +101,8 @@
       "suppliers": "आपूर्तिकर्ता",
       "performance": "कार्यसम्पादन",
       "reports": "प्रतिवेदन",
-      "purchaseRequests": "खरिद अनुरोध"
+      "purchaseRequests": "खरिद अनुरोध",
+      "saleRequests": "बिक्री अनुरोध"
     }
   },
   "settings": {

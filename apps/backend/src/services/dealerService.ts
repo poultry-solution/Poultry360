@@ -17,6 +17,7 @@ export class DealerService {
       productId: string;
       quantity: number;
       unitPrice: number;
+      unit?: string;
     }>;
     paidAmount: number;
     paymentMethod?: string;
@@ -125,13 +126,30 @@ export class DealerService {
         });
       }
 
-      // 3. Prepare bulk operations
-      const saleItemsData = items.map((item, i) => ({
-        saleId: sale.id,
-        productId: item.productId,
-        quantity: new Prisma.Decimal(item.quantity),
-        unitPrice: new Prisma.Decimal(item.unitPrice),
-        totalAmount: new Prisma.Decimal(itemTotals[i]),
+      // 3. Prepare bulk operations — compute baseQuantity for unit conversions
+      const saleItemsData = await Promise.all(items.map(async (item, i) => {
+        let baseQuantity: number | null = null;
+        const product = productChecks[i]!;
+        if (item.unit && item.unit !== product.unit) {
+          const conversions = await tx.dealerProductUnitConversion.findMany({ where: { dealerProductId: item.productId } });
+          const companyConversions = product.companyProductId
+            ? await tx.productUnitConversion.findMany({ where: { productId: product.companyProductId } })
+            : [];
+          const allConversions = [...conversions, ...companyConversions];
+          const conv = allConversions.find(c => c.unitName === item.unit);
+          if (conv) {
+            baseQuantity = item.quantity * Number(conv.conversionFactor);
+          }
+        }
+        return {
+          saleId: sale.id,
+          productId: item.productId,
+          quantity: new Prisma.Decimal(item.quantity),
+          unitPrice: new Prisma.Decimal(item.unitPrice),
+          totalAmount: new Prisma.Decimal(itemTotals[i]),
+          unit: item.unit || null,
+          baseQuantity: baseQuantity !== null ? new Prisma.Decimal(baseQuantity) : null,
+        };
       }));
 
       const productTransactionsData = items.map((item, i) => ({
@@ -144,6 +162,7 @@ export class DealerService {
         reference: invoiceNumber,
         productId: item.productId,
         dealerSaleId: sale.id,
+        unit: item.unit || null,
       }));
 
       // 4. Execute bulk operations in parallel
@@ -152,14 +171,14 @@ export class DealerService {
         Promise.all(
           saleItemsData.map((data) => tx.dealerSaleItem.create({ data }))
         ),
-        // Update all product stocks in parallel
+        // Update all product stocks — use baseQuantity (in base unit) when available
         Promise.all(
-          items.map((item) =>
+          saleItemsData.map((saleItem, i) =>
             tx.dealerProduct.update({
-              where: { id: item.productId },
+              where: { id: items[i].productId },
               data: {
                 currentStock: {
-                  decrement: new Prisma.Decimal(item.quantity),
+                  decrement: saleItem.baseQuantity ?? new Prisma.Decimal(items[i].quantity),
                 },
               },
             })

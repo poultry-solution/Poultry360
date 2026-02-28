@@ -61,6 +61,7 @@ export interface CreateDealerSaleInput {
     productId: string;
     quantity: number;
     unitPrice: number;
+    unit?: string;
   }>;
   paidAmount: number;
   paymentMethod?: string;

@@ -30,7 +30,6 @@ export class InventoryService {
     reference?: string;
 
     // Optional: Purchase category override (for unified supplier system)
-    // When dealerId is used, this determines InventoryItemType instead of defaulting to FEED
     purchaseCategory?: PurchaseCategory;
 
     // User context (inventory is global, not farm-specific)
@@ -39,6 +38,9 @@ export class InventoryService {
     // Optional: Payment details for initial payment
     paymentAmount?: number;
     paymentDescription?: string;
+
+    // Optional: Unit for the transaction
+    unit?: string;
   }) {
     const {
       dealerId,
@@ -56,6 +58,7 @@ export class InventoryService {
       userId,
       paymentAmount,
       paymentDescription,
+      unit,
     } = data;
 
     // Determine item type based on supplier or explicit purchaseCategory
@@ -121,12 +124,12 @@ export class InventoryService {
             name: itemName,
           },
         },
-        update: {},
+        update: unit ? { unit } : {},
         create: {
           name: itemName,
           description: description,
           currentStock: 0,
-          unit: itemType === InventoryItemType.CHICKS ? "birds" : "kg",
+          unit: unit || (itemType === InventoryItemType.CHICKS ? "birds" : "kg"),
           itemType,
           userId,
           categoryId: category.id,
@@ -209,6 +212,8 @@ export class InventoryService {
           inventoryItemId: inventoryItem.id,
           expenseId: expense.id,
           purchaseCategory: resolvedCategory,
+          unit: unit || null,
+          unitPrice: unitPrice,
           entityType: dealerId
             ? "DEALER"
             : hatcheryId

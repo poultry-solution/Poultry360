@@ -16,7 +16,6 @@ import {
   X,
   Link2,
   DollarSign,
-  FileCheck,
   ShoppingCart,
   Eye,
 } from "lucide-react";
@@ -112,6 +111,7 @@ export default function SupplierLedgerPage() {
     item: "",
     rate: "",
     quantity: "",
+    unit: "",
     paid: "",
     date: "",
     description: "",
@@ -214,12 +214,25 @@ export default function SupplierLedgerPage() {
       render: (_, row) => {
         const qty = row.quantity || 0;
         const free = row.freeQuantity || 0;
+        const unit = row.unit || "";
         return free > 0 ? (
           <span>
-            {qty} <span className="text-green-600 text-xs">+{free} free</span>
+            {qty}{unit ? ` ${unit}` : ""} <span className="text-green-600 text-xs">+{free} free</span>
           </span>
         ) : (
-          <span>{qty}</span>
+          <span>{qty}{unit ? ` ${unit}` : ""}</span>
+        );
+      },
+    }),
+    createColumn("unitPrice", "Rate", {
+      align: "right",
+      render: (_, row) => {
+        const price = row.unitPrice || row.amount / (row.quantity || 1);
+        const unit = row.unit || "unit";
+        return (
+          <span className="text-xs">
+            रू {Number(price).toFixed(2)}/{unit}
+          </span>
         );
       },
     }),
@@ -393,6 +406,7 @@ export default function SupplierLedgerPage() {
           description:
             newEntry.description || `Purchase of ${newEntry.item}`,
           unitPrice: rate,
+          unit: newEntry.unit || undefined,
           paymentAmount: paid > 0 ? paid : undefined,
           paymentDescription:
             paid > 0
@@ -408,6 +422,7 @@ export default function SupplierLedgerPage() {
         item: "",
         rate: "",
         quantity: "",
+        unit: "",
         paid: "",
         date: "",
         description: "",
@@ -511,19 +526,10 @@ export default function SupplierLedgerPage() {
             variant="outline"
             size="sm"
             className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm h-9"
-            onClick={() => router.push("/farmer/dashboard/sale-requests")}
-          >
-            <FileCheck className="mr-2 h-4 w-4" />
-            Sale Requests
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm h-9"
-            onClick={() => router.push("/farmer/dashboard/purchase-requests")}
+            onClick={() => router.push("/farmer/dashboard/order-requests")}
           >
             <ShoppingCart className="mr-2 h-4 w-4" />
-            Purchase Requests
+            Order Requests
           </Button>
           <Button
             variant="outline"
@@ -967,10 +973,41 @@ export default function SupplierLedgerPage() {
                 />
               </div>
 
+              {/* Unit */}
+              <div>
+                <Label htmlFor="unit">Unit</Label>
+                <Select
+                  value={newEntry.unit || ""}
+                  onValueChange={(value) =>
+                    setNewEntry({ ...newEntry, unit: value })
+                  }
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(newEntry.category === "FEED"
+                      ? ["KG", "Sack", "Packet", "Bag", "Quintal"]
+                      : newEntry.category === "MEDICINE"
+                        ? ["Bottle", "Strip", "Vial", "Tablet", "ML", "PCS"]
+                        : newEntry.category === "CHICKS"
+                          ? ["Birds", "PCS", "Dozen", "Crate"]
+                          : newEntry.category === "EQUIPMENT"
+                            ? ["PCS", "Set", "Unit", "Box"]
+                            : ["PCS", "KG", "Liters", "Box", "Packet"]
+                    ).map((u) => (
+                      <SelectItem key={u} value={u}>
+                        {u}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Rate + Quantity + Paid (common for all) */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="rate">Rate (per unit)</Label>
+                  <Label htmlFor="rate">Rate (per {newEntry.unit || "unit"})</Label>
                   <Input
                     id="rate"
                     type="number"
@@ -982,7 +1019,7 @@ export default function SupplierLedgerPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="quantity">Quantity</Label>
+                  <Label htmlFor="quantity">Quantity{newEntry.unit ? ` (${newEntry.unit})` : ""}</Label>
                   <Input
                     id="quantity"
                     type="number"

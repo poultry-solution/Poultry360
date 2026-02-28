@@ -269,6 +269,7 @@ export const recordManualPurchase = async (
                         description: `Purchase from ${company.name}`,
                         reference: reference || null,
                         productId: dealerProduct.id,
+                        unit: unit || null,
                     },
                 });
 

@@ -12,6 +12,11 @@ export const dealerProductKeys = {
 };
 
 // Types
+export interface UnitConversion {
+  unitName: string;
+  conversionFactor: number;
+}
+
 export interface DealerProduct {
   id: string;
   name: string;
@@ -26,6 +31,7 @@ export interface DealerProduct {
   dealerId: string;
   companyProductId?: string;
   companyProduct?: any;
+  unitConversions?: UnitConversion[];
   createdAt: Date;
   updatedAt: Date;
 }

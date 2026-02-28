@@ -12,6 +12,12 @@ export const companyProductKeys = {
 };
 
 // Types
+export interface UnitConversion {
+  id?: string;
+  unitName: string;
+  conversionFactor: number;
+}
+
 export interface CompanyProduct {
   id: string;
   name: string;
@@ -26,6 +32,7 @@ export interface CompanyProduct {
   imageUrl?: string;
   supplierId?: string;
   companyId?: string;
+  unitConversions?: UnitConversion[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,6 +46,7 @@ export interface CreateCompanyProductInput {
   unitCostPrice: number;
   quantity: number;
   imageUrl?: string;
+  unitConversions?: Array<{ unitName: string; conversionFactor: number }>;
 }
 
 export interface UpdateCompanyProductInput extends Partial<CreateCompanyProductInput> { }

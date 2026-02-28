@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, Filter, Edit, Trash2, Package, PackagePlus, AlertTriangle } from "lucide-react";
+import { Plus, Search, Filter, Edit, Trash2, Package, PackagePlus, AlertTriangle, X } from "lucide-react";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import {
   Card,
@@ -63,6 +63,7 @@ export default function CompanyProductsPage() {
     quantity: 0,
     imageUrl: "",
   });
+  const [unitConversions, setUnitConversions] = useState<Array<{ unitName: string; conversionFactor: number }>>([]);
 
   // Queries
   const { data: productsData, isLoading } = useGetCompanyProducts({
@@ -90,6 +91,12 @@ export default function CompanyProductsPage() {
         quantity: Number(product.quantity),
         imageUrl: product.imageUrl || "",
       });
+      setUnitConversions(
+        (product.unitConversions || []).map((uc: any) => ({
+          unitName: uc.unitName,
+          conversionFactor: Number(uc.conversionFactor),
+        }))
+      );
     } else {
       setEditingProduct(null);
       setFormData({
@@ -102,6 +109,7 @@ export default function CompanyProductsPage() {
         quantity: 0,
         imageUrl: "",
       });
+      setUnitConversions([]);
     }
     setIsDialogOpen(true);
   };
@@ -114,15 +122,20 @@ export default function CompanyProductsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const payload = {
+      ...formData,
+      unitConversions: unitConversions.filter((uc) => uc.unitName && uc.conversionFactor > 0),
+    };
+
     try {
       if (editingProduct) {
         await updateMutation.mutateAsync({
           id: editingProduct.id,
-          ...formData,
+          ...payload,
         });
         toast.success("Product updated successfully");
       } else {
-        await createMutation.mutateAsync(formData);
+        await createMutation.mutateAsync(payload);
         toast.success("Product created successfully");
       }
       handleCloseDialog();
@@ -266,7 +279,17 @@ export default function CompanyProductsPage() {
               {
                 key: 'unit',
                 label: 'Unit',
-                width: '60px'
+                width: '120px',
+                render: (_val: any, row: any) => (
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span>{row.unit}</span>
+                    {row.unitConversions?.map((uc: any) => (
+                      <Badge key={uc.id} variant="outline" className="text-[10px] px-1 py-0">
+                        {uc.unitName}
+                      </Badge>
+                    ))}
+                  </div>
+                ),
               },
               {
                 key: 'unitCostPrice',
@@ -438,7 +461,7 @@ export default function CompanyProductsPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="unit">Unit *</Label>
+                  <Label htmlFor="unit">Base Unit *</Label>
                   <Input
                     id="unit"
                     value={formData.unit}
@@ -449,6 +472,64 @@ export default function CompanyProductsPage() {
                     required
                   />
                 </div>
+              </div>
+
+              {/* Alternate Units */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Alternate Units (optional)</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setUnitConversions([...unitConversions, { unitName: "", conversionFactor: 0 }])}
+                  >
+                    <Plus className="mr-1 h-3 w-3" />
+                    Add
+                  </Button>
+                </div>
+                {unitConversions.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Define how many base units ({formData.unit || "units"}) equal 1 alternate unit.
+                  </p>
+                )}
+                {unitConversions.map((uc, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Input
+                      value={uc.unitName}
+                      onChange={(e) => {
+                        const updated = [...unitConversions];
+                        updated[idx] = { ...uc, unitName: e.target.value };
+                        setUnitConversions(updated);
+                      }}
+                      placeholder="e.g. Sack"
+                      className="flex-1"
+                    />
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">= 1 × </span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={uc.conversionFactor || ""}
+                      onChange={(e) => {
+                        const updated = [...unitConversions];
+                        updated[idx] = { ...uc, conversionFactor: parseFloat(e.target.value) || 0 };
+                        setUnitConversions(updated);
+                      }}
+                      placeholder="50"
+                      className="w-24"
+                    />
+                    <span className="text-xs text-muted-foreground">{formData.unit || "units"}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-red-500"
+                      onClick={() => setUnitConversions(unitConversions.filter((_, i) => i !== idx))}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

@@ -62,6 +62,22 @@ export type CategoryType = z.infer<typeof CategoryTypeSchema>;
 export const PurchaseCategorySchema = z.enum(["FEED", "MEDICINE", "CHICKS", "EQUIPMENT", "OTHER"]);
 export type PurchaseCategory = z.infer<typeof PurchaseCategorySchema>;
 
+// ==================== UNIT CONVERSION ====================
+
+export const CreateUnitConversionSchema = z.object({
+  unitName: z.string().min(1).max(20),
+  conversionFactor: z.number().positive(),
+});
+export type CreateUnitConversion = z.infer<typeof CreateUnitConversionSchema>;
+
+export const UNIT_PRESETS: Record<string, string[]> = {
+  FEED:      ["KG", "Sack", "Packet", "Bag", "Quintal"],
+  MEDICINE:  ["Bottle", "Strip", "Vial", "Tablet", "ML", "PCS"],
+  CHICKS:    ["Birds", "PCS", "Dozen", "Crate"],
+  EQUIPMENT: ["PCS", "Set", "Unit", "Box"],
+  OTHER:     ["PCS", "KG", "Liters", "Box", "Packet"],
+};
+
 // ==================== REMINDER SCHEMAS ====================
 
 export const ReminderTypeSchema = z.enum([
@@ -715,6 +731,8 @@ export const EntityTransactionSchema = BaseSchema.extend({
   reference: z.string().nullable(),
   entityType: z.string(),
   entityId: z.string(),
+  unit: z.string().nullable().optional(),
+  unitPrice: z.number().nullable().optional(),
 });
 
 export type EntityTransaction = z.infer<typeof EntityTransactionSchema>;
@@ -729,6 +747,8 @@ export const CreateEntityTransactionSchema = z.object({
   reference: z.string().optional(),
   entityType: z.string(),
   entityId: z.string(),
+  unit: z.string().optional(),
+  unitPrice: z.number().optional(),
 });
 
 export type CreateEntityTransaction = z.infer<
