@@ -1,0 +1,44 @@
+# Dependencies
+**/node_modules
+**/.pnpm-store
+
+# Build outputs
+**/dist
+
+# Git
+.git
+.gitignore
+
+# Environment files
+.env*
+!.env.docker.example
+
+# Frontend source (not needed for backend image, but keep package.json for pnpm lockfile)
+apps/frontend/src
+apps/frontend/public
+apps/frontend/next.config*
+apps/frontend/tsconfig*
+apps/frontend/postcss*
+apps/frontend/tailwind*
+
+# IDE / Editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docs
+*.md
+LICENSE
+
+# Docker
+docker-compose*.yml
+.dockerignore
+
+# Misc
+.claude
+.cursor

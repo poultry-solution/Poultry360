@@ -859,8 +859,10 @@ export const getInventoryTableData = async (
       .filter((et) => et.inventoryItem)
       .forEach((et) => {
         const item = et.inventoryItem!;
-        const quantity = Number(et.quantity) || 0;
-        const unitPrice = et.unitPrice ? Number(et.unitPrice) : (quantity > 0 ? Number(et.amount) / quantity : 0);
+        const paidQty = Number(et.quantity) || 0;
+        const freeQty = Number(et.freeQuantity) || 0;
+        const quantity = paidQty + freeQty;
+        const unitPrice = et.unitPrice ? Number(et.unitPrice) : (paidQty > 0 ? Number(et.amount) / paidQty : 0);
 
         let supplierName = "Unknown";
         if (et.dealer) supplierName = et.dealer.name;
