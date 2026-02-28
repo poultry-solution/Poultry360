@@ -16,6 +16,7 @@ import {
   Plus,
   Loader2,
   Egg,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
@@ -34,6 +35,9 @@ import { InventoryItemType } from "@myapp/shared-types";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n/useI18n";
+import { useAddDealerTransaction } from "@/fetchers/dealers/dealerQueries";
+import { inventoryKeys } from "@/fetchers/inventory/inventoryQueries";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState<
@@ -41,6 +45,13 @@ export default function InventoryPage() {
   >("feed");
   const { t } = useI18n();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [reorderRow, setReorderRow] = useState<any>(null);
+  const [reorderQuantity, setReorderQuantity] = useState("");
+  const [reorderDate, setReorderDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const reorderMutation = useAddDealerTransaction();
+  const queryClient = useQueryClient();
 
   // Use TanStack Query hooks
   const {
@@ -189,6 +200,42 @@ export default function InventoryPage() {
     setIsAddModalOpen(true);
   };
 
+  const openReorderModal = (row: any) => {
+    setReorderRow(row);
+    setReorderQuantity("");
+    setReorderDate(new Date().toISOString().split("T")[0]);
+  };
+
+  const handleReorderSubmit = async () => {
+    if (!reorderRow || !reorderQuantity || parseFloat(reorderQuantity) <= 0) {
+      toast.error(t("farmer.inventory.validation.quantityRequired"));
+      return;
+    }
+
+    const qty = parseFloat(reorderQuantity);
+    try {
+      await reorderMutation.mutateAsync({
+        dealerId: reorderRow.dealerId,
+        data: {
+          type: "PURCHASE",
+          amount: reorderRow.rate * qty,
+          quantity: qty,
+          itemName: reorderRow.name,
+          purchaseCategory: reorderRow.purchaseCategory || reorderRow.itemType,
+          unitPrice: reorderRow.rate,
+          unit: reorderRow.unit,
+          date: new Date(reorderDate).toISOString(),
+        },
+      });
+
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
+      toast.success(t("farmer.inventory.reorder.success"));
+      setReorderRow(null);
+    } catch (error) {
+      console.error("Reorder failed:", error);
+    }
+  };
+
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case "eggs":
@@ -317,7 +364,25 @@ export default function InventoryPage() {
       })
     );
 
-    // No purchase history column needed in inventory - that data belongs in ledgers
+    // Reorder action column — only for non-connected dealers
+    baseColumns.push(
+      createColumn("dealerId", "", {
+        render: (_, item: any) => {
+          if (!item.dealerId || item.isConnectedDealer) return null;
+          return (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-xs"
+              onClick={() => openReorderModal(item)}
+            >
+              <RefreshCw className="h-3 w-3 mr-1" />
+              {t("farmer.inventory.reorder.button")}
+            </Button>
+          );
+        },
+      })
+    );
 
     return baseColumns;
   };
@@ -580,6 +645,84 @@ export default function InventoryPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Reorder Modal */}
+      <Modal
+        isOpen={!!reorderRow}
+        onClose={() => setReorderRow(null)}
+        title={t("farmer.inventory.reorder.title")}
+      >
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">{t("farmer.inventory.reorder.heading")}</h2>
+
+          <div className="grid gap-4">
+            <div>
+              <Label>{t("farmer.inventory.modal.itemName")}</Label>
+              <Input value={reorderRow?.name || ""} disabled />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>{t("farmer.inventory.table.rate")}</Label>
+                <Input value={reorderRow ? `₹${reorderRow.rate}` : ""} disabled />
+              </div>
+              <div>
+                <Label>{t("farmer.inventory.modal.unit")}</Label>
+                <Input value={reorderRow?.unit || ""} disabled />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="reorderQuantity">{t("farmer.inventory.modal.quantity")} *</Label>
+              <Input
+                id="reorderQuantity"
+                type="number"
+                value={reorderQuantity}
+                onChange={(e) => setReorderQuantity(e.target.value)}
+                placeholder={t("farmer.inventory.reorder.quantityPlaceholder")}
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="reorderDate">{t("farmer.inventory.reorder.date")}</Label>
+              <Input
+                id="reorderDate"
+                type="date"
+                value={reorderDate}
+                onChange={(e) => setReorderDate(e.target.value)}
+              />
+            </div>
+
+            {reorderRow && reorderQuantity && parseFloat(reorderQuantity) > 0 && (
+              <div className="bg-muted p-3 rounded-md text-sm">
+                <span className="font-medium">{t("farmer.inventory.reorder.total")}:</span>{" "}
+                ₹{(reorderRow.rate * parseFloat(reorderQuantity)).toLocaleString()}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button variant="outline" onClick={() => setReorderRow(null)}>
+              {t("farmer.inventory.modal.cancel")}
+            </Button>
+            <Button
+              onClick={handleReorderSubmit}
+              className="bg-primary hover:bg-primary/90"
+              disabled={reorderMutation.isPending || !reorderQuantity || parseFloat(reorderQuantity) <= 0}
+            >
+              {reorderMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t("farmer.inventory.reorder.submitting")}
+                </>
+              ) : (
+                t("farmer.inventory.reorder.submit")
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Add Item Modal (for Other tab only) */}
       <Modal

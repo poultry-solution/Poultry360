@@ -726,6 +726,17 @@
       },
       "toasts": {
         "added": "Item added successfully!"
+      },
+      "reorder": {
+        "button": "Reorder",
+        "title": "Quick Reorder",
+        "heading": "Reorder from Supplier",
+        "quantityPlaceholder": "Enter quantity",
+        "date": "Date",
+        "total": "Total",
+        "submit": "Place Order",
+        "submitting": "Placing...",
+        "success": "Reorder placed successfully!"
       }
     },
     "dealerLedger": {

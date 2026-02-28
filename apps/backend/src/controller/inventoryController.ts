@@ -818,6 +818,25 @@ export const getInventoryTableData = async (
       orderBy: { date: "desc" },
     });
 
+    // Collect unique dealer IDs to batch-check connections
+    const dealerIds = [...new Set(
+      entityTransactions
+        .filter((et) => et.dealerId)
+        .map((et) => et.dealerId!)
+    )];
+
+    const connections = dealerIds.length > 0
+      ? await prisma.dealerFarmer.findMany({
+          where: {
+            dealerId: { in: dealerIds },
+            farmerId: currentUserId,
+            archivedByFarmer: false,
+          },
+          select: { dealerId: true },
+        })
+      : [];
+    const connectedDealerIds = new Set(connections.map((c) => c.dealerId));
+
     // Group transactions by (item name + unit price + supplier) — merge same, separate different prices
     const groupMap = new Map<string, {
       id: string;
@@ -830,6 +849,10 @@ export const getInventoryTableData = async (
       minStock: any;
       category: string;
       lastPurchaseDate: Date;
+      dealerId: string | null;
+      entityType: string | null;
+      purchaseCategory: string | null;
+      isConnectedDealer: boolean;
     }>();
 
     entityTransactions
@@ -867,6 +890,10 @@ export const getInventoryTableData = async (
             minStock: item.minStock,
             category: item.category.name,
             lastPurchaseDate: et.date,
+            dealerId: et.dealerId || null,
+            entityType: et.entityType || (et.dealerId ? "DEALER" : et.hatcheryId ? "HATCHERY" : et.medicineSupplierId ? "MEDICINE_SUPPLIER" : null),
+            purchaseCategory: et.purchaseCategory || null,
+            isConnectedDealer: et.dealerId ? connectedDealerIds.has(et.dealerId) : false,
           });
         }
       });
