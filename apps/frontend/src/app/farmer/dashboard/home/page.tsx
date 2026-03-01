@@ -24,22 +24,14 @@ import {
 import { TodayExpenses } from "@/components/today-expenses";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { StatsCards } from "@/components/dashboard/StatsCards";
-import { RemindersSection } from "@/components/dashboard/RemindersSection";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { QuickExpenseModal } from "@/components/dashboard/modals/QuickExpenseModal";
 import { QuickSaleModal } from "@/components/dashboard/modals/QuickSaleModal";
 import { MoneyDetailsModal } from "@/components/dashboard/modals/MoneyDetailsModal";
 import { QuickMortalityModal } from "@/components/dashboard/modals/QuickMortalityModal";
 import { QuickWeightModal } from "@/components/dashboard/modals/QuickWeightModal";
-import { QuickReminderModal } from "@/components/dashboard/modals/QuickReminderModal";
 import { BatchPerformanceTable } from "@/components/dashboard/BatchPerformanceTable";
 
-import {
-  useGetReminderDashboard,
-  useCreateReminder,
-  useMarkReminderCompleted,
-  useDeleteReminder,
-} from "@/fetchers/remainder/remainderQueries";
 import { useAddWeight } from "@/fetchers/weight/weightQueries";
 import { useQuickActions } from "@/contexts/QuickActionsContext";
 import { useI18n } from "@/i18n/useI18n";
@@ -88,7 +80,6 @@ export default function DashboardPage() {
 
   const [isFarmsOpen, setIsFarmsOpen] = useState(false);
   const [isBatchesOpen, setIsBatchesOpen] = useState(false);
-  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [isMoneyToReceiveOpen, setIsMoneyToReceiveOpen] = useState(false);
   const [isMoneyToPayOpen, setIsMoneyToPayOpen] = useState(false);
 
@@ -96,32 +87,6 @@ export default function DashboardPage() {
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
   const [isQuickSaleOpen, setIsQuickSaleOpen] = useState(false);
   const [isQuickMortalityOpen, setIsQuickMortalityOpen] = useState(false);
-
-  // Reminder form state
-  const [reminderForm, setReminderForm] = useState({
-    title: "",
-    description: "",
-    date: "",
-    time: "",
-    type: "GENERAL" as const,
-    farmId: "",
-    batchId: "",
-  });
-
-  // Reminder API integration
-  const {
-    upcoming,
-    overdue,
-    statistics,
-    isLoading: remindersLoading,
-    error: remindersError,
-  } = useGetReminderDashboard();
-
-  const createReminderMutation = useCreateReminder();
-
-  const markCompletedMutation = useMarkReminderCompleted();
-
-  const deleteReminderMutation = useDeleteReminder();
 
   // Quick form mutations
   const createExpenseMutation = useCreateExpense();
@@ -211,22 +176,6 @@ export default function DashboardPage() {
   }, [isQuickMortalityOpen, quickMortalityForm.date]);
 
 
-
-  const handleMarkCompleted = async (reminderId: string) => {
-    try {
-      await markCompletedMutation.mutateAsync(reminderId);
-    } catch (error) {
-      console.error("Failed to mark reminder as completed:", error);
-    }
-  };
-
-  const handleDeleteReminder = async (reminderId: string) => {
-    try {
-      await deleteReminderMutation.mutateAsync(reminderId);
-    } catch (error) {
-      console.error("Failed to delete reminder:", error);
-    }
-  };
 
   // Quick form handlers
 
@@ -421,27 +370,12 @@ export default function DashboardPage() {
       {/* Batch Performance Table */}
       <BatchPerformanceTable />
 
-      {/* Recent Activity and Reminders */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <RecentActivity
-          recentActivity={recentActivity}
-          statsLoading={statsLoading}
-          statsError={statsError}
-        />
-
-        <RemindersSection
-          upcoming={upcoming}
-          overdue={overdue}
-          statistics={statistics}
-          remindersLoading={remindersLoading}
-          remindersError={remindersError}
-          markCompletedMutation={markCompletedMutation}
-          deleteReminderMutation={deleteReminderMutation}
-          onMarkCompleted={handleMarkCompleted}
-          onDeleteReminder={handleDeleteReminder}
-          onAddReminder={() => setIsReminderModalOpen(true)}
-        />
-      </div>
+      {/* Recent Activity */}
+      <RecentActivity
+        recentActivity={recentActivity}
+        statsLoading={statsLoading}
+        statsError={statsError}
+      />
 
       {/* Money to Receive Details Modal */}
       <MoneyDetailsModal
@@ -495,21 +429,6 @@ export default function DashboardPage() {
         isLoading={addWeightMutation.isPending}
       />
 
-      {/* Quick Reminder Modal */}
-      <QuickReminderModal
-        isOpen={isReminderModalOpen}
-        onClose={() => setIsReminderModalOpen(false)}
-        onSubmit={async (reminderData) => {
-          await createReminderMutation.mutateAsync({
-            ...reminderData,
-            type: reminderData.type as any,
-            recurrencePattern: reminderData.recurrencePattern as any,
-          } as any);
-        }}
-        farms={farms}
-        activeBatches={activeBatches}
-        isLoading={createReminderMutation.isPending}
-      />
       <TodayExpenses />
     </div>
   );

@@ -333,19 +333,6 @@ export const createInventoryItem = async (
       },
     });
 
-    // Check inventory levels and send notifications if needed
-    try {
-      const { inventoryNotificationService } = await import('../services/inventoryNotificationService');
-      const result = await inventoryNotificationService.checkUserInventoryLevels(currentUserId as string);
-
-      if (result.thresholdExceeded !== 'none') {
-        console.log(`Inventory threshold ${result.thresholdExceeded} exceeded for user ${currentUserId}`);
-      }
-    } catch (notificationError) {
-      console.error('Failed to check inventory levels:', notificationError);
-      // Don't fail the inventory creation if notification fails
-    }
-
     return res.status(201).json({
       success: true,
       data: itemWithCategory,
@@ -418,19 +405,6 @@ export const updateInventoryItem = async (
         },
       },
     });
-
-    // Check inventory levels and send notifications if needed
-    try {
-      const { inventoryNotificationService } = await import('../services/inventoryNotificationService');
-      const result = await inventoryNotificationService.checkUserInventoryLevels(currentUserId as string);
-
-      if (result.thresholdExceeded !== 'none') {
-        console.log(`Inventory threshold ${result.thresholdExceeded} exceeded for user ${currentUserId}`);
-      }
-    } catch (notificationError) {
-      console.error('Failed to check inventory levels:', notificationError);
-      // Don't fail the inventory update if notification fails
-    }
 
     return res.json({
       success: true,
@@ -555,19 +529,6 @@ export const addInventoryTransaction = async (
 
       return transaction;
     });
-
-    // Check inventory levels and send notifications if needed
-    try {
-      const { inventoryNotificationService } = await import('../services/inventoryNotificationService');
-      const notificationResult = await inventoryNotificationService.checkUserInventoryLevels(currentUserId as string);
-
-      if (notificationResult.thresholdExceeded !== 'none') {
-        console.log(`Inventory threshold ${notificationResult.thresholdExceeded} exceeded for user ${currentUserId}`);
-      }
-    } catch (notificationError) {
-      console.error('Failed to check inventory levels:', notificationError);
-      // Don't fail the transaction if notification fails
-    }
 
     return res.status(201).json({
       success: true,

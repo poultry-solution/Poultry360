@@ -7,8 +7,6 @@ export * from "./farms/farmQueries";
 // ==================== BATCH QUERIES ====================
 export * from "./batches/batchQueries";
 
-// ==================== REMINDER QUERIES ====================
-export * from "./remainder/remainderQueries";
 export * from "./dashboard/dashboardQueries";
 
 // ==================== CHAT QUERIES ====================

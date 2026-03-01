@@ -14,7 +14,6 @@ import {
 } from "@/common/components/ui/dropdown-menu";
 import { useAuth } from "@/common/store/store";
 import { useRouter } from "next/navigation";
-import { NotificationBell } from "@/common/components/notifications/NotificationBell";
 import { useI18n } from "@/i18n/useI18n";
 interface TopbarProps {
   role?: "OWNER" | "MANAGER" | "DOCTOR" | "SUPER_ADMIN" | "DEALER" | "COMPANY";
@@ -111,10 +110,6 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
 
       {/* Right Side Actions */}
       <div className="flex items-center gap-3">
-        {/* Notification Bell */}
-        <NotificationBell />
-
-
         {/* User Profile Section */}
         <DropdownMenu>
           <DropdownMenuTrigger>

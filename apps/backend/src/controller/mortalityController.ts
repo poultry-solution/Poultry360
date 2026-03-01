@@ -397,21 +397,6 @@ export const createMortality = async (
       },
     });
 
-    // Check mortality thresholds and send notifications (only for natural deaths, not sales)
-    if (reason !== 'SLAUGHTERED_FOR_SALE') {
-      try {
-        const { mortalityNotificationService } = await import('../services/mortalityNotificationService');
-        const result = await mortalityNotificationService.checkBatchMortalityThresholds(batchId);
-
-        if (result.thresholdExceeded !== 'none') {
-          console.log(`Mortality threshold ${result.thresholdExceeded} exceeded for batch ${mortality.batch.batchNumber}: ${result.mortalityRate.toFixed(2)}%`);
-        }
-      } catch (notificationError) {
-        console.error('Failed to check mortality thresholds:', notificationError);
-        // Don't fail the mortality creation if notification fails
-      }
-    }
-
     return res.status(201).json({
       success: true,
       data: mortality,

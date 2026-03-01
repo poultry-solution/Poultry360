@@ -7,9 +7,6 @@ import routes from "./router/index";
 import { getSocketService } from "./services/socketService";
 dotenv.config();
 
-import "./services/webpushService";
-import { initializeReminderCron, shutdownReminderCron } from "./services/reminderCron";
-
 
 const PORT = process.env.PORT || 8081;
 const app = express();
@@ -57,21 +54,16 @@ if (process.env.NODE_ENV !== 'test') {
   server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Socket.IO server initialized`);
-
-    // Initialize reminder cron job
-    initializeReminderCron();
   });
 
   // Graceful shutdown
   process.on('SIGINT', () => {
     console.log('🛑 Received SIGINT, shutting down gracefully...');
-    shutdownReminderCron();
     process.exit(0);
   });
 
   process.on('SIGTERM', () => {
     console.log('🛑 Received SIGTERM, shutting down gracefully...');
-    shutdownReminderCron();
     process.exit(0);
   });
 }

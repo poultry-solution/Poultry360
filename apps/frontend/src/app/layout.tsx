@@ -9,7 +9,6 @@ import { ToastProvider } from "@/common/providers/ToastProvider";
 import { ChatProvider } from "@/common/contexts/ChatContext";
 import { LoadingProvider } from "@/common/providers/LoadingProvider";
 import { RoleBasedMiddleware } from "@/common/components/auth/RoleBasedMiddleware";
-import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { I18nProvider } from "@/i18n/I18nProvider";
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,7 +45,6 @@ export default function RootLayout({
                     <LoadingProvider>
                       <RoleBasedMiddleware>
                         <AuthGuard>
-                          <ServiceWorkerRegistration />
                           {children}
                         </AuthGuard>
                       </RoleBasedMiddleware>

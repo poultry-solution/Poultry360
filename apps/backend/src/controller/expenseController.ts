@@ -664,87 +664,10 @@ export const createExpense = async (
       },
     });
 
-    // Send response first
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       data: completeExpense,
       message: "Expense created successfully",
-    });
-
-    // Run notification services asynchronously (outside transaction and response)
-    // Only run notifications for successful expense creation
-    setImmediate(async () => {
-      try {
-        // Check feed consumption patterns and send notifications if needed (only for feed expenses with batch)
-        if (batchId && totalFeedQuantityFromInventory > 0) {
-          try {
-            const { feedNotificationService } = await import(
-              "../services/feedNotificationService"
-            );
-            const result =
-              await feedNotificationService.checkBatchFeedConsumption(batchId);
-
-            if (result.thresholdExceeded !== "none") {
-              console.log(
-                `Feed consumption threshold ${result.thresholdExceeded} exceeded for batch ${result.stats.batchNumber}`
-              );
-            }
-          } catch (notificationError) {
-            console.error(
-              "Failed to check feed consumption patterns:",
-              notificationError
-            );
-          }
-        }
-
-        // Check expense patterns and send notifications if needed (for all expenses with farm)
-        if (farmId) {
-          try {
-            const { expenseNotificationService } = await import(
-              "../services/expenseNotificationService"
-            );
-            const result =
-              await expenseNotificationService.checkFarmExpensePatterns(farmId);
-
-            if (result.thresholdExceeded !== "none") {
-              console.log(
-                `Expense threshold ${result.thresholdExceeded} exceeded for farm ${result.stats.farmName}`
-              );
-            }
-          } catch (notificationError) {
-            console.error(
-              "Failed to check expense patterns:",
-              notificationError
-            );
-          }
-        }
-
-        // Check inventory levels and send notifications if needed (when inventory items are used)
-        if (inventoryItems && inventoryItems.length > 0) {
-          try {
-            const { inventoryNotificationService } = await import(
-              "../services/inventoryNotificationService"
-            );
-            const result =
-              await inventoryNotificationService.checkUserInventoryLevels(
-                currentUserId as string
-              );
-
-            if (result.thresholdExceeded !== "none") {
-              console.log(
-                `Inventory threshold ${result.thresholdExceeded} exceeded for user ${currentUserId}`
-              );
-            }
-          } catch (notificationError) {
-            console.error(
-              "Failed to check inventory levels:",
-              notificationError
-            );
-          }
-        }
-      } catch (error) {
-        console.error("Error in notification services:", error);
-      }
     });
   } catch (error) {
     console.error("Create expense error:", error);
