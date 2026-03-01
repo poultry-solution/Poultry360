@@ -123,7 +123,6 @@ export const getUserById = async (
             hatcheries: true,
             medicineSuppliers: true,
             inventoryItems: true,
-            notifications: true,
           },
         },
       },

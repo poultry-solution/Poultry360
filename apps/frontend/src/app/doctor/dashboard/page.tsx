@@ -10,10 +10,8 @@ import { DoctorWelcomeBanner } from "@/components/doctor/DoctorWelcomeBanner";
 import { DoctorStatsCards } from "@/components/doctor/DoctorStatsCards";
 import { PendingRequestsSection } from "@/components/doctor/PendingRequestsSection";
 import { NewMessagesCard } from "@/components/doctor/NewMessagesCard";
-import { RemindersCard } from "@/components/doctor/RemindersCard";
 import { ActiveChatsModal } from "@/components/doctor/modals/ActiveChatsModal";
 import { PendingRequestsModal } from "@/components/doctor/modals/PendingRequestsModal";
-import { AddReminderModal } from "@/components/doctor/modals/AddReminderModal";
 
 // Import hooks and services
 import {
@@ -34,15 +32,6 @@ export default function DoctorDashboard() {
   const { user, logout, isAuthenticated, isLoading: authLoading } = useAuth();
   const [showActiveChats, setShowActiveChats] = useState(false);
   const [showPendingRequests, setShowPendingRequests] = useState(false);
-  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
-  const [reminderForm, setReminderForm] = useState({
-    title: "",
-    date: "",
-    time: "",
-    type: "Consultation Reminder",
-  });
-  const [reminders, setReminders] = useState<any[]>([]);
-
   // Only fetch chat data if authenticated
   const { conversations, isLoading: conversationsLoading } =
     useConversationsList(isAuthenticated ? { status: "ACTIVE" } : undefined);
@@ -162,28 +151,6 @@ export default function DoctorDashboard() {
     }
   };
 
-  const handleAddReminder = () => {
-    if (!reminderForm.title.trim() || !reminderForm.date || !reminderForm.time)
-      return;
-
-    const newReminder = {
-      id: Date.now(),
-      title: reminderForm.title,
-      date: reminderForm.date,
-      time: reminderForm.time,
-      type: reminderForm.type,
-    };
-
-    setReminders([...reminders, newReminder]);
-    setReminderForm({
-      title: "",
-      date: "",
-      time: "",
-      type: "Consultation Reminder",
-    });
-    setIsReminderModalOpen(false);
-  };
-
   const handleLogout = async () => {
     await logout();
     router.push("/auth/login");
@@ -191,10 +158,6 @@ export default function DoctorDashboard() {
 
   const handleEditProfile = () => {
     console.log("Edit profile...");
-  };
-
-  const handleFormChange = (field: string, value: string) => {
-    setReminderForm((prev) => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -241,7 +204,7 @@ export default function DoctorDashboard() {
             />
           </div>
 
-          {/* Right Sidebar - New Messages & Reminders */}
+          {/* Right Sidebar - New Messages */}
           <div className="lg:col-span-1 space-y-6">
             {/* New Messages */}
             <NewMessagesCard
@@ -251,12 +214,6 @@ export default function DoctorDashboard() {
               doctorStatus={doctorStatus}
               onConversationClick={handleAcceptRequest}
               formatTime={formatTime}
-            />
-
-            {/* Reminders */}
-            <RemindersCard
-              reminders={reminders}
-              onAddReminder={() => setIsReminderModalOpen(true)}
             />
           </div>
         </div>
@@ -280,14 +237,6 @@ export default function DoctorDashboard() {
             setShowPendingRequests(false);
             handleAcceptRequest(conversationId);
           }}
-        />
-
-        <AddReminderModal
-          isOpen={isReminderModalOpen}
-          onClose={() => setIsReminderModalOpen(false)}
-          reminderForm={reminderForm}
-          onFormChange={handleFormChange}
-          onSubmit={handleAddReminder}
         />
       </div>
     </div>

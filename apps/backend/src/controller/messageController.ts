@@ -2,66 +2,6 @@ import { Request, Response } from 'express';
 import prisma from '../utils/prisma';
 import { getSocketService } from '../services/socketService';
 import { generatePresignedViewUrl, deleteFile as deleteR2File } from '../services/r2Service';
-import { notificationService, NotificationType } from '../services/webpushService';
-
-// Helper function to get notification content based on message type
-const getNotificationContent = (message: any) => {
-  const senderName = message.sender.name;
-
-  switch (message.messageType) {
-    case 'TEXT':
-      return {
-        title: `New message from ${senderName}`,
-        body: message.text || 'New message',
-        type: NotificationType.CHAT_MESSAGE
-      };
-    case 'IMAGE':
-      return {
-        title: `Photo from ${senderName}`,
-        body: 'Sent a photo',
-        type: NotificationType.CHAT_MESSAGE
-      };
-    case 'VIDEO':
-      return {
-        title: `Video from ${senderName}`,
-        body: 'Sent a video',
-        type: NotificationType.CHAT_MESSAGE
-      };
-    case 'AUDIO':
-      return {
-        title: `Voice message from ${senderName}`,
-        body: 'Sent a voice message',
-        type: NotificationType.CHAT_MESSAGE
-      };
-    case 'PDF':
-    case 'DOC':
-    case 'OTHER':
-      return {
-        title: `File from ${senderName}`,
-        body: `Sent ${message.fileName || 'a file'}`,
-        type: NotificationType.CHAT_MESSAGE
-      };
-    case 'BATCH_SHARE':
-      return {
-        title: `Batch shared by ${senderName}`,
-        body: 'Shared batch details',
-        type: NotificationType.CHAT_MESSAGE
-      };
-    case 'FARM_SHARE':
-      return {
-        title: `Farm shared by ${senderName}`,
-        body: 'Shared farm details',
-        type: NotificationType.CHAT_MESSAGE
-      };
-    default:
-      return {
-        title: `Message from ${senderName}`,
-        body: 'New message',
-        type: NotificationType.CHAT_MESSAGE
-      };
-  }
-};
-
 export const messageController = {
   /**
    * Send a new message (text or with attachment)
@@ -174,29 +114,6 @@ export const messageController = {
           createdAt: message.createdAt,
         }
       );
-
-      // Send push notifications to conversation participants (excluding sender)
-      try {
-        const notificationContent = getNotificationContent(message);
-        const result = await notificationService.sendConversationNotification(
-          message.conversationId,
-          message.senderId, // Exclude sender
-          {
-            ...notificationContent,
-            data: {
-              conversationId: message.conversationId,
-              messageId: message.id,
-              messageType: message.messageType,
-              url: `/dashboard/chat-doctor/${message.conversationId}`
-            }
-          }
-        );
-
-        console.log(`📱 Sent ${result.sentCount} push notifications for message ${message.id}`);
-      } catch (notificationError) {
-        console.error('Failed to send push notifications:', notificationError);
-        // Don't fail the message send if notifications fail
-      }
 
       res.status(201).json({
         success: true,

@@ -38,46 +38,6 @@ enum TransactionType {
   RETURN
 }
 
-enum NotificationType {
-  // Chat notifications
-  CHAT_MESSAGE
-
-  // Batch management
-  BATCH_UPDATE
-  MORTALITY_ALERT
-  FEED_WARNING
-  SALES_NOTIFICATION
-
-  // Farm operations
-  FARM_ALERT
-  EXPENSE_WARNING
-  LOW_INVENTORY
-
-  // System notifications
-  SYSTEM
-
-  // Alert notifications (as requested)
-  VACCINATION_ALERT
-  REMINDER_ALERT
-  REQUEST_ALERT
-
-  // Reminder-specific notifications
-  VACCINATION_REMINDER
-  FEEDING_REMINDER
-  MEDICATION_REMINDER
-  CLEANING_REMINDER
-  WEIGHING_REMINDER
-  SUPPLIER_PAYMENT_REMINDER
-  CUSTOMER_PAYMENT_REMINDER
-  GENERAL_REMINDER
-
-  // Legacy types (keeping for backward compatibility)
-  VACCINATION_DUE
-  BATCH_COMPLETION
-  PAYMENT_DUE
-  FEED_REMINDER
-}
-
 enum ConversationStatus {
   ACTIVE
   CLOSED
@@ -95,12 +55,6 @@ enum MessageType {
   OTHER
   BATCH_SHARE
   FARM_SHARE
-}
-
-enum NotificationStatus {
-  PENDING
-  READ
-  DISMISSED
 }
 
 enum VaccinationStatus {
@@ -234,11 +188,6 @@ model User {
   language     Language     @default(ENGLISH)
   calendarType CalendarType @default(AD)
 
-  // Push notification settings
-  pushSubscription     Json? // Web Push subscription object
-  notificationEnabled  Boolean @default(true)
-  notificationSettings Json? // User preferences for notification types
-
   // Relationships
   // Farms this user owns
   ownedFarms Farm[]
@@ -248,8 +197,6 @@ model User {
 
   customers        Customer[] @relation("CustomerOwner")
   customerRecords  Customer[] @relation("CustomerFarmer") // Reverse relation for connected farmers
-  notifications    Notification[]
-  reminders        Reminder[]
   vaccinations     Vaccination[]
   auditLogs        AuditLog[]
 
@@ -371,8 +318,6 @@ model Farm {
   expenses        Expense[]
   sales           Sale[]
   inventoryUsages InventoryUsage[]
-  notifications   Notification[]
-  reminders       Reminder[]
   vaccinations    Vaccination[]
 
   createdAt DateTime @default(now())
@@ -411,9 +356,6 @@ model Batch {
   feedConsumptions FeedConsumption[]
   birdWeights      BirdWeight[]
   inventoryUsages  InventoryUsage[]
-  notifications    Notification[]
-  reminders        Reminder[]
-
   // Shares referencing this batch
   batchShares BatchShare[]
 
@@ -979,11 +921,6 @@ model Vaccination {
   status        VaccinationStatus @default(PENDING) // Fixed: proper enum
   notes         String?
 
-  // NEW: Reminder integration
-  reminderCreated Boolean   @default(false) // Track if reminder was created
-  reminderId      String?   @unique // Link to reminder
-  reminder        Reminder?
-
   // NEW: Multi-dose support
   doseNumber       Int  @default(1) // 1st dose, 2nd dose, etc.
   totalDoses       Int  @default(1) // Total doses required
@@ -1072,98 +1009,6 @@ enum WeightSource {
   MANUAL // Farmer manually entered
   SALE // Computed from sales data
   SYSTEM // System calculated
-}
-
-// ==================== REMINDERS ====================
-
-enum ReminderType {
-  VACCINATION
-  FEEDING
-  MEDICATION
-  CLEANING
-  WEIGHING
-  SUPPLIER_PAYMENT
-  CUSTOMER_PAYMENT
-  GENERAL
-}
-
-enum ReminderStatus {
-  PENDING
-  COMPLETED
-  CANCELLED
-  OVERDUE
-}
-
-enum RecurrencePattern {
-  NONE
-  DAILY
-  WEEKLY
-  MONTHLY
-  CUSTOM
-}
-
-model Reminder {
-  id          String         @id @default(cuid())
-  title       String
-  description String?
-  type        ReminderType
-  status      ReminderStatus @default(PENDING)
-
-  // Scheduling
-  dueDate            DateTime
-  isRecurring        Boolean           @default(false)
-  recurrencePattern  RecurrencePattern @default(NONE)
-  recurrenceInterval Int? // Every X days/weeks/months
-  lastTriggered      DateTime? // Last time this reminder was triggered
-
-  // Optional context relationships
-  farmId  String?
-  farm    Farm?   @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  batchId String?
-  batch   Batch?  @relation(fields: [batchId], references: [id], onDelete: Cascade)
-
-  // NEW: Vaccination integration
-  vaccinationId String?      @unique
-  vaccination   Vaccination? @relation(fields: [vaccinationId], references: [id])
-
-  // Additional data for specific reminder types
-  data Json? // Store specific data like supplier ID, customer ID, etc.
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId, dueDate])
-  @@index([userId, status])
-  @@index([farmId, dueDate])
-  @@index([batchId, dueDate])
-  @@index([type, dueDate])
-  @@index([vaccinationId])
-}
-
-// ==================== NOTIFICATIONS ====================
-
-model Notification {
-  id    String           @id @default(cuid())
-  type  NotificationType
-  title String
-  body  String // Changed from 'message' to 'body' for consistency
-  data  Json? // Additional data for the notification
-  read  Boolean          @default(false) // For push notifications
-
-  // Optional context relationships
-  farmId  String?
-  farm    Farm?   @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  batchId String?
-  batch   Batch?  @relation(fields: [batchId], references: [id], onDelete: Cascade)
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 // ==================== DEALER-COMPANY RELATIONSHIP (MANY-TO-MANY) ====================

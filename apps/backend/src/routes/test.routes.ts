@@ -164,10 +164,6 @@ router.post('/setup-users', async (req, res) => {
       prisma.message.deleteMany({}),
       prisma.conversation.deleteMany({}),
 
-      // ==================== NOTIFICATIONS & REMINDERS ====================
-      prisma.notification.deleteMany({}),
-      prisma.reminder.deleteMany({}),
-
       // ==================== CUSTOMERS ====================
       prisma.customerTransaction.deleteMany({}),
       prisma.customer.deleteMany({}),
