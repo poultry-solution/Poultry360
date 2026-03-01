@@ -5,6 +5,7 @@ import {
   generatePresignedViewUrl,
   deleteFile,
   fileExists,
+  listFiles,
   getFileTypeFromMime,
   formatFileSize
 } from "../services/r2Service";
@@ -199,18 +200,12 @@ export const TestR2List = async (req: Request, res: Response) => {
     if (!bucket) {
       return res.status(500).json({ message: "R2_BUCKET env not set" });
     }
-    const result = await s3
-      .listObjectsV2({ Bucket: bucket, MaxKeys: 50 })
-      .promise();
+    const contents = await listFiles(undefined, 50);
     const expires = Number(req.query.expires || 600);
     const items = await Promise.all(
-      (result.Contents || []).map(async (obj) => {
+      contents.map(async (obj) => {
         const Key = obj.Key as string;
-        const getUrl = await s3.getSignedUrlPromise("getObject", {
-          Bucket: bucket,
-          Key,
-          Expires: expires,
-        } as any);
+        const getUrl = await generatePresignedViewUrl(Key, expires);
         return {
           key: Key,
           size: obj.Size,
@@ -222,8 +217,6 @@ export const TestR2List = async (req: Request, res: Response) => {
     );
     res.json({
       bucket,
-      isTruncated: result.IsTruncated,
-      nextContinuationToken: result.NextContinuationToken,
       items,
     });
   } catch (error) {
@@ -244,15 +237,7 @@ export const TestR2Presign = async (req: Request, res: Response) => {
       (req.query.contentType as string) || "application/octet-stream";
     const expires = Number(req.query.expires || 3600);
 
-    // AWS SDK v2 presign
-    const params = {
-      Bucket: bucket,
-      Key: key,
-      Expires: expires,
-      ContentType: contentType,
-    } as const;
-
-    const url = await s3.getSignedUrlPromise("putObject", params as any);
+    const url = await generatePresignedUploadUrl(key, contentType, expires);
 
     console.log("url", url);
     console.log("bucket", bucket);

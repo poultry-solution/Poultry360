@@ -5,12 +5,9 @@ import {
   Language,
   CalendarType,
   BatchStatus,
+  BatchType,
   VaccinationStatus,
-  ReminderStatus,
-  ReminderType,
-  RecurrencePattern,
   MessageType,
-  NotificationType,
   SalesItemType,
   WeightSource,
   TransactionType,
@@ -168,7 +165,6 @@ async function main() {
         dealerId: dealerUser1.dealer.id,
         companyId: companyUser.company.id,
         connectedVia: "MANUAL",
-        connectedAt: new Date(),
       },
     });
     console.log("Linked Dealer 1 to Company via DealerCompany");
@@ -367,6 +363,7 @@ async function main() {
         batchNumber: "BATCH-2024-001",
         startDate: new Date("2024-11-01"),
         status: BatchStatus.ACTIVE,
+        batchType: BatchType.LAYERS,
         initialChicks: 3000,
         currentWeight: 1.2,
         farmId: farm1.id,
@@ -576,6 +573,7 @@ async function main() {
         startDate: new Date("2024-09-01"),
         endDate: new Date("2024-10-15"),
         status: BatchStatus.COMPLETED,
+        batchType: BatchType.BROILER,
         initialChicks: 1500,
         currentWeight: 2.5,
         farmId: farm2_1.id,
@@ -589,6 +587,7 @@ async function main() {
         batchNumber: "BATCH-2024-BR-002",
         startDate: new Date("2024-11-15"),
         status: BatchStatus.ACTIVE,
+        batchType: BatchType.BROILER,
         initialChicks: 1800,
         currentWeight: 1.5,
         farmId: farm2_1.id,
@@ -751,69 +750,7 @@ async function main() {
     ],
   });
 
-  // 10. Create reminders
-  console.log("Creating reminders...");
-  await prisma.reminder.createMany({
-    data: [
-      {
-        title: "Vaccination Due",
-        description: "Infectious Bronchitis vaccination for batch",
-        type: ReminderType.VACCINATION,
-        status: ReminderStatus.PENDING,
-        dueDate: new Date("2024-12-25"),
-        userId: farmer1.id,
-        farmId: farm1?.id,
-      },
-      {
-        title: "Feed Supplier Payment",
-        description: "Pay pending amount to Local Feed Supplier",
-        type: ReminderType.SUPPLIER_PAYMENT,
-        status: ReminderStatus.PENDING,
-        dueDate: new Date("2024-12-30"),
-        userId: farmer1.id,
-      },
-      {
-        title: "Weekly Cleaning",
-        description: "Deep clean poultry house",
-        type: ReminderType.CLEANING,
-        status: ReminderStatus.PENDING,
-        dueDate: new Date("2024-12-22"),
-        isRecurring: true,
-        recurrencePattern: RecurrencePattern.WEEKLY,
-        recurrenceInterval: 1,
-        userId: farmer1.id,
-        farmId: farm1?.id,
-      },
-    ],
-  });
-
-  // 11. Create notifications
-  console.log("Creating notifications...");
-  await prisma.notification.createMany({
-    data: [
-      {
-        type: NotificationType.VACCINATION_REMINDER,
-        title: "Vaccination Reminder",
-        body: "Infectious Bronchitis vaccination is due in 5 days",
-        userId: farmer1.id,
-        farmId: farm1?.id,
-      },
-      {
-        type: NotificationType.CHAT_MESSAGE,
-        title: "New Message from Dr. Binod",
-        body: "You have a new message in your consultation",
-        userId: farmer1.id,
-      },
-      {
-        type: NotificationType.LOW_INVENTORY,
-        title: "Low Feed Stock",
-        body: "Feed inventory is running low. Consider restocking.",
-        userId: farmer1.id,
-      },
-    ],
-  });
-
-  // 12. Create a consignment request from company to dealer
+  // 10. Create a consignment request from company to dealer
   console.log("Creating consignment request...");
   const consignment = await prisma.consignmentRequest.create({
     data: {

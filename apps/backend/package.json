@@ -22,8 +22,8 @@
     "@myapp/shared-types": "workspace:*",
     "@prisma/client": "6.15.0",
     "prisma": "6.15.0",
-    "@types/node-cron": "^3.0.11",
-    "aws-sdk": "^2.1692.0",
+    "@aws-sdk/client-s3": "^3.750.0",
+    "@aws-sdk/s3-request-presigner": "^3.750.0",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.9.0",
     "cookie-parser": "^1.4.7",
@@ -31,9 +31,7 @@
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "node-cron": "^4.2.1",
     "socket.io": "^4.8.1",
-    "web-push": "^3.6.7",
     "zod": "^4.1.5"
   },
   "devDependencies": {
@@ -46,7 +44,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.3.0",
     "@types/supertest": "^6.0.2",
-    "@types/web-push": "^3.6.4",
     "axios": "^1.7.9",
     "cross-env": "^7.0.3",
     "eslint": "^9.34.0",
