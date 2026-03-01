@@ -1,4 +1,12 @@
-import S3 from "aws-sdk/clients/s3.js";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const endpoint = process.env.R2_ENDPOINT; // e.g. https://<account_id>.r2.cloudflarestorage.com
 const access_key_id = process.env.R2_ACCESS_KEY_ID;
@@ -9,15 +17,14 @@ if (!endpoint || !access_key_id || !access_key_secret || !bucket) {
   throw new Error("R2 credentials are not set");
 }
 
-export const s3 = new S3({
-  endpoint: `${endpoint}`,
-  accessKeyId: `${access_key_id}`,
-  secretAccessKey: `${access_key_secret}`,
-  signatureVersion: "v4",
-  // Cloudflare R2 requires virtual-hosted-style requests; keep path style disabled
-  s3ForcePathStyle: false,
-  // Region is not used by R2, set to 'auto' per docs
+export const s3 = new S3Client({
+  endpoint,
   region: "auto",
+  credentials: {
+    accessKeyId: access_key_id,
+    secretAccessKey: access_key_secret,
+  },
+  forcePathStyle: false,
 });
 
 // ==================== CORE R2 FUNCTIONS ====================
@@ -35,14 +42,13 @@ export const generatePresignedUploadUrl = async (
   expires: number = 3600
 ): Promise<string> => {
   try {
-    const params = {
+    const command = new PutObjectCommand({
       Bucket: bucket,
       Key: key,
       ContentType: contentType,
-      Expires: expires,
-    };
+    });
 
-    const url = await s3.getSignedUrlPromise("putObject", params);
+    const url = await getSignedUrl(s3, command, { expiresIn: expires });
     return url;
   } catch (error) {
     console.error("Error generating presigned upload URL:", error);
@@ -61,13 +67,12 @@ export const generatePresignedViewUrl = async (
   expires: number = 3600
 ): Promise<string> => {
   try {
-    const params = {
+    const command = new GetObjectCommand({
       Bucket: bucket,
       Key: key,
-      Expires: expires,
-    };
+    });
 
-    const url = await s3.getSignedUrlPromise("getObject", params);
+    const url = await getSignedUrl(s3, command, { expiresIn: expires });
     return url;
   } catch (error) {
     console.error("Error generating presigned view URL:", error);
@@ -82,12 +87,10 @@ export const generatePresignedViewUrl = async (
  */
 export const deleteFile = async (key: string): Promise<boolean> => {
   try {
-    const params = {
+    await s3.send(new DeleteObjectCommand({
       Bucket: bucket,
       Key: key,
-    };
-
-    await s3.deleteObject(params).promise();
+    }));
     return true;
   } catch (error) {
     console.error("Error deleting file:", error);
@@ -102,12 +105,10 @@ export const deleteFile = async (key: string): Promise<boolean> => {
  */
 export const fileExists = async (key: string): Promise<{ exists: boolean; metadata?: any }> => {
   try {
-    const params = {
+    const result = await s3.send(new HeadObjectCommand({
       Bucket: bucket,
       Key: key,
-    };
-
-    const result = await s3.headObject(params).promise();
+    }));
     return {
       exists: true,
       metadata: {
@@ -118,7 +119,7 @@ export const fileExists = async (key: string): Promise<{ exists: boolean; metada
       },
     };
   } catch (error: any) {
-    if (error.statusCode === 404) {
+    if (error.name === "NotFound" || error.$metadata?.httpStatusCode === 404) {
       return { exists: false };
     }
     console.error("Error checking file existence:", error);
@@ -134,16 +135,11 @@ export const fileExists = async (key: string): Promise<{ exists: boolean; metada
  */
 export const listFiles = async (prefix?: string, maxKeys: number = 1000) => {
   try {
-    const params: any = {
+    const result = await s3.send(new ListObjectsV2Command({
       Bucket: bucket,
       MaxKeys: maxKeys,
-    };
-
-    if (prefix) {
-      params.Prefix = prefix;
-    }
-
-    const result = await s3.listObjectsV2(params).promise();
+      ...(prefix && { Prefix: prefix }),
+    }));
     return result.Contents || [];
   } catch (error) {
     console.error("Error listing files:", error);

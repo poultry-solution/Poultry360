@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-cd /app/apps/backend
+cd /app
 
 echo "==> Waiting for PostgreSQL..."
 
@@ -25,7 +25,7 @@ done
 echo "==> PostgreSQL is ready."
 
 echo "==> Running Prisma migrations..."
-npx prisma migrate deploy
+npx prisma migrate deploy --schema=./prisma/schema.prisma
 
 if [ "$SEED_DATABASE" = "true" ]; then
   echo "==> Seeding database..."
@@ -33,5 +33,4 @@ if [ "$SEED_DATABASE" = "true" ]; then
 fi
 
 echo "==> Starting application..."
-cd /app
 exec "$@"
