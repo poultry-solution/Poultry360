@@ -334,7 +334,7 @@ export default function BatchDetailPage() {
   });
   const [weightErrors, setWeightErrors] = useState<Record<string, string>>({});
   function updateWeightField(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
     const { name, value } = e.target;
     setWeightForm((p) => ({ ...p, [name]: value }));
@@ -514,27 +514,27 @@ export default function BatchDetailPage() {
         le
           ? JSON.parse(le)
           : [
-              {
-                id: 1,
-                name: "Sharma Traders",
-                contact: "9800000000",
-                category: "Chicken",
-                sales: 50000,
-                received: 30000,
-                balance: 20000,
-              },
-              {
-                id: 2,
-                name: "KTM Fresh",
-                contact: "9811111111",
-                category: "Chicken",
-                sales: 38000,
-                received: 38000,
-                balance: 0,
-              },
-            ]
+            {
+              id: 1,
+              name: "Sharma Traders",
+              contact: "9800000000",
+              category: "Chicken",
+              sales: 50000,
+              received: 30000,
+              balance: 20000,
+            },
+            {
+              id: 2,
+              name: "KTM Fresh",
+              contact: "9811111111",
+              category: "Chicken",
+              sales: 38000,
+              received: 38000,
+              balance: 0,
+            },
+          ]
       );
-    } catch {}
+    } catch { }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [batchId]);
 
@@ -542,7 +542,7 @@ export default function BatchDetailPage() {
   useEffect(() => {
     try {
       localStorage.setItem(storageKey("ledger"), JSON.stringify(ledger));
-    } catch {}
+    } catch { }
   }, [ledger, storageKey]);
 
   // --- Expense Modal ---
@@ -1088,7 +1088,7 @@ export default function BatchDetailPage() {
   >({});
 
   function updateMortalityField(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
     const { name, value } = e.target;
     setMortalityForm((p) => ({ ...p, [name]: value }));
@@ -1222,10 +1222,10 @@ export default function BatchDetailPage() {
         editingLedgerId ??
         (customerBalances.length
           ? Math.max(
-              ...customerBalances.map((r) =>
-                typeof r.id === "number" ? r.id : parseInt(r.id)
-              )
-            ) + 1
+            ...customerBalances.map((r) =>
+              typeof r.id === "number" ? r.id : parseInt(r.id)
+            )
+          ) + 1
           : 1),
       name: ledgerForm.name,
       phone: ledgerForm.contact,
@@ -1386,7 +1386,7 @@ export default function BatchDetailPage() {
   // Calculate current age in days
   const currentAge = Math.ceil(
     (new Date().getTime() - new Date(batch.startDate).getTime()) /
-      (1000 * 60 * 60 * 24)
+    (1000 * 60 * 60 * 24)
   );
 
   // Column configurations for DataTable
@@ -1687,8 +1687,8 @@ export default function BatchDetailPage() {
           } catch (e: any) {
             alert(
               e?.response?.data?.message ||
-                e?.message ||
-                "Failed to delete batch"
+              e?.message ||
+              "Failed to delete batch"
             );
           } finally {
             setIsBatchDeleting(false);
@@ -1742,7 +1742,7 @@ export default function BatchDetailPage() {
       />
 
       {/* Ledger Modal with errors */}
-        <LedgerModal 
+      <LedgerModal
         isOpen={isLedgerModalOpen}
         onClose={() => {
           setIsLedgerModalOpen(false);
@@ -1751,7 +1751,7 @@ export default function BatchDetailPage() {
         }}
         ledgerForm={ledgerForm}
         ledgerErrors={ledgerErrors}
-      
+
         editingLedgerId={editingLedgerId}
         onSubmit={async (e) => {
           e.preventDefault();

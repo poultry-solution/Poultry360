@@ -9,8 +9,8 @@ import React, {
   useRef,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getSocketService } from "@/services/chatservices/socketService";
-import { chatKeys } from "@/services/chatservices/chatQueries";
+import { getSocketService } from "@/common/services/chatservices/socketService";
+import { chatKeys } from "@/common/services/chatservices/chatQueries";
 import { useAuthStore } from "@/common/store/store";
 import type {
   Message,
@@ -181,18 +181,18 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         prev.map((conv) =>
           conv.id === message.conversationId
             ? {
-                ...conv,
-                lastMessage: {
-                  id: message.id,
-                  text: message.text || "",
-                  senderId: message.sender.id,
-                  senderName: message.sender.name,
-                  createdAt: message.createdAt,
-                },
-                updatedAt: message.createdAt,
-                unreadCount:
-                  conv.id === currentConversationId ? 0 : conv.unreadCount + 1,
-              }
+              ...conv,
+              lastMessage: {
+                id: message.id,
+                text: message.text || "",
+                senderId: message.sender.id,
+                senderName: message.sender.name,
+                createdAt: message.createdAt,
+              },
+              updatedAt: message.createdAt,
+              unreadCount:
+                conv.id === currentConversationId ? 0 : conv.unreadCount + 1,
+            }
             : conv
         )
       );
@@ -292,7 +292,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
   const removeMessage = useCallback((messageId: string) => {
     console.log("removeMessage - marking as deleted", messageId);
-    setMessages((prev) => 
+    setMessages((prev) =>
       prev.map((msg) => msg.id === messageId ? { ...msg, isDeleted: true } : msg)
     );
   }, []);
@@ -352,9 +352,9 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         prev.map((conv) =>
           conv.id === data.conversationId
             ? {
-                ...conv,
-                unreadCount: Math.max(0, conv.unreadCount - data.readCount),
-              }
+              ...conv,
+              unreadCount: Math.max(0, conv.unreadCount - data.readCount),
+            }
             : conv
         )
       );

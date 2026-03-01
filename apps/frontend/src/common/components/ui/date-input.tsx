@@ -105,9 +105,7 @@ export function DateInput({
         <Calendar
           key={adValue || "empty"}
           onChange={handleBSPickerChange}
-          defaultDate={getDefaultDateForPicker()}
-          minDate={min}
-          maxDate={max}
+          defaultDate={getDefaultDateForPicker() as any}
           className="w-full rounded-md border border-input"
           theme="dark"
           language="en"

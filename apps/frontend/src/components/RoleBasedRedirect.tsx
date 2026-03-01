@@ -65,7 +65,7 @@ export const RoleBasedRedirect: React.FC<RoleBasedRedirectProps> = ({
 
       try {
         const roleConfig = ROLE_ROUTES[userRole];
-        
+
         if (!roleConfig) {
           console.error(`Unknown role: ${userRole}`);
           setRedirectMessage("Unknown user role. Redirecting to login...");
@@ -77,10 +77,10 @@ export const RoleBasedRedirect: React.FC<RoleBasedRedirectProps> = ({
 
         // Check if user is trying to access a path they're not allowed to
         const isAccessingRestrictedPath = !allowedRoles.includes(userRole);
-        
+
         if (isAccessingRestrictedPath) {
           setRedirectMessage(`Redirecting to ${userRole.toLowerCase()} dashboard...`);
-          
+
           // Small delay to show the message
           await new Promise(resolve => setTimeout(resolve, 1500));
 
@@ -112,10 +112,8 @@ export const RoleBasedRedirect: React.FC<RoleBasedRedirectProps> = ({
 
   if (isRedirecting) {
     return (
-      <AppLoadingScreen 
+      <AppLoadingScreen
         message={redirectMessage || `Redirecting ${userRole.toLowerCase()}...`}
-        title="Poultry360"
-        subtitle="Smart Poultry Management System"
       />
     );
   }
@@ -129,7 +127,7 @@ export const useRoleBasedNavigation = () => {
 
   const navigateBasedOnRole = async (userRole: string, fallbackPath?: string) => {
     const roleConfig = ROLE_ROUTES[userRole];
-    
+
     if (!roleConfig) {
       console.error(`Unknown role: ${userRole}`);
       router.push(fallbackPath || "/auth/login");
@@ -188,10 +186,8 @@ export const LoginRedirectHandler: React.FC<{ userRole: string }> = ({ userRole 
 
   if (isRedirecting) {
     return (
-      <AppLoadingScreen 
+      <AppLoadingScreen
         message={`Welcome ${userRole.toLowerCase()}! Redirecting to your dashboard...`}
-        title="Poultry360"
-        subtitle="Smart Poultry Management System"
       />
     );
   }

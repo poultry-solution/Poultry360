@@ -23,25 +23,25 @@ interface MortalityStats {
 interface MortalityModalProps {
   isOpen: boolean;
   onClose: () => void;
-  
+
   // Context props (optional)
   prefilledBatchId?: string;
   prefilledFarmId?: string;
-  
+
   // Selection data (required only if no prefilled context)
   farms?: any[];
   activeBatches?: any[];
-  
+
   // Form state
   editingMortalityId: string | null;
   mortalityForm: MortalityFormState;
   mortalityErrors: Record<string, string>;
   stats?: MortalityStats;
-  
+
   // Handlers
   onSubmit: (e: React.FormEvent) => Promise<void>;
-  onFieldUpdate: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  
+  onFieldUpdate: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
+
   // Loading
   isPending: boolean;
 }

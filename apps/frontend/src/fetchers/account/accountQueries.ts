@@ -62,7 +62,7 @@ export const useGetAllAccountTransactions = (
   // Clean up filters to remove empty values
   const cleanFilters = Object.entries(filters).reduce((acc, [key, value]) => {
     if (value !== undefined && value !== null && value !== "") {
-      acc[key] = value;
+      (acc as any)[key] = value;
     }
     return acc;
   }, {} as AccountTransactionsFilters);

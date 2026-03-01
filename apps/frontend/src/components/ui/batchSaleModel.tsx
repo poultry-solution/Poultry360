@@ -197,7 +197,7 @@ export const BatchSaleModel = ({
               <DateInput
                 label="Date"
                 value={saleForm.date}
-                onChange={(value) => setSaleForm(prev => ({ ...prev, date: value }))}
+                onChange={(value) => setSaleForm((prev: typeof saleForm) => ({ ...prev, date: value }))}
               />
               {saleErrors.date && (
                 <p className="text-xs text-red-600 mt-1">{saleErrors.date}</p>
@@ -250,7 +250,7 @@ export const BatchSaleModel = ({
                               key={customer.id}
                               className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                               onClick={() => {
-                                setSaleForm((prev) => ({
+                                setSaleForm((prev: typeof saleForm) => ({
                                   ...prev,
                                   customerId: customer.id,
                                   customerName: customer.name,

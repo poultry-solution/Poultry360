@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
-import axiosInstance from '@/lib/axios';
 
+import axiosInstance from "../lib/axios" ;
 export const usePasswordVerification = () => {
   return useMutation({
     mutationFn: async (password: string) => {
@@ -19,7 +19,7 @@ export const usePasswordProtectedAction = <T extends any[]>(
   const executeWithPassword = async (password: string, ...args: T) => {
     // First verify password
     await passwordVerification.mutateAsync(password);
-    
+
     // If password is valid, execute the action
     return action(...args);
   };
