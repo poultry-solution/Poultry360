@@ -634,28 +634,71 @@ export default function SalesLedgerPage() {
     },
     {
       key: "weight",
-      label: "Weight",
+      label: "Weight (kg)",
       width: "100px",
       align: "center" as const,
       render: (value: number | null) => (
-        <span className="text-sm">{value ? `${value} kg` : "—"}</span>
+        <span className="text-sm">{value ? `${Number(value).toFixed(2)} kg` : "—"}</span>
       ),
     },
     {
+      key: "unitPrice",
+      label: "Rate",
+      type: "currency" as const,
+      width: "100px",
+      align: "right" as const,
+    },
+    {
       key: "amount",
-      label: "Amount",
+      label: "Total",
       type: "currency" as const,
       width: "120px",
       align: "right" as const,
     },
     {
       key: "isCredit",
-      label: "Type",
-      width: "100px",
+      label: "Credit",
+      width: "80px",
+      align: "center" as const,
       render: (value: boolean) => (
-        <Badge variant={value ? "secondary" : "default"}>
-          {value ? "Credit" : "Cash"}
+        <Badge
+          variant="secondary"
+          className={
+            value
+              ? "bg-orange-100 text-orange-800"
+              : "bg-gray-100 text-gray-800"
+          }
+        >
+          {value ? "Yes" : "No"}
         </Badge>
+      ),
+    },
+    {
+      key: "paidAmount",
+      label: "Paid",
+      type: "currency" as const,
+      width: "100px",
+      align: "right" as const,
+      render: (value: number | null) => (value != null ? `₹${Number(value).toLocaleString()}` : "—"),
+    },
+    {
+      key: "dueAmount",
+      label: "Due",
+      type: "currency" as const,
+      width: "100px",
+      align: "right" as const,
+      render: (value: number | null) => (value != null ? `₹${Number(value).toLocaleString()}` : "—"),
+    },
+    {
+      key: "transactions",
+      label: "Transactions",
+      type: "actions" as const,
+      align: "center" as const,
+      width: "120px",
+      render: (_: any, row: any) => (
+        <span className="text-sm text-muted-foreground">
+          {row.payments?.length ?? 0} payment{(row.payments?.length ?? 0) !== 1 ? "s" : ""}
+        </span>
       ),
     },
     {

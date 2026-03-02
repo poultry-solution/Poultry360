@@ -161,6 +161,7 @@
       "provinceLabel": "Province (Nepal)",
       "locationLabel": "Location (city / area) *",
       "phoneLabel": "Phone *",
+      "phonePlaceholder": "98XXXXXXXX",
       "countryCodeLabel": "Country code",
       "phoneHelp": "Phone number is required for account verification",
       "languageLabel": "Language *",
@@ -188,6 +189,7 @@
         "passwordMismatch": "Passwords do not match!",
         "passwordTooShort": "Password must be at least 6 characters long!",
         "phoneRequired": "Please provide a phone number!",
+        "phoneInvalid": "Enter a valid 10-digit phone number.",
         "invalidOtp": "Invalid OTP! Please enter 11111 for testing."
       }
     },
@@ -242,7 +244,7 @@
       "alreadyHaveAccount": "Already have an account?",
       "login": "Log in",
       "registerOwner": "Want to register as a farm owner?",
-      "signupOwner": "Sign up as Owner",
+      "signupOwner": "Sign up as Farm Owner",
       "registerCompany": "Want to register as a company?",
       "signupCompany": "Sign up as Company",
       "errors": {

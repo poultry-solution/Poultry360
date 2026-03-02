@@ -28,7 +28,6 @@ export default function SignupPage() {
     companyName: "",
     province: "Bagmati",
     location: "",
-    countryCode: "+977",
     phone: "",
     password: "",
     confirmPassword: "",
@@ -39,8 +38,12 @@ export default function SignupPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-
+    if (name === "phone") {
+      const digits = value.replace(/\D/g, "").slice(0, 10);
+      setFormData((prev) => ({ ...prev, phone: digits }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
     if (error) clearError();
   };
 
@@ -55,8 +58,8 @@ export default function SignupPage() {
       return false;
     }
 
-    if (!formData.phone) {
-      alert(t("auth.signup.errors.phoneRequired"));
+    if (!formData.phone || formData.phone.length !== 10) {
+      alert(t("auth.signup.errors.phoneInvalid") || "Enter a valid 10-digit phone number");
       return false;
     }
 
@@ -71,9 +74,7 @@ export default function SignupPage() {
     // Phone verification only
 
     // Simulate sending OTP
-    console.log(
-      `Sending OTP to ${formData.countryCode + formData.phone}`
-    );
+    console.log(`Sending OTP to +977${formData.phone}`);
     setStep("otp");
   };
 
@@ -89,7 +90,7 @@ export default function SignupPage() {
       const name = formData.name;
       const companyFarmLocation = `${formData.province}, ${formData.location}`;
 
-      const phone = `${formData.countryCode}${formData.phone}`;
+      const phone = `+977${formData.phone}`;
       const registerData = {
         name,
         phone,
@@ -110,7 +111,7 @@ export default function SignupPage() {
   };
 
   const getVerificationTarget = () => {
-    return `${formData.countryCode}${formData.phone}`;
+    return `+977${formData.phone}`;
   };
 
 
@@ -212,26 +213,21 @@ export default function SignupPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="phone">{t("auth.signup.phoneLabel")}</Label>
-                  <div className="flex gap-2">
-                    <select
-                      id="countryCode"
-                      name="countryCode"
-                      value={formData.countryCode}
-                      onChange={handleInputChange}
-                      className="h-10 rounded-md border border-input bg-background px-2 text-sm"
-                      aria-label={t("auth.signup.countryCodeLabel")}
-                    >
-                      <option value="+91">+91 (IN)</option>
-                      <option value="+977">+977 (NP)</option>
-                      <option value="+1">+1 (US)</option>
-                      <option value="+44">+44 (UK)</option>
-                    </select>
+                  <div className="flex items-stretch gap-0">
+                    <div className="flex items-center gap-2 rounded-l-md border border-r-0 bg-muted px-3 text-foreground">
+                      <span aria-hidden>🇳🇵</span>
+                      <span className="text-sm font-medium">+977</span>
+                    </div>
                     <Input
                       id="phone"
                       name="phone"
                       type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]{10}"
                       value={formData.phone}
                       onChange={handleInputChange}
+                      placeholder={t("auth.signup.phonePlaceholder") || "98XXXXXXXX"}
+                      className="rounded-l-none"
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">

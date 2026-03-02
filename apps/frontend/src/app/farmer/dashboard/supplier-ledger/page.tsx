@@ -50,6 +50,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { TransactionType } from "@myapp/shared-types";
 import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { ImageUpload } from "@/common/components/ui/image-upload";
 import { useCreateFarmerPaymentRequest } from "@/fetchers/farmer/farmerPaymentRequestQueries";
 import {
   Select,
@@ -112,7 +113,6 @@ export default function SupplierLedgerPage() {
     rate: "",
     quantity: "",
     unit: "",
-    paid: "",
     date: "",
     description: "",
   });
@@ -123,6 +123,7 @@ export default function SupplierLedgerPage() {
     amount: "",
     date: "",
     note: "",
+    receiptImageUrl: "",
   });
   const [paymentRequestForm, setPaymentRequestForm] = useState({
     amount: "",
@@ -275,6 +276,22 @@ export default function SupplierLedgerPage() {
         </span>
       ),
     }),
+    createColumn("imageUrl", "Receipt", {
+      render: (_, row) =>
+        row.imageUrl ? (
+          <a
+            href={row.imageUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            View
+          </a>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        ),
+    }),
   ];
 
   function toggleAll() {
@@ -386,7 +403,6 @@ export default function SupplierLedgerPage() {
     e.preventDefault();
     const rate = Number(newEntry.rate);
     const quantity = Number(newEntry.quantity);
-    const paid = Number(newEntry.paid);
     const date = newEntry.date || new Date().toISOString();
     if (!newEntry.item || !rate || !quantity || !activeSupplierId) return;
 
@@ -407,11 +423,6 @@ export default function SupplierLedgerPage() {
             newEntry.description || `Purchase of ${newEntry.item}`,
           unitPrice: rate,
           unit: newEntry.unit || undefined,
-          paymentAmount: paid > 0 ? paid : undefined,
-          paymentDescription:
-            paid > 0
-              ? `Initial payment for ${newEntry.item}`
-              : undefined,
         },
       });
 
@@ -423,7 +434,6 @@ export default function SupplierLedgerPage() {
         rate: "",
         quantity: "",
         unit: "",
-        paid: "",
         date: "",
         description: "",
       });
@@ -449,12 +459,13 @@ export default function SupplierLedgerPage() {
           amount: paymentAmount,
           date: paymentDate,
           description: paymentForm.note || "Payment",
+          imageUrl: paymentForm.receiptImageUrl || undefined,
         },
       });
 
       toast.success("Payment recorded!");
       setIsPaymentModalOpen(false);
-      setPaymentForm({ amount: "", date: "", note: "" });
+      setPaymentForm({ amount: "", date: "", note: "", receiptImageUrl: "" });
     } catch (error) {
       console.error("Failed to record payment:", error);
     }
@@ -985,7 +996,7 @@ export default function SupplierLedgerPage() {
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select unit" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     {(newEntry.category === "FEED"
                       ? ["KG", "Sack", "Packet", "Bag", "Quintal"]
                       : newEntry.category === "MEDICINE"
@@ -1004,8 +1015,8 @@ export default function SupplierLedgerPage() {
                 </Select>
               </div>
 
-              {/* Rate + Quantity + Paid (common for all) */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Rate + Quantity (common for all) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="rate">Rate (per {newEntry.unit || "unit"})</Label>
                   <Input
@@ -1028,18 +1039,6 @@ export default function SupplierLedgerPage() {
                       setNewEntry({ ...newEntry, quantity: e.target.value })
                     }
                     required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="paid">Paid Amount</Label>
-                  <Input
-                    id="paid"
-                    type="number"
-                    value={newEntry.paid}
-                    onChange={(e) =>
-                      setNewEntry({ ...newEntry, paid: e.target.value })
-                    }
-                    placeholder="0"
                   />
                 </div>
               </div>
@@ -1163,7 +1162,10 @@ export default function SupplierLedgerPage() {
       {/* Payment Modal (Khata-style) */}
       <Modal
         isOpen={isPaymentModalOpen}
-        onClose={() => setIsPaymentModalOpen(false)}
+        onClose={() => {
+          setIsPaymentModalOpen(false);
+          setPaymentForm({ amount: "", date: "", note: "", receiptImageUrl: "" });
+        }}
         title="Record Payment"
       >
         <form onSubmit={handleAddPayment}>
@@ -1213,13 +1215,27 @@ export default function SupplierLedgerPage() {
                   placeholder="e.g. Cash, Bank transfer, Cheque"
                 />
               </div>
+              <div>
+                <Label>Payment receipt (optional)</Label>
+                <ImageUpload
+                  value={paymentForm.receiptImageUrl}
+                  onChange={(url) =>
+                    setPaymentForm({ ...paymentForm, receiptImageUrl: url })
+                  }
+                  folder="payment-receipts"
+                  placeholder="Upload receipt image"
+                />
+              </div>
             </div>
           </ModalContent>
           <ModalFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={() => setIsPaymentModalOpen(false)}
+              onClick={() => {
+                setIsPaymentModalOpen(false);
+                setPaymentForm({ amount: "", date: "", note: "", receiptImageUrl: "" });
+              }}
             >
               Cancel
             </Button>

@@ -38,6 +38,7 @@ import { useGetInventoryTableData } from "@/fetchers/inventory/inventoryQueries"
 import {
   useBatchSalesManagement,
   useGetCustomersForSales,
+  useGetEggInventory,
 } from "@/fetchers/sale/saleQueries";
 import {
   useGetBatchMortalities,
@@ -45,7 +46,17 @@ import {
   useUpdateMortality,
   useDeleteMortality,
 } from "@/fetchers/mortality/mortalityQueries";
-import { BatchSaleModel } from "@/common/components/ui/batchSaleModel";
+import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
+import { Label } from "@/common/components/ui/label";
+import { Input } from "@/common/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
+import { DateInput } from "@/common/components/ui/date-input";
 import {
   useGetWeights,
   useGetGrowthChart,
@@ -227,7 +238,9 @@ export default function BatchDetailPage() {
 
   // Customer search for sales
   const [customerSearch, setCustomerSearch] = useState("");
-  const { data: customers = [] } = useGetCustomersForSales(customerSearch);
+  const { data: customers = [] } = useGetCustomersForSales(customerSearch, {
+    enabled: true,
+  });
 
   // Fetch mortality data for this batch
   const {
@@ -838,6 +851,8 @@ export default function BatchDetailPage() {
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
   const [editingSaleId, setEditingSaleId] = useState<number | null>(null);
   const [saleForm, setSaleForm] = useState({
+    farmId: "",
+    batchId: "",
     rate: "",
     quantity: "",
     weight: "",
@@ -849,9 +864,12 @@ export default function BatchDetailPage() {
     contact: "",
     customerCategory: "Chicken",
     balance: "",
-    date: "",
-    categoryId: "",
+    date: new Date().toISOString().split("T")[0],
   });
+  const { data: eggInventoryResponse } = useGetEggInventory({
+    enabled: isSaleModalOpen && saleForm.itemType === "EGGS",
+  });
+  const eggInventory = eggInventoryResponse?.data;
   function updateSaleField(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) {
@@ -865,6 +883,8 @@ export default function BatchDetailPage() {
   function openNewSale() {
     setEditingSaleId(null);
     setSaleForm({
+      farmId: batch?.farmId ?? "",
+      batchId: batchId ?? "",
       rate: "",
       quantity: "",
       weight: "",
@@ -877,7 +897,6 @@ export default function BatchDetailPage() {
       customerCategory: "Chicken",
       balance: "",
       date: new Date().toISOString().split("T")[0],
-      categoryId: "",
     });
     setCustomerSearch("");
     setIsSaleModalOpen(true);
@@ -885,6 +904,8 @@ export default function BatchDetailPage() {
   function openEditSale(row: SaleRow) {
     setEditingSaleId(row.id);
     setSaleForm({
+      farmId: batch?.farmId ?? "",
+      batchId: batchId ?? "",
       rate: String(row.rate),
       quantity: String(row.quantity),
       weight: String((row as any).weight || ""),
@@ -896,8 +917,7 @@ export default function BatchDetailPage() {
       contact: row.customer?.phone || "",
       customerCategory: row.customer?.category || "Chicken",
       balance: String(row.customer?.balance ?? ""),
-      date: row.date,
-      categoryId: row.categoryId || "",
+      date: row.date?.includes("T") ? row.date.split("T")[0] : row.date || new Date().toISOString().split("T")[0],
     });
     setCustomerSearch("");
     setIsSaleModalOpen(true);
@@ -945,9 +965,10 @@ export default function BatchDetailPage() {
       if (!saleForm.customerId && !saleForm.contact) {
         errs.contact = "Contact number required for new customer";
       }
-      // Validate that paid amount doesn't exceed total amount
       const totalAmount =
-        Number(saleForm.rate || 0) * Number(saleForm.weight || 0);
+        saleForm.itemType === "Chicken_Meat"
+          ? Number(saleForm.rate || 0) * Number(saleForm.weight || 0)
+          : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0);
       const paidAmount = Number(saleForm.balance || 0);
       if (paidAmount > totalAmount) {
         errs.balance = `Paid amount cannot exceed total amount of ₹${totalAmount.toLocaleString()}`;
@@ -962,31 +983,35 @@ export default function BatchDetailPage() {
     if (!validateSale()) return;
 
     try {
+      const quantity = parseFloat(saleForm.quantity);
+      const weight =
+        saleForm.itemType === "Chicken_Meat"
+          ? parseFloat(saleForm.weight)
+          : null;
+      const unitPrice = parseFloat(saleForm.rate);
+      const amount =
+        saleForm.itemType === "Chicken_Meat"
+          ? unitPrice * (weight || 0)
+          : unitPrice * quantity;
+      const paidAmount = saleForm.remaining
+        ? saleForm.balance
+          ? parseFloat(saleForm.balance)
+          : 0
+        : amount;
       const saleData: any = {
         date: saleForm.date
           ? `${saleForm.date}T00:00:00.000Z`
           : new Date().toISOString(),
-        amount:
-          saleForm.itemType === "Chicken_Meat"
-            ? Number(saleForm.rate || 0) * Number(saleForm.weight || 0)
-            : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0),
-        quantity: Number(saleForm.quantity || 0),
-        weight:
-          saleForm.itemType === "Chicken_Meat"
-            ? Number(saleForm.weight || 0)
-            : null,
-        unitPrice: Number(saleForm.rate || 0),
+        amount,
+        quantity,
+        weight: weight ?? undefined,
+        unitPrice,
         description: undefined,
         isCredit: saleForm.remaining,
-        paidAmount: saleForm.remaining
-          ? Number(saleForm.balance || 0)
-          : saleForm.itemType === "Chicken_Meat"
-            ? Number(saleForm.rate || 0) * Number(saleForm.weight || 0)
-            : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0),
-        farmId: batch?.farmId,
-        batchId: batchId,
+        paidAmount,
+        farmId: saleForm.farmId || batch?.farmId,
+        batchId: saleForm.batchId || batchId,
         itemType: saleForm.itemType,
-        categoryId: saleForm.categoryId,
       };
       if (saleForm.itemType === "EGGS" && saleForm.eggCategory) {
         saleData.eggCategory = saleForm.eggCategory;
@@ -1721,25 +1746,323 @@ export default function BatchDetailPage() {
         isPending={createExpenseMutation.isPending || updateExpenseMutation.isPending}
       />
 
-      {/* Sale Modal with errors */}
-      <BatchSaleModel
-        saleForm={saleForm}
-        saleErrors={saleErrors}
-        updateSaleField={updateSaleField}
-        customerSearch={customerSearch}
-        setCustomerSearch={setCustomerSearch}
-        customers={customers}
-        isCreating={isCreating}
-        isUpdating={isUpdating}
-        isSaleModalOpen={isSaleModalOpen}
-        setIsSaleModalOpen={setIsSaleModalOpen}
-        editingSaleId={editingSaleId}
-        setEditingSaleId={setEditingSaleId}
-        submitSale={submitSale}
-        setSaleForm={setSaleForm}
-        setSaleErrors={setSaleErrors}
-        categoryId={saleForm.categoryId}
-      />
+      {/* Sale Modal — same as sales-ledger New Sale, with farm/batch fixed from current batch */}
+      <Modal
+        isOpen={isSaleModalOpen}
+        onClose={() => {
+          setIsSaleModalOpen(false);
+          setEditingSaleId(null);
+          setSaleErrors({});
+          setCustomerSearch("");
+        }}
+        title={editingSaleId ? "Edit Sale" : "Add Sale"}
+      >
+        <form onSubmit={submitSale}>
+          <ModalContent>
+            <div className="space-y-4">
+              {/* Read-only: current farm & batch */}
+              {batch && (
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <p className="text-sm text-gray-700">
+                    <strong>Farm:</strong> {(batch as any).farm?.name ?? "—"} · <strong>Batch:</strong> {(batch as any).batchNumber ?? batchId}
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="itemType">Item Type</Label>
+                <Select
+                  value={saleForm.itemType}
+                  onValueChange={(value) => {
+                    updateSaleField({ target: { name: "itemType", value } } as any);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select item type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="EGGS">Eggs</SelectItem>
+                    <SelectItem value="Chicken_Meat">Layers (Meat)</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {saleForm.itemType === "EGGS" && (
+                <div>
+                  <Label htmlFor="eggCategory">Egg Category</Label>
+                  <Select
+                    value={saleForm.eggCategory}
+                    onValueChange={(value) => {
+                      updateSaleField({ target: { name: "eggCategory", value } } as any);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      <SelectItem value="LARGE">Large</SelectItem>
+                      <SelectItem value="MEDIUM">Medium</SelectItem>
+                      <SelectItem value="SMALL">Small</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {saleErrors.eggCategory && (
+                    <p className="text-xs text-red-600 mt-1">{saleErrors.eggCategory}</p>
+                  )}
+                  {eggInventory && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Available: Large {eggInventory.LARGE} · Medium {eggInventory.MEDIUM} · Small {eggInventory.SMALL}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="rate">Rate (₹)</Label>
+                  <Input
+                    id="rate"
+                    name="rate"
+                    type="number"
+                    value={saleForm.rate}
+                    onChange={updateSaleField}
+                    placeholder="Rate per unit"
+                  />
+                  {saleErrors.rate && (
+                    <p className="text-xs text-red-600 mt-1">{saleErrors.rate}</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="quantity">
+                    {saleForm.itemType === "Chicken_Meat"
+                      ? "Quantity (Birds)"
+                      : saleForm.itemType === "EGGS"
+                        ? "Quantity (Eggs)"
+                        : "Quantity (Units)"}
+                  </Label>
+                  <Input
+                    id="quantity"
+                    name="quantity"
+                    type="number"
+                    value={saleForm.quantity}
+                    onChange={updateSaleField}
+                    placeholder={
+                      saleForm.itemType === "Chicken_Meat"
+                        ? "Number of birds"
+                        : "Number of units"
+                    }
+                  />
+                  {saleErrors.quantity && (
+                    <p className="text-xs text-red-600 mt-1">{saleErrors.quantity}</p>
+                  )}
+                </div>
+              </div>
+
+              {saleForm.itemType === "Chicken_Meat" && (
+                <div>
+                  <Label htmlFor="weight">Weight (kg)</Label>
+                  <Input
+                    id="weight"
+                    name="weight"
+                    type="number"
+                    step="0.01"
+                    value={saleForm.weight}
+                    onChange={updateSaleField}
+                    placeholder="Total weight in kg"
+                  />
+                  {saleErrors.weight && (
+                    <p className="text-xs text-red-600 mt-1">{saleErrors.weight}</p>
+                  )}
+                  {saleForm.quantity && saleForm.weight && (
+                    <p className="text-xs text-green-600 mt-1">
+                      Avg weight per bird:{" "}
+                      {(Number(saleForm.weight) / Number(saleForm.quantity)).toFixed(2)} kg
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-md">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Total Amount</span>
+                  <span className="text-lg font-bold text-green-700">
+                    ₹
+                    {saleForm.itemType === "Chicken_Meat" && Number(saleForm.weight)
+                      ? (Number(saleForm.rate || 0) * Number(saleForm.weight)).toLocaleString()
+                      : (Number(saleForm.rate || 0) * Number(saleForm.quantity || 0)).toLocaleString()}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {saleForm.itemType === "Chicken_Meat"
+                    ? "Calculated as rate × weight"
+                    : "Calculated as rate × quantity"}
+                </p>
+              </div>
+
+              <div>
+                <DateInput
+                  label="Date"
+                  value={saleForm.date}
+                  onChange={(v) =>
+                    setSaleForm((p) => ({ ...p, date: v.includes("T") ? v.split("T")[0] : v }))
+                  }
+                />
+                {saleErrors.date && (
+                  <p className="text-xs text-red-600 mt-1">{saleErrors.date}</p>
+                )}
+              </div>
+
+              <div className="col-span-2">
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    name="remaining"
+                    checked={saleForm.remaining}
+                    onChange={updateSaleField}
+                    className="h-4 w-4"
+                  />
+                  Remaining balance?
+                </label>
+              </div>
+
+              {saleForm.remaining && (
+                <div className="grid md:grid-cols-2 gap-4 border rounded-md p-4">
+                  <div>
+                    <Label htmlFor="customerSearch">Search Customer</Label>
+                    <div className="relative">
+                      <Input
+                        id="customerSearch"
+                        name="customerSearch"
+                        value={customerSearch}
+                        onChange={(e) => setCustomerSearch(e.target.value)}
+                        placeholder="Search existing customers..."
+                        className="pr-8"
+                      />
+                      {customerSearch && (
+                        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
+                          {customers?.length > 0 ? (
+                            customers.map((customer: any) => (
+                              <div
+                                key={customer.id}
+                                className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                onClick={() => {
+                                  setSaleForm((prev) => ({
+                                    ...prev,
+                                    customerId: customer.id,
+                                    customerName: customer.name,
+                                    contact: customer.phone,
+                                    customerCategory: customer.category || "Chicken",
+                                  }));
+                                  setCustomerSearch("");
+                                }}
+                              >
+                                <div className="font-medium">{customer.name}</div>
+                                <div className="text-sm text-gray-500">{customer.phone}</div>
+                                {customer.category && (
+                                  <div className="text-xs text-blue-600">{customer.category}</div>
+                                )}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="px-3 py-2 text-gray-500 text-sm">No customers found</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="customerName">Customer Name *</Label>
+                    <Input
+                      id="customerName"
+                      name="customerName"
+                      value={saleForm.customerName}
+                      onChange={updateSaleField}
+                      placeholder="Enter new customer name"
+                    />
+                    {saleErrors.customerName && (
+                      <p className="text-xs text-red-600 mt-1">{saleErrors.customerName}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="contact">Contact *</Label>
+                    <Input
+                      id="contact"
+                      name="contact"
+                      value={saleForm.contact}
+                      onChange={updateSaleField}
+                      placeholder="Phone number"
+                    />
+                    {saleErrors.contact && (
+                      <p className="text-xs text-red-600 mt-1">{saleErrors.contact}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="customerCategory">Customer Category</Label>
+                    <Select
+                      value={saleForm.customerCategory || "Chicken"}
+                      onValueChange={(value) => {
+                        updateSaleField({ target: { name: "customerCategory", value } } as any);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white">
+                        <SelectItem value="Chicken">Chicken</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="balance">Amount Paid (Optional)</Label>
+                    <Input
+                      id="balance"
+                      name="balance"
+                      type="number"
+                      value={saleForm.balance}
+                      onChange={updateSaleField}
+                      placeholder="Amount paid (leave empty for full credit)"
+                    />
+                    {saleErrors.balance && (
+                      <p className="text-xs text-red-600 mt-1">{saleErrors.balance}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </ModalContent>
+          <ModalFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsSaleModalOpen(false);
+                setEditingSaleId(null);
+                setSaleErrors({});
+                setCustomerSearch("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="bg-primary hover:bg-primary/90"
+              disabled={isCreating || isUpdating}
+            >
+              {isCreating || isUpdating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {editingSaleId ? "Updating..." : "Creating..."}
+                </>
+              ) : editingSaleId ? (
+                "Update Sale"
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </ModalFooter>
+        </form>
+      </Modal>
 
       {/* Ledger Modal with errors */}
       <LedgerModal

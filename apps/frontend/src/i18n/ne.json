@@ -160,6 +160,7 @@
       "provinceLabel": "प्रदेश (नेपाल)",
       "locationLabel": "स्थान (सहर / क्षेत्र) *",
       "phoneLabel": "फोन *",
+      "phonePlaceholder": "98XXXXXXXX",
       "countryCodeLabel": "देश कोड",
       "phoneHelp": "खाता प्रमाणीकरणका लागि फोन नम्बर आवश्यक छ",
       "languageLabel": "भाषा *",
@@ -187,6 +188,7 @@
         "passwordMismatch": "पासवर्ड मिलेन!",
         "passwordTooShort": "पासवर्ड कम्तिमा 6 अक्षरको हुनुपर्छ!",
         "phoneRequired": "कृपया फोन नम्बर दिनुहोस्!",
+        "phoneInvalid": "वैध १० अंकको फोन नम्बर प्रविष्ट गर्नुहोस्।",
         "invalidOtp": "अवैध OTP! टेस्टका लागि 11111 प्रविष्ट गर्नुहोस्।"
       }
     },

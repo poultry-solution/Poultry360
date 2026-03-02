@@ -327,6 +327,15 @@ export default function DealerSignupPage() {
                 {t("auth.dealerSignup.signupOwner")}
               </Link>
             </p>
+            <p className="text-sm text-muted-foreground text-center">
+              {t("auth.dealerSignup.registerCompany")}{" "}
+              <Link
+                href="/auth/signup/company"
+                className="text-primary hover:underline"
+              >
+                {t("auth.dealerSignup.signupCompany")}
+              </Link>
+            </p>
           </div>
         </div>
       </div>

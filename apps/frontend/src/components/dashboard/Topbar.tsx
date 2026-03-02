@@ -1,6 +1,7 @@
 "use client";
 
 import { Search, User, Menu, Settings, LogOut } from "lucide-react";
+import Link from "next/link";
 import { Input } from "@/common/components/ui/input";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
@@ -61,17 +62,6 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
 
   const roleSettings = getRoleSettings();
 
-  const handleProfileClick = () => {
-    console.log("Profile clicked");
-    // Add your profile logic here
-  };
-
-  const handleSettingsClick = () => {
-    console.log("Settings clicked");
-    router.push(roleSettings.settingsPath);
-    // Add your settings logic here
-  };
-
   const handleSignOutClick = () => {
     console.log("Sign out clicked");
     logout();
@@ -127,13 +117,23 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
           >
             <DropdownMenuLabel>{t("topbar.myAccount")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleProfileClick} className="cursor-pointer">
-              <User className="mr-2 h-4 w-4" />
-              {t("topbar.myProfile")}
+            <DropdownMenuItem className="p-0 cursor-pointer">
+              <Link
+                href={roleSettings.settingsPath}
+                className="flex items-center w-full px-2 py-1.5 cursor-pointer outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+              >
+                <User className="mr-2 h-4 w-4" />
+                {t("topbar.myProfile")}
+              </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleSettingsClick} className="cursor-pointer">
-              <Settings className="mr-2 h-4 w-4" />
-              {t("topbar.settings")}
+            <DropdownMenuItem className="p-0 cursor-pointer">
+              <Link
+                href={roleSettings.settingsPath}
+                className="flex items-center w-full px-2 py-1.5 cursor-pointer outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+              >
+                <Settings className="mr-2 h-4 w-4" />
+                {t("topbar.settings")}
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

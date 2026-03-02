@@ -574,6 +574,7 @@ export const getDealerById = async (
         date: t.date,
         description: t.description,
         reference: t.reference,
+        imageUrl: t.imageUrl,
         paymentToPurchaseId: t.paymentToPurchaseId,
       }));
 
@@ -1119,6 +1120,7 @@ export const addDealerTransaction = async (
           date: new Date(date),
           description: description || null,
           reference: reference || null,
+          imageUrl: imageUrl || null,
           dealerId: id,
           entityType: "DEALER",
           entityId: id,
