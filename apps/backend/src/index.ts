@@ -18,7 +18,7 @@ app.use(cookieParser());
 const allowedOrigins = (
   process.env.FRONTEND_URLS ||
 
-  "http://localhost:3000,http://localhost:3001,http://localhost:3002"
+  "http://localhost:3000,http://localhost:3001,http://localhost:3002, https://poultry360-frontend.vercel.app/"
 )
   .split(",")
   .map((o) => o.trim());

@@ -7,7 +7,7 @@ import { Label } from "@/common/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { DateInput } from "@/common/components/ui/date-input";
 
-type ExpenseCategory = "Feed" | "Medicine" | "Hatchery" | "Other";
+type ExpenseCategory = "Feed" | "Medicine" | "Hatchery" | "Other" | "Add extra expenses";
 
 interface ExpenseFormState {
   category: ExpenseCategory;
@@ -27,6 +27,8 @@ interface ExpenseFormState {
   otherName: string;
   otherRate: string;
   otherQuantity: string;
+  extraName?: string;
+  extraAmount?: string;
   farmId?: string;
   batchId?: string;
 }
@@ -87,6 +89,9 @@ export function ExpenseModal({
   const showBatchSelector = !prefilledBatchId;
   const showFarmSelector = !prefilledFarmId;
 
+  const selectClass =
+    "w-full h-10 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer transition-shadow";
+
   return (
     <Modal
       isOpen={isOpen}
@@ -94,131 +99,189 @@ export function ExpenseModal({
       title={editingExpenseId ? "Edit Expense" : "Add Expense"}
     >
       <form onSubmit={onSubmit}>
-        <ModalContent>
-          <div className="grid md:grid-cols-2 gap-4">
-            {/* Farm Selector - only show if no prefilled farm */}
-            {showFarmSelector && (
-              <div>
-                <Label htmlFor="farmId">Farm</Label>
-                <select
-                  id="farmId"
-                  name="farmId"
-                  value={expenseForm.farmId || ""}
-                  onChange={onFieldUpdate}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                >
-                  <option value="">Select farm</option>
-                  {farms?.map((farm: any) => (
-                    <option key={farm.id} value={farm.id}>
-                      {farm.name}
-                    </option>
-                  ))}
-                </select>
-                {expenseErrors.farmId && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {expenseErrors.farmId}
-                  </p>
+        <ModalContent className="space-y-6">
+          {/* Context: Farm & Batch */}
+          {(showFarmSelector || showBatchSelector) && (
+            <div className="space-y-4">
+              <p className="text-sm font-medium text-muted-foreground">Context</p>
+              <div className="grid md:grid-cols-2 gap-4">
+                {showFarmSelector && (
+                  <div className="space-y-2">
+                    <Label htmlFor="farmId" className="text-sm font-medium text-foreground">
+                      Farm
+                    </Label>
+                    <select
+                      id="farmId"
+                      name="farmId"
+                      value={expenseForm.farmId || ""}
+                      onChange={onFieldUpdate}
+                      className={selectClass}
+                    >
+                      <option value="">Select farm</option>
+                      {farms?.map((farm: any) => (
+                        <option key={farm.id} value={farm.id}>
+                          {farm.name}
+                        </option>
+                      ))}
+                    </select>
+                    {expenseErrors.farmId && (
+                      <p className="text-xs text-destructive mt-1.5">{expenseErrors.farmId}</p>
+                    )}
+                  </div>
+                )}
+                {showBatchSelector && (
+                  <div className="space-y-2">
+                    <Label htmlFor="batchId" className="text-sm font-medium text-foreground">
+                      Batch
+                    </Label>
+                    <select
+                      id="batchId"
+                      name="batchId"
+                      value={expenseForm.batchId || ""}
+                      onChange={onFieldUpdate}
+                      className={selectClass}
+                    >
+                      <option value="">Select batch</option>
+                      {activeBatches?.map((batch: any) => (
+                        <option key={batch.id} value={batch.id}>
+                          {batch.number} - {batch.farm?.name}
+                        </option>
+                      ))}
+                    </select>
+                    {expenseErrors.batchId && (
+                      <p className="text-xs text-destructive mt-1.5">{expenseErrors.batchId}</p>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Batch Selector - only show if no prefilled batch */}
-            {showBatchSelector && (
-              <div>
-                <Label htmlFor="batchId">Batch</Label>
+          {/* Category & Date */}
+          <div className="space-y-4">
+            <p className="text-sm font-medium text-muted-foreground">Category & date</p>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="category" className="text-sm font-medium text-foreground">
+                  Category
+                </Label>
                 <select
-                  id="batchId"
-                  name="batchId"
-                  value={expenseForm.batchId || ""}
+                  id="category"
+                  name="category"
+                  value={expenseForm.category}
                   onChange={onFieldUpdate}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                  className={selectClass}
                 >
-                  <option value="">Select batch</option>
-                  {activeBatches?.map((batch: any) => (
-                    <option key={batch.id} value={batch.id}>
-                      {batch.number} - {batch.farm?.name}
-                    </option>
-                  ))}
+                  <option value="Feed">Feed (from inventory)</option>
+                  <option value="Medicine">Medicine (from inventory)</option>
+                  <option value="Hatchery">Hatchery</option>
+                  <option value="Other">Other</option>
+                  <option value="Add extra expenses">Add extra expenses</option>
                 </select>
-                {expenseErrors.batchId && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {expenseErrors.batchId}
-                  </p>
+              </div>
+              <div className="space-y-2">
+                <DateInput
+                  label="Date"
+                  value={expenseForm.date}
+                  onChange={(value) => onFieldUpdate({ target: { name: "date", value } } as React.ChangeEvent<HTMLInputElement>)}
+                />
+                {expenseErrors.date && (
+                  <p className="text-xs text-destructive mt-1.5">{expenseErrors.date}</p>
                 )}
               </div>
-            )}
+            </div>
+          </div>
 
-            <div>
-              <Label htmlFor="category">Category</Label>
-              <select
-                id="category"
-                name="category"
-                value={expenseForm.category}
-                onChange={onFieldUpdate}
-                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-              >
-                <option value="Feed">Feed</option>
-                <option value="Medicine">Medicine</option>
-                <option value="Hatchery">Hatchery</option>
-                <option value="Other">Other</option>
-              </select>
+          {/* Category-specific details */}
+          {expenseForm.category === "Add extra expenses" && (
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
+              <p className="text-sm font-medium text-foreground">Details</p>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="extraName" className="text-sm font-medium text-foreground">
+                    Name
+                  </Label>
+                  <Input
+                    id="extraName"
+                    name="extraName"
+                    value={expenseForm.extraName ?? ""}
+                    onChange={onFieldUpdate}
+                    placeholder="e.g. Staff salary"
+                    className="rounded-lg"
+                  />
+                  {expenseErrors.extraName && (
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.extraName}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="extraAmount" className="text-sm font-medium text-foreground">
+                    Amount (₹)
+                  </Label>
+                  <Input
+                    id="extraAmount"
+                    name="extraAmount"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={expenseForm.extraAmount ?? ""}
+                    onChange={onFieldUpdate}
+                    placeholder="0"
+                    className="rounded-lg"
+                  />
+                  {expenseErrors.extraAmount && (
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.extraAmount}</p>
+                  )}
+                </div>
+              </div>
             </div>
-            <div>
-              <DateInput
-                label="Date"
-                value={expenseForm.date}
-                onChange={(value) => onFieldUpdate({ target: { name: 'date', value } } as React.ChangeEvent<HTMLInputElement>)}
-              />
-              {expenseErrors.date && (
-                <p className="text-xs text-red-600 mt-1">
-                  {expenseErrors.date}
-                </p>
-              )}
-            </div>
-            {expenseForm.category === "Feed" && (
-              <div className="md:col-span-2 grid md:grid-cols-3 gap-4 border rounded-md p-4">
-                <div>
-                  <Label htmlFor="selectedFeedId">Feed Brand</Label>
+          )}
+          {expenseForm.category === "Feed" && (
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
+              <p className="text-sm font-medium text-foreground">Feed details</p>
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="selectedFeedId" className="text-sm font-medium text-foreground">
+                    Feed (from inventory)
+                  </Label>
                   <select
                     id="selectedFeedId"
                     name="selectedFeedId"
                     value={expenseForm.selectedFeedId}
                     onChange={(e) => onFeedSelection(e.target.value)}
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                    className={selectClass}
                   >
                     <option value="">Select feed from inventory</option>
-                    {inventoryItems
-                      .filter((item: any) => item.itemType === "FEED")
-                      .map((feed: any) => (
-                        <option key={feed.id} value={feed.id}>
-                          {feed.name} ({feed.quantity} {feed.unit} available)
-                          - ₹{feed.rate}/unit
-                        </option>
-                      ))}
+                    {(feedInventory ?? []).map((feed: any) => (
+                      <option key={feed.id} value={feed.id}>
+                        {feed.name} ({(feed.quantity ?? feed.currentStock ?? 0)} {feed.unit} available)
+                        {feed.rate != null ? ` - ₹${feed.rate}/unit` : ""}
+                      </option>
+                    ))}
                   </select>
                   {expenseErrors.feedBrand && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.feedBrand}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.feedBrand}</p>
                   )}
                 </div>
-                <div>
-                  <Label htmlFor="feedQuantity">Quantity</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="feedQuantity" className="text-sm font-medium text-foreground">
+                    Quantity
+                  </Label>
                   <Input
                     id="feedQuantity"
                     name="feedQuantity"
                     type="number"
                     value={expenseForm.feedQuantity}
                     onChange={onFieldUpdate}
+                    className="rounded-lg"
                   />
                   {expenseErrors.feedQuantity && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.feedQuantity}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.feedQuantity}</p>
                   )}
                 </div>
-                <div>
-                  <Label htmlFor="feedRate">Rate per piece</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="feedRate" className="text-sm font-medium text-foreground">
+                    Rate per unit (₹)
+                  </Label>
                   <Input
                     id="feedRate"
                     name="feedRate"
@@ -226,118 +289,124 @@ export function ExpenseModal({
                     value={expenseForm.feedRate}
                     onChange={onFieldUpdate}
                     readOnly={!!expenseForm.selectedFeedId}
-                    className={expenseForm.selectedFeedId ? "bg-gray-50" : ""}
+                    className={`rounded-lg ${expenseForm.selectedFeedId ? "bg-muted/50 cursor-default" : ""}`}
                     placeholder={
-                      expenseForm.selectedFeedId
-                        ? "Auto-filled from inventory"
-                        : "Enter rate"
+                      expenseForm.selectedFeedId ? "Auto-filled from inventory" : "Enter rate"
                     }
                   />
                   {expenseErrors.feedRate && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.feedRate}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.feedRate}</p>
                   )}
                   {expenseForm.selectedFeedId && (
-                    <p className="text-xs text-green-600 mt-1">
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1.5">
                       Rate auto-filled from inventory
                     </p>
                   )}
                 </div>
               </div>
-            )}
-            {expenseForm.category === "Hatchery" && (
-              <div className="md:col-span-2 grid md:grid-cols-3 gap-4 border rounded-md p-4">
-                <div>
-                  <Label htmlFor="hatcheryName">Hatchery Name</Label>
+            </div>
+          )}
+          {expenseForm.category === "Hatchery" && (
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
+              <p className="text-sm font-medium text-foreground">Hatchery details</p>
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="hatcheryName" className="text-sm font-medium text-foreground">
+                    Hatchery name
+                  </Label>
                   <Input
                     id="hatcheryName"
                     name="hatcheryName"
                     value={expenseForm.hatcheryName}
                     onChange={onFieldUpdate}
+                    className="rounded-lg"
                   />
                   {expenseErrors.hatcheryName && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.hatcheryName}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.hatcheryName}</p>
                   )}
                 </div>
-                <div>
-                  <Label htmlFor="hatcheryQuantity">Quantity</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="hatcheryQuantity" className="text-sm font-medium text-foreground">
+                    Quantity
+                  </Label>
                   <Input
                     id="hatcheryQuantity"
                     name="hatcheryQuantity"
                     type="number"
                     value={expenseForm.hatcheryQuantity}
                     onChange={onFieldUpdate}
+                    className="rounded-lg"
                   />
                   {expenseErrors.hatcheryQuantity && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.hatcheryQuantity}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.hatcheryQuantity}</p>
                   )}
                 </div>
-                <div>
-                  <Label htmlFor="hatcheryRate">Rate</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="hatcheryRate" className="text-sm font-medium text-foreground">
+                    Rate (₹)
+                  </Label>
                   <Input
                     id="hatcheryRate"
                     name="hatcheryRate"
                     type="number"
                     value={expenseForm.hatcheryRate}
                     onChange={onFieldUpdate}
+                    className="rounded-lg"
                   />
                   {expenseErrors.hatcheryRate && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.hatcheryRate}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.hatcheryRate}</p>
                   )}
                 </div>
               </div>
-            )}
-            {expenseForm.category === "Medicine" && (
-              <div className="md:col-span-2 grid md:grid-cols-3 gap-4 border rounded-md p-4">
-                <div>
-                  <Label htmlFor="selectedMedicineId">Medicine Name</Label>
+            </div>
+          )}
+          {expenseForm.category === "Medicine" && (
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
+              <p className="text-sm font-medium text-foreground">Medicine details</p>
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="selectedMedicineId" className="text-sm font-medium text-foreground">
+                    Medicine (from inventory)
+                  </Label>
                   <select
                     id="selectedMedicineId"
                     name="selectedMedicineId"
                     value={expenseForm.selectedMedicineId}
                     onChange={(e) => onMedicineSelection(e.target.value)}
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                    className={selectClass}
                   >
                     <option value="">Select medicine from inventory</option>
-                    {inventoryItems
-                      .filter((item: any) => item.itemType === "MEDICINE")
-                      .map((medicine: any) => (
-                        <option key={medicine.id} value={medicine.id}>
-                          {medicine.name} ({medicine.quantity} {medicine.unit}{" "}
-                          available) - ₹{medicine.rate}/unit
-                        </option>
-                      ))}
+                    {(medicineInventory ?? []).map((medicine: any) => (
+                      <option key={medicine.id} value={medicine.id}>
+                        {medicine.name} ({(medicine.quantity ?? medicine.currentStock ?? 0)} {medicine.unit} available)
+                        {medicine.rate != null ? ` - ₹${medicine.rate}/unit` : ""}
+                      </option>
+                    ))}
                   </select>
                   {expenseErrors.medicineName && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.medicineName}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.medicineName}</p>
                   )}
                 </div>
-                <div>
-                  <Label htmlFor="medicineQuantity">Quantity</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="medicineQuantity" className="text-sm font-medium text-foreground">
+                    Quantity
+                  </Label>
                   <Input
                     id="medicineQuantity"
                     name="medicineQuantity"
                     type="number"
                     value={expenseForm.medicineQuantity}
                     onChange={onFieldUpdate}
+                    className="rounded-lg"
                   />
                   {expenseErrors.medicineQuantity && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.medicineQuantity}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.medicineQuantity}</p>
                   )}
                 </div>
-                <div>
-                  <Label htmlFor="medicineRate">Rate</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="medicineRate" className="text-sm font-medium text-foreground">
+                    Rate per unit (₹)
+                  </Label>
                   <Input
                     id="medicineRate"
                     name="medicineRate"
@@ -345,89 +414,85 @@ export function ExpenseModal({
                     value={expenseForm.medicineRate}
                     onChange={onFieldUpdate}
                     readOnly={!!expenseForm.selectedMedicineId}
-                    className={
-                      expenseForm.selectedMedicineId ? "bg-gray-50" : ""
-                    }
+                    className={`rounded-lg ${expenseForm.selectedMedicineId ? "bg-muted/50 cursor-default" : ""}`}
                     placeholder={
-                      expenseForm.selectedMedicineId
-                        ? "Auto-filled from inventory"
-                        : "Enter rate"
+                      expenseForm.selectedMedicineId ? "Auto-filled from inventory" : "Enter rate"
                     }
                   />
                   {expenseErrors.medicineRate && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.medicineRate}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.medicineRate}</p>
                   )}
                   {expenseForm.selectedMedicineId && (
-                    <p className="text-xs text-green-600 mt-1">
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1.5">
                       Rate auto-filled from inventory
                     </p>
                   )}
                 </div>
               </div>
-            )}
-            {expenseForm.category === "Other" && (
-              <div className="md:col-span-2 grid md:grid-cols-3 gap-4 border rounded-md p-4">
-                <div>
-                  <Label htmlFor="otherName">Expense Name</Label>
+            </div>
+          )}
+          {expenseForm.category === "Other" && (
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
+              <p className="text-sm font-medium text-foreground">Other expense details</p>
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="otherName" className="text-sm font-medium text-foreground">
+                    Expense name
+                  </Label>
                   <Input
                     id="otherName"
                     name="otherName"
                     value={expenseForm.otherName}
                     onChange={onFieldUpdate}
+                    className="rounded-lg"
                   />
                   {expenseErrors.otherName && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.otherName}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.otherName}</p>
                   )}
                 </div>
-                <div>
-                  <Label htmlFor="otherQuantity">Quantity</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="otherQuantity" className="text-sm font-medium text-foreground">
+                    Quantity
+                  </Label>
                   <Input
                     id="otherQuantity"
                     name="otherQuantity"
                     type="number"
                     value={expenseForm.otherQuantity}
                     onChange={onFieldUpdate}
+                    className="rounded-lg"
                   />
                   {expenseErrors.otherQuantity && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.otherQuantity}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.otherQuantity}</p>
                   )}
                 </div>
-                <div>
-                  <Label htmlFor="otherRate">Rate</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="otherRate" className="text-sm font-medium text-foreground">
+                    Rate (₹)
+                  </Label>
                   <Input
                     id="otherRate"
                     name="otherRate"
                     type="number"
                     value={expenseForm.otherRate}
                     onChange={onFieldUpdate}
+                    className="rounded-lg"
                   />
                   {expenseErrors.otherRate && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.otherRate}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.otherRate}</p>
                   )}
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </ModalContent>
-        <ModalFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-          >
+        <ModalFooter className="flex flex-row justify-end gap-3 pt-2 border-t border-border/60">
+          <Button type="button" variant="outline" onClick={onClose} className="min-w-[84px]">
             Cancel
           </Button>
           <Button
             type="submit"
-            className="bg-primary hover:bg-primary/90"
+            className="bg-primary hover:bg-primary/90 min-w-[84px]"
             disabled={isPending}
           >
             {isPending ? (
@@ -436,7 +501,7 @@ export function ExpenseModal({
                 {editingExpenseId ? "Updating..." : "Creating..."}
               </>
             ) : (
-              "Save"
+              editingExpenseId ? "Update" : "Save"
             )}
           </Button>
         </ModalFooter>

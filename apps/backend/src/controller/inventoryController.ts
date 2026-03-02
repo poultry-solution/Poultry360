@@ -734,6 +734,66 @@ export const getInventoryUsages = async (
   }
 };
 
+// ==================== GET INVENTORY FOR EXPENSE (items with currentStock, for dropdown) ====================
+export const getInventoryForExpense = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const currentUserId = req.userId;
+    const { itemType } = req.query;
+
+    if (!currentUserId) {
+      return res.status(400).json({ message: "No user found" });
+    }
+
+    const where: any = { userId: currentUserId };
+    if (itemType === "FEED" || itemType === "MEDICINE") {
+      where.itemType = itemType as InventoryItemType;
+    }
+
+    const items = await prisma.inventoryItem.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        currentStock: true,
+        unit: true,
+        itemType: true,
+      },
+      orderBy: { name: "asc" },
+    });
+
+    const itemIds = items.map((i) => i.id);
+    const latestPurchases = await prisma.inventoryTransaction.findMany({
+      where: {
+        itemId: { in: itemIds },
+        type: "PURCHASE",
+      },
+      orderBy: { date: "desc" },
+      distinct: ["itemId"],
+    });
+    const rateByItemId = new Map(
+      latestPurchases.map((t) => [t.itemId, Number(t.unitPrice)])
+    );
+
+    const data = items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      quantity: Number(item.currentStock),
+      currentStock: Number(item.currentStock),
+      unit: item.unit,
+      itemType: item.itemType,
+      rate: rateByItemId.get(item.id) ?? 0,
+    }));
+
+    return res.json({ success: true, data });
+  } catch (error) {
+    console.error("Get inventory for expense error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 // ==================== GET INVENTORY TABLE DATA ====================
 export const getInventoryTableData = async (
   req: Request,

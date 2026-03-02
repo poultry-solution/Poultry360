@@ -34,7 +34,7 @@ import {
   useDeleteExpense,
   useGetExpenseCategories,
 } from "@/fetchers/expenses/expenseQueries";
-import { useGetInventoryTableData } from "@/fetchers/inventory/inventoryQueries";
+import { useGetInventoryTableData, useGetInventoryForExpense } from "@/fetchers/inventory/inventoryQueries";
 import {
   useBatchSalesManagement,
   useGetCustomersForSales,
@@ -216,9 +216,15 @@ export default function BatchDetailPage() {
   const { data: categoriesResponse } = useGetExpenseCategories("EXPENSE");
   const expenseCategories = categoriesResponse?.data || [];
 
-  // Fetch inventory items for selection (using table data for better structure)
+  // Fetch inventory items (table data for other uses)
   const { data: inventoryResponse } = useGetInventoryTableData();
   const inventoryItems = inventoryResponse?.data || [];
+
+  // Inventory for expense dropdowns: real InventoryItem id + currentStock (so deduction works)
+  const { data: feedForExpenseRes } = useGetInventoryForExpense("FEED");
+  const { data: medicineForExpenseRes } = useGetInventoryForExpense("MEDICINE");
+  const feedInventoryForExpense = feedForExpenseRes?.data ?? [];
+  const medicineInventoryForExpense = medicineForExpenseRes?.data ?? [];
 
   // Fetch sales data for this batch
   const {
@@ -569,17 +575,19 @@ export default function BatchDetailPage() {
     feedBrand: "",
     feedQuantity: "",
     feedRate: "",
-    selectedFeedId: "", // New field for selected feed from inventory
+    selectedFeedId: "",
     hatcheryName: "",
     hatcheryRate: "",
     hatcheryQuantity: "",
     medicineName: "",
     medicineRate: "",
     medicineQuantity: "",
-    selectedMedicineId: "", // New field for selected medicine from inventory
+    selectedMedicineId: "",
     otherName: "",
     otherRate: "",
     otherQuantity: "",
+    extraName: "",
+    extraAmount: "",
   });
   function updateExpenseField(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -588,31 +596,28 @@ export default function BatchDetailPage() {
     setExpenseForm((p) => ({ ...p, [name]: value }));
   }
 
-  // Handle feed selection from inventory
+  // Handle feed selection (from for-expense list – id is InventoryItem.id)
   function handleFeedSelection(feedId: string) {
-    const selectedFeed = inventoryItems.find((feed: any) => feed.id === feedId);
+    const selectedFeed = feedInventoryForExpense.find((f: any) => f.id === feedId);
     if (selectedFeed) {
-      console.log("selectedFeed", selectedFeed);
       setExpenseForm((prev) => ({
         ...prev,
         selectedFeedId: feedId,
         feedBrand: selectedFeed.name,
-        feedRate: selectedFeed.rate?.toString() || "0",
+        feedRate: String(selectedFeed.rate ?? 0),
       }));
     }
   }
 
-  // Handle medicine selection from inventory
+  // Handle medicine selection (from for-expense list – id is InventoryItem.id)
   function handleMedicineSelection(medicineId: string) {
-    const selectedMedicine = inventoryItems.find(
-      (medicine: any) => medicine.id === medicineId
-    );
+    const selectedMedicine = medicineInventoryForExpense.find((m: any) => m.id === medicineId);
     if (selectedMedicine) {
       setExpenseForm((prev) => ({
         ...prev,
         selectedMedicineId: medicineId,
         medicineName: selectedMedicine.name,
-        medicineRate: selectedMedicine.rate?.toString() || "0",
+        medicineRate: String(selectedMedicine.rate ?? 0),
       }));
     }
   }
@@ -636,6 +641,8 @@ export default function BatchDetailPage() {
       otherName: "",
       otherRate: "",
       otherQuantity: "",
+      extraName: "",
+      extraAmount: "",
     });
     setIsExpenseModalOpen(true);
   }
@@ -659,6 +666,8 @@ export default function BatchDetailPage() {
       otherName: "",
       otherRate: row.unitPrice?.toString() || "",
       otherQuantity: row.quantity?.toString() || "",
+      extraName: "",
+      extraAmount: "",
     });
     setIsExpenseModalOpen(true);
   }
@@ -689,21 +698,25 @@ export default function BatchDetailPage() {
   function validateExpense(): boolean {
     const errs: Record<string, string> = {};
     if (!expenseForm.date) errs.date = "Date is required";
-    if (expenseForm.category === "Feed") {
+    const isExtra = expenseForm.category === "Add extra expenses";
+    if (isExtra) {
+      if (!expenseForm.extraName?.trim()) errs.extraName = "Name is required";
+      const amt = Number(expenseForm.extraAmount);
+      if (!expenseForm.extraAmount || isNaN(amt) || amt <= 0)
+        errs.extraAmount = "Amount must be greater than 0";
+    } else if (expenseForm.category === "Feed") {
       if (!expenseForm.selectedFeedId)
         errs.feedBrand = "Please select a feed from inventory";
       if (!expenseForm.feedQuantity) errs.feedQuantity = "Quantity required";
       if (!expenseForm.feedRate) errs.feedRate = "Rate required";
-
-      // Check if quantity exceeds available inventory
       if (expenseForm.selectedFeedId && expenseForm.feedQuantity) {
-        const selectedFeed = feedInventory.find(
-          (feed: any) => feed.id === expenseForm.selectedFeedId
+        const selectedFeed = feedInventoryForExpense.find(
+          (f: any) => f.id === expenseForm.selectedFeedId
         );
-
         const requestedQty = Number(expenseForm.feedQuantity);
-        if (selectedFeed && requestedQty > selectedFeed.quantity) {
-          errs.feedQuantity = `Only ${selectedFeed.quantity} ${selectedFeed.unit} available`;
+        const available = selectedFeed?.quantity ?? selectedFeed?.currentStock ?? 0;
+        if (selectedFeed && requestedQty > available) {
+          errs.feedQuantity = `Only ${available} ${selectedFeed.unit} available`;
         }
       }
     } else if (expenseForm.category === "Hatchery") {
@@ -718,15 +731,14 @@ export default function BatchDetailPage() {
       if (!expenseForm.medicineQuantity)
         errs.medicineQuantity = "Quantity required";
       if (!expenseForm.medicineRate) errs.medicineRate = "Rate required";
-
-      // Check if quantity exceeds available inventory
       if (expenseForm.selectedMedicineId && expenseForm.medicineQuantity) {
-        const selectedMedicine = medicineInventory.find(
-          (medicine: any) => medicine.id === expenseForm.selectedMedicineId
+        const selectedMedicine = medicineInventoryForExpense.find(
+          (m: any) => m.id === expenseForm.selectedMedicineId
         );
         const requestedQty = Number(expenseForm.medicineQuantity);
-        if (selectedMedicine && requestedQty > selectedMedicine.quantity) {
-          errs.medicineQuantity = `Only ${selectedMedicine.quantity} ${selectedMedicine.unit} available`;
+        const available = selectedMedicine?.quantity ?? selectedMedicine?.currentStock ?? 0;
+        if (selectedMedicine && requestedQty > available) {
+          errs.medicineQuantity = `Only ${available} ${selectedMedicine.unit} available`;
         }
       }
     } else {
@@ -753,7 +765,6 @@ export default function BatchDetailPage() {
 
       const ec = expenseForm.category;
 
-      // Find the appropriate category
       const category = expenseCategories.find((cat: any) =>
         cat.name.toLowerCase().includes(ec.toLowerCase())
       );
@@ -763,21 +774,24 @@ export default function BatchDetailPage() {
         return;
       }
 
-      if (ec === "Feed") {
+      if (ec === "Add extra expenses") {
+        amount = Number(expenseForm.extraAmount);
+        quantity = 1;
+        unitPrice = amount;
+        description = expenseForm.extraName.trim();
+        if (expenseForm.notes?.trim()) description += ` - ${expenseForm.notes.trim()}`;
+      } else if (ec === "Feed") {
         const q = Number(expenseForm.feedQuantity || 0);
         const r = Number(expenseForm.feedRate || 0);
         amount = q * r;
         quantity = q;
         unitPrice = r;
-        description = `${expenseForm.feedBrand} - ${description}`;
-
-        // Add inventory item if selected
+        description = `${expenseForm.feedBrand || "Feed"} - ${description}`;
         if (expenseForm.selectedFeedId && q > 0) {
-          console.log("expenseForm.selectedFeedId", expenseForm.selectedFeedId);
           inventoryItems.push({
             itemId: expenseForm.selectedFeedId,
             quantity: q,
-            notes: `Feed: ${expenseForm.feedBrand}`,
+            notes: `Feed: ${expenseForm.feedBrand || "Feed"}`,
           });
         }
       } else if (ec === "Hatchery") {
@@ -1814,8 +1828,8 @@ export default function BatchDetailPage() {
         expenseForm={expenseForm}
         expenseErrors={expenseErrors}
         expenseCategories={expenseCategories}
-        feedInventory={feedInventory}
-        medicineInventory={medicineInventory}
+        feedInventory={feedInventoryForExpense}
+        medicineInventory={medicineInventoryForExpense}
         inventoryItems={inventoryItems}
         onSubmit={submitExpense}
         onFieldUpdate={updateExpenseField}

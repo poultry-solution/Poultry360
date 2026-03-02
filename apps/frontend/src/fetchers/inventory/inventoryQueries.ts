@@ -65,9 +65,22 @@ export const useGetInventoryTableData = (itemType?: InventoryItemType) => {
     queryFn: async () => {
       const params = itemType ? { itemType } : {};
       const response = await axiosInstance.get("/inventory/table", { params });
-      console.log("response.data in useGetInventoryTableData", response.data);
       return response.data;
     },
+  });
+};
+
+/** Items with id (InventoryItem.id), currentStock, rate – for expense dropdown (Feed/Medicine). */
+export const useGetInventoryForExpense = (itemType: "FEED" | "MEDICINE" | null) => {
+  return useQuery({
+    queryKey: [...inventoryKeys.all, "for-expense", itemType],
+    queryFn: async () => {
+      const response = await axiosInstance.get("/inventory/for-expense", {
+        params: itemType ? { itemType } : {},
+      });
+      return response.data;
+    },
+    enabled: !!itemType,
   });
 };
 

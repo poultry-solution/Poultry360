@@ -296,6 +296,12 @@ async function main() {
         userId: farmer1.id,
         description: "Electricity and water",
       },
+      {
+        name: "Add extra expenses",
+        type: CategoryType.EXPENSE,
+        userId: farmer1.id,
+        description: "Miscellaneous or one-off expenses (e.g. staff salary)",
+      },
     ],
   });
 
@@ -494,7 +500,40 @@ async function main() {
       });
     }
 
-    // Add sales
+    // Create egg types for farmer1 (needed for egg sales and inventory)
+    const farmer1Large = await prisma.eggType.upsert({
+      where: { userId_code: { userId: farmer1.id, code: "LARGE" } },
+      create: { userId: farmer1.id, name: "Large", code: "LARGE", displayOrder: 0 },
+      update: {},
+    });
+    const farmer1Medium = await prisma.eggType.upsert({
+      where: { userId_code: { userId: farmer1.id, code: "MEDIUM" } },
+      create: { userId: farmer1.id, name: "Medium", code: "MEDIUM", displayOrder: 1 },
+      update: {},
+    });
+    const farmer1Small = await prisma.eggType.upsert({
+      where: { userId_code: { userId: farmer1.id, code: "SMALL" } },
+      create: { userId: farmer1.id, name: "Small", code: "SMALL", displayOrder: 2 },
+      update: {},
+    });
+    // Seed egg inventory for farmer1 so sales have stock to deduct from
+    await prisma.eggInventory.upsert({
+      where: { userId_eggTypeId: { userId: farmer1.id, eggTypeId: farmer1Large.id } },
+      create: { userId: farmer1.id, eggTypeId: farmer1Large.id, quantity: 5000 },
+      update: { quantity: 5000 },
+    });
+    await prisma.eggInventory.upsert({
+      where: { userId_eggTypeId: { userId: farmer1.id, eggTypeId: farmer1Medium.id } },
+      create: { userId: farmer1.id, eggTypeId: farmer1Medium.id, quantity: 3000 },
+      update: { quantity: 3000 },
+    });
+    await prisma.eggInventory.upsert({
+      where: { userId_eggTypeId: { userId: farmer1.id, eggTypeId: farmer1Small.id } },
+      create: { userId: farmer1.id, eggTypeId: farmer1Small.id, quantity: 2000 },
+      update: { quantity: 2000 },
+    });
+
+    // Add sales (single-type egg sales + one multi-line egg sale)
     if (eggsSalesCat) {
       await prisma.sale.createMany({
         data: [
@@ -505,6 +544,7 @@ async function main() {
             unitPrice: 15,
             description: "Egg sales to local market",
             itemType: SalesItemType.EGGS,
+            eggTypeId: farmer1Large.id,
             farmId: farm1.id,
             batchId: batch1.id,
             categoryId: eggsSalesCat.id,
@@ -516,11 +556,53 @@ async function main() {
             unitPrice: 15,
             description: "Egg sales to retailer",
             itemType: SalesItemType.EGGS,
+            eggTypeId: farmer1Large.id,
             farmId: farm1.id,
             batchId: batch1.id,
             categoryId: eggsSalesCat.id,
           },
         ],
+      });
+      // Decrement egg inventory for the two single-type sales (1000 + 1200 Large)
+      await prisma.eggInventory.update({
+        where: { userId_eggTypeId: { userId: farmer1.id, eggTypeId: farmer1Large.id } },
+        data: { quantity: { decrement: 2200 } },
+      });
+
+      // One multi-line egg sale (Large 10 @ 50, Medium 10 @ 30, Small 20 @ 10) = 500+300+200 = 1000, qty 40
+      const multiLineEggSale = await prisma.sale.create({
+        data: {
+          date: new Date("2024-12-15"),
+          amount: 1000,
+          quantity: 40,
+          unitPrice: 50,
+          description: "Mixed egg types in one sale",
+          itemType: SalesItemType.EGGS,
+          eggTypeId: null,
+          farmId: farm1.id,
+          batchId: batch1.id,
+          categoryId: eggsSalesCat.id,
+        },
+      });
+      await prisma.saleEggLine.createMany({
+        data: [
+          { saleId: multiLineEggSale.id, eggTypeId: farmer1Large.id, quantity: 10, unitPrice: 50 },
+          { saleId: multiLineEggSale.id, eggTypeId: farmer1Medium.id, quantity: 10, unitPrice: 30 },
+          { saleId: multiLineEggSale.id, eggTypeId: farmer1Small.id, quantity: 20, unitPrice: 10 },
+        ],
+      });
+      // Decrement egg inventory to match the multi-line sale
+      await prisma.eggInventory.update({
+        where: { userId_eggTypeId: { userId: farmer1.id, eggTypeId: farmer1Large.id } },
+        data: { quantity: { decrement: 10 } },
+      });
+      await prisma.eggInventory.update({
+        where: { userId_eggTypeId: { userId: farmer1.id, eggTypeId: farmer1Medium.id } },
+        data: { quantity: { decrement: 10 } },
+      });
+      await prisma.eggInventory.update({
+        where: { userId_eggTypeId: { userId: farmer1.id, eggTypeId: farmer1Small.id } },
+        data: { quantity: { decrement: 20 } },
       });
     }
   }
@@ -756,6 +838,26 @@ async function main() {
     where: { role: UserRole.OWNER },
     select: { id: true },
   });
+  // Ensure "Add extra expenses" category exists for all OWNERs (for name+amount-only expenses)
+  for (const owner of owners) {
+    await prisma.category.upsert({
+      where: {
+        userId_type_name: {
+          userId: owner.id,
+          type: CategoryType.EXPENSE,
+          name: "Add extra expenses",
+        },
+      },
+      create: {
+        userId: owner.id,
+        type: CategoryType.EXPENSE,
+        name: "Add extra expenses",
+        description: "Miscellaneous or one-off expenses (e.g. staff salary)",
+      },
+      update: {},
+    });
+  }
+
   for (const owner of owners) {
     await prisma.eggType.upsert({
       where: { userId_code: { userId: owner.id, code: "LARGE" } },
