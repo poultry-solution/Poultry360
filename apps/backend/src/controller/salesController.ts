@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { UserRole, TransactionType, SalesItemType } from "@prisma/client";
-import type { EggCategory } from "@prisma/client";
 import {
   CreateSaleSchema,
   UpdateSaleSchema,
@@ -249,6 +248,13 @@ export const getAllSales = async (
               type: true,
             },
           },
+          eggType: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
           payments: {
             orderBy: { date: "desc" },
           },
@@ -328,6 +334,13 @@ export const getSaleById = async (
             id: true,
             name: true,
             type: true,
+          },
+        },
+        eggType: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
           },
         },
         payments: {
@@ -424,6 +437,13 @@ export const getBatchSales = async (
             type: true,
           },
         },
+        eggType: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
         payments: {
           orderBy: { date: "desc" },
         },
@@ -466,7 +486,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       batchId,
       customerId,
       itemType,
-      eggCategory,
+      eggTypeId,
     } = data;
     // Ensure required categoryId is present (Prisma requires non-null string)
     const categoryId = await getSalesCategoryIdForItemType(currentUserId, itemType as SalesItemType);
@@ -531,11 +551,14 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
         }
       }
 
-      // Validate egg category and inventory for EGGS sales
-      if (itemType === SalesItemType.EGGS) {
-        if (!eggCategory || !["LARGE", "MEDIUM", "SMALL"].includes(eggCategory)) {
+      // Validate egg type for EGGS sales (eggTypeId must belong to user)
+      if (itemType === SalesItemType.EGGS && eggTypeId) {
+        const eggType = await prisma.eggType.findFirst({
+          where: { id: eggTypeId, userId: currentUserId },
+        });
+        if (!eggType) {
           return res.status(400).json({
-            message: "eggCategory (LARGE, MEDIUM, or SMALL) is required for egg sales",
+            message: "Invalid egg type or access denied",
           });
         }
       }
@@ -654,17 +677,26 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       return res.status(400).json({ message: "Invalid paid amount" });
     }
 
-    // For EGGS sales: validate egg inventory (farmer = current user)
-    if (itemType === SalesItemType.EGGS && eggCategory) {
+    // For EGGS sales: validate egg type and inventory (farmer = current user)
+    if (itemType === SalesItemType.EGGS) {
+      if (!eggTypeId) {
+        return res.status(400).json({ message: "eggTypeId is required for egg sales" });
+      }
+      const eggType = await prisma.eggType.findFirst({
+        where: { id: eggTypeId, userId: currentUserId },
+      });
+      if (!eggType) {
+        return res.status(400).json({ message: "Invalid egg type" });
+      }
       const inv = await prisma.eggInventory.findUnique({
         where: {
-          userId_eggCategory: { userId: currentUserId, eggCategory: eggCategory as EggCategory },
+          userId_eggTypeId: { userId: currentUserId, eggTypeId },
         },
       });
       const available = inv?.quantity ?? 0;
       if (available < numericQuantity) {
         return res.status(400).json({
-          message: `Insufficient egg inventory. Available (${eggCategory}): ${available}, requested: ${numericQuantity}`,
+          message: `Insufficient egg inventory. Available (${eggType.name}): ${available}, requested: ${numericQuantity}`,
         });
       }
     }
@@ -686,7 +718,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
           paidAmount: numericPaidAmount,
           dueAmount: dueAmount > 0 ? dueAmount : null,
           itemType,
-          eggCategory: itemType === SalesItemType.EGGS && eggCategory ? (eggCategory as EggCategory) : null,
+          eggTypeId: itemType === SalesItemType.EGGS && eggTypeId ? eggTypeId : null,
           farmId: farmId || null,
           batchId: batchId || null,
           categoryId: categoryId,
@@ -695,10 +727,10 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       });
 
       // 1b. Decrement egg inventory for EGGS sales
-      if (itemType === SalesItemType.EGGS && eggCategory) {
+      if (itemType === SalesItemType.EGGS && eggTypeId) {
         const inv = await tx.eggInventory.findUnique({
           where: {
-            userId_eggCategory: { userId: currentUserId, eggCategory: eggCategory as EggCategory },
+            userId_eggTypeId: { userId: currentUserId, eggTypeId },
           },
         });
         if (inv) {

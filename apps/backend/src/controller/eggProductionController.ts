@@ -1,40 +1,34 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
-import { UserRole } from "@prisma/client";
 import {
   CreateEggProductionSchema,
   UpdateEggProductionSchema,
 } from "@myapp/shared-types";
 
-const EGG_CATEGORIES = ["LARGE", "MEDIUM", "SMALL"] as const;
-
 async function updateEggInventoryForProduction(
   tx: any,
   userId: string,
-  delta: { large: number; medium: number; small: number }
+  delta: Record<string, number>
 ) {
-  const keyMap = { LARGE: "large", MEDIUM: "medium", SMALL: "small" } as const;
-  for (const cat of EGG_CATEGORIES) {
-    const count = delta[keyMap[cat]];
+  for (const [eggTypeId, count] of Object.entries(delta)) {
     if (count === 0) continue;
-    const category = cat as "LARGE" | "MEDIUM" | "SMALL";
     if (count > 0) {
-      await tx.eggInventory.upsert({
-        where: {
-          userId_eggCategory: { userId, eggCategory: category },
-        },
-        create: {
-          userId,
-          eggCategory: category,
-          quantity: count,
-        },
-        update: {
-          quantity: { increment: count },
-        },
+      const existing = await tx.eggInventory.findUnique({
+        where: { userId_eggTypeId: { userId, eggTypeId } },
       });
+      if (existing) {
+        await tx.eggInventory.update({
+          where: { id: existing.id },
+          data: { quantity: { increment: count } },
+        });
+      } else {
+        await tx.eggInventory.create({
+          data: { userId, eggTypeId, quantity: count },
+        });
+      }
     } else {
       const existing = await tx.eggInventory.findUnique({
-        where: { userId_eggCategory: { userId, eggCategory: category } },
+        where: { userId_eggTypeId: { userId, eggTypeId } },
       });
       if (existing) {
         await tx.eggInventory.update({
@@ -55,7 +49,6 @@ export const getEggProductionByBatch = async (
     const { id: batchId } = req.params;
     const { startDate, endDate } = req.query;
     const currentUserId = req.userId as string;
-    const currentUserRole = req.role;
 
     const batch = await prisma.batch.findUnique({
       where: { id: batchId },
@@ -81,7 +74,7 @@ export const getEggProductionByBatch = async (
 
     const hasAccess =
       batch.farm.ownerId === currentUserId ||
-      batch.farm.managers.some((m) => m.id === currentUserId);
+      batch.farm.managers.some((m: { id: string }) => m.id === currentUserId);
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied to this batch" });
     }
@@ -96,6 +89,11 @@ export const getEggProductionByBatch = async (
     const records = await prisma.eggProduction.findMany({
       where,
       orderBy: { date: "desc" },
+      include: {
+        entries: {
+          include: { eggType: { select: { id: true, name: true, code: true } } },
+        },
+      },
     });
 
     return res.json({
@@ -123,7 +121,7 @@ export const createEggProduction = async (
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.message });
     }
-    const { date, largeCount, mediumCount, smallCount } = parsed.data;
+    const { date, countByType } = parsed.data;
 
     const record = await prisma.$transaction(async (tx) => {
       const batch = await tx.batch.findUnique({
@@ -148,19 +146,36 @@ export const createEggProduction = async (
         data: {
           batchId,
           date: new Date(date),
-          largeCount: largeCount ?? 0,
-          mediumCount: mediumCount ?? 0,
-          smallCount: smallCount ?? 0,
         },
       });
 
+      const counts = countByType ?? {};
+      for (const [eggTypeId, count] of Object.entries(counts)) {
+        if (Number(count) > 0) {
+          await tx.eggProductionEntry.create({
+            data: {
+              eggProductionId: created.id,
+              eggTypeId,
+              count: Number(count),
+            },
+          });
+        }
+      }
+
       await updateEggInventoryForProduction(tx, batch.farm.ownerId, {
-        large: largeCount ?? 0,
-        medium: mediumCount ?? 0,
-        small: smallCount ?? 0,
+        ...Object.fromEntries(
+          Object.entries(counts).map(([k, v]) => [k, Number(v) || 0])
+        ),
       });
 
-      return created;
+      return tx.eggProduction.findUnique({
+        where: { id: created.id },
+        include: {
+          entries: {
+            include: { eggType: { select: { id: true, name: true, code: true } } },
+          },
+        },
+      });
     });
 
     return res.status(201).json({ success: true, data: record });
@@ -198,31 +213,54 @@ export const updateEggProduction = async (
 
       const existing = await tx.eggProduction.findFirst({
         where: { id: recordId, batchId },
+        include: { entries: true },
       });
       if (!existing) throw new Error("Egg production record not found");
 
-      const newLarge = parsed.data.largeCount ?? existing.largeCount;
-      const newMedium = parsed.data.mediumCount ?? existing.mediumCount;
-      const newSmall = parsed.data.smallCount ?? existing.smallCount;
+      const oldByType: Record<string, number> = {};
+      for (const e of existing.entries) {
+        oldByType[e.eggTypeId] = e.count;
+      }
+      const newByType = parsed.data.countByType ?? oldByType;
 
-      const delta = {
-        large: newLarge - existing.largeCount,
-        medium: newMedium - existing.mediumCount,
-        small: newSmall - existing.smallCount,
-      };
+      const allTypeIds = new Set([...Object.keys(oldByType), ...Object.keys(newByType)]);
+      const delta: Record<string, number> = {};
+      for (const tid of allTypeIds) {
+        const oldVal = oldByType[tid] ?? 0;
+        const newVal = newByType[tid] ?? 0;
+        delta[tid] = newVal - oldVal;
+      }
 
-      const updatedRecord = await tx.eggProduction.update({
-        where: { id: recordId },
-        data: {
-          ...(parsed.data.date && { date: new Date(parsed.data.date) }),
-          largeCount: newLarge,
-          mediumCount: newMedium,
-          smallCount: newSmall,
-        },
-      });
+      if (parsed.data.date) {
+        await tx.eggProduction.update({
+          where: { id: recordId },
+          data: { date: new Date(parsed.data.date) },
+        });
+      }
+
+      await tx.eggProductionEntry.deleteMany({ where: { eggProductionId: recordId } });
+      for (const [eggTypeId, count] of Object.entries(newByType)) {
+        if (Number(count) > 0) {
+          await tx.eggProductionEntry.create({
+            data: {
+              eggProductionId: recordId,
+              eggTypeId,
+              count: Number(count),
+            },
+          });
+        }
+      }
 
       await updateEggInventoryForProduction(tx, batch.farm.ownerId, delta);
-      return updatedRecord;
+
+      return tx.eggProduction.findUnique({
+        where: { id: recordId },
+        include: {
+          entries: {
+            include: { eggType: { select: { id: true, name: true, code: true } } },
+          },
+        },
+      });
     });
 
     return res.json({ success: true, data: updated });
@@ -255,14 +293,15 @@ export const deleteEggProduction = async (
 
       const existing = await tx.eggProduction.findFirst({
         where: { id: recordId, batchId },
+        include: { entries: true },
       });
       if (!existing) throw new Error("Egg production record not found");
 
-      await updateEggInventoryForProduction(tx, batch.farm.ownerId, {
-        large: -existing.largeCount,
-        medium: -existing.mediumCount,
-        small: -existing.smallCount,
-      });
+      const delta: Record<string, number> = {};
+      for (const e of existing.entries) {
+        delta[e.eggTypeId] = -e.count;
+      }
+      await updateEggInventoryForProduction(tx, batch.farm.ownerId, delta);
 
       await tx.eggProduction.delete({ where: { id: recordId } });
     });

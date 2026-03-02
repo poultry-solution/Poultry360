@@ -750,6 +750,30 @@ async function main() {
     ],
   });
 
+  // Default egg types for all OWNER users (dynamic egg types)
+  console.log("Creating default egg types for farmers...");
+  const owners = await prisma.user.findMany({
+    where: { role: UserRole.OWNER },
+    select: { id: true },
+  });
+  for (const owner of owners) {
+    await prisma.eggType.upsert({
+      where: { userId_code: { userId: owner.id, code: "LARGE" } },
+      create: { userId: owner.id, name: "Large", code: "LARGE", displayOrder: 0 },
+      update: {},
+    });
+    await prisma.eggType.upsert({
+      where: { userId_code: { userId: owner.id, code: "MEDIUM" } },
+      create: { userId: owner.id, name: "Medium", code: "MEDIUM", displayOrder: 1 },
+      update: {},
+    });
+    await prisma.eggType.upsert({
+      where: { userId_code: { userId: owner.id, code: "SMALL" } },
+      create: { userId: owner.id, name: "Small", code: "SMALL", displayOrder: 2 },
+      update: {},
+    });
+  }
+
   // 10. Create a consignment request from company to dealer
   console.log("Creating consignment request...");
   const consignment = await prisma.consignmentRequest.create({

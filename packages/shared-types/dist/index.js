@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.InventoryItemSchema = exports.InventoryItemTypeSchema = exports.CreateSalePaymentSchema = exports.SalePaymentSchema = exports.UpdateSaleSchema = exports.CreateSaleSchema = exports.SaleSchema = exports.SalesItemTypeSchema = exports.UpdateExpenseSchema = exports.CreateExpenseSchema = exports.ExpenseSchema = exports.UpdateCategorySchema = exports.CreateCategorySchema = exports.CategorySchema = exports.BatchSummarySchema = exports.EggInventoryResponseSchema = exports.EggProductionSchema = exports.UpdateEggProductionSchema = exports.CreateEggProductionSchema = exports.EggCategorySchema = exports.CloseBatchSchema = exports.UpdateBatchSchema = exports.CreateBatchSchema = exports.BatchResponseSchema = exports.BatchCountSchema = exports.BatchFarmSchema = exports.BatchSchema = exports.UpdateFarmSchema = exports.CreateFarmSchema = exports.FarmResponseSchema = exports.FarmCountSchema = exports.FarmManagerSchema = exports.FarmOwnerSchema = exports.FarmSchema = exports.UpdateUserSchema = exports.CreateUserSchema = exports.UserSchema = exports.BaseSchema = exports.RecurrencePatternSchema = exports.ReminderStatusSchema = exports.ReminderTypeSchema = exports.CategoryTypeSchema = exports.AuditActionSchema = exports.VaccinationStatusSchema = exports.NotificationStatusSchema = exports.NotificationTypeSchema = exports.TransactionTypeSchema = exports.BatchTypeSchema = exports.BatchStatusSchema = exports.UserRoleSchema = void 0;
-exports.SignupSchema = exports.CalendarTypeSchema = exports.LanguageSchema = exports.LoginSchema = exports.CreateAuditLogSchema = exports.AuditLogSchema = exports.UpdateReminderSchema = exports.CreateReminderSchema = exports.ReminderSchema = exports.UpdateNotificationSchema = exports.CreateNotificationSchema = exports.NotificationSchema = exports.UpdateBirdWeightSchema = exports.CreateBirdWeightSchema = exports.BirdWeightSchema = exports.UpdateFeedConsumptionSchema = exports.CreateFeedConsumptionSchema = exports.FeedConsumptionSchema = exports.UpdateVaccinationSchema = exports.CreateVaccinationSchema = exports.VaccinationSchema = exports.UpdateMortalitySchema = exports.CreateMortalitySchema = exports.MortalitySchema = exports.CreateCustomerTransactionSchema = exports.CustomerTransactionSchema = exports.UpdateCustomerSchema = exports.CreateCustomerSchema = exports.CustomerSchema = exports.UpdateMedicineSupplierSchema = exports.CreateMedicineSupplierSchema = exports.MedicineSupplierSchema = exports.UpdateHatcherySchema = exports.CreateHatcherySchema = exports.HatcherySchema = exports.DealerDetailResponseSchema = exports.DealerStatisticsSchema = exports.DealerResponseSchema = exports.DealerTransactionSchema = exports.UpdateDealerSchema = exports.CreateDealerSchema = exports.DealerSchema = exports.CreateEntityTransactionSchema = exports.EntityTransactionSchema = exports.CreateInventoryUsageSchema = exports.InventoryUsageSchema = exports.CreateInventoryTransactionSchema = exports.InventoryTransactionSchema = exports.UpdateInventoryItemSchema = exports.CreateInventoryItemSchema = void 0;
-exports.PaginatedResponseSchema = exports.ApiResponseSchema = exports.schemas = exports.BatchDetailResponseSchema = exports.BatchListResponseSchema = exports.FarmDetailResponseSchema = exports.FarmListResponseSchema = exports.AuthResponseSchema = exports.UserResponseSchema = exports.FarmAnalyticsSchema = exports.BatchAnalyticsSchema = void 0;
+exports.SaleSchema = exports.SalesItemTypeSchema = exports.UpdateExpenseSchema = exports.CreateExpenseSchema = exports.ExpenseSchema = exports.UpdateCategorySchema = exports.CreateCategorySchema = exports.CategorySchema = exports.BatchSummarySchema = exports.EggInventoryResponseSchema = exports.EggProductionSchema = exports.EggProductionEntrySchema = exports.UpdateEggProductionSchema = exports.CreateEggProductionSchema = exports.UpdateEggTypeSchema = exports.CreateEggTypeSchema = exports.EggTypeSchema = exports.CloseBatchSchema = exports.UpdateBatchSchema = exports.CreateBatchSchema = exports.BatchResponseSchema = exports.BatchCountSchema = exports.BatchFarmSchema = exports.BatchSchema = exports.UpdateFarmSchema = exports.CreateFarmSchema = exports.FarmResponseSchema = exports.FarmCountSchema = exports.FarmManagerSchema = exports.FarmOwnerSchema = exports.FarmSchema = exports.UpdateUserSchema = exports.CreateUserSchema = exports.UserSchema = exports.BaseSchema = exports.RecurrencePatternSchema = exports.ReminderStatusSchema = exports.ReminderTypeSchema = exports.UNIT_PRESETS = exports.CreateUnitConversionSchema = exports.PurchaseCategorySchema = exports.CategoryTypeSchema = exports.AuditActionSchema = exports.VaccinationStatusSchema = exports.NotificationStatusSchema = exports.NotificationTypeSchema = exports.TransactionTypeSchema = exports.BatchTypeSchema = exports.BatchStatusSchema = exports.UserRoleSchema = void 0;
+exports.UpdateReminderSchema = exports.CreateReminderSchema = exports.ReminderSchema = exports.UpdateNotificationSchema = exports.CreateNotificationSchema = exports.NotificationSchema = exports.UpdateBirdWeightSchema = exports.CreateBirdWeightSchema = exports.BirdWeightSchema = exports.UpdateFeedConsumptionSchema = exports.CreateFeedConsumptionSchema = exports.FeedConsumptionSchema = exports.UpdateVaccinationSchema = exports.CreateVaccinationSchema = exports.VaccinationSchema = exports.UpdateMortalitySchema = exports.CreateMortalitySchema = exports.MortalitySchema = exports.CreateCustomerTransactionSchema = exports.CustomerTransactionSchema = exports.UpdateCustomerSchema = exports.CreateCustomerSchema = exports.CustomerSchema = exports.UpdateMedicineSupplierSchema = exports.CreateMedicineSupplierSchema = exports.MedicineSupplierSchema = exports.UpdateHatcherySchema = exports.CreateHatcherySchema = exports.HatcherySchema = exports.DealerDetailResponseSchema = exports.DealerStatisticsSchema = exports.DealerResponseSchema = exports.DealerTransactionSchema = exports.UpdateDealerSchema = exports.CreateDealerSchema = exports.DealerSchema = exports.CreateEntityTransactionSchema = exports.EntityTransactionSchema = exports.CreateInventoryUsageSchema = exports.InventoryUsageSchema = exports.CreateInventoryTransactionSchema = exports.InventoryTransactionSchema = exports.UpdateInventoryItemSchema = exports.CreateInventoryItemSchema = exports.InventoryItemSchema = exports.InventoryItemTypeSchema = exports.CreateSalePaymentSchema = exports.SalePaymentSchema = exports.UpdateSaleSchema = exports.CreateSaleSchema = void 0;
+exports.PaginatedResponseSchema = exports.ApiResponseSchema = exports.schemas = exports.BatchDetailResponseSchema = exports.BatchListResponseSchema = exports.FarmDetailResponseSchema = exports.FarmListResponseSchema = exports.AuthResponseSchema = exports.UserResponseSchema = exports.FarmAnalyticsSchema = exports.BatchAnalyticsSchema = exports.SignupSchema = exports.CalendarTypeSchema = exports.LanguageSchema = exports.LoginSchema = exports.CreateAuditLogSchema = exports.AuditLogSchema = void 0;
 // packages/shared-types/index.ts
 const zod_1 = require("zod");
 // ==================== ENUMS ====================
@@ -44,6 +44,19 @@ exports.AuditActionSchema = zod_1.z.enum([
     "LOGOUT",
 ]);
 exports.CategoryTypeSchema = zod_1.z.enum(["EXPENSE", "SALES", "INVENTORY"]);
+exports.PurchaseCategorySchema = zod_1.z.enum(["FEED", "MEDICINE", "CHICKS", "EQUIPMENT", "OTHER"]);
+// ==================== UNIT CONVERSION ====================
+exports.CreateUnitConversionSchema = zod_1.z.object({
+    unitName: zod_1.z.string().min(1).max(20),
+    conversionFactor: zod_1.z.number().positive(),
+});
+exports.UNIT_PRESETS = {
+    FEED: ["KG", "Sack", "Packet", "Bag", "Quintal"],
+    MEDICINE: ["Bottle", "Strip", "Vial", "Tablet", "ML", "PCS"],
+    CHICKS: ["Birds", "PCS", "Dozen", "Crate"],
+    EQUIPMENT: ["PCS", "Set", "Unit", "Box"],
+    OTHER: ["PCS", "KG", "Liters", "Box", "Packet"],
+};
 // ==================== REMINDER SCHEMAS ====================
 exports.ReminderTypeSchema = zod_1.z.enum([
     "VACCINATION",
@@ -273,31 +286,40 @@ exports.CloseBatchSchema = zod_1.z.object({
     finalNotes: zod_1.z.string().optional(),
 });
 // ==================== EGG SCHEMAS (LAYERS) ====================
-exports.EggCategorySchema = zod_1.z.enum(["LARGE", "MEDIUM", "SMALL"]);
+// User-defined egg type (e.g. Large, XL)
+exports.EggTypeSchema = zod_1.z.object({
+    id: zod_1.z.string(),
+    name: zod_1.z.string(),
+    code: zod_1.z.string(),
+    displayOrder: zod_1.z.number().int(),
+});
+exports.CreateEggTypeSchema = zod_1.z.object({
+    name: zod_1.z.string().min(1).max(50),
+    code: zod_1.z.string().min(1).max(20).regex(/^[A-Za-z0-9_]+$/, "Code: letters, numbers, underscore only"),
+    displayOrder: zod_1.z.number().int().min(0).optional().default(0),
+});
+exports.UpdateEggTypeSchema = exports.CreateEggTypeSchema.partial();
+// Egg production: one count per egg type (dynamic)
 exports.CreateEggProductionSchema = zod_1.z.object({
     date: zod_1.z.string().datetime(),
-    largeCount: zod_1.z.number().int().min(0).default(0),
-    mediumCount: zod_1.z.number().int().min(0).default(0),
-    smallCount: zod_1.z.number().int().min(0).default(0),
+    countByType: zod_1.z.record(zod_1.z.string(), zod_1.z.number().int().min(0)).default({}),
 });
 exports.UpdateEggProductionSchema = zod_1.z.object({
     date: zod_1.z.string().datetime().optional(),
-    largeCount: zod_1.z.number().int().min(0).optional(),
-    mediumCount: zod_1.z.number().int().min(0).optional(),
-    smallCount: zod_1.z.number().int().min(0).optional(),
+    countByType: zod_1.z.record(zod_1.z.string(), zod_1.z.number().int().min(0)).optional(),
+});
+exports.EggProductionEntrySchema = zod_1.z.object({
+    eggTypeId: zod_1.z.string(),
+    eggType: exports.EggTypeSchema.optional(),
+    count: zod_1.z.number().int().min(0),
 });
 exports.EggProductionSchema = exports.BaseSchema.extend({
     batchId: zod_1.z.string(),
     date: zod_1.z.date(),
-    largeCount: zod_1.z.number().int().min(0),
-    mediumCount: zod_1.z.number().int().min(0),
-    smallCount: zod_1.z.number().int().min(0),
+    entries: zod_1.z.array(exports.EggProductionEntrySchema).default([]),
 });
-exports.EggInventoryResponseSchema = zod_1.z.object({
-    LARGE: zod_1.z.number().int().min(0),
-    MEDIUM: zod_1.z.number().int().min(0),
-    SMALL: zod_1.z.number().int().min(0),
-});
+// Inventory: map of eggTypeId -> quantity (dynamic)
+exports.EggInventoryResponseSchema = zod_1.z.record(zod_1.z.string(), zod_1.z.number().int().min(0));
 exports.BatchSummarySchema = zod_1.z.object({
     initialChicks: zod_1.z.number(),
     finalChicks: zod_1.z.number(),
@@ -405,7 +427,7 @@ exports.CreateSaleSchema = zod_1.z
     batchId: zod_1.z.string().optional(),
     customerId: zod_1.z.string().optional(),
     itemType: exports.SalesItemTypeSchema.optional(),
-    eggCategory: exports.EggCategorySchema.optional(),
+    eggTypeId: zod_1.z.string().optional(),
     categoryId: zod_1.z.string().optional(),
     customerData: zod_1.z.object({
         name: zod_1.z.string(),
@@ -416,10 +438,10 @@ exports.CreateSaleSchema = zod_1.z
 })
     .refine((data) => {
     if (data.itemType === "EGGS") {
-        return data.eggCategory != null && ["LARGE", "MEDIUM", "SMALL"].includes(data.eggCategory);
+        return data.eggTypeId != null && data.eggTypeId.length > 0;
     }
     return true;
-}, { message: "eggCategory (LARGE, MEDIUM, or SMALL) is required when itemType is EGGS", path: ["eggCategory"] });
+}, { message: "eggTypeId is required when itemType is EGGS", path: ["eggTypeId"] });
 exports.UpdateSaleSchema = zod_1.z.object({
     date: zod_1.z.string().datetime().optional(),
     amount: zod_1.z.number().positive().optional(),
@@ -433,6 +455,7 @@ exports.UpdateSaleSchema = zod_1.z.object({
     batchId: zod_1.z.string().nullable().optional(),
     customerId: zod_1.z.string().nullable().optional(),
     itemType: exports.SalesItemTypeSchema.optional().default("Chicken_Meat"),
+    eggTypeId: zod_1.z.string().nullable().optional(),
     categoryId: zod_1.z.string().optional(),
 });
 // ==================== SALE PAYMENT SCHEMAS ====================
@@ -539,6 +562,8 @@ exports.EntityTransactionSchema = exports.BaseSchema.extend({
     reference: zod_1.z.string().nullable(),
     entityType: zod_1.z.string(),
     entityId: zod_1.z.string(),
+    unit: zod_1.z.string().nullable().optional(),
+    unitPrice: zod_1.z.number().nullable().optional(),
 });
 exports.CreateEntityTransactionSchema = zod_1.z.object({
     type: exports.TransactionTypeSchema,
@@ -550,6 +575,8 @@ exports.CreateEntityTransactionSchema = zod_1.z.object({
     reference: zod_1.z.string().optional(),
     entityType: zod_1.z.string(),
     entityId: zod_1.z.string(),
+    unit: zod_1.z.string().optional(),
+    unitPrice: zod_1.z.number().optional(),
 });
 // ==================== SUPPLIER SCHEMAS ====================
 exports.DealerSchema = exports.BaseSchema.extend({
@@ -557,6 +584,7 @@ exports.DealerSchema = exports.BaseSchema.extend({
     contact: zod_1.z.string(),
     address: zod_1.z.string().nullable(),
     userId: zod_1.z.string(),
+    classification: zod_1.z.string().default("SELF_CREATED"), // "SELF_CREATED" | "CONNECTED"
 });
 exports.CreateDealerSchema = zod_1.z.object({
     name: zod_1.z.string(),
@@ -574,12 +602,16 @@ exports.DealerTransactionSchema = zod_1.z.object({
     type: exports.TransactionTypeSchema,
     amount: zod_1.z.number(),
     quantity: zod_1.z.number().int().nullable(),
+    freeQuantity: zod_1.z.number().int().nullable().optional(),
     itemName: zod_1.z.string().nullable(),
+    purchaseCategory: exports.PurchaseCategorySchema.nullable().optional(),
     date: zod_1.z.date(),
     description: zod_1.z.string().nullable(),
     reference: zod_1.z.string().nullable(),
+    imageUrl: zod_1.z.string().nullable().optional(),
     entityType: zod_1.z.string(),
     entityId: zod_1.z.string(),
+    paymentToPurchaseId: zod_1.z.string().nullable().optional(),
     createdAt: zod_1.z.date(),
     updatedAt: zod_1.z.date(),
 });
@@ -588,6 +620,7 @@ exports.DealerResponseSchema = exports.BaseSchema.extend({
     contact: zod_1.z.string(),
     address: zod_1.z.string().nullable(),
     userId: zod_1.z.string(),
+    classification: zod_1.z.string().default("SELF_CREATED"),
     balance: zod_1.z.number().nonnegative(), // Computed field
     thisMonthAmount: zod_1.z.number().nonnegative(), // Computed field
     totalTransactions: zod_1.z.number().int().nonnegative(), // Computed field
@@ -604,9 +637,34 @@ exports.DealerDetailResponseSchema = exports.BaseSchema.extend({
     contact: zod_1.z.string(),
     address: zod_1.z.string().nullable(),
     userId: zod_1.z.string(),
-    balance: zod_1.z.number().nonnegative(),
+    classification: zod_1.z.string().default("SELF_CREATED"),
+    balance: zod_1.z.number(),
     thisMonthAmount: zod_1.z.number().nonnegative(),
     totalTransactions: zod_1.z.number().int().nonnegative(),
+    // Purchase entries (EntityTransaction where type=PURCHASE)
+    purchases: zod_1.z.array(zod_1.z.object({
+        id: zod_1.z.string(),
+        itemName: zod_1.z.string().nullable(),
+        purchaseCategory: exports.PurchaseCategorySchema.nullable().optional(),
+        quantity: zod_1.z.number().nullable(),
+        freeQuantity: zod_1.z.number().nullable().optional(),
+        unitPrice: zod_1.z.number(),
+        totalAmount: zod_1.z.number(),
+        date: zod_1.z.date(),
+        description: zod_1.z.string().nullable(),
+        reference: zod_1.z.string().nullable(),
+        imageUrl: zod_1.z.string().nullable().optional(),
+    })),
+    // Payment entries (EntityTransaction where type=PAYMENT)
+    payments: zod_1.z.array(zod_1.z.object({
+        id: zod_1.z.string(),
+        amount: zod_1.z.number(),
+        date: zod_1.z.date(),
+        description: zod_1.z.string().nullable(),
+        reference: zod_1.z.string().nullable(),
+        imageUrl: zod_1.z.string().nullable().optional(),
+    })),
+    // Keep legacy transactionTable for backward compatibility (old dealer-ledger page)
     transactionTable: zod_1.z.array(zod_1.z.object({
         itemName: zod_1.z.string(),
         rate: zod_1.z.number(),
@@ -621,7 +679,7 @@ exports.DealerDetailResponseSchema = exports.BaseSchema.extend({
             date: zod_1.z.date(),
             reference: zod_1.z.string().nullable(),
         })),
-    })),
+    })).optional(),
     summary: zod_1.z.object({
         totalPurchases: zod_1.z.number().int().nonnegative(),
         totalPayments: zod_1.z.number().int().nonnegative(),

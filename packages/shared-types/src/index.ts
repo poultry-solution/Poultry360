@@ -377,43 +377,55 @@ export type CloseBatch = z.infer<typeof CloseBatchSchema>;
 
 // ==================== EGG SCHEMAS (LAYERS) ====================
 
-export const EggCategorySchema = z.enum(["LARGE", "MEDIUM", "SMALL"]);
-export type EggCategory = z.infer<typeof EggCategorySchema>;
+// User-defined egg type (e.g. Large, XL)
+export const EggTypeSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  code: z.string(),
+  displayOrder: z.number().int(),
+});
+export type EggType = z.infer<typeof EggTypeSchema>;
 
+export const CreateEggTypeSchema = z.object({
+  name: z.string().min(1).max(50),
+  code: z.string().min(1).max(20).regex(/^[A-Za-z0-9_]+$/, "Code: letters, numbers, underscore only"),
+  displayOrder: z.number().int().min(0).optional().default(0),
+});
+export type CreateEggType = z.infer<typeof CreateEggTypeSchema>;
+
+export const UpdateEggTypeSchema = CreateEggTypeSchema.partial();
+export type UpdateEggType = z.infer<typeof UpdateEggTypeSchema>;
+
+// Egg production: one count per egg type (dynamic)
 export const CreateEggProductionSchema = z.object({
   date: z.string().datetime(),
-  largeCount: z.number().int().min(0).default(0),
-  mediumCount: z.number().int().min(0).default(0),
-  smallCount: z.number().int().min(0).default(0),
+  countByType: z.record(z.string(), z.number().int().min(0)).default({}),
 });
 
 export type CreateEggProduction = z.infer<typeof CreateEggProductionSchema>;
 
 export const UpdateEggProductionSchema = z.object({
   date: z.string().datetime().optional(),
-  largeCount: z.number().int().min(0).optional(),
-  mediumCount: z.number().int().min(0).optional(),
-  smallCount: z.number().int().min(0).optional(),
+  countByType: z.record(z.string(), z.number().int().min(0)).optional(),
 });
 
 export type UpdateEggProduction = z.infer<typeof UpdateEggProductionSchema>;
 
+export const EggProductionEntrySchema = z.object({
+  eggTypeId: z.string(),
+  eggType: EggTypeSchema.optional(),
+  count: z.number().int().min(0),
+});
 export const EggProductionSchema = BaseSchema.extend({
   batchId: z.string(),
   date: z.date(),
-  largeCount: z.number().int().min(0),
-  mediumCount: z.number().int().min(0),
-  smallCount: z.number().int().min(0),
+  entries: z.array(EggProductionEntrySchema).default([]),
 });
 
 export type EggProductionRecord = z.infer<typeof EggProductionSchema>;
 
-export const EggInventoryResponseSchema = z.object({
-  LARGE: z.number().int().min(0),
-  MEDIUM: z.number().int().min(0),
-  SMALL: z.number().int().min(0),
-});
-
+// Inventory: map of eggTypeId -> quantity (dynamic)
+export const EggInventoryResponseSchema = z.record(z.string(), z.number().int().min(0));
 export type EggInventoryResponse = z.infer<typeof EggInventoryResponseSchema>;
 
 export const BatchSummarySchema = z.object({
@@ -555,7 +567,7 @@ export const CreateSaleSchema = z
     batchId: z.string().optional(),
     customerId: z.string().optional(),
     itemType: SalesItemTypeSchema.optional(),
-    eggCategory: EggCategorySchema.optional(),
+    eggTypeId: z.string().optional(),
     categoryId: z.string().optional(),
     customerData: z.object({
       name: z.string(),
@@ -567,11 +579,11 @@ export const CreateSaleSchema = z
   .refine(
     (data) => {
       if (data.itemType === "EGGS") {
-        return data.eggCategory != null && ["LARGE", "MEDIUM", "SMALL"].includes(data.eggCategory);
+        return data.eggTypeId != null && data.eggTypeId.length > 0;
       }
       return true;
     },
-    { message: "eggCategory (LARGE, MEDIUM, or SMALL) is required when itemType is EGGS", path: ["eggCategory"] }
+    { message: "eggTypeId is required when itemType is EGGS", path: ["eggTypeId"] }
   );
 
 export type CreateSale = z.infer<typeof CreateSaleSchema>;
@@ -589,6 +601,7 @@ export const UpdateSaleSchema = z.object({
   batchId: z.string().nullable().optional(),
   customerId: z.string().nullable().optional(),
   itemType: SalesItemTypeSchema.optional().default("Chicken_Meat"),
+  eggTypeId: z.string().nullable().optional(),
   categoryId: z.string().optional(),
 });
 

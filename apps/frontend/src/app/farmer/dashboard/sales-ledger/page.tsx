@@ -61,6 +61,7 @@ import {
 
 import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
 import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
+import { useGetEggTypes } from "@/fetchers/eggTypes/eggTypeQueries";
 import { toast } from "sonner";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { DateInput } from "@/common/components/ui/date-input";
@@ -128,7 +129,7 @@ export default function SalesLedgerPage() {
     farmId: "",
     batchId: "",
     itemType: "Chicken_Meat",
-    eggCategory: "" as "" | "LARGE" | "MEDIUM" | "SMALL",
+    eggTypeId: "",
     rate: "",
     quantity: "",
     weight: "",
@@ -204,6 +205,8 @@ export default function SalesLedgerPage() {
       enabled: true,
     });
 
+  const { data: eggTypesData } = useGetEggTypes({ enabled: true });
+  const eggTypes = eggTypesData?.data ?? [];
   const { data: eggInventoryResponse } = useGetEggInventory({
     enabled: isSaleModalOpen && saleForm.itemType === "EGGS",
   });
@@ -325,7 +328,7 @@ export default function SalesLedgerPage() {
       if (!saleForm.weight) errors.weight = "Weight required for Chicken_Meat";
     }
     if (saleForm.itemType === "EGGS") {
-      if (!saleForm.eggCategory) errors.eggCategory = "Please select egg category (Large / Medium / Small)";
+      if (!saleForm.eggTypeId) errors.eggTypeId = "Please select egg type";
     }
     if (!saleForm.date) errors.date = "Please select a date";
 
@@ -403,8 +406,8 @@ export default function SalesLedgerPage() {
         batchId: saleForm.batchId,
         itemType: saleForm.itemType,
       };
-      if (saleForm.itemType === "EGGS" && saleForm.eggCategory) {
-        saleData.eggCategory = saleForm.eggCategory;
+      if (saleForm.itemType === "EGGS" && saleForm.eggTypeId) {
+        saleData.eggTypeId = saleForm.eggTypeId;
       }
 
       // Handle customer data (same as home page)
@@ -572,7 +575,7 @@ export default function SalesLedgerPage() {
       farmId: prev.farmId,
       batchId: prev.batchId,
       itemType: "Chicken_Meat",
-      eggCategory: "",
+      eggTypeId: "",
       rate: "",
       quantity: "",
       weight: "",
@@ -1522,29 +1525,31 @@ export default function SalesLedgerPage() {
 
               {saleForm.itemType === "EGGS" && (
                 <div>
-                  <Label htmlFor="eggCategory">Egg Category</Label>
+                  <Label htmlFor="eggTypeId">Egg Type</Label>
                   <Select
-                    value={saleForm.eggCategory}
+                    value={saleForm.eggTypeId}
                     onValueChange={(value) => {
-                      const event = { target: { name: 'eggCategory', value } } as any;
+                      const event = { target: { name: "eggTypeId", value } } as any;
                       updateSaleField(event);
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder="Select egg type" />
                     </SelectTrigger>
                     <SelectContent className="bg-white">
-                      <SelectItem value="LARGE">Large</SelectItem>
-                      <SelectItem value="MEDIUM">Medium</SelectItem>
-                      <SelectItem value="SMALL">Small</SelectItem>
+                      {eggTypes.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                  {errors.eggCategory && (
-                    <p className="text-xs text-red-600 mt-1">{errors.eggCategory}</p>
+                  {errors.eggTypeId && (
+                    <p className="text-xs text-red-600 mt-1">{errors.eggTypeId}</p>
                   )}
-                  {eggInventory && (
+                  {eggInventory?.types && eggInventory.types.length > 0 && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Available: Large {eggInventory.LARGE} · Medium {eggInventory.MEDIUM} · Small {eggInventory.SMALL}
+                      Available: {eggInventory.types.map((t: { name: string; quantity: number }) => `${t.name} ${t.quantity}`).join(" · ")}
                     </p>
                   )}
                 </div>

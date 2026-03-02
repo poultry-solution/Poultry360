@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
-import { CreateSale, UpdateSale, CategoryType, EggInventoryResponse } from "@myapp/shared-types";
+import { CreateSale, UpdateSale, CategoryType } from "@myapp/shared-types";
 import { weightKeys } from "@/fetchers/weight/weightQueries";
 
 // ==================== QUERY KEYS ====================
@@ -22,9 +22,21 @@ export const saleQueryKeys = {
 
 // ==================== QUERY HOOKS ====================
 
-// Get current user's egg inventory (LARGE, MEDIUM, SMALL)
+// Egg inventory response: dynamic types with quantities
+export interface EggInventoryType {
+  id: string;
+  name: string;
+  code: string;
+  quantity: number;
+}
+export interface EggInventoryData {
+  quantities: Record<string, number>;
+  types: EggInventoryType[];
+}
+
+// Get current user's egg inventory (dynamic types)
 export const useGetEggInventory = (options?: { enabled?: boolean }) => {
-  return useQuery<{ success: boolean; data: EggInventoryResponse }>({
+  return useQuery<{ success: boolean; data: EggInventoryData }>({
     queryKey: saleQueryKeys.eggInventory(),
     queryFn: async () => {
       const response = await axiosInstance.get("/egg-inventory");

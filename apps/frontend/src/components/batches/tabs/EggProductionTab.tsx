@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, PlusCircle } from "lucide-react";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { DateInput } from "@/common/components/ui/date-input";
 import {
@@ -13,6 +13,11 @@ import {
   useCreateEggProduction,
   useDeleteEggProduction,
 } from "@/fetchers/batches/batchQueries";
+import {
+  useGetEggTypes,
+  useCreateEggType,
+} from "@/fetchers/eggTypes/eggTypeQueries";
+import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
 
 interface EggProductionTabProps {
   batchId: string;
@@ -21,39 +26,65 @@ interface EggProductionTabProps {
 
 export function EggProductionTab({ batchId, isBatchClosed }: EggProductionTabProps) {
   const { data, isLoading, error } = useGetEggProductionByBatch(batchId);
+  const { data: eggTypesData } = useGetEggTypes({ enabled: true });
+  const eggTypes = eggTypesData?.data ?? [];
+
   const createMutation = useCreateEggProduction(batchId);
   const deleteMutation = useDeleteEggProduction(batchId);
+  const createTypeMutation = useCreateEggType();
 
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [largeCount, setLargeCount] = useState("");
-  const [mediumCount, setMediumCount] = useState("");
-  const [smallCount, setSmallCount] = useState("");
+  const [countByType, setCountByType] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
+
+  const [isAddTypeOpen, setIsAddTypeOpen] = useState(false);
+  const [newTypeName, setNewTypeName] = useState("");
+  const [newTypeCode, setNewTypeCode] = useState("");
+  const [addTypeError, setAddTypeError] = useState("");
 
   const records = data?.data ?? [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
-    const large = parseInt(largeCount, 10) || 0;
-    const medium = parseInt(mediumCount, 10) || 0;
-    const small = parseInt(smallCount, 10) || 0;
-    if (large + medium + small <= 0) {
-      setFormError("Enter at least one count (Large, Medium, or Small).");
+    const counts: Record<string, number> = {};
+    let total = 0;
+    for (const t of eggTypes) {
+      const v = parseInt(countByType[t.id] ?? "0", 10) || 0;
+      counts[t.id] = v;
+      total += v;
+    }
+    if (total <= 0) {
+      setFormError("Enter at least one count.");
       return;
     }
     try {
       await createMutation.mutateAsync({
         date: `${date}T00:00:00.000Z`,
-        largeCount: large,
-        mediumCount: medium,
-        smallCount: small,
+        countByType: counts,
       });
-      setLargeCount("");
-      setMediumCount("");
-      setSmallCount("");
+      setCountByType({});
     } catch (err: any) {
       setFormError(err?.response?.data?.message || "Failed to save.");
+    }
+  };
+
+  const handleAddType = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddTypeError("");
+    const name = newTypeName.trim();
+    const code = (newTypeCode.trim() || name.toUpperCase().replace(/\s+/g, "_")).toUpperCase().replace(/\s+/g, "_");
+    if (!name) {
+      setAddTypeError("Name is required.");
+      return;
+    }
+    try {
+      await createTypeMutation.mutateAsync({ name, code, displayOrder: eggTypes.length });
+      setNewTypeName("");
+      setNewTypeCode("");
+      setIsAddTypeOpen(false);
+    } catch (err: any) {
+      setAddTypeError(err?.response?.data?.message || "Failed to add type.");
     }
   };
 
@@ -66,21 +97,41 @@ export function EggProductionTab({ batchId, isBatchClosed }: EggProductionTabPro
     }
   };
 
+  const getCountForRecord = (r: any, eggTypeId: string) => {
+    const entry = r.entries?.find((e: any) => e.eggTypeId === eggTypeId);
+    return entry?.count ?? 0;
+  };
+
+  const getTotalForRecord = (r: any) => {
+    return (r.entries ?? []).reduce((sum: number, e: any) => sum + (e.count ?? 0), 0);
+  };
+
   return (
     <Card>
-      <CardHeader className="flex items-center justify-between">
+      <CardHeader className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <CardTitle>Egg Production</CardTitle>
           <CardDescription>
-            Daily egg count by category (Large / Medium / Small). Records increase your egg inventory.
+            Daily egg count by category. Add your own egg types below. Records increase your egg inventory.
           </CardDescription>
         </div>
+        {!isBatchClosed && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setIsAddTypeOpen(true)}
+          >
+            <PlusCircle className="h-4 w-4 mr-2" />
+            Add type
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-6">
-        {!isBatchClosed && (
+        {!isBatchClosed && eggTypes.length > 0 && (
           <form onSubmit={handleSubmit} className="rounded-lg border p-4 space-y-4">
             <h4 className="font-medium">Add daily production</h4>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-wrap">
               <div>
                 <DateInput
                   label="Date"
@@ -88,42 +139,22 @@ export function EggProductionTab({ batchId, isBatchClosed }: EggProductionTabPro
                   onChange={(v) => setDate(v.includes("T") ? v.split("T")[0] : v)}
                 />
               </div>
-              <div>
-                <Label htmlFor="ep-large">Large</Label>
-                <Input
-                  id="ep-large"
-                  type="number"
-                  min={0}
-                  value={largeCount}
-                  onChange={(e) => setLargeCount(e.target.value)}
-                  placeholder="0"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="ep-medium">Medium</Label>
-                <Input
-                  id="ep-medium"
-                  type="number"
-                  min={0}
-                  value={mediumCount}
-                  onChange={(e) => setMediumCount(e.target.value)}
-                  placeholder="0"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="ep-small">Small</Label>
-                <Input
-                  id="ep-small"
-                  type="number"
-                  min={0}
-                  value={smallCount}
-                  onChange={(e) => setSmallCount(e.target.value)}
-                  placeholder="0"
-                  className="mt-1"
-                />
-              </div>
+              {eggTypes.map((t) => (
+                <div key={t.id}>
+                  <Label htmlFor={`ep-${t.id}`}>{t.name}</Label>
+                  <Input
+                    id={`ep-${t.id}`}
+                    type="number"
+                    min={0}
+                    value={countByType[t.id] ?? ""}
+                    onChange={(e) =>
+                      setCountByType((prev) => ({ ...prev, [t.id]: e.target.value }))
+                    }
+                    placeholder="0"
+                    className="mt-1"
+                  />
+                </div>
+              ))}
             </div>
             {formError && <p className="text-sm text-red-600">{formError}</p>}
             <Button type="submit" disabled={createMutation.isPending}>
@@ -135,6 +166,16 @@ export function EggProductionTab({ batchId, isBatchClosed }: EggProductionTabPro
               Add record
             </Button>
           </form>
+        )}
+
+        {!isBatchClosed && eggTypes.length === 0 && (
+          <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
+            <p className="mb-2">No egg types yet. Add at least one type to record production.</p>
+            <Button type="button" variant="outline" onClick={() => setIsAddTypeOpen(true)}>
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Add type
+            </Button>
+          </div>
         )}
 
         {isLoading ? (
@@ -156,9 +197,11 @@ export function EggProductionTab({ batchId, isBatchClosed }: EggProductionTabPro
               <thead>
                 <tr className="bg-muted/50 border-y">
                   <th className="text-left px-4 py-2">Date</th>
-                  <th className="text-right px-4 py-2">Large</th>
-                  <th className="text-right px-4 py-2">Medium</th>
-                  <th className="text-right px-4 py-2">Small</th>
+                  {eggTypes.map((t) => (
+                    <th key={t.id} className="text-right px-4 py-2">
+                      {t.name}
+                    </th>
+                  ))}
                   <th className="text-right px-4 py-2">Total</th>
                   {!isBatchClosed && <th className="text-right px-4 py-2">Actions</th>}
                 </tr>
@@ -171,11 +214,13 @@ export function EggProductionTab({ batchId, isBatchClosed }: EggProductionTabPro
                       <td className="px-4 py-2">
                         <DateDisplay date={r.date} format="short" />
                       </td>
-                      <td className="px-4 py-2 text-right">{r.largeCount}</td>
-                      <td className="px-4 py-2 text-right">{r.mediumCount}</td>
-                      <td className="px-4 py-2 text-right">{r.smallCount}</td>
+                      {eggTypes.map((t) => (
+                        <td key={t.id} className="px-4 py-2 text-right">
+                          {getCountForRecord(r, t.id)}
+                        </td>
+                      ))}
                       <td className="px-4 py-2 text-right font-medium">
-                        {r.largeCount + r.mediumCount + r.smallCount}
+                        {getTotalForRecord(r)}
                       </td>
                       {!isBatchClosed && (
                         <td className="px-4 py-2 text-right">
@@ -198,6 +243,58 @@ export function EggProductionTab({ batchId, isBatchClosed }: EggProductionTabPro
           </div>
         )}
       </CardContent>
+
+      <Modal
+        isOpen={isAddTypeOpen}
+        onClose={() => {
+          setIsAddTypeOpen(false);
+          setAddTypeError("");
+          setNewTypeName("");
+          setNewTypeCode("");
+        }}
+        title="Add egg type"
+      >
+        <form onSubmit={handleAddType}>
+          <ModalContent>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="new-type-name">Name</Label>
+                <Input
+                  id="new-type-name"
+                  value={newTypeName}
+                  onChange={(e) => setNewTypeName(e.target.value)}
+                  placeholder="e.g. Large, XL"
+                />
+              </div>
+              <div>
+                <Label htmlFor="new-type-code">Code (optional)</Label>
+                <Input
+                  id="new-type-code"
+                  value={newTypeCode}
+                  onChange={(e) => setNewTypeCode(e.target.value)}
+                  placeholder="e.g. LARGE, XL (auto from name if empty)"
+                />
+              </div>
+              {addTypeError && <p className="text-sm text-red-600">{addTypeError}</p>}
+            </div>
+          </ModalContent>
+          <ModalFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsAddTypeOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={createTypeMutation.isPending}>
+              {createTypeMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Add type
+            </Button>
+          </ModalFooter>
+        </form>
+      </Modal>
     </Card>
   );
 }

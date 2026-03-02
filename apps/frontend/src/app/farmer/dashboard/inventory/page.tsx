@@ -87,39 +87,18 @@ export default function InventoryPage() {
   // Filter table data based on active tab
   const getFilteredInventory = () => {
     if (activeTab === "eggs") {
-      if (!eggData?.data) return [];
-      return [
-        {
-          id: "large-eggs",
-          name: "Large Eggs",
-          quantity: eggData.data.LARGE || 0,
-          unit: "pcs",
-          itemType: "EGGS",
-          status: (eggData.data.LARGE || 0) > 0 ? "In Stock" : "Out of Stock",
-          rate: 0,
-          value: 0,
-        },
-        {
-          id: "medium-eggs",
-          name: "Medium Eggs",
-          quantity: eggData.data.MEDIUM || 0,
-          unit: "pcs",
-          itemType: "EGGS",
-          status: (eggData.data.MEDIUM || 0) > 0 ? "In Stock" : "Out of Stock",
-          rate: 0,
-          value: 0,
-        },
-        {
-          id: "small-eggs",
-          name: "Small Eggs",
-          quantity: eggData.data.SMALL || 0,
-          unit: "pcs",
-          itemType: "EGGS",
-          status: (eggData.data.SMALL || 0) > 0 ? "In Stock" : "Out of Stock",
-          rate: 0,
-          value: 0,
-        },
-      ];
+      const types = eggData?.data?.types;
+      if (!types || !Array.isArray(types)) return [];
+      return types.map((t: { id: string; name: string; code: string; quantity: number }) => ({
+        id: t.id,
+        name: `${t.name} Eggs`,
+        quantity: t.quantity ?? 0,
+        unit: "pcs",
+        itemType: "EGGS",
+        status: (t.quantity ?? 0) > 0 ? "In Stock" : "Out of Stock",
+        rate: 0,
+        value: 0,
+      }));
     }
 
     if (!tableData) return [];
@@ -524,7 +503,7 @@ export default function InventoryPage() {
           ].map((tab) => {
             const getTabCount = () => {
               if (tab.key === "eggs") {
-                return (eggData?.data?.LARGE || 0) + (eggData?.data?.MEDIUM || 0) + (eggData?.data?.SMALL || 0);
+                return (eggData?.data?.types ?? []).reduce((s: number, t: { quantity?: number }) => s + (t.quantity ?? 0), 0);
               }
               if (!tableData) return 0;
               switch (tab.key) {

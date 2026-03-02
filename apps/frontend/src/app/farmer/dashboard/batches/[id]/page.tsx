@@ -40,6 +40,7 @@ import {
   useGetCustomersForSales,
   useGetEggInventory,
 } from "@/fetchers/sale/saleQueries";
+import { useGetEggTypes } from "@/fetchers/eggTypes/eggTypeQueries";
 import {
   useGetBatchMortalities,
   useCreateMortality,
@@ -857,7 +858,7 @@ export default function BatchDetailPage() {
     quantity: "",
     weight: "",
     itemType: "Chicken_Meat",
-    eggCategory: "" as "" | "LARGE" | "MEDIUM" | "SMALL",
+    eggTypeId: "",
     remaining: false,
     customerId: "",
     customerName: "",
@@ -866,6 +867,8 @@ export default function BatchDetailPage() {
     balance: "",
     date: new Date().toISOString().split("T")[0],
   });
+  const { data: eggTypesData } = useGetEggTypes({ enabled: true });
+  const eggTypes = eggTypesData?.data ?? [];
   const { data: eggInventoryResponse } = useGetEggInventory({
     enabled: isSaleModalOpen && saleForm.itemType === "EGGS",
   });
@@ -889,7 +892,7 @@ export default function BatchDetailPage() {
       quantity: "",
       weight: "",
       itemType: "Chicken_Meat",
-      eggCategory: "",
+      eggTypeId: "",
       remaining: false,
       customerId: "",
       customerName: "",
@@ -910,7 +913,7 @@ export default function BatchDetailPage() {
       quantity: String(row.quantity),
       weight: String((row as any).weight || ""),
       itemType: (row as any).itemType || "Chicken_Meat",
-      eggCategory: (row as any).eggCategory || "",
+      eggTypeId: (row as any).eggTypeId || "",
       remaining: row.remaining,
       customerId: "",
       customerName: row.customer?.name || "",
@@ -940,8 +943,8 @@ export default function BatchDetailPage() {
     if (saleForm.itemType === "Chicken_Meat") {
       if (!saleForm.weight) errs.weight = "Weight required for Chicken_Meat";
     }
-    if (saleForm.itemType === "EGGS" && !saleForm.eggCategory) {
-      errs.eggCategory = "Egg category (Large / Medium / Small) required";
+    if (saleForm.itemType === "EGGS" && !saleForm.eggTypeId) {
+      errs.eggTypeId = "Egg type required";
     }
     if (!saleForm.date) errs.date = "Date required";
 
@@ -1013,8 +1016,8 @@ export default function BatchDetailPage() {
         batchId: saleForm.batchId || batchId,
         itemType: saleForm.itemType,
       };
-      if (saleForm.itemType === "EGGS" && saleForm.eggCategory) {
-        saleData.eggCategory = saleForm.eggCategory;
+      if (saleForm.itemType === "EGGS" && saleForm.eggTypeId) {
+        saleData.eggTypeId = saleForm.eggTypeId;
       }
 
       // Handle customer data
@@ -1790,28 +1793,30 @@ export default function BatchDetailPage() {
 
               {saleForm.itemType === "EGGS" && (
                 <div>
-                  <Label htmlFor="eggCategory">Egg Category</Label>
+                  <Label htmlFor="eggTypeId">Egg Type</Label>
                   <Select
-                    value={saleForm.eggCategory}
+                    value={saleForm.eggTypeId}
                     onValueChange={(value) => {
-                      updateSaleField({ target: { name: "eggCategory", value } } as any);
+                      updateSaleField({ target: { name: "eggTypeId", value } } as any);
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder="Select egg type" />
                     </SelectTrigger>
                     <SelectContent className="bg-white">
-                      <SelectItem value="LARGE">Large</SelectItem>
-                      <SelectItem value="MEDIUM">Medium</SelectItem>
-                      <SelectItem value="SMALL">Small</SelectItem>
+                      {eggTypes.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                  {saleErrors.eggCategory && (
-                    <p className="text-xs text-red-600 mt-1">{saleErrors.eggCategory}</p>
+                  {saleErrors.eggTypeId && (
+                    <p className="text-xs text-red-600 mt-1">{saleErrors.eggTypeId}</p>
                   )}
-                  {eggInventory && (
+                  {eggInventory?.types && eggInventory.types.length > 0 && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Available: Large {eggInventory.LARGE} · Medium {eggInventory.MEDIUM} · Small {eggInventory.SMALL}
+                      Available: {eggInventory.types.map((t: { name: string; quantity: number }) => `${t.name} ${t.quantity}`).join(" · ")}
                     </p>
                   )}
                 </div>

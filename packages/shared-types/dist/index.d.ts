@@ -62,6 +62,20 @@ export declare const CategoryTypeSchema: z.ZodEnum<{
     INVENTORY: "INVENTORY";
 }>;
 export type CategoryType = z.infer<typeof CategoryTypeSchema>;
+export declare const PurchaseCategorySchema: z.ZodEnum<{
+    FEED: "FEED";
+    MEDICINE: "MEDICINE";
+    CHICKS: "CHICKS";
+    EQUIPMENT: "EQUIPMENT";
+    OTHER: "OTHER";
+}>;
+export type PurchaseCategory = z.infer<typeof PurchaseCategorySchema>;
+export declare const CreateUnitConversionSchema: z.ZodObject<{
+    unitName: z.ZodString;
+    conversionFactor: z.ZodNumber;
+}, z.core.$strip>;
+export type CreateUnitConversion = z.infer<typeof CreateUnitConversionSchema>;
+export declare const UNIT_PRESETS: Record<string, string[]>;
 export declare const ReminderTypeSchema: z.ZodEnum<{
     VACCINATION: "VACCINATION";
     FEEDING: "FEEDING";
@@ -130,9 +144,9 @@ export declare const CreateUserSchema: z.ZodObject<{
         SUPER_ADMIN: "SUPER_ADMIN";
     }>>>;
     gender: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+        OTHER: "OTHER";
         MALE: "MALE";
         FEMALE: "FEMALE";
-        OTHER: "OTHER";
     }>>>;
     ownerId: z.ZodOptional<z.ZodString>;
     companyName: z.ZodOptional<z.ZodString>;
@@ -153,9 +167,9 @@ export declare const UpdateUserSchema: z.ZodObject<{
         SUPER_ADMIN: "SUPER_ADMIN";
     }>>;
     gender: z.ZodOptional<z.ZodEnum<{
+        OTHER: "OTHER";
         MALE: "MALE";
         FEMALE: "FEMALE";
-        OTHER: "OTHER";
     }>>;
     status: z.ZodOptional<z.ZodEnum<{
         ACTIVE: "ACTIVE";
@@ -427,42 +441,64 @@ export declare const CloseBatchSchema: z.ZodObject<{
     finalNotes: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type CloseBatch = z.infer<typeof CloseBatchSchema>;
-export declare const EggCategorySchema: z.ZodEnum<{
-    LARGE: "LARGE";
-    MEDIUM: "MEDIUM";
-    SMALL: "SMALL";
-}>;
-export type EggCategory = z.infer<typeof EggCategorySchema>;
+export declare const EggTypeSchema: z.ZodObject<{
+    id: z.ZodString;
+    name: z.ZodString;
+    code: z.ZodString;
+    displayOrder: z.ZodNumber;
+}, z.core.$strip>;
+export type EggType = z.infer<typeof EggTypeSchema>;
+export declare const CreateEggTypeSchema: z.ZodObject<{
+    name: z.ZodString;
+    code: z.ZodString;
+    displayOrder: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
+}, z.core.$strip>;
+export type CreateEggType = z.infer<typeof CreateEggTypeSchema>;
+export declare const UpdateEggTypeSchema: z.ZodObject<{
+    name: z.ZodOptional<z.ZodString>;
+    code: z.ZodOptional<z.ZodString>;
+    displayOrder: z.ZodOptional<z.ZodDefault<z.ZodOptional<z.ZodNumber>>>;
+}, z.core.$strip>;
+export type UpdateEggType = z.infer<typeof UpdateEggTypeSchema>;
 export declare const CreateEggProductionSchema: z.ZodObject<{
     date: z.ZodString;
-    largeCount: z.ZodDefault<z.ZodNumber>;
-    mediumCount: z.ZodDefault<z.ZodNumber>;
-    smallCount: z.ZodDefault<z.ZodNumber>;
+    countByType: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodNumber>>;
 }, z.core.$strip>;
 export type CreateEggProduction = z.infer<typeof CreateEggProductionSchema>;
 export declare const UpdateEggProductionSchema: z.ZodObject<{
     date: z.ZodOptional<z.ZodString>;
-    largeCount: z.ZodOptional<z.ZodNumber>;
-    mediumCount: z.ZodOptional<z.ZodNumber>;
-    smallCount: z.ZodOptional<z.ZodNumber>;
+    countByType: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodNumber>>;
 }, z.core.$strip>;
 export type UpdateEggProduction = z.infer<typeof UpdateEggProductionSchema>;
+export declare const EggProductionEntrySchema: z.ZodObject<{
+    eggTypeId: z.ZodString;
+    eggType: z.ZodOptional<z.ZodObject<{
+        id: z.ZodString;
+        name: z.ZodString;
+        code: z.ZodString;
+        displayOrder: z.ZodNumber;
+    }, z.core.$strip>>;
+    count: z.ZodNumber;
+}, z.core.$strip>;
 export declare const EggProductionSchema: z.ZodObject<{
     id: z.ZodString;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
     batchId: z.ZodString;
     date: z.ZodDate;
-    largeCount: z.ZodNumber;
-    mediumCount: z.ZodNumber;
-    smallCount: z.ZodNumber;
+    entries: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        eggTypeId: z.ZodString;
+        eggType: z.ZodOptional<z.ZodObject<{
+            id: z.ZodString;
+            name: z.ZodString;
+            code: z.ZodString;
+            displayOrder: z.ZodNumber;
+        }, z.core.$strip>>;
+        count: z.ZodNumber;
+    }, z.core.$strip>>>;
 }, z.core.$strip>;
 export type EggProductionRecord = z.infer<typeof EggProductionSchema>;
-export declare const EggInventoryResponseSchema: z.ZodObject<{
-    LARGE: z.ZodNumber;
-    MEDIUM: z.ZodNumber;
-    SMALL: z.ZodNumber;
-}, z.core.$strip>;
+export declare const EggInventoryResponseSchema: z.ZodRecord<z.ZodString, z.ZodNumber>;
 export type EggInventoryResponse = z.infer<typeof EggInventoryResponseSchema>;
 export declare const BatchSummarySchema: z.ZodObject<{
     initialChicks: z.ZodNumber;
@@ -555,13 +591,13 @@ export declare const UpdateExpenseSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type UpdateExpense = z.infer<typeof UpdateExpenseSchema>;
 export declare const SalesItemTypeSchema: z.ZodEnum<{
-    OTHER: "OTHER";
-    Chicken_Meat: "Chicken_Meat";
-    CHICKS: "CHICKS";
     FEED: "FEED";
     MEDICINE: "MEDICINE";
-    EGGS: "EGGS";
+    CHICKS: "CHICKS";
     EQUIPMENT: "EQUIPMENT";
+    OTHER: "OTHER";
+    Chicken_Meat: "Chicken_Meat";
+    EGGS: "EGGS";
 }>;
 export type SalesItemType = z.infer<typeof SalesItemTypeSchema>;
 export declare const SaleSchema: z.ZodObject<{
@@ -581,13 +617,13 @@ export declare const SaleSchema: z.ZodObject<{
     batchId: z.ZodNullable<z.ZodString>;
     customerId: z.ZodNullable<z.ZodString>;
     itemType: z.ZodEnum<{
-        OTHER: "OTHER";
-        Chicken_Meat: "Chicken_Meat";
-        CHICKS: "CHICKS";
         FEED: "FEED";
         MEDICINE: "MEDICINE";
-        EGGS: "EGGS";
+        CHICKS: "CHICKS";
         EQUIPMENT: "EQUIPMENT";
+        OTHER: "OTHER";
+        Chicken_Meat: "Chicken_Meat";
+        EGGS: "EGGS";
     }>;
     categoryId: z.ZodNullable<z.ZodString>;
 }, z.core.$strip>;
@@ -605,19 +641,15 @@ export declare const CreateSaleSchema: z.ZodObject<{
     batchId: z.ZodOptional<z.ZodString>;
     customerId: z.ZodOptional<z.ZodString>;
     itemType: z.ZodOptional<z.ZodEnum<{
-        OTHER: "OTHER";
-        Chicken_Meat: "Chicken_Meat";
-        CHICKS: "CHICKS";
         FEED: "FEED";
         MEDICINE: "MEDICINE";
-        EGGS: "EGGS";
+        CHICKS: "CHICKS";
         EQUIPMENT: "EQUIPMENT";
+        OTHER: "OTHER";
+        Chicken_Meat: "Chicken_Meat";
+        EGGS: "EGGS";
     }>>;
-    eggCategory: z.ZodOptional<z.ZodEnum<{
-        LARGE: "LARGE";
-        MEDIUM: "MEDIUM";
-        SMALL: "SMALL";
-    }>>;
+    eggTypeId: z.ZodOptional<z.ZodString>;
     categoryId: z.ZodOptional<z.ZodString>;
     customerData: z.ZodOptional<z.ZodObject<{
         name: z.ZodString;
@@ -640,14 +672,15 @@ export declare const UpdateSaleSchema: z.ZodObject<{
     batchId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     customerId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     itemType: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
-        OTHER: "OTHER";
-        Chicken_Meat: "Chicken_Meat";
-        CHICKS: "CHICKS";
         FEED: "FEED";
         MEDICINE: "MEDICINE";
-        EGGS: "EGGS";
+        CHICKS: "CHICKS";
         EQUIPMENT: "EQUIPMENT";
+        OTHER: "OTHER";
+        Chicken_Meat: "Chicken_Meat";
+        EGGS: "EGGS";
     }>>>;
+    eggTypeId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     categoryId: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type UpdateSale = z.infer<typeof UpdateSaleSchema>;
@@ -669,11 +702,11 @@ export declare const CreateSalePaymentSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type CreateSalePayment = z.infer<typeof CreateSalePaymentSchema>;
 export declare const InventoryItemTypeSchema: z.ZodEnum<{
-    OTHER: "OTHER";
-    CHICKS: "CHICKS";
     FEED: "FEED";
     MEDICINE: "MEDICINE";
+    CHICKS: "CHICKS";
     EQUIPMENT: "EQUIPMENT";
+    OTHER: "OTHER";
 }>;
 export type InventoryItemType = z.infer<typeof InventoryItemTypeSchema>;
 export declare const InventoryItemSchema: z.ZodObject<{
@@ -688,11 +721,11 @@ export declare const InventoryItemSchema: z.ZodObject<{
     userId: z.ZodString;
     categoryId: z.ZodString;
     itemType: z.ZodOptional<z.ZodEnum<{
-        OTHER: "OTHER";
-        CHICKS: "CHICKS";
         FEED: "FEED";
         MEDICINE: "MEDICINE";
+        CHICKS: "CHICKS";
         EQUIPMENT: "EQUIPMENT";
+        OTHER: "OTHER";
     }>>;
 }, z.core.$strip>;
 export type InventoryItem = z.infer<typeof InventoryItemSchema>;
@@ -704,11 +737,11 @@ export declare const CreateInventoryItemSchema: z.ZodObject<{
     minStock: z.ZodOptional<z.ZodNumber>;
     categoryId: z.ZodOptional<z.ZodString>;
     itemType: z.ZodOptional<z.ZodEnum<{
-        OTHER: "OTHER";
-        CHICKS: "CHICKS";
         FEED: "FEED";
         MEDICINE: "MEDICINE";
+        CHICKS: "CHICKS";
         EQUIPMENT: "EQUIPMENT";
+        OTHER: "OTHER";
     }>>;
     rate: z.ZodOptional<z.ZodNumber>;
 }, z.core.$strip>;
@@ -721,11 +754,11 @@ export declare const UpdateInventoryItemSchema: z.ZodObject<{
     minStock: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
     categoryId: z.ZodOptional<z.ZodString>;
     itemType: z.ZodOptional<z.ZodEnum<{
-        OTHER: "OTHER";
-        CHICKS: "CHICKS";
         FEED: "FEED";
         MEDICINE: "MEDICINE";
+        CHICKS: "CHICKS";
         EQUIPMENT: "EQUIPMENT";
+        OTHER: "OTHER";
     }>>;
 }, z.core.$strip>;
 export type UpdateInventoryItem = z.infer<typeof UpdateInventoryItemSchema>;
@@ -816,6 +849,8 @@ export declare const EntityTransactionSchema: z.ZodObject<{
     reference: z.ZodNullable<z.ZodString>;
     entityType: z.ZodString;
     entityId: z.ZodString;
+    unit: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    unitPrice: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
 }, z.core.$strip>;
 export type EntityTransaction = z.infer<typeof EntityTransactionSchema>;
 export declare const CreateEntityTransactionSchema: z.ZodObject<{
@@ -836,6 +871,8 @@ export declare const CreateEntityTransactionSchema: z.ZodObject<{
     reference: z.ZodOptional<z.ZodString>;
     entityType: z.ZodString;
     entityId: z.ZodString;
+    unit: z.ZodOptional<z.ZodString>;
+    unitPrice: z.ZodOptional<z.ZodNumber>;
 }, z.core.$strip>;
 export type CreateEntityTransaction = z.infer<typeof CreateEntityTransactionSchema>;
 export declare const DealerSchema: z.ZodObject<{
@@ -846,6 +883,7 @@ export declare const DealerSchema: z.ZodObject<{
     contact: z.ZodString;
     address: z.ZodNullable<z.ZodString>;
     userId: z.ZodString;
+    classification: z.ZodDefault<z.ZodString>;
 }, z.core.$strip>;
 export type Dealer = z.infer<typeof DealerSchema>;
 export declare const CreateDealerSchema: z.ZodObject<{
@@ -873,12 +911,22 @@ export declare const DealerTransactionSchema: z.ZodObject<{
     }>;
     amount: z.ZodNumber;
     quantity: z.ZodNullable<z.ZodNumber>;
+    freeQuantity: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
     itemName: z.ZodNullable<z.ZodString>;
+    purchaseCategory: z.ZodOptional<z.ZodNullable<z.ZodEnum<{
+        FEED: "FEED";
+        MEDICINE: "MEDICINE";
+        CHICKS: "CHICKS";
+        EQUIPMENT: "EQUIPMENT";
+        OTHER: "OTHER";
+    }>>>;
     date: z.ZodDate;
     description: z.ZodNullable<z.ZodString>;
     reference: z.ZodNullable<z.ZodString>;
+    imageUrl: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     entityType: z.ZodString;
     entityId: z.ZodString;
+    paymentToPurchaseId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     createdAt: z.ZodDate;
     updatedAt: z.ZodDate;
 }, z.core.$strip>;
@@ -891,6 +939,7 @@ export declare const DealerResponseSchema: z.ZodObject<{
     contact: z.ZodString;
     address: z.ZodNullable<z.ZodString>;
     userId: z.ZodString;
+    classification: z.ZodDefault<z.ZodString>;
     balance: z.ZodNumber;
     thisMonthAmount: z.ZodNumber;
     totalTransactions: z.ZodNumber;
@@ -907,12 +956,22 @@ export declare const DealerResponseSchema: z.ZodObject<{
         }>;
         amount: z.ZodNumber;
         quantity: z.ZodNullable<z.ZodNumber>;
+        freeQuantity: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         itemName: z.ZodNullable<z.ZodString>;
+        purchaseCategory: z.ZodOptional<z.ZodNullable<z.ZodEnum<{
+            FEED: "FEED";
+            MEDICINE: "MEDICINE";
+            CHICKS: "CHICKS";
+            EQUIPMENT: "EQUIPMENT";
+            OTHER: "OTHER";
+        }>>>;
         date: z.ZodDate;
         description: z.ZodNullable<z.ZodString>;
         reference: z.ZodNullable<z.ZodString>;
+        imageUrl: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         entityType: z.ZodString;
         entityId: z.ZodString;
+        paymentToPurchaseId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         createdAt: z.ZodDate;
         updatedAt: z.ZodDate;
     }, z.core.$strip>>;
@@ -933,10 +992,38 @@ export declare const DealerDetailResponseSchema: z.ZodObject<{
     contact: z.ZodString;
     address: z.ZodNullable<z.ZodString>;
     userId: z.ZodString;
+    classification: z.ZodDefault<z.ZodString>;
     balance: z.ZodNumber;
     thisMonthAmount: z.ZodNumber;
     totalTransactions: z.ZodNumber;
-    transactionTable: z.ZodArray<z.ZodObject<{
+    purchases: z.ZodArray<z.ZodObject<{
+        id: z.ZodString;
+        itemName: z.ZodNullable<z.ZodString>;
+        purchaseCategory: z.ZodOptional<z.ZodNullable<z.ZodEnum<{
+            FEED: "FEED";
+            MEDICINE: "MEDICINE";
+            CHICKS: "CHICKS";
+            EQUIPMENT: "EQUIPMENT";
+            OTHER: "OTHER";
+        }>>>;
+        quantity: z.ZodNullable<z.ZodNumber>;
+        freeQuantity: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        unitPrice: z.ZodNumber;
+        totalAmount: z.ZodNumber;
+        date: z.ZodDate;
+        description: z.ZodNullable<z.ZodString>;
+        reference: z.ZodNullable<z.ZodString>;
+        imageUrl: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    }, z.core.$strip>>;
+    payments: z.ZodArray<z.ZodObject<{
+        id: z.ZodString;
+        amount: z.ZodNumber;
+        date: z.ZodDate;
+        description: z.ZodNullable<z.ZodString>;
+        reference: z.ZodNullable<z.ZodString>;
+        imageUrl: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    }, z.core.$strip>>;
+    transactionTable: z.ZodOptional<z.ZodArray<z.ZodObject<{
         itemName: z.ZodString;
         rate: z.ZodNumber;
         quantity: z.ZodNumber;
@@ -950,7 +1037,7 @@ export declare const DealerDetailResponseSchema: z.ZodObject<{
             date: z.ZodDate;
             reference: z.ZodNullable<z.ZodString>;
         }, z.core.$strip>>;
-    }, z.core.$strip>>;
+    }, z.core.$strip>>>;
     summary: z.ZodObject<{
         totalPurchases: z.ZodNumber;
         totalPayments: z.ZodNumber;
@@ -1470,9 +1557,9 @@ export declare const UserResponseSchema: z.ZodObject<{
         SUPER_ADMIN: "SUPER_ADMIN";
     }>;
     gender: z.ZodEnum<{
+        OTHER: "OTHER";
         MALE: "MALE";
         FEMALE: "FEMALE";
-        OTHER: "OTHER";
     }>;
     status: z.ZodEnum<{
         ACTIVE: "ACTIVE";
@@ -1501,9 +1588,9 @@ export declare const AuthResponseSchema: z.ZodObject<{
             SUPER_ADMIN: "SUPER_ADMIN";
         }>;
         gender: z.ZodEnum<{
+            OTHER: "OTHER";
             MALE: "MALE";
             FEMALE: "FEMALE";
-            OTHER: "OTHER";
         }>;
         status: z.ZodEnum<{
             ACTIVE: "ACTIVE";
@@ -1818,11 +1905,11 @@ export declare const schemas: {
         INVENTORY: "INVENTORY";
     }>;
     readonly InventoryItemType: z.ZodEnum<{
-        OTHER: "OTHER";
-        CHICKS: "CHICKS";
         FEED: "FEED";
         MEDICINE: "MEDICINE";
+        CHICKS: "CHICKS";
         EQUIPMENT: "EQUIPMENT";
+        OTHER: "OTHER";
     }>;
     readonly ReminderType: z.ZodEnum<{
         VACCINATION: "VACCINATION";
@@ -1888,9 +1975,9 @@ export declare const schemas: {
             SUPER_ADMIN: "SUPER_ADMIN";
         }>>>;
         gender: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+            OTHER: "OTHER";
             MALE: "MALE";
             FEMALE: "FEMALE";
-            OTHER: "OTHER";
         }>>>;
         ownerId: z.ZodOptional<z.ZodString>;
         companyName: z.ZodOptional<z.ZodString>;
@@ -1910,9 +1997,9 @@ export declare const schemas: {
             SUPER_ADMIN: "SUPER_ADMIN";
         }>>;
         gender: z.ZodOptional<z.ZodEnum<{
+            OTHER: "OTHER";
             MALE: "MALE";
             FEMALE: "FEMALE";
-            OTHER: "OTHER";
         }>>;
         status: z.ZodOptional<z.ZodEnum<{
             ACTIVE: "ACTIVE";
@@ -2491,13 +2578,13 @@ export declare const schemas: {
         batchId: z.ZodNullable<z.ZodString>;
         customerId: z.ZodNullable<z.ZodString>;
         itemType: z.ZodEnum<{
-            OTHER: "OTHER";
-            Chicken_Meat: "Chicken_Meat";
-            CHICKS: "CHICKS";
             FEED: "FEED";
             MEDICINE: "MEDICINE";
-            EGGS: "EGGS";
+            CHICKS: "CHICKS";
             EQUIPMENT: "EQUIPMENT";
+            OTHER: "OTHER";
+            Chicken_Meat: "Chicken_Meat";
+            EGGS: "EGGS";
         }>;
         categoryId: z.ZodNullable<z.ZodString>;
     }, z.core.$strip>;
@@ -2514,19 +2601,15 @@ export declare const schemas: {
         batchId: z.ZodOptional<z.ZodString>;
         customerId: z.ZodOptional<z.ZodString>;
         itemType: z.ZodOptional<z.ZodEnum<{
-            OTHER: "OTHER";
-            Chicken_Meat: "Chicken_Meat";
-            CHICKS: "CHICKS";
             FEED: "FEED";
             MEDICINE: "MEDICINE";
-            EGGS: "EGGS";
+            CHICKS: "CHICKS";
             EQUIPMENT: "EQUIPMENT";
+            OTHER: "OTHER";
+            Chicken_Meat: "Chicken_Meat";
+            EGGS: "EGGS";
         }>>;
-        eggCategory: z.ZodOptional<z.ZodEnum<{
-            LARGE: "LARGE";
-            MEDIUM: "MEDIUM";
-            SMALL: "SMALL";
-        }>>;
+        eggTypeId: z.ZodOptional<z.ZodString>;
         categoryId: z.ZodOptional<z.ZodString>;
         customerData: z.ZodOptional<z.ZodObject<{
             name: z.ZodString;
@@ -2548,14 +2631,15 @@ export declare const schemas: {
         batchId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         customerId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         itemType: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
-            OTHER: "OTHER";
-            Chicken_Meat: "Chicken_Meat";
-            CHICKS: "CHICKS";
             FEED: "FEED";
             MEDICINE: "MEDICINE";
-            EGGS: "EGGS";
+            CHICKS: "CHICKS";
             EQUIPMENT: "EQUIPMENT";
+            OTHER: "OTHER";
+            Chicken_Meat: "Chicken_Meat";
+            EGGS: "EGGS";
         }>>>;
+        eggTypeId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         categoryId: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>;
     readonly SalePayment: z.ZodObject<{
@@ -2585,11 +2669,11 @@ export declare const schemas: {
         userId: z.ZodString;
         categoryId: z.ZodString;
         itemType: z.ZodOptional<z.ZodEnum<{
-            OTHER: "OTHER";
-            CHICKS: "CHICKS";
             FEED: "FEED";
             MEDICINE: "MEDICINE";
+            CHICKS: "CHICKS";
             EQUIPMENT: "EQUIPMENT";
+            OTHER: "OTHER";
         }>>;
     }, z.core.$strip>;
     readonly CreateInventoryItem: z.ZodObject<{
@@ -2600,11 +2684,11 @@ export declare const schemas: {
         minStock: z.ZodOptional<z.ZodNumber>;
         categoryId: z.ZodOptional<z.ZodString>;
         itemType: z.ZodOptional<z.ZodEnum<{
-            OTHER: "OTHER";
-            CHICKS: "CHICKS";
             FEED: "FEED";
             MEDICINE: "MEDICINE";
+            CHICKS: "CHICKS";
             EQUIPMENT: "EQUIPMENT";
+            OTHER: "OTHER";
         }>>;
         rate: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strip>;
@@ -2616,11 +2700,11 @@ export declare const schemas: {
         minStock: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         categoryId: z.ZodOptional<z.ZodString>;
         itemType: z.ZodOptional<z.ZodEnum<{
-            OTHER: "OTHER";
-            CHICKS: "CHICKS";
             FEED: "FEED";
             MEDICINE: "MEDICINE";
+            CHICKS: "CHICKS";
             EQUIPMENT: "EQUIPMENT";
+            OTHER: "OTHER";
         }>>;
     }, z.core.$strip>;
     readonly InventoryTransaction: z.ZodObject<{
@@ -2706,6 +2790,8 @@ export declare const schemas: {
         reference: z.ZodNullable<z.ZodString>;
         entityType: z.ZodString;
         entityId: z.ZodString;
+        unit: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        unitPrice: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
     }, z.core.$strip>;
     readonly CreateEntityTransaction: z.ZodObject<{
         type: z.ZodEnum<{
@@ -2725,6 +2811,8 @@ export declare const schemas: {
         reference: z.ZodOptional<z.ZodString>;
         entityType: z.ZodString;
         entityId: z.ZodString;
+        unit: z.ZodOptional<z.ZodString>;
+        unitPrice: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strip>;
     readonly Dealer: z.ZodObject<{
         id: z.ZodString;
@@ -2734,6 +2822,7 @@ export declare const schemas: {
         contact: z.ZodString;
         address: z.ZodNullable<z.ZodString>;
         userId: z.ZodString;
+        classification: z.ZodDefault<z.ZodString>;
     }, z.core.$strip>;
     readonly CreateDealer: z.ZodObject<{
         name: z.ZodString;
@@ -2753,6 +2842,7 @@ export declare const schemas: {
         contact: z.ZodString;
         address: z.ZodNullable<z.ZodString>;
         userId: z.ZodString;
+        classification: z.ZodDefault<z.ZodString>;
         balance: z.ZodNumber;
         thisMonthAmount: z.ZodNumber;
         totalTransactions: z.ZodNumber;
@@ -2769,12 +2859,22 @@ export declare const schemas: {
             }>;
             amount: z.ZodNumber;
             quantity: z.ZodNullable<z.ZodNumber>;
+            freeQuantity: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
             itemName: z.ZodNullable<z.ZodString>;
+            purchaseCategory: z.ZodOptional<z.ZodNullable<z.ZodEnum<{
+                FEED: "FEED";
+                MEDICINE: "MEDICINE";
+                CHICKS: "CHICKS";
+                EQUIPMENT: "EQUIPMENT";
+                OTHER: "OTHER";
+            }>>>;
             date: z.ZodDate;
             description: z.ZodNullable<z.ZodString>;
             reference: z.ZodNullable<z.ZodString>;
+            imageUrl: z.ZodOptional<z.ZodNullable<z.ZodString>>;
             entityType: z.ZodString;
             entityId: z.ZodString;
+            paymentToPurchaseId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
             createdAt: z.ZodDate;
             updatedAt: z.ZodDate;
         }, z.core.$strip>>;
@@ -2792,12 +2892,22 @@ export declare const schemas: {
         }>;
         amount: z.ZodNumber;
         quantity: z.ZodNullable<z.ZodNumber>;
+        freeQuantity: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         itemName: z.ZodNullable<z.ZodString>;
+        purchaseCategory: z.ZodOptional<z.ZodNullable<z.ZodEnum<{
+            FEED: "FEED";
+            MEDICINE: "MEDICINE";
+            CHICKS: "CHICKS";
+            EQUIPMENT: "EQUIPMENT";
+            OTHER: "OTHER";
+        }>>>;
         date: z.ZodDate;
         description: z.ZodNullable<z.ZodString>;
         reference: z.ZodNullable<z.ZodString>;
+        imageUrl: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         entityType: z.ZodString;
         entityId: z.ZodString;
+        paymentToPurchaseId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         createdAt: z.ZodDate;
         updatedAt: z.ZodDate;
     }, z.core.$strip>;
@@ -2815,10 +2925,38 @@ export declare const schemas: {
         contact: z.ZodString;
         address: z.ZodNullable<z.ZodString>;
         userId: z.ZodString;
+        classification: z.ZodDefault<z.ZodString>;
         balance: z.ZodNumber;
         thisMonthAmount: z.ZodNumber;
         totalTransactions: z.ZodNumber;
-        transactionTable: z.ZodArray<z.ZodObject<{
+        purchases: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            itemName: z.ZodNullable<z.ZodString>;
+            purchaseCategory: z.ZodOptional<z.ZodNullable<z.ZodEnum<{
+                FEED: "FEED";
+                MEDICINE: "MEDICINE";
+                CHICKS: "CHICKS";
+                EQUIPMENT: "EQUIPMENT";
+                OTHER: "OTHER";
+            }>>>;
+            quantity: z.ZodNullable<z.ZodNumber>;
+            freeQuantity: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+            unitPrice: z.ZodNumber;
+            totalAmount: z.ZodNumber;
+            date: z.ZodDate;
+            description: z.ZodNullable<z.ZodString>;
+            reference: z.ZodNullable<z.ZodString>;
+            imageUrl: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        }, z.core.$strip>>;
+        payments: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            amount: z.ZodNumber;
+            date: z.ZodDate;
+            description: z.ZodNullable<z.ZodString>;
+            reference: z.ZodNullable<z.ZodString>;
+            imageUrl: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        }, z.core.$strip>>;
+        transactionTable: z.ZodOptional<z.ZodArray<z.ZodObject<{
             itemName: z.ZodString;
             rate: z.ZodNumber;
             quantity: z.ZodNumber;
@@ -2832,7 +2970,7 @@ export declare const schemas: {
                 date: z.ZodDate;
                 reference: z.ZodNullable<z.ZodString>;
             }, z.core.$strip>>;
-        }, z.core.$strip>>;
+        }, z.core.$strip>>>;
         summary: z.ZodObject<{
             totalPurchases: z.ZodNumber;
             totalPayments: z.ZodNumber;
@@ -3308,9 +3446,9 @@ export declare const schemas: {
             SUPER_ADMIN: "SUPER_ADMIN";
         }>;
         gender: z.ZodEnum<{
+            OTHER: "OTHER";
             MALE: "MALE";
             FEMALE: "FEMALE";
-            OTHER: "OTHER";
         }>;
         status: z.ZodEnum<{
             ACTIVE: "ACTIVE";
@@ -3338,9 +3476,9 @@ export declare const schemas: {
                 SUPER_ADMIN: "SUPER_ADMIN";
             }>;
             gender: z.ZodEnum<{
+                OTHER: "OTHER";
                 MALE: "MALE";
                 FEMALE: "FEMALE";
-                OTHER: "OTHER";
             }>;
             status: z.ZodEnum<{
                 ACTIVE: "ACTIVE";
