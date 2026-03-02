@@ -89,7 +89,7 @@ import { createMortalityColumns } from "@/components/batches/configs/mortalityCo
 import { createLedgerColumns } from "@/components/batches/configs/ledgerColumns";
 import { Banner } from "@/components/batches/sections/Banner";
 
-type ExpenseCategory = "Feed" | "Medicine" | "Hatchery" | "Other";
+type ExpenseCategory = "Feed" | "Medicine" | "Hatchery" | "Other" | "Add extra expenses";
 
 type ExpenseRow = {
   id: number;
