@@ -96,7 +96,9 @@ export const deleteEggType = async (req: Request, res: Response): Promise<any> =
     const existing = await prisma.eggType.findFirst({
       where: { id, userId },
       include: {
-        _count: { select: { inventories: true, productions: true, sales: true } },
+        _count: {
+          select: { inventories: true, batchEggInventories: true, productions: true, sales: true },
+        },
       },
     });
     if (!existing) {
@@ -104,6 +106,7 @@ export const deleteEggType = async (req: Request, res: Response): Promise<any> =
     }
     const used =
       (existing._count.inventories ?? 0) +
+      (existing._count.batchEggInventories ?? 0) +
       (existing._count.productions ?? 0) +
       (existing._count.sales ?? 0) >
       0;

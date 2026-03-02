@@ -17,7 +17,8 @@ export const saleQueryKeys = {
     [...saleQueryKeys.all, "statistics", params] as const,
   categories: (type?: CategoryType) =>
     [...saleQueryKeys.all, "categories", type] as const,
-  eggInventory: () => [...saleQueryKeys.all, "egg-inventory"] as const,
+  eggInventory: (batchId?: string | null) =>
+    [...saleQueryKeys.all, "egg-inventory", batchId ?? "user"] as const,
 };
 
 // ==================== QUERY HOOKS ====================
@@ -34,12 +35,17 @@ export interface EggInventoryData {
   types: EggInventoryType[];
 }
 
-// Get current user's egg inventory (dynamic types)
-export const useGetEggInventory = (options?: { enabled?: boolean }) => {
+// Get egg inventory: pass batchId to get that batch's stock; omit for user-level inventory
+export const useGetEggInventory = (options?: {
+  batchId?: string | null;
+  enabled?: boolean;
+}) => {
+  const batchId = options?.batchId;
   return useQuery<{ success: boolean; data: EggInventoryData }>({
-    queryKey: saleQueryKeys.eggInventory(),
+    queryKey: saleQueryKeys.eggInventory(batchId ?? undefined),
     queryFn: async () => {
-      const response = await axiosInstance.get("/egg-inventory");
+      const params = batchId ? { batchId } : {};
+      const response = await axiosInstance.get("/egg-inventory", { params });
       return response.data;
     },
     enabled: options?.enabled !== false,

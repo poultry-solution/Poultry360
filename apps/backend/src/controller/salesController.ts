@@ -670,7 +670,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
     let numericUnitPrice: number;
 
     if (useEggLines) {
-      // Validate each line and compute totals
+      // Validate each line and compute totals (use batch egg inventory when batchId provided)
       let totalAmount = 0;
       let totalQty = 0;
       for (const line of eggLineItems!) {
@@ -680,10 +680,13 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
         if (!eggType) {
           return res.status(400).json({ message: `Invalid egg type: ${line.eggTypeId}` });
         }
-        const inv = await prisma.eggInventory.findUnique({
-          where: { userId_eggTypeId: { userId: currentUserId, eggTypeId: line.eggTypeId } },
-        });
-        const available = inv?.quantity ?? 0;
+        const available = batchId
+          ? ((await prisma.batchEggInventory.findUnique({
+              where: { batchId_eggTypeId: { batchId, eggTypeId: line.eggTypeId } },
+            }))?.quantity ?? 0)
+          : ((await prisma.eggInventory.findUnique({
+              where: { userId_eggTypeId: { userId: currentUserId, eggTypeId: line.eggTypeId } },
+            }))?.quantity ?? 0);
         if (available < line.quantity) {
           return res.status(400).json({
             message: `Insufficient egg inventory. ${eggType.name}: available ${available}, requested ${line.quantity}`,
@@ -739,12 +742,13 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       if (!eggType) {
         return res.status(400).json({ message: "Invalid egg type" });
       }
-      const inv = await prisma.eggInventory.findUnique({
-        where: {
-          userId_eggTypeId: { userId: currentUserId, eggTypeId },
-        },
-      });
-      const available = inv?.quantity ?? 0;
+      const available = batchId
+        ? ((await prisma.batchEggInventory.findUnique({
+            where: { batchId_eggTypeId: { batchId, eggTypeId } },
+          }))?.quantity ?? 0)
+        : ((await prisma.eggInventory.findUnique({
+            where: { userId_eggTypeId: { userId: currentUserId, eggTypeId } },
+          }))?.quantity ?? 0);
       if (available < numericQuantity) {
         return res.status(400).json({
           message: `Insufficient egg inventory. Available (${eggType.name}): ${available}, requested: ${numericQuantity}`,
@@ -782,7 +786,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
         },
       });
 
-      // 1b. Egg sales: either create lines + decrement per line, or single type decrement
+      // 1b. Egg sales: decrement batch egg inventory when batchId set, else user egg inventory
       if (useEggLines && eggLineItems) {
         for (const line of eggLineItems) {
           await tx.saleEggLine.create({
@@ -793,27 +797,49 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
               unitPrice: line.unitPrice,
             },
           });
+          if (batchId) {
+            const inv = await tx.batchEggInventory.findUnique({
+              where: { batchId_eggTypeId: { batchId, eggTypeId: line.eggTypeId } },
+            });
+            if (inv) {
+              await tx.batchEggInventory.update({
+                where: { id: inv.id },
+                data: { quantity: { decrement: line.quantity } },
+              });
+            }
+          } else {
+            const inv = await tx.eggInventory.findUnique({
+              where: { userId_eggTypeId: { userId: currentUserId, eggTypeId: line.eggTypeId } },
+            });
+            if (inv) {
+              await tx.eggInventory.update({
+                where: { id: inv.id },
+                data: { quantity: { decrement: line.quantity } },
+              });
+            }
+          }
+        }
+      } else if (itemType === SalesItemType.EGGS && eggTypeId) {
+        if (batchId) {
+          const inv = await tx.batchEggInventory.findUnique({
+            where: { batchId_eggTypeId: { batchId, eggTypeId } },
+          });
+          if (inv) {
+            await tx.batchEggInventory.update({
+              where: { id: inv.id },
+              data: { quantity: { decrement: numericQuantity } },
+            });
+          }
+        } else {
           const inv = await tx.eggInventory.findUnique({
-            where: { userId_eggTypeId: { userId: currentUserId, eggTypeId: line.eggTypeId } },
+            where: { userId_eggTypeId: { userId: currentUserId, eggTypeId } },
           });
           if (inv) {
             await tx.eggInventory.update({
               where: { id: inv.id },
-              data: { quantity: { decrement: line.quantity } },
+              data: { quantity: { decrement: numericQuantity } },
             });
           }
-        }
-      } else if (itemType === SalesItemType.EGGS && eggTypeId) {
-        const inv = await tx.eggInventory.findUnique({
-          where: {
-            userId_eggTypeId: { userId: currentUserId, eggTypeId },
-          },
-        });
-        if (inv) {
-          await tx.eggInventory.update({
-            where: { id: inv.id },
-            data: { quantity: { decrement: numericQuantity } },
-          });
         }
       }
 
@@ -1217,33 +1243,58 @@ export const deleteSale = async (req: Request, res: Response): Promise<any> => {
         });
       }
 
-      // Restore egg inventory for EGGS sales before deleting (cascade removes eggLines)
+      // Restore egg inventory for EGGS sales (to batch inventory if sale had batchId, else user inventory)
+      const saleBatchId = existingSale.batchId;
       if (existingSale.itemType === SalesItemType.EGGS) {
         if (existingSale.eggLines && existingSale.eggLines.length > 0) {
           for (const line of existingSale.eggLines) {
+            if (saleBatchId) {
+              const inv = await tx.batchEggInventory.findUnique({
+                where: { batchId_eggTypeId: { batchId: saleBatchId, eggTypeId: line.eggTypeId } },
+              });
+              if (inv) {
+                await tx.batchEggInventory.update({
+                  where: { id: inv.id },
+                  data: { quantity: { increment: line.quantity } },
+                });
+              }
+            } else {
+              const inv = await tx.eggInventory.findUnique({
+                where: {
+                  userId_eggTypeId: { userId: currentUserId as string, eggTypeId: line.eggTypeId },
+                },
+              });
+              if (inv) {
+                await tx.eggInventory.update({
+                  where: { id: inv.id },
+                  data: { quantity: { increment: line.quantity } },
+                });
+              }
+            }
+          }
+        } else if (existingSale.eggTypeId) {
+          if (saleBatchId) {
+            const inv = await tx.batchEggInventory.findUnique({
+              where: { batchId_eggTypeId: { batchId: saleBatchId, eggTypeId: existingSale.eggTypeId } },
+            });
+            if (inv) {
+              await tx.batchEggInventory.update({
+                where: { id: inv.id },
+                data: { quantity: { increment: Number(existingSale.quantity) } },
+              });
+            }
+          } else {
             const inv = await tx.eggInventory.findUnique({
               where: {
-                userId_eggTypeId: { userId: currentUserId as string, eggTypeId: line.eggTypeId },
+                userId_eggTypeId: { userId: currentUserId as string, eggTypeId: existingSale.eggTypeId },
               },
             });
             if (inv) {
               await tx.eggInventory.update({
                 where: { id: inv.id },
-                data: { quantity: { increment: line.quantity } },
+                data: { quantity: { increment: Number(existingSale.quantity) } },
               });
             }
-          }
-        } else if (existingSale.eggTypeId) {
-          const inv = await tx.eggInventory.findUnique({
-            where: {
-              userId_eggTypeId: { userId: currentUserId as string, eggTypeId: existingSale.eggTypeId },
-            },
-          });
-          if (inv) {
-            await tx.eggInventory.update({
-              where: { id: inv.id },
-              data: { quantity: { increment: Number(existingSale.quantity) } },
-            });
           }
         }
       }

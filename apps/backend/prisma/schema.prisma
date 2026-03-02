@@ -363,6 +363,8 @@ model Batch {
 
   // Layers: daily egg production (one record per batch per day)
   eggProductions EggProduction[]
+  // Per-batch egg inventory (so sales show and deduct from this batch's stock)
+  batchEggInventories BatchEggInventory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -385,10 +387,11 @@ model EggType {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  inventories   EggInventory[]
-  productions   EggProductionEntry[]
-  sales         Sale[]
-  saleEggLines  SaleEggLine[]
+  inventories         EggInventory[]
+  batchEggInventories BatchEggInventory[]
+  productions         EggProductionEntry[]
+  sales               Sale[]
+  saleEggLines        SaleEggLine[]
 
   @@unique([userId, code])
   @@index([userId])
@@ -435,6 +438,23 @@ model EggInventory {
 
   @@unique([userId, eggTypeId])
   @@index([userId])
+}
+
+// Per-batch egg inventory: which eggs belong to which batch (for layers)
+model BatchEggInventory {
+  id        String   @id @default(cuid())
+  batchId   String
+  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  eggTypeId String
+  eggType   EggType  @relation(fields: [eggTypeId], references: [id], onDelete: Cascade)
+  quantity  Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([batchId, eggTypeId])
+  @@index([batchId])
+  @@index([eggTypeId])
 }
 
 // ==================== UNIFIED CATEGORY MODEL ====================

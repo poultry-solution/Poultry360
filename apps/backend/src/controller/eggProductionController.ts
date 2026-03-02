@@ -5,33 +5,34 @@ import {
   UpdateEggProductionSchema,
 } from "@myapp/shared-types";
 
-async function updateEggInventoryForProduction(
+/** Updates per-batch egg inventory (BatchEggInventory) for production create/update/delete. */
+async function updateBatchEggInventoryForProduction(
   tx: any,
-  userId: string,
+  batchId: string,
   delta: Record<string, number>
 ) {
   for (const [eggTypeId, count] of Object.entries(delta)) {
     if (count === 0) continue;
     if (count > 0) {
-      const existing = await tx.eggInventory.findUnique({
-        where: { userId_eggTypeId: { userId, eggTypeId } },
+      const existing = await tx.batchEggInventory.findUnique({
+        where: { batchId_eggTypeId: { batchId, eggTypeId } },
       });
       if (existing) {
-        await tx.eggInventory.update({
+        await tx.batchEggInventory.update({
           where: { id: existing.id },
           data: { quantity: { increment: count } },
         });
       } else {
-        await tx.eggInventory.create({
-          data: { userId, eggTypeId, quantity: count },
+        await tx.batchEggInventory.create({
+          data: { batchId, eggTypeId, quantity: count },
         });
       }
     } else {
-      const existing = await tx.eggInventory.findUnique({
-        where: { userId_eggTypeId: { userId, eggTypeId } },
+      const existing = await tx.batchEggInventory.findUnique({
+        where: { batchId_eggTypeId: { batchId, eggTypeId } },
       });
       if (existing) {
-        await tx.eggInventory.update({
+        await tx.batchEggInventory.update({
           where: { id: existing.id },
           data: { quantity: { decrement: Math.abs(count) } },
         });
@@ -162,7 +163,7 @@ export const createEggProduction = async (
         }
       }
 
-      await updateEggInventoryForProduction(tx, batch.farm.ownerId, {
+      await updateBatchEggInventoryForProduction(tx, batchId, {
         ...Object.fromEntries(
           Object.entries(counts).map(([k, v]) => [k, Number(v) || 0])
         ),
@@ -251,7 +252,7 @@ export const updateEggProduction = async (
         }
       }
 
-      await updateEggInventoryForProduction(tx, batch.farm.ownerId, delta);
+      await updateBatchEggInventoryForProduction(tx, batchId, delta);
 
       return tx.eggProduction.findUnique({
         where: { id: recordId },
@@ -301,7 +302,7 @@ export const deleteEggProduction = async (
       for (const e of existing.entries) {
         delta[e.eggTypeId] = -e.count;
       }
-      await updateEggInventoryForProduction(tx, batch.farm.ownerId, delta);
+      await updateBatchEggInventoryForProduction(tx, batchId, delta);
 
       await tx.eggProduction.delete({ where: { id: recordId } });
     });

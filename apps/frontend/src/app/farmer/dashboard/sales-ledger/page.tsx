@@ -226,6 +226,7 @@ export default function SalesLedgerPage() {
   const { data: eggTypesData } = useGetEggTypes({ enabled: true });
   const eggTypes = eggTypesData?.data ?? [];
   const { data: eggInventoryResponse } = useGetEggInventory({
+    batchId: saleForm.batchId || null,
     enabled: isSaleModalOpen && saleForm.itemType === "EGGS",
   });
   const eggInventory = eggInventoryResponse?.data;
