@@ -3,10 +3,9 @@ import prisma from "../utils/prisma";
 
 /**
  * GET /egg-inventory?batchId=xxx
+ * Egg stock is per batch only. batchId is required for meaningful inventory.
  * - If batchId: returns that batch's egg inventory (BatchEggInventory). Verifies user has access to the batch.
- * - If no batchId: returns user-level egg inventory (EggInventory) for backward compatibility.
- * data.quantities: { [eggTypeId]: quantity }
- * data.types: [{ id, name, code, quantity }] for UI
+ * - If no batchId: returns user's egg types with quantities 0 (no batch = no stock).
  */
 export const getEggInventory = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -56,16 +55,11 @@ export const getEggInventory = async (req: Request, res: Response): Promise<any>
       });
     }
 
-    const inventories = await prisma.eggInventory.findMany({
-      where: { userId },
-      select: { eggTypeId: true, quantity: true },
-    });
-
+    // No batch: egg stock is per batch only, so return types with 0 quantity
     const quantities: Record<string, number> = {};
     const typesWithQty = types.map((t) => {
-      const qty = inventories.find((i) => i.eggTypeId === t.id)?.quantity ?? 0;
-      quantities[t.id] = Number(qty);
-      return { ...t, quantity: Number(qty) };
+      quantities[t.id] = 0;
+      return { ...t, quantity: 0 };
     });
 
     return res.json({

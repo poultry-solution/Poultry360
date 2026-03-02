@@ -516,20 +516,20 @@ async function main() {
       create: { userId: farmer1.id, name: "Small", code: "SMALL", displayOrder: 2 },
       update: {},
     });
-    // Seed egg inventory for farmer1 so sales have stock to deduct from
-    await prisma.eggInventory.upsert({
-      where: { userId_eggTypeId: { userId: farmer1.id, eggTypeId: farmer1Large.id } },
-      create: { userId: farmer1.id, eggTypeId: farmer1Large.id, quantity: 5000 },
+    // Seed per-batch egg inventory for batch1 (layers) so sales have stock to deduct from
+    await prisma.batchEggInventory.upsert({
+      where: { batchId_eggTypeId: { batchId: batch1.id, eggTypeId: farmer1Large.id } },
+      create: { batchId: batch1.id, eggTypeId: farmer1Large.id, quantity: 5000 },
       update: { quantity: 5000 },
     });
-    await prisma.eggInventory.upsert({
-      where: { userId_eggTypeId: { userId: farmer1.id, eggTypeId: farmer1Medium.id } },
-      create: { userId: farmer1.id, eggTypeId: farmer1Medium.id, quantity: 3000 },
+    await prisma.batchEggInventory.upsert({
+      where: { batchId_eggTypeId: { batchId: batch1.id, eggTypeId: farmer1Medium.id } },
+      create: { batchId: batch1.id, eggTypeId: farmer1Medium.id, quantity: 3000 },
       update: { quantity: 3000 },
     });
-    await prisma.eggInventory.upsert({
-      where: { userId_eggTypeId: { userId: farmer1.id, eggTypeId: farmer1Small.id } },
-      create: { userId: farmer1.id, eggTypeId: farmer1Small.id, quantity: 2000 },
+    await prisma.batchEggInventory.upsert({
+      where: { batchId_eggTypeId: { batchId: batch1.id, eggTypeId: farmer1Small.id } },
+      create: { batchId: batch1.id, eggTypeId: farmer1Small.id, quantity: 2000 },
       update: { quantity: 2000 },
     });
 
@@ -563,9 +563,9 @@ async function main() {
           },
         ],
       });
-      // Decrement egg inventory for the two single-type sales (1000 + 1200 Large)
-      await prisma.eggInventory.update({
-        where: { userId_eggTypeId: { userId: farmer1.id, eggTypeId: farmer1Large.id } },
+      // Decrement batch egg inventory for the two single-type sales (1000 + 1200 Large)
+      await prisma.batchEggInventory.update({
+        where: { batchId_eggTypeId: { batchId: batch1.id, eggTypeId: farmer1Large.id } },
         data: { quantity: { decrement: 2200 } },
       });
 
@@ -591,17 +591,17 @@ async function main() {
           { saleId: multiLineEggSale.id, eggTypeId: farmer1Small.id, quantity: 20, unitPrice: 10 },
         ],
       });
-      // Decrement egg inventory to match the multi-line sale
-      await prisma.eggInventory.update({
-        where: { userId_eggTypeId: { userId: farmer1.id, eggTypeId: farmer1Large.id } },
+      // Decrement batch egg inventory to match the multi-line sale
+      await prisma.batchEggInventory.update({
+        where: { batchId_eggTypeId: { batchId: batch1.id, eggTypeId: farmer1Large.id } },
         data: { quantity: { decrement: 10 } },
       });
-      await prisma.eggInventory.update({
-        where: { userId_eggTypeId: { userId: farmer1.id, eggTypeId: farmer1Medium.id } },
+      await prisma.batchEggInventory.update({
+        where: { batchId_eggTypeId: { batchId: batch1.id, eggTypeId: farmer1Medium.id } },
         data: { quantity: { decrement: 10 } },
       });
-      await prisma.eggInventory.update({
-        where: { userId_eggTypeId: { userId: farmer1.id, eggTypeId: farmer1Small.id } },
+      await prisma.batchEggInventory.update({
+        where: { batchId_eggTypeId: { batchId: batch1.id, eggTypeId: farmer1Small.id } },
         data: { quantity: { decrement: 20 } },
       });
     }

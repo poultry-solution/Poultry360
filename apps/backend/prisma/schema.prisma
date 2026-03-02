@@ -223,8 +223,6 @@ model User {
 
   // Egg types (user-defined: Large, XL, etc.)
   eggTypes EggType[]
-  // Egg inventory (Layers: by type)
-  eggInventories EggInventory[]
 
   // Chat relationships
   farmerConversations Conversation[] @relation("FarmerConversations")
@@ -387,7 +385,6 @@ model EggType {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  inventories         EggInventory[]
   batchEggInventories BatchEggInventory[]
   productions         EggProductionEntry[]
   sales               Sale[]
@@ -423,21 +420,6 @@ model EggProductionEntry {
 
   @@unique([eggProductionId, eggTypeId])
   @@index([eggProductionId])
-}
-
-model EggInventory {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  eggTypeId  String
-  eggType    EggType  @relation(fields: [eggTypeId], references: [id], onDelete: Cascade)
-  quantity   Int      @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([userId, eggTypeId])
-  @@index([userId])
 }
 
 // Per-batch egg inventory: which eggs belong to which batch (for layers)

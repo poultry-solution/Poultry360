@@ -97,7 +97,7 @@ export const deleteEggType = async (req: Request, res: Response): Promise<any> =
       where: { id, userId },
       include: {
         _count: {
-          select: { inventories: true, batchEggInventories: true, productions: true, sales: true },
+          select: { batchEggInventories: true, productions: true, sales: true },
         },
       },
     });
@@ -105,7 +105,6 @@ export const deleteEggType = async (req: Request, res: Response): Promise<any> =
       return res.status(404).json({ message: "Egg type not found" });
     }
     const used =
-      (existing._count.inventories ?? 0) +
       (existing._count.batchEggInventories ?? 0) +
       (existing._count.productions ?? 0) +
       (existing._count.sales ?? 0) >
