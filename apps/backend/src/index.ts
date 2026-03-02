@@ -21,13 +21,16 @@ const allowedOrigins = [
   "https://poultry360-frontend.vercel.app",
 ];
 
+const defaultOrigin = "https://poultry360-frontend.vercel.app";
+
 console.log("🔧 Allowed CORS origins:", allowedOrigins);
 
 app.use(
   cors({
     origin: function (origin, callback) {
+      // With credentials: true we must return a specific origin, never *
       if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, origin ?? true);
+        callback(null, origin || defaultOrigin);
       } else {
         callback(new Error("Not allowed by CORS"));
       }
