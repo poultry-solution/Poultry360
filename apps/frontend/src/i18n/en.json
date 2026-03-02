@@ -185,6 +185,8 @@
       "signupDealer": "Sign up as Dealer",
       "registerCompany": "Want to register as a company?",
       "signupCompany": "Sign up as Company",
+      "registerDoctor": "Are you a vet or doctor?",
+      "signupDoctor": "Sign up as Doctor",
       "errors": {
         "passwordMismatch": "Passwords do not match!",
         "passwordTooShort": "Password must be at least 6 characters long!",
@@ -251,6 +253,31 @@
         "ownerNameRequired": "Owner name is required!",
         "phoneInvalid": "Phone number must be exactly 10 digits!",
         "dealerNameRequired": "Dealer name is required!",
+        "passwordTooShort": "Password must be at least 6 characters long!",
+        "passwordMismatch": "Passwords do not match!",
+        "registrationFailed": "Registration failed. Please try again."
+      }
+    },
+    "doctorSignup": {
+      "title": "Doctor Registration",
+      "subtitle": "Create your doctor account to support farmers",
+      "nameLabel": "Full Name *",
+      "phoneLabel": "Phone Number *",
+      "phonePlaceholder": "98XXXXXXXX",
+      "phoneHelp": "Your contact number for login and notifications.",
+      "clinicNameLabel": "Clinic / Practice Name",
+      "clinicNamePlaceholder": "Optional",
+      "clinicLocationLabel": "Clinic Location",
+      "clinicLocationPlaceholder": "e.g. Province, City",
+      "passwordLabel": "Password *",
+      "confirmPasswordLabel": "Confirm Password *",
+      "createAccount": "Create Doctor Account",
+      "creatingAccount": "Creating account...",
+      "alreadyHaveAccount": "Already have an account?",
+      "login": "Log in",
+      "errors": {
+        "nameRequired": "Name is required!",
+        "phoneInvalid": "Phone number must be exactly 10 digits!",
         "passwordTooShort": "Password must be at least 6 characters long!",
         "passwordMismatch": "Passwords do not match!",
         "registrationFailed": "Registration failed. Please try again."

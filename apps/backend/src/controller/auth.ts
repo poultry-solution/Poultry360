@@ -646,14 +646,14 @@ export const registerEntity = async (
       });
     }
 
-    if (!entityType || !["DEALER", "COMPANY"].includes(entityType)) {
+    if (!entityType || !["DEALER", "COMPANY", "DOCTOR"].includes(entityType)) {
       return res.status(400).json({
         success: false,
-        message: "Entity type must be either DEALER or COMPANY",
+        message: "Entity type must be DEALER, COMPANY, or DOCTOR",
       });
     }
 
-    if (!entityName) {
+    if (entityType !== "DOCTOR" && !entityName) {
       return res.status(400).json({
         success: false,
         message: "Entity name is required",
@@ -687,8 +687,8 @@ export const registerEntity = async (
       });
     }
 
-    // Validate company exists if companyId is provided
-    if (companyId) {
+    // Validate company exists if companyId is provided (DEALER only)
+    if (entityType === "DEALER" && companyId) {
       const company = await prisma.company.findUnique({
         where: { id: companyId },
       });
@@ -706,18 +706,40 @@ export const registerEntity = async (
 
     // Determine user role based on entity type
     const userRole =
-      entityType === "DEALER" ? UserRole.DEALER : UserRole.COMPANY;
+      entityType === "DEALER"
+        ? UserRole.DEALER
+        : entityType === "COMPANY"
+          ? UserRole.COMPANY
+          : UserRole.DOCTOR;
 
     // Create user and entity in a transaction
     const result = await prisma.$transaction(async (tx) => {
-      // Create user
+      // For DOCTOR: only create user with clinic info (companyName, CompanyFarmLocation)
+      if (entityType === "DOCTOR") {
+        const user = await tx.user.create({
+          data: {
+            name,
+            phone,
+            password: hashedPassword,
+            role: UserRole.DOCTOR,
+            status: UserStatus.ACTIVE,
+            language: "ENGLISH",
+            calendarType: "AD",
+            companyName: entityName || null,
+            CompanyFarmLocation: entityAddress || null,
+          },
+        });
+        return { user, entity: null, entityType: "DOCTOR" as const };
+      }
+
+      // Create user for DEALER/COMPANY
       const user = await tx.user.create({
         data: {
           name,
           phone,
           password: hashedPassword,
           role: userRole,
-          status: UserStatus.ACTIVE, // Active by default for dealer/company
+          status: UserStatus.ACTIVE,
           language: "ENGLISH",
           calendarType: "AD",
         },
@@ -791,7 +813,7 @@ export const registerEntity = async (
     });
 
     // Return access token and user data
-    return res.status(201).json({
+    const responsePayload: any = {
       success: true,
       accessToken: tokens.accessToken,
       user: {
@@ -801,13 +823,23 @@ export const registerEntity = async (
         role: result.user.role,
         status: result.user.status,
       },
-      entity: {
+      message: `${result.entityType} account created successfully`,
+    };
+
+    if (result.entity) {
+      responsePayload.entity = {
         id: result.entity.id,
         name: result.entity.name,
         type: result.entityType,
-      },
-      message: `${result.entityType} account created successfully`,
-    });
+      };
+    } else {
+      // Doctor: no separate entity; clinic info on user
+      responsePayload.entity = null;
+      responsePayload.user.companyName = result.user.companyName;
+      responsePayload.user.companyFarmLocation = result.user.CompanyFarmLocation;
+    }
+
+    return res.status(201).json(responsePayload);
   } catch (error: any) {
     console.error("Entity registration error:", error);
 

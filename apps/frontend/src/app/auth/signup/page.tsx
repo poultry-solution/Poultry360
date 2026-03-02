@@ -401,6 +401,15 @@ export default function SignupPage() {
                 {t("auth.signup.signupCompany")}
               </Link>
             </p>
+            <p className="text-sm text-muted-foreground text-center">
+              {t("auth.signup.registerDoctor")}{" "}
+              <Link
+                href="/auth/signup/doctor"
+                className="text-primary hover:underline"
+              >
+                {t("auth.signup.signupDoctor")}
+              </Link>
+            </p>
           </div>
         </div>
       </div>
