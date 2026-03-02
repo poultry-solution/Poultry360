@@ -26,8 +26,11 @@ class SocketService {
         return;
       }
 
-      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:8081';
-      
+      // Use SOCKET_URL if set; otherwise derive from API_URL (e.g. ngrok) so prod works with one env
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+      const baseFromApi = apiUrl.replace(/\/api\/v1\/?$/, '') || 'http://localhost:8081';
+      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || baseFromApi;
+
       this.socket = io(socketUrl, {
         auth: {
           token
