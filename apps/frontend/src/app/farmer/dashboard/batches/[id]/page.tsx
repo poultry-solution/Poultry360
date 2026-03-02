@@ -223,8 +223,10 @@ export default function BatchDetailPage() {
   // Inventory for expense dropdowns: real InventoryItem id + currentStock (so deduction works)
   const { data: feedForExpenseRes } = useGetInventoryForExpense("FEED");
   const { data: medicineForExpenseRes } = useGetInventoryForExpense("MEDICINE");
+  const { data: otherForExpenseRes } = useGetInventoryForExpense("OTHER");
   const feedInventoryForExpense = feedForExpenseRes?.data ?? [];
   const medicineInventoryForExpense = medicineForExpenseRes?.data ?? [];
+  const otherInventoryForExpense = otherForExpenseRes?.data ?? [];
 
   // Fetch sales data for this batch
   const {
@@ -583,6 +585,7 @@ export default function BatchDetailPage() {
     medicineRate: "",
     medicineQuantity: "",
     selectedMedicineId: "",
+    selectedOtherId: "",
     otherName: "",
     otherRate: "",
     otherQuantity: "",
@@ -621,6 +624,30 @@ export default function BatchDetailPage() {
       }));
     }
   }
+
+  // Handle other (from inventory) selection – id is InventoryItem.id
+  function handleOtherSelection(otherId: string) {
+    if (!otherId) {
+      setExpenseForm((prev) => ({
+        ...prev,
+        selectedOtherId: "",
+        otherName: prev.otherName,
+        otherRate: "",
+        otherQuantity: "",
+      }));
+      return;
+    }
+    const selectedOther = otherInventoryForExpense.find((o: any) => o.id === otherId);
+    if (selectedOther) {
+      setExpenseForm((prev) => ({
+        ...prev,
+        selectedOtherId: otherId,
+        otherName: selectedOther.name,
+        otherRate: String(selectedOther.rate ?? 0),
+      }));
+    }
+  }
+
   function openNewExpense() {
     setEditingExpenseId(null);
     setExpenseForm({
@@ -638,6 +665,7 @@ export default function BatchDetailPage() {
       medicineRate: "",
       medicineQuantity: "",
       selectedMedicineId: "",
+      selectedOtherId: "",
       otherName: "",
       otherRate: "",
       otherQuantity: "",
@@ -663,6 +691,7 @@ export default function BatchDetailPage() {
       medicineRate: row.unitPrice?.toString() || "",
       medicineQuantity: row.quantity?.toString() || "",
       selectedMedicineId: "",
+      selectedOtherId: "",
       otherName: "",
       otherRate: row.unitPrice?.toString() || "",
       otherQuantity: row.quantity?.toString() || "",
@@ -741,10 +770,23 @@ export default function BatchDetailPage() {
           errs.medicineQuantity = `Only ${available} ${selectedMedicine.unit} available`;
         }
       }
-    } else {
-      if (!expenseForm.otherName) errs.otherName = "Expense name required";
-      if (!expenseForm.otherQuantity) errs.otherQuantity = "Quantity required";
-      if (!expenseForm.otherRate) errs.otherRate = "Rate required";
+    } else if (expenseForm.category === "Other") {
+      if (expenseForm.selectedOtherId) {
+        if (!expenseForm.otherQuantity) errs.otherQuantity = "Quantity required";
+        if (!expenseForm.otherRate) errs.otherRate = "Rate required";
+        const selectedOther = otherInventoryForExpense.find(
+          (o: any) => o.id === expenseForm.selectedOtherId
+        );
+        const requestedQty = Number(expenseForm.otherQuantity);
+        const available = selectedOther?.quantity ?? selectedOther?.currentStock ?? 0;
+        if (selectedOther && requestedQty > available) {
+          errs.otherQuantity = `Only ${available} ${selectedOther.unit} available`;
+        }
+      } else {
+        if (!expenseForm.otherName) errs.otherName = "Expense name required";
+        if (!expenseForm.otherQuantity) errs.otherQuantity = "Quantity required";
+        if (!expenseForm.otherRate) errs.otherRate = "Rate required";
+      }
     }
     setExpenseErrors(errs);
     return Object.keys(errs).length === 0;
@@ -817,13 +859,20 @@ export default function BatchDetailPage() {
             notes: `Medicine: ${expenseForm.medicineName}`,
           });
         }
-      } else {
+      } else if (ec === "Other") {
         const q = Number(expenseForm.otherQuantity || 0);
         const r = Number(expenseForm.otherRate || 0);
         amount = q * r;
         quantity = q;
         unitPrice = r;
-        description = `${expenseForm.otherName} - ${description}`;
+        description = `${expenseForm.otherName || "Other"} - ${description}`;
+        if (expenseForm.selectedOtherId && q > 0) {
+          inventoryItems.push({
+            itemId: expenseForm.selectedOtherId,
+            quantity: q,
+            notes: `Other: ${expenseForm.otherName || "Other"}`,
+          });
+        }
       }
 
       const expenseData = {
@@ -1831,11 +1880,13 @@ export default function BatchDetailPage() {
         expenseCategories={expenseCategories}
         feedInventory={feedInventoryForExpense}
         medicineInventory={medicineInventoryForExpense}
+        otherInventory={otherInventoryForExpense}
         inventoryItems={inventoryItems}
         onSubmit={submitExpense}
         onFieldUpdate={updateExpenseField}
         onFeedSelection={handleFeedSelection}
         onMedicineSelection={handleMedicineSelection}
+        onOtherSelection={handleOtherSelection}
         isPending={createExpenseMutation.isPending || updateExpenseMutation.isPending}
       />
 

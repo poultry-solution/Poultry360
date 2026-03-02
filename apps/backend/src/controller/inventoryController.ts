@@ -748,7 +748,7 @@ export const getInventoryForExpense = async (
     }
 
     const where: any = { userId: currentUserId };
-    if (itemType === "FEED" || itemType === "MEDICINE") {
+    if (itemType === "FEED" || itemType === "MEDICINE" || itemType === "OTHER") {
       where.itemType = itemType as InventoryItemType;
     }
 

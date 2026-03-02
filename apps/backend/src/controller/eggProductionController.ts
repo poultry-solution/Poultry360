@@ -136,13 +136,6 @@ export const createEggProduction = async (
       const hasAccess = batch.farm.ownerId === currentUserId;
       if (!hasAccess) throw new Error("Access denied");
 
-      const existing = await tx.eggProduction.findUnique({
-        where: { batchId_date: { batchId, date: new Date(date) } },
-      });
-      if (existing) {
-        throw new Error("A production record already exists for this batch and date");
-      }
-
       const created = await tx.eggProduction.create({
         data: {
           batchId,

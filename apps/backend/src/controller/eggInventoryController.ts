@@ -21,7 +21,11 @@ export const getEggInventory = async (req: Request, res: Response): Promise<any>
     if (batchId) {
       const batch = await prisma.batch.findUnique({
         where: { id: batchId },
-        include: { farm: { select: { ownerId: true }, include: { managers: { select: { id: true } } } } },
+        include: {
+          farm: {
+            select: { ownerId: true, managers: { select: { id: true } } },
+          },
+        },
       });
       if (!batch) {
         return res.status(404).json({ message: "Batch not found" });

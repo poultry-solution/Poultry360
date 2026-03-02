@@ -405,7 +405,6 @@ model EggProduction {
 
   entries EggProductionEntry[]
 
-  @@unique([batchId, date])
   @@index([batchId, date])
 }
 

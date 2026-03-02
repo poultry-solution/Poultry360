@@ -60,14 +60,22 @@ import {
   SelectValue,
 } from "@/common/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/common/components/ui/tabs";
+import { useI18n } from "@/i18n/useI18n";
 
-const PURCHASE_CATEGORIES = [
-  { value: "FEED", label: "Feed" },
-  { value: "MEDICINE", label: "Medicine" },
-  { value: "CHICKS", label: "Chicks" },
-  { value: "EQUIPMENT", label: "Equipment" },
-  { value: "OTHER", label: "Other" },
-];
+const PURCHASE_CATEGORY_VALUES = [
+  "FEED",
+  "MEDICINE",
+  "CHICKS",
+  "EQUIPMENT",
+  "OTHER",
+] as const;
+const CATEGORY_I18N_KEYS: Record<(typeof PURCHASE_CATEGORY_VALUES)[number], string> = {
+  FEED: "farmer.supplierLedger.categories.feed",
+  MEDICINE: "farmer.supplierLedger.categories.medicine",
+  CHICKS: "farmer.supplierLedger.categories.chicks",
+  EQUIPMENT: "farmer.supplierLedger.categories.equipment",
+  OTHER: "farmer.supplierLedger.categories.other",
+};
 
 function getCategoryBadgeColor(category: string | null | undefined) {
   switch (category) {
@@ -87,6 +95,7 @@ function getCategoryBadgeColor(category: string | null | undefined) {
 }
 
 export default function SupplierLedgerPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [activeSupplierId, setActiveSupplierId] = useState<string>("");
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
@@ -199,17 +208,22 @@ export default function SupplierLedgerPage() {
     }
   }, [isPaymentRequestOpen]);
 
+  const getCategoryLabel = (category: string | null | undefined) =>
+    category && PURCHASE_CATEGORY_VALUES.includes(category as any)
+      ? t(CATEGORY_I18N_KEYS[category as (typeof PURCHASE_CATEGORY_VALUES)[number]])
+      : "—";
+
   // Purchases columns
   const purchaseColumns: Column[] = [
-    createColumn("purchaseCategory", "Category", {
+    createColumn("purchaseCategory", t("farmer.supplierLedger.table.category"), {
       render: (_, row) => (
         <Badge className={`${getCategoryBadgeColor(row.purchaseCategory)} text-[10px] md:text-xs`}>
-          {row.purchaseCategory || "—"}
+          {getCategoryLabel(row.purchaseCategory)}
         </Badge>
       ),
     }),
-    createColumn("itemName", "Item"),
-    createColumn("quantity", "Qty", {
+    createColumn("itemName", t("farmer.supplierLedger.table.item")),
+    createColumn("quantity", t("farmer.supplierLedger.table.qty"), {
       type: "number",
       align: "right",
       render: (_, row) => {
@@ -225,7 +239,7 @@ export default function SupplierLedgerPage() {
         );
       },
     }),
-    createColumn("unitPrice", "Rate", {
+    createColumn("unitPrice", t("farmer.supplierLedger.table.rate"), {
       align: "right",
       render: (_, row) => {
         const price = row.unitPrice || row.amount / (row.quantity || 1);
@@ -237,14 +251,14 @@ export default function SupplierLedgerPage() {
         );
       },
     }),
-    createColumn("amount", "Amount", {
+    createColumn("amount", t("farmer.supplierLedger.table.amount"), {
       type: "currency",
       align: "right",
     }),
-    createColumn("date", "Date", {
+    createColumn("date", t("farmer.supplierLedger.table.date"), {
       type: "date",
     }),
-    createColumn("description", "Note", {
+    createColumn("description", t("farmer.supplierLedger.table.note"), {
       render: (_, row) => (
         <span className="text-xs text-muted-foreground truncate max-w-[120px] block">
           {row.description || "—"}
@@ -255,28 +269,28 @@ export default function SupplierLedgerPage() {
 
   // Payments columns
   const paymentColumns: Column[] = [
-    createColumn("amount", "Amount", {
+    createColumn("amount", t("farmer.supplierLedger.table.amount"), {
       type: "currency",
       align: "right",
     }),
-    createColumn("date", "Date", {
+    createColumn("date", t("farmer.supplierLedger.table.date"), {
       type: "date",
     }),
-    createColumn("description", "Note", {
+    createColumn("description", t("farmer.supplierLedger.table.note"), {
       render: (_, row) => (
         <span className="text-xs text-muted-foreground">
           {row.description || "—"}
         </span>
       ),
     }),
-    createColumn("reference", "Reference", {
+    createColumn("reference", t("farmer.supplierLedger.table.reference"), {
       render: (_, row) => (
         <span className="text-xs text-muted-foreground">
           {row.reference || "—"}
         </span>
       ),
     }),
-    createColumn("imageUrl", "Receipt", {
+    createColumn("imageUrl", t("farmer.supplierLedger.table.receipt"), {
       render: (_, row) =>
         row.imageUrl ? (
           <a
@@ -286,7 +300,7 @@ export default function SupplierLedgerPage() {
             className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
           >
             <Eye className="h-3.5 w-3.5" />
-            View
+            {t("farmer.supplierLedger.table.view")}
           </a>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
@@ -354,14 +368,14 @@ export default function SupplierLedgerPage() {
       setPasswordForm({ password: "" });
 
       if (failed === 0) {
-        toast.success("Selected entries deleted successfully");
+        toast.success(t("farmer.supplierLedger.toast.entriesDeleted"));
       } else {
         toast.error(
-          `Failed to delete ${failed} entr${failed === 1 ? "y" : "ies"}`
+          t("farmer.supplierLedger.toast.failedDeleteEntries", { count: failed })
         );
       }
     } catch (error) {
-      toast.error("Password verification failed. Deletion cancelled.");
+      toast.error(t("farmer.supplierLedger.toast.passwordFailed"));
       setIsPasswordModalOpen(false);
       setPasswordForm({ password: "" });
     }
@@ -380,7 +394,7 @@ export default function SupplierLedgerPage() {
         address: newSupplier.address || undefined,
       });
 
-      toast.success("Supplier created successfully!");
+      toast.success(t("farmer.supplierLedger.toast.supplierCreated"));
       setIsAddSupplierOpen(false);
       setNewSupplier({ name: "", contact: "", address: "" });
     } catch (error) {
@@ -426,7 +440,7 @@ export default function SupplierLedgerPage() {
         },
       });
 
-      toast.success("Purchase entry added!");
+      toast.success(t("farmer.supplierLedger.toast.entryAdded"));
       setIsAddEntryOpen(false);
       setNewEntry({
         category: "FEED",
@@ -463,7 +477,7 @@ export default function SupplierLedgerPage() {
         },
       });
 
-      toast.success("Payment recorded!");
+      toast.success(t("farmer.supplierLedger.toast.paymentRecorded"));
       setIsPaymentModalOpen(false);
       setPaymentForm({ amount: "", date: "", note: "", receiptImageUrl: "" });
     } catch (error) {
@@ -485,7 +499,7 @@ export default function SupplierLedgerPage() {
         description: paymentRequestForm.description || undefined,
       });
 
-      toast.success("Payment request sent! Dealer will review it.");
+      toast.success(t("farmer.supplierLedger.toast.paymentRequestSent"));
       setIsPaymentRequestOpen(false);
       setPaymentRequestForm({
         amount: "",
@@ -516,10 +530,10 @@ export default function SupplierLedgerPage() {
       <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-3xl font-bold tracking-tight">
-            Supplier Ledger
+            {t("farmer.supplierLedger.title")}
           </h1>
           <p className="text-xs md:text-sm text-muted-foreground">
-            Track all supplier purchases and payments in one place
+            {t("farmer.supplierLedger.subtitle")}
           </p>
         </div>
 
@@ -531,7 +545,7 @@ export default function SupplierLedgerPage() {
             onClick={() => router.push("/farmer/dashboard/dealers")}
           >
             <Users className="mr-2 h-4 w-4" />
-            Connected Dealers
+            {t("farmer.dealers.stats.connected")}
           </Button>
           <Button
             variant="outline"
@@ -540,7 +554,7 @@ export default function SupplierLedgerPage() {
             onClick={() => router.push("/farmer/dashboard/order-requests")}
           >
             <ShoppingCart className="mr-2 h-4 w-4" />
-            Order Requests
+            {t("farmer.supplierLedger.orderRequests")}
           </Button>
           <Button
             variant="outline"
@@ -549,7 +563,7 @@ export default function SupplierLedgerPage() {
             onClick={() => router.push("/farmer/dashboard/payment-requests")}
           >
             <DollarSign className="mr-2 h-4 w-4" />
-            Payment Requests
+            {t("farmer.supplierLedger.paymentRequests")}
           </Button>
         </div>
       </div>
@@ -562,7 +576,7 @@ export default function SupplierLedgerPage() {
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
             <CardTitle className="text-[10px] md:text-sm font-medium">
-              Suppliers
+              {t("farmer.supplierLedger.stats.suppliers")}
             </CardTitle>
             <Users className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
@@ -575,7 +589,7 @@ export default function SupplierLedgerPage() {
               </div>
             )}
             <p className="text-[9px] md:text-xs text-muted-foreground hidden sm:block">
-              Active suppliers
+              {t("farmer.supplierLedger.stats.activeSuppliers")}
             </p>
           </CardContent>
         </Card>
@@ -583,7 +597,7 @@ export default function SupplierLedgerPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
             <CardTitle className="text-[10px] md:text-sm font-medium">
-              Outstanding
+              {t("farmer.supplierLedger.stats.outstanding")}
             </CardTitle>
             <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
@@ -601,7 +615,7 @@ export default function SupplierLedgerPage() {
               </div>
             )}
             <p className="text-[9px] md:text-xs text-muted-foreground hidden sm:block">
-              Amount due to suppliers
+              {t("farmer.supplierLedger.stats.amountDue")}
             </p>
           </CardContent>
         </Card>
@@ -609,7 +623,7 @@ export default function SupplierLedgerPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
             <CardTitle className="text-[10px] md:text-sm font-medium">
-              This Month
+              {t("farmer.supplierLedger.stats.thisMonth")}
             </CardTitle>
             <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
@@ -627,7 +641,7 @@ export default function SupplierLedgerPage() {
               </div>
             )}
             <p className="text-[9px] md:text-xs text-muted-foreground hidden sm:block">
-              Purchases
+              {t("farmer.supplierLedger.stats.purchases")}
             </p>
           </CardContent>
         </Card>
@@ -637,18 +651,18 @@ export default function SupplierLedgerPage() {
       <Modal
         isOpen={isSummaryOpen}
         onClose={() => setIsSummaryOpen(false)}
-        title="Supplier Balances"
+        title={t("farmer.supplierLedger.summaryModal.title")}
       >
         <ModalContent>
           <div className="space-y-3">
             {dealersLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin" />
-                <span className="ml-2">Loading...</span>
+                <span className="ml-2">{t("farmer.supplierLedger.summaryModal.loading")}</span>
               </div>
             ) : suppliers.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-muted-foreground">No suppliers found</p>
+                <p className="text-muted-foreground">{t("farmer.supplierLedger.summaryModal.noSuppliers")}</p>
               </div>
             ) : (
               suppliers.map((supplier: any) => (
@@ -659,7 +673,7 @@ export default function SupplierLedgerPage() {
                   <div>
                     <div className="font-medium">{supplier.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      Contact: {supplier.contact}
+                      {t("farmer.supplierLedger.summaryModal.contact")}: {supplier.contact}
                     </div>
                   </div>
                   <div className="text-right font-medium">
@@ -672,7 +686,7 @@ export default function SupplierLedgerPage() {
         </ModalContent>
         <ModalFooter>
           <Button variant="outline" onClick={() => setIsSummaryOpen(false)}>
-            Close
+            {t("farmer.supplierLedger.summaryModal.close")}
           </Button>
         </ModalFooter>
       </Modal>
@@ -681,17 +695,17 @@ export default function SupplierLedgerPage() {
       <Modal
         isOpen={isDeleteSupplierOpen}
         onClose={() => setIsDeleteSupplierOpen(false)}
-        title="Delete Supplier"
+        title={t("farmer.supplierLedger.deleteSupplier.title")}
       >
         <ModalContent>
           <div className="space-y-4">
             {activeSupplier?.connectionType === "CONNECTED" ? (
               <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                 <p className="text-sm text-yellow-800">
-                  <strong>This is a connected supplier.</strong>
+                  <strong>{t("farmer.supplierLedger.deleteSupplier.connectedWarning")}</strong>
                 </p>
                 <p className="text-sm text-yellow-700 mt-2">
-                  Go to Connected Dealers page to manage this connection.
+                  {t("farmer.supplierLedger.deleteSupplier.goToDealers")}
                 </p>
               </div>
             ) : (
@@ -699,13 +713,12 @@ export default function SupplierLedgerPage() {
                 <div className="p-4 bg-red-50 rounded-lg border border-red-200">
                   <p className="text-sm text-red-800">
                     <strong>
-                      Are you sure you want to delete {activeSupplier?.name}?
+                      {t("farmer.supplierLedger.deleteSupplier.confirmMessage", { name: activeSupplier?.name ?? "" })}
                     </strong>
                   </p>
                   {(activeSupplier?.totalTransactions || 0) > 0 && (
                     <p className="text-sm text-red-700 mt-2">
-                      This supplier has {activeSupplier?.totalTransactions}{" "}
-                      transactions. Delete all transactions first.
+                      {t("farmer.supplierLedger.deleteSupplier.hasTransactions", { count: activeSupplier?.totalTransactions ?? 0 })}
                     </p>
                   )}
                 </div>
@@ -719,8 +732,8 @@ export default function SupplierLedgerPage() {
             onClick={() => setIsDeleteSupplierOpen(false)}
           >
             {activeSupplier?.connectionType === "CONNECTED"
-              ? "Close"
-              : "Cancel"}
+              ? t("farmer.supplierLedger.deleteSupplier.close")
+              : t("farmer.supplierLedger.deleteSupplier.cancel")}
           </Button>
           {activeSupplier?.connectionType !== "CONNECTED" && (
             <Button
@@ -737,7 +750,7 @@ export default function SupplierLedgerPage() {
                   queryClient.invalidateQueries({
                     queryKey: ["dealers", "list"],
                   });
-                  toast.success("Supplier deleted successfully");
+                  toast.success(t("farmer.supplierLedger.toast.supplierDeleted"));
                   setIsDeleteSupplierOpen(false);
                 } catch (e) {
                   setActiveSupplierId(idToDelete);
@@ -751,10 +764,10 @@ export default function SupplierLedgerPage() {
             >
               {deleteDealerMutation.isPending ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("farmer.supplierLedger.deleteSupplier.deleting")}
                 </>
               ) : (
-                "Delete"
+                t("farmer.supplierLedger.deleteSupplier.delete")
               )}
             </Button>
           )}
@@ -765,12 +778,11 @@ export default function SupplierLedgerPage() {
       <Modal
         isOpen={isConfirmDeleteOpen}
         onClose={() => setIsConfirmDeleteOpen(false)}
-        title={`Delete ${selectedIds.size} entries?`}
+        title={t("farmer.supplierLedger.confirmDeleteEntries.title", { count: selectedIds.size })}
       >
         <ModalContent>
           <p className="text-sm text-muted-foreground">
-            This action cannot be undone. Selected entries will be permanently
-            removed.
+            {t("farmer.supplierLedger.confirmDeleteEntries.warning")}
           </p>
         </ModalContent>
         <ModalFooter>
@@ -778,7 +790,7 @@ export default function SupplierLedgerPage() {
             variant="outline"
             onClick={() => setIsConfirmDeleteOpen(false)}
           >
-            Cancel
+            {t("farmer.supplierLedger.confirmDeleteEntries.cancel")}
           </Button>
           <Button
             className="bg-red-600 hover:bg-red-700 text-white"
@@ -787,10 +799,10 @@ export default function SupplierLedgerPage() {
           >
             {deleteTxn.isPending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("farmer.supplierLedger.confirmDeleteEntries.deleting")}
               </>
             ) : (
-              "Delete"
+              t("farmer.supplierLedger.confirmDeleteEntries.delete")
             )}
           </Button>
         </ModalFooter>
@@ -803,25 +815,25 @@ export default function SupplierLedgerPage() {
           setIsPasswordModalOpen(false);
           setPasswordForm({ password: "" });
         }}
-        title="Confirm Deletion"
+        title={t("farmer.supplierLedger.confirmPassword.title")}
       >
         <ModalContent>
           <div className="space-y-4">
             <div className="p-4 bg-red-50 rounded-lg border border-red-200">
               <p className="text-sm text-red-800">
                 <strong>
-                  You are about to delete {selectedIds.size} entries.
+                  {t("farmer.supplierLedger.confirmPassword.warning", { count: selectedIds.size })}
                 </strong>
               </p>
             </div>
             <div>
-              <Label htmlFor="password">Enter your password to confirm</Label>
+              <Label htmlFor="password">{t("farmer.supplierLedger.confirmPassword.passwordLabel")}</Label>
               <Input
                 id="password"
                 type="password"
                 value={passwordForm.password}
                 onChange={(e) => setPasswordForm({ password: e.target.value })}
-                placeholder="Password"
+                placeholder={t("farmer.supplierLedger.confirmPassword.passwordPlaceholder")}
                 required
                 className="mt-1"
               />
@@ -836,7 +848,7 @@ export default function SupplierLedgerPage() {
               setPasswordForm({ password: "" });
             }}
           >
-            Cancel
+            {t("farmer.supplierLedger.confirmPassword.cancel")}
           </Button>
           <Button
             className="bg-red-600 hover:bg-red-700 text-white"
@@ -845,10 +857,10 @@ export default function SupplierLedgerPage() {
           >
             {deleteTxn.isPending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("farmer.supplierLedger.confirmPassword.deleting")}
               </>
             ) : (
-              "Confirm"
+              t("farmer.supplierLedger.confirmPassword.confirm")
             )}
           </Button>
         </ModalFooter>
@@ -858,44 +870,44 @@ export default function SupplierLedgerPage() {
       <Modal
         isOpen={isAddSupplierOpen}
         onClose={() => setIsAddSupplierOpen(false)}
-        title="Add New Supplier"
+        title={t("farmer.supplierLedger.addSupplier.title")}
       >
         <form onSubmit={handleAddSupplier}>
           <ModalContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="sname">Supplier Name</Label>
+                <Label htmlFor="sname">{t("farmer.supplierLedger.addSupplier.nameLabel")}</Label>
                 <Input
                   id="sname"
                   value={newSupplier.name}
                   onChange={(e) =>
                     setNewSupplier({ ...newSupplier, name: e.target.value })
                   }
-                  placeholder="e.g. Ram Feed Store"
+                  placeholder={t("farmer.supplierLedger.addSupplier.namePlaceholder")}
                   required
                 />
               </div>
               <div>
-                <Label htmlFor="scontact">Contact</Label>
+                <Label htmlFor="scontact">{t("farmer.supplierLedger.addSupplier.contactLabel")}</Label>
                 <Input
                   id="scontact"
                   value={newSupplier.contact}
                   onChange={(e) =>
                     setNewSupplier({ ...newSupplier, contact: e.target.value })
                   }
-                  placeholder="Phone number"
+                  placeholder={t("farmer.supplierLedger.addSupplier.contactPlaceholder")}
                   required
                 />
               </div>
               <div>
-                <Label htmlFor="saddress">Address (optional)</Label>
+                <Label htmlFor="saddress">{t("farmer.supplierLedger.addSupplier.addressLabel")}</Label>
                 <Input
                   id="saddress"
                   value={newSupplier.address}
                   onChange={(e) =>
                     setNewSupplier({ ...newSupplier, address: e.target.value })
                   }
-                  placeholder="Address"
+                  placeholder={t("farmer.supplierLedger.addSupplier.addressPlaceholder")}
                 />
               </div>
             </div>
@@ -906,7 +918,7 @@ export default function SupplierLedgerPage() {
               variant="outline"
               onClick={() => setIsAddSupplierOpen(false)}
             >
-              Cancel
+              {t("farmer.supplierLedger.addSupplier.cancel")}
             </Button>
             <Button
               type="submit"
@@ -916,10 +928,10 @@ export default function SupplierLedgerPage() {
               {createDealerMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding...
+                  {t("farmer.supplierLedger.addSupplier.adding")}
                 </>
               ) : (
-                "Add Supplier"
+                t("farmer.supplierLedger.addSupplier.add")
               )}
             </Button>
           </ModalFooter>
@@ -930,14 +942,14 @@ export default function SupplierLedgerPage() {
       <Modal
         isOpen={isAddEntryOpen}
         onClose={() => setIsAddEntryOpen(false)}
-        title={`Add Purchase — ${activeSupplier?.name || "Supplier"}`}
+        title={t("farmer.supplierLedger.addEntry.title", { name: activeSupplier?.name ?? t("farmer.supplierLedger.addEntry.supplier") })}
       >
         <form onSubmit={handleAddEntry}>
           <ModalContent>
             <div className="space-y-4">
               {/* Category selector */}
               <div>
-                <Label>Category</Label>
+                <Label>{t("farmer.supplierLedger.addEntry.categoryLabel")}</Label>
                 <Select
                   value={newEntry.category}
                   onValueChange={(value) => {
@@ -950,12 +962,12 @@ export default function SupplierLedgerPage() {
                   }}
                 >
                   <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select category" />
+                    <SelectValue placeholder={t("farmer.supplierLedger.addEntry.categoryPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent className="bg-white">
-                    {PURCHASE_CATEGORIES.map((cat) => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        {cat.label}
+                    {PURCHASE_CATEGORY_VALUES.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {t(CATEGORY_I18N_KEYS[value])}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -964,7 +976,7 @@ export default function SupplierLedgerPage() {
 
               {/* Item Name */}
               <div>
-                <Label htmlFor="item">Item Name</Label>
+                <Label htmlFor="item">{t("farmer.supplierLedger.addEntry.itemLabel")}</Label>
                 <Input
                   id="item"
                   value={newEntry.item}
@@ -973,12 +985,12 @@ export default function SupplierLedgerPage() {
                   }
                   placeholder={
                     newEntry.category === "FEED"
-                      ? "e.g. Broiler Feed, Layer Feed"
+                      ? t("farmer.supplierLedger.addEntry.itemPlaceholderFeed")
                       : newEntry.category === "MEDICINE"
-                        ? "e.g. Vitamin Mix, Antibiotics"
+                        ? t("farmer.supplierLedger.addEntry.itemPlaceholderMedicine")
                         : newEntry.category === "CHICKS"
-                          ? "e.g. Day-old Chicks, Broiler Chicks"
-                          : "Item name"
+                          ? t("farmer.supplierLedger.addEntry.itemPlaceholderChicks")
+                          : t("farmer.supplierLedger.addEntry.itemPlaceholder")
                   }
                   required
                 />
@@ -986,7 +998,7 @@ export default function SupplierLedgerPage() {
 
               {/* Unit */}
               <div>
-                <Label htmlFor="unit">Unit</Label>
+                <Label htmlFor="unit">{t("farmer.supplierLedger.addEntry.unitLabel")}</Label>
                 <Select
                   value={newEntry.unit || ""}
                   onValueChange={(value) =>
@@ -994,7 +1006,7 @@ export default function SupplierLedgerPage() {
                   }
                 >
                   <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select unit" />
+                    <SelectValue placeholder={t("farmer.supplierLedger.addEntry.unitPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent className="bg-white">
                     {(newEntry.category === "FEED"
@@ -1018,7 +1030,7 @@ export default function SupplierLedgerPage() {
               {/* Rate + Quantity (common for all) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="rate">Rate (per {newEntry.unit || "unit"})</Label>
+                  <Label htmlFor="rate">{t("farmer.supplierLedger.addEntry.rateLabel", { unit: newEntry.unit || "unit" })}</Label>
                   <Input
                     id="rate"
                     type="number"
@@ -1030,7 +1042,7 @@ export default function SupplierLedgerPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="quantity">Quantity{newEntry.unit ? ` (${newEntry.unit})` : ""}</Label>
+                  <Label htmlFor="quantity">{t("farmer.supplierLedger.addEntry.quantityLabel")}{newEntry.unit ? ` (${newEntry.unit})` : ""}</Label>
                   <Input
                     id="quantity"
                     type="number"
@@ -1046,7 +1058,7 @@ export default function SupplierLedgerPage() {
               {/* Free Chicks - ONLY for CHICKS category */}
               {newEntry.category === "CHICKS" && (
                 <div className="space-y-2">
-                  <Label>Free Chicks (optional)</Label>
+                  <Label>{t("farmer.supplierLedger.addEntry.freeChicksLabel")}</Label>
                   <div className="flex items-center gap-2">
                     <Button
                       type="button"
@@ -1055,7 +1067,7 @@ export default function SupplierLedgerPage() {
                       onClick={() => setFreeMode("count")}
                       className="h-8 px-3"
                     >
-                      Count
+                      {t("farmer.supplierLedger.addEntry.freeCount")}
                     </Button>
                     <Button
                       type="button"
@@ -1064,18 +1076,18 @@ export default function SupplierLedgerPage() {
                       onClick={() => setFreeMode("percent")}
                       className="h-8 px-3"
                     >
-                      Percent
+                      {t("farmer.supplierLedger.addEntry.freePercent")}
                     </Button>
                     <Input
                       type="number"
-                      placeholder={freeMode === "count" ? "e.g. 50" : "e.g. 5%"}
+                      placeholder={freeMode === "count" ? t("farmer.supplierLedger.addEntry.freePlaceholderCount") : t("farmer.supplierLedger.addEntry.freePlaceholderPercent")}
                       value={freeValue}
                       onChange={(e) => setFreeValue(e.target.value)}
                       className="max-w-[180px]"
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Extra chicks given free with the purchase
+                    {t("farmer.supplierLedger.addEntry.freeHelp")}
                   </p>
                 </div>
               )}
@@ -1084,24 +1096,24 @@ export default function SupplierLedgerPage() {
               {Number(newEntry.rate) > 0 && Number(newEntry.quantity) > 0 && (
                 <div className="p-3 bg-gray-50 rounded-lg border text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total:</span>
+                    <span className="text-muted-foreground">{t("farmer.supplierLedger.addEntry.total")}</span>
                     <span className="font-semibold">
                       ₹{(Number(newEntry.rate) * Number(newEntry.quantity)).toLocaleString()}
                     </span>
                   </div>
                   {newEntry.category === "CHICKS" && computeFreeQuantity() > 0 && (
                     <div className="flex justify-between mt-1">
-                      <span className="text-muted-foreground">Free:</span>
+                      <span className="text-muted-foreground">{t("farmer.supplierLedger.addEntry.free")}</span>
                       <span className="text-green-600 font-medium">
-                        +{computeFreeQuantity()} chicks
+                        +{computeFreeQuantity()} {t("farmer.supplierLedger.addEntry.chicks")}
                       </span>
                     </div>
                   )}
                   {newEntry.category === "CHICKS" && (
                     <div className="flex justify-between mt-1">
-                      <span className="text-muted-foreground">Total delivered:</span>
+                      <span className="text-muted-foreground">{t("farmer.supplierLedger.addEntry.totalDelivered")}</span>
                       <span className="font-medium">
-                        {Number(newEntry.quantity) + computeFreeQuantity()} chicks
+                        {Number(newEntry.quantity) + computeFreeQuantity()} {t("farmer.supplierLedger.addEntry.chicks")}
                       </span>
                     </div>
                   )}
@@ -1111,7 +1123,7 @@ export default function SupplierLedgerPage() {
               {/* Date */}
               <div>
                 <DateInput
-                  label="Date"
+                  label={t("farmer.supplierLedger.addEntry.dateLabel")}
                   value={newEntry.date}
                   onChange={(value) =>
                     setNewEntry({ ...newEntry, date: value })
@@ -1121,14 +1133,14 @@ export default function SupplierLedgerPage() {
 
               {/* Note */}
               <div>
-                <Label htmlFor="description">Note (optional)</Label>
+                <Label htmlFor="description">{t("farmer.supplierLedger.addEntry.noteLabel")}</Label>
                 <Input
                   id="description"
                   value={newEntry.description}
                   onChange={(e) =>
                     setNewEntry({ ...newEntry, description: e.target.value })
                   }
-                  placeholder="Additional notes"
+                  placeholder={t("farmer.supplierLedger.addEntry.notePlaceholder")}
                 />
               </div>
             </div>
@@ -1139,7 +1151,7 @@ export default function SupplierLedgerPage() {
               variant="outline"
               onClick={() => setIsAddEntryOpen(false)}
             >
-              Cancel
+              {t("farmer.supplierLedger.addEntry.cancel")}
             </Button>
             <Button
               type="submit"
@@ -1149,10 +1161,10 @@ export default function SupplierLedgerPage() {
               {addTransactionMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  {t("farmer.supplierLedger.addEntry.saving")}
                 </>
               ) : (
-                "Save Entry"
+                t("farmer.supplierLedger.addEntry.save")
               )}
             </Button>
           </ModalFooter>
@@ -1166,7 +1178,7 @@ export default function SupplierLedgerPage() {
           setIsPaymentModalOpen(false);
           setPaymentForm({ amount: "", date: "", note: "", receiptImageUrl: "" });
         }}
-        title="Record Payment"
+        title={t("farmer.supplierLedger.recordPayment.title")}
       >
         <form onSubmit={handleAddPayment}>
           <ModalContent>
@@ -1174,16 +1186,16 @@ export default function SupplierLedgerPage() {
               {activeSupplier && (
                 <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-sm text-blue-800">
-                    <strong>Supplier:</strong> {activeSupplier.name}
+                    <strong>{t("farmer.supplierLedger.recordPayment.supplier")}</strong> {activeSupplier.name}
                   </p>
                   <p className="text-sm text-blue-800">
-                    <strong>Balance Due:</strong> ₹
+                    <strong>{t("farmer.supplierLedger.recordPayment.balanceDue")}</strong> ₹
                     {(activeSupplier.balance || 0).toLocaleString()}
                   </p>
                 </div>
               )}
               <div>
-                <Label htmlFor="paymentAmount">Amount</Label>
+                <Label htmlFor="paymentAmount">{t("farmer.supplierLedger.recordPayment.amountLabel")}</Label>
                 <Input
                   id="paymentAmount"
                   type="number"
@@ -1191,13 +1203,13 @@ export default function SupplierLedgerPage() {
                   onChange={(e) =>
                     setPaymentForm({ ...paymentForm, amount: e.target.value })
                   }
-                  placeholder="Payment amount"
+                  placeholder={t("farmer.supplierLedger.recordPayment.amountPlaceholder")}
                   required
                 />
               </div>
               <div>
                 <DateInput
-                  label="Date"
+                  label={t("farmer.supplierLedger.recordPayment.dateLabel")}
                   value={paymentForm.date}
                   onChange={(value) =>
                     setPaymentForm({ ...paymentForm, date: value })
@@ -1205,25 +1217,25 @@ export default function SupplierLedgerPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="paymentNote">Note (optional)</Label>
+                <Label htmlFor="paymentNote">{t("farmer.supplierLedger.recordPayment.noteLabel")}</Label>
                 <Input
                   id="paymentNote"
                   value={paymentForm.note}
                   onChange={(e) =>
                     setPaymentForm({ ...paymentForm, note: e.target.value })
                   }
-                  placeholder="e.g. Cash, Bank transfer, Cheque"
+                  placeholder={t("farmer.supplierLedger.recordPayment.notePlaceholder")}
                 />
               </div>
               <div>
-                <Label>Payment receipt (optional)</Label>
+                <Label>{t("farmer.supplierLedger.recordPayment.receiptLabel")}</Label>
                 <ImageUpload
                   value={paymentForm.receiptImageUrl}
                   onChange={(url) =>
                     setPaymentForm({ ...paymentForm, receiptImageUrl: url })
                   }
                   folder="payment-receipts"
-                  placeholder="Upload receipt image"
+                  placeholder={t("farmer.supplierLedger.recordPayment.receiptPlaceholder")}
                 />
               </div>
             </div>
@@ -1237,7 +1249,7 @@ export default function SupplierLedgerPage() {
                 setPaymentForm({ amount: "", date: "", note: "", receiptImageUrl: "" });
               }}
             >
-              Cancel
+              {t("farmer.supplierLedger.recordPayment.cancel")}
             </Button>
             <Button
               type="submit"
@@ -1247,10 +1259,10 @@ export default function SupplierLedgerPage() {
               {addTransactionMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Recording...
+                  {t("farmer.supplierLedger.recordPayment.recording")}
                 </>
               ) : (
-                "Record Payment"
+                t("farmer.supplierLedger.recordPayment.record")
               )}
             </Button>
           </ModalFooter>
@@ -1261,7 +1273,7 @@ export default function SupplierLedgerPage() {
       <Modal
         isOpen={isPaymentRequestOpen}
         onClose={() => setIsPaymentRequestOpen(false)}
-        title="Send Payment Request"
+        title={t("farmer.supplierLedger.sendPaymentRequest.title")}
       >
         <form onSubmit={handleCreatePaymentRequest}>
           <ModalContent>
@@ -1269,19 +1281,19 @@ export default function SupplierLedgerPage() {
               {activeSupplier && (
                 <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-sm text-blue-800">
-                    <strong>Supplier:</strong> {activeSupplier.name}
+                    <strong>{t("farmer.supplierLedger.sendPaymentRequest.supplier")}</strong> {activeSupplier.name}
                   </p>
                   <p className="text-sm text-blue-800">
-                    <strong>Balance Due:</strong> ₹
+                    <strong>{t("farmer.supplierLedger.sendPaymentRequest.balanceDue")}</strong> ₹
                     {(activeSupplier.balance || 0).toLocaleString()}
                   </p>
                   <p className="text-xs text-blue-600 mt-1">
-                    This request will be sent to the dealer for approval.
+                    {t("farmer.supplierLedger.sendPaymentRequest.requestSentHint")}
                   </p>
                 </div>
               )}
               <div>
-                <Label htmlFor="prAmount">Amount</Label>
+                <Label htmlFor="prAmount">{t("farmer.supplierLedger.sendPaymentRequest.amountLabel")}</Label>
                 <Input
                   id="prAmount"
                   type="number"
@@ -1292,12 +1304,12 @@ export default function SupplierLedgerPage() {
                       amount: e.target.value,
                     })
                   }
-                  placeholder="Payment amount"
+                  placeholder={t("farmer.supplierLedger.sendPaymentRequest.amountPlaceholder")}
                   required
                 />
               </div>
               <div>
-                <Label htmlFor="prMethod">Payment Method</Label>
+                <Label htmlFor="prMethod">{t("farmer.supplierLedger.sendPaymentRequest.methodLabel")}</Label>
                 <Select
                   value={paymentRequestForm.paymentMethod}
                   onValueChange={(value) =>
@@ -1308,19 +1320,19 @@ export default function SupplierLedgerPage() {
                   }
                 >
                   <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select method" />
+                    <SelectValue placeholder={t("farmer.supplierLedger.sendPaymentRequest.methodPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent className="bg-white">
-                    <SelectItem value="CASH">Cash</SelectItem>
-                    <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                    <SelectItem value="CHEQUE">Cheque</SelectItem>
-                    <SelectItem value="UPI">UPI</SelectItem>
-                    <SelectItem value="OTHER">Other</SelectItem>
+                    <SelectItem value="CASH">{t("farmer.supplierLedger.methods.cash")}</SelectItem>
+                    <SelectItem value="BANK_TRANSFER">{t("farmer.supplierLedger.methods.bankTransfer")}</SelectItem>
+                    <SelectItem value="CHEQUE">{t("farmer.supplierLedger.methods.cheque")}</SelectItem>
+                    <SelectItem value="UPI">{t("farmer.supplierLedger.methods.upi")}</SelectItem>
+                    <SelectItem value="OTHER">{t("farmer.supplierLedger.methods.other")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="prReference">Reference (optional)</Label>
+                <Label htmlFor="prReference">{t("farmer.supplierLedger.sendPaymentRequest.referenceLabel")}</Label>
                 <Input
                   id="prReference"
                   value={paymentRequestForm.paymentReference}
@@ -1330,12 +1342,12 @@ export default function SupplierLedgerPage() {
                       paymentReference: e.target.value,
                     })
                   }
-                  placeholder="e.g. Cheque no., Transaction ID"
+                  placeholder={t("farmer.supplierLedger.sendPaymentRequest.referencePlaceholder")}
                 />
               </div>
               <div>
                 <DateInput
-                  label="Payment Date"
+                  label={t("farmer.supplierLedger.sendPaymentRequest.paymentDateLabel")}
                   value={paymentRequestForm.paymentDate}
                   onChange={(value) =>
                     setPaymentRequestForm({
@@ -1346,7 +1358,7 @@ export default function SupplierLedgerPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="prDescription">Description (optional)</Label>
+                <Label htmlFor="prDescription">{t("farmer.supplierLedger.sendPaymentRequest.descriptionLabel")}</Label>
                 <Input
                   id="prDescription"
                   value={paymentRequestForm.description}
@@ -1356,7 +1368,7 @@ export default function SupplierLedgerPage() {
                       description: e.target.value,
                     })
                   }
-                  placeholder="e.g. Monthly payment"
+                  placeholder={t("farmer.supplierLedger.sendPaymentRequest.descriptionPlaceholder")}
                 />
               </div>
             </div>
@@ -1367,7 +1379,7 @@ export default function SupplierLedgerPage() {
               variant="outline"
               onClick={() => setIsPaymentRequestOpen(false)}
             >
-              Cancel
+              {t("farmer.supplierLedger.sendPaymentRequest.cancel")}
             </Button>
             <Button
               type="submit"
@@ -1377,10 +1389,10 @@ export default function SupplierLedgerPage() {
               {createPaymentRequestMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
+                  {t("farmer.supplierLedger.sendPaymentRequest.sending")}
                 </>
               ) : (
-                "Send Request"
+                t("farmer.supplierLedger.sendPaymentRequest.send")
               )}
             </Button>
           </ModalFooter>
@@ -1391,7 +1403,7 @@ export default function SupplierLedgerPage() {
       {dealersLoading && (
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin" />
-          <span className="ml-2">Loading suppliers...</span>
+          <span className="ml-2">{t("farmer.supplierLedger.loadingSuppliers")}</span>
         </div>
       )}
 
@@ -1399,7 +1411,7 @@ export default function SupplierLedgerPage() {
       {dealersError && (
         <div className="text-center py-8">
           <p className="text-red-600">
-            Failed to load suppliers. Please try again.
+            {t("farmer.supplierLedger.failedToLoad")}
           </p>
         </div>
       )}
@@ -1434,7 +1446,7 @@ export default function SupplierLedgerPage() {
                         className="ml-1 bg-blue-100 text-blue-800 hover:bg-blue-100 text-[9px] md:text-xs px-1"
                       >
                         <Link2 className="h-2.5 w-2.5 mr-0.5" />
-                        <span className="hidden sm:inline">Connected</span>
+                        <span className="hidden sm:inline">{t("farmer.supplierLedger.connectedBadge")}</span>
                       </Badge>
                     )}
                   </span>
@@ -1447,8 +1459,8 @@ export default function SupplierLedgerPage() {
                 onClick={() => setIsAddSupplierOpen(true)}
               >
                 <Plus className="mr-1 h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Add Supplier</span>
-                <span className="sm:hidden">Add</span>
+                <span className="hidden sm:inline">{t("farmer.supplierLedger.addSupplier")}</span>
+                <span className="sm:hidden">{t("farmer.supplierLedger.addShort")}</span>
               </Button>
             </div>
           </div>
@@ -1458,17 +1470,17 @@ export default function SupplierLedgerPage() {
               <CardContent className="text-center py-6">
                 <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
                 <h3 className="text-base font-semibold mb-2">
-                  No suppliers found
+                  {t("farmer.supplierLedger.noSuppliersTitle")}
                 </h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Create your first supplier to start tracking purchases.
+                  {t("farmer.supplierLedger.noSuppliersHelp")}
                 </p>
                 <Button
                   size="sm"
                   onClick={() => setIsAddSupplierOpen(true)}
                 >
                   <Plus className="mr-1 h-3.5 w-3.5" />
-                  Add Supplier
+                  {t("farmer.supplierLedger.addSupplier")}
                 </Button>
               </CardContent>
             </Card>
@@ -1478,20 +1490,20 @@ export default function SupplierLedgerPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <CardTitle className="text-base md:text-lg">
-                      {activeSupplier?.name || "Select a supplier"}
+                      {activeSupplier?.name || t("farmer.supplierLedger.selectSupplier")}
                     </CardTitle>
                     {activeSupplier && (
                       <CardDescription className="text-[10px] md:text-sm mt-1">
-                        Balance: ₹
+                        {t("farmer.supplierLedger.balance")} ₹
                         {(activeSupplier.balance || 0).toLocaleString()} |{" "}
-                        Purchased: ₹
+                        {t("farmer.supplierLedger.purchased")} ₹
                         {(
                           activeSupplier.purchases?.reduce(
                             (sum: number, p: any) => sum + p.amount,
                             0
                           ) || 0
                         ).toLocaleString()}{" "}
-                        | Paid: ₹
+                        | {t("farmer.supplierLedger.paid")} ₹
                         {(
                           activeSupplier.payments?.reduce(
                             (sum: number, p: any) => sum + p.amount,
@@ -1511,7 +1523,7 @@ export default function SupplierLedgerPage() {
                       >
                         <Trash2 className="h-3 w-3 mr-1 sm:mr-0" />
                         <span className="hidden sm:inline sm:ml-1">
-                          Delete
+                          {t("farmer.supplierLedger.delete")}
                         </span>
                       </Button>
                     )}
@@ -1523,7 +1535,7 @@ export default function SupplierLedgerPage() {
                           className="h-7 text-xs"
                           onClick={exitDeleteMode}
                         >
-                          <X className="h-3 w-3 mr-1" /> Cancel
+                          <X className="h-3 w-3 mr-1" /> {t("farmer.supplierLedger.confirmDeleteEntries.cancel")}
                         </Button>
                         <Button
                           className="bg-red-600 hover:bg-red-700 text-white h-7 text-xs"
@@ -1552,7 +1564,7 @@ export default function SupplierLedgerPage() {
                         >
                           <Eye className="h-3 w-3 mr-1 sm:mr-0" />
                           <span className="hidden sm:inline sm:ml-1">
-                            Details
+                            {t("farmer.supplierLedger.details")}
                           </span>
                         </Button>
                         <Button
@@ -1564,7 +1576,7 @@ export default function SupplierLedgerPage() {
                         >
                           <Trash2 className="h-3 w-3 mr-1 sm:mr-0" />
                           <span className="hidden sm:inline sm:ml-1">
-                            Entries
+                            {t("farmer.supplierLedger.entries")}
                           </span>
                         </Button>
                         <Button
@@ -1575,7 +1587,7 @@ export default function SupplierLedgerPage() {
                           disabled={!activeSupplierId}
                         >
                           <DollarSign className="h-3 w-3 mr-1" />
-                          <span className="hidden sm:inline">Pay</span>
+                          <span className="hidden sm:inline">{t("farmer.supplierLedger.pay")}</span>
                         </Button>
                         {isConnectedSupplier ? (
                           <Button
@@ -1589,8 +1601,8 @@ export default function SupplierLedgerPage() {
                             disabled={!activeSupplierId}
                           >
                             <ShoppingCart className="h-3 w-3 mr-1" />
-                            <span className="hidden sm:inline">Order</span>
-                            <span className="sm:hidden">Order</span>
+                            <span className="hidden sm:inline">{t("farmer.supplierLedger.order")}</span>
+                            <span className="sm:hidden">{t("farmer.supplierLedger.order")}</span>
                           </Button>
                         ) : (
                           <Button
@@ -1600,8 +1612,8 @@ export default function SupplierLedgerPage() {
                             disabled={!activeSupplierId}
                           >
                             <Plus className="h-3 w-3 mr-1" />
-                            <span className="hidden sm:inline">Add Entry</span>
-                            <span className="sm:hidden">Add</span>
+                            <span className="hidden sm:inline">{t("farmer.supplierLedger.addEntryButton")}</span>
+                            <span className="sm:hidden">{t("farmer.supplierLedger.addShort")}</span>
                           </Button>
                         )}
                       </>
@@ -1613,7 +1625,7 @@ export default function SupplierLedgerPage() {
                 {activeSupplierLoading ? (
                   <div className="flex items-center justify-center py-6 text-sm">
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    <span className="ml-2">Loading...</span>
+                    <span className="ml-2">{t("farmer.supplierLedger.summaryModal.loading")}</span>
                   </div>
                 ) : (
                   <Tabs
@@ -1626,10 +1638,10 @@ export default function SupplierLedgerPage() {
                     <div className="px-3 md:px-6">
                       <TabsList>
                         <TabsTrigger value="purchases">
-                          Purchases ({activeSupplier?.purchases?.length || 0})
+                          {t("farmer.supplierLedger.stats.purchases")} ({activeSupplier?.purchases?.length || 0})
                         </TabsTrigger>
                         <TabsTrigger value="payments">
-                          Payments ({activeSupplier?.payments?.length || 0})
+                          {t("farmer.supplierLedger.paymentsTab")} ({activeSupplier?.payments?.length || 0})
                         </TabsTrigger>
                       </TabsList>
                     </div>
@@ -1654,7 +1666,7 @@ export default function SupplierLedgerPage() {
                         }
                         footerContent={
                           <div className="flex justify-between text-sm px-2">
-                            <span className="font-semibold">Total</span>
+                            <span className="font-semibold">{t("farmer.supplierLedger.total")}</span>
                             <span className="font-semibold">
                               ₹
                               {(
@@ -1666,7 +1678,7 @@ export default function SupplierLedgerPage() {
                             </span>
                           </div>
                         }
-                        emptyMessage="No purchases for this supplier"
+                        emptyMessage={t("farmer.supplierLedger.noPurchases")}
                       />
                     </TabsContent>
 
@@ -1690,7 +1702,7 @@ export default function SupplierLedgerPage() {
                         }
                         footerContent={
                           <div className="flex justify-between text-sm px-2">
-                            <span className="font-semibold">Total Paid</span>
+                            <span className="font-semibold">{t("farmer.supplierLedger.totalPaid")}</span>
                             <span className="font-semibold text-green-600">
                               ₹
                               {(
@@ -1702,7 +1714,7 @@ export default function SupplierLedgerPage() {
                             </span>
                           </div>
                         }
-                        emptyMessage="No payments for this supplier"
+                        emptyMessage={t("farmer.supplierLedger.noPayments")}
                       />
                     </TabsContent>
                   </Tabs>
@@ -1714,17 +1726,17 @@ export default function SupplierLedgerPage() {
               <CardContent className="text-center py-6">
                 <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
                 <h3 className="text-base font-semibold mb-2">
-                  No supplier selected
+                  {t("farmer.supplierLedger.noSupplierSelected")}
                 </h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Create a new supplier to get started.
+                  {t("farmer.supplierLedger.createSupplierToStart")}
                 </p>
                 <Button
                   size="sm"
                   onClick={() => setIsAddSupplierOpen(true)}
                 >
                   <Plus className="mr-1 h-3.5 w-3.5" />
-                  Add Supplier
+                  {t("farmer.supplierLedger.addSupplier")}
                 </Button>
               </CardContent>
             </Card>

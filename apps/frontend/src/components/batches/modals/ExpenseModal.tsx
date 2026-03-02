@@ -24,6 +24,7 @@ interface ExpenseFormState {
   medicineRate: string;
   medicineQuantity: string;
   selectedMedicineId: string;
+  selectedOtherId: string;
   otherName: string;
   otherRate: string;
   otherQuantity: string;
@@ -54,6 +55,7 @@ interface ExpenseModalProps {
   expenseCategories: any[];
   feedInventory: any[];
   medicineInventory: any[];
+  otherInventory?: any[];
   inventoryItems: any[];
   
   // Handlers
@@ -61,6 +63,7 @@ interface ExpenseModalProps {
   onFieldUpdate: (e: React.ChangeEvent<any>) => void;
   onFeedSelection: (id: string) => void;
   onMedicineSelection: (id: string) => void;
+  onOtherSelection?: (id: string) => void;
   
   // Loading
   isPending: boolean;
@@ -79,11 +82,13 @@ export function ExpenseModal({
   expenseCategories,
   feedInventory,
   medicineInventory,
+  otherInventory = [],
   inventoryItems,
   onSubmit,
   onFieldUpdate,
   onFeedSelection,
   onMedicineSelection,
+  onOtherSelection,
   isPending,
 }: ExpenseModalProps) {
   const showBatchSelector = !prefilledBatchId;
@@ -435,21 +440,45 @@ export function ExpenseModal({
             <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
               <p className="text-sm font-medium text-foreground">Other expense details</p>
               <div className="grid md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="otherName" className="text-sm font-medium text-foreground">
-                    Expense name
-                  </Label>
-                  <Input
-                    id="otherName"
-                    name="otherName"
-                    value={expenseForm.otherName}
-                    onChange={onFieldUpdate}
-                    className="rounded-lg"
-                  />
-                  {expenseErrors.otherName && (
-                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.otherName}</p>
-                  )}
-                </div>
+                {otherInventory.length > 0 && (
+                  <div className="space-y-2 md:col-span-3">
+                    <Label htmlFor="selectedOtherId" className="text-sm font-medium text-foreground">
+                      Other (from inventory)
+                    </Label>
+                    <select
+                      id="selectedOtherId"
+                      name="selectedOtherId"
+                      value={expenseForm.selectedOtherId ?? ""}
+                      onChange={(e) => onOtherSelection?.(e.target.value)}
+                      className={selectClass}
+                    >
+                      <option value="">Enter manually below (no inventory deduction)</option>
+                      {(otherInventory ?? []).map((item: any) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name} ({(item.quantity ?? item.currentStock ?? 0)} {item.unit} available)
+                          {item.rate != null ? ` - ₹${item.rate}/unit` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {!expenseForm.selectedOtherId && (
+                  <div className="space-y-2">
+                    <Label htmlFor="otherName" className="text-sm font-medium text-foreground">
+                      Expense name
+                    </Label>
+                    <Input
+                      id="otherName"
+                      name="otherName"
+                      value={expenseForm.otherName}
+                      onChange={onFieldUpdate}
+                      className="rounded-lg"
+                    />
+                    {expenseErrors.otherName && (
+                      <p className="text-xs text-destructive mt-1.5">{expenseErrors.otherName}</p>
+                    )}
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="otherQuantity" className="text-sm font-medium text-foreground">
                     Quantity
@@ -468,7 +497,7 @@ export function ExpenseModal({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="otherRate" className="text-sm font-medium text-foreground">
-                    Rate (₹)
+                    Rate per unit (₹)
                   </Label>
                   <Input
                     id="otherRate"
@@ -476,10 +505,19 @@ export function ExpenseModal({
                     type="number"
                     value={expenseForm.otherRate}
                     onChange={onFieldUpdate}
-                    className="rounded-lg"
+                    readOnly={!!expenseForm.selectedOtherId}
+                    className={`rounded-lg ${expenseForm.selectedOtherId ? "bg-muted/50 cursor-default" : ""}`}
+                    placeholder={
+                      expenseForm.selectedOtherId ? "Auto-filled from inventory" : "Enter rate"
+                    }
                   />
                   {expenseErrors.otherRate && (
                     <p className="text-xs text-destructive mt-1.5">{expenseErrors.otherRate}</p>
+                  )}
+                  {expenseForm.selectedOtherId && (
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1.5">
+                      Rate auto-filled from inventory · stock will be deducted
+                    </p>
                   )}
                 </div>
               </div>

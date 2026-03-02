@@ -70,8 +70,8 @@ export const useGetInventoryTableData = (itemType?: InventoryItemType) => {
   });
 };
 
-/** Items with id (InventoryItem.id), currentStock, rate – for expense dropdown (Feed/Medicine). */
-export const useGetInventoryForExpense = (itemType: "FEED" | "MEDICINE" | null) => {
+/** Items with id (InventoryItem.id), currentStock, rate – for expense dropdown (Feed/Medicine/Other). */
+export const useGetInventoryForExpense = (itemType: "FEED" | "MEDICINE" | "OTHER" | null) => {
   return useQuery({
     queryKey: [...inventoryKeys.all, "for-expense", itemType],
     queryFn: async () => {

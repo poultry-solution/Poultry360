@@ -118,7 +118,7 @@ export const useCreateEggProduction = (batchId: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: batchKeys.eggProduction(batchId) });
       queryClient.invalidateQueries({ queryKey: batchKeys.detail(batchId) });
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.eggInventory() });
+      queryClient.invalidateQueries({ queryKey: saleQueryKeys.eggInventory(batchId) });
     },
   });
 };
@@ -133,6 +133,7 @@ export const useUpdateEggProduction = (batchId: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: batchKeys.eggProduction(batchId) });
       queryClient.invalidateQueries({ queryKey: batchKeys.detail(batchId) });
+      queryClient.invalidateQueries({ queryKey: saleQueryKeys.eggInventory(batchId) });
     },
   });
 };
@@ -147,7 +148,7 @@ export const useDeleteEggProduction = (batchId: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: batchKeys.eggProduction(batchId) });
       queryClient.invalidateQueries({ queryKey: batchKeys.detail(batchId) });
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.eggInventory() });
+      queryClient.invalidateQueries({ queryKey: saleQueryKeys.eggInventory(batchId) });
     },
   });
 };

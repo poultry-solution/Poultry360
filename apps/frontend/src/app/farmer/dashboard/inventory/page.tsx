@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Modal } from "@/common/components/ui/modal";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
@@ -65,10 +65,20 @@ export default function InventoryPage() {
   } = useInventoryDashboard();
 
   const { data: batchesData } = useGetAllBatches({}, { enabled: true });
-  const hasLayerBatch = batchesData?.data?.some((batch) => batch.batchType === "LAYERS");
+  const layerBatches = (batchesData?.data ?? []).filter((b: any) => b.batchType === "LAYERS");
+  const hasLayerBatch = layerBatches.length > 0;
+
+  const [selectedEggBatchId, setSelectedEggBatchId] = useState<string | "">("");
+
+  useEffect(() => {
+    if (activeTab === "eggs" && layerBatches.length === 1 && !selectedEggBatchId) {
+      setSelectedEggBatchId(layerBatches[0].id);
+    }
+  }, [activeTab, layerBatches, selectedEggBatchId]);
 
   const { data: eggData, isLoading: isEggLoading } = useGetEggInventory({
-    enabled: hasLayerBatch
+    batchId: activeTab === "eggs" ? (selectedEggBatchId || null) : null,
+    enabled: hasLayerBatch && (activeTab !== "eggs" || !!selectedEggBatchId),
   });
 
   const createInventoryMutation = useCreateInventoryItem();
@@ -87,6 +97,7 @@ export default function InventoryPage() {
   // Filter table data based on active tab
   const getFilteredInventory = () => {
     if (activeTab === "eggs") {
+      if (!selectedEggBatchId) return [];
       const types = eggData?.data?.types;
       if (!types || !Array.isArray(types)) return [];
       return types.map((t: { id: string; name: string; code: string; quantity: number }) => ({
@@ -413,8 +424,24 @@ export default function InventoryPage() {
             {t("farmer.inventory.addItem")}
           </Button>
         ) : activeTab === "eggs" ? (
-          <div className="text-sm text-muted-foreground">
-            Auto-calculated from batch production & sales
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+            <Label htmlFor="egg-batch-select" className="text-sm font-medium whitespace-nowrap">
+              Layers batch
+            </Label>
+            <select
+              id="egg-batch-select"
+              value={selectedEggBatchId}
+              onChange={(e) => setSelectedEggBatchId(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm min-w-[180px]"
+            >
+              <option value="">Select batch to see egg stock</option>
+              {layerBatches.map((batch: any) => (
+                <option key={batch.id} value={batch.id}>
+                  {batch.batchNumber ?? batch.id}
+                  {batch.farm?.name ? ` (${batch.farm.name})` : ""}
+                </option>
+              ))}
+            </select>
           </div>
         ) : (
           <div className="text-sm text-muted-foreground">
@@ -503,6 +530,7 @@ export default function InventoryPage() {
           ].map((tab) => {
             const getTabCount = () => {
               if (tab.key === "eggs") {
+                if (!selectedEggBatchId) return 0;
                 return (eggData?.data?.types ?? []).reduce((s: number, t: { quantity?: number }) => s + (t.quantity ?? 0), 0);
               }
               if (!tableData) return 0;
@@ -604,7 +632,11 @@ export default function InventoryPage() {
                 </Button>
               ) : activeTab === "eggs" ? (
                 <p className="text-sm mt-2">
-                  No eggs in stock. Record daily egg production in Batches to see data here.
+                  {selectedEggBatchId
+                    ? (isEggLoading
+                      ? "Loading..."
+                      : "No eggs in stock for this batch. Record daily egg production on the batch page.")
+                    : "Select a Layers batch above to see egg inventory."}
                 </p>
               ) : (
                 <p className="text-sm mt-2">
