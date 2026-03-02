@@ -650,6 +650,11 @@ export declare const CreateSaleSchema: z.ZodObject<{
         EGGS: "EGGS";
     }>>;
     eggTypeId: z.ZodOptional<z.ZodString>;
+    eggLineItems: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        eggTypeId: z.ZodString;
+        quantity: z.ZodNumber;
+        unitPrice: z.ZodNumber;
+    }, z.core.$strip>>>;
     categoryId: z.ZodOptional<z.ZodString>;
     customerData: z.ZodOptional<z.ZodObject<{
         name: z.ZodString;
@@ -2610,6 +2615,11 @@ export declare const schemas: {
             EGGS: "EGGS";
         }>>;
         eggTypeId: z.ZodOptional<z.ZodString>;
+        eggLineItems: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            eggTypeId: z.ZodString;
+            quantity: z.ZodNumber;
+            unitPrice: z.ZodNumber;
+        }, z.core.$strip>>>;
         categoryId: z.ZodOptional<z.ZodString>;
         customerData: z.ZodOptional<z.ZodObject<{
             name: z.ZodString;

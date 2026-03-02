@@ -388,6 +388,7 @@ model EggType {
   inventories   EggInventory[]
   productions   EggProductionEntry[]
   sales         Sale[]
+  saleEggLines  SaleEggLine[]
 
   @@unique([userId, code])
   @@index([userId])
@@ -567,6 +568,7 @@ model Sale {
   customerId  String?
   customer    Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
   payments    SalePayment[]
+  eggLines    SaleEggLine[]  // Multiple egg types in one sale (e.g. Large 10, Small 20)
   mortality   Mortality?    @relation(fields: [mortalityId], references: [id], onDelete: Cascade)
   mortalityId String?       @unique
   createdAt   DateTime      @default(now())
@@ -575,6 +577,20 @@ model Sale {
   @@index([farmId, date])
   @@index([customerId])
   @@index([mortalityId])
+}
+
+// Multiple egg type lines per sale (e.g. Large 10 @ ₹5, Small 20 @ ₹4)
+model SaleEggLine {
+  id        String   @id @default(cuid())
+  saleId    String
+  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  eggTypeId String
+  eggType   EggType  @relation(fields: [eggTypeId], references: [id], onDelete: Cascade)
+  quantity  Int      // number of eggs
+  unitPrice Decimal  @db.Decimal(10, 2) // rate per unit for this type
+
+  @@index([saleId])
+  @@index([eggTypeId])
 }
 
 // Track partial payments for credit sales

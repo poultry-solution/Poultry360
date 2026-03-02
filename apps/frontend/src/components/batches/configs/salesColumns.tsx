@@ -55,6 +55,19 @@ export function createSalesColumns({
       type: "number",
       align: "right",
       width: "100px",
+      render: (value, row) => {
+        const lines = row?.eggLines as { quantity: number; eggType?: { name: string } }[] | undefined;
+        if (lines && lines.length > 0) {
+          const breakdown = lines.map((l) => `${l.eggType?.name ?? "—"} ${l.quantity}`).join(", ");
+          return (
+            <div className="text-right">
+              <div>{Number(row?.quantity ?? value ?? 0).toLocaleString()}</div>
+              <div className="text-xs text-muted-foreground font-normal">{breakdown}</div>
+            </div>
+          );
+        }
+        return value != null ? Number(value).toLocaleString() : "—";
+      },
     }),
     createColumn("weight", "Weight (kg)", {
       type: "number",

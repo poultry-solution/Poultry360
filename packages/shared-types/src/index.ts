@@ -568,6 +568,11 @@ export const CreateSaleSchema = z
     customerId: z.string().optional(),
     itemType: SalesItemTypeSchema.optional(),
     eggTypeId: z.string().optional(),
+    eggLineItems: z.array(z.object({
+      eggTypeId: z.string(),
+      quantity: z.number().positive().int(),
+      unitPrice: z.number().positive(),
+    })).optional(),
     categoryId: z.string().optional(),
     customerData: z.object({
       name: z.string(),
@@ -579,11 +584,13 @@ export const CreateSaleSchema = z
   .refine(
     (data) => {
       if (data.itemType === "EGGS") {
-        return data.eggTypeId != null && data.eggTypeId.length > 0;
+        const hasLines = data.eggLineItems != null && data.eggLineItems.length > 0;
+        const hasSingle = data.eggTypeId != null && data.eggTypeId.length > 0;
+        return hasLines || hasSingle;
       }
       return true;
     },
-    { message: "eggTypeId is required when itemType is EGGS", path: ["eggTypeId"] }
+    { message: "When itemType is EGGS, provide eggLineItems (multiple types) or eggTypeId (single type)", path: ["eggTypeId"] }
   );
 
 export type CreateSale = z.infer<typeof CreateSaleSchema>;

@@ -851,7 +851,24 @@ export default function BatchDetailPage() {
   // --- Sales Modal ---
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
   const [editingSaleId, setEditingSaleId] = useState<number | null>(null);
-  const [saleForm, setSaleForm] = useState({
+  type EggLineRow = { eggTypeId: string; quantity: string; unitPrice: string };
+  const [saleForm, setSaleForm] = useState<{
+    farmId: string;
+    batchId: string;
+    rate: string;
+    quantity: string;
+    weight: string;
+    itemType: string;
+    eggTypeId: string;
+    eggLineItems: EggLineRow[];
+    remaining: boolean;
+    customerId: string;
+    customerName: string;
+    contact: string;
+    customerCategory: string;
+    balance: string;
+    date: string;
+  }>({
     farmId: "",
     batchId: "",
     rate: "",
@@ -859,6 +876,7 @@ export default function BatchDetailPage() {
     weight: "",
     itemType: "Chicken_Meat",
     eggTypeId: "",
+    eggLineItems: [{ eggTypeId: "", quantity: "", unitPrice: "" }],
     remaining: false,
     customerId: "",
     customerName: "",
@@ -893,6 +911,7 @@ export default function BatchDetailPage() {
       weight: "",
       itemType: "Chicken_Meat",
       eggTypeId: "",
+      eggLineItems: [{ eggTypeId: "", quantity: "", unitPrice: "" }],
       remaining: false,
       customerId: "",
       customerName: "",
@@ -906,14 +925,27 @@ export default function BatchDetailPage() {
   }
   function openEditSale(row: SaleRow) {
     setEditingSaleId(row.id);
+    const r = row as any;
+    const eggLines = r.eggLines as { eggTypeId: string; quantity: number; unitPrice: number }[] | undefined;
+    const eggLineItems: EggLineRow[] =
+      eggLines && eggLines.length > 0
+        ? eggLines.map((l: { eggTypeId: string; quantity: number; unitPrice: number }) => ({
+            eggTypeId: l.eggTypeId,
+            quantity: String(l.quantity),
+            unitPrice: String(l.unitPrice),
+          }))
+        : r.eggTypeId
+          ? [{ eggTypeId: r.eggTypeId, quantity: String(row.quantity), unitPrice: String(row.rate) }]
+          : [{ eggTypeId: "", quantity: "", unitPrice: "" }];
     setSaleForm({
       farmId: batch?.farmId ?? "",
       batchId: batchId ?? "",
       rate: String(row.rate),
       quantity: String(row.quantity),
-      weight: String((row as any).weight || ""),
-      itemType: (row as any).itemType || "Chicken_Meat",
-      eggTypeId: (row as any).eggTypeId || "",
+      weight: String(r.weight || ""),
+      itemType: r.itemType || "Chicken_Meat",
+      eggTypeId: r.eggTypeId || "",
+      eggLineItems,
       remaining: row.remaining,
       customerId: "",
       customerName: row.customer?.name || "",
@@ -938,13 +970,19 @@ export default function BatchDetailPage() {
   const [saleErrors, setSaleErrors] = useState<Record<string, string>>({});
   function validateSale(): boolean {
     const errs: Record<string, string> = {};
-    if (!saleForm.rate) errs.rate = "Rate required";
-    if (!saleForm.quantity) errs.quantity = "Quantity required";
+    if (saleForm.itemType === "EGGS") {
+      const validLines = saleForm.eggLineItems.filter(
+        (l) => l.eggTypeId && Number(l.quantity) > 0 && Number(l.unitPrice) > 0
+      );
+      if (validLines.length === 0) {
+        errs.eggLineItems = "Add at least one egg line (type, quantity, rate)";
+      }
+    } else {
+      if (!saleForm.rate) errs.rate = "Rate required";
+      if (!saleForm.quantity) errs.quantity = "Quantity required";
+    }
     if (saleForm.itemType === "Chicken_Meat") {
       if (!saleForm.weight) errs.weight = "Weight required for Chicken_Meat";
-    }
-    if (saleForm.itemType === "EGGS" && !saleForm.eggTypeId) {
-      errs.eggTypeId = "Egg type required";
     }
     if (!saleForm.date) errs.date = "Date required";
 
@@ -968,10 +1006,18 @@ export default function BatchDetailPage() {
       if (!saleForm.customerId && !saleForm.contact) {
         errs.contact = "Contact number required for new customer";
       }
-      const totalAmount =
-        saleForm.itemType === "Chicken_Meat"
-          ? Number(saleForm.rate || 0) * Number(saleForm.weight || 0)
-          : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0);
+      let totalAmount: number;
+      if (saleForm.itemType === "EGGS" && saleForm.eggLineItems.length > 0) {
+        totalAmount = saleForm.eggLineItems.reduce(
+          (sum, l) => sum + Number(l.quantity || 0) * Number(l.unitPrice || 0),
+          0
+        );
+      } else {
+        totalAmount =
+          saleForm.itemType === "Chicken_Meat"
+            ? Number(saleForm.rate || 0) * Number(saleForm.weight || 0)
+            : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0);
+      }
       const paidAmount = Number(saleForm.balance || 0);
       if (paidAmount > totalAmount) {
         errs.balance = `Paid amount cannot exceed total amount of ₹${totalAmount.toLocaleString()}`;
@@ -986,16 +1032,34 @@ export default function BatchDetailPage() {
     if (!validateSale()) return;
 
     try {
-      const quantity = parseFloat(saleForm.quantity);
-      const weight =
-        saleForm.itemType === "Chicken_Meat"
-          ? parseFloat(saleForm.weight)
-          : null;
-      const unitPrice = parseFloat(saleForm.rate);
-      const amount =
-        saleForm.itemType === "Chicken_Meat"
-          ? unitPrice * (weight || 0)
-          : unitPrice * quantity;
+      let amount: number;
+      let quantity: number;
+      let unitPrice: number;
+      let weight: number | null = null;
+
+      if (saleForm.itemType === "EGGS") {
+        const validLines = saleForm.eggLineItems.filter(
+          (l) => l.eggTypeId && Number(l.quantity) > 0 && Number(l.unitPrice) > 0
+        );
+        quantity = validLines.reduce((s, l) => s + Number(l.quantity), 0);
+        amount = validLines.reduce(
+          (s, l) => s + Number(l.quantity) * Number(l.unitPrice),
+          0
+        );
+        unitPrice = validLines.length > 0 ? Number(validLines[0].unitPrice) : 0;
+      } else {
+        quantity = parseFloat(saleForm.quantity);
+        weight =
+          saleForm.itemType === "Chicken_Meat"
+            ? parseFloat(saleForm.weight)
+            : null;
+        unitPrice = parseFloat(saleForm.rate);
+        amount =
+          saleForm.itemType === "Chicken_Meat"
+            ? unitPrice * (weight || 0)
+            : unitPrice * quantity;
+      }
+
       const paidAmount = saleForm.remaining
         ? saleForm.balance
           ? parseFloat(saleForm.balance)
@@ -1016,8 +1080,19 @@ export default function BatchDetailPage() {
         batchId: saleForm.batchId || batchId,
         itemType: saleForm.itemType,
       };
-      if (saleForm.itemType === "EGGS" && saleForm.eggTypeId) {
-        saleData.eggTypeId = saleForm.eggTypeId;
+      if (saleForm.itemType === "EGGS") {
+        const validLines = saleForm.eggLineItems.filter(
+          (l) => l.eggTypeId && Number(l.quantity) > 0 && Number(l.unitPrice) > 0
+        );
+        if (validLines.length > 0) {
+          saleData.eggLineItems = validLines.map((l) => ({
+            eggTypeId: l.eggTypeId,
+            quantity: Number(l.quantity),
+            unitPrice: Number(l.unitPrice),
+          }));
+        } else if (saleForm.eggTypeId) {
+          saleData.eggTypeId = saleForm.eggTypeId;
+        }
       }
 
       // Handle customer data
@@ -1792,76 +1867,153 @@ export default function BatchDetailPage() {
               </div>
 
               {saleForm.itemType === "EGGS" && (
-                <div>
-                  <Label htmlFor="eggTypeId">Egg Type</Label>
-                  <Select
-                    value={saleForm.eggTypeId}
-                    onValueChange={(value) => {
-                      updateSaleField({ target: { name: "eggTypeId", value } } as any);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select egg type" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white">
-                      {eggTypes.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {t.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {saleErrors.eggTypeId && (
-                    <p className="text-xs text-red-600 mt-1">{saleErrors.eggTypeId}</p>
-                  )}
+                <div className="space-y-3">
+                  <Label>Egg lines (type, quantity, rate per unit)</Label>
                   {eggInventory?.types && eggInventory.types.length > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground">
                       Available: {eggInventory.types.map((t: { name: string; quantity: number }) => `${t.name} ${t.quantity}`).join(" · ")}
                     </p>
+                  )}
+                  {saleForm.eggLineItems.map((line, idx) => (
+                    <div key={idx} className="flex flex-wrap items-end gap-2 p-2 border rounded-md bg-gray-50/50">
+                      <div className="flex-1 min-w-[120px]">
+                        <Label className="text-xs">Type</Label>
+                        <Select
+                          value={line.eggTypeId}
+                          onValueChange={(value) => {
+                            setSaleForm((p) => ({
+                              ...p,
+                              eggLineItems: p.eggLineItems.map((l, i) =>
+                                i === idx ? { ...l, eggTypeId: value } : l
+                              ),
+                            }));
+                          }}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Egg type" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white">
+                            {eggTypes.map((t) => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {t.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="w-24">
+                        <Label className="text-xs">Qty</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={line.quantity}
+                          onChange={(e) => {
+                            setSaleForm((p) => ({
+                              ...p,
+                              eggLineItems: p.eggLineItems.map((l, i) =>
+                                i === idx ? { ...l, quantity: e.target.value } : l
+                              ),
+                            }));
+                          }}
+                          placeholder="0"
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="w-28">
+                        <Label className="text-xs">Rate (₹)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={line.unitPrice}
+                          onChange={(e) => {
+                            setSaleForm((p) => ({
+                              ...p,
+                              eggLineItems: p.eggLineItems.map((l, i) =>
+                                i === idx ? { ...l, unitPrice: e.target.value } : l
+                              ),
+                            }));
+                          }}
+                          placeholder="0"
+                          className="h-9"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0"
+                        onClick={() => {
+                          setSaleForm((p) => ({
+                            ...p,
+                            eggLineItems: p.eggLineItems.filter((_, i) => i !== idx),
+                          }));
+                        }}
+                        disabled={saleForm.eggLineItems.length <= 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSaleForm((p) => ({
+                        ...p,
+                        eggLineItems: [...p.eggLineItems, { eggTypeId: "", quantity: "", unitPrice: "" }],
+                      }));
+                    }}
+                  >
+                    Add line
+                  </Button>
+                  {saleErrors.eggLineItems && (
+                    <p className="text-xs text-red-600">{saleErrors.eggLineItems}</p>
                   )}
                 </div>
               )}
 
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="rate">Rate (₹)</Label>
-                  <Input
-                    id="rate"
-                    name="rate"
-                    type="number"
-                    value={saleForm.rate}
-                    onChange={updateSaleField}
-                    placeholder="Rate per unit"
-                  />
-                  {saleErrors.rate && (
-                    <p className="text-xs text-red-600 mt-1">{saleErrors.rate}</p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="quantity">
-                    {saleForm.itemType === "Chicken_Meat"
-                      ? "Quantity (Birds)"
-                      : saleForm.itemType === "EGGS"
-                        ? "Quantity (Eggs)"
+              {saleForm.itemType !== "EGGS" && (
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="rate">Rate (₹)</Label>
+                    <Input
+                      id="rate"
+                      name="rate"
+                      type="number"
+                      value={saleForm.rate}
+                      onChange={updateSaleField}
+                      placeholder="Rate per unit"
+                    />
+                    {saleErrors.rate && (
+                      <p className="text-xs text-red-600 mt-1">{saleErrors.rate}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="quantity">
+                      {saleForm.itemType === "Chicken_Meat"
+                        ? "Quantity (Birds)"
                         : "Quantity (Units)"}
-                  </Label>
-                  <Input
-                    id="quantity"
-                    name="quantity"
-                    type="number"
-                    value={saleForm.quantity}
-                    onChange={updateSaleField}
-                    placeholder={
-                      saleForm.itemType === "Chicken_Meat"
-                        ? "Number of birds"
-                        : "Number of units"
-                    }
-                  />
-                  {saleErrors.quantity && (
-                    <p className="text-xs text-red-600 mt-1">{saleErrors.quantity}</p>
-                  )}
+                    </Label>
+                    <Input
+                      id="quantity"
+                      name="quantity"
+                      type="number"
+                      value={saleForm.quantity}
+                      onChange={updateSaleField}
+                      placeholder={
+                        saleForm.itemType === "Chicken_Meat"
+                          ? "Number of birds"
+                          : "Number of units"
+                      }
+                    />
+                    {saleErrors.quantity && (
+                      <p className="text-xs text-red-600 mt-1">{saleErrors.quantity}</p>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {saleForm.itemType === "Chicken_Meat" && (
                 <div>
@@ -1892,15 +2044,24 @@ export default function BatchDetailPage() {
                   <span className="text-sm font-medium text-gray-700">Total Amount</span>
                   <span className="text-lg font-bold text-green-700">
                     ₹
-                    {saleForm.itemType === "Chicken_Meat" && Number(saleForm.weight)
-                      ? (Number(saleForm.rate || 0) * Number(saleForm.weight)).toLocaleString()
-                      : (Number(saleForm.rate || 0) * Number(saleForm.quantity || 0)).toLocaleString()}
+                    {saleForm.itemType === "EGGS"
+                      ? saleForm.eggLineItems
+                          .reduce(
+                            (s, l) => s + Number(l.quantity || 0) * Number(l.unitPrice || 0),
+                            0
+                          )
+                          .toLocaleString()
+                      : saleForm.itemType === "Chicken_Meat" && Number(saleForm.weight)
+                        ? (Number(saleForm.rate || 0) * Number(saleForm.weight)).toLocaleString()
+                        : (Number(saleForm.rate || 0) * Number(saleForm.quantity || 0)).toLocaleString()}
                   </span>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  {saleForm.itemType === "Chicken_Meat"
-                    ? "Calculated as rate × weight"
-                    : "Calculated as rate × quantity"}
+                  {saleForm.itemType === "EGGS"
+                    ? "Sum of (quantity × rate) per line"
+                    : saleForm.itemType === "Chicken_Meat"
+                      ? "Calculated as rate × weight"
+                      : "Calculated as rate × quantity"}
                 </p>
               </div>
 

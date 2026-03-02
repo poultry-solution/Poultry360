@@ -663,8 +663,8 @@
       "subtitleDefault": "Track feed, medicine, and supplies from purchases.",
       "addItem": "Add Item",
       "autoAdded": "Items are automatically added when you make purchases in",
-      "dealerLedger": "Dealer Ledger",
-      "medicalSupplierLedger": "Medical Supplier Ledger",
+      "dealerLedger": "Supplier  Ledger",
+      "medicalSupplierLedger": " Supplier Ledger",
       "loading": "Loading inventory...",
       "error": "Failed to load inventory. Please try again.",
       "stats": {
