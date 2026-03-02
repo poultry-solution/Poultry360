@@ -77,7 +77,7 @@ export const getAllDealers = async (
       // 2. OR userId matches current user (manually created dealers)
       where = {
         OR: [
-          { id: { in: linkedDealerIds.length > 0 ? linkedDealerIds : [null] } },
+          ...(linkedDealerIds.length > 0 ? [{ id: { in: linkedDealerIds } }] : []),
           { userId: currentUserId },
         ],
       };
