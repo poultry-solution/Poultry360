@@ -1,4 +1,5 @@
 import prisma from "../utils/prisma";
+import { Prisma } from "@prisma/client";
 import {
   TransactionType,
   InventoryItemType,
@@ -115,13 +116,25 @@ export class InventoryService {
         },
       });
 
-      // 3. Upsert inventory item (find or create in one operation)
+      // 3. Find or create inventory item by name + rate + supplier (different rate or supplier = separate line)
+      const rateKey = new Prisma.Decimal(Math.round(unitPrice * 100) / 100);
+      const supplierKey =
+        dealerId != null
+          ? `DEALER:${dealerId}`
+          : hatcheryId != null
+            ? `HATCHERY:${hatcheryId}`
+            : medicineSupplierId != null
+              ? `MEDICINE_SUPPLIER:${medicineSupplierId}`
+              : "NONE";
+
       const inventoryItem = await tx.inventoryItem.upsert({
         where: {
-          userId_categoryId_name: {
+          userId_categoryId_name_unitPrice_supplierKey: {
             userId,
             categoryId: category.id,
             name: itemName,
+            unitPrice: rateKey,
+            supplierKey,
           },
         },
         update: unit ? { unit } : {},
@@ -133,6 +146,8 @@ export class InventoryService {
           itemType,
           userId,
           categoryId: category.id,
+          unitPrice: rateKey,
+          supplierKey,
         },
       });
 
