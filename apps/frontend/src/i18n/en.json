@@ -529,7 +529,7 @@
       "failedToLoad": "Failed to load suppliers. Please try again.",
       "noSuppliersTitle": "No suppliers found",
       "noSuppliersHelp": "Create your first supplier to start tracking purchases.",
-      "addSupplier": "Add Supplier",
+      "addSupplierButton": "Add Supplier",
       "addShort": "Add",
       "addEntryButton": "Add Entry",
       "selectSupplier": "Select a supplier",

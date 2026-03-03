@@ -4,10 +4,17 @@ import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { DateInput } from "@/common/components/ui/date-input";
 
-type ExpenseCategory = "Feed" | "Medicine" | "Hatchery" | "Other" | "Add extra expenses";
+type ExpenseCategory = "Feed" | "Medicine" | "Other" | "Add extra expenses";
 
 interface ExpenseFormState {
   category: ExpenseCategory;
@@ -17,9 +24,6 @@ interface ExpenseFormState {
   feedQuantity: string;
   feedRate: string;
   selectedFeedId: string;
-  hatcheryName: string;
-  hatcheryRate: string;
-  hatcheryQuantity: string;
   medicineName: string;
   medicineRate: string;
   medicineQuantity: string;
@@ -94,9 +98,6 @@ export function ExpenseModal({
   const showBatchSelector = !prefilledBatchId;
   const showFarmSelector = !prefilledFarmId;
 
-  const selectClass =
-    "w-full h-10 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer transition-shadow";
-
   return (
     <Modal
       isOpen={isOpen}
@@ -104,31 +105,34 @@ export function ExpenseModal({
       title={editingExpenseId ? "Edit Expense" : "Add Expense"}
     >
       <form onSubmit={onSubmit}>
-        <ModalContent className="space-y-6">
+        <ModalContent className="space-y-6 pb-1">
           {/* Context: Farm & Batch */}
           {(showFarmSelector || showBatchSelector) && (
             <div className="space-y-4">
               <p className="text-sm font-medium text-muted-foreground">Context</p>
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-5">
                 {showFarmSelector && (
                   <div className="space-y-2">
                     <Label htmlFor="farmId" className="text-sm font-medium text-foreground">
                       Farm
                     </Label>
-                    <select
-                      id="farmId"
-                      name="farmId"
+                    <Select
                       value={expenseForm.farmId || ""}
-                      onChange={onFieldUpdate}
-                      className={selectClass}
+                      onValueChange={(v) =>
+                        onFieldUpdate({ target: { name: "farmId", value: v } } as React.ChangeEvent<HTMLInputElement>)
+                      }
                     >
-                      <option value="">Select farm</option>
-                      {farms?.map((farm: any) => (
-                        <option key={farm.id} value={farm.id}>
-                          {farm.name}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
+                        <SelectValue placeholder="Select farm" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white">
+                        {farms?.map((farm: any) => (
+                          <SelectItem key={farm.id} value={farm.id}>
+                            {farm.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     {expenseErrors.farmId && (
                       <p className="text-xs text-destructive mt-1.5">{expenseErrors.farmId}</p>
                     )}
@@ -139,20 +143,23 @@ export function ExpenseModal({
                     <Label htmlFor="batchId" className="text-sm font-medium text-foreground">
                       Batch
                     </Label>
-                    <select
-                      id="batchId"
-                      name="batchId"
+                    <Select
                       value={expenseForm.batchId || ""}
-                      onChange={onFieldUpdate}
-                      className={selectClass}
+                      onValueChange={(v) =>
+                        onFieldUpdate({ target: { name: "batchId", value: v } } as React.ChangeEvent<HTMLInputElement>)
+                      }
                     >
-                      <option value="">Select batch</option>
-                      {activeBatches?.map((batch: any) => (
-                        <option key={batch.id} value={batch.id}>
-                          {batch.number} - {batch.farm?.name}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
+                        <SelectValue placeholder="Select batch" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white">
+                        {activeBatches?.map((batch: any) => (
+                          <SelectItem key={batch.id} value={batch.id}>
+                            {batch.number} - {batch.farm?.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     {expenseErrors.batchId && (
                       <p className="text-xs text-destructive mt-1.5">{expenseErrors.batchId}</p>
                     )}
@@ -165,24 +172,29 @@ export function ExpenseModal({
           {/* Category & Date */}
           <div className="space-y-4">
             <p className="text-sm font-medium text-muted-foreground">Category & date</p>
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-5">
               <div className="space-y-2">
                 <Label htmlFor="category" className="text-sm font-medium text-foreground">
                   Category
                 </Label>
-                <select
-                  id="category"
-                  name="category"
+                <Select
                   value={expenseForm.category}
-                  onChange={onFieldUpdate}
-                  className={selectClass}
+                  onValueChange={(v) =>
+                    onFieldUpdate({
+                      target: { name: "category", value: v as ExpenseCategory },
+                    } as React.ChangeEvent<HTMLInputElement>)
+                  }
                 >
-                  <option value="Feed">Feed (from inventory)</option>
-                  <option value="Medicine">Medicine (from inventory)</option>
-                  <option value="Hatchery">Hatchery</option>
-                  <option value="Other">Other</option>
-                  <option value="Add extra expenses">Add extra expenses</option>
-                </select>
+                  <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="Feed">Feed (from inventory)</SelectItem>
+                    <SelectItem value="Medicine">Medicine (from inventory)</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                    <SelectItem value="Add extra expenses">Add extra expenses</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <DateInput
@@ -201,7 +213,7 @@ export function ExpenseModal({
           {expenseForm.category === "Add extra expenses" && (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
               <p className="text-sm font-medium text-foreground">Details</p>
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-5">
                 <div className="space-y-2">
                   <Label htmlFor="extraName" className="text-sm font-medium text-foreground">
                     Name
@@ -243,26 +255,27 @@ export function ExpenseModal({
           {expenseForm.category === "Feed" && (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
               <p className="text-sm font-medium text-foreground">Feed details</p>
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="flex flex-col gap-5">
                 <div className="space-y-2">
                   <Label htmlFor="selectedFeedId" className="text-sm font-medium text-foreground">
                     Feed (from inventory)
                   </Label>
-                  <select
-                    id="selectedFeedId"
-                    name="selectedFeedId"
-                    value={expenseForm.selectedFeedId}
-                    onChange={(e) => onFeedSelection(e.target.value)}
-                    className={selectClass}
+                  <Select
+                    value={expenseForm.selectedFeedId || ""}
+                    onValueChange={onFeedSelection}
                   >
-                    <option value="">Select feed from inventory</option>
-                    {(feedInventory ?? []).map((feed: any) => (
-                      <option key={feed.id} value={feed.id}>
-                        {feed.name} ({(feed.quantity ?? feed.currentStock ?? 0)} {feed.unit} available)
-                        {feed.rate != null ? ` - ₹${feed.rate}/unit` : ""}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
+                      <SelectValue placeholder="Select feed from inventory" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      {(feedInventory ?? []).map((feed: any) => (
+                        <SelectItem key={feed.id} value={feed.id}>
+                          {feed.name} ({(feed.quantity ?? feed.currentStock ?? 0)} {feed.unit} available)
+                          {feed.rate != null ? ` - ₹${feed.rate}/unit` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {expenseErrors.feedBrand && (
                     <p className="text-xs text-destructive mt-1.5">{expenseErrors.feedBrand}</p>
                   )}
@@ -311,83 +324,30 @@ export function ExpenseModal({
               </div>
             </div>
           )}
-          {expenseForm.category === "Hatchery" && (
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
-              <p className="text-sm font-medium text-foreground">Hatchery details</p>
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="hatcheryName" className="text-sm font-medium text-foreground">
-                    Hatchery name
-                  </Label>
-                  <Input
-                    id="hatcheryName"
-                    name="hatcheryName"
-                    value={expenseForm.hatcheryName}
-                    onChange={onFieldUpdate}
-                    className="rounded-lg"
-                  />
-                  {expenseErrors.hatcheryName && (
-                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.hatcheryName}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="hatcheryQuantity" className="text-sm font-medium text-foreground">
-                    Quantity
-                  </Label>
-                  <Input
-                    id="hatcheryQuantity"
-                    name="hatcheryQuantity"
-                    type="number"
-                    value={expenseForm.hatcheryQuantity}
-                    onChange={onFieldUpdate}
-                    className="rounded-lg"
-                  />
-                  {expenseErrors.hatcheryQuantity && (
-                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.hatcheryQuantity}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="hatcheryRate" className="text-sm font-medium text-foreground">
-                    Rate (₹)
-                  </Label>
-                  <Input
-                    id="hatcheryRate"
-                    name="hatcheryRate"
-                    type="number"
-                    value={expenseForm.hatcheryRate}
-                    onChange={onFieldUpdate}
-                    className="rounded-lg"
-                  />
-                  {expenseErrors.hatcheryRate && (
-                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.hatcheryRate}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
           {expenseForm.category === "Medicine" && (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
               <p className="text-sm font-medium text-foreground">Medicine details</p>
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="flex flex-col gap-5">
                 <div className="space-y-2">
                   <Label htmlFor="selectedMedicineId" className="text-sm font-medium text-foreground">
                     Medicine (from inventory)
                   </Label>
-                  <select
-                    id="selectedMedicineId"
-                    name="selectedMedicineId"
-                    value={expenseForm.selectedMedicineId}
-                    onChange={(e) => onMedicineSelection(e.target.value)}
-                    className={selectClass}
+                  <Select
+                    value={expenseForm.selectedMedicineId || ""}
+                    onValueChange={onMedicineSelection}
                   >
-                    <option value="">Select medicine from inventory</option>
-                    {(medicineInventory ?? []).map((medicine: any) => (
-                      <option key={medicine.id} value={medicine.id}>
-                        {medicine.name} ({(medicine.quantity ?? medicine.currentStock ?? 0)} {medicine.unit} available)
-                        {medicine.rate != null ? ` - ₹${medicine.rate}/unit` : ""}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
+                      <SelectValue placeholder="Select medicine from inventory" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      {(medicineInventory ?? []).map((medicine: any) => (
+                        <SelectItem key={medicine.id} value={medicine.id}>
+                          {medicine.name} ({(medicine.quantity ?? medicine.currentStock ?? 0)} {medicine.unit} available)
+                          {medicine.rate != null ? ` - ₹${medicine.rate}/unit` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {expenseErrors.medicineName && (
                     <p className="text-xs text-destructive mt-1.5">{expenseErrors.medicineName}</p>
                   )}
@@ -439,27 +399,29 @@ export function ExpenseModal({
           {expenseForm.category === "Other" && (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
               <p className="text-sm font-medium text-foreground">Other expense details</p>
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="flex flex-col gap-5">
                 {otherInventory.length > 0 && (
-                  <div className="space-y-2 md:col-span-3">
+                  <div className="space-y-2">
                     <Label htmlFor="selectedOtherId" className="text-sm font-medium text-foreground">
                       Other (from inventory)
                     </Label>
-                    <select
-                      id="selectedOtherId"
-                      name="selectedOtherId"
-                      value={expenseForm.selectedOtherId ?? ""}
-                      onChange={(e) => onOtherSelection?.(e.target.value)}
-                      className={selectClass}
+                    <Select
+                      value={expenseForm.selectedOtherId || "__none__"}
+                      onValueChange={(v) => onOtherSelection?.(v === "__none__" ? "" : v)}
                     >
-                      <option value="">Enter manually below (no inventory deduction)</option>
-                      {(otherInventory ?? []).map((item: any) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name} ({(item.quantity ?? item.currentStock ?? 0)} {item.unit} available)
-                          {item.rate != null ? ` - ₹${item.rate}/unit` : ""}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
+                        <SelectValue placeholder="Enter manually below (no inventory deduction)" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white">
+                        <SelectItem value="__none__">Enter manually below (no inventory deduction)</SelectItem>
+                        {(otherInventory ?? []).map((item: any) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {item.name} ({(item.quantity ?? item.currentStock ?? 0)} {item.unit} available)
+                            {item.rate != null ? ` - ₹${item.rate}/unit` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
                 {!expenseForm.selectedOtherId && (

@@ -66,14 +66,12 @@ const PURCHASE_CATEGORY_VALUES = [
   "FEED",
   "MEDICINE",
   "CHICKS",
-  "EQUIPMENT",
   "OTHER",
 ] as const;
 const CATEGORY_I18N_KEYS: Record<(typeof PURCHASE_CATEGORY_VALUES)[number], string> = {
   FEED: "farmer.supplierLedger.categories.feed",
   MEDICINE: "farmer.supplierLedger.categories.medicine",
   CHICKS: "farmer.supplierLedger.categories.chicks",
-  EQUIPMENT: "farmer.supplierLedger.categories.equipment",
   OTHER: "farmer.supplierLedger.categories.other",
 };
 
@@ -85,8 +83,6 @@ function getCategoryBadgeColor(category: string | null | undefined) {
       return "bg-blue-100 text-blue-800";
     case "CHICKS":
       return "bg-yellow-100 text-yellow-800";
-    case "EQUIPMENT":
-      return "bg-gray-100 text-gray-800";
     case "OTHER":
       return "bg-purple-100 text-purple-800";
     default:
@@ -1015,9 +1011,7 @@ export default function SupplierLedgerPage() {
                         ? ["Bottle", "Strip", "Vial", "Tablet", "ML", "PCS"]
                         : newEntry.category === "CHICKS"
                           ? ["Birds", "PCS", "Dozen", "Crate"]
-                          : newEntry.category === "EQUIPMENT"
-                            ? ["PCS", "Set", "Unit", "Box"]
-                            : ["PCS", "KG", "Liters", "Box", "Packet"]
+                          : ["PCS", "KG", "Liters", "Box", "Packet"]
                     ).map((u) => (
                       <SelectItem key={u} value={u}>
                         {u}
@@ -1459,7 +1453,7 @@ export default function SupplierLedgerPage() {
                 onClick={() => setIsAddSupplierOpen(true)}
               >
                 <Plus className="mr-1 h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{t("farmer.supplierLedger.addSupplier")}</span>
+                <span className="hidden sm:inline">{t("farmer.supplierLedger.addSupplierButton")}</span>
                 <span className="sm:hidden">{t("farmer.supplierLedger.addShort")}</span>
               </Button>
             </div>
@@ -1480,7 +1474,7 @@ export default function SupplierLedgerPage() {
                   onClick={() => setIsAddSupplierOpen(true)}
                 >
                   <Plus className="mr-1 h-3.5 w-3.5" />
-                  {t("farmer.supplierLedger.addSupplier")}
+                  {t("farmer.supplierLedger.addSupplierButton")}
                 </Button>
               </CardContent>
             </Card>
@@ -1736,7 +1730,7 @@ export default function SupplierLedgerPage() {
                   onClick={() => setIsAddSupplierOpen(true)}
                 >
                   <Plus className="mr-1 h-3.5 w-3.5" />
-                  {t("farmer.supplierLedger.addSupplier")}
+                  {t("farmer.supplierLedger.addSupplierButton")}
                 </Button>
               </CardContent>
             </Card>

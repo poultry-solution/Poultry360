@@ -89,7 +89,7 @@ import { createMortalityColumns } from "@/components/batches/configs/mortalityCo
 import { createLedgerColumns } from "@/components/batches/configs/ledgerColumns";
 import { Banner } from "@/components/batches/sections/Banner";
 
-type ExpenseCategory = "Feed" | "Medicine" | "Hatchery" | "Other" | "Add extra expenses";
+type ExpenseCategory = "Feed" | "Medicine" | "Other" | "Add extra expenses";
 
 type ExpenseRow = {
   id: number;
@@ -100,9 +100,6 @@ type ExpenseRow = {
   feedBrand?: string;
   feedQuantity?: number;
   feedRate?: number;
-  hatcheryName?: string;
-  hatcheryRate?: number;
-  hatcheryQuantity?: number;
   medicineName?: string;
   medicineRate?: number;
   medicineQuantity?: number;
@@ -578,9 +575,6 @@ export default function BatchDetailPage() {
     feedQuantity: "",
     feedRate: "",
     selectedFeedId: "",
-    hatcheryName: "",
-    hatcheryRate: "",
-    hatcheryQuantity: "",
     medicineName: "",
     medicineRate: "",
     medicineQuantity: "",
@@ -593,7 +587,7 @@ export default function BatchDetailPage() {
     extraAmount: "",
   });
   function updateExpenseField(
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | { target: { name: string; value: string } }
   ) {
     const { name, value } = e.target;
     setExpenseForm((p) => ({ ...p, [name]: value }));
@@ -658,9 +652,6 @@ export default function BatchDetailPage() {
       feedQuantity: "",
       feedRate: "",
       selectedFeedId: "",
-      hatcheryName: "",
-      hatcheryRate: "",
-      hatcheryQuantity: "",
       medicineName: "",
       medicineRate: "",
       medicineQuantity: "",
@@ -676,17 +667,18 @@ export default function BatchDetailPage() {
   }
   function openEditExpense(row: any) {
     setEditingExpenseId(parseInt(row.id));
+    const categoryName = row.category?.name || "Other";
+    const category = ["Feed", "Medicine", "Other", "Add extra expenses"].includes(categoryName)
+      ? categoryName
+      : "Other";
     setExpenseForm({
-      category: row.category?.name || "Other",
+      category: category as ExpenseCategory,
       date: row.date ? new Date(row.date).toISOString().slice(0, 10) : "",
       notes: row.description || "",
       feedBrand: "",
       feedQuantity: row.quantity?.toString() || "",
       feedRate: row.unitPrice?.toString() || "",
       selectedFeedId: "",
-      hatcheryName: "",
-      hatcheryRate: row.unitPrice?.toString() || "",
-      hatcheryQuantity: row.quantity?.toString() || "",
       medicineName: "",
       medicineRate: row.unitPrice?.toString() || "",
       medicineQuantity: row.quantity?.toString() || "",
@@ -748,12 +740,6 @@ export default function BatchDetailPage() {
           errs.feedQuantity = `Only ${available} ${selectedFeed.unit} available`;
         }
       }
-    } else if (expenseForm.category === "Hatchery") {
-      if (!expenseForm.hatcheryName)
-        errs.hatcheryName = "Hatchery name required";
-      if (!expenseForm.hatcheryQuantity)
-        errs.hatcheryQuantity = "Quantity required";
-      if (!expenseForm.hatcheryRate) errs.hatcheryRate = "Rate required";
     } else if (expenseForm.category === "Medicine") {
       if (!expenseForm.selectedMedicineId)
         errs.medicineName = "Please select a medicine from inventory";
@@ -836,13 +822,6 @@ export default function BatchDetailPage() {
             notes: `Feed: ${expenseForm.feedBrand || "Feed"}`,
           });
         }
-      } else if (ec === "Hatchery") {
-        const q = Number(expenseForm.hatcheryQuantity || 0);
-        const r = Number(expenseForm.hatcheryRate || 0);
-        amount = q * r;
-        quantity = q;
-        unitPrice = r;
-        description = `${expenseForm.hatcheryName} - ${description}`;
       } else if (ec === "Medicine") {
         const q = Number(expenseForm.medicineQuantity || 0);
         const r = Number(expenseForm.medicineRate || 0);
