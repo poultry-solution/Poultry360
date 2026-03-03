@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { getNowLocalDateTime } from "@/common/lib/utils";
@@ -535,31 +536,37 @@ export default function SupplierLedgerPage() {
 
         <div className="flex flex-wrap gap-2 items-center">
           <Button
+            asChild
             variant="outline"
             size="sm"
             className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm h-9"
-            onClick={() => router.push("/farmer/dashboard/dealers")}
           >
-            <Users className="mr-2 h-4 w-4" />
-            {t("farmer.dealers.stats.connected")}
+            <Link href="/farmer/dashboard/dealers">
+              <Users className="mr-2 h-4 w-4" />
+              {t("farmer.dealers.stats.connected")}
+            </Link>
           </Button>
           <Button
+            asChild
             variant="outline"
             size="sm"
             className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm h-9"
-            onClick={() => router.push("/farmer/dashboard/order-requests")}
           >
-            <ShoppingCart className="mr-2 h-4 w-4" />
-            {t("farmer.supplierLedger.orderRequests")}
+            <Link href="/farmer/dashboard/order-requests">
+              <ShoppingCart className="mr-2 h-4 w-4" />
+              {t("farmer.supplierLedger.orderRequests")}
+            </Link>
           </Button>
           <Button
+            asChild
             variant="outline"
             size="sm"
             className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm h-9"
-            onClick={() => router.push("/farmer/dashboard/payment-requests")}
           >
-            <DollarSign className="mr-2 h-4 w-4" />
-            {t("farmer.supplierLedger.paymentRequests")}
+            <Link href="/farmer/dashboard/payment-requests">
+              <DollarSign className="mr-2 h-4 w-4" />
+              {t("farmer.supplierLedger.paymentRequests")}
+            </Link>
           </Button>
         </div>
       </div>

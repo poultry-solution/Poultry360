@@ -784,10 +784,10 @@ function ReceivedRequestsTab() {
                   Select the category for inventory tracking
                 </p>
                 <Select value={purchaseCategory} onValueChange={setPurchaseCategory}>
-                  <SelectTrigger>
+                  <SelectTrigger className="!bg-white">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     <SelectItem value="FEED">Feed</SelectItem>
                     <SelectItem value="MEDICINE">Medicine</SelectItem>
                     <SelectItem value="CHICKS">Chicks</SelectItem>

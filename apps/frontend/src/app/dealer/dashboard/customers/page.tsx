@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Search, Users, Edit, Trash2, Phone, MapPin, Link2, CheckCircle2, DollarSign } from "lucide-react";
 import {
@@ -230,27 +231,31 @@ export default function DealerCustomersPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button
+            asChild
             variant="outline"
-            onClick={() => router.push("/dealer/dashboard/payment-requests")}
             className="flex-1 sm:flex-none hover:bg-green-50 hover:text-green-700 border-green-200"
           >
-            <DollarSign className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">{t("dealer.customers.buttons.paymentRequest")}</span>
-            <span className="sm:hidden">{t("dealer.customers.buttons.paymentRequestMobile")}</span>
+            <Link href="/dealer/dashboard/payment-requests">
+              <DollarSign className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">{t("dealer.customers.buttons.paymentRequest")}</span>
+              <span className="sm:hidden">{t("dealer.customers.buttons.paymentRequestMobile")}</span>
+            </Link>
           </Button>
           <Button
+            asChild
             variant="outline"
-            onClick={() => router.push("/dealer/dashboard/customers/verification")}
             className="flex-1 sm:flex-none relative hover:bg-green-50 hover:text-green-700 border-green-200"
           >
-            <CheckCircle2 className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">{t("dealer.customers.buttons.verification")}</span>
-            <span className="sm:hidden">{t("dealer.customers.buttons.verificationMobile")}</span>
-            {pendingVerificationCount > 0 && (
-              <Badge className="ml-2 bg-yellow-500 text-white text-xs px-1.5 py-0.5 min-w-[20px] h-5">
-                {pendingVerificationCount}
-              </Badge>
-            )}
+            <Link href="/dealer/dashboard/customers/verification">
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">{t("dealer.customers.buttons.verification")}</span>
+              <span className="sm:hidden">{t("dealer.customers.buttons.verificationMobile")}</span>
+              {pendingVerificationCount > 0 && (
+                <Badge className="ml-2 bg-yellow-500 text-white text-xs px-1.5 py-0.5 min-w-[20px] h-5">
+                  {pendingVerificationCount}
+                </Badge>
+              )}
+            </Link>
           </Button>
           <Button
             variant="outline"
