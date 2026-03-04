@@ -75,15 +75,7 @@ export const companyNavigation: NavigationItem[] = [
 
 const adminNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.overview", href: "/admin/dashboard", icon: BarChart3 },
-  { nameKey: "sidebar.nav.users", href: "/admin/dashboard/users", icon: Users },
-  { nameKey: "sidebar.nav.farms", href: "/admin/dashboard/farms", icon: Building2 },
-  { nameKey: "sidebar.nav.batches", href: "/admin/dashboard/batches", icon: Package },
-  { nameKey: "sidebar.nav.financial", href: "/admin/dashboard/financial", icon: DollarSign },
-  { nameKey: "sidebar.nav.suppliers", href: "/admin/dashboard/suppliers", icon: Truck },
-  { nameKey: "sidebar.nav.performance", href: "/admin/dashboard/performance", icon: TrendingUp },
-  { nameKey: "sidebar.nav.reports", href: "/admin/dashboard/reports", icon: FileText },
-  { nameKey: "sidebar.nav.companies", href: "/admin/dashboard/company", icon: Building2 },
-  { nameKey: "sidebar.nav.dealers", href: "/admin/dashboard/dealers", icon: Users },
+
 ];
 
 interface SidebarProps {

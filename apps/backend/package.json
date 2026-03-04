@@ -12,7 +12,7 @@
     "build": "tsc"
   },
   "prisma": {
-    "seed": "node prisma/dist/seed.js"
+    "seed": "ts-node prisma/seed.ts"
   },
   "keywords": [],
   "author": "",
