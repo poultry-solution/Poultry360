@@ -24,23 +24,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   const isAuthPage = pathname?.startsWith("/auth/");
   const isPublicSharePage = pathname?.startsWith("/share/");
 
-  // Run initialize() only after Zustand persist has rehydrated from localStorage,
-  // so the persisted accessToken is available and we don't rely on refresh cookie on first load (fixes prod redirect to login on refresh).
   useEffect(() => {
-    const unsub = useAuthStore.persist.onFinishHydration(() => {
+    if (!isInitialized) {
       initialize();
-    });
-    // Fallback: if hydration already completed before we subscribed, initialize after a short delay.
-    const fallback = setTimeout(() => {
-      if (!useAuthStore.getState().isInitialized) {
-        initialize();
-      }
-    }, 150);
-    return () => {
-      unsub?.();
-      clearTimeout(fallback);
-    };
-  }, [initialize]);
+    }
+  }, [initialize, isInitialized]);
 
   // Public share pages render immediately — no auth needed
   if (isPublicSharePage) {
