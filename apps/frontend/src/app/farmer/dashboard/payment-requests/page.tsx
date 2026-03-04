@@ -47,7 +47,7 @@ import { useGetFarmerDealers } from "@/fetchers/farmer/farmerVerificationQueries
 import { useI18n } from "@/i18n/useI18n";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { DateInput } from "@/common/components/ui/date-input";
-import { getNowLocalDateTime } from "@/common/lib/utils";
+import { getNowLocalDateTime, getTodayLocalDate } from "@/common/lib/utils";
 import { toast } from "sonner";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 
@@ -129,7 +129,7 @@ export default function FarmerPaymentRequestsPage() {
         amount: createAmount,
         paymentMethod: createPaymentMethod,
         paymentReference: createReference || undefined,
-        paymentDate: createDate || new Date().toISOString().split("T")[0],
+        paymentDate: createDate || getTodayLocalDate(),
         description: createDescription || undefined,
         receiptImageUrl: createReceiptUrl || undefined,
       });

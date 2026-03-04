@@ -229,6 +229,9 @@ model User {
   doctorConversations Conversation[] @relation("DoctorConversations")
   sentMessages        Message[]
 
+  // Reminders
+  reminders Reminder[]
+
   // Batch share relationships
   batchSharesOwned    BatchShare[]     @relation("BatchShareOwner")
   batchSharesReceived BatchShare[]     @relation("BatchShareRecipient")
@@ -319,6 +322,7 @@ model Farm {
   sales           Sale[]
   inventoryUsages InventoryUsage[]
   vaccinations    Vaccination[]
+  reminders       Reminder[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -363,12 +367,34 @@ model Batch {
   eggProductions EggProduction[]
   // Per-batch egg inventory (so sales show and deduct from this batch's stock)
   batchEggInventories BatchEggInventory[]
+  reminders Reminder[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([farmId, batchNumber])
   @@index([farmId, startDate])
+}
+
+// ==================== REMINDERS ====================
+model Reminder {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String   // What to be reminded of
+  reminderDate DateTime // Date (day) when user wants to be reminded
+  isNoticed    Boolean  @default(false) // When true, hide from "due" list
+
+  farmId  String?
+  farm    Farm?   @relation(fields: [farmId], references: [id], onDelete: SetNull)
+  batchId String?
+  batch   Batch?  @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, reminderDate, isNoticed])
 }
 
 // ==================== EGG MODELS (LAYERS) ====================

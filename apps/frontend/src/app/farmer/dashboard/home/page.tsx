@@ -18,6 +18,7 @@ import { StatsCards } from "@/components/dashboard/StatsCards";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { MoneyDetailsModal } from "@/components/dashboard/modals/MoneyDetailsModal";
 import { BatchPerformanceTable } from "@/components/dashboard/BatchPerformanceTable";
+import { ReminderCard } from "@/components/dashboard/ReminderCard";
 import { useI18n } from "@/i18n/useI18n";
 
 export default function DashboardPage() {
@@ -195,8 +196,15 @@ export default function DashboardPage() {
         onMoneyToPayClick={() => setIsMoneyToPayOpen(true)}
       />
 
-      {/* Batch Performance Table */}
-      <BatchPerformanceTable />
+      {/* Batch Performance Overview + Reminders (50/50) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="min-w-0">
+          <BatchPerformanceTable />
+        </div>
+        <div className="min-w-0">
+          <ReminderCard />
+        </div>
+      </div>
 
       {/* Recent Activity */}
       <RecentActivity

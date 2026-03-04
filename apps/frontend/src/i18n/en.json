@@ -900,6 +900,26 @@
       "welcome": "Welcome, {name}!",
       "allFarmsTitle": "All Farms",
       "allBatchesTitle": "All Batches",
+      "reminder": {
+        "title": "Reminders",
+        "what": "What to be reminded of",
+        "placeholder": "e.g. Vaccination due, Feed order",
+        "farm": "Farm (optional)",
+        "batch": "Batch (optional)",
+        "none": "None",
+        "date": "Remind me on",
+        "time": "Time",
+        "add": "Add",
+        "addModalTitle": "Add reminder",
+        "due": "Due – tick when done",
+        "upcoming": "Upcoming (next 24 hours)",
+        "upcomingTag": "Upcoming",
+        "loading": "Loading...",
+        "noDue": "No due reminders",
+        "done": "Done",
+        "doneDelete": "Done – remove from list",
+        "markNoticed": "Mark as noticed"
+      },
       "batchPerformance": {
         "title": "Batch Performance Overview",
         "tabs": {

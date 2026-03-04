@@ -111,3 +111,15 @@ export function formatBSLong(adDate: Date | string): string {
   const day = nepaliDate.getDate();
   return `${BS_MONTH_NAMES[month - 1]} ${day}, ${year}`;
 }
+
+/**
+ * Get BS month name and day for use in batch names (e.g. "Mangsir-20").
+ * Uses local date parsing so the correct BS day is used.
+ */
+export function getBSMonthDayForDisplay(adDate: Date | string): string {
+  const dateObj =
+    typeof adDate === "string" ? parseDateStringLocal(adDate) : adDate;
+  if (isNaN(dateObj.getTime())) return "";
+  const long = formatBSLong(dateObj);
+  return long.replace(/\s(\d+), \d+$/, "-$1");
+}

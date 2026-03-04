@@ -111,12 +111,13 @@ export default function DealerHomePage() {
     }
   };
 
-  // Calculate current month date range
+  // Calculate current month date range (local dates to avoid UTC shift)
   const currentDate = new Date();
   const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-  const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59);
-  const startDate = startOfMonth.toISOString().split('T')[0];
-  const endDate = endOfMonth.toISOString().split('T')[0];
+  const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const startDate = `${startOfMonth.getFullYear()}-${pad(startOfMonth.getMonth() + 1)}-${pad(startOfMonth.getDate())}`;
+  const endDate = `${endOfMonth.getFullYear()}-${pad(endOfMonth.getMonth() + 1)}-${pad(endOfMonth.getDate())}`;
 
   // Fetch real data
   const { data: inventoryData, isLoading: inventoryLoading } = useGetInventorySummary();

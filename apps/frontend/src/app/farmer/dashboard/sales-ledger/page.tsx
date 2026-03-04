@@ -67,6 +67,7 @@ import { DateDisplay } from "@/common/components/ui/date-display";
 import { DateInput } from "@/common/components/ui/date-input";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { useI18n } from "@/i18n/useI18n";
+import { getTodayLocalDate } from "@/common/lib/utils";
 
 // Types
 type TabType = "overview" | "sales" | "parties" | "payments";
@@ -153,7 +154,7 @@ export default function SalesLedgerPage() {
     rate: "",
     quantity: "",
     weight: "",
-    date: new Date().toISOString().split("T")[0],
+    date: getTodayLocalDate(),
     remaining: false,
     customerId: "",
     customerName: "",
@@ -171,7 +172,7 @@ export default function SalesLedgerPage() {
 
   const [paymentForm, setPaymentForm] = useState({
     amount: "",
-    date: new Date().toISOString().split("T")[0],
+    date: getTodayLocalDate(),
     description: "",
     reference: "",
     receiptUrl: "",
@@ -190,7 +191,7 @@ export default function SalesLedgerPage() {
   useEffect(() => {
     if (isSaleModalOpen) {
       if (!saleForm.date) {
-        const today = new Date().toISOString().split("T")[0];
+        const today = getTodayLocalDate();
         setSaleForm((p) => ({ ...p, date: today }));
       }
     }
@@ -568,7 +569,7 @@ export default function SalesLedgerPage() {
       setIsPaymentModalOpen(false);
       setPaymentForm({
         amount: "",
-        date: new Date().toISOString().split("T")[0],
+        date: getTodayLocalDate(),
         description: "",
         reference: "",
         receiptUrl: "",
@@ -640,7 +641,7 @@ export default function SalesLedgerPage() {
       rate: "",
       quantity: "",
       weight: "",
-      date: new Date().toISOString().split("T")[0],
+      date: getTodayLocalDate(),
       remaining: false,
       customerId: "",
       customerName: "",
@@ -890,7 +891,7 @@ export default function SalesLedgerPage() {
               setSelectedParty(row);
               setPaymentForm({
                 amount: "",
-                date: new Date().toISOString().split("T")[0],
+                date: getTodayLocalDate(),
                 description: t("farmer.salesLedger.paymentFrom", { name: row.name }),
                 reference: "",
                 receiptUrl: "",
@@ -2117,7 +2118,7 @@ export default function SalesLedgerPage() {
           setSelectedParty(null);
           setPaymentForm({
             amount: "",
-            date: new Date().toISOString().split("T")[0],
+            date: getTodayLocalDate(),
             description: "",
             reference: "",
             receiptUrl: "",
@@ -2267,7 +2268,7 @@ export default function SalesLedgerPage() {
                 setSelectedParty(null);
                 setPaymentForm({
                   amount: "",
-                  date: new Date().toISOString().split("T")[0],
+                  date: getTodayLocalDate(),
                   description: "",
                   reference: "",
                   receiptUrl: "",

@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import { useGetFarmById, useGetFarmAnalytics, useDeleteFarm } from "@/fetchers/farms/farmQueries";
 import { getTodayLocalDate } from "@/common/lib/utils";
+import { getBSMonthDayForDisplay } from "@/common/lib/nepali-date";
 import { useGetAllBatches, useCreateBatch, useDeleteBatch } from "@/fetchers/batches/batchQueries";
 import { useInventoryByType } from "@/fetchers/inventory/inventoryQueries";
 import { toast } from "sonner";
@@ -173,16 +174,14 @@ export default function FarmDetailPage() {
     }
   }, [isBatchModalOpen]);
 
-  // Precompute batch name when startDate or farm changes
+  // Precompute batch name when startDate or farm changes (Nepali date for display)
   useEffect(() => {
     if (!isBatchModalOpen) return;
     if (!farm?.name) return;
     if (!batchForm.startDate) return;
-    const d = new Date(batchForm.startDate);
-    if (isNaN(d.getTime())) return;
-    const month = d.toLocaleString("en-US", { month: "long" });
-    const day = d.getDate();
-    const suggested = `${month}-${day}-${farm.name}`;
+    const bsPart = getBSMonthDayForDisplay(batchForm.startDate);
+    if (!bsPart) return;
+    const suggested = `${bsPart}-${farm.name}`;
     if (batchForm.batchNumber !== suggested) {
       setBatchForm((p) => ({ ...p, batchNumber: suggested }));
     }
@@ -195,14 +194,10 @@ export default function FarmDetailPage() {
     setBatchForm((p) => {
       const next = { ...p, [name]: value };
       if (name === "startDate") {
-        // Suggest: MonthName-Day-Farm Name
+        // Suggest: BS MonthName-Day-Farm Name
         if (value && farm?.name) {
-          const d = new Date(value);
-          if (!isNaN(d.getTime())) {
-            const month = d.toLocaleString("en-US", { month: "long" });
-            const day = d.getDate();
-            next.batchNumber = `${month}-${day}-${farm.name}`;
-          }
+          const bsPart = getBSMonthDayForDisplay(value);
+          if (bsPart) next.batchNumber = `${bsPart}-${farm.name}`;
         }
       }
       return next;
@@ -773,7 +768,6 @@ export default function FarmDetailPage() {
                   label="Start Date"
                   value={batchForm.startDate}
                   onChange={(value) => setBatchForm(prev => ({ ...prev, startDate: value }))}
-                  preferNativeInput
                 />
               </div>
 

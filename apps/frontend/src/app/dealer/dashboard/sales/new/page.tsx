@@ -44,6 +44,7 @@ import {
   useCreateCustomer,
 } from "@/fetchers/dealer/dealerSaleQueries";
 import { useI18n } from "@/i18n/useI18n";
+import { getTodayLocalDate } from "@/common/lib/utils";
 
 interface UnitConversion {
   unitName: string;
@@ -215,7 +216,7 @@ export default function NewSalePage() {
         paidAmount,
         paymentMethod,
         notes: notes || undefined,
-        date: new Date(),
+        date: new Date(getTodayLocalDate() + "T12:00:00"),
         discount:
           discountValue > 0
             ? { type: discountType, value: discountValue }

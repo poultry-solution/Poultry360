@@ -88,6 +88,7 @@ import { createSalesColumns } from "@/components/batches/configs/salesColumns";
 import { createMortalityColumns } from "@/components/batches/configs/mortalityColumns";
 import { createLedgerColumns } from "@/components/batches/configs/ledgerColumns";
 import { Banner } from "@/components/batches/sections/Banner";
+import { getTodayLocalDate } from "@/common/lib/utils";
 
 type ExpenseCategory = "Feed" | "Medicine" | "Other" | "Add extra expenses";
 
@@ -346,7 +347,7 @@ export default function BatchDetailPage() {
   // Manual weight form state
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
   const [weightForm, setWeightForm] = useState({
-    date: new Date().toISOString().split("T")[0],
+    date: getTodayLocalDate(),
     avgWeight: "",
     sampleCount: "",
     notes: "",
@@ -381,7 +382,7 @@ export default function BatchDetailPage() {
       flash("success", "Weight recorded successfully");
       setIsWeightModalOpen(false);
       setWeightForm({
-        date: new Date().toISOString().split("T")[0],
+        date: getTodayLocalDate(),
         avgWeight: "",
         sampleCount: "",
         notes: "",
@@ -397,7 +398,7 @@ export default function BatchDetailPage() {
 
   function openCloseBatchModal() {
     setCloseBatchForm({
-      endDate: new Date().toISOString().split("T")[0], // Today's date
+      endDate: getTodayLocalDate(), // Today's date
       finalNotes: "",
     });
     setCloseErrors({});
@@ -925,7 +926,7 @@ export default function BatchDetailPage() {
     contact: "",
     customerCategory: "Chicken",
     balance: "",
-    date: new Date().toISOString().split("T")[0],
+    date: getTodayLocalDate(),
   });
   const { data: eggTypesData } = useGetEggTypes({ enabled: true });
   const eggTypes = eggTypesData?.data ?? [];
@@ -961,7 +962,7 @@ export default function BatchDetailPage() {
       contact: "",
       customerCategory: "Chicken",
       balance: "",
-      date: new Date().toISOString().split("T")[0],
+      date: getTodayLocalDate(),
     });
     setCustomerSearch("");
     setIsSaleModalOpen(true);
@@ -995,7 +996,7 @@ export default function BatchDetailPage() {
       contact: row.customer?.phone || "",
       customerCategory: row.customer?.category || "Chicken",
       balance: String(row.customer?.balance ?? ""),
-      date: row.date?.includes("T") ? row.date.split("T")[0] : row.date || new Date().toISOString().split("T")[0],
+      date: row.date?.includes("T") ? row.date.split("T")[0] : row.date || getTodayLocalDate(),
     });
     setCustomerSearch("");
     setIsSaleModalOpen(true);
@@ -1211,7 +1212,7 @@ export default function BatchDetailPage() {
     useState<any>(null);
   const [paymentForm, setPaymentForm] = useState({
     amount: "",
-    date: new Date().toISOString().split("T")[0],
+    date: getTodayLocalDate(),
     description: "",
     reference: "",
   });
@@ -1243,7 +1244,7 @@ export default function BatchDetailPage() {
   function openNewMortality() {
     setEditingMortalityId(null);
     setMortalityForm({
-      date: new Date().toISOString().split("T")[0],
+      date: getTodayLocalDate(),
       count: "",
       reason: "Natural Death",
     });
@@ -1412,7 +1413,7 @@ export default function BatchDetailPage() {
     setSelectedCustomer(customer);
     setPaymentForm({
       amount: "",
-      date: new Date().toISOString().split("T")[0],
+      date: getTodayLocalDate(),
       description: `Payment from ${customer.name}`,
       reference: "",
     });
@@ -1474,7 +1475,7 @@ export default function BatchDetailPage() {
       setIsPaymentModalOpen(false);
       setPaymentForm({
         amount: "",
-        date: new Date().toISOString().split("T")[0],
+        date: getTodayLocalDate(),
         description: "",
         reference: "",
       });
@@ -2302,7 +2303,7 @@ export default function BatchDetailPage() {
           setSelectedCustomer(null);
           setPaymentForm({
             amount: "",
-            date: new Date().toISOString().split("T")[0],
+            date: getTodayLocalDate(),
             description: "",
             reference: "",
           });

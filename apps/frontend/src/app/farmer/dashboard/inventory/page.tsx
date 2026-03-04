@@ -38,6 +38,7 @@ import { useI18n } from "@/i18n/useI18n";
 import { useAddDealerTransaction } from "@/fetchers/dealers/dealerQueries";
 import { inventoryKeys } from "@/fetchers/inventory/inventoryQueries";
 import { useQueryClient } from "@tanstack/react-query";
+import { getTodayLocalDate } from "@/common/lib/utils";
 
 export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState<
@@ -47,9 +48,7 @@ export default function InventoryPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [reorderRow, setReorderRow] = useState<any>(null);
   const [reorderQuantity, setReorderQuantity] = useState("");
-  const [reorderDate, setReorderDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [reorderDate, setReorderDate] = useState(getTodayLocalDate());
   const reorderMutation = useAddDealerTransaction();
   const queryClient = useQueryClient();
 
@@ -193,7 +192,7 @@ export default function InventoryPage() {
   const openReorderModal = (row: any) => {
     setReorderRow(row);
     setReorderQuantity("");
-    setReorderDate(new Date().toISOString().split("T")[0]);
+    setReorderDate(getTodayLocalDate());
   };
 
   const handleReorderSubmit = async () => {
