@@ -400,22 +400,18 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: true });
 
           try {
-            const { accessToken } = get();
-            // Use persisted token first (from localStorage rehydration) so refresh in prod doesn't require cookie immediately
-            if (accessToken) {
-              const isValid = await get().validateToken();
-              if (isValid) {
-                console.log("✅ Auth initialized with persisted token");
-                return;
-              }
-            }
-            // No valid persisted token: try refresh (uses httpOnly cookie)
             console.log("🔄 Initializing auth - attempting token refresh...");
+            
+            // Always try to refresh the token first (uses httpOnly cookie)
+            // This handles cases where access token is expired but refresh token is valid
             const newAccessToken = await get().refreshToken();
+            
             if (newAccessToken) {
+              // If refresh successful, validate the new token
               const isValid = await get().validateToken();
+              
               if (isValid) {
-                console.log("✅ Auth initialized successfully with refreshed token");
+                console.log("✅ Auth initialized successfully with valid token");
               } else {
                 throw new Error("Token validation failed after refresh");
               }
@@ -424,12 +420,15 @@ export const useAuthStore = create<AuthState>()(
             }
           } catch (error) {
             console.log("❌ Auth initialization failed:", error);
+            // If refresh fails, clear any stored data and mark as unauthenticated
             set({
               user: null,
               accessToken: null,
               isAuthenticated: false,
               error: null,
             });
+            
+            // Clear localStorage
             localStorage.removeItem("auth-storage");
           } finally {
             set({
