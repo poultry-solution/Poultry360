@@ -90,9 +90,14 @@ const API_BASE_URL =
 const apiCall = async (endpoint: string, options: RequestInit = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
 
-  const defaultHeaders = {
+  const defaultHeaders: Record<string, string> = {
     "Content-Type": "application/json",
   };
+
+  // Bypass ngrok's browser warning page so fetch requests reach the backend
+  if (API_BASE_URL.includes("ngrok")) {
+    defaultHeaders["ngrok-skip-browser-warning"] = "true";
+  }
 
   const config: RequestInit = {
     ...options,
