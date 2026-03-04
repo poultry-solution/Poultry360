@@ -71,7 +71,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: "/",
-      domain: process.env.NODE_ENV === "production" ? ".myapp.com" : undefined, // Allow subdomains in production
+      // No domain: cookie is for this API host so cross-origin requests (e.g. Vercel → EC2) send it
     });
 
     let userWithFarms: any = {
@@ -299,7 +299,6 @@ export const logout = (req: Request, res: Response): any => {
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     path: "/",
-    domain: process.env.NODE_ENV === "production" ? ".myapp.com" : undefined, // Allow subdomains in production
   });
 
   return res.json({ message: "Logged out successfully" });
