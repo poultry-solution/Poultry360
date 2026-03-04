@@ -276,15 +276,7 @@ export const useAuthStore = create<AuthState>()(
 
             return accessToken;
           } catch (error) {
-            // If refresh fails, logout user
             console.error("❌ Refresh token error:", error);
-            set({
-              user: null,
-              accessToken: null,
-              isAuthenticated: false,
-              error: null,
-            });
-            localStorage.removeItem("auth-storage");
             throw error;
           }
         },
@@ -305,7 +297,6 @@ export const useAuthStore = create<AuthState>()(
             });
 
             if (response.isValid && response.user) {
-              // Transform user data to match our interface
               const transformedUser: User = {
                 id: response.user.id,
                 name: response.user.name,
@@ -328,22 +319,9 @@ export const useAuthStore = create<AuthState>()(
                 error: null,
               });
               return true;
-            } else {
-              set({
-                user: null,
-                accessToken: null,
-                isAuthenticated: false,
-                error: null,
-              });
-              return false;
             }
+            return false;
           } catch (error) {
-            set({
-              user: null,
-              accessToken: null,
-              isAuthenticated: false,
-              error: null,
-            });
             return false;
           }
         },
@@ -401,39 +379,41 @@ export const useAuthStore = create<AuthState>()(
         initialize: async () => {
           if (get().isInitialized) return;
 
-          // Set loading during initialization
           set({ isLoading: true });
 
           try {
-            console.log("🔄 Initializing auth - attempting token refresh...");
-            
-            // Always try to refresh the token first (uses httpOnly cookie)
-            // This handles cases where access token is expired but refresh token is valid
-            const newAccessToken = await get().refreshToken();
-            
-            if (newAccessToken) {
-              // If refresh successful, validate the new token
+            // Step 1: Check if we have a persisted access token (from localStorage via zustand persist)
+            const { accessToken } = get();
+
+            if (accessToken) {
+              console.log("🔄 Found persisted access token, validating...");
               const isValid = await get().validateToken();
-              
               if (isValid) {
-                console.log("✅ Auth initialized successfully with valid token");
-              } else {
-                throw new Error("Token validation failed after refresh");
+                console.log("✅ Persisted access token is valid");
+                return;
               }
-            } else {
-              throw new Error("Token refresh failed");
+              console.log("⚠️ Persisted access token expired, trying cookie refresh...");
             }
+
+            // Step 2: Access token missing or expired — try httpOnly cookie refresh
+            const newAccessToken = await get().refreshToken();
+            if (newAccessToken) {
+              const isValid = await get().validateToken();
+              if (isValid) {
+                console.log("✅ Auth initialized via refresh token cookie");
+                return;
+              }
+            }
+
+            throw new Error("All authentication methods failed");
           } catch (error) {
             console.log("❌ Auth initialization failed:", error);
-            // If refresh fails, clear any stored data and mark as unauthenticated
             set({
               user: null,
               accessToken: null,
               isAuthenticated: false,
               error: null,
             });
-            
-            // Clear localStorage
             localStorage.removeItem("auth-storage");
           } finally {
             set({
