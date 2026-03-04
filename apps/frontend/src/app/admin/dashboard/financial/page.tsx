@@ -2,7 +2,6 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
-import { Badge } from "@/common/components/ui/badge";
 import { 
   DollarSign, 
   TrendingUp, 
@@ -10,7 +9,6 @@ import {
   BarChart3, 
   PieChart,
   Download,
-  Calendar,
   ArrowUpRight,
   ArrowDownRight
 } from "lucide-react";

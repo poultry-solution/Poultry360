@@ -7,7 +7,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { 
   Building2, 
   TrendingUp, 
-  Users, 
   Package, 
   MapPin, 
   Search, 
@@ -18,7 +17,6 @@ import {
   Edit, 
   Trash2,
   BarChart3,
-  Activity,
   Target
 } from "lucide-react";
 import { useState } from "react";

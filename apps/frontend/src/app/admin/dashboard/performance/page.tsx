@@ -17,8 +17,6 @@ import {
   ArrowDownRight,
   Download,
   Filter,
-  RefreshCw,
-  Calendar,
   Award,
   DollarSign,
   Zap

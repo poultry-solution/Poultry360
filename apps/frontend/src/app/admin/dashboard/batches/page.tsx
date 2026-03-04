@@ -6,8 +6,6 @@ import { Badge } from "@/common/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/common/components/ui/table";
 import { 
   Package, 
-  TrendingUp, 
-  Calendar, 
   Users, 
   Search, 
   Filter, 
@@ -18,7 +16,6 @@ import {
   Trash2,
   BarChart3,
   Activity,
-  Target
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";

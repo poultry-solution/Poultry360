@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/common/providers/QueryProvider";
@@ -24,6 +24,23 @@ export const metadata: Metadata = {
   title: "Poultry360 - Smart Poultry Management System",
   description:
     "Comprehensive poultry management system for Broiler farming. Track sales, manage expenses, control inventory & more. Start with Broiler, scale to Layers, Hatchery & Feed dealers.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Poultry360",
+  },
+  formatDetection: {
+    telephone: false,
+    email: false,
+  },
+  icons: {
+    apple: "/icons/icon-192.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#16a34a",
 };
 
 export default function RootLayout({

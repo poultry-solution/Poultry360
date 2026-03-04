@@ -23,6 +23,7 @@ import { Badge } from "@/common/components/ui/badge";
 import { useState, useEffect } from "react";
 import { Modal } from "@/common/components/ui/modal";
 import { Input } from "@/common/components/ui/input";
+import { DateInput } from "@/common/components/ui/date-input";
 import { Label } from "@/common/components/ui/label";
 import { DataTable, Column, createColumn } from "@/common/components/ui/data-table";
 import {
@@ -695,12 +696,10 @@ export default function InventoryPage() {
             </div>
 
             <div>
-              <Label htmlFor="reorderDate">{t("farmer.inventory.reorder.date")}</Label>
-              <Input
-                id="reorderDate"
-                type="date"
+              <DateInput
+                label={t("farmer.inventory.reorder.date")}
                 value={reorderDate}
-                onChange={(e) => setReorderDate(e.target.value)}
+                onChange={setReorderDate}
               />
             </div>
 
