@@ -30,7 +30,7 @@ import {
 
 const SALES_LEDGER_OPEN_MODAL_PARAM = "openModal=sale";
 
-type ExpenseCategory = "Feed" | "Medicine" | "Other" | "Add extra expenses";
+type ExpenseCategory = "Feed" | "Medicine" | "Other";
 
 const initialExpenseForm = {
   category: "Feed" as ExpenseCategory,
@@ -228,13 +228,7 @@ export function QuickActionBtnsFarmer() {
     if (!expenseForm.batchId) errs.batchId = "Batch is required";
     if (!expenseForm.date) errs.date = "Date is required";
 
-    const isExtra = expenseForm.category === "Add extra expenses";
-    if (isExtra) {
-      if (!expenseForm.extraName?.trim()) errs.extraName = "Name is required";
-      const amt = Number(expenseForm.extraAmount);
-      if (!expenseForm.extraAmount || isNaN(amt) || amt <= 0)
-        errs.extraAmount = "Amount must be greater than 0";
-    } else if (expenseForm.category === "Feed") {
+    if (expenseForm.category === "Feed") {
       if (!expenseForm.selectedFeedId)
         errs.feedBrand = "Please select a feed from inventory";
       if (!expenseForm.feedQuantity) errs.feedQuantity = "Quantity required";
@@ -310,13 +304,7 @@ export function QuickActionBtnsFarmer() {
         return;
       }
 
-      if (ec === "Add extra expenses") {
-        amount = Number(expenseForm.extraAmount);
-        quantity = 1;
-        unitPrice = amount;
-        description = expenseForm.extraName.trim();
-        if (expenseForm.notes?.trim()) description += ` - ${expenseForm.notes.trim()}`;
-      } else if (ec === "Feed") {
+      if (ec === "Feed") {
         const q = Number(expenseForm.feedQuantity || 0);
         const r = Number(expenseForm.feedRate || 0);
         amount = q * r;

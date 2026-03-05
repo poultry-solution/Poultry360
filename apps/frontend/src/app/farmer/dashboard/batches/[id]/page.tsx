@@ -60,7 +60,6 @@ import {
 import { DateInput } from "@/common/components/ui/date-input";
 import {
   useGetWeights,
-  useGetGrowthChart,
   useAddWeight,
   useUpdateWeight,
   useDeleteWeight,
@@ -90,7 +89,7 @@ import { createLedgerColumns } from "@/components/batches/configs/ledgerColumns"
 import { Banner } from "@/components/batches/sections/Banner";
 import { getTodayLocalDate } from "@/common/lib/utils";
 
-type ExpenseCategory = "Feed" | "Medicine" | "Other" | "Add extra expenses";
+type ExpenseCategory = "Feed" | "Medicine" | "Other";
 
 type ExpenseRow = {
   id: number;
@@ -337,12 +336,8 @@ export default function BatchDetailPage() {
     error: weightsError,
   } = useGetWeights(safeBatchId, undefined, { enabled: !!batchId });
   const addWeightMutation = useAddWeight(safeBatchId);
-  const { data: growthChartResp } = useGetGrowthChart(safeBatchId, {
-    enabled: !!batchId,
-  });
   const currentWeight = weightsResponse?.data?.currentWeight ?? null;
   const weights = weightsResponse?.data?.weights || [];
-  const growthChartData = growthChartResp?.data || [];
 
   // Manual weight form state
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
@@ -373,8 +368,11 @@ export default function BatchDetailPage() {
     e.preventDefault();
     if (!validateWeight()) return;
     try {
+      const dateOnly = weightForm.date.includes("T")
+        ? weightForm.date.split("T")[0]
+        : weightForm.date;
       await addWeightMutation.mutateAsync({
-        date: `${weightForm.date}T00:00:00.000Z`,
+        date: `${dateOnly}T00:00:00.000Z`,
         avgWeight: Number(weightForm.avgWeight),
         sampleCount: Number(weightForm.sampleCount),
         notes: weightForm.notes || undefined,
@@ -669,7 +667,7 @@ export default function BatchDetailPage() {
   function openEditExpense(row: any) {
     setEditingExpenseId(parseInt(row.id));
     const categoryName = row.category?.name || "Other";
-    const category = ["Feed", "Medicine", "Other", "Add extra expenses"].includes(categoryName)
+    const category = ["Feed", "Medicine", "Other"].includes(categoryName)
       ? categoryName
       : "Other";
     setExpenseForm({
@@ -720,13 +718,7 @@ export default function BatchDetailPage() {
   function validateExpense(): boolean {
     const errs: Record<string, string> = {};
     if (!expenseForm.date) errs.date = "Date is required";
-    const isExtra = expenseForm.category === "Add extra expenses";
-    if (isExtra) {
-      if (!expenseForm.extraName?.trim()) errs.extraName = "Name is required";
-      const amt = Number(expenseForm.extraAmount);
-      if (!expenseForm.extraAmount || isNaN(amt) || amt <= 0)
-        errs.extraAmount = "Amount must be greater than 0";
-    } else if (expenseForm.category === "Feed") {
+    if (expenseForm.category === "Feed") {
       if (!expenseForm.selectedFeedId)
         errs.feedBrand = "Please select a feed from inventory";
       if (!expenseForm.feedQuantity) errs.feedQuantity = "Quantity required";
@@ -803,13 +795,7 @@ export default function BatchDetailPage() {
         return;
       }
 
-      if (ec === "Add extra expenses") {
-        amount = Number(expenseForm.extraAmount);
-        quantity = 1;
-        unitPrice = amount;
-        description = expenseForm.extraName.trim();
-        if (expenseForm.notes?.trim()) description += ` - ${expenseForm.notes.trim()}`;
-      } else if (ec === "Feed") {
+      if (ec === "Feed") {
         const q = Number(expenseForm.feedQuantity || 0);
         const r = Number(expenseForm.feedRate || 0);
         amount = q * r;
@@ -1778,7 +1764,6 @@ export default function BatchDetailPage() {
           weights={weights}
           weightsLoading={weightsLoading}
           weightsError={weightsError}
-          growthChartData={growthChartData}
           setIsWeightModalOpen={setIsWeightModalOpen}
         />
       )}

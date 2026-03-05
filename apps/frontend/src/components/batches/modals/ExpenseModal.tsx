@@ -14,7 +14,7 @@ import {
 import { Loader2 } from "lucide-react";
 import { DateInput } from "@/common/components/ui/date-input";
 
-type ExpenseCategory = "Feed" | "Medicine" | "Other" | "Add extra expenses";
+type ExpenseCategory = "Feed" | "Medicine" | "Other";
 
 interface ExpenseFormState {
   category: ExpenseCategory;
@@ -192,7 +192,6 @@ export function ExpenseModal({
                     <SelectItem value="Feed">Feed (from inventory)</SelectItem>
                     <SelectItem value="Medicine">Medicine (from inventory)</SelectItem>
                     <SelectItem value="Other">Other</SelectItem>
-                    <SelectItem value="Add extra expenses">Add extra expenses</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -210,48 +209,6 @@ export function ExpenseModal({
           </div>
 
           {/* Category-specific details */}
-          {expenseForm.category === "Add extra expenses" && (
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
-              <p className="text-sm font-medium text-foreground">Details</p>
-              <div className="flex flex-col gap-5">
-                <div className="space-y-2">
-                  <Label htmlFor="extraName" className="text-sm font-medium text-foreground">
-                    Name
-                  </Label>
-                  <Input
-                    id="extraName"
-                    name="extraName"
-                    value={expenseForm.extraName ?? ""}
-                    onChange={onFieldUpdate}
-                    placeholder="e.g. Staff salary"
-                    className="rounded-lg"
-                  />
-                  {expenseErrors.extraName && (
-                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.extraName}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="extraAmount" className="text-sm font-medium text-foreground">
-                    Amount (₹)
-                  </Label>
-                  <Input
-                    id="extraAmount"
-                    name="extraAmount"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={expenseForm.extraAmount ?? ""}
-                    onChange={onFieldUpdate}
-                    placeholder="0"
-                    className="rounded-lg"
-                  />
-                  {expenseErrors.extraAmount && (
-                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.extraAmount}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
           {expenseForm.category === "Feed" && (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
               <p className="text-sm font-medium text-foreground">Feed details</p>

@@ -4,14 +4,12 @@ import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
 import { Plus, Loader2 } from "lucide-react";
 import { DateDisplay } from "@/common/components/ui/date-display";
-import WeightGrowthChart from "@/components/charts/WeightGrowthChart";
 
 interface GrowthTabProps {
   isBatchClosed: boolean;
   weightsLoading: boolean;
   weightsError: any;
   weights: any[];
-  growthChartData: any;
   setIsWeightModalOpen: (open: boolean) => void;
 }
 
@@ -20,7 +18,6 @@ export function GrowthTab({
   weightsLoading,
   weightsError,
   weights,
-  growthChartData,
   setIsWeightModalOpen,
 }: GrowthTabProps) {
   return (
@@ -48,10 +45,6 @@ export function GrowthTab({
         )}
       </CardHeader>
       <CardContent>
-        {/* Chart */}
-        <div className="mb-6">
-          <WeightGrowthChart data={growthChartData} />
-        </div>
         {weightsLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin" />
