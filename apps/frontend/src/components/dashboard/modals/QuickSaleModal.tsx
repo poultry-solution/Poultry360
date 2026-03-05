@@ -221,9 +221,11 @@ export function QuickSaleModal({
       const isCredit = quickSaleForm.remaining;
 
       // Create sale data
+      const saleDateRaw = quickSaleForm.date || "";
+      const saleDateOnly = saleDateRaw.includes("T") ? saleDateRaw.split("T")[0] : saleDateRaw;
       const saleData: any = {
-        date: quickSaleForm.date
-          ? `${quickSaleForm.date}T00:00:00.000Z`
+        date: saleDateOnly
+          ? `${saleDateOnly}T00:00:00.000Z`
           : new Date().toISOString(),
         amount,
         quantity,

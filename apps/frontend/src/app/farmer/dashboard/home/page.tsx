@@ -11,7 +11,6 @@ import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
 import {
   useDashboardStats,
   useGetMoneyToReceiveDetails,
-  useGetMoneyToPayDetails,
 } from "@/fetchers/dashboard/dashboardQueries";
 import { StatsCards } from "@/components/dashboard/StatsCards";
 import { MoneyDetailsModal } from "@/components/dashboard/modals/MoneyDetailsModal";
@@ -36,7 +35,6 @@ export default function DashboardPage() {
   const [isFarmsOpen, setIsFarmsOpen] = useState(false);
   const [isBatchesOpen, setIsBatchesOpen] = useState(false);
   const [isMoneyToReceiveOpen, setIsMoneyToReceiveOpen] = useState(false);
-  const [isMoneyToPayOpen, setIsMoneyToPayOpen] = useState(false);
 
   // Dashboard statistics
   const {
@@ -52,17 +50,12 @@ export default function DashboardPage() {
   // Money details queries
   const { data: moneyToReceiveData, isLoading: moneyToReceiveLoading } =
     useGetMoneyToReceiveDetails(
-      // if path is /farmer/dashboard/home, then enable
       1,
       10,
       {
         enabled: window.location.pathname === "/farmer/dashboard/home",
       }
     );
-  const { data: moneyToPayData, isLoading: moneyToPayLoading } =
-    useGetMoneyToPayDetails(1, 10, {
-      enabled: window.location.pathname === "/farmer/dashboard/home",
-    });
 
   return (
     <div className="space-y-6">
@@ -190,7 +183,7 @@ export default function DashboardPage() {
         onFarmsClick={() => setIsFarmsOpen(true)}
         onBatchesClick={() => setIsBatchesOpen(true)}
         onMoneyToReceiveClick={() => setIsMoneyToReceiveOpen(true)}
-        onMoneyToPayClick={() => setIsMoneyToPayOpen(true)}
+        onMoneyToPayClick={undefined}
       />
 
       {/* Reminders (same grid so size/placement unchanged) */}
@@ -211,16 +204,6 @@ export default function DashboardPage() {
         type="receive"
       />
 
-      {/* Money to Pay Details Modal */}
-      <MoneyDetailsModal
-        isOpen={isMoneyToPayOpen}
-        onClose={() => setIsMoneyToPayOpen(false)}
-        title={t("farmer.dashboard.moneyToPay")}
-        icon="💳"
-        isLoading={moneyToPayLoading}
-        data={moneyToPayData?.data}
-        type="pay"
-      />
     </div>
   );
 }

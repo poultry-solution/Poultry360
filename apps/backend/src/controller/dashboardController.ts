@@ -2,6 +2,48 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { UserRole } from "@prisma/client";
 
+// Helper: compute total outstanding to dealers (manual + connected). Must match getDealerStatistics.
+async function getMoneyToGiveForUser(userId: string): Promise<number> {
+  const dealerFarmers = await prisma.dealerFarmer.findMany({
+    where: {
+      farmerId: userId,
+      archivedByFarmer: false,
+    },
+  });
+  const connectedDealerIds = dealerFarmers.map((df) => df.dealerId);
+  const dealerWhere: any = {
+    OR: [{ userId: userId }],
+  };
+  if (connectedDealerIds.length > 0) {
+    dealerWhere.OR.push({ id: { in: connectedDealerIds } });
+  }
+  const dealers = await prisma.dealer.findMany({
+    where: dealerWhere,
+  });
+  const connectedSet = new Set(connectedDealerIds);
+  let farmerAccountBalances: Map<string, number> = new Map();
+  if (connectedDealerIds.length > 0) {
+    const accounts = await prisma.dealerFarmerAccount.findMany({
+      where: {
+        farmerId: userId,
+        dealerId: { in: connectedDealerIds },
+      },
+      select: { dealerId: true, balance: true },
+    });
+    accounts.forEach((a) => {
+      farmerAccountBalances.set(a.dealerId, Number(a.balance));
+    });
+  }
+  let total = 0;
+  for (const dealer of dealers) {
+    const balance = connectedSet.has(dealer.id)
+      ? (farmerAccountBalances.get(dealer.id) ?? 0)
+      : Number(dealer.balance);
+    if (balance > 0) total += balance;
+  }
+  return total;
+}
+
 // ==================== GET DASHBOARD OVERVIEW ====================
 export const getDashboardOverview = async (
   req: Request,
@@ -10,6 +52,9 @@ export const getDashboardOverview = async (
   try {
     const currentUserId = req.userId;
     const currentUserRole = req.role;
+
+    // Money to give: dealers only (manual + connected), same as /dealers/statistics. Compute once for all responses.
+    const moneyToGive = await getMoneyToGiveForUser(currentUserId);
 
     // Get user's farms
     const userFarms = await prisma.farm.findMany({
@@ -35,7 +80,7 @@ export const getDashboardOverview = async (
           monthlyRevenue: 0,
           monthlyRevenueGrowth: 0,
           moneyToReceive: 0,
-          moneyToGive: 0,
+          moneyToGive,
           totalExpenses: 0,
           recentActivity: [],
         },
@@ -59,7 +104,6 @@ export const getDashboardOverview = async (
       lastMonthSales,
       currentMonthExpenses,
       creditSales,
-      dealerOutstanding,
       recentExpenses,
       recentSales,
       recentBatches,
@@ -145,28 +189,6 @@ export const getDashboardOverview = async (
         _sum: { dueAmount: true },
       }),
 
-      // All suppliers outstanding (money to give) - we'll calculate this manually
-      Promise.all([
-        prisma.dealer.findMany({
-          where: { userId: currentUserId },
-          include: {
-            transactions: true,
-          },
-        }),
-        prisma.hatchery.findMany({
-          where: { userId: currentUserId },
-          include: {
-            transactions: true,
-          },
-        }),
-        prisma.medicineSupplier.findMany({
-          where: { userId: currentUserId },
-          include: {
-            transactions: true,
-          },
-        }),
-      ]),
-
       // Recent expenses (last 5)
       prisma.expense.findMany({
         where: {
@@ -234,28 +256,6 @@ export const getDashboardOverview = async (
         : 0;
 
     const moneyToReceive = Number(creditSales._sum.dueAmount || 0);
-
-    // Calculate money to give (outstanding supplier balances)
-    const [dealers, hatcheries, medicalSuppliers] = dealerOutstanding;
-    const allSuppliers = [...dealers, ...hatcheries, ...medicalSuppliers];
-
-    const moneyToGive = allSuppliers.reduce((total, supplier) => {
-      const balance = supplier.transactions.reduce((sum, transaction) => {
-        if (
-          transaction.type === "PURCHASE" ||
-          transaction.type === "ADJUSTMENT"
-        ) {
-          return sum + Number(transaction.amount);
-        } else if (
-          transaction.type === "PAYMENT" ||
-          transaction.type === "RECEIPT"
-        ) {
-          return sum - Number(transaction.amount);
-        }
-        return sum;
-      }, 0);
-      return total + Math.max(0, balance); // Only count positive balances (amounts due)
-    }, 0);
 
     const totalExpenses = Number(currentMonthExpenses._sum.amount || 0);
 

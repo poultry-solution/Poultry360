@@ -1,8 +1,6 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
-import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
-import { Plus } from "lucide-react";
 import { DataTable } from "@/common/components/ui/data-table";
 
 interface SalesBalanceTabProps {
@@ -10,7 +8,6 @@ interface SalesBalanceTabProps {
   customerBalances: any[];
   receivableTotal: number;
   ledgerColumns: any[];
-  openNewLedger: () => void;
 }
 
 export function SalesBalanceTab({
@@ -18,7 +15,6 @@ export function SalesBalanceTab({
   customerBalances,
   receivableTotal,
   ledgerColumns,
-  openNewLedger,
 }: SalesBalanceTabProps) {
   return (
     <Card>
@@ -29,15 +25,6 @@ export function SalesBalanceTab({
             Balances with customers for this batch
           </CardDescription>
         </div>
-        {!isBatchClosed && (
-          <Button
-            className="bg-primary hover:bg-primary/90"
-            onClick={openNewLedger}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Entry
-          </Button>
-        )}
         {isBatchClosed && (
           <Badge variant="secondary" className="bg-gray-100 text-gray-600">
             Batch Closed - No New Entries

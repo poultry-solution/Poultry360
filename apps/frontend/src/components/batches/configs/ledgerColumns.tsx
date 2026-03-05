@@ -1,7 +1,7 @@
 import React from "react";
 import { Badge } from "@/common/components/ui/badge";
 import { Button } from "@/common/components/ui/button";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { createColumn, Column } from "@/common/components/ui/data-table";
 
 interface LedgerRow {
@@ -19,8 +19,6 @@ interface LedgerColumnsProps {
   batchSales: any[];
   openCustomerTransactionsModal: (row: any) => void;
   openPaymentModal: (customer: { id: string; name: string; balance: number }) => void;
-  openEditLedger: (row: any) => void;
-  deleteLedger: (id: number) => void;
 }
 
 export function createLedgerColumns({
@@ -28,8 +26,6 @@ export function createLedgerColumns({
   batchSales,
   openCustomerTransactionsModal,
   openPaymentModal,
-  openEditLedger,
-  deleteLedger,
 }: LedgerColumnsProps): Column<LedgerRow>[] {
   return [
     createColumn("name", "Name", {
@@ -136,26 +132,6 @@ export function createLedgerColumns({
                   Pay
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-300"
-                onClick={() => openEditLedger(row)}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
-                onClick={() =>
-                  deleteLedger(
-                    typeof row.id === "string" ? parseInt(row.id) : row.id
-                  )
-                }
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
             </>
           ) : (
             <Badge

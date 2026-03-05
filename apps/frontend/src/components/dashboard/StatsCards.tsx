@@ -29,7 +29,7 @@ interface StatsCardsProps {
   onFarmsClick: () => void;
   onBatchesClick: () => void;
   onMoneyToReceiveClick: () => void;
-  onMoneyToPayClick: () => void;
+  onMoneyToPayClick?: () => void;
 }
 
 export function StatsCards({
@@ -150,8 +150,8 @@ export function StatsCards({
         </Card>
 
         <Card
-          onClick={onMoneyToPayClick}
-          className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white"
+          {...(onMoneyToPayClick && { onClick: onMoneyToPayClick })}
+          className={onMoneyToPayClick ? "cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white" : ""}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
             <CardTitle className="text-[11px] md:text-sm font-medium">{t("farmer.dashboard.stats.toPay")}</CardTitle>

@@ -456,9 +456,11 @@ export default function SalesLedgerPage() {
       const isCredit = saleForm.remaining;
 
       // Create sale data (same structure as home page) - backend will resolve categoryId
+      const saleDateRaw = saleForm.date || "";
+      const saleDateOnly = saleDateRaw.includes("T") ? saleDateRaw.split("T")[0] : saleDateRaw;
       const saleData: any = {
-        date: saleForm.date
-          ? `${saleForm.date}T00:00:00.000Z`
+        date: saleDateOnly
+          ? `${saleDateOnly}T00:00:00.000Z`
           : new Date().toISOString(),
         amount,
         quantity,

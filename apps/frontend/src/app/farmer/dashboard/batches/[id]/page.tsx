@@ -73,7 +73,6 @@ import { CloseBatchModal } from "@/components/batches/modals/CloseBatchModal";
 import { DeleteBatchModal } from "@/components/batches/modals/DeleteBatchModal";
 import { TransactionsModal } from "@/components/batches/modals/TransactionsModal";
 import { CustomerTransactionsModal } from "@/components/batches/modals/CustomerTransactionsModal";
-import { LedgerModal } from "@/components/batches/modals/LedgerModal";
 import { OverviewTab } from "@/components/batches/tabs/OverviewTab";
 import { ExpensesTab } from "@/components/batches/tabs/ExpensesTab";
 import { SalesTab } from "@/components/batches/tabs/SalesTab";
@@ -122,16 +121,6 @@ type SaleRow = {
   } | null;
   date: string; // yyyy-mm-dd
   categoryId: string;
-};
-
-type LedgerRow = {
-  id: string | number;
-  name: string;
-  phone: string;
-  category: "Chicken" | "Other";
-  sales: number;
-  received: number;
-  balance: number;
 };
 
 const BASE_TABS = [
@@ -193,12 +182,6 @@ export default function BatchDetailPage() {
   const deleteBatchMutation = useDeleteBatch();
   const closeBatchMutation = useCloseBatch();
   const verifyPasswordMutation = useVerifyPasswordForBatchDelete();
-
-  // --- State (with localStorage persistence) ---
-  const storageKey = useCallback(
-    (suffix: string) => `p360:batch:${batchId}:${suffix}`,
-    [batchId]
-  );
 
   // Fetch real expense data
   const {
@@ -426,12 +409,12 @@ export default function BatchDetailPage() {
     if (!validateCloseBatch()) return;
 
     try {
+      const raw = closeBatchForm.endDate || "";
+      const dateOnly = raw.includes("T") ? raw.split("T")[0] : raw;
       const result = await closeBatchMutation.mutateAsync({
         id: batchId,
         data: {
-          endDate: closeBatchForm.endDate
-            ? `${closeBatchForm.endDate}T23:59:59.999Z`
-            : undefined,
+          endDate: dateOnly ? `${dateOnly}T23:59:59.000Z` : undefined,
           finalNotes: closeBatchForm.finalNotes || undefined,
         },
       });
@@ -522,47 +505,6 @@ export default function BatchDetailPage() {
   const createExpenseMutation = useCreateExpense();
   const updateExpenseMutation = useUpdateExpense();
   const deleteExpenseMutation = useDeleteExpense();
-  const [ledger, setLedger] = useState<LedgerRow[]>([]);
-
-  // Load ledger data from localStorage
-  useEffect(() => {
-    try {
-      const le = localStorage.getItem(storageKey("ledger"));
-      setLedger(
-        le
-          ? JSON.parse(le)
-          : [
-            {
-              id: 1,
-              name: "Sharma Traders",
-              contact: "9800000000",
-              category: "Chicken",
-              sales: 50000,
-              received: 30000,
-              balance: 20000,
-            },
-            {
-              id: 2,
-              name: "KTM Fresh",
-              contact: "9811111111",
-              category: "Chicken",
-              sales: 38000,
-              received: 38000,
-              balance: 0,
-            },
-          ]
-      );
-    } catch { }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchId]);
-
-  // Save ledger data to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(storageKey("ledger"), JSON.stringify(ledger));
-    } catch { }
-  }, [ledger, storageKey]);
-
   // --- Expense Modal ---
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<number | null>(null);
@@ -1095,9 +1037,11 @@ export default function BatchDetailPage() {
           ? parseFloat(saleForm.balance)
           : 0
         : amount;
+      const saleDateRaw = saleForm.date || "";
+      const saleDateOnly = saleDateRaw.includes("T") ? saleDateRaw.split("T")[0] : saleDateRaw;
       const saleData: any = {
-        date: saleForm.date
-          ? `${saleForm.date}T00:00:00.000Z`
+        date: saleDateOnly
+          ? `${saleDateOnly}T00:00:00.000Z`
           : new Date().toISOString(),
         amount,
         quantity,
@@ -1167,17 +1111,6 @@ export default function BatchDetailPage() {
       flash("error", "Failed to save sale");
     }
   }
-
-  // --- Ledger Modal ---
-  const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
-  const [editingLedgerId, setEditingLedgerId] = useState<number | null>(null);
-  const [ledgerForm, setLedgerForm] = useState({
-    name: "",
-    contact: "",
-    category: "Chicken" as "Chicken" | "Other",
-    sales: "",
-    received: "",
-  });
 
   // Payment management state
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -1312,70 +1245,6 @@ export default function BatchDetailPage() {
         error?.response?.data?.message || "Failed to save mortality record"
       );
     }
-  }
-
-  function updateLedgerField(
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) {
-    const { name, value } = e.target;
-    setLedgerForm((p) => ({ ...p, [name]: value }));
-  }
-  function openNewLedger() {
-    setEditingLedgerId(null);
-    setIsLedgerModalOpen(true);
-  }
-  function openEditLedger(row: LedgerRow) {
-    setEditingLedgerId(typeof row.id === "string" ? parseInt(row.id) : row.id);
-    setLedgerForm({
-      name: row.name,
-      contact: row.phone,
-      category: row.category,
-      sales: String(row.sales),
-      received: String(row.received),
-    });
-    setIsLedgerModalOpen(true);
-  }
-  function deleteLedger(id: number) {
-    setLedger((prev) => prev.filter((r) => r.id !== id));
-  }
-
-  const [ledgerErrors, setLedgerErrors] = useState<Record<string, string>>({});
-  function validateLedger(): boolean {
-    const errs: Record<string, string> = {};
-    if (!ledgerForm.name) errs.name = "Name required";
-    setLedgerErrors(errs);
-    return Object.keys(errs).length === 0;
-  }
-  function submitLedger(e: React.FormEvent) {
-    e.preventDefault();
-    const s = Number(ledgerForm.sales || 0),
-      r = Number(ledgerForm.received || 0);
-    const newRow: LedgerRow = {
-      id:
-        editingLedgerId ??
-        (customerBalances.length
-          ? Math.max(
-            ...customerBalances.map((r) =>
-              typeof r.id === "number" ? r.id : parseInt(r.id)
-            )
-          ) + 1
-          : 1),
-      name: ledgerForm.name,
-      phone: ledgerForm.contact,
-      category: ledgerForm.category,
-      sales: s,
-      received: r,
-      balance: s - r,
-    };
-    setLedger((prev) =>
-      editingLedgerId
-        ? prev.map((l) => (l.id === editingLedgerId ? newRow : l))
-        : [newRow, ...prev]
-    );
-    setIsLedgerModalOpen(false);
-    setEditingLedgerId(null);
-    setLedgerErrors({});
-    flash("success", editingLedgerId ? "Ledger updated" : "Ledger entry added");
   }
 
   // Transactions modal function
@@ -1551,8 +1420,6 @@ export default function BatchDetailPage() {
     batchSales,
     openCustomerTransactionsModal,
     openPaymentModal,
-    openEditLedger,
-    deleteLedger,
   });
 
   return (
@@ -1739,7 +1606,6 @@ export default function BatchDetailPage() {
           customerBalances={customerBalances}
           receivableTotal={receivableTotal}
           ledgerColumns={ledgerColumns}
-          openNewLedger={openNewLedger}
         />
       )}
 
@@ -2262,25 +2128,6 @@ export default function BatchDetailPage() {
           </ModalFooter>
         </form>
       </Modal>
-
-      {/* Ledger Modal with errors */}
-      <LedgerModal
-        isOpen={isLedgerModalOpen}
-        onClose={() => {
-          setIsLedgerModalOpen(false);
-          setEditingLedgerId(null);
-          setLedgerErrors({});
-        }}
-        ledgerForm={ledgerForm}
-        ledgerErrors={ledgerErrors}
-
-        editingLedgerId={editingLedgerId}
-        onSubmit={async (e) => {
-          e.preventDefault();
-          await submitLedger(e);
-        }}
-        onFieldUpdate={updateLedgerField}
-      />
 
       {/* Payment Modal */}
       <PaymentModal

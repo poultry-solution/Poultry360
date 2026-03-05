@@ -59,8 +59,9 @@ export function EggProductionTab({ batchId, isBatchClosed }: EggProductionTabPro
       return;
     }
     try {
+      const dateOnly = date.includes("T") ? date.split("T")[0] : date;
       await createMutation.mutateAsync({
-        date: `${date}T00:00:00.000Z`,
+        date: `${dateOnly}T00:00:00.000Z`,
         countByType: counts,
       });
       setCountByType({});
@@ -105,6 +106,23 @@ export function EggProductionTab({ batchId, isBatchClosed }: EggProductionTabPro
   const getTotalForRecord = (r: any) => {
     return (r.entries ?? []).reduce((sum: number, e: any) => sum + (e.count ?? 0), 0);
   };
+
+  // Totals across all records: per egg type and grand total
+  const totalsByType = React.useMemo(() => {
+    const byType: Record<string, number> = {};
+    for (const t of eggTypes) {
+      byType[t.id] = records.reduce(
+        (sum: number, r: any) => sum + getCountForRecord(r, t.id),
+        0
+      );
+    }
+    return byType;
+  }, [records, eggTypes]);
+
+  const grandTotal = React.useMemo(
+    () => Object.values(totalsByType).reduce((a, b) => a + b, 0),
+    [totalsByType]
+  );
 
   return (
     <Card>
@@ -239,6 +257,18 @@ export function EggProductionTab({ batchId, isBatchClosed }: EggProductionTabPro
                     </tr>
                   ))}
               </tbody>
+              <tfoot>
+                <tr className="bg-muted/60 border-t-2 border-muted-foreground/30 font-semibold">
+                  <td className="px-4 py-3 text-left">Total</td>
+                  {eggTypes.map((t) => (
+                    <td key={t.id} className="px-4 py-3 text-right">
+                      {(totalsByType[t.id] ?? 0).toLocaleString()}
+                    </td>
+                  ))}
+                  <td className="px-4 py-3 text-right">{grandTotal.toLocaleString()}</td>
+                  {!isBatchClosed && <td className="px-4 py-3" />}
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}
