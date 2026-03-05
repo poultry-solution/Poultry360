@@ -137,6 +137,7 @@ export default function SupplierLedgerPage() {
     paymentReference: "",
     paymentDate: "",
     description: "",
+    receiptImageUrl: "",
   });
 
   // API Queries
@@ -494,6 +495,7 @@ export default function SupplierLedgerPage() {
         paymentReference: paymentRequestForm.paymentReference || undefined,
         paymentDate: paymentRequestForm.paymentDate || undefined,
         description: paymentRequestForm.description || undefined,
+        receiptImageUrl: paymentRequestForm.receiptImageUrl || undefined,
       });
 
       toast.success(t("farmer.supplierLedger.toast.paymentRequestSent"));
@@ -504,6 +506,7 @@ export default function SupplierLedgerPage() {
         paymentReference: "",
         paymentDate: "",
         description: "",
+        receiptImageUrl: "",
       });
     } catch (error) {
       console.error("Failed to create payment request:", error);
@@ -1370,6 +1373,20 @@ export default function SupplierLedgerPage() {
                     })
                   }
                   placeholder={t("farmer.supplierLedger.sendPaymentRequest.descriptionPlaceholder")}
+                />
+              </div>
+              <div>
+                <Label>{t("farmer.supplierLedger.sendPaymentRequest.receiptLabel")}</Label>
+                <ImageUpload
+                  value={paymentRequestForm.receiptImageUrl}
+                  onChange={(url) =>
+                    setPaymentRequestForm({
+                      ...paymentRequestForm,
+                      receiptImageUrl: url ?? "",
+                    })
+                  }
+                  folder="payment-receipts"
+                  placeholder={t("farmer.supplierLedger.sendPaymentRequest.receiptPlaceholder")}
                 />
               </div>
             </div>

@@ -317,6 +317,8 @@ export const BatchSaleModel = ({
                     className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                   >
                     <option value="Chicken">Chicken</option>
+                    <option value="Eggs">Eggs</option>
+                    <option value="Layer">Layer</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>

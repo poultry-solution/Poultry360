@@ -737,8 +737,26 @@ export default function SalesLedgerPage() {
       key: "unitPrice",
       label: t("farmer.salesLedger.table.rate"),
       type: "currency" as const,
-      width: "100px",
+      width: "140px",
       align: "right" as const,
+      render: (value: unknown, row: any) => {
+        const lines = row?.eggLines as { quantity: number; unitPrice?: number | string; eggType?: { name: string } }[] | undefined;
+        if (lines && lines.length > 0) {
+          const breakdown = lines
+            .map((l) => {
+              const name = l.eggType?.name ?? "—";
+              const rate = Number(l.unitPrice ?? 0);
+              return `${name} ₹${rate.toLocaleString()}`;
+            })
+            .join(", ");
+          return (
+            <div className="text-right">
+              <div className="text-xs text-muted-foreground whitespace-normal">{breakdown}</div>
+            </div>
+          );
+        }
+        return value != null ? `₹${Number(value).toLocaleString()}` : "—";
+      },
     },
     {
       key: "amount",
@@ -1275,6 +1293,8 @@ export default function SalesLedgerPage() {
                     <SelectContent className="bg-white">
                       <SelectItem value="all">{t("farmer.salesLedger.all")}</SelectItem>
                       <SelectItem value="Chicken">Chicken</SelectItem>
+                      <SelectItem value="Eggs">Eggs</SelectItem>
+                      <SelectItem value="Layer">Layer</SelectItem>
                       <SelectItem value="Other">{t("farmer.salesLedger.other")}</SelectItem>
                     </SelectContent>
                   </Select>
@@ -1961,6 +1981,8 @@ export default function SalesLedgerPage() {
                       </SelectTrigger>
                       <SelectContent className="bg-white">
                         <SelectItem value="Chicken">Chicken</SelectItem>
+                        <SelectItem value="Eggs">Eggs</SelectItem>
+                        <SelectItem value="Layer">Layer</SelectItem>
                         <SelectItem value="Other">{t("farmer.salesLedger.other")}</SelectItem>
                       </SelectContent>
                     </Select>
@@ -2069,6 +2091,8 @@ export default function SalesLedgerPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Chicken">Chicken</SelectItem>
+                    <SelectItem value="Eggs">Eggs</SelectItem>
+                    <SelectItem value="Layer">Layer</SelectItem>
                     <SelectItem value="Other">{t("farmer.salesLedger.other")}</SelectItem>
                   </SelectContent>
                 </Select>

@@ -1906,7 +1906,7 @@ export default function BatchDetailPage() {
                   </SelectTrigger>
                   <SelectContent className="bg-white">
                     <SelectItem value="EGGS">Eggs</SelectItem>
-                    <SelectItem value="Chicken_Meat">Layers (Meat)</SelectItem>
+                    <SelectItem value="Chicken_Meat">Layers/Chickens (Meat)</SelectItem>
                     <SelectItem value="OTHER">Other</SelectItem>
                   </SelectContent>
                 </Select>
@@ -2221,6 +2221,8 @@ export default function BatchDetailPage() {
                       </SelectTrigger>
                       <SelectContent className="bg-white">
                         <SelectItem value="Chicken">Chicken</SelectItem>
+                        <SelectItem value="Eggs">Eggs</SelectItem>
+                        <SelectItem value="Layer">Layer</SelectItem>
                         <SelectItem value="Other">Other</SelectItem>
                       </SelectContent>
                     </Select>

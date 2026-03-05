@@ -737,6 +737,8 @@
         "paymentDateLabel": "भुक्तानी मिति",
         "descriptionLabel": "विवरण (वैकल्पिक)",
         "descriptionPlaceholder": "जस्तै मासिक भुक्तानी",
+        "receiptLabel": "भुक्तानी रसिद (वैकल्पिक)",
+        "receiptPlaceholder": "रसिद छवि अपलोड गर्नुहोस्",
         "cancel": "रद्द गर्नुहोस्",
         "send": "अनुरोध पठाउनुहोस्",
         "sending": "पठाइँदैछ..."

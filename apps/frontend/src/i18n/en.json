@@ -687,6 +687,8 @@
         "paymentDateLabel": "Payment Date",
         "descriptionLabel": "Description (optional)",
         "descriptionPlaceholder": "e.g. Monthly payment",
+        "receiptLabel": "Payment receipt (optional)",
+        "receiptPlaceholder": "Upload receipt image",
         "cancel": "Cancel",
         "send": "Send Request",
         "sending": "Sending..."

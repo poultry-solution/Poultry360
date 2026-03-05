@@ -78,7 +78,25 @@ export function createSalesColumns({
     createColumn("unitPrice", "Rate", {
       type: "currency",
       align: "right",
-      width: "100px",
+      width: "140px",
+      render: (value, row) => {
+        const lines = row?.eggLines as { quantity: number; unitPrice?: number | string; eggType?: { name: string } }[] | undefined;
+        if (lines && lines.length > 0) {
+          const breakdown = lines
+            .map((l) => {
+              const name = l.eggType?.name ?? "—";
+              const rate = Number(l.unitPrice ?? 0);
+              return `${name} ₹${rate.toLocaleString()}`;
+            })
+            .join(", ");
+          return (
+            <div className="text-right">
+              <div className="text-xs text-muted-foreground whitespace-normal">{breakdown}</div>
+            </div>
+          );
+        }
+        return value != null ? `₹${Number(value).toLocaleString()}` : "—";
+      },
     }),
     createColumn("amount", "Total", {
       type: "currency",
