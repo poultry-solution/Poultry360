@@ -54,7 +54,10 @@ export const getDashboardOverview = async (
     const currentUserRole = req.role;
 
     // Money to give: dealers only (manual + connected), same as /dealers/statistics. Compute once for all responses.
-    const moneyToGive = await getMoneyToGiveForUser(currentUserId);
+    const moneyToGive =
+      currentUserId != null
+        ? await getMoneyToGiveForUser(currentUserId)
+        : 0;
 
     // Get user's farms
     const userFarms = await prisma.farm.findMany({
