@@ -13,12 +13,10 @@ import {
   useGetMoneyToReceiveDetails,
   useGetMoneyToPayDetails,
 } from "@/fetchers/dashboard/dashboardQueries";
-import { TodayExpenses } from "@/components/today-expenses";
 import { StatsCards } from "@/components/dashboard/StatsCards";
-import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { MoneyDetailsModal } from "@/components/dashboard/modals/MoneyDetailsModal";
-import { BatchPerformanceTable } from "@/components/dashboard/BatchPerformanceTable";
 import { ReminderCard } from "@/components/dashboard/ReminderCard";
+import { QuickActionBtnsFarmer } from "@/components/dashboard/QuickActionBtns-Farmer";
 import { useI18n } from "@/i18n/useI18n";
 
 export default function DashboardPage() {
@@ -48,9 +46,7 @@ export default function DashboardPage() {
     moneyToReceive,
     moneyToGive,
     totalExpenses,
-    recentActivity,
     isLoading: statsLoading,
-    error: statsError,
   } = useDashboardStats();
 
   // Money details queries
@@ -70,11 +66,12 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Header */}
-      <div>
+      {/* Welcome + Quick actions: stacked on mobile, welcome left / buttons right on desktop */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <h1 className="text-xl font-bold tracking-tight">
           {t("farmer.dashboard.welcome", { name: user?.name || "" })}
         </h1>
+        <QuickActionBtnsFarmer />
       </div>
 
       {/* Modals */}
@@ -196,22 +193,12 @@ export default function DashboardPage() {
         onMoneyToPayClick={() => setIsMoneyToPayOpen(true)}
       />
 
-      {/* Batch Performance Overview + Reminders (50/50) */}
+      {/* Reminders (same grid so size/placement unchanged) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="min-w-0">
-          <BatchPerformanceTable />
-        </div>
         <div className="min-w-0">
           <ReminderCard />
         </div>
       </div>
-
-      {/* Recent Activity */}
-      <RecentActivity
-        recentActivity={recentActivity}
-        statsLoading={statsLoading}
-        statsError={statsError}
-      />
 
       {/* Money to Receive Details Modal */}
       <MoneyDetailsModal
@@ -234,8 +221,6 @@ export default function DashboardPage() {
         data={moneyToPayData?.data}
         type="pay"
       />
-
-      <TodayExpenses />
     </div>
   );
 }

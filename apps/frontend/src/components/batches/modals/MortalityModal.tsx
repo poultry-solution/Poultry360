@@ -123,7 +123,7 @@ export function MortalityModal({
                   <option value="">Select batch</option>
                   {activeBatches?.map((batch: any) => (
                     <option key={batch.id} value={batch.id}>
-                      {batch.number} - {batch.farm?.name}
+                      {batch.batchNumber ?? batch.number} - {batch.farm?.name}
                     </option>
                   ))}
                 </select>

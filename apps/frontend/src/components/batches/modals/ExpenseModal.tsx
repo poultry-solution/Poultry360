@@ -155,7 +155,7 @@ export function ExpenseModal({
                       <SelectContent className="bg-white">
                         {activeBatches?.map((batch: any) => (
                           <SelectItem key={batch.id} value={batch.id}>
-                            {batch.number} - {batch.farm?.name}
+                            {batch.batchNumber ?? batch.number} - {batch.farm?.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

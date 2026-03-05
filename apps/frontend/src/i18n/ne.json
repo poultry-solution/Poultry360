@@ -945,6 +945,13 @@
       "farmBatches": "ब्याचहरू: {count}",
       "batchInfo": "{farm} • चरा {count} • उमेर {days} दिन",
       "close": "बन्द गर्नुहोस्",
+      "quickActions": {
+        "addSale": "बिक्री थप्नुहोस्",
+        "addExpense": "खर्च थप्नुहोस्",
+        "addMortality": "मृत्यु थप्नुहोस्",
+        "addEggProduction": "अण्डा उत्पादन थप्नुहोस्",
+        "orderRequests": "अर्डर अनुरोधहरू"
+      },
       "moneyToReceive": "पाउनुपर्ने रकम",
       "moneyToPay": "तिर्नुपर्ने रकम",
       "stats": {
@@ -961,12 +968,6 @@
         "toPay": "तिर्नुपर्ने",
         "suppliers": "आपूर्तिकर्ता",
         "expenses": "खर्च"
-      },
-      "quickActions": {
-        "expense": "खर्च",
-        "sale": "बिक्री",
-        "mortality": "मृत्यु",
-        "weight": "वजन"
       },
       "recentActivity": {
         "title": "हालका गतिविधिहरू",
@@ -1673,6 +1674,7 @@
       "subtitle": "तपाईंको इन्भेन्टरी, ग्राहकहरू र बिक्री प्रबन्ध गर्नुहोस्।",
       "buttons": {
         "addSale": "बिक्री थप्नुहोस्",
+        "saleRequests": "बिक्री अनुरोधहरू",
         "consignments": "कन्साइनमेन्टहरू"
       },
       "stats": {

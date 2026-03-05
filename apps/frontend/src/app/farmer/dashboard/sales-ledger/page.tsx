@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -35,12 +36,12 @@ import {
   Plus,
   Search,
   Filter,
-  Download,
+
   TrendingUp,
   Users,
-  DollarSign,
+
   CreditCard,
-  Calendar,
+
   Loader2,
   Eye,
   Edit,
@@ -93,8 +94,12 @@ interface PaymentFilters {
   endDate: string;
 }
 
+const OPEN_MODAL_PARAM = "openModal";
+
 export default function SalesLedgerPage() {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   // State management
   const [activeTab, setActiveTab] = useState<TabType>("overview");
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
@@ -186,6 +191,15 @@ export default function SalesLedgerPage() {
 
   // Customer search for sales (same as home page)
   const [customerSearch, setCustomerSearch] = useState("");
+
+  // Open Add Sale modal when navigating from home quick action (?openModal=sale)
+  useEffect(() => {
+    const openModal = searchParams.get(OPEN_MODAL_PARAM);
+    if (openModal === "sale") {
+      setIsSaleModalOpen(true);
+      router.replace("/farmer/dashboard/sales-ledger", { scroll: false });
+    }
+  }, [searchParams, router]);
 
   // Ensure default date when modal opens (same as home page)
   useEffect(() => {
@@ -1591,7 +1605,7 @@ export default function SalesLedgerPage() {
                   </SelectTrigger>
                   <SelectContent className="bg-white">
                     <SelectItem value="EGGS">{t("farmer.salesLedger.eggs")}</SelectItem>
-                    <SelectItem value="Chicken_Meat">Layers (Meat)</SelectItem>
+                    <SelectItem value="Chicken_Meat">Chicken/Layer (Meat)</SelectItem>
                     <SelectItem value="OTHER">{t("farmer.salesLedger.other")}</SelectItem>
                   </SelectContent>
                 </Select>

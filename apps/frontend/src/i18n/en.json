@@ -946,6 +946,13 @@
       "farmBatches": "Batches: {count}",
       "batchInfo": "{farm} • Birds {count} • Age {days} days",
       "close": "Close",
+      "quickActions": {
+        "addSale": "Add sale",
+        "addExpense": "Add Expense",
+        "addMortality": "Add Mortality",
+        "addEggProduction": "Add Egg Production",
+        "orderRequests": "Order Requests"
+      },
       "moneyToReceive": "Money to Receive",
       "moneyToPay": "Money to Pay",
       "stats": {
@@ -962,12 +969,6 @@
         "toPay": "To Pay",
         "suppliers": "Suppliers",
         "expenses": "Expenses"
-      },
-      "quickActions": {
-        "expense": "Expense",
-        "sale": "Sale",
-        "mortality": "Mortality",
-        "weight": "Weight"
       },
       "recentActivity": {
         "title": "Recent Activity",
@@ -1674,6 +1675,7 @@
       "subtitle": "Manage your inventory, customers, and sales.",
       "buttons": {
         "addSale": "Add Sale",
+        "saleRequests": "Sale Requests",
         "consignments": "Consignments"
       },
       "stats": {
