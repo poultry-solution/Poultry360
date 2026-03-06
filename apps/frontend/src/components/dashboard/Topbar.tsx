@@ -1,8 +1,8 @@
 "use client";
 
-import { Search, User, Menu, Settings, LogOut } from "lucide-react";
 import Link from "next/link";
-import { Input } from "@/common/components/ui/input";
+import Image from "next/image";
+import { User, Menu, Settings, LogOut } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 
 import {
@@ -29,35 +29,11 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
 
   // Get role-specific settings
   const getRoleSettings = () => {
-    if (role === "DOCTOR") {
-      return {
-        searchPlaceholder: t("topbar.search.doctor"),
-        settingsPath: "/doctor/dashboard/settings"
-      };
-    }
-    if (role === "SUPER_ADMIN") {
-      return {
-        searchPlaceholder: t("topbar.search.admin"),
-        settingsPath: "/admin/dashboard/settings"
-      };
-    }
-
-    if (role === "DEALER") {
-      return {
-        searchPlaceholder: t("topbar.search.dealer"),
-        settingsPath: "/dealer/dashboard/settings"
-      };
-    }
-    if (role === "COMPANY") {
-      return {
-        searchPlaceholder: t("topbar.search.company"),
-        settingsPath: "/company/dashboard/settings"
-      };
-    }
-    return {
-      searchPlaceholder: t("topbar.search.farmer"),
-      settingsPath: "/farmer/dashboard/settings"
-    };
+    if (role === "DOCTOR") return { settingsPath: "/doctor/dashboard/settings", homePath: "/doctor/dashboard" };
+    if (role === "SUPER_ADMIN") return { settingsPath: "/admin/dashboard/settings", homePath: "/admin/dashboard" };
+    if (role === "DEALER") return { settingsPath: "/dealer/dashboard/settings", homePath: "/dealer/dashboard/home" };
+    if (role === "COMPANY") return { settingsPath: "/company/dashboard/settings", homePath: "/company/dashboard/home" };
+    return { settingsPath: "/farmer/dashboard/settings", homePath: "/farmer/dashboard/home" };
   };
 
   const roleSettings = getRoleSettings();
@@ -71,31 +47,23 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
 
   return (
     <div className="flex h-16 items-center justify-between border-b bg-background px-6">
-      {/* Left Side - Expand Button and Search */}
-      <div className="flex items-center gap-4 flex-1">
-        {/* Expand Sidebar Button - Only show when collapsed */}
+      {/* Left Side - Logo (mobile only) + Expand Sidebar Button (when collapsed, desktop) */}
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        {/* Logo - visible only on mobile (sidebar has logo on desktop) */}
+        <Link href={roleSettings.homePath} className="md:hidden flex-shrink-0">
+        
+        </Link>
         {isCollapsed && (
           <Button
             variant="ghost"
             size="icon"
             onClick={onToggle}
-            className="cursor-pointer h-9 w-9 hover:bg-gray-100 hover:shadow-sm transition-all duration-200"
+            className="cursor-pointer h-9 w-9 hover:bg-gray-100 hover:shadow-sm transition-all duration-200 hidden md:flex"
             title={t("topbar.expandSidebar")}
           >
             <Menu className="h-5 w-5" />
           </Button>
         )}
-
-        {/* Search Bar */}
-        <div className="max-w-md w-full">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={roleSettings.searchPlaceholder}
-              className="pl-10 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-ring h-9"
-            />
-          </div>
-        </div>
       </div>
 
       {/* Right Side Actions */}

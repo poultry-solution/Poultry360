@@ -51,27 +51,27 @@
     "collapse": "साइडबार संकुचित गर्नुहोस्",
     "roles": {
       "doctor": {
-        "title": "डाक्टर पोर्टल",
+       
         "subtitle": "पशुचिकित्सा सेवा",
         "userTitle": "डाक्टर"
       },
       "admin": {
-        "title": "एडमिन प्यानल",
+    
         "subtitle": "सिस्टम व्यवस्थापन",
         "userTitle": "प्रशासक"
       },
       "dealer": {
-        "title": "डिलर पोर्टल",
+
         "subtitle": "फिड तथा आपूर्ति व्यवस्थापन",
         "userTitle": "डिलर"
       },
       "company": {
-        "title": "कम्पनी पोर्टल",
+     
         "subtitle": "उत्पादन तथा वितरण व्यवस्थापन",
         "userTitle": "कम्पनी"
       },
       "farmer": {
-        "title": "पोल्ट्री३६०",
+  
         "subtitle": "फार्म व्यवस्थापन",
         "userTitle": "मालिक"
       }
@@ -992,6 +992,63 @@
         "inHr": "{count} घण्टामा",
         "inDay": "{count} दिनमा",
         "now": "अहिले"
+      },
+      "modals": {
+        "expense": {
+          "title": "खर्च थप्नुहोस्",
+          "editTitle": "खर्च सम्पादन गर्नुहोस्",
+          "context": "सन्दर्भ",
+          "farm": "फार्म",
+          "selectFarm": "फार्म छान्नुहोस्",
+          "batch": "ब्याच",
+          "selectBatch": "ब्याच छान्नुहोस्",
+          "categoryAndDate": "श्रेणी र मिति",
+          "category": "श्रेणी",
+          "selectCategory": "श्रेणी छान्नुहोस्",
+          "feedFromInventory": "फिड (इन्भेन्टरीबाट)",
+          "medicineFromInventory": "औषधि (इन्भेन्टरीबाट)",
+          "other": "अन्य",
+          "date": "मिति",
+          "feedDetails": "फिड विवरण",
+          "selectFeedFromInventory": "इन्भेन्टरीबाट फिड छान्नुहोस्",
+          "quantity": "मात्रा",
+          "ratePerUnit": "प्रति युनिट दर (₹)",
+          "autoFilledFromInventory": "इन्भेन्टरीबाट स्वतः भरिएको",
+          "enterRate": "दर प्रविष्ट गर्नुहोस्",
+          "rateAutoFilledFromInventory": "दर इन्भेन्टरीबाट स्वतः भरिएको",
+          "medicineDetails": "औषधि विवरण",
+          "selectMedicineFromInventory": "इन्भेन्टरीबाट औषधि छान्नुहोस्",
+          "otherExpenseDetails": "अन्य खर्च विवरण",
+          "otherFromInventory": "अन्य (इन्भेन्टरीबाट)",
+          "enterManuallyBelow": "तल हस्तान्तरित प्रविष्ट गर्नुहोस् (इन्भेन्टरी कटौती छैन)",
+          "expenseName": "खर्चको नाम",
+          "rateAutoFilledStockDeducted": "दर इन्भेन्टरीबाट स्वतः भरिएको · स्टक कटौती हुनेछ",
+          "updating": "अपडेट हुँदैछ...",
+          "creating": "सिर्जना हुँदैछ...",
+          "update": "अपडेट गर्नुहोस्"
+        },
+        "mortality": {
+          "title": "मृत्यु रेकर्ड थप्नुहोस्",
+          "editTitle": "मृत्यु रेकर्ड सम्पादन गर्नुहोस्",
+          "noteLabel": "नोट",
+          "note": "यहाँ प्राकृतिक मृत्यु र रोगसम्बन्धी नोक्सान मात्र रेकर्ड गर्नुहोस्। बिक्री गरिएका चराहरू बिक्री खण्डमा स्वचालित रूपमा ट्र्याक गरिन्छन्।",
+          "farm": "फार्म",
+          "selectFarm": "फार्म छान्नुहोस्",
+          "batch": "ब्याच",
+          "selectBatch": "ब्याच छान्नुहोस्",
+          "date": "मिति",
+          "numberOfBirds": "चराको सङ्ख्या",
+          "enterCount": "सङ्ख्या प्रविष्ट गर्नुहोस्",
+          "reasonOptional": "कारण (वैकल्पिक)",
+          "reasonPlaceholder": "जस्तै: रोग, उष्णता तनाव, शिकारी आक्रमण, आदि।",
+          "currentStatus": "वर्तमान स्थिति",
+          "currentBirds": "वर्तमान चरा:",
+          "afterAllLosses": "(सबै नोक्सान पछि)",
+          "naturalDeaths": "प्राकृतिक मृत्यु:",
+          "excludingSales": "(बिक्री बाहेक)",
+          "updating": "अपडेट हुँदैछ...",
+          "creating": "सिर्जना हुँदैछ..."
+        }
       }
     },
     "batches": {

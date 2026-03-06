@@ -6,6 +6,7 @@ import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { DateInput } from "@/common/components/ui/date-input";
+import { useI18n } from "@/i18n/useI18n";
 
 interface MortalityFormState {
   date: string;
@@ -61,6 +62,7 @@ export function MortalityModal({
   onFieldUpdate,
   isPending,
 }: MortalityModalProps) {
+  const { t } = useI18n();
   const showBatchSelector = !prefilledBatchId;
   const showFarmSelector = !prefilledFarmId;
 
@@ -69,7 +71,7 @@ export function MortalityModal({
       isOpen={isOpen}
       onClose={onClose}
       title={
-        editingMortalityId ? "Edit Mortality Record" : "Add Mortality Record"
+        editingMortalityId ? t("farmer.dashboard.modals.mortality.editTitle") : t("farmer.dashboard.modals.mortality.title")
       }
     >
       <form onSubmit={onSubmit}>
@@ -77,16 +79,15 @@ export function MortalityModal({
           <div className="space-y-4">
             <div className="p-4 bg-red-50 rounded-lg border border-red-200">
               <p className="text-sm text-red-800">
-                <strong>Note:</strong> Record only natural deaths and
-                disease-related losses here. Birds sold are automatically
-                tracked in the Sales section.
+                <strong>{t("farmer.dashboard.modals.mortality.noteLabel")}:</strong>{" "}
+                {t("farmer.dashboard.modals.mortality.note")}
               </p>
             </div>
 
             {/* Farm Selector - only show if no prefilled farm */}
             {showFarmSelector && (
               <div>
-                <Label htmlFor="farmId">Farm</Label>
+                <Label htmlFor="farmId">{t("farmer.dashboard.modals.mortality.farm")}</Label>
                 <select
                   id="farmId"
                   name="farmId"
@@ -94,7 +95,7 @@ export function MortalityModal({
                   onChange={onFieldUpdate}
                   className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                 >
-                  <option value="">Select farm</option>
+                  <option value="">{t("farmer.dashboard.modals.mortality.selectFarm")}</option>
                   {farms?.map((farm: any) => (
                     <option key={farm.id} value={farm.id}>
                       {farm.name}
@@ -112,7 +113,7 @@ export function MortalityModal({
             {/* Batch Selector - only show if no prefilled batch */}
             {showBatchSelector && (
               <div>
-                <Label htmlFor="batchId">Batch</Label>
+                <Label htmlFor="batchId">{t("farmer.dashboard.modals.mortality.batch")}</Label>
                 <select
                   id="batchId"
                   name="batchId"
@@ -120,7 +121,7 @@ export function MortalityModal({
                   onChange={onFieldUpdate}
                   className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                 >
-                  <option value="">Select batch</option>
+                  <option value="">{t("farmer.dashboard.modals.mortality.selectBatch")}</option>
                   {activeBatches?.map((batch: any) => (
                     <option key={batch.id} value={batch.id}>
                       {batch.batchNumber ?? batch.number} - {batch.farm?.name}
@@ -138,7 +139,7 @@ export function MortalityModal({
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <DateInput
-                  label="Date"
+                  label={t("farmer.dashboard.modals.mortality.date")}
                   value={mortalityForm.date}
                   onChange={(value) => onFieldUpdate({ target: { name: 'date', value } } as React.ChangeEvent<HTMLInputElement>)}
                 />
@@ -150,7 +151,7 @@ export function MortalityModal({
               </div>
 
               <div>
-                <Label htmlFor="mortalityCount">Number of Birds</Label>
+                <Label htmlFor="mortalityCount">{t("farmer.dashboard.modals.mortality.numberOfBirds")}</Label>
                 <Input
                   id="mortalityCount"
                   name="count"
@@ -158,7 +159,7 @@ export function MortalityModal({
                   min="1"
                   value={mortalityForm.count}
                   onChange={onFieldUpdate}
-                  placeholder="Enter count"
+                  placeholder={t("farmer.dashboard.modals.mortality.enterCount")}
                   required
                 />
                 {mortalityErrors.count && (
@@ -170,7 +171,7 @@ export function MortalityModal({
             </div>
 
             <div>
-              <Label htmlFor="mortalityReason">Reason (Optional)</Label>
+              <Label htmlFor="mortalityReason">{t("farmer.dashboard.modals.mortality.reasonOptional")}</Label>
               <textarea
                 id="mortalityReason"
                 name="reason"
@@ -178,30 +179,30 @@ export function MortalityModal({
                 onChange={onFieldUpdate}
                 className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 rows={3}
-                placeholder="e.g., Disease, Heat stress, Predator attack, etc."
+                placeholder={t("farmer.dashboard.modals.mortality.reasonPlaceholder")}
               />
             </div>
 
             {stats && (
               <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <h4 className="font-medium text-sm mb-2">Current Status</h4>
+                <h4 className="font-medium text-sm mb-2">{t("farmer.dashboard.modals.mortality.currentStatus")}</h4>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <span className="text-gray-600">Current Birds:</span>
+                    <span className="text-gray-600">{t("farmer.dashboard.modals.mortality.currentBirds")}</span>
                     <span className="ml-2 font-medium text-green-600">
                       {stats.currentBirds}
                     </span>
                     <span className="ml-1 text-xs text-gray-500">
-                      (after all losses)
+                      {t("farmer.dashboard.modals.mortality.afterAllLosses")}
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-600">Natural Deaths:</span>
+                    <span className="text-gray-600">{t("farmer.dashboard.modals.mortality.naturalDeaths")}</span>
                     <span className="ml-2 font-medium text-red-600">
                       {stats.totalMortality}
                     </span>
                     <span className="ml-1 text-xs text-gray-500">
-                      (excluding sales)
+                      {t("farmer.dashboard.modals.mortality.excludingSales")}
                     </span>
                   </div>
                 </div>
@@ -216,7 +217,7 @@ export function MortalityModal({
             variant="outline"
             onClick={onClose}
           >
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             type="submit"
@@ -226,10 +227,10 @@ export function MortalityModal({
             {isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {editingMortalityId ? "Updating..." : "Creating..."}
+                {editingMortalityId ? t("farmer.dashboard.modals.mortality.updating") : t("farmer.dashboard.modals.mortality.creating")}
               </>
             ) : (
-              "Save"
+              t("common.save")
             )}
           </Button>
         </ModalFooter>

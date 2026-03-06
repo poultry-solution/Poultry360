@@ -51,27 +51,27 @@
     "collapse": "Collapse sidebar",
     "roles": {
       "doctor": {
-        "title": "Doctor Portal",
+        
         "subtitle": "Veterinary Services",
         "userTitle": "Doctor"
       },
       "admin": {
-        "title": "Admin Panel",
+       
         "subtitle": "System Management",
         "userTitle": "Administrator"
       },
       "dealer": {
-        "title": "Dealer Portal",
+
         "subtitle": "Feed & Supply Management",
         "userTitle": "Dealer"
       },
       "company": {
-        "title": "Company Portal",
+       
         "subtitle": "Product & Distribution Management",
         "userTitle": "Company"
       },
       "farmer": {
-        "title": "Poultry360",
+     
         "subtitle": "Farm Management",
         "userTitle": "Owner"
       }
@@ -993,6 +993,63 @@
         "inHr": "in {count} hr",
         "inDay": "in {count} day{s}",
         "now": "now"
+      },
+      "modals": {
+        "expense": {
+          "title": "Add Expense",
+          "editTitle": "Edit Expense",
+          "context": "Context",
+          "farm": "Farm",
+          "selectFarm": "Select farm",
+          "batch": "Batch",
+          "selectBatch": "Select batch",
+          "categoryAndDate": "Category & date",
+          "category": "Category",
+          "selectCategory": "Select category",
+          "feedFromInventory": "Feed (from inventory)",
+          "medicineFromInventory": "Medicine (from inventory)",
+          "other": "Other",
+          "date": "Date",
+          "feedDetails": "Feed details",
+          "selectFeedFromInventory": "Select feed from inventory",
+          "quantity": "Quantity",
+          "ratePerUnit": "Rate per unit (₹)",
+          "autoFilledFromInventory": "Auto-filled from inventory",
+          "enterRate": "Enter rate",
+          "rateAutoFilledFromInventory": "Rate auto-filled from inventory",
+          "medicineDetails": "Medicine details",
+          "selectMedicineFromInventory": "Select medicine from inventory",
+          "otherExpenseDetails": "Other expense details",
+          "otherFromInventory": "Other (from inventory)",
+          "enterManuallyBelow": "Enter manually below (no inventory deduction)",
+          "expenseName": "Expense name",
+          "rateAutoFilledStockDeducted": "Rate auto-filled from inventory · stock will be deducted",
+          "updating": "Updating...",
+          "creating": "Creating...",
+          "update": "Update"
+        },
+        "mortality": {
+          "title": "Add Mortality Record",
+          "editTitle": "Edit Mortality Record",
+          "noteLabel": "Note",
+          "note": "Record only natural deaths and disease-related losses here. Birds sold are automatically tracked in the Sales section.",
+          "farm": "Farm",
+          "selectFarm": "Select farm",
+          "batch": "Batch",
+          "selectBatch": "Select batch",
+          "date": "Date",
+          "numberOfBirds": "Number of Birds",
+          "enterCount": "Enter count",
+          "reasonOptional": "Reason (Optional)",
+          "reasonPlaceholder": "e.g., Disease, Heat stress, Predator attack, etc.",
+          "currentStatus": "Current Status",
+          "currentBirds": "Current Birds:",
+          "afterAllLosses": "(after all losses)",
+          "naturalDeaths": "Natural Deaths:",
+          "excludingSales": "(excluding sales)",
+          "updating": "Updating...",
+          "creating": "Creating..."
+        }
       }
     },
     "batches": {

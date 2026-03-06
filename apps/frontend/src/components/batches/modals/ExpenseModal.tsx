@@ -4,6 +4,7 @@ import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
+import { useI18n } from "@/i18n/useI18n";
 import {
   Select,
   SelectContent,
@@ -95,6 +96,7 @@ export function ExpenseModal({
   onOtherSelection,
   isPending,
 }: ExpenseModalProps) {
+  const { t } = useI18n();
   const showBatchSelector = !prefilledBatchId;
   const showFarmSelector = !prefilledFarmId;
 
@@ -102,19 +104,19 @@ export function ExpenseModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={editingExpenseId ? "Edit Expense" : "Add Expense"}
+      title={editingExpenseId ? t("farmer.dashboard.modals.expense.editTitle") : t("farmer.dashboard.modals.expense.title")}
     >
       <form onSubmit={onSubmit}>
         <ModalContent className="space-y-6 pb-1">
           {/* Context: Farm & Batch */}
           {(showFarmSelector || showBatchSelector) && (
             <div className="space-y-4">
-              <p className="text-sm font-medium text-muted-foreground">Context</p>
+              <p className="text-sm font-medium text-muted-foreground">{t("farmer.dashboard.modals.expense.context")}</p>
               <div className="flex flex-col gap-5">
                 {showFarmSelector && (
                   <div className="space-y-2">
                     <Label htmlFor="farmId" className="text-sm font-medium text-foreground">
-                      Farm
+                      {t("farmer.dashboard.modals.expense.farm")}
                     </Label>
                     <Select
                       value={expenseForm.farmId || ""}
@@ -123,7 +125,7 @@ export function ExpenseModal({
                       }
                     >
                       <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
-                        <SelectValue placeholder="Select farm" />
+                        <SelectValue placeholder={t("farmer.dashboard.modals.expense.selectFarm")} />
                       </SelectTrigger>
                       <SelectContent className="bg-white">
                         {farms?.map((farm: any) => (
@@ -141,7 +143,7 @@ export function ExpenseModal({
                 {showBatchSelector && (
                   <div className="space-y-2">
                     <Label htmlFor="batchId" className="text-sm font-medium text-foreground">
-                      Batch
+                      {t("farmer.dashboard.modals.expense.batch")}
                     </Label>
                     <Select
                       value={expenseForm.batchId || ""}
@@ -150,7 +152,7 @@ export function ExpenseModal({
                       }
                     >
                       <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
-                        <SelectValue placeholder="Select batch" />
+                        <SelectValue placeholder={t("farmer.dashboard.modals.expense.selectBatch")} />
                       </SelectTrigger>
                       <SelectContent className="bg-white">
                         {activeBatches?.map((batch: any) => (
@@ -171,11 +173,11 @@ export function ExpenseModal({
 
           {/* Category & Date */}
           <div className="space-y-4">
-            <p className="text-sm font-medium text-muted-foreground">Category & date</p>
+            <p className="text-sm font-medium text-muted-foreground">{t("farmer.dashboard.modals.expense.categoryAndDate")}</p>
             <div className="flex flex-col gap-5">
               <div className="space-y-2">
                 <Label htmlFor="category" className="text-sm font-medium text-foreground">
-                  Category
+                  {t("farmer.dashboard.modals.expense.category")}
                 </Label>
                 <Select
                   value={expenseForm.category}
@@ -186,18 +188,18 @@ export function ExpenseModal({
                   }
                 >
                   <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
-                    <SelectValue placeholder="Select category" />
+                    <SelectValue placeholder={t("farmer.dashboard.modals.expense.selectCategory")} />
                   </SelectTrigger>
                   <SelectContent className="bg-white">
-                    <SelectItem value="Feed">Feed (from inventory)</SelectItem>
-                    <SelectItem value="Medicine">Medicine (from inventory)</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
+                    <SelectItem value="Feed">{t("farmer.dashboard.modals.expense.feedFromInventory")}</SelectItem>
+                    <SelectItem value="Medicine">{t("farmer.dashboard.modals.expense.medicineFromInventory")}</SelectItem>
+                    <SelectItem value="Other">{t("farmer.dashboard.modals.expense.other")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <DateInput
-                  label="Date"
+                  label={t("farmer.dashboard.modals.expense.date")}
                   value={expenseForm.date}
                   onChange={(value) => onFieldUpdate({ target: { name: "date", value } } as React.ChangeEvent<HTMLInputElement>)}
                 />
@@ -211,18 +213,18 @@ export function ExpenseModal({
           {/* Category-specific details */}
           {expenseForm.category === "Feed" && (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
-              <p className="text-sm font-medium text-foreground">Feed details</p>
+              <p className="text-sm font-medium text-foreground">{t("farmer.dashboard.modals.expense.feedDetails")}</p>
               <div className="flex flex-col gap-5">
                 <div className="space-y-2">
                   <Label htmlFor="selectedFeedId" className="text-sm font-medium text-foreground">
-                    Feed (from inventory)
+                    {t("farmer.dashboard.modals.expense.feedFromInventory")}
                   </Label>
                   <Select
                     value={expenseForm.selectedFeedId || ""}
                     onValueChange={onFeedSelection}
                   >
                     <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
-                      <SelectValue placeholder="Select feed from inventory" />
+                      <SelectValue placeholder={t("farmer.dashboard.modals.expense.selectFeedFromInventory")} />
                     </SelectTrigger>
                     <SelectContent className="bg-white">
                       {(feedInventory ?? []).map((feed: any) => (
@@ -239,7 +241,7 @@ export function ExpenseModal({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="feedQuantity" className="text-sm font-medium text-foreground">
-                    Quantity
+                    {t("farmer.dashboard.modals.expense.quantity")}
                   </Label>
                   <Input
                     id="feedQuantity"
@@ -255,7 +257,7 @@ export function ExpenseModal({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="feedRate" className="text-sm font-medium text-foreground">
-                    Rate per unit (₹)
+                    {t("farmer.dashboard.modals.expense.ratePerUnit")}
                   </Label>
                   <Input
                     id="feedRate"
@@ -266,7 +268,7 @@ export function ExpenseModal({
                     readOnly={!!expenseForm.selectedFeedId}
                     className={`rounded-lg ${expenseForm.selectedFeedId ? "bg-muted/50 cursor-default" : ""}`}
                     placeholder={
-                      expenseForm.selectedFeedId ? "Auto-filled from inventory" : "Enter rate"
+                      expenseForm.selectedFeedId ? t("farmer.dashboard.modals.expense.autoFilledFromInventory") : t("farmer.dashboard.modals.expense.enterRate")
                     }
                   />
                   {expenseErrors.feedRate && (
@@ -274,7 +276,7 @@ export function ExpenseModal({
                   )}
                   {expenseForm.selectedFeedId && (
                     <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1.5">
-                      Rate auto-filled from inventory
+                      {t("farmer.dashboard.modals.expense.rateAutoFilledFromInventory")}
                     </p>
                   )}
                 </div>
@@ -283,18 +285,18 @@ export function ExpenseModal({
           )}
           {expenseForm.category === "Medicine" && (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
-              <p className="text-sm font-medium text-foreground">Medicine details</p>
+              <p className="text-sm font-medium text-foreground">{t("farmer.dashboard.modals.expense.medicineDetails")}</p>
               <div className="flex flex-col gap-5">
                 <div className="space-y-2">
                   <Label htmlFor="selectedMedicineId" className="text-sm font-medium text-foreground">
-                    Medicine (from inventory)
+                    {t("farmer.dashboard.modals.expense.medicineFromInventory")}
                   </Label>
                   <Select
                     value={expenseForm.selectedMedicineId || ""}
                     onValueChange={onMedicineSelection}
                   >
                     <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
-                      <SelectValue placeholder="Select medicine from inventory" />
+                      <SelectValue placeholder={t("farmer.dashboard.modals.expense.selectMedicineFromInventory")} />
                     </SelectTrigger>
                     <SelectContent className="bg-white">
                       {(medicineInventory ?? []).map((medicine: any) => (
@@ -311,7 +313,7 @@ export function ExpenseModal({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="medicineQuantity" className="text-sm font-medium text-foreground">
-                    Quantity
+                    {t("farmer.dashboard.modals.expense.quantity")}
                   </Label>
                   <Input
                     id="medicineQuantity"
@@ -327,7 +329,7 @@ export function ExpenseModal({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="medicineRate" className="text-sm font-medium text-foreground">
-                    Rate per unit (₹)
+                    {t("farmer.dashboard.modals.expense.ratePerUnit")}
                   </Label>
                   <Input
                     id="medicineRate"
@@ -338,7 +340,7 @@ export function ExpenseModal({
                     readOnly={!!expenseForm.selectedMedicineId}
                     className={`rounded-lg ${expenseForm.selectedMedicineId ? "bg-muted/50 cursor-default" : ""}`}
                     placeholder={
-                      expenseForm.selectedMedicineId ? "Auto-filled from inventory" : "Enter rate"
+                      expenseForm.selectedMedicineId ? t("farmer.dashboard.modals.expense.autoFilledFromInventory") : t("farmer.dashboard.modals.expense.enterRate")
                     }
                   />
                   {expenseErrors.medicineRate && (
@@ -346,7 +348,7 @@ export function ExpenseModal({
                   )}
                   {expenseForm.selectedMedicineId && (
                     <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1.5">
-                      Rate auto-filled from inventory
+                      {t("farmer.dashboard.modals.expense.rateAutoFilledFromInventory")}
                     </p>
                   )}
                 </div>
@@ -355,22 +357,22 @@ export function ExpenseModal({
           )}
           {expenseForm.category === "Other" && (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
-              <p className="text-sm font-medium text-foreground">Other expense details</p>
+              <p className="text-sm font-medium text-foreground">{t("farmer.dashboard.modals.expense.otherExpenseDetails")}</p>
               <div className="flex flex-col gap-5">
                 {otherInventory.length > 0 && (
                   <div className="space-y-2">
                     <Label htmlFor="selectedOtherId" className="text-sm font-medium text-foreground">
-                      Other (from inventory)
+                      {t("farmer.dashboard.modals.expense.otherFromInventory")}
                     </Label>
                     <Select
                       value={expenseForm.selectedOtherId || "__none__"}
                       onValueChange={(v) => onOtherSelection?.(v === "__none__" ? "" : v)}
                     >
                       <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
-                        <SelectValue placeholder="Enter manually below (no inventory deduction)" />
+                        <SelectValue placeholder={t("farmer.dashboard.modals.expense.enterManuallyBelow")} />
                       </SelectTrigger>
                       <SelectContent className="bg-white">
-                        <SelectItem value="__none__">Enter manually below (no inventory deduction)</SelectItem>
+                        <SelectItem value="__none__">{t("farmer.dashboard.modals.expense.enterManuallyBelow")}</SelectItem>
                         {(otherInventory ?? []).map((item: any) => (
                           <SelectItem key={item.id} value={item.id}>
                             {item.name} ({(item.quantity ?? item.currentStock ?? 0)} {item.unit} available)
@@ -384,7 +386,7 @@ export function ExpenseModal({
                 {!expenseForm.selectedOtherId && (
                   <div className="space-y-2">
                     <Label htmlFor="otherName" className="text-sm font-medium text-foreground">
-                      Expense name
+                      {t("farmer.dashboard.modals.expense.expenseName")}
                     </Label>
                     <Input
                       id="otherName"
@@ -400,7 +402,7 @@ export function ExpenseModal({
                 )}
                 <div className="space-y-2">
                   <Label htmlFor="otherQuantity" className="text-sm font-medium text-foreground">
-                    Quantity
+                    {t("farmer.dashboard.modals.expense.quantity")}
                   </Label>
                   <Input
                     id="otherQuantity"
@@ -416,7 +418,7 @@ export function ExpenseModal({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="otherRate" className="text-sm font-medium text-foreground">
-                    Rate per unit (₹)
+                    {t("farmer.dashboard.modals.expense.ratePerUnit")}
                   </Label>
                   <Input
                     id="otherRate"
@@ -427,7 +429,7 @@ export function ExpenseModal({
                     readOnly={!!expenseForm.selectedOtherId}
                     className={`rounded-lg ${expenseForm.selectedOtherId ? "bg-muted/50 cursor-default" : ""}`}
                     placeholder={
-                      expenseForm.selectedOtherId ? "Auto-filled from inventory" : "Enter rate"
+                      expenseForm.selectedOtherId ? t("farmer.dashboard.modals.expense.autoFilledFromInventory") : t("farmer.dashboard.modals.expense.enterRate")
                     }
                   />
                   {expenseErrors.otherRate && (
@@ -435,7 +437,7 @@ export function ExpenseModal({
                   )}
                   {expenseForm.selectedOtherId && (
                     <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1.5">
-                      Rate auto-filled from inventory · stock will be deducted
+                      {t("farmer.dashboard.modals.expense.rateAutoFilledStockDeducted")}
                     </p>
                   )}
                 </div>
@@ -445,7 +447,7 @@ export function ExpenseModal({
         </ModalContent>
         <ModalFooter className="flex flex-row justify-end gap-3 pt-2 border-t border-border/60">
           <Button type="button" variant="outline" onClick={onClose} className="min-w-[84px]">
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             type="submit"
@@ -455,10 +457,10 @@ export function ExpenseModal({
             {isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {editingExpenseId ? "Updating..." : "Creating..."}
+                {editingExpenseId ? t("farmer.dashboard.modals.expense.updating") : t("farmer.dashboard.modals.expense.creating")}
               </>
             ) : (
-              editingExpenseId ? "Update" : "Save"
+              editingExpenseId ? t("farmer.dashboard.modals.expense.update") : t("common.save")
             )}
           </Button>
         </ModalFooter>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/common/lib/utils";
 import {
@@ -104,34 +105,34 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
   const getRoleInfo = () => {
     if (role === "DOCTOR") {
       return {
-        title: t("sidebar.roles.doctor.title"),
+  
         subtitle: t("sidebar.roles.doctor.subtitle"),
         userTitle: t("sidebar.roles.doctor.userTitle")
       };
     }
     if (role === "SUPER_ADMIN") {
       return {
-        title: t("sidebar.roles.admin.title"),
+
         subtitle: t("sidebar.roles.admin.subtitle"),
         userTitle: t("sidebar.roles.admin.userTitle")
       };
     }
     if (role === "DEALER") {
       return {
-        title: t("sidebar.roles.dealer.title"),
+   
         subtitle: t("sidebar.roles.dealer.subtitle"),
         userTitle: t("sidebar.roles.dealer.userTitle")
       };
     }
     if (role === "COMPANY") {
       return {
-        title: t("sidebar.roles.company.title"),
+        
         subtitle: t("sidebar.roles.company.subtitle"),
         userTitle: t("sidebar.roles.company.userTitle")
       };
     }
     return {
-      title: t("sidebar.roles.farmer.title"),
+ 
       subtitle: t("sidebar.roles.farmer.subtitle"),
       userTitle: t("sidebar.roles.farmer.userTitle")
     };
@@ -154,12 +155,10 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
       {/* Logo and Company Name */}
       <div className="flex h-16 items-center justify-between border-b px-6 min-w-0">
         <div className="flex items-center space-x-3 min-w-0">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
-            <span className="text-primary-foreground font-bold text-lg">P</span>
-          </div>
+         
           <div className="min-w-0">
-            <h1 className="font-bold text-foreground">{roleInfo.title}</h1>
-            <p className="text-xs text-muted-foreground">{roleInfo.subtitle}</p>
+          <h1 className=" text-foreground font-[family-name:var(--font-caveat)] text-4xl">Poultry360</h1>       
+               <p className="text-xs text-muted-foreground">{roleInfo.subtitle}</p>
           </div>
         </div>
 
