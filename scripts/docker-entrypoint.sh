@@ -29,7 +29,7 @@ npx prisma migrate deploy --schema=./prisma/schema.prisma
 
 if [ "$SEED_DATABASE" = "true" ]; then
   echo "==> Seeding database..."
-  npx prisma db seed || echo "  Seeding skipped or failed (may already be seeded)."
+  node prisma/dist/seed.js || echo "  Seeding skipped or failed (may already be seeded)."
 fi
 
 echo "==> Starting application..."
