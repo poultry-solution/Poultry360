@@ -1,10 +1,31 @@
 "use client";
 
+import { useState } from "react";
 import { Badge } from "@/common/components/ui/badge";
+import { Button } from "@/common/components/ui/button";
+import { Layers, Bird, Truck, Factory, Stethoscope } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
+import { FeatureLearnMoreModal, type FeatureId } from "./FeatureLearnMoreModal";
+
+const FEATURE_IDS: FeatureId[] = ["layer", "broiler", "feedSupplier", "feedMill", "veterinary"];
+
+const FEATURE_ICONS: Record<FeatureId, React.ComponentType<{ className?: string }>> = {
+  layer: Layers,
+  broiler: Bird,
+  feedSupplier: Truck,
+  feedMill: Factory,
+  veterinary: Stethoscope,
+};
 
 export default function Features() {
   const { t } = useI18n();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalFeatureId, setModalFeatureId] = useState<FeatureId | null>(null);
+
+  const openModal = (featureId: FeatureId) => {
+    setModalFeatureId(featureId);
+    setModalOpen(true);
+  };
 
   return (
     <section id="features" className="py-16 lg:py-24 bg-white">
@@ -21,210 +42,40 @@ export default function Features() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* Feature 1 - Record Transactions */}
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-            <div className="mb-6">
-              <div className="relative w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center mb-4">
-                <div className="flex space-x-2">
-                  <div className="w-16 h-20 bg-white rounded shadow-sm border flex flex-col items-center justify-center">
-                    <div className="w-6 h-6 bg-primary rounded-full mb-1"></div>
-                    <div className="text-xs text-gray-600">₹2,500</div>
-                  </div>
-                  <div className="w-16 h-20 bg-white rounded shadow-sm border flex flex-col items-center justify-center">
-                    <div className="w-6 h-6 bg-red-500 rounded-full mb-1"></div>
-                    <div className="text-xs text-gray-600">₹1,200</div>
-                  </div>
-                  <div className="w-16 h-20 bg-white rounded shadow-sm border flex flex-col items-center justify-center">
-                    <div className="w-6 h-6 bg-primary rounded-full mb-1"></div>
-                    <div className="text-xs text-gray-600">₹3,800</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">{t("landing.features.recordTransactions")}</h3>
-            <p className="text-gray-600 text-sm">{t("landing.features.recordTransactionsDesc")}</p>
-          </div>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-8">
+          {FEATURE_IDS.map((featureId) => {
+            const Icon = FEATURE_ICONS[featureId];
+            const title = t(`landing.features.cards.${featureId}.title`);
+            const description = t(`landing.features.cards.${featureId}.description`);
 
-          {/* Feature 2 - Manage Birds */}
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-            <div className="mb-6">
-              <div className="relative w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center mb-4">
-                <div className="flex space-x-2">
-                  <div className="w-12 h-16 bg-white rounded shadow-sm border flex flex-col items-center justify-center">
-                    <div className="w-4 h-4 bg-primary rounded-full mb-1"></div>
-                    <div className="text-xs text-gray-600">1,250↑</div>
-                  </div>
-                  <div className="w-12 h-16 bg-white rounded shadow-sm border flex flex-col items-center justify-center">
-                    <div className="w-4 h-4 bg-red-500 rounded-full mb-1"></div>
-                    <div className="text-xs text-gray-600">45↓</div>
-                  </div>
-                  <div className="w-12 h-16 bg-white rounded shadow-sm border flex flex-col items-center justify-center">
-                    <div className="w-4 h-4 bg-primary rounded-full mb-1"></div>
-                    <div className="text-xs text-gray-600">85%</div>
-                  </div>
-                  <div className="w-12 h-16 bg-white rounded shadow-sm border flex flex-col items-center justify-center">
-                    <div className="w-4 h-4 bg-primary rounded-full mb-1"></div>
-                    <div className="text-xs text-gray-600">32d</div>
-                  </div>
+            return (
+              <div
+                key={featureId}
+                className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow flex flex-col"
+              >
+                <div className="mb-4 flex items-center justify-center w-14 h-14 rounded-xl bg-primary/10 text-primary">
+                  <Icon className="w-7 h-7" />
                 </div>
+                <h3 className="text-base font-bold text-gray-900 mb-2 whitespace-nowrap">{title}</h3>
+                <p className="text-gray-600 text-sm flex-1 min-h-[4.5rem]">{description}</p>
+                <Button
+                  variant="default"
+                  className="mt-4 w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                  onClick={() => openModal(featureId)}
+                >
+                  {t("landing.features.learnMore")}
+                </Button>
               </div>
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">{t("landing.features.manageBirds")}</h3>
-            <p className="text-gray-600 text-sm">{t("landing.features.manageBirdsDesc")}</p>
-          </div>
-
-          {/* Feature 3 - Manage Inventory */}
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-            <div className="mb-6">
-              <div className="relative w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center mb-4">
-                <div className="flex items-center space-x-4">
-                  <div className="flex flex-col items-center">
-                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center mb-2">
-                      <span className="text-white text-sm font-bold">+</span>
-                    </div>
-                    <div className="text-xs text-gray-600">{t("landing.features.add")}</div>
-                  </div>
-                  <div className="w-16 h-12 bg-amber-200 rounded border-2 border-amber-300 flex items-center justify-center">
-                    <div className="text-xs font-medium text-amber-800">{t("landing.features.feed")}</div>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center mb-2">
-                      <span className="text-white text-sm font-bold">-</span>
-                    </div>
-                    <div className="text-xs text-gray-600">{t("landing.features.remove")}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">{t("landing.features.manageInventory")}</h3>
-            <p className="text-gray-600 text-sm">{t("landing.features.manageInventoryDesc")}</p>
-          </div>
-
-          {/* Feature 4 - Farm Insights */}
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-            <div className="mb-6">
-              <div className="relative w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center mb-4">
-                <div className="w-full max-w-32">
-                  <div className="flex items-end space-x-2 h-20">
-                    <div className="w-6 bg-primary rounded-t" style={{ height: '60%' }}></div>
-                    <div className="w-6 bg-red-500 rounded-t" style={{ height: '30%' }}></div>
-                    <div className="w-6 bg-primary rounded-t" style={{ height: '80%' }}></div>
-                    <div className="w-6 bg-primary rounded-t" style={{ height: '45%' }}></div>
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-600 mt-2">
-                    <span>₹45K↑</span>
-                    <span>₹12K↓</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">{t("landing.features.farmInsights")}</h3>
-            <p className="text-gray-600 text-sm">{t("landing.features.farmInsightsDesc")}</p>
-          </div>
-
-          {/* Feature 5 - Vaccination Schedule */}
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-            <div className="mb-6">
-              <div className="relative w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center mb-4">
-                <div className="flex flex-col items-center space-y-2">
-                  <div className="w-20 h-8 bg-blue-100 rounded border border-blue-200 flex items-center justify-center">
-                    <div className="text-xs font-medium text-blue-800">Day 1</div>
-                  </div>
-                  <div className="w-20 h-8 bg-green-100 rounded border border-green-200 flex items-center justify-center">
-                    <div className="text-xs font-medium text-green-800">Day 7</div>
-                  </div>
-                  <div className="w-20 h-8 bg-yellow-100 rounded border border-yellow-200 flex items-center justify-center">
-                    <div className="text-xs font-medium text-yellow-800">Day 14</div>
-                  </div>
-                  <div className="w-20 h-8 bg-red-100 rounded border border-red-200 flex items-center justify-center">
-                    <div className="text-xs font-medium text-red-800">Day 21</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">{t("landing.features.vaccinationSchedule")}</h3>
-            <p className="text-gray-600 text-sm">{t("landing.features.vaccinationScheduleDesc")}</p>
-          </div>
-
-          {/* Feature 6 - Feed Calculator */}
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-            <div className="mb-6">
-              <div className="relative w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-amber-200 rounded-full flex items-center justify-center">
-                    <span className="text-xs font-bold text-amber-800">50kg</span>
-                  </div>
-                  <div className="text-2xl text-gray-400">÷</div>
-                  <div className="w-12 h-12 bg-blue-200 rounded-full flex items-center justify-center">
-                    <span className="text-xs font-bold text-blue-800">1000</span>
-                  </div>
-                  <div className="text-2xl text-gray-400">=</div>
-                  <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center">
-                    <span className="text-xs font-bold text-white">0.05</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">{t("landing.features.feedCalculator")}</h3>
-            <p className="text-gray-600 text-sm">{t("landing.features.feedCalculatorDesc")}</p>
-          </div>
-
-          {/* Feature 7 - Mortality Tracking */}
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-            <div className="mb-6">
-              <div className="relative w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center mb-4">
-                <div className="flex flex-col items-center space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs">✓</span>
-                    </div>
-                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs">✓</span>
-                    </div>
-                    <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs">✗</span>
-                    </div>
-                  </div>
-                  <div className="text-xs text-gray-600">{t("landing.features.mortalityRate")}</div>
-                  <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div className="w-1/4 h-full bg-red-500"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">{t("landing.features.mortalityTracking")}</h3>
-            <p className="text-gray-600 text-sm">{t("landing.features.mortalityTrackingDesc")}</p>
-          </div>
-
-          {/* Feature 8 - Production Planning */}
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-            <div className="mb-6">
-              <div className="relative w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center mb-4">
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs">1</span>
-                  </div>
-                  <div className="w-1 h-4 bg-gray-300"></div>
-                  <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs">2</span>
-                  </div>
-                  <div className="w-1 h-4 bg-gray-300"></div>
-                  <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs">3</span>
-                  </div>
-                  <div className="w-1 h-4 bg-gray-300"></div>
-                  <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                    <span className="text-gray-600 text-xs">4</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">{t("landing.features.productionPlanning")}</h3>
-            <p className="text-gray-600 text-sm">{t("landing.features.productionPlanningDesc")}</p>
-          </div>
+            );
+          })}
         </div>
       </div>
+
+      <FeatureLearnMoreModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        featureId={modalFeatureId}
+      />
     </section>
   );
 }

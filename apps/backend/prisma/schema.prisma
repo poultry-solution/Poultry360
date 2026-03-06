@@ -2249,3 +2249,37 @@ model DealerProductUnitConversion {
   @@unique([dealerProductId, unitName])
   @@index([dealerProductId])
 }
+
+// ==================== LANDING PAGE REVIEWS (PUBLIC) ====================
+// Submitted by anyone (no auth); phone stored but not shown on landing
+model LandingReview {
+  id          String   @id @default(cuid())
+  name        String
+  business    String
+  address     String
+  phoneNumber String   // Stored for contact; not displayed on cards
+  stars       Int      // 1-5
+  review      String   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
+// ==================== LANDING PAGE CONTACT SUBMISSIONS (PUBLIC) ====================
+// Contact form submissions from landing page (no auth)
+model LandingContact {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String
+  phone     String?
+  farmType  String?  // broiler | layer | hatchery | feed-dealer | mixed | other
+  message   String   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+}

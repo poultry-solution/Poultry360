@@ -2656,7 +2656,6 @@
       "login": "Log in"
     },
     "hero": {
-      "trustBadge": "Trusted by 500+ Poultry Farmers",
       "headingMain": "Manage Your Poultry Business",
       "headingHighlight": " Anytime, Anywhere",
       "description": "Poultry360 makes your poultry business simple, smart, and stress-free. Easily track sales, manage expenses, maintain ledgers, control inventory & more so you can focus on growing your poultry business.",
@@ -2667,12 +2666,50 @@
       "lowStockAlert": "Low Stock Alert",
       "birds": "Birds",
       "revenue": "Revenue",
-      "health": "Health"
+      "health": "Health",
+      "pwaModal": {
+        "title": "Add Poultry360 to your device",
+        "subtitle": "Install the app for quick access from your home screen.",
+        "androidTitle": "Android",
+        "androidStep1": "Open the browser menu (⋮) in the top corner.",
+        "androidStep2": "Tap \"Add to Home screen\" or \"Install app\".",
+        "androidStep3": "Confirm by tapping \"Add\" or \"Install\".",
+        "iphoneTitle": "iPhone / iPad",
+        "iphoneStep1": "Tap the Share button (□ with arrow) at the bottom of Safari.",
+        "iphoneStep2": "Scroll down and tap \"Add to Home Screen\".",
+        "iphoneStep3": "Tap \"Add\" in the top right."
+      }
     },
     "features": {
       "badge": "Key Features",
       "title": "All in One Poultry Management App",
-      "subtitle": "Manage your poultry farm, finances, inventory, and operations effortlessly with Poultry360, everything your farm needs, all in one place.",
+      "subtitle": "Poultry360 brings broiler and layer farmers, feed suppliers, feed mill companies, and veterinary doctors together—manage operations, inventory, and health in one platform.",
+      "learnMore": "Learn More",
+      "modal": {
+        "comingSoon": "Coming soon"
+      },
+      "cards": {
+        "layer": {
+          "title": "Layer Management",
+          "description": "Boost egg production and quality with straightforward tracking for your hens."
+        },
+        "broiler": {
+          "title": "Broiler Management",
+          "description": "Monitor growth and feed use to keep broilers healthy and improve productivity."
+        },
+        "feedSupplier": {
+          "title": "Feed Supplier",
+          "description": "Manage orders, deliveries, and customer relationships in one place."
+        },
+        "feedMill": {
+          "title": "Feed Mill Company",
+          "description": "Produce quality feed with accurate mixing and easy inventory management."
+        },
+        "veterinary": {
+          "title": "Veterinary Doctor",
+          "description": "Track farm visits, prescriptions, and bird health across your client base."
+        }
+      },
       "recordTransactions": "Record Transactions",
       "recordTransactionsDesc": "Add sales, purchases & expenses",
       "manageBirds": "Manage Birds",
@@ -2693,6 +2730,27 @@
       "add": "Add",
       "feed": "Feed",
       "remove": "Remove"
+    },
+    "reviews": {
+      "badge": "Trusted by Farmers",
+      "title": "What Our Farmers Say",
+      "subtitle": "Real stories from poultry farmers who transformed their business with Poultry360",
+      "writeReview": "Write a Review",
+      "name": "Name",
+      "namePlaceholder": "Your name",
+      "business": "Business",
+      "businessPlaceholder": "e.g. Broiler Farmer, Feed Supplier",
+      "address": "Address",
+      "addressPlaceholder": "Your location",
+      "phoneNumber": "Phone Number",
+      "phoneNumberPlaceholder": "Your phone (not shown publicly)",
+      "stars": "Rating",
+      "review": "Your Review",
+      "reviewPlaceholder": "Share your experience with Poultry360...",
+      "submit": "Submit Review",
+      "submitSuccess": "Thank you! Your review has been submitted.",
+      "emptyMessage": "No reviews yet. Be the first to share your experience!",
+      "modalTitle": "Write a Review"
     },
     "contact": {
       "title": "Get in Touch",
@@ -2717,6 +2775,8 @@
       "message": "Message",
       "messagePlaceholder": "Tell us about your poultry farming needs...",
       "sendBtn": "Send Message",
+      "submitSuccess": "Message sent! We'll get back to you soon.",
+      "submitError": "Failed to send message. Please try again.",
       "contactInfo": "Contact Information",
       "contactInfoDesc": "Have questions about Poultry360? We're here to help you get started with smart poultry management.",
       "emailLabel": "Email",
