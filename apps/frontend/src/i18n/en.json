@@ -592,6 +592,11 @@
         "failedDeleteEntries": "Failed to delete {count} entry(s)",
         "passwordFailed": "Password verification failed. Deletion cancelled."
       },
+      "deleteUsedInBatches": {
+        "title": "Cannot delete",
+        "message": "This product is already used in batches so you can't delete.",
+        "close": "Close"
+      },
       "confirmDeleteEntries": {
         "title": "Delete {count} entries?",
         "warning": "This action cannot be undone. Selected entries will be permanently removed.",

@@ -106,6 +106,7 @@ export default function SupplierLedgerPage() {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ password: "" });
   const [isDeleteSupplierOpen, setIsDeleteSupplierOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<{ message: string } | null>(null);
   const [activeTab, setActiveTab] = useState<"purchases" | "payments">("purchases");
 
   const [newSupplier, setNewSupplier] = useState({
@@ -345,6 +346,7 @@ export default function SupplierLedgerPage() {
 
     const ids = Array.from(selectedIds);
     let failed = 0;
+    let firstErrorMessage: string | null = null;
 
     try {
       await Promise.all(
@@ -355,8 +357,10 @@ export default function SupplierLedgerPage() {
               transactionId: entryId,
               password: passwordForm.password,
             });
-          } catch (e) {
+          } catch (e: any) {
             failed += 1;
+            const msg = e?.response?.data?.message;
+            if (msg && !firstErrorMessage) firstErrorMessage = msg;
           }
         })
       );
@@ -368,9 +372,9 @@ export default function SupplierLedgerPage() {
       if (failed === 0) {
         toast.success(t("farmer.supplierLedger.toast.entriesDeleted"));
       } else {
-        toast.error(
-          t("farmer.supplierLedger.toast.failedDeleteEntries", { count: failed })
-        );
+        setDeleteError({
+          message: firstErrorMessage || t("farmer.supplierLedger.toast.failedDeleteEntries", { count: failed }),
+        });
       }
     } catch (error) {
       toast.error(t("farmer.supplierLedger.toast.passwordFailed"));
@@ -868,6 +872,33 @@ export default function SupplierLedgerPage() {
             ) : (
               t("farmer.supplierLedger.confirmPassword.confirm")
             )}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Delete failed: item used in batches */}
+      <Modal
+        isOpen={!!deleteError}
+        onClose={() => setDeleteError(null)}
+        title={t("farmer.supplierLedger.deleteUsedInBatches.title")}
+      >
+        <ModalContent>
+          <div className="space-y-4">
+            <p className="text-sm font-medium text-foreground">
+              {t("farmer.supplierLedger.deleteUsedInBatches.message")}
+            </p>
+            {deleteError?.message && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3">
+                <p className="text-xs text-amber-800 dark:text-amber-200 whitespace-pre-wrap">
+                  {deleteError.message}
+                </p>
+              </div>
+            )}
+          </div>
+        </ModalContent>
+        <ModalFooter>
+          <Button onClick={() => setDeleteError(null)}>
+            {t("farmer.supplierLedger.deleteUsedInBatches.close")}
           </Button>
         </ModalFooter>
       </Modal>
@@ -1532,7 +1563,7 @@ export default function SupplierLedgerPage() {
                     )}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {activeSupplierId && !isDeleteMode && (
+                    {activeSupplierId && !isDeleteMode && !isConnectedSupplier && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -1585,18 +1616,20 @@ export default function SupplierLedgerPage() {
                             {t("farmer.supplierLedger.details")}
                           </span>
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => setIsDeleteMode(true)}
-                          disabled={!activeSupplierId}
-                        >
-                          <Trash2 className="h-3 w-3 mr-1 sm:mr-0" />
-                          <span className="hidden sm:inline sm:ml-1">
-                            {t("farmer.supplierLedger.entries")}
-                          </span>
-                        </Button>
+                        {!isConnectedSupplier && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => setIsDeleteMode(true)}
+                            disabled={!activeSupplierId}
+                          >
+                            <Trash2 className="h-3 w-3 mr-1 sm:mr-0" />
+                            <span className="hidden sm:inline sm:ml-1">
+                              {t("farmer.supplierLedger.entries")}
+                            </span>
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
