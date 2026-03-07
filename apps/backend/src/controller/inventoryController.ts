@@ -765,17 +765,20 @@ export const getInventoryForExpense = async (
     });
 
     const itemIds = items.map((i) => i.id);
-    const latestPurchases = await prisma.inventoryTransaction.findMany({
-      where: {
-        itemId: { in: itemIds },
-        type: "PURCHASE",
-      },
-      orderBy: { date: "desc" },
-      distinct: ["itemId"],
-    });
-    const rateByItemId = new Map(
-      latestPurchases.map((t) => [t.itemId, Number(t.unitPrice)])
-    );
+    const purchaseAggregates =
+      itemIds.length > 0
+        ? await prisma.inventoryTransaction.groupBy({
+            by: ["itemId"],
+            where: { itemId: { in: itemIds }, type: "PURCHASE" },
+            _sum: { totalAmount: true, quantity: true },
+          })
+        : [];
+    const rateByItemId = new Map<string, number>();
+    for (const row of purchaseAggregates) {
+      const sumQty = Number(row._sum.quantity ?? 0);
+      const sumAmount = Number(row._sum.totalAmount ?? 0);
+      rateByItemId.set(row.itemId, sumQty > 0 ? sumAmount / sumQty : 0);
+    }
 
     const data = items.map((item) => ({
       id: item.id,
@@ -826,7 +829,20 @@ export const getInventoryTableData = async (
 
     const itemIds = items.map((i) => i.id);
 
-    // Latest purchase per item (for rate, supplier, dealerId, unit, purchaseCategory)
+    // Effective rate per item: total cost / total quantity (handles paid + free; same for all categories)
+    const purchaseAggregates = await prisma.inventoryTransaction.groupBy({
+      by: ["itemId"],
+      where: { itemId: { in: itemIds }, type: "PURCHASE" },
+      _sum: { totalAmount: true, quantity: true },
+    });
+    const effectiveRateByItemId = new Map<string, number>();
+    for (const row of purchaseAggregates) {
+      const sumQty = Number(row._sum.quantity ?? 0);
+      const sumAmount = Number(row._sum.totalAmount ?? 0);
+      effectiveRateByItemId.set(row.itemId, sumQty > 0 ? sumAmount / sumQty : 0);
+    }
+
+    // Latest purchase per item (for supplier, dealerId, unit, purchaseCategory - display only)
     const purchases = await prisma.entityTransaction.findMany({
       where: {
         type: "PURCHASE",
@@ -865,10 +881,7 @@ export const getInventoryTableData = async (
 
     const tableData = items.map((item) => {
       const latest = latestByItem.get(item.id);
-      const paidQty = latest ? Number(latest.quantity) || 0 : 0;
-      const rate = latest
-        ? (latest.unitPrice ? Number(latest.unitPrice) : paidQty > 0 ? Number(latest.amount) / paidQty : 0)
-        : 0;
+      const rate = effectiveRateByItemId.get(item.id) ?? 0;
       let supplier = "";
       if (latest) {
         if (latest.dealer) supplier = latest.dealer.name;
@@ -925,7 +938,7 @@ export const getInventoryStatistics = async (
   try {
     const currentUserId = req.userId;
 
-    const [totalItems, lowStockItems, itemsByType, totalValue] =
+    const [totalItems, lowStockItems, itemsByType, itemsForValue] =
       await Promise.all([
         prisma.inventoryItem.count({
           where: { userId: currentUserId },
@@ -945,28 +958,33 @@ export const getInventoryStatistics = async (
           _count: { id: true },
           _sum: { currentStock: true },
         }),
-        // Calculate total value based on average unit price from transactions
         prisma.inventoryItem.findMany({
           where: { userId: currentUserId },
-          include: {
-            transactions: {
-              where: { type: "PURCHASE" },
-              orderBy: { date: "desc" },
-              take: 1, // Get latest purchase price
-            },
-          },
+          select: { id: true, currentStock: true },
         }),
       ]);
 
-    // Calculate total inventory value
-    const totalInventoryValue = totalValue.reduce((sum, item) => {
-      const latestTransaction = item.transactions[0];
-      if (latestTransaction) {
-        const unitPrice = Number(latestTransaction.unitPrice);
-        const currentStock = Number(item.currentStock);
-        return sum + unitPrice * currentStock;
-      }
-      return sum;
+    const itemIds = itemsForValue.map((i) => i.id);
+    const purchaseAggregates =
+      itemIds.length > 0
+        ? await prisma.inventoryTransaction.groupBy({
+            by: ["itemId"],
+            where: { itemId: { in: itemIds }, type: "PURCHASE" },
+            _sum: { totalAmount: true, quantity: true },
+          })
+        : [];
+
+    const effectiveRateByItemId = new Map<string, number>();
+    for (const row of purchaseAggregates) {
+      const sumQty = Number(row._sum.quantity ?? 0);
+      const sumAmount = Number(row._sum.totalAmount ?? 0);
+      effectiveRateByItemId.set(row.itemId, sumQty > 0 ? sumAmount / sumQty : 0);
+    }
+
+    const totalInventoryValue = itemsForValue.reduce((sum, item) => {
+      const rate = effectiveRateByItemId.get(item.id) ?? 0;
+      const currentStock = Number(item.currentStock);
+      return sum + rate * currentStock;
     }, 0);
 
     return res.json({
@@ -975,7 +993,7 @@ export const getInventoryStatistics = async (
         totalItems,
         lowStockItems,
         totalValue: totalInventoryValue,
-        totalStock: totalValue.reduce(
+        totalStock: itemsForValue.reduce(
           (sum, item) => sum + Number(item.currentStock),
           0
         ),

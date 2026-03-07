@@ -422,15 +422,14 @@ export class InventoryService {
         );
       }
 
-      // 3. Get latest unit price from transactions
-      const latestTransaction = await tx.inventoryTransaction.findFirst({
+      // 3. Effective rate from purchases (total cost / total qty; handles paid + free)
+      const purchaseSums = await tx.inventoryTransaction.aggregate({
         where: { itemId, type: "PURCHASE" },
-        orderBy: { date: "desc" },
+        _sum: { totalAmount: true, quantity: true },
       });
-
-      const unitPrice = latestTransaction
-        ? Number(latestTransaction.unitPrice)
-        : 0;
+      const sumQty = Number(purchaseSums._sum.quantity ?? 0);
+      const sumAmount = Number(purchaseSums._sum.totalAmount ?? 0);
+      const unitPrice = sumQty > 0 ? sumAmount / sumQty : 0;
       const totalAmount = unitPrice * quantity;
 
       // 4. Create expense record (with farm/batch context)

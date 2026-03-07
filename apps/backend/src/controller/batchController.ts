@@ -437,7 +437,7 @@ export const createBatch = async (
         );
       }
 
-      // Validate each allocation, ensure sufficient stock per item, and compute pricing
+      // Validate each allocation, ensure sufficient stock per item, and compute pricing (effective rate = total cost / total qty, handles paid + free)
       const allocations = await Promise.all(
         chicksInventory.map(async (alloc: any) => {
           const item = await tx.inventoryItem.findUnique({
@@ -453,18 +453,18 @@ export const createBatch = async (
               `Insufficient chicks stock for item ${alloc.itemId}. Available: ${available}, Required: ${requested}`
             );
           }
-          const latestPurchase = await tx.inventoryTransaction.findFirst({
+          const purchaseSums = await tx.inventoryTransaction.aggregate({
             where: { itemId: alloc.itemId, type: "PURCHASE" },
-            orderBy: { date: "desc" },
+            _sum: { totalAmount: true, quantity: true },
           });
-          const unitPrice = latestPurchase
-            ? Number(latestPurchase.unitPrice)
-            : 0;
-          const totalAmount = unitPrice * requested;
+          const sumQty = Number(purchaseSums._sum.quantity ?? 0);
+          const sumAmount = Number(purchaseSums._sum.totalAmount ?? 0);
+          const effectiveRate = sumQty > 0 ? sumAmount / sumQty : 0;
+          const totalAmount = effectiveRate * requested;
           return {
             itemId: alloc.itemId,
             requested,
-            unitPrice,
+            unitPrice: effectiveRate,
             totalAmount,
             notes: alloc.notes,
             item,
