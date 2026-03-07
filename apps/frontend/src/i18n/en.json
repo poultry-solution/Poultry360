@@ -1242,7 +1242,9 @@
         "submit": "Place Order",
         "submitting": "Placing...",
         "success": "Reorder placed successfully!"
-      }
+      },
+      "deleteConfirm": "Remove {name} from inventory? It will be hidden from lists.",
+      "deleteSuccess": "Item removed from inventory"
     },
     "dealerLedger": {
       "title": "Dealer Ledger",

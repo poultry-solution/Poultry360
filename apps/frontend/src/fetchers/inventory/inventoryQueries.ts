@@ -212,7 +212,7 @@ export const useUpdateInventoryItem = () => {
   });
 };
 
-// Delete inventory item
+// Delete inventory item (soft delete when stock = 0)
 export const useDeleteInventoryItem = () => {
   const queryClient = useQueryClient();
 
@@ -222,9 +222,7 @@ export const useDeleteInventoryItem = () => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: inventoryKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: inventoryKeys.statistics() });
-      queryClient.invalidateQueries({ queryKey: inventoryKeys.lowStock() });
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
     },
   });
 };

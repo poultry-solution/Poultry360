@@ -360,6 +360,8 @@ export class InventoryService {
       where: {
         userId,
         itemType,
+        deletedAt: null,
+        currentStock: { gt: 0 },
       },
       include: {
         category: true,
@@ -380,6 +382,8 @@ export class InventoryService {
     return await prisma.inventoryItem.findMany({
       where: {
         userId,
+        deletedAt: null,
+        currentStock: { gt: 0 },
         AND: [
           { minStock: { not: null } },
           { currentStock: { lte: prisma.inventoryItem.fields.minStock } },

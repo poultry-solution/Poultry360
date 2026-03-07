@@ -16,6 +16,7 @@ import {
   Loader2,
   Egg,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
@@ -32,7 +33,7 @@ import { DateDisplay } from "@/common/components/ui/date-display";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n/useI18n";
 import { useAddDealerTransaction } from "@/fetchers/dealers/dealerQueries";
-import { inventoryKeys } from "@/fetchers/inventory/inventoryQueries";
+import { inventoryKeys, useDeleteInventoryItem } from "@/fetchers/inventory/inventoryQueries";
 import { useQueryClient } from "@tanstack/react-query";
 import { getTodayLocalDate } from "@/common/lib/utils";
 
@@ -45,6 +46,7 @@ export default function InventoryPage() {
   const [reorderQuantity, setReorderQuantity] = useState("");
   const [reorderDate, setReorderDate] = useState(getTodayLocalDate());
   const reorderMutation = useAddDealerTransaction();
+  const deleteInventoryMutation = useDeleteInventoryItem();
   const queryClient = useQueryClient();
 
   // Use TanStack Query hooks
@@ -278,21 +280,44 @@ export default function InventoryPage() {
       })
     );
 
-    // Reorder action column — only for non-connected dealers
+    // Action column: Reorder (when applicable) + Delete (only when stock is 0)
     baseColumns.push(
-      createColumn("dealerId", "", {
+      createColumn("action", "Action", {
         render: (_, item: any) => {
-          if (!item.dealerId || item.isConnectedDealer) return null;
+          const qty = Number(item.quantity ?? 0);
+          const canDelete = qty === 0;
+          const showReorder = item.dealerId && !item.isConnectedDealer;
           return (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 px-2 text-xs"
-              onClick={() => openReorderModal(item)}
-            >
-              <RefreshCw className="h-3 w-3 mr-1" />
-              {t("farmer.inventory.reorder.button")}
-            </Button>
+            <div className="flex items-center gap-1">
+              {showReorder && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => openReorderModal(item)}
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  {t("farmer.inventory.reorder.button")}
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                disabled={!canDelete || deleteInventoryMutation.isPending}
+                title={canDelete ? undefined : "Delete only when stock is 0"}
+                onClick={() => {
+                  if (!canDelete) return;
+                  if (!confirm(t("farmer.inventory.deleteConfirm", { name: item.name }))) return;
+                  deleteInventoryMutation.mutate(item.id, {
+                    onSuccess: () => toast.success(t("farmer.inventory.deleteSuccess")),
+                    onError: (err: any) => toast.error(err?.message || "Failed to delete"),
+                  });
+                }}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
           );
         },
       })

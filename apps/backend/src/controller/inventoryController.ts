@@ -26,9 +26,11 @@ export const getAllInventoryItems = async (
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    // Build where clause
+    // Build where clause (only non-deleted, in-stock items in list)
     const where: any = {
       userId: currentUserId,
+      deletedAt: null,
+      currentStock: { gt: 0 },
     };
 
     if (search) {
@@ -417,7 +419,7 @@ export const updateInventoryItem = async (
   }
 };
 
-// ==================== DELETE INVENTORY ITEM ====================
+// ==================== DELETE INVENTORY ITEM (SOFT DELETE WHEN STOCK = 0) ====================
 export const deleteInventoryItem = async (
   req: Request,
   res: Response
@@ -426,40 +428,30 @@ export const deleteInventoryItem = async (
     const { id } = req.params;
     const currentUserId = req.userId;
 
-    // Check if item exists and belongs to user
     const existingItem = await prisma.inventoryItem.findFirst({
-      where: {
-        id,
-        userId: currentUserId,
-      },
-      include: {
-        _count: {
-          select: {
-            transactions: true,
-            usages: true,
-          },
-        },
-      },
+      where: { id, userId: currentUserId },
     });
 
     if (!existingItem) {
       return res.status(404).json({ message: "Inventory item not found" });
     }
 
-    // Check if item has any transactions or usages
-    if (
-      existingItem._count.transactions > 0 ||
-      existingItem._count.usages > 0
-    ) {
+    const currentStock = Number(existingItem.currentStock);
+    if (currentStock > 0) {
       return res.status(400).json({
-        message:
-          "Cannot delete inventory item with existing transactions or usages. Please remove all related data first.",
+        message: "Cannot delete inventory item with stock. Use or transfer stock first.",
       });
     }
 
-    // Delete inventory item
-    await prisma.inventoryItem.delete({
+    if (existingItem.deletedAt) {
+      return res.status(400).json({
+        message: "Inventory item is already deleted.",
+      });
+    }
+
+    await prisma.inventoryItem.update({
       where: { id },
+      data: { deletedAt: new Date() },
     });
 
     return res.json({
@@ -747,7 +739,11 @@ export const getInventoryForExpense = async (
       return res.status(400).json({ message: "No user found" });
     }
 
-    const where: any = { userId: currentUserId };
+    const where: any = {
+      userId: currentUserId,
+      deletedAt: null,
+      currentStock: { gt: 0 },
+    };
     if (itemType === "FEED" || itemType === "MEDICINE" || itemType === "OTHER") {
       where.itemType = itemType as InventoryItemType;
     }
@@ -812,7 +808,11 @@ export const getInventoryTableData = async (
       return res.status(400).json({ message: "No User found in Controller" });
     }
 
-    const where: any = { userId: currentUserId };
+    const where: any = {
+      userId: currentUserId,
+      deletedAt: null,
+      currentStock: { gt: 0 },
+    };
     if (itemType) {
       where.itemType = itemType as InventoryItemType;
     }
@@ -938,14 +938,17 @@ export const getInventoryStatistics = async (
   try {
     const currentUserId = req.userId;
 
+    const listWhere = {
+      userId: currentUserId,
+      deletedAt: null,
+      currentStock: { gt: 0 },
+    };
     const [totalItems, lowStockItems, itemsByType, itemsForValue] =
       await Promise.all([
-        prisma.inventoryItem.count({
-          where: { userId: currentUserId },
-        }),
+        prisma.inventoryItem.count({ where: listWhere }),
         prisma.inventoryItem.count({
           where: {
-            userId: currentUserId,
+            ...listWhere,
             AND: [
               { minStock: { not: null } },
               { currentStock: { lte: prisma.inventoryItem.fields.minStock } },
@@ -954,12 +957,12 @@ export const getInventoryStatistics = async (
         }),
         prisma.inventoryItem.groupBy({
           by: ["itemType"],
-          where: { userId: currentUserId },
+          where: listWhere,
           _count: { id: true },
           _sum: { currentStock: true },
         }),
         prisma.inventoryItem.findMany({
-          where: { userId: currentUserId },
+          where: listWhere,
           select: { id: true, currentStock: true },
         }),
       ]);

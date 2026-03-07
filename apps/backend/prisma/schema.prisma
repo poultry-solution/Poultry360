@@ -664,6 +664,9 @@ model InventoryItem {
   // 🔗 NEW: Connect to supplier transactions
   entityTransactions EntityTransaction[]
 
+  // Soft delete: when set, item is hidden from inventory lists and dropdowns
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
