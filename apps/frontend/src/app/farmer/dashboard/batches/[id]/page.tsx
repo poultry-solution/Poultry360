@@ -723,7 +723,6 @@ export default function BatchDetailPage() {
       let amount = 0;
       let quantity = 0;
       let unitPrice = 0;
-      let description = expenseForm.notes || "";
       const inventoryItems: any[] = [];
 
       const ec = expenseForm.category;
@@ -743,7 +742,6 @@ export default function BatchDetailPage() {
         amount = q * r;
         quantity = q;
         unitPrice = r;
-        description = `${expenseForm.feedBrand || "Feed"} - ${description}`;
         if (expenseForm.selectedFeedId && q > 0) {
           inventoryItems.push({
             itemId: expenseForm.selectedFeedId,
@@ -757,9 +755,7 @@ export default function BatchDetailPage() {
         amount = q * r;
         quantity = q;
         unitPrice = r;
-        description = `${expenseForm.medicineName} - ${description}`;
 
-        // Add inventory item if selected
         if (expenseForm.selectedMedicineId && q > 0) {
           inventoryItems.push({
             itemId: expenseForm.selectedMedicineId,
@@ -773,7 +769,6 @@ export default function BatchDetailPage() {
         amount = q * r;
         quantity = q;
         unitPrice = r;
-        description = `${expenseForm.otherName || "Other"} - ${description}`;
         if (expenseForm.selectedOtherId && q > 0) {
           inventoryItems.push({
             itemId: expenseForm.selectedOtherId,
@@ -788,7 +783,6 @@ export default function BatchDetailPage() {
           ? new Date(expenseForm.date).toISOString()
           : new Date().toISOString(),
         amount,
-        description,
         quantity,
         unitPrice,
         farmId: batch?.farmId,
@@ -1425,69 +1419,70 @@ export default function BatchDetailPage() {
   return (
     <div className="space-y-6">
       {banner && <Banner type={banner.type} message={banner.message} />}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      {/* Top header: mobile = icon-only back + wrapped title/badges; desktop unchanged */}
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 justify-between">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
           <Link
             href="/farmer/dashboard/batches"
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-primary"
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-primary shrink-0 p-1 -m-1 sm:p-0 sm:m-0 rounded"
+            aria-label="Back to batches"
           >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back
+            <ArrowLeft className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Back</span>
           </Link>
-          <span className="text-muted-foreground">/</span>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Layers className="h-6 w-6 text-primary" /> {batch.batchNumber}
+          <span className="text-muted-foreground hidden sm:inline">/</span>
+          <h1 className="text-lg sm:text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2 flex-wrap min-w-0">
+            <Layers className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
+            <span className="break-words min-w-0">{batch.batchNumber}</span>
           </h1>
-          <Badge variant="secondary" className="font-normal">
+          <Badge variant="secondary" className="font-normal shrink-0">
             {(batch as any).batchType === "LAYERS" ? "Layers" : "Broiler"}
           </Badge>
           <Badge
             variant="outline"
             className={
               batch.status === "ACTIVE"
-                ? "text-green-600 border-green-600/30"
-                : "text-gray-600 border-gray-600/30"
+                ? "text-green-600 border-green-600/30 shrink-0"
+                : "text-gray-600 border-gray-600/30 shrink-0"
             }
           >
             {batch.status}
           </Badge>
         </div>
-        <div className="text-right">
+        <div className="text-right shrink-0 w-full sm:w-auto order-last sm:order-none basis-full sm:basis-auto">
           <div className="text-sm text-muted-foreground">Farm</div>
-          <div className="font-medium">{batch.farm.name}</div>
+          <div className="font-medium truncate sm:whitespace-normal">{batch.farm.name}</div>
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div></div>
-        <div className="flex items-center gap-2">
-          {batch.status === "ACTIVE" && (
-            <Button
-              variant="outline"
-              className="text-orange-600 border-orange-200 hover:bg-orange-50"
-              onClick={openCloseBatchModal}
-              disabled={closeBatchMutation.isPending}
-            >
-              {closeBatchMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Closing...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Close Batch
-                </>
-              )}
-            </Button>
-          )}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {batch.status === "ACTIVE" && (
           <Button
             variant="outline"
-            className="text-red-600 border-red-200 hover:bg-red-50"
-            onClick={() => setIsDeleteModalOpen(true)}
+            className="text-orange-600 border-orange-200 hover:bg-orange-50 text-xs sm:text-sm"
+            onClick={openCloseBatchModal}
+            disabled={closeBatchMutation.isPending}
           >
-            <Trash2 className="h-4 w-4 mr-2" /> Delete Batch
+            {closeBatchMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1.5 sm:mr-2 animate-spin shrink-0" />
+                Closing...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-4 w-4 mr-1.5 sm:mr-2 shrink-0" />
+                <span>Close Batch</span>
+              </>
+            )}
           </Button>
-        </div>
+        )}
+        <Button
+          variant="outline"
+          className="text-red-600 border-red-200 hover:bg-red-50 text-xs sm:text-sm"
+          onClick={() => setIsDeleteModalOpen(true)}
+        >
+          <Trash2 className="h-4 w-4 mr-1.5 sm:mr-2 shrink-0" /> <span>Delete Batch</span>
+        </Button>
       </div>
 
       {/* Prompt to close when batch is active but birds are 0 */}
@@ -1530,15 +1525,15 @@ export default function BatchDetailPage() {
         </Card>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5 sm:gap-2">
         {tabs.map((tab) => (
           <Button
             key={tab}
             variant={activeTab === tab ? "default" : "outline"}
             className={
               activeTab === tab
-                ? "bg-primary text-primary-foreground"
-                : "hover:border-primary hover:text-primary"
+                ? "bg-primary text-primary-foreground text-xs sm:text-sm px-2.5 sm:px-4 py-1.5 sm:py-2 h-8 sm:h-9"
+                : "hover:border-primary hover:text-primary text-xs sm:text-sm px-2.5 sm:px-4 py-1.5 sm:py-2 h-8 sm:h-9"
             }
             onClick={() => setActiveTab(tab)}
           >

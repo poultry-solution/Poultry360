@@ -58,24 +58,24 @@ export function ExpensesTab({
 
   return (
     <Card>
-      <CardHeader className="flex items-center justify-between">
-        <div>
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <CardTitle>Expenses</CardTitle>
-          <CardDescription>
+          <CardDescription className="hidden sm:block">
             List of expenses for this batch with all category
           </CardDescription>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <Label htmlFor="expense-category-filter" className="text-sm text-muted-foreground whitespace-nowrap">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-initial">
+            <Filter className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden />
+            <Label htmlFor="expense-category-filter" className="text-sm text-muted-foreground whitespace-nowrap hidden sm:inline">
               Filter by category
             </Label>
             <Select
               value={categoryFilter}
               onValueChange={(v) => setCategoryFilter(v as ExpenseCategoryFilter)}
             >
-              <SelectTrigger id="expense-category-filter" className="w-[140px] h-9 bg-background">
+              <SelectTrigger id="expense-category-filter" className="w-full sm:w-[140px] h-9 bg-background min-w-0">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -89,14 +89,14 @@ export function ExpensesTab({
           </div>
           {!isBatchClosed ? (
             <Button
-              className="bg-primary hover:bg-primary/90"
+              className="bg-primary hover:bg-primary/90 shrink-0 w-full sm:w-auto"
               onClick={openNewExpense}
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Expense
             </Button>
           ) : (
-            <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+            <Badge variant="secondary" className="bg-gray-100 text-gray-600 shrink-0 w-full sm:w-auto justify-center">
               Batch Closed - No New Entries
             </Badge>
           )}

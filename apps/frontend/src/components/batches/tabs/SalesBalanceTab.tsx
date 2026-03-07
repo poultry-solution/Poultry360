@@ -18,15 +18,15 @@ export function SalesBalanceTab({
 }: SalesBalanceTabProps) {
   return (
     <Card>
-      <CardHeader className="flex items-center justify-between">
-        <div>
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <CardTitle>Customer Ledger</CardTitle>
-          <CardDescription>
+          <CardDescription className="hidden sm:block">
             Balances with customers for this batch
           </CardDescription>
         </div>
         {isBatchClosed && (
-          <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+          <Badge variant="secondary" className="bg-gray-100 text-gray-600 shrink-0 w-full sm:w-auto justify-center">
             Batch Closed - No New Entries
           </Badge>
         )}

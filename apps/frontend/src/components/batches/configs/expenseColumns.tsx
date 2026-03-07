@@ -66,9 +66,6 @@ export function createExpenseColumns({
       width: "100px",
       render: (value) => <DateDisplay date={value} format="short" />,
     }),
-    createColumn("description", "Notes", {
-      render: (value) => value || "—",
-    }),
     {
       key: "actions",
       label: "Actions",
