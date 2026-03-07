@@ -811,7 +811,6 @@ export const getInventoryTableData = async (
     const where: any = {
       userId: currentUserId,
       deletedAt: null,
-      currentStock: { gt: 0 },
     };
     if (itemType) {
       where.itemType = itemType as InventoryItemType;

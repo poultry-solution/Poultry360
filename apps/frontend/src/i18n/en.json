@@ -1244,7 +1244,8 @@
         "success": "Reorder placed successfully!"
       },
       "deleteConfirm": "Remove {name} from inventory? It will be hidden from lists.",
-      "deleteSuccess": "Item removed from inventory"
+      "deleteSuccess": "Item removed from inventory",
+      "deleteDisabledReason": "You have stock left. Clear or use stock before deleting."
     },
     "dealerLedger": {
       "title": "Dealer Ledger",

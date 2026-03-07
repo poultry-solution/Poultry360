@@ -288,35 +288,43 @@ export default function InventoryPage() {
           const canDelete = qty === 0;
           const showReorder = item.dealerId && !item.isConnectedDealer;
           return (
-            <div className="flex items-center gap-1">
-              {showReorder && (
+            <div className="flex flex-col items-start gap-0.5">
+              <div className="flex items-center gap-1">
+                {showReorder && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => openReorderModal(item)}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    {t("farmer.inventory.reorder.button")}
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-7 px-2 text-xs"
-                  onClick={() => openReorderModal(item)}
+                  className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-60 disabled:cursor-not-allowed"
+                  disabled={!canDelete || deleteInventoryMutation.isPending}
+                  title={canDelete ? undefined : t("farmer.inventory.deleteDisabledReason")}
+                  aria-label={canDelete ? "Delete" : t("farmer.inventory.deleteDisabledReason")}
+                  onClick={() => {
+                    if (!canDelete) return;
+                    if (!confirm(t("farmer.inventory.deleteConfirm", { name: item.name }))) return;
+                    deleteInventoryMutation.mutate(item.id, {
+                      onSuccess: () => toast.success(t("farmer.inventory.deleteSuccess")),
+                      onError: (err: any) => toast.error(err?.message || "Failed to delete"),
+                    });
+                  }}
                 >
-                  <RefreshCw className="h-3 w-3 mr-1" />
-                  {t("farmer.inventory.reorder.button")}
+                  <Trash2 className="h-3 w-3" />
                 </Button>
+              </div>
+              {!canDelete && (
+                <span className="text-xs text-amber-600 dark:text-amber-500" role="status">
+                  {t("farmer.inventory.deleteDisabledReason")}
+                </span>
               )}
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                disabled={!canDelete || deleteInventoryMutation.isPending}
-                title={canDelete ? undefined : "Delete only when stock is 0"}
-                onClick={() => {
-                  if (!canDelete) return;
-                  if (!confirm(t("farmer.inventory.deleteConfirm", { name: item.name }))) return;
-                  deleteInventoryMutation.mutate(item.id, {
-                    onSuccess: () => toast.success(t("farmer.inventory.deleteSuccess")),
-                    onError: (err: any) => toast.error(err?.message || "Failed to delete"),
-                  });
-                }}
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
             </div>
           );
         },
