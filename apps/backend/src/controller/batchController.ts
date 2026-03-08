@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
-import { UserRole, BatchStatus } from "@prisma/client";
+import { UserRole, BatchStatus, BatchType } from "@prisma/client";
 import {
   CreateBatchSchema,
   UpdateBatchSchema,
@@ -1380,23 +1380,85 @@ export const getBatchAnalytics = async (
       totalFeedConsumption._sum.quantity || 0
     );
 
-    // Calculate FCR (Feed Conversion Ratio)
-    // FCR = Total feed consumed / Total weight gained
-    // Weight gained = (Current total weight) - (Initial total weight)
-    // Initial total weight = Initial chicks * Initial average weight (assume 0.05kg per chick)
+    // Initial total weight = Initial chicks * 0.05 kg per day-old chick (used for FCR and FCR after sales)
     const initialWeightPerChick = 0.05; // 50g average weight of day-old chick
     const initialTotalWeight = batch.initialChicks * initialWeightPerChick;
 
-    const currentTotalWeight = latestWeight && currentChicks > 0
-      ? Number(latestWeight.avgWeight) * currentChicks
-      : 0;
+    // FCR and FCR [After sales] only for Broiler batches, not Layer
+    const isBroiler = batch.batchType === BatchType.BROILER;
 
-    const totalWeightGained = Math.max(0, currentTotalWeight - initialTotalWeight);
+    let fcr: number | null = null;
+    let fcrData: {
+      totalFeedConsumed: number;
+      initialTotalWeight: number;
+      currentTotalWeight: number;
+      totalWeightGained: number;
+      initialWeightPerChick: number;
+      status: string;
+      message: string;
+    };
 
-    // FCR can only be calculated if we have both feed consumption and weight gain
-    const fcr = (totalWeightGained > 0 && totalFeedConsumptionAmount > 0)
-      ? totalFeedConsumptionAmount / totalWeightGained
-      : null;
+    if (isBroiler) {
+      // Calculate FCR (Feed Conversion Ratio) for Broiler only
+      // FCR = Total feed consumed / Total weight gained
+      // Weight gained = (Current total weight) - (Initial total weight)
+      const currentTotalWeight = latestWeight && currentChicks > 0
+        ? Number(latestWeight.avgWeight) * currentChicks
+        : 0;
+      const totalWeightGained = Math.max(0, currentTotalWeight - initialTotalWeight);
+      fcr = (totalWeightGained > 0 && totalFeedConsumptionAmount > 0)
+        ? totalFeedConsumptionAmount / totalWeightGained
+        : null;
+      fcrData = {
+        totalFeedConsumed: totalFeedConsumptionAmount,
+        initialTotalWeight,
+        currentTotalWeight,
+        totalWeightGained,
+        initialWeightPerChick,
+        status: fcr ? 'calculated' :
+          totalWeightGained <= 0 ? 'no_weight_data' :
+            totalFeedConsumptionAmount <= 0 ? 'no_feed_data' : 'insufficient_data',
+        message: fcr ? 'FCR calculated successfully' :
+          totalWeightGained <= 0 ? 'Weight data required - record bird weights to calculate FCR' :
+            totalFeedConsumptionAmount <= 0 ? 'Feed consumption data required - record feed usage to calculate FCR' :
+              'Insufficient data to calculate FCR',
+      };
+    } else {
+      fcrData = {
+        totalFeedConsumed: totalFeedConsumptionAmount,
+        initialTotalWeight,
+        currentTotalWeight: 0,
+        totalWeightGained: 0,
+        initialWeightPerChick,
+        status: 'not_applicable',
+        message: 'FCR is only for Broiler batches.',
+      };
+    }
+
+    // FCR [After sales]: only when batch is closed (COMPLETED) and Broiler
+    // Total weight gained = total sales weight - initial total weight
+    let fcrAfterSales: number | null = null;
+    let fcrAfterSalesData: { totalSalesWeight: number; totalWeightGained: number; message: string } | null = null;
+    if (isBroiler && batch.status === BatchStatus.COMPLETED) {
+      const totalSalesWeight = Number(totalSales._sum.weight || 0);
+      const totalWeightGainedAfterSales = Math.max(0, totalSalesWeight - initialTotalWeight);
+      if (totalWeightGainedAfterSales > 0 && totalFeedConsumptionAmount > 0) {
+        fcrAfterSales = totalFeedConsumptionAmount / totalWeightGainedAfterSales;
+        fcrAfterSalesData = {
+          totalSalesWeight,
+          totalWeightGained: totalWeightGainedAfterSales,
+          message: 'FCR [After sales] calculated from total feed and total sold weight.',
+        };
+      } else {
+        fcrAfterSalesData = {
+          totalSalesWeight,
+          totalWeightGained: totalWeightGainedAfterSales,
+          message: totalWeightGainedAfterSales <= 0
+            ? 'Insufficient sales weight data to calculate FCR [After sales].'
+            : 'Feed consumption data required to calculate FCR [After sales].',
+        };
+      }
+    }
 
     // Calculate days active and batch age
     const daysActive = Math.ceil(
@@ -1425,25 +1487,15 @@ export const getBatchAnalytics = async (
         profitMargin,
         totalFeedConsumption: totalFeedConsumptionAmount,
         currentAvgWeight: latestWeight ? Number(latestWeight.avgWeight) : null,
-        // FCR (Feed Conversion Ratio) data
+        // FCR (Feed Conversion Ratio) data — Broiler only
         fcr,
-        fcrData: {
-          totalFeedConsumed: totalFeedConsumptionAmount,
-          initialTotalWeight,
-          currentTotalWeight,
-          totalWeightGained,
-          initialWeightPerChick,
-          status: fcr ? 'calculated' :
-            totalWeightGained <= 0 ? 'no_weight_data' :
-              totalFeedConsumptionAmount <= 0 ? 'no_feed_data' : 'insufficient_data',
-          message: fcr ? 'FCR calculated successfully' :
-            totalWeightGained <= 0 ? 'Weight data required - record bird weights to calculate FCR' :
-              totalFeedConsumptionAmount <= 0 ? 'Feed consumption data required - record feed usage to calculate FCR' :
-                'Insufficient data to calculate FCR',
-        },
+        fcrData,
+        fcrAfterSales,
+        fcrAfterSalesData,
         daysActive,
         batchAge,
         status: batch.status,
+        batchType: batch.batchType,
         startDate: batch.startDate,
         endDate: batch.endDate,
       },
