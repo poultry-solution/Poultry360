@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Button } from "@/common/components/ui/button";
@@ -23,6 +24,7 @@ export default function LoginPage() {
     }
   }, [isInitialized, isAuthenticated, handleLoginRedirect]);
 
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     // emailOrPhone will hold ONLY the 10 local digits; +977 is shown separately
     emailOrPhone: "",
@@ -133,14 +135,29 @@ export default function LoginPage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">{t("auth.login.password")}</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              required
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={handleInputChange}
+                required
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
           <Button
             type="submit"
