@@ -48,6 +48,16 @@ import {
   useDeleteMortality,
 } from "@/fetchers/mortality/mortalityQueries";
 import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/common/components/ui/alert-dialog";
 import { Label } from "@/common/components/ui/label";
 import { Input } from "@/common/components/ui/input";
 import {
@@ -508,6 +518,8 @@ export default function BatchDetailPage() {
   // --- Expense Modal ---
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<number | null>(null);
+  const [showDeleteExpenseConfirm, setShowDeleteExpenseConfirm] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState<any | null>(null);
   const [expenseForm, setExpenseForm] = useState({
     category: "Feed" as ExpenseCategory,
     date: "",
@@ -641,6 +653,18 @@ export default function BatchDetailPage() {
       console.error("Failed to delete expense:", error);
       flash("error", "Failed to delete expense. Please try again.");
     }
+  }
+
+  function openDeleteExpenseConfirm(row: any) {
+    setExpenseToDelete(row);
+    setShowDeleteExpenseConfirm(true);
+  }
+
+  async function handleConfirmDeleteExpense() {
+    if (!expenseToDelete?.id) return;
+    await deleteExpense(expenseToDelete.id);
+    setShowDeleteExpenseConfirm(false);
+    setExpenseToDelete(null);
   }
 
   // Banners
@@ -1388,7 +1412,7 @@ export default function BatchDetailPage() {
   // Column configurations for DataTable
   const expenseColumns = createExpenseColumns({
     isBatchClosed,
-    deleteExpense,
+    onDeleteClick: openDeleteExpenseConfirm,
   });
 
   const salesColumns = createSalesColumns({
@@ -1714,6 +1738,32 @@ export default function BatchDetailPage() {
         onOtherSelection={handleOtherSelection}
         isPending={createExpenseMutation.isPending || updateExpenseMutation.isPending}
       />
+
+      {/* Delete expense confirmation */}
+      <AlertDialog open={showDeleteExpenseConfirm} onOpenChange={(open) => { setShowDeleteExpenseConfirm(open); if (!open) setExpenseToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete expense?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this expense?
+              {expenseToDelete?.inventoryUsages?.length > 0 && (
+                <span className="mt-2 block text-foreground/90">
+                  This expense was linked to inventory. The stock will be returned to inventory after deletion.
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleConfirmDeleteExpense(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Sale Modal — same as sales-ledger New Sale, with farm/batch fixed from current batch */}
       <Modal
