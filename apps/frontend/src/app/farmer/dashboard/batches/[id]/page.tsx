@@ -633,9 +633,9 @@ export default function BatchDetailPage() {
     });
     setIsExpenseModalOpen(true);
   }
-  async function deleteExpense(id: number) {
+  async function deleteExpense(id: string) {
     try {
-      await deleteExpenseMutation.mutateAsync(id.toString());
+      await deleteExpenseMutation.mutateAsync(id);
       flash("success", "Expense deleted successfully");
     } catch (error) {
       console.error("Failed to delete expense:", error);
@@ -1388,7 +1388,6 @@ export default function BatchDetailPage() {
   // Column configurations for DataTable
   const expenseColumns = createExpenseColumns({
     isBatchClosed,
-    openEditExpense,
     deleteExpense,
   });
 

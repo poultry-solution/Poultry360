@@ -1,19 +1,17 @@
 import React from "react";
 import { Badge } from "@/common/components/ui/badge";
 import { Button } from "@/common/components/ui/button";
-import { Pencil, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { createColumn, Column } from "@/common/components/ui/data-table";
 
 interface ExpenseColumnsProps {
   isBatchClosed: boolean;
-  openEditExpense: (row: any) => void;
-  deleteExpense: (id: number) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
 }
 
 export function createExpenseColumns({
   isBatchClosed,
-  openEditExpense,
   deleteExpense,
 }: ExpenseColumnsProps): Column<any>[] {
   return [
@@ -75,24 +73,14 @@ export function createExpenseColumns({
       render: (_, row) => (
         <div className="flex items-center justify-end gap-2">
           {!isBatchClosed ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-300"
-                onClick={() => openEditExpense(row)}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
-                onClick={() => deleteExpense(Number(row.id))}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
+              onClick={() => deleteExpense(row.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           ) : (
             <Badge
               variant="secondary"
