@@ -20,6 +20,7 @@ export default function SignupPage() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isPostRegisterRedirecting, setIsPostRegisterRedirecting] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -83,6 +84,7 @@ export default function SignupPage() {
       };
 
       await register(registerData);
+      setIsPostRegisterRedirecting(true);
 
       const { user } = useAuthStore.getState();
       await handleLoginRedirect(user?.role || "OWNER");
@@ -92,8 +94,8 @@ export default function SignupPage() {
   };
 
 
-  if (isRedirecting) {
-    return <AppLoadingScreen message={t("auth.login.redirecting")} />;
+  if (isLoading || isRedirecting || isPostRegisterRedirecting) {
+    return <AppLoadingScreen message={isLoading ? t("auth.signup.creatingAccount") : t("auth.login.redirecting")} />;
   }
 
   return (
