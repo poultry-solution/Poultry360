@@ -53,6 +53,9 @@ importers:
       jsonwebtoken:
         specifier: ^9.0.2
         version: 9.0.2
+      nepali-date-converter:
+        specifier: ^3.4.0
+        version: 3.4.0
       prisma:
         specifier: 6.15.0
         version: 6.15.0(typescript@5.9.2)

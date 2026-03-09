@@ -43,6 +43,7 @@ export const farmerNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.salesLedger", href: "/farmer/dashboard/sales-ledger", icon: Receipt },
   { nameKey: "sidebar.nav.inventory", href: "/farmer/dashboard/inventory", icon: Package },
   { nameKey: "sidebar.nav.listForSale", href: "/farmer/dashboard/list-for-sale", icon: Tag },
+  { nameKey: "sidebar.nav.staffManagement", href: "/farmer/dashboard/staff", icon: Users },
   {
     nameKey: "sidebar.nav.chatWithDoctor",
     href: "/farmer/dashboard/chat-doctor",
@@ -62,6 +63,7 @@ export const dealerNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.inventory", href: "/dealer/dashboard/inventory", icon: Package },
   { nameKey: "sidebar.nav.customers", href: "/dealer/dashboard/customers", icon: Users },
   { nameKey: "sidebar.nav.sales", href: "/dealer/dashboard/sales", icon: Receipt },
+  { nameKey: "sidebar.nav.staffManagement", href: "/dealer/dashboard/staff", icon: Users },
 ];
 
 export const companyNavigation: NavigationItem[] = [

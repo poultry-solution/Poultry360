@@ -49,6 +49,7 @@ import dealerPurchaseRequestRoutes from "./dealerPurchaseRequestRoutes";
 import uploadRoutes from "./uploadRoutes";
 import reminderRoutes from "./reminderRoutes";
 import listForSaleRoutes from "./listForSaleRoutes";
+import staffRoutes from "./staffRoutes";
 
 // Test routes (only in test environment)
 let testRoutes: express.Router | null = null;
@@ -108,6 +109,8 @@ router.use("/public", publicRoutes);
 router.use("/upload", uploadRoutes);
 router.use("/reminders", reminderRoutes);
 router.use("/farmer/list-for-sale", listForSaleRoutes);
+router.use("/farmer/staff", staffRoutes);
+router.use("/dealer/staff", staffRoutes);
 
 // Test routes (only in test environment)
 if (testRoutes) {
