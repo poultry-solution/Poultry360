@@ -275,6 +275,9 @@ model User {
   farmerCarts              FarmerCart[]              @relation("FarmerCarts")
   farmerPurchaseRequests   FarmerPurchaseRequest[]   @relation("FarmerPurchaseRequests")
 
+  // List for sale (farmer marketplace listings)
+  listForSaleListings ListForSale[] @relation("ListForSaleOwner")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -2284,5 +2287,44 @@ model LandingContact {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([createdAt])
+}
+
+// ==================== LIST FOR SALE (FARMER MARKETPLACE) ====================
+enum ListForSaleCategory {
+  CHICKEN
+  EGGS
+  LAYERS
+  FISH
+  OTHER
+}
+
+enum ListForSaleStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model ListForSale {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation("ListForSaleOwner", fields: [userId], references: [id], onDelete: Cascade)
+  companyName  String
+  category     ListForSaleCategory
+  phone        String
+  rate         Decimal? @db.Decimal(10, 2)
+  quantity     Decimal  @db.Decimal(10, 2)
+  unit         String
+  availabilityFrom DateTime
+  availabilityTo   DateTime
+  avgWeightKg  Decimal? @db.Decimal(6, 2)
+  eggVariants  Json?
+  typeVariants Json?
+  status       ListForSaleStatus @default(ACTIVE)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([category])
+  @@index([status])
   @@index([createdAt])
 }

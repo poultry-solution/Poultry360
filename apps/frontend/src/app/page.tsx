@@ -6,6 +6,7 @@ import { useAuthStore } from "@/common/store/store";
 import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
 import Navbar from "@/components/landing/Navbar";
 import Hero from "@/components/landing/Hero";
+import ListForSaleSection from "@/components/landing/ListForSaleSection";
 import Features from "@/components/landing/Features";
 import Reviews from "@/components/landing/Reviews";
 import Contact from "@/components/landing/Contact";
@@ -58,6 +59,7 @@ export default function Home() {
     <div className="min-h-screen bg-white">
       <Navbar />
       <Hero />
+      <ListForSaleSection />
       <Features />
       <Reviews />
       <Contact />

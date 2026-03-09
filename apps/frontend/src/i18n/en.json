@@ -84,6 +84,7 @@
       "supplierLedger": "Supplier Ledger",
       "salesLedger": "Sales Ledger",
       "inventory": "Inventory",
+      "listForSale": "List for sale",
       "chatWithDoctor": "Chat with Doctor",
       "dashboard": "Dashboard",
       "chat": "Chat",
@@ -2652,6 +2653,7 @@
   "landing": {
     "navbar": {
       "features": "Features",
+      "marketplace": "Marketplace",
       "reviews": "Reviews",
       "contact": "Contact",
       "getStarted": "Get Started",
@@ -2795,6 +2797,79 @@
       "saturday": "Saturday",
       "sunday": "Sunday",
       "closed": "Closed"
+    },
+    "listForSale": {
+      "badge": "Marketplace",
+      "title": "Listed for sale",
+      "subtitle": "Products listed by farmers. Contact them directly — no login required.",
+      "emptyCategory": "No listings in this category yet.",
+      "more": "More",
+      "filters": {
+        "all": "All",
+        "chicken": "Chicken",
+        "eggs": "Eggs",
+        "layers": "Layers",
+        "fish": "Fish"
+      },
+      "contactForRate": "Contact for Rate",
+      "available": "Available",
+      "avgWeight": "Avg weight",
+      "contactLabel": "Contact :"
+    },
+    "marketplacePage": {
+      "badge": "Marketplace",
+      "title": "Marketplace",
+      "subtitle": "Browse all listings from farmers. Contact them directly — no login required.",
+      "emptyCategory": "No listings in this category yet."
+    }
+  },
+  "farmerListForSale": {
+    "pageSubtitle": "Post items for sale. They appear on the public landing page.",
+    "addListing": "Add listing",
+    "filterActive": "Active",
+    "filterArchived": "Archived",
+    "filterAll": "All",
+    "yourListings": "Your listings",
+    "yourListingsDesc": "Edit, archive, or delete anytime.",
+    "emptyList": "No listings yet. Add one to get started.",
+    "edit": "Edit",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "delete": "Delete",
+    "modalAddTitle": "Add listing",
+    "modalEditTitle": "Edit listing",
+    "companyName": "Company name",
+    "category": "Category",
+    "phone": "Phone *",
+    "phonePlaceholder": "Contact number",
+    "rateOptional": "Rate (optional)",
+    "ratePlaceholder": "Price per unit",
+    "quantity": "Quantity *",
+    "unit": "Unit *",
+    "unitPlaceholder": "e.g. kg, piece, dozen",
+    "availabilityFrom": "Availability from *",
+    "availabilityTo": "Availability to *",
+    "avgWeightKg": "Average weight (kg)",
+    "avgWeightPlaceholder": "kg",
+    "sizesLabel": "Sizes (size, quantity, rate per unit)",
+    "sizePlaceholder": "Size",
+    "qtyPlaceholder": "Qty",
+    "rateColumnHeader": "Rate",
+    "addSize": "+ Add size",
+    "typesLabel": "Types (type, quantity, rate per unit)",
+    "typePlaceholder": "Type",
+    "addType": "+ Add type",
+    "cancel": "Cancel",
+    "saveChanges": "Save changes",
+    "createListing": "Create listing",
+    "deleteModalTitle": "Delete listing?",
+    "deleteModalMessage": "This cannot be undone.",
+    "categories": {
+      "chicken": "Chicken",
+      "eggs": "Eggs",
+      "layers": "Layers",
+      "fish": "Fish",
+      "other": "Other"
     }
   }
 }

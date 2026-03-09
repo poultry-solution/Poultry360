@@ -20,6 +20,7 @@ import {
   FileText,
   CreditCard,
   Lightbulb,
+  Tag,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { useAuth } from "@/common/store/store";
@@ -41,6 +42,7 @@ export const farmerNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.supplierLedger", href: "/farmer/dashboard/supplier-ledger", icon: Truck },
   { nameKey: "sidebar.nav.salesLedger", href: "/farmer/dashboard/sales-ledger", icon: Receipt },
   { nameKey: "sidebar.nav.inventory", href: "/farmer/dashboard/inventory", icon: Package },
+  { nameKey: "sidebar.nav.listForSale", href: "/farmer/dashboard/list-for-sale", icon: Tag },
   {
     nameKey: "sidebar.nav.chatWithDoctor",
     href: "/farmer/dashboard/chat-doctor",

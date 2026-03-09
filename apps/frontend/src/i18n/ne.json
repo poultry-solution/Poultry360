@@ -84,6 +84,7 @@
       "supplierLedger": "आपूर्तिकर्ता लेजर",
       "salesLedger": "बिक्री लेजर",
       "inventory": "इन्भेन्टरी",
+      "listForSale": "बिक्रीको लागि सूची",
       "chatWithDoctor": "डाक्टरसँग च्याट",
       "dashboard": "ड्यासबोर्ड",
       "chat": "च्याट",
@@ -2651,6 +2652,7 @@
   "landing": {
     "navbar": {
       "features": "विशेषताहरू",
+      "marketplace": "बजार",
       "reviews": "समीक्षाहरू",
       "contact": "सम्पर्क",
       "getStarted": "सुरु गर्नुहोस्",
@@ -2794,6 +2796,79 @@
       "saturday": "शनिबार",
       "sunday": "आइतबार",
       "closed": "बन्द"
+    },
+    "listForSale": {
+      "badge": "बजार",
+      "title": "बिक्रीको लागि सूची",
+      "subtitle": "किसानहरूले सूची गरेका उत्पादनहरू। प्रत्यक्ष सम्पर्क गर्नुहोस् — लगइन आवश्यक छैन।",
+      "emptyCategory": "यो श्रेणीमा अहिले कुनै सूची छैन।",
+      "more": "थप",
+      "filters": {
+        "all": "सबै",
+        "chicken": "कुखुरा",
+        "eggs": "अण्डा",
+        "layers": "लेयर",
+        "fish": "माछा"
+      },
+      "contactForRate": "दरको लागि सम्पर्क गर्नुहोस्",
+      "available": "उपलब्ध",
+      "avgWeight": "औसत तौल",
+      "contactLabel": "सम्पर्क :"
+    },
+    "marketplacePage": {
+      "badge": "बजार",
+      "title": "बजार",
+      "subtitle": "किसानहरूको सबै सूचीहरू ब्राउज गर्नुहोस्। प्रत्यक्ष सम्पर्क गर्नुहोस् — लगइन आवश्यक छैन।",
+      "emptyCategory": "यो श्रेणीमा अहिले कुनै सूची छैन।"
+    }
+  },
+  "farmerListForSale": {
+    "pageSubtitle": "बिक्रीको लागि वस्तुहरू पोस्ट गर्नुहोस्। ती सार्वजनिक ल्यान्डिङ पृष्ठमा देखिन्छन्।",
+    "addListing": "सूची थप्नुहोस्",
+    "filterActive": "सक्रिय",
+    "filterArchived": "संग्रह",
+    "filterAll": "सबै",
+    "yourListings": "तपाईंको सूचीहरू",
+    "yourListingsDesc": "कुनै पनि समय सम्पादन, संग्रह वा मेट्नुहोस्।",
+    "emptyList": "अहिले कुनै सूची छैन। सुरु गर्न एक थप्नुहोस्।",
+    "edit": "सम्पादन",
+    "archive": "संग्रह गर्नुहोस्",
+    "unarchive": "संग्रह खोल्नुहोस्",
+    "delete": "मेट्नुहोस्",
+    "modalAddTitle": "सूची थप्नुहोस्",
+    "modalEditTitle": "सूची सम्पादन गर्नुहोस्",
+    "companyName": "कम्पनीको नाम",
+    "category": "श्रेणी",
+    "phone": "फोन *",
+    "phonePlaceholder": "सम्पर्क नम्बर",
+    "rateOptional": "दर (वैकल्पिक)",
+    "ratePlaceholder": "प्रति युनिट मूल्य",
+    "quantity": "मात्रा *",
+    "unit": "युनिट *",
+    "unitPlaceholder": "जस्तै kg, वटा, दर्जन",
+    "availabilityFrom": "उपलब्धता मिति बाट *",
+    "availabilityTo": "उपलब्धता मिति सम्म *",
+    "avgWeightKg": "औसत तौल (kg)",
+    "avgWeightPlaceholder": "kg",
+    "sizesLabel": "साइजहरू (साइज, मात्रा, प्रति युनिट दर)",
+    "sizePlaceholder": "साइज",
+    "qtyPlaceholder": "मात्रा",
+    "rateColumnHeader": "दर",
+    "addSize": "+ साइज थप्नुहोस्",
+    "typesLabel": "प्रकारहरू (प्रकार, मात्रा, प्रति युनिट दर)",
+    "typePlaceholder": "प्रकार",
+    "addType": "+ प्रकार थप्नुहोस्",
+    "cancel": "रद्द गर्नुहोस्",
+    "saveChanges": "परिवर्तनहरू सेभ गर्नुहोस्",
+    "createListing": "सूची बनाउनुहोस्",
+    "deleteModalTitle": "सूची मेट्ने हो?",
+    "deleteModalMessage": "यो पूर्ववत गर्न सकिँदैन।",
+    "categories": {
+      "chicken": "कुखुरा",
+      "eggs": "अण्डा",
+      "layers": "लेयर",
+      "fish": "माछा",
+      "other": "अन्य"
     }
   }
 }

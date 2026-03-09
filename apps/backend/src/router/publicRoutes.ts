@@ -7,6 +7,7 @@ import {
   getLandingContacts,
   createLandingContact,
 } from "../controller/publicController";
+import { getPublicListForSale } from "../controller/listForSaleController";
 
 const router = Router();
 
@@ -25,5 +26,8 @@ router.post("/reviews", createLandingReview);
 // Landing page contact form (list + submit)
 router.get("/contacts", getLandingContacts);
 router.post("/contacts", createLandingContact);
+
+// List for sale (public marketplace - no auth)
+router.get("/list-for-sale", getPublicListForSale);
 
 export default router;
