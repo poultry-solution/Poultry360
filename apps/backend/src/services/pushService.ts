@@ -1,8 +1,13 @@
 import webPush from "web-push";
 import prisma from "../utils/prisma";
 
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
+// Fallback for prod when env vars are not set (e.g. Docker without VAPID in env)
+const VAPID_PUBLIC_KEY =
+  process.env.VAPID_PUBLIC_KEY ||
+  "BCF5MVBCwIq_otMSLE0wveMLcdxbZBlbaNNeuVWJV_uCPRVcd8x6RImyL4t-jW2mC3NQEP2vuluuOizGxDlTv7k";
+const VAPID_PRIVATE_KEY =
+  process.env.VAPID_PRIVATE_KEY ||
+  "n1-lsRzUaKcDnb7cEh9W657O5mYeYOa96AMkLL1Fk68";
 const VAPID_SUBJECT = "mailto:support@poultry360.com";
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
