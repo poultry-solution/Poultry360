@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { User, Menu, Settings, LogOut, Bell, BellRing, CheckCheck } from "lucide-react";
+import { User, Menu, Settings, LogOut, Bell, BellRing, CheckCheck, X } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 
 import {
@@ -53,7 +53,6 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
   const { t } = useI18n();
   const [notifOpen, setNotifOpen] = useState(false);
   const [displayLimit, setDisplayLimit] = useState(NOTIFICATION_PAGE_SIZE);
-  const panelRef = useRef<HTMLDivElement>(null);
 
   const { data: unreadData } = useGetUnreadCount();
   const unreadCount = unreadData?.data?.count ?? 0;
@@ -65,17 +64,6 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
 
   const markReadMutation = useMarkNotificationRead();
   const markAllReadMutation = useMarkAllNotificationsRead();
-
-  useEffect(() => {
-    if (!notifOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        setNotifOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [notifOpen]);
 
   const getRoleSettings = () => {
     if (role === "DOCTOR") return { settingsPath: "/doctor/dashboard/settings", homePath: "/doctor/dashboard" };
@@ -133,7 +121,7 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
       {/* Right Side Actions */}
       <div className="flex items-center gap-2">
         {/* Notification Bell */}
-        <div className="relative" ref={panelRef}>
+        <div className="relative">
           <Button
             variant="ghost"
             size="icon"
@@ -153,79 +141,104 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
           </Button>
 
           {notifOpen && (
-            <div className="absolute top-11 z-50 flex flex-col overflow-hidden rounded-lg border bg-white shadow-xl max-h-[min(28rem,65vh)] w-[calc(100vw-2rem)] right-0 left-[50%] -translate-x-1/2 md:left-auto md:translate-x-0 md:max-h-[28rem] md:w-80">
-              {/* Header */}
-              <div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
-                <span className="font-semibold text-sm">Notifications</span>
-                {unreadCount > 0 && (
-                  <button
-                    className="flex cursor-pointer items-center gap-1 text-xs text-primary hover:underline"
-                    onClick={() => markAllReadMutation.mutate()}
-                    disabled={markAllReadMutation.isPending}
-                  >
-                    <CheckCheck className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Mark all read</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Enable push banner */}
-              {showEnablePush && (
-                <div className="shrink-0 border-b bg-primary/5 px-4 py-2">
-                  <button
-                    className="cursor-pointer text-xs text-primary hover:underline"
-                    onClick={handleEnablePush}
-                  >
-                    Enable push notifications
-                  </button>
-                </div>
-              )}
-
-              {/* Notifications list */}
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                {notifLoading ? (
-                  <div className="p-4 text-sm text-muted-foreground text-center">Loading...</div>
-                ) : notifications.length === 0 ? (
-                  <div className="p-6 text-sm text-muted-foreground text-center">
-                    No notifications yet
-                  </div>
-                ) : (
-                  <>
-                    {notifications.map((n) => (
+            <>
+              {/* Blurred backdrop - click to close */}
+              <div
+                className="fixed inset-0 z-[9998] bg-black/40 backdrop-blur-sm"
+                aria-hidden
+                onClick={() => setNotifOpen(false)}
+              />
+              {/* Centered modal */}
+              <div
+                className="fixed left-1/2 top-1/2 z-[9999] flex w-[calc(100vw-2rem)] max-w-[20rem] max-h-[min(28rem,80vh)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border bg-white shadow-2xl"
+                role="dialog"
+                aria-label="Notifications"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header: title, Mark all read, Close X */}
+                <div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
+                  <span className="font-semibold text-sm">Notifications</span>
+                  <div className="flex items-center gap-2">
+                    {unreadCount > 0 && (
                       <button
-                        key={n.id}
-                        className={`w-full text-left px-4 py-3 border-b last:border-b-0 hover:bg-gray-50 transition-colors cursor-pointer ${
-                          n.status === "UNREAD" ? "bg-primary/5" : ""
-                        }`}
-                        onClick={() => handleNotifClick(n)}
+                        className="flex cursor-pointer items-center gap-1 text-xs text-primary hover:underline"
+                        onClick={() => markAllReadMutation.mutate()}
+                        disabled={markAllReadMutation.isPending}
                       >
-                        <div className="flex items-start gap-2">
-                          {n.status === "UNREAD" && (
-                            <span className="mt-1.5 h-2 w-2 rounded-full bg-primary shrink-0" />
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium truncate">{n.title}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>
-                            <p className="text-[10px] text-muted-foreground mt-1">{timeAgo(n.createdAt)}</p>
-                          </div>
-                        </div>
+                        <CheckCheck className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Mark all read</span>
                       </button>
-                    ))}
-                    {hasMore && (
-                      <div className="sticky bottom-0 border-t bg-white p-2">
-                        <button
-                          type="button"
-                          className="w-full cursor-pointer rounded-md border border-primary/30 bg-primary/5 py-2 text-sm font-medium text-primary hover:bg-primary/10"
-                          onClick={() => setDisplayLimit((prev) => prev + NOTIFICATION_PAGE_SIZE)}
-                        >
-                          Load more
-                        </button>
-                      </div>
                     )}
-                  </>
+                    <button
+                      type="button"
+                      className="cursor-pointer rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      onClick={() => setNotifOpen(false)}
+                      aria-label="Close"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Enable push banner */}
+                {showEnablePush && (
+                  <div className="shrink-0 border-b bg-primary/5 px-4 py-2">
+                    <button
+                      className="cursor-pointer text-xs text-primary hover:underline"
+                      onClick={handleEnablePush}
+                    >
+                      Enable push notifications
+                    </button>
+                  </div>
                 )}
+
+                {/* Notifications list + Load more */}
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                  {notifLoading ? (
+                    <div className="p-4 text-sm text-muted-foreground text-center">Loading...</div>
+                  ) : notifications.length === 0 ? (
+                    <div className="p-6 text-sm text-muted-foreground text-center">
+                      No notifications yet
+                    </div>
+                  ) : (
+                    <>
+                      {notifications.map((n) => (
+                        <button
+                          key={n.id}
+                          type="button"
+                          className={`w-full cursor-pointer text-left px-4 py-3 border-b last:border-b-0 hover:bg-gray-50 transition-colors ${
+                            n.status === "UNREAD" ? "bg-primary/5" : ""
+                          }`}
+                          onClick={() => handleNotifClick(n)}
+                        >
+                          <div className="flex items-start gap-2">
+                            {n.status === "UNREAD" && (
+                              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium truncate">{n.title}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>
+                              <p className="text-[10px] text-muted-foreground mt-1">{timeAgo(n.createdAt)}</p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                      {hasMore && (
+                        <div className="sticky bottom-0 border-t bg-white p-2">
+                          <button
+                            type="button"
+                            className="w-full cursor-pointer rounded-md border border-primary/30 bg-primary/5 py-2 text-sm font-medium text-primary hover:bg-primary/10"
+                            onClick={() => setDisplayLimit((prev) => prev + NOTIFICATION_PAGE_SIZE)}
+                          >
+                            Load more
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
+            </>
           )}
         </div>
 
