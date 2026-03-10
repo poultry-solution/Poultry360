@@ -12,8 +12,8 @@ self.addEventListener("push", (event) => {
 
   const options = {
     body: payload.body || "",
-    icon: "/icons/icon-logo.png",
-    badge: "/icons/icon-logo.png",
+    icon: "/icons/final-icon.png",
+    badge: "/icons/final-icon.png",
     data: payload.data || {},
     tag: payload.notificationId || "default",
     renotify: true,
