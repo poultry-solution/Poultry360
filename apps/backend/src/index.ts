@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import routes from "./router/index";
 import { getSocketService } from "./services/socketService";
+import { startReminderDispatcher } from "./services/reminderDispatcher";
 dotenv.config();
 
 
@@ -61,6 +62,7 @@ if (process.env.NODE_ENV !== 'test') {
   server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Socket.IO server initialized`);
+    startReminderDispatcher(60_000);
   });
 
   // Graceful shutdown

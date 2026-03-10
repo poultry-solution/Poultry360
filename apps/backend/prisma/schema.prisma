@@ -281,6 +281,10 @@ model User {
   // Staff (farmer/dealer staff salary tracking)
   staffOwned Staff[] @relation("StaffOwner")
 
+  // Push subscriptions & notifications
+  pushSubscriptions PushSubscription[]
+  notifications     Notification[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -2355,6 +2359,45 @@ model Staff {
 
   @@index([ownerId])
   @@index([status])
+}
+
+// ==================== PUSH SUBSCRIPTIONS ====================
+model PushSubscription {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String    @db.Text
+  p256dh    String    @db.Text
+  auth      String    @db.Text
+  userAgent String?
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+
+  @@unique([userId, endpoint])
+  @@index([userId])
+}
+
+// ==================== NOTIFICATIONS ====================
+enum NotificationStatus {
+  UNREAD
+  READ
+  ARCHIVED
+}
+
+model Notification {
+  id        String             @id @default(cuid())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String             // e.g. "REMINDER_DUE", "STAFF_DUE", etc.
+  title     String
+  body      String
+  data      Json?              // { url, reminderId, etc. }
+  status    NotificationStatus @default(UNREAD)
+  createdAt DateTime           @default(now())
+  readAt    DateTime?
+
+  @@index([userId, status, createdAt])
+  @@index([userId, createdAt])
 }
 
 model StaffSalary {
