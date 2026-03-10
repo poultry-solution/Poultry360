@@ -41,12 +41,12 @@ export function MobileNavSheet({
 
             {/* Sheet (Slide-up Navigation Drawer) */}
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
-                <SheetContent side="bottom" className="h-[70vh] pb-safe">
-                    <SheetHeader className="mb-4">
+                <SheetContent side="bottom" className="flex h-[70vh] flex-col pb-safe">
+                    <SheetHeader className="mb-4 flex-shrink-0">
                         <SheetTitle className="text-left">{title}</SheetTitle>
                     </SheetHeader>
 
-                    <nav className="flex flex-col gap-1 overflow-y-auto">
+                    <nav className="min-h-0 flex-1 flex flex-col gap-1 overflow-y-auto">
                         {navigation.map((item) => {
                             const isActive = pathname === item.href;
                             const Icon = item.icon;

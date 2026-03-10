@@ -36,7 +36,7 @@ export async function dispatchDueReminders() {
         title: "Reminder",
         body: context ? `${reminder.title} (${context})` : reminder.title,
         data: {
-          url: "/farmer/dashboard",
+          url: "/farmer/dashboard/home",
           reminderId: reminder.id,
           farmId: reminder.farmId,
           batchId: reminder.batchId,

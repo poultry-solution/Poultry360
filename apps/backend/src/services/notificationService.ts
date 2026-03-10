@@ -34,8 +34,12 @@ export async function notifyUser(userId: string, input: NotifyUserInput) {
       data: input.data,
     };
     try {
-      await sendPushToUser(userId, payload);
-    } catch {
+      const pushResult = await sendPushToUser(userId, payload);
+      if (pushResult.failed > 0) {
+        console.warn(`[notify] push had failures userId=${userId} sent=${pushResult.sent} failed=${pushResult.failed} total=${pushResult.total}`);
+      }
+    } catch (err) {
+      console.error("[notify] push send error:", err);
       // Push failure should not break the notification flow
     }
   }

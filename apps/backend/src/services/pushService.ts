@@ -66,5 +66,19 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
 
   const sent = results.filter((r) => r.status === "fulfilled").length;
   const failed = results.filter((r) => r.status === "rejected").length;
+
+  console.log(`[push] userId=${userId} total=${subs.length} sent=${sent} failed=${failed}`);
+
+  results.forEach((result, i) => {
+    if (result.status === "rejected") {
+      const sub = subs[i];
+      const endpointPreview = sub.endpoint.slice(0, 50) + "...";
+      const err = result.reason;
+      const code = err?.statusCode ?? err?.code;
+      const msg = err?.message ?? String(err);
+      console.warn(`[push] failed endpoint=${endpointPreview} statusCode=${code} message=${msg}`);
+    }
+  });
+
   return { sent, failed, total: subs.length };
 }
