@@ -19,7 +19,6 @@ import {
 import { useI18n } from "@/i18n/useI18n";
 import { Play, Video } from "lucide-react";
 
-// Mock data: replace drive IDs with real Google Drive file IDs when available
 const TUTORIAL_SECTIONS = [
   {
     id: "getting-started",
@@ -27,63 +26,51 @@ const TUTORIAL_SECTIONS = [
     videos: [
       {
         id: "v1",
-        titleKey: "tutorials.videos.howToSignUp",
-        descriptionKey: "tutorials.descriptions.howToSignUp",
-        driveId: "1abc_mock_how_to_sign_up",
-      },
-      {
-        id: "v2",
-        titleKey: "tutorials.videos.howToCreateFarm",
-        descriptionKey: "tutorials.descriptions.howToCreateFarm",
-        driveId: "1abc_mock_how_to_create_farm",
+        titleKey: "tutorials.videos.introductionToPoultry360",
+        descriptionKey: "tutorials.descriptions.introductionToPoultry360",
+        driveId: "1ri-vh6GZzSSE8FqSOmFX1hKhrt6RiS_L",
       },
     ],
   },
   {
-    id: "batch-management",
-    titleKey: "tutorials.sections.batchManagement",
+    id: "broiler-layer-farmer",
+    titleKey: "tutorials.sections.broilerLayerFarmer",
     videos: [
       {
+        id: "v2",
+        titleKey: "tutorials.videos.farmerManualEndToEnd",
+        descriptionKey: "tutorials.descriptions.farmerManualEndToEnd",
+        driveId: "1fmv8zMMEkhUE15m6R5rggatDc4ZQGnQT",
+      },
+      {
         id: "v3",
-        titleKey: "tutorials.videos.creatingBroilerBatch",
-        descriptionKey: "tutorials.descriptions.creatingBroilerBatch",
-        driveId: "1abc_mock_creating_broiler_batch",
+        titleKey: "tutorials.videos.farmerWithConnectionToDealer",
+        descriptionKey: "tutorials.descriptions.farmerWithConnectionToDealer",
+        driveId: "14vU--hq2EJ-p4Bm7me1eZYqQ3I1ib1Ve",
       },
       {
         id: "v4",
-        titleKey: "tutorials.videos.managingExpenses",
-        descriptionKey: "tutorials.descriptions.managingExpenses",
-        driveId: "1abc_mock_managing_expenses",
+        titleKey: "tutorials.videos.layerFarmerIndepth",
+        descriptionKey: "tutorials.descriptions.layerFarmerIndepth",
+        driveId: "1AQtPTopeDWx-_5mKVCIxCNvvOqak98cJ",
       },
     ],
   },
   {
-    id: "sales-inventory",
-    titleKey: "tutorials.sections.salesInventory",
+    id: "feed-supplier",
+    titleKey: "tutorials.sections.feedSupplier",
     videos: [
       {
         id: "v5",
-        titleKey: "tutorials.videos.recordingSales",
-        descriptionKey: "tutorials.descriptions.recordingSales",
-        driveId: "1abc_mock_recording_sales",
+        titleKey: "tutorials.videos.feedSupplierEndToEnd",
+        descriptionKey: "tutorials.descriptions.feedSupplierEndToEnd",
+        driveId: "1ladQjgsCJruXzceGVNF6noqPzBXALN4U",
       },
       {
         id: "v6",
-        titleKey: "tutorials.videos.inventoryBasics",
-        descriptionKey: "tutorials.descriptions.inventoryBasics",
-        driveId: "1abc_mock_inventory_basics",
-      },
-    ],
-  },
-  {
-    id: "supplier-ledger",
-    titleKey: "tutorials.sections.supplierLedger",
-    videos: [
-      {
-        id: "v7",
-        titleKey: "tutorials.videos.supplierLedgerOverview",
-        descriptionKey: "tutorials.descriptions.supplierLedgerOverview",
-        driveId: "1abc_mock_supplier_ledger",
+        titleKey: "tutorials.videos.feedSupplierWithConnectionToFarmer",
+        descriptionKey: "tutorials.descriptions.feedSupplierWithConnectionToFarmer",
+        driveId: "10f9SSUBSHKsz-g0AAjzFFmQpM8xFqrh3",
       },
     ],
   },
