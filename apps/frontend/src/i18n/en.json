@@ -2721,6 +2721,7 @@
     "navbar": {
       "features": "Features",
       "marketplace": "Marketplace",
+      "tutorials": "Tutorials",
       "reviews": "Reviews",
       "contact": "Contact",
       "getStarted": "Get Started",
@@ -2937,6 +2938,34 @@
       "layers": "Layers",
       "fish": "Fish",
       "other": "Other"
+    }
+  },
+  "tutorials": {
+    "title": "Poultry360 Tutorial Hub",
+    "subtitle": "Learn how to use Poultry360 with step-by-step video guides. Replace mock links with your Google Drive video IDs when ready.",
+    "sections": {
+      "gettingStarted": "Getting Started",
+      "batchManagement": "Batch Management",
+      "salesInventory": "Sales & Inventory",
+      "supplierLedger": "Supplier Ledger"
+    },
+    "videos": {
+      "howToSignUp": "How to Sign Up",
+      "howToCreateFarm": "How to Create a Farm",
+      "creatingBroilerBatch": "Creating a Broiler Batch",
+      "managingExpenses": "Managing Expenses & Feed",
+      "recordingSales": "Recording Sales",
+      "inventoryBasics": "Inventory Basics",
+      "supplierLedgerOverview": "Supplier Ledger Overview"
+    },
+    "descriptions": {
+      "howToSignUp": "Create your Poultry360 account as a farmer, dealer, or company.",
+      "howToCreateFarm": "Add your first farm and set capacity and details.",
+      "creatingBroilerBatch": "Start a new broiler batch with chicks and track from day one.",
+      "managingExpenses": "Add feed and other expenses and link them to batches.",
+      "recordingSales": "Record sales, weight, and customer for your batches.",
+      "inventoryBasics": "Manage feed, medicine, and other inventory items.",
+      "supplierLedgerOverview": "Connect with dealers, view purchases, and make payments."
     }
   }
 }

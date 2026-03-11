@@ -851,6 +851,7 @@ function ReceivedRequestsTab() {
               onClick={confirmReject}
               disabled={rejectMutation.isPending}
               variant="destructive"
+              className="bg-red-600 text-white hover:bg-red-700"
             >
               {rejectMutation.isPending ? t("farmer.saleRequests.rejecting") : t("farmer.saleRequests.reject")}
             </Button>

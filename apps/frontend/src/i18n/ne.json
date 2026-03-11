@@ -2720,6 +2720,7 @@
     "navbar": {
       "features": "विशेषताहरू",
       "marketplace": "बजार",
+      "tutorials": "ट्यूटोरियल",
       "reviews": "समीक्षाहरू",
       "contact": "सम्पर्क",
       "getStarted": "सुरु गर्नुहोस्",
@@ -2936,6 +2937,34 @@
       "layers": "लेयर",
       "fish": "माछा",
       "other": "अन्य"
+    }
+  },
+  "tutorials": {
+    "title": "Poultry360 ट्यूटोरियल हब",
+    "subtitle": "चरणबद्ध भिडियो मार्गदर्शनहरूसँग Poultry360 कसरी प्रयोग गर्ने सिक्नुहोस्। तपाईंको Google Drive भिडियो आईडीहरू तयार भएपछि मक लिङ्कहरू प्रतिस्थापन गर्नुहोस्।",
+    "sections": {
+      "gettingStarted": "सुरु गर्दै",
+      "batchManagement": "ब्याच व्यवस्थापन",
+      "salesInventory": "बिक्री र इन्भेन्टरी",
+      "supplierLedger": "सप्लायर खाता"
+    },
+    "videos": {
+      "howToSignUp": "कसरी साइन अप गर्ने",
+      "howToCreateFarm": "कसरी फार्म बनाउने",
+      "creatingBroilerBatch": "ब्रोइलर ब्याच बनाउँदै",
+      "managingExpenses": "खर्च र फिड व्यवस्थापन",
+      "recordingSales": "बिक्री दर्ता गर्दै",
+      "inventoryBasics": "इन्भेन्टरी बेसिक",
+      "supplierLedgerOverview": "सप्लायर खाता अवलोकन"
+    },
+    "descriptions": {
+      "howToSignUp": "किसान, डिलर वा कम्पनीको रूपमा आफ्नो Poultry360 खाता बनाउनुहोस्।",
+      "howToCreateFarm": "पहिलो फार्म थप्नुहोस् र क्षमता र विवरण सेट गर्नुहोस्।",
+      "creatingBroilerBatch": "चल्लाहरूसँग नयाँ ब्रोइलर ब्याच सुरु गर्नुहोस् र पहिलो दिनदेखि ट्र्याक गर्नुहोस्।",
+      "managingExpenses": "फिड र अन्य खर्चहरू थप्नुहोस् र ब्याचहरूसँग जोड्नुहोस्।",
+      "recordingSales": "बिक्री, तौल र ग्राहक दर्ता गर्नुहोस्।",
+      "inventoryBasics": "फिड, औषधि र अन्य इन्भेन्टरी वस्तुहरू व्यवस्थापन गर्नुहोस्।",
+      "supplierLedgerOverview": "डिलरहरूसँग जोड्नुहोस्, खरिदहरू हेर्नुहोस् र भुक्तानी गर्नुहोस्।"
     }
   }
 }
