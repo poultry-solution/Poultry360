@@ -284,40 +284,43 @@ export default function FarmDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      {/* Header: stacked on mobile, row on desktop; icon-only actions on mobile to prevent overflow */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-3 min-w-0">
           <Button
             variant="outline"
             size="sm"
+            className="shrink-0"
             onClick={() => router.push("/farmer/dashboard/farms")}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-              <Building2 className="h-8 w-8 text-primary" />
-              {farm.name}
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-tight flex items-center gap-2 sm:text-3xl">
+              <Building2 className="h-6 w-6 shrink-0 text-primary sm:h-8 sm:w-8" />
+              <span className="truncate">{farm.name}</span>
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Capacity: {farm.capacity.toLocaleString()} birds
             </p>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="sm">
-            <Edit className="mr-2 h-4 w-4" />
-            Edit Farm
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" size="sm" className="h-9 w-9 p-0 md:h-auto md:w-auto md:px-4" title="Edit Farm" aria-label="Edit Farm">
+            <Edit className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Edit Farm</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setIsDeleteModalOpen(true)}
-            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            className="h-9 w-9 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 md:h-auto md:w-auto md:px-4"
+            title="Delete"
+            aria-label="Delete farm"
           >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete
+            <Trash2 className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Delete</span>
           </Button>
         </div>
       </div>
@@ -462,14 +465,14 @@ export default function FarmDetailPage() {
       {/* Batches Section */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>Batches</CardTitle>
               <CardDescription>
                 Manage and monitor all batches in this farm
               </CardDescription>
             </div>
-            <Button onClick={() => setIsBatchModalOpen(true)}>
+            <Button onClick={() => setIsBatchModalOpen(true)} className="w-full sm:w-auto shrink-0">
               <Plus className="mr-2 h-4 w-4" />
               Add Batch
             </Button>
@@ -478,7 +481,7 @@ export default function FarmDetailPage() {
         <CardContent>
           {/* Filters and Search */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -489,7 +492,7 @@ export default function FarmDetailPage() {
                 />
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant={batchFilter === "all" ? "default" : "outline"}
                 size="sm"
@@ -534,11 +537,11 @@ export default function FarmDetailPage() {
             <div className="space-y-4">
               {filteredBatches.map((batch: BatchResponse) => (
                 <Card key={batch.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-semibold">{batch.batchNumber}</h3>
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <h3 className="text-base font-semibold sm:text-lg">{batch.batchNumber}</h3>
                           <Badge variant="outline" className="font-normal">
                             {(batch as any).batchType === "LAYERS" ? "Layers" : "Broiler"}
                           </Badge>
@@ -553,7 +556,7 @@ export default function FarmDetailPage() {
                             {batch.status}
                           </Badge>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                           <div>
                             <span className="text-muted-foreground">Initial Chicks:</span>
                             <p className="font-medium">{batch.initialChicks.toLocaleString()}</p>
@@ -572,28 +575,30 @@ export default function FarmDetailPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Button variant="outline" size="sm" asChild>
+                      <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+                        <Button variant="outline" size="sm" className="h-9 flex-1 sm:flex-initial sm:flex-none" asChild>
                           <Link href={`/farmer/dashboard/batches/${batch.id}`}>
                             <Eye className="mr-2 h-4 w-4" />
                             View Details
                           </Link>
                         </Button>
-                        <Button variant="outline" size="sm">
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit
+                        <Button variant="outline" size="sm" className="h-9 w-9 p-0 md:h-auto md:w-auto md:px-3" title="Edit" aria-label="Edit batch">
+                          <Edit className="h-4 w-4 md:mr-2" />
+                          <span className="hidden md:inline">Edit</span>
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          className="h-9 w-9 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 md:h-auto md:w-auto md:px-3"
+                          title="Delete"
+                          aria-label="Delete batch"
                           onClick={() => {
                             setBatchToDelete({ id: batch.id, name: batch.batchNumber });
                             setIsDeleteBatchModalOpen(true);
                           }}
                         >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
+                          <Trash2 className="h-4 w-4 md:mr-2" />
+                          <span className="hidden md:inline">Delete</span>
                         </Button>
                       </div>
                     </div>
