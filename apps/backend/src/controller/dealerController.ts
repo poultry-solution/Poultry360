@@ -410,22 +410,30 @@ export const getDealerById = async (
         : [];
 
       // Map sales to purchases format for the frontend
-      const purchases = sales.map((sale) => ({
-        id: sale.id,
-        itemName:
-          sale.items.map((i: any) => i.product?.name || "Item").join(", ") ||
-          "Sale",
-        purchaseCategory: null,
-        quantity: sale.items.reduce((sum: number, i: any) => sum + i.quantity, 0),
-        freeQuantity: 0,
-        amount: Number(sale.totalAmount),
-        subtotalAmount: sale.subtotalAmount ? Number(sale.subtotalAmount) : null,
-        discountType: sale.discount?.type || null,
-        discountValue: sale.discount?.value ? Number(sale.discount.value) : null,
-        date: sale.date,
-        description: sale.notes,
-        reference: sale.invoiceNumber,
-      }));
+      const purchases = sales.map((sale) => {
+        const quantities = sale.items.map((i: any) => Number(i.quantity));
+        const unitPrices = sale.items.map((i: any) => Number(i.unitPrice));
+        const units = sale.items.map((i: any) => i.unit || "unit");
+        return {
+          id: sale.id,
+          itemName:
+            sale.items.map((i: any) => i.product?.name || "Item").join(", ") ||
+            "Sale",
+          purchaseCategory: null,
+          quantity: quantities.reduce((sum, q) => sum + q, 0),
+          quantities: quantities.length > 0 ? quantities : undefined,
+          unitPrices: unitPrices.length > 0 ? unitPrices : undefined,
+          units: units.length > 0 ? units : undefined,
+          freeQuantity: 0,
+          amount: Number(sale.totalAmount),
+          subtotalAmount: sale.subtotalAmount ? Number(sale.subtotalAmount) : null,
+          discountType: sale.discount?.type || null,
+          discountValue: sale.discount?.value ? Number(sale.discount.value) : null,
+          date: sale.date,
+          description: sale.notes,
+          reference: sale.invoiceNumber,
+        };
+      });
 
       // Map DealerFarmerPayment to payments format
       const paymentsList = farmerPayments.map((p) => ({

@@ -226,6 +226,10 @@ export default function SupplierLedgerPage() {
       type: "number",
       align: "right",
       render: (_, row) => {
+        const quantities = row.quantities;
+        if (Array.isArray(quantities) && quantities.length > 0) {
+          return <span>{quantities.join(", ")}</span>;
+        }
         const qty = row.quantity || 0;
         const free = row.freeQuantity || 0;
         const unit = row.unit || "";
@@ -241,6 +245,15 @@ export default function SupplierLedgerPage() {
     createColumn("unitPrice", t("farmer.supplierLedger.table.rate"), {
       align: "right",
       render: (_, row) => {
+        const unitPrices = row.unitPrices;
+        const units = row.units;
+        if (Array.isArray(unitPrices) && unitPrices.length > 0) {
+          const parts = unitPrices.map((p: number, i: number) => {
+            const u = Array.isArray(units) && units[i] != null ? units[i] : "unit";
+            return `रू ${Number(p).toFixed(2)}/${u}`;
+          });
+          return <span className="text-xs">{parts.join(", ")}</span>;
+        }
         const price = row.unitPrice || row.amount / (row.quantity || 1);
         const unit = row.unit || "unit";
         return (
