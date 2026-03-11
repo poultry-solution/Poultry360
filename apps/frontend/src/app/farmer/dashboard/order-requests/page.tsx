@@ -709,7 +709,7 @@ function ReceivedRequestsTab() {
                       <Button
                         size="sm"
                         variant="destructive"
-                        className="h-7 text-xs"
+                        className="h-7 text-xs bg-red-600 text-white hover:bg-red-700"
                         onClick={() => handleReject(request)}
                       >
                         <XCircle className="h-3.5 w-3.5 mr-1" />
