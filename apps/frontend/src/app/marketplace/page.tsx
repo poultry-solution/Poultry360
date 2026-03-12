@@ -8,7 +8,14 @@ import { Badge } from "@/common/components/ui/badge";
 import { Tag, Loader2 } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
 import { usePublicListForSale, type ListForSaleCategoryPublic } from "@/fetchers/public/listForSaleQueries";
-import { FILTERS, ListingCard } from "@/components/landing/ListForSaleShared";
+import { FILTERS, ListingCard, NEPAL_PROVINCES } from "@/components/landing/ListForSaleShared";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
 
 const MARKETPLACE_LIMIT = 100;
 
@@ -18,27 +25,43 @@ export default function MarketplacePage() {
   const { t } = useI18n();
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get("category");
+  const provinceParam = searchParams.get("province");
   const initialCategory: ListForSaleCategoryPublic | null =
     categoryParam && VALID_CATEGORIES.has(categoryParam) ? (categoryParam as ListForSaleCategoryPublic) : null;
 
   const [category, setCategory] = useState<ListForSaleCategoryPublic | null>(initialCategory);
+  const [province, setProvince] = useState<string | null>(provinceParam || null);
 
   useEffect(() => {
     setCategory(initialCategory);
   }, [initialCategory]);
 
-  const { data, isLoading } = usePublicListForSale(category, MARKETPLACE_LIMIT, 0);
+  const { data, isLoading } = usePublicListForSale(category, MARKETPLACE_LIMIT, 0, province);
   const listings = data?.data ?? [];
 
-  const setCategoryAndUrl = (value: ListForSaleCategoryPublic | null) => {
-    setCategory(value);
+  const setSearchParamsInUrl = (nextCategory: ListForSaleCategoryPublic | null, nextProvince: string | null) => {
     const url = new URL(window.location.href);
-    if (value) {
-      url.searchParams.set("category", value);
+    if (nextCategory) {
+      url.searchParams.set("category", nextCategory);
     } else {
       url.searchParams.delete("category");
     }
+    if (nextProvince) {
+      url.searchParams.set("province", nextProvince);
+    } else {
+      url.searchParams.delete("province");
+    }
     window.history.replaceState({}, "", url.pathname + url.search);
+  };
+
+  const setCategoryAndUrl = (value: ListForSaleCategoryPublic | null) => {
+    setCategory(value);
+    setSearchParamsInUrl(value, province);
+  };
+
+  const setProvinceAndUrl = (value: string | null) => {
+    setProvince(value);
+    setSearchParamsInUrl(category, value);
   };
 
   return (
@@ -74,6 +97,27 @@ export default function MarketplacePage() {
                   {t(f.labelKey)}
                 </button>
               ))}
+            </div>
+
+            <div className="flex justify-center mb-8">
+              <div className="w-full max-w-xs">
+                <Select
+                  value={province ?? "ALL"}
+                  onValueChange={(val) => setProvinceAndUrl(val === "ALL" ? null : val)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("landing.listForSale.provinceFilterPlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">{t("landing.listForSale.filters.allProvinces")}</SelectItem>
+                    {NEPAL_PROVINCES.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {isLoading ? (

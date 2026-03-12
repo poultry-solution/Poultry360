@@ -2877,12 +2877,15 @@
         "chicken": "Chicken",
         "eggs": "Eggs",
         "layers": "Layers",
-        "fish": "Fish"
+        "fish": "Fish",
+        "allProvinces": "All provinces"
       },
       "contactForRate": "Contact for Rate",
       "available": "Available",
       "avgWeight": "Avg weight",
-      "contactLabel": "Contact :"
+      "contactLabel": "Contact :",
+      "addressLabel": "Address:",
+      "provinceFilterPlaceholder": "Filter by province"
     },
     "marketplacePage": {
       "badge": "Marketplace",
@@ -2917,6 +2920,11 @@
     "unitPlaceholder": "e.g. kg, piece, dozen",
     "availabilityFrom": "Availability from *",
     "availabilityTo": "Availability to *",
+    "province": "Province",
+    "provincePlaceholder": "Select province",
+    "provinceNone": "No province / Not specified",
+    "address": "Detailed address",
+    "addressPlaceholder": "Ward, tole, nearby landmark",
     "avgWeightKg": "Average weight (kg)",
     "avgWeightPlaceholder": "kg",
     "sizesLabel": "Sizes (size, quantity, rate per unit)",

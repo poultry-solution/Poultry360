@@ -7,17 +7,29 @@ import { Button } from "@/common/components/ui/button";
 import { Tag, Loader2, ArrowRight } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
 import { usePublicListForSale, type ListForSaleCategoryPublic } from "@/fetchers/public/listForSaleQueries";
-import { FILTERS, ListingCard } from "./ListForSaleShared";
+import { FILTERS, ListingCard, NEPAL_PROVINCES } from "./ListForSaleShared";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
 
 const LANDING_LIMIT = 4;
 
 export default function ListForSaleSection() {
   const { t } = useI18n();
   const [category, setCategory] = useState<ListForSaleCategoryPublic | null>(null);
-  const { data, isLoading } = usePublicListForSale(category, LANDING_LIMIT, 0);
+  const [province, setProvince] = useState<string | null>(null);
+  const { data, isLoading } = usePublicListForSale(category, LANDING_LIMIT, 0, province);
   const listings = data?.data ?? [];
 
-  const marketplaceHref = category ? `/marketplace?category=${category}` : "/marketplace";
+  const marketplaceHrefParams = new URLSearchParams();
+  if (category) marketplaceHrefParams.set("category", category);
+  if (province) marketplaceHrefParams.set("province", province);
+  const marketplaceHref =
+    marketplaceHrefParams.toString().length > 0 ? `/marketplace?${marketplaceHrefParams.toString()}` : "/marketplace";
 
   return (
     <section className="py-16 lg:py-24 bg-gradient-to-b from-gray-50 to-white border-t border-gray-100">
@@ -35,7 +47,7 @@ export default function ListForSaleSection() {
           </p>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-2 mb-8">
+        <div className="flex flex-wrap justify-center gap-2 mb-6">
           {FILTERS.map((f) => (
             <button
               key={f.labelKey}
@@ -49,6 +61,27 @@ export default function ListForSaleSection() {
               {t(f.labelKey)}
             </button>
           ))}
+        </div>
+
+        <div className="flex justify-center mb-8">
+          <div className="w-full max-w-xs">
+            <Select
+              value={province ?? "ALL"}
+              onValueChange={(val) => setProvince(val === "ALL" ? null : val)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t("landing.listForSale.provinceFilterPlaceholder")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">{t("landing.listForSale.filters.allProvinces")}</SelectItem>
+                {NEPAL_PROVINCES.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {isLoading ? (

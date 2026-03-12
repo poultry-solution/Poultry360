@@ -13,6 +13,16 @@ export const FILTERS: { value: ListForSaleCategoryPublic | null; labelKey: strin
   { value: "FISH", labelKey: "landing.listForSale.filters.fish" },
 ];
 
+export const NEPAL_PROVINCES: string[] = [
+  "Koshi Province",
+  "Madhesh Province",
+  "Bagmati Province",
+  "Gandaki Province",
+  "Lumbini Province",
+  "Karnali Province",
+  "Sudurpashchim Province",
+];
+
 export function formatDate(s: string): string {
   try {
     const d = new Date(s);
@@ -38,6 +48,7 @@ export function ListingCard({ item }: { item: ListForSalePublicItem }) {
   const available = t("landing.listForSale.available");
   const avgWeight = t("landing.listForSale.avgWeight");
   const contactLabel = t("landing.listForSale.contactLabel");
+  const addressLabel = t("landing.listForSale.addressLabel");
 
   const hasVariants =
     (item.eggVariants && item.eggVariants.length > 0) || (item.typeVariants && item.typeVariants.length > 0);
@@ -49,6 +60,14 @@ export function ListingCard({ item }: { item: ListForSalePublicItem }) {
           <Badge variant="secondary">{item.category}</Badge>
         </div>
         <h3 className="font-semibold text-gray-900 mb-1">{item.companyName}</h3>
+        {(item.province || item.address) && (
+          <p className="text-xs text-gray-500 mb-2">
+            <span className="font-medium text-gray-600">{addressLabel} </span>
+            {item.province}
+            {item.province && item.address ? ", " : ""}
+            {item.address}
+          </p>
+        )}
         <div className="text-sm text-gray-600 space-y-1">
           {hasVariants ? (
             <>

@@ -15,6 +15,8 @@ export interface ListForSalePublicItem {
   unit: string;
   availabilityFrom: string;
   availabilityTo: string;
+  province?: string | null;
+  address?: string | null;
   avgWeightKg: number | null;
   eggVariants: Array<{ size: string; quantity: number; rate: number }> | null;
   typeVariants: Array<{ type: string; quantity: number; rate: number }> | null;
@@ -31,8 +33,8 @@ interface PublicListForSaleResponse {
 
 export const publicListForSaleKeys = {
   all: ["public", "list-for-sale"] as const,
-  list: (category?: ListForSaleCategoryPublic | null, limit?: number, offset?: number) =>
-    [...publicListForSaleKeys.all, category ?? "all", limit, offset] as const,
+  list: (category?: ListForSaleCategoryPublic | null, limit?: number, offset?: number, province?: string | null) =>
+    [...publicListForSaleKeys.all, category ?? "all", limit, offset, province ?? "all"] as const,
 };
 
 // ==================== QUERIES ====================
@@ -40,13 +42,15 @@ export const publicListForSaleKeys = {
 export function usePublicListForSale(
   category?: ListForSaleCategoryPublic | null,
   limit = 50,
-  offset = 0
+  offset = 0,
+  province?: string | null
 ) {
   return useQuery<PublicListForSaleResponse>({
-    queryKey: publicListForSaleKeys.list(category, limit, offset),
+    queryKey: publicListForSaleKeys.list(category, limit, offset, province),
     queryFn: async () => {
       const params: Record<string, string | number> = { limit, offset };
       if (category) params.category = category;
+      if (province) params.province = province;
       const { data } = await publicApi.get<PublicListForSaleResponse>("/public/list-for-sale", {
         params,
       });

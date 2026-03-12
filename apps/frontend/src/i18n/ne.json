@@ -2876,12 +2876,15 @@
         "chicken": "कुखुरा",
         "eggs": "अण्डा",
         "layers": "लेयर",
-        "fish": "माछा"
+        "fish": "माछा",
+        "allProvinces": "सबै प्रदेश"
       },
       "contactForRate": "दरको लागि सम्पर्क गर्नुहोस्",
       "available": "उपलब्ध",
       "avgWeight": "औसत तौल",
-      "contactLabel": "सम्पर्क :"
+      "contactLabel": "सम्पर्क :",
+      "addressLabel": "ठेगाना:",
+      "provinceFilterPlaceholder": "प्रदेश अनुसार फिल्टर गर्नुहोस्"
     },
     "marketplacePage": {
       "badge": "बजार",
@@ -2916,6 +2919,11 @@
     "unitPlaceholder": "जस्तै kg, वटा, दर्जन",
     "availabilityFrom": "उपलब्धता मिति बाट *",
     "availabilityTo": "उपलब्धता मिति सम्म *",
+    "province": "प्रदेश",
+    "provincePlaceholder": "प्रदेश छान्नुहोस्",
+    "provinceNone": "प्रदेश छैन / निर्दिष्ट छैन",
+    "address": "विस्तृत ठेगाना",
+    "addressPlaceholder": "वडा, टोल, नजिकको चिनारी",
     "avgWeightKg": "औसत तौल (kg)",
     "avgWeightPlaceholder": "kg",
     "sizesLabel": "साइजहरू (साइज, मात्रा, प्रति युनिट दर)",

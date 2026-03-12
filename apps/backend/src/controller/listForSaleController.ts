@@ -12,6 +12,8 @@ const listForSaleSelectPublic = {
   unit: true,
   availabilityFrom: true,
   availabilityTo: true,
+  province: true,
+  address: true,
   avgWeightKg: true,
   eggVariants: true,
   typeVariants: true,
@@ -21,15 +23,18 @@ const listForSaleSelectPublic = {
 // ==================== PUBLIC: GET LISTINGS (NO AUTH) ====================
 export const getPublicListForSale = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { category, limit = 50, offset = 0 } = req.query;
+    const { category, province, limit = 50, offset = 0 } = req.query;
     const take = Math.min(Number(limit), 100);
     const skip = Number(offset);
 
-    const where: { status: ListForSaleStatus; category?: ListForSaleCategory } = {
+    const where: { status: ListForSaleStatus; category?: ListForSaleCategory; province?: string } = {
       status: ListForSaleStatus.ACTIVE,
     };
     if (category && typeof category === "string" && isValidCategory(category)) {
       where.category = category as ListForSaleCategory;
+    }
+    if (province && typeof province === "string" && province.trim().length > 0) {
+      where.province = province.trim();
     }
 
     const [listings, total] = await Promise.all([
@@ -100,7 +105,20 @@ export const createListForSale = async (req: Request, res: Response): Promise<an
     const companyName = (user?.companyName ?? "").trim() || "N/A";
 
     const body = req.body;
-    const { category, phone, rate, quantity, unit, availabilityFrom, availabilityTo, avgWeightKg, eggVariants, typeVariants } = body;
+    const {
+      category,
+      phone,
+      rate,
+      quantity,
+      unit,
+      availabilityFrom,
+      availabilityTo,
+      avgWeightKg,
+      eggVariants,
+      typeVariants,
+      province,
+      address,
+    } = body;
 
     if (!category || !isValidCategory(category)) {
       return res.status(400).json({ success: false, message: "Valid category is required (CHICKEN, EGGS, LAYERS, FISH, OTHER)" });
@@ -160,6 +178,12 @@ export const createListForSale = async (req: Request, res: Response): Promise<an
         avgWeightKg: category === "CHICKEN" && avgWeightKg != null ? (parseDecimal(avgWeightKg) ?? undefined) : undefined,
         eggVariants: eggVariantsJson as any,
         typeVariants: typeVariantsJson as any,
+        ...(typeof province === "string" && province.trim().length > 0 && {
+          province: province.trim(),
+        }),
+        ...(typeof address === "string" && address.trim().length > 0 && {
+          address: address.trim(),
+        }),
       },
     });
     return res.status(201).json({ success: true, data: created });
@@ -180,7 +204,21 @@ export const updateListForSale = async (req: Request, res: Response): Promise<an
     if (!existing) return res.status(404).json({ success: false, message: "Listing not found" });
 
     const body = req.body;
-    const { category, phone, rate, quantity, unit, availabilityFrom, availabilityTo, avgWeightKg, eggVariants, typeVariants, companyName } = body;
+    const {
+      category,
+      phone,
+      rate,
+      quantity,
+      unit,
+      availabilityFrom,
+      availabilityTo,
+      avgWeightKg,
+      eggVariants,
+      typeVariants,
+      companyName,
+      province,
+      address,
+    } = body;
 
     const categoryVal = (category ?? existing.category) as ListForSaleCategory;
     if (category && !isValidCategory(category)) {
@@ -243,6 +281,13 @@ export const updateListForSale = async (req: Request, res: Response): Promise<an
         unit: unitVal,
         availabilityFrom: from,
         availabilityTo: to,
+        // province and address are new optional fields; keep update logic simple and backward compatible
+        ...(province !== undefined && {
+          province: typeof province === "string" && province.trim().length > 0 ? province.trim() : null,
+        }),
+        ...(address !== undefined && {
+          address: typeof address === "string" && address.trim().length > 0 ? address.trim() : null,
+        }),
         avgWeightKg: categoryVal === "CHICKEN"
           ? (avgWeightKg != null ? parseDecimal(avgWeightKg) : existing.avgWeightKg != null ? Number(existing.avgWeightKg) : null)
           : null,

@@ -30,6 +30,8 @@ export interface ListForSaleItem {
   unit: string;
   availabilityFrom: string;
   availabilityTo: string;
+   province?: string | null;
+   address?: string | null;
   avgWeightKg: number | null;
   eggVariants: EggVariant[] | null;
   typeVariants: TypeVariant[] | null;
@@ -46,6 +48,8 @@ export interface CreateListForSaleBody {
   unit: string;
   availabilityFrom: string;
   availabilityTo: string;
+  province?: string | null;
+  address?: string | null;
   avgWeightKg?: number | null;
   eggVariants?: EggVariant[] | null;
   typeVariants?: TypeVariant[] | null;

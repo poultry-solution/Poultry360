@@ -2323,6 +2323,8 @@ model ListForSale {
   unit         String
   availabilityFrom DateTime
   availabilityTo   DateTime
+  province     String?
+  address      String?
   avgWeightKg  Decimal? @db.Decimal(6, 2)
   eggVariants  Json?
   typeVariants Json?

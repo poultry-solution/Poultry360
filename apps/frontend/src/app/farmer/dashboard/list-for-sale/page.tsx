@@ -45,6 +45,16 @@ import { DateDisplay } from "@/common/components/ui/date-display";
 
 const CATEGORIES: ListForSaleCategory[] = ["CHICKEN", "EGGS", "LAYERS", "FISH"];
 
+const NEPAL_PROVINCES: string[] = [
+  "Koshi Province",
+  "Madhesh Province",
+  "Bagmati Province",
+  "Gandaki Province",
+  "Lumbini Province",
+  "Karnali Province",
+  "Sudurpashchim Province",
+];
+
 const defaultForm = (companyName: string): CreateListForSaleBody => ({
   category: "CHICKEN",
   phone: "",
@@ -112,6 +122,8 @@ export default function ListForSalePage() {
       unit: item.unit,
       availabilityFrom: item.availabilityFrom,
       availabilityTo: item.availabilityTo,
+      province: item.province ?? null,
+      address: item.address ?? null,
       avgWeightKg: item.avgWeightKg != null ? Number(item.avgWeightKg) : undefined,
       eggVariants: item.eggVariants,
       typeVariants: item.typeVariants,
@@ -255,6 +267,14 @@ export default function ListForSalePage() {
                     </Badge>
                     <Badge variant="outline">{t(categoryLabelKey(item.category))}</Badge>
                     <span className="font-medium">{item.companyName}</span>
+                    {(item.province || item.address) && (
+                      <span className="text-muted-foreground text-xs">
+                        {" — "}
+                        {item.province}
+                        {item.province && item.address ? ", " : ""}
+                        {item.address}
+                      </span>
+                    )}
                     <span className="text-muted-foreground text-sm">
                       {item.eggVariants && item.eggVariants.length > 0
                         ? item.eggVariants.map((v) => `${v.size}: ${v.quantity} @ ${v.rate != null && v.rate !== 0 ? v.rate : t("landing.listForSale.contactForRate")}`).join(" · ")
@@ -339,6 +359,45 @@ export default function ListForSalePage() {
                 onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                 placeholder={t("farmerListForSale.phonePlaceholder")}
               />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>{t("farmerListForSale.province")}</Label>
+                <Select
+                  value={form.province ?? "NONE"}
+                  onValueChange={(val) =>
+                    setForm((f) => ({
+                      ...f,
+                      province: val === "NONE" ? null : val,
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("farmerListForSale.provincePlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NONE">{t("farmerListForSale.provinceNone")}</SelectItem>
+                    {NEPAL_PROVINCES.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>{t("farmerListForSale.address")}</Label>
+                <Input
+                  value={form.address ?? ""}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      address: e.target.value,
+                    }))
+                  }
+                  placeholder={t("farmerListForSale.addressPlaceholder")}
+                />
+              </div>
             </div>
             {(form.category === "CHICKEN" || form.category === "LAYERS") && (
               <>
