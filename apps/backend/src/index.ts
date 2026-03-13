@@ -21,6 +21,7 @@ const allowedOrigins = [
   "http://localhost:3001",
   "https://poultry360-frontend.vercel.app",
   "https://poultry360.app",
+  "https://www.poultry360.app",
 ];
 
 const defaultOrigin = "https://poultry360.app";
