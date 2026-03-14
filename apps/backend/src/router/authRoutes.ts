@@ -11,6 +11,11 @@ import {
   verifyPassword,
   registerEntity,
 } from "../controller/auth";
+import {
+  generateResetOtp,
+  verifyOtp,
+  verifyOtpAndResetPassword,
+} from "../controller/passwordResetController";
 import { authMiddleware } from "../middelware/middelware";
 
 const authRouter = Router();
@@ -25,5 +30,10 @@ authRouter.get("/validate", validateToken);
 authRouter.post("/store-cross-port", storeCrossPortAuth);
 authRouter.get("/get-cross-port", getCrossPortAuth);
 authRouter.post("/verify-password", authMiddleware, verifyPassword);
+
+// Password reset (public - no auth required)
+authRouter.post("/forgot-password/generate-otp", generateResetOtp);
+authRouter.post("/forgot-password/verify-otp", verifyOtp);
+authRouter.post("/forgot-password/reset", verifyOtpAndResetPassword);
 
 export default authRouter;

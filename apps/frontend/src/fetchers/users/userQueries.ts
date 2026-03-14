@@ -5,7 +5,7 @@ import { User, CreateUser, UpdateUser, UserRole } from "@myapp/shared-types";
 export type UserStatus = "ACTIVE" | "INACTIVE" | "PENDING_VERIFICATION";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081/api/v1";
 
 // ==================== QUERY KEYS ====================
 export const userKeys = {

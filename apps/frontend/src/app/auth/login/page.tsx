@@ -167,7 +167,15 @@ export default function LoginPage() {
             {isLoading ? t("auth.login.submitting") : t("auth.login.submit")}
           </Button>
         </form>
-        <p className="text-sm text-muted-foreground mt-4 text-center">
+        <div className="mt-3 text-center">
+          <Link
+            href="/auth/forgot-password"
+            className="text-sm text-primary hover:underline"
+          >
+            Forgot Password?
+          </Link>
+        </div>
+        <p className="text-sm text-muted-foreground mt-3 text-center">
           {t("auth.login.newTo")}{" "}
           <Link href="/auth/signup" className="text-primary hover:underline">
             {t("auth.login.createAccount")}
