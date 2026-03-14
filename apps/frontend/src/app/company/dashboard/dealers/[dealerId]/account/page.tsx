@@ -45,6 +45,7 @@ import { ImageUpload } from "@/common/components/ui/image-upload";
 import { toast } from "sonner";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { DateInput } from "@/common/components/ui/date-input";
+import { getNowLocalDateTime } from "@/common/lib/utils";
 import {
   useGetDealerAccount,
   useGetDealerAccountStatement,
@@ -64,7 +65,7 @@ export default function DealerAccountPage() {
   const [paymentData, setPaymentData] = useState({
     amount: 0,
     paymentMethod: "CASH",
-    paymentDate: new Date().toISOString(),
+    paymentDate: getNowLocalDateTime(),
     notes: "",
     reference: "",
     receiptImageUrl: "",
@@ -116,7 +117,7 @@ export default function DealerAccountPage() {
       setPaymentData({
         amount: 0,
         paymentMethod: "CASH",
-        paymentDate: new Date().toISOString(),
+        paymentDate: getNowLocalDateTime(),
         notes: "",
         reference: "",
         receiptImageUrl: "",

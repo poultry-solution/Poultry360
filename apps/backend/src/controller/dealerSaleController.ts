@@ -123,8 +123,6 @@ export const getDealerSales = async (
       page = 1,
       limit = 10,
       search,
-      startDate,
-      endDate,
       isPaid,
       customerId,
     } = req.query;
@@ -150,12 +148,6 @@ export const getDealerSales = async (
         { invoiceNumber: { contains: search as string, mode: "insensitive" } },
         { notes: { contains: search as string, mode: "insensitive" } },
       ];
-    }
-
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) where.date.gte = new Date(startDate as string);
-      if (endDate) where.date.lte = new Date(endDate as string);
     }
 
     if (isPaid === "true") {

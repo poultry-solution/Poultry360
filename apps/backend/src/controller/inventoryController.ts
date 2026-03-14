@@ -26,9 +26,11 @@ export const getAllInventoryItems = async (
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    // Build where clause
+    // Build where clause (only non-deleted, in-stock items in list)
     const where: any = {
       userId: currentUserId,
+      deletedAt: null,
+      currentStock: { gt: 0 },
     };
 
     if (search) {
@@ -417,7 +419,7 @@ export const updateInventoryItem = async (
   }
 };
 
-// ==================== DELETE INVENTORY ITEM ====================
+// ==================== DELETE INVENTORY ITEM (SOFT DELETE WHEN STOCK = 0) ====================
 export const deleteInventoryItem = async (
   req: Request,
   res: Response
@@ -426,40 +428,30 @@ export const deleteInventoryItem = async (
     const { id } = req.params;
     const currentUserId = req.userId;
 
-    // Check if item exists and belongs to user
     const existingItem = await prisma.inventoryItem.findFirst({
-      where: {
-        id,
-        userId: currentUserId,
-      },
-      include: {
-        _count: {
-          select: {
-            transactions: true,
-            usages: true,
-          },
-        },
-      },
+      where: { id, userId: currentUserId },
     });
 
     if (!existingItem) {
       return res.status(404).json({ message: "Inventory item not found" });
     }
 
-    // Check if item has any transactions or usages
-    if (
-      existingItem._count.transactions > 0 ||
-      existingItem._count.usages > 0
-    ) {
+    const currentStock = Number(existingItem.currentStock);
+    if (currentStock > 0) {
       return res.status(400).json({
-        message:
-          "Cannot delete inventory item with existing transactions or usages. Please remove all related data first.",
+        message: "Cannot delete inventory item with stock. Use or transfer stock first.",
       });
     }
 
-    // Delete inventory item
-    await prisma.inventoryItem.delete({
+    if (existingItem.deletedAt) {
+      return res.status(400).json({
+        message: "Inventory item is already deleted.",
+      });
+    }
+
+    await prisma.inventoryItem.update({
       where: { id },
+      data: { deletedAt: new Date() },
     });
 
     return res.json({
@@ -734,7 +726,76 @@ export const getInventoryUsages = async (
   }
 };
 
+// ==================== GET INVENTORY FOR EXPENSE (items with currentStock, for dropdown) ====================
+export const getInventoryForExpense = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const currentUserId = req.userId;
+    const { itemType } = req.query;
+
+    if (!currentUserId) {
+      return res.status(400).json({ message: "No user found" });
+    }
+
+    const where: any = {
+      userId: currentUserId,
+      deletedAt: null,
+      currentStock: { gt: 0 },
+    };
+    if (itemType === "FEED" || itemType === "MEDICINE" || itemType === "OTHER") {
+      where.itemType = itemType as InventoryItemType;
+    }
+
+    const items = await prisma.inventoryItem.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        currentStock: true,
+        unit: true,
+        itemType: true,
+      },
+      orderBy: { name: "asc" },
+    });
+
+    const itemIds = items.map((i) => i.id);
+    const purchaseAggregates =
+      itemIds.length > 0
+        ? await prisma.inventoryTransaction.groupBy({
+            by: ["itemId"],
+            where: { itemId: { in: itemIds }, type: "PURCHASE" },
+            _sum: { totalAmount: true, quantity: true },
+          })
+        : [];
+    const rateByItemId = new Map<string, number>();
+    for (const row of purchaseAggregates) {
+      const sumQty = Number(row._sum.quantity ?? 0);
+      const sumAmount = Number(row._sum.totalAmount ?? 0);
+      rateByItemId.set(row.itemId, sumQty > 0 ? sumAmount / sumQty : 0);
+    }
+
+    const data = items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      quantity: Number(item.currentStock),
+      currentStock: Number(item.currentStock),
+      unit: item.unit,
+      itemType: item.itemType,
+      rate: rateByItemId.get(item.id) ?? 0,
+    }));
+
+    return res.json({ success: true, data });
+  } catch (error) {
+    console.error("Get inventory for expense error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 // ==================== GET INVENTORY TABLE DATA ====================
+// Builds table from InventoryItem.currentStock (Feed, Chicks, Medicine, Other).
+// Eggs tab uses a different API and is unchanged.
 export const getInventoryTableData = async (
   req: Request,
   res: Response
@@ -749,29 +810,44 @@ export const getInventoryTableData = async (
 
     const where: any = {
       userId: currentUserId,
+      deletedAt: null,
     };
-
     if (itemType) {
       where.itemType = itemType as InventoryItemType;
     }
 
-    // Get all purchase transactions for this user's inventory items
-    const entityTransactions = await prisma.entityTransaction.findMany({
+    // Load inventory items (one row per item; quantity = currentStock)
+    const items = await prisma.inventoryItem.findMany({
+      where,
+      include: { category: { select: { name: true } } },
+    });
+
+    if (items.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const itemIds = items.map((i) => i.id);
+
+    // Effective rate per item: total cost / total quantity (handles paid + free; same for all categories)
+    const purchaseAggregates = await prisma.inventoryTransaction.groupBy({
+      by: ["itemId"],
+      where: { itemId: { in: itemIds }, type: "PURCHASE" },
+      _sum: { totalAmount: true, quantity: true },
+    });
+    const effectiveRateByItemId = new Map<string, number>();
+    for (const row of purchaseAggregates) {
+      const sumQty = Number(row._sum.quantity ?? 0);
+      const sumAmount = Number(row._sum.totalAmount ?? 0);
+      effectiveRateByItemId.set(row.itemId, sumQty > 0 ? sumAmount / sumQty : 0);
+    }
+
+    // Latest purchase per item (for supplier, dealerId, unit, purchaseCategory - display only)
+    const purchases = await prisma.entityTransaction.findMany({
       where: {
         type: "PURCHASE",
-        inventoryItem: where,
+        inventoryItemId: { in: itemIds },
       },
       include: {
-        inventoryItem: {
-          select: {
-            id: true,
-            name: true,
-            itemType: true,
-            unit: true,
-            minStock: true,
-            category: { select: { name: true } },
-          },
-        },
         dealer: { select: { id: true, name: true } },
         hatchery: { select: { id: true, name: true } },
         medicineSupplier: { select: { id: true, name: true } },
@@ -779,93 +855,69 @@ export const getInventoryTableData = async (
       orderBy: { date: "desc" },
     });
 
-    // Collect unique dealer IDs to batch-check connections
-    const dealerIds = [...new Set(
-      entityTransactions
-        .filter((et) => et.dealerId)
-        .map((et) => et.dealerId!)
-    )];
+    const latestByItem = new Map<string, (typeof purchases)[0]>();
+    for (const p of purchases) {
+      if (p.inventoryItemId && !latestByItem.has(p.inventoryItemId)) {
+        latestByItem.set(p.inventoryItemId, p);
+      }
+    }
 
-    const connections = dealerIds.length > 0
-      ? await prisma.dealerFarmer.findMany({
-          where: {
-            dealerId: { in: dealerIds },
-            farmerId: currentUserId,
-            archivedByFarmer: false,
-          },
-          select: { dealerId: true },
-        })
-      : [];
+    const dealerIds = [...new Set(
+      purchases.filter((p) => p.dealerId).map((p) => p.dealerId!)
+    )];
+    const connections =
+      dealerIds.length > 0
+        ? await prisma.dealerFarmer.findMany({
+            where: {
+              dealerId: { in: dealerIds },
+              farmerId: currentUserId,
+              archivedByFarmer: false,
+            },
+            select: { dealerId: true },
+          })
+        : [];
     const connectedDealerIds = new Set(connections.map((c) => c.dealerId));
 
-    // Group transactions by (item name + unit price + supplier) — merge same, separate different prices
-    const groupMap = new Map<string, {
-      id: string;
-      name: string;
-      itemType: string;
-      quantity: number;
-      unit: string;
-      rate: number;
-      supplier: string;
-      minStock: any;
-      category: string;
-      lastPurchaseDate: Date;
-      dealerId: string | null;
-      entityType: string | null;
-      purchaseCategory: string | null;
-      isConnectedDealer: boolean;
-    }>();
+    const tableData = items.map((item) => {
+      const latest = latestByItem.get(item.id);
+      const rate = effectiveRateByItemId.get(item.id) ?? 0;
+      let supplier = "";
+      if (latest) {
+        if (latest.dealer) supplier = latest.dealer.name;
+        else if (latest.hatchery) supplier = latest.hatchery.name;
+        else if (latest.medicineSupplier) supplier = latest.medicineSupplier.name;
+      }
+      const quantity = Number(item.currentStock);
+      const unit = latest?.unit || item.unit;
+      const minStockNum = item.minStock != null ? Number(item.minStock) : null;
+      const status =
+        quantity === 0
+          ? "Out of Stock"
+          : minStockNum != null && quantity <= minStockNum
+            ? "Low Stock"
+            : "In Stock";
 
-    entityTransactions
-      .filter((et) => et.inventoryItem)
-      .forEach((et) => {
-        const item = et.inventoryItem!;
-        const paidQty = Number(et.quantity) || 0;
-        const freeQty = Number(et.freeQuantity) || 0;
-        const quantity = paidQty + freeQty;
-        const unitPrice = et.unitPrice ? Number(et.unitPrice) : (paidQty > 0 ? Number(et.amount) / paidQty : 0);
-
-        let supplierName = "Unknown";
-        if (et.dealer) supplierName = et.dealer.name;
-        else if (et.hatchery) supplierName = et.hatchery.name;
-        else if (et.medicineSupplier) supplierName = et.medicineSupplier.name;
-
-        const unit = et.unit || item.unit;
-        const groupKey = `${item.name}||${unitPrice}||${supplierName}||${unit}`;
-
-        const existing = groupMap.get(groupKey);
-        if (existing) {
-          existing.quantity += quantity;
-          // Keep the most recent date
-          if (et.date > existing.lastPurchaseDate) {
-            existing.lastPurchaseDate = et.date;
-            existing.id = et.id;
-          }
-        } else {
-          groupMap.set(groupKey, {
-            id: et.id,
-            name: item.name,
-            itemType: item.itemType,
-            quantity,
-            unit,
-            rate: unitPrice,
-            supplier: supplierName,
-            minStock: item.minStock,
-            category: item.category.name,
-            lastPurchaseDate: et.date,
-            dealerId: et.dealerId || null,
-            entityType: et.entityType || (et.dealerId ? "DEALER" : et.hatcheryId ? "HATCHERY" : et.medicineSupplierId ? "MEDICINE_SUPPLIER" : null),
-            purchaseCategory: et.purchaseCategory || null,
-            isConnectedDealer: et.dealerId ? connectedDealerIds.has(et.dealerId) : false,
-          });
-        }
-      });
-
-    const tableData = Array.from(groupMap.values()).map((row) => ({
-      ...row,
-      value: row.quantity * row.rate,
-      status: row.quantity === 0 ? "Out of Stock" : "In Stock",
-    }));
+      return {
+        id: item.id,
+        name: item.name,
+        itemType: item.itemType,
+        quantity,
+        unit,
+        rate,
+        value: quantity * rate,
+        supplier: supplier || undefined,
+        status,
+        minStock: item.minStock,
+        category: item.category.name,
+        lastPurchaseDate: latest?.date ?? null,
+        dealerId: latest?.dealerId ?? null,
+        entityType:
+          latest?.entityType ??
+          (latest?.dealerId ? "DEALER" : latest?.hatcheryId ? "HATCHERY" : latest?.medicineSupplierId ? "MEDICINE_SUPPLIER" : null),
+        purchaseCategory: latest?.purchaseCategory ?? null,
+        isConnectedDealer: latest?.dealerId ? connectedDealerIds.has(latest.dealerId) : false,
+      };
+    });
 
     return res.json({
       success: true,
@@ -885,14 +937,17 @@ export const getInventoryStatistics = async (
   try {
     const currentUserId = req.userId;
 
-    const [totalItems, lowStockItems, itemsByType, totalValue] =
+    const listWhere = {
+      userId: currentUserId,
+      deletedAt: null,
+      currentStock: { gt: 0 },
+    };
+    const [totalItems, lowStockItems, itemsByType, itemsForValue] =
       await Promise.all([
-        prisma.inventoryItem.count({
-          where: { userId: currentUserId },
-        }),
+        prisma.inventoryItem.count({ where: listWhere }),
         prisma.inventoryItem.count({
           where: {
-            userId: currentUserId,
+            ...listWhere,
             AND: [
               { minStock: { not: null } },
               { currentStock: { lte: prisma.inventoryItem.fields.minStock } },
@@ -901,32 +956,37 @@ export const getInventoryStatistics = async (
         }),
         prisma.inventoryItem.groupBy({
           by: ["itemType"],
-          where: { userId: currentUserId },
+          where: listWhere,
           _count: { id: true },
           _sum: { currentStock: true },
         }),
-        // Calculate total value based on average unit price from transactions
         prisma.inventoryItem.findMany({
-          where: { userId: currentUserId },
-          include: {
-            transactions: {
-              where: { type: "PURCHASE" },
-              orderBy: { date: "desc" },
-              take: 1, // Get latest purchase price
-            },
-          },
+          where: listWhere,
+          select: { id: true, currentStock: true },
         }),
       ]);
 
-    // Calculate total inventory value
-    const totalInventoryValue = totalValue.reduce((sum, item) => {
-      const latestTransaction = item.transactions[0];
-      if (latestTransaction) {
-        const unitPrice = Number(latestTransaction.unitPrice);
-        const currentStock = Number(item.currentStock);
-        return sum + unitPrice * currentStock;
-      }
-      return sum;
+    const itemIds = itemsForValue.map((i) => i.id);
+    const purchaseAggregates =
+      itemIds.length > 0
+        ? await prisma.inventoryTransaction.groupBy({
+            by: ["itemId"],
+            where: { itemId: { in: itemIds }, type: "PURCHASE" },
+            _sum: { totalAmount: true, quantity: true },
+          })
+        : [];
+
+    const effectiveRateByItemId = new Map<string, number>();
+    for (const row of purchaseAggregates) {
+      const sumQty = Number(row._sum.quantity ?? 0);
+      const sumAmount = Number(row._sum.totalAmount ?? 0);
+      effectiveRateByItemId.set(row.itemId, sumQty > 0 ? sumAmount / sumQty : 0);
+    }
+
+    const totalInventoryValue = itemsForValue.reduce((sum, item) => {
+      const rate = effectiveRateByItemId.get(item.id) ?? 0;
+      const currentStock = Number(item.currentStock);
+      return sum + rate * currentStock;
     }, 0);
 
     return res.json({
@@ -935,7 +995,7 @@ export const getInventoryStatistics = async (
         totalItems,
         lowStockItems,
         totalValue: totalInventoryValue,
-        totalStock: totalValue.reduce(
+        totalStock: itemsForValue.reduce(
           (sum, item) => sum + Number(item.currentStock),
           0
         ),

@@ -1,11 +1,44 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/common/components/ui/button";
 import { Mail, Phone, MapPin, Send } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
+import { useCreateLandingContact } from "@/fetchers/public/contactQueries";
+import { toast } from "sonner";
 
 export default function Contact() {
   const { t } = useI18n();
+  const createContact = useCreateLandingContact();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [farmType, setFarmType] = useState("");
+  const [message, setMessage] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await createContact.mutateAsync({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        phone: phone.trim() || undefined,
+        farmType: farmType.trim() || undefined,
+        message: message.trim(),
+      });
+      toast.success(t("landing.contact.submitSuccess"));
+      setFirstName("");
+      setLastName("");
+      setEmail("");
+      setPhone("");
+      setFarmType("");
+      setMessage("");
+    } catch {
+      toast.error(t("landing.contact.submitError"));
+    }
+  };
 
   return (
     <section id="contact" className="bg-gray-50 py-16 lg:py-24">
@@ -23,7 +56,7 @@ export default function Contact() {
           {/* Contact Form */}
           <div className="bg-white rounded-2xl p-8 shadow-lg">
             <h3 className="text-2xl font-bold text-gray-900 mb-6">{t("landing.contact.sendMessage")}</h3>
-            <form className="space-y-6">
+            <form className="space-y-6" onSubmit={handleSubmit}>
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
@@ -33,6 +66,8 @@ export default function Contact() {
                     type="text"
                     id="firstName"
                     name="firstName"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder={t("landing.contact.firstNamePlaceholder")}
                     required
@@ -46,6 +81,8 @@ export default function Contact() {
                     type="text"
                     id="lastName"
                     name="lastName"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder={t("landing.contact.lastNamePlaceholder")}
                     required
@@ -61,6 +98,8 @@ export default function Contact() {
                   type="email"
                   id="email"
                   name="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                   placeholder={t("landing.contact.emailPlaceholder")}
                   required
@@ -75,6 +114,8 @@ export default function Contact() {
                   type="tel"
                   id="phone"
                   name="phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4CAF50] focus:border-transparent"
                   placeholder={t("landing.contact.phonePlaceholder")}
                 />
@@ -87,6 +128,8 @@ export default function Contact() {
                 <select
                   id="farmType"
                   name="farmType"
+                  value={farmType}
+                  onChange={(e) => setFarmType(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
                   <option value="">{t("landing.contact.farmTypePlaceholder")}</option>
@@ -107,15 +150,21 @@ export default function Contact() {
                   id="message"
                   name="message"
                   rows={4}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
                   placeholder={t("landing.contact.messagePlaceholder")}
                   required
-                ></textarea>
+                />
               </div>
 
-              <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 rounded-lg flex items-center justify-center">
+              <Button
+                type="submit"
+                disabled={createContact.isPending}
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 rounded-lg flex items-center justify-center"
+              >
                 <Send className="w-5 h-5 mr-2" />
-                {t("landing.contact.sendBtn")}
+                {createContact.isPending ? "..." : t("landing.contact.sendBtn")}
               </Button>
             </form>
           </div>
@@ -136,8 +185,8 @@ export default function Contact() {
                 </div>
                 <div>
                   <h4 className="font-semibold text-gray-900">{t("landing.contact.emailLabel")}</h4>
-                  <p className="text-gray-600">info@poultry360.com</p>
-                  <p className="text-gray-600">support@poultry360.com</p>
+                  <p className="text-gray-600">reevasnp123@gmail.com</p>
+
                 </div>
               </div>
 
@@ -147,8 +196,8 @@ export default function Contact() {
                 </div>
                 <div>
                   <h4 className="font-semibold text-gray-900">{t("landing.contact.phoneLabel")}</h4>
-                  <p className="text-gray-600">+91 98765 43210</p>
-                  <p className="text-gray-600">+91 98765 43211</p>
+                  <p className="text-gray-600">+977 9809781908</p>
+                  <p className="text-gray-600">+977 9857831027</p>
                 </div>
               </div>
 
@@ -159,8 +208,8 @@ export default function Contact() {
                 <div>
                   <h4 className="font-semibold text-gray-900">{t("landing.contact.officeLabel")}</h4>
                   <p className="text-gray-600">Poultry360 Solutions Pvt. Ltd.</p>
-                  <p className="text-gray-600">123 Farm Tech Park, Sector 15</p>
-                  <p className="text-gray-600">Gurgaon, Haryana 122001</p>
+                  <p className="text-gray-600">Province 5, Lumbini </p>
+                  <p className="text-gray-600">Lamahi, Dang</p>
                 </div>
               </div>
             </div>
@@ -174,7 +223,7 @@ export default function Contact() {
                 </div>
                 <div className="flex justify-between">
                   <span>{t("landing.contact.saturday")}</span>
-                  <span>9:00 AM - 2:00 PM</span>
+                  <span>9:00 AM - 12:00 PM</span>
                 </div>
                 <div className="flex justify-between">
                   <span>{t("landing.contact.sunday")}</span>

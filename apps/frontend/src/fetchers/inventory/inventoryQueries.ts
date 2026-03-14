@@ -65,9 +65,22 @@ export const useGetInventoryTableData = (itemType?: InventoryItemType) => {
     queryFn: async () => {
       const params = itemType ? { itemType } : {};
       const response = await axiosInstance.get("/inventory/table", { params });
-      console.log("response.data in useGetInventoryTableData", response.data);
       return response.data;
     },
+  });
+};
+
+/** Items with id (InventoryItem.id), currentStock, rate – for expense dropdown (Feed/Medicine/Other). */
+export const useGetInventoryForExpense = (itemType: "FEED" | "MEDICINE" | "OTHER" | null) => {
+  return useQuery({
+    queryKey: [...inventoryKeys.all, "for-expense", itemType],
+    queryFn: async () => {
+      const response = await axiosInstance.get("/inventory/for-expense", {
+        params: itemType ? { itemType } : {},
+      });
+      return response.data;
+    },
+    enabled: !!itemType,
   });
 };
 
@@ -199,7 +212,7 @@ export const useUpdateInventoryItem = () => {
   });
 };
 
-// Delete inventory item
+// Delete inventory item (soft delete when stock = 0)
 export const useDeleteInventoryItem = () => {
   const queryClient = useQueryClient();
 
@@ -209,9 +222,7 @@ export const useDeleteInventoryItem = () => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: inventoryKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: inventoryKeys.statistics() });
-      queryClient.invalidateQueries({ queryKey: inventoryKeys.lowStock() });
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
     },
   });
 };

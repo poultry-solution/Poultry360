@@ -464,21 +464,18 @@ export const createExpense = async (
         include: { category: true },
       });
 
-      // Fetch all latest transactions in one query
-      const latestTransactions = await prisma.inventoryTransaction.findMany({
-        where: {
-          itemId: { in: itemIds },
-          type: "PURCHASE",
-        },
-        orderBy: { date: "desc" },
-        distinct: ["itemId"],
+      // Effective rate per item (total cost / total qty from purchases; handles paid + free)
+      const purchaseAggregates = await prisma.inventoryTransaction.groupBy({
+        by: ["itemId"],
+        where: { itemId: { in: itemIds }, type: "PURCHASE" },
+        _sum: { totalAmount: true, quantity: true },
       });
-
-      // Create a map for quick lookup
-      const transactionMap = new Map();
-      latestTransactions.forEach((tx) => {
-        transactionMap.set(tx.itemId, tx);
-      });
+      const effectiveRateByItemId = new Map<string, number>();
+      for (const row of purchaseAggregates) {
+        const sumQty = Number(row._sum.quantity ?? 0);
+        const sumAmount = Number(row._sum.totalAmount ?? 0);
+        effectiveRateByItemId.set(row.itemId, sumQty > 0 ? sumAmount / sumQty : 0);
+      }
 
       // Prepare inventory items data
       inventoryItemsData = inventoryItems.map((item: any) => {
@@ -494,10 +491,7 @@ export const createExpense = async (
           );
         }
 
-        const latestTransaction = transactionMap.get(item.itemId);
-        const unitPrice = latestTransaction
-          ? Number(latestTransaction.unitPrice)
-          : 0;
+        const unitPrice = effectiveRateByItemId.get(item.itemId) ?? 0;
         const totalAmount = unitPrice * item.quantity;
 
         return {

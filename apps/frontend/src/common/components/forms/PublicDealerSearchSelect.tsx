@@ -122,15 +122,14 @@ export function PublicDealerSearchSelect({
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
-      
+
       <div className="relative">
         <button
           type="button"
           onClick={() => !disabled && setIsOpen(!isOpen)}
           disabled={disabled}
-          className={`relative flex items-center w-full h-10 px-3 py-2 text-sm bg-white border rounded-md text-left ${
-            disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-gray-400'
-          } ${isOpen ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-300'}`}
+          className={`relative flex items-center w-full h-10 px-3 py-2 text-sm bg-white border rounded-md text-left ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-gray-400'
+            } ${isOpen ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-300'}`}
         >
           {!isOpen && selectedDealer && (
             <Store className="mr-2 h-4 w-4 text-gray-500" />
@@ -151,14 +150,13 @@ export function PublicDealerSearchSelect({
                 <X className="h-4 w-4 text-gray-500" />
               </div>
             )}
-            <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${
-              isOpen ? 'transform rotate-180' : ''
-            }`} />
+            <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${isOpen ? 'transform rotate-180' : ''
+              }`} />
           </div>
         </button>
 
         {isOpen && (
-          <div 
+          <div
             className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
@@ -183,7 +181,6 @@ export function PublicDealerSearchSelect({
                       setIsOpen(false);
                     }
                   }}
-                  placeholder="Type to search..."
                   placeholder={t("common.typeToSearch")}
                   className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
@@ -222,9 +219,8 @@ export function PublicDealerSearchSelect({
                         // Prevent focus loss and form events
                         e.preventDefault();
                       }}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded cursor-pointer hover:bg-gray-100 ${
-                        selectedDealer?.id === dealer.id ? 'bg-blue-50' : ''
-                      }`}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded cursor-pointer hover:bg-gray-100 ${selectedDealer?.id === dealer.id ? 'bg-blue-50' : ''
+                        }`}
                     >
                       <Store className="h-4 w-4 text-gray-400 shrink-0" />
                       <div className="flex-1 min-w-0">

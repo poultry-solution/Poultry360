@@ -23,18 +23,24 @@ export default function Navbar() {
   return (
     <nav className="bg-white border-b sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 lg:px-6 h-16 flex items-center justify-between">
-        {/* Logo */}
-        <Link href="/" className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-lg">P</span>
-          </div>
-          <span className="font-bold text-foreground">Poultry360</span>
+        {/* Logo - wordmark only for clear readability in navbar */}
+        <Link
+          href="/"
+          className="text-4xl   shrink-0 font-[family-name:var(--font-caveat)]"
+        >
+          Poultry360
         </Link>
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center space-x-8">
           <Link href="#features" className="text-muted-foreground hover:text-foreground transition-colors">
             {t("landing.navbar.features")}
+          </Link>
+          <Link href="/marketplace" className="text-muted-foreground hover:text-foreground transition-colors">
+            {t("landing.navbar.marketplace")}
+          </Link>
+          <Link href="/tutorials" className="text-muted-foreground hover:text-foreground transition-colors">
+            {t("landing.navbar.tutorials")}
           </Link>
           <Link href="#reviews" className="text-muted-foreground hover:text-foreground transition-colors">
             {t("landing.navbar.reviews")}
@@ -114,6 +120,20 @@ export default function Navbar() {
               className="block py-2 text-muted-foreground hover:text-foreground transition-colors font-medium"
             >
               {t("landing.navbar.features")}
+            </Link>
+            <Link
+              href="/marketplace"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-2 text-muted-foreground hover:text-foreground transition-colors font-medium"
+            >
+              {t("landing.navbar.marketplace")}
+            </Link>
+            <Link
+              href="/tutorials"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-2 text-muted-foreground hover:text-foreground transition-colors font-medium"
+            >
+              {t("landing.navbar.tutorials")}
             </Link>
             <Link
               href="#reviews"

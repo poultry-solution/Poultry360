@@ -7,3 +7,5 @@ import type { CalendarType } from "@/common/lib/nepali-date";
  */
 export const EFFECTIVE_CALENDAR_TYPE: CalendarType = "BS";
 export const CALENDAR_TOGGLE_VISIBLE = false;
+
+

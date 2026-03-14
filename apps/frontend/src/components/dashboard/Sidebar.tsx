@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/common/lib/utils";
 import {
@@ -19,6 +20,7 @@ import {
   FileText,
   CreditCard,
   Lightbulb,
+  Tag,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { useAuth } from "@/common/store/store";
@@ -40,6 +42,8 @@ export const farmerNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.supplierLedger", href: "/farmer/dashboard/supplier-ledger", icon: Truck },
   { nameKey: "sidebar.nav.salesLedger", href: "/farmer/dashboard/sales-ledger", icon: Receipt },
   { nameKey: "sidebar.nav.inventory", href: "/farmer/dashboard/inventory", icon: Package },
+  { nameKey: "sidebar.nav.listForSale", href: "/farmer/dashboard/list-for-sale", icon: Tag },
+  { nameKey: "sidebar.nav.staffManagement", href: "/farmer/dashboard/staff", icon: Users },
   {
     nameKey: "sidebar.nav.chatWithDoctor",
     href: "/farmer/dashboard/chat-doctor",
@@ -59,6 +63,7 @@ export const dealerNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.inventory", href: "/dealer/dashboard/inventory", icon: Package },
   { nameKey: "sidebar.nav.customers", href: "/dealer/dashboard/customers", icon: Users },
   { nameKey: "sidebar.nav.sales", href: "/dealer/dashboard/sales", icon: Receipt },
+  { nameKey: "sidebar.nav.staffManagement", href: "/dealer/dashboard/staff", icon: Users },
 ];
 
 export const companyNavigation: NavigationItem[] = [
@@ -75,15 +80,7 @@ export const companyNavigation: NavigationItem[] = [
 
 const adminNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.overview", href: "/admin/dashboard", icon: BarChart3 },
-  { nameKey: "sidebar.nav.users", href: "/admin/dashboard/users", icon: Users },
-  { nameKey: "sidebar.nav.farms", href: "/admin/dashboard/farms", icon: Building2 },
-  { nameKey: "sidebar.nav.batches", href: "/admin/dashboard/batches", icon: Package },
-  { nameKey: "sidebar.nav.financial", href: "/admin/dashboard/financial", icon: DollarSign },
-  { nameKey: "sidebar.nav.suppliers", href: "/admin/dashboard/suppliers", icon: Truck },
-  { nameKey: "sidebar.nav.performance", href: "/admin/dashboard/performance", icon: TrendingUp },
-  { nameKey: "sidebar.nav.reports", href: "/admin/dashboard/reports", icon: FileText },
-  { nameKey: "sidebar.nav.companies", href: "/admin/dashboard/company", icon: Building2 },
-  { nameKey: "sidebar.nav.dealers", href: "/admin/dashboard/dealers", icon: Users },
+
 ];
 
 interface SidebarProps {
@@ -112,34 +109,34 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
   const getRoleInfo = () => {
     if (role === "DOCTOR") {
       return {
-        title: t("sidebar.roles.doctor.title"),
+  
         subtitle: t("sidebar.roles.doctor.subtitle"),
         userTitle: t("sidebar.roles.doctor.userTitle")
       };
     }
     if (role === "SUPER_ADMIN") {
       return {
-        title: t("sidebar.roles.admin.title"),
+
         subtitle: t("sidebar.roles.admin.subtitle"),
         userTitle: t("sidebar.roles.admin.userTitle")
       };
     }
     if (role === "DEALER") {
       return {
-        title: t("sidebar.roles.dealer.title"),
+   
         subtitle: t("sidebar.roles.dealer.subtitle"),
         userTitle: t("sidebar.roles.dealer.userTitle")
       };
     }
     if (role === "COMPANY") {
       return {
-        title: t("sidebar.roles.company.title"),
+        
         subtitle: t("sidebar.roles.company.subtitle"),
         userTitle: t("sidebar.roles.company.userTitle")
       };
     }
     return {
-      title: t("sidebar.roles.farmer.title"),
+ 
       subtitle: t("sidebar.roles.farmer.subtitle"),
       userTitle: t("sidebar.roles.farmer.userTitle")
     };
@@ -162,12 +159,10 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
       {/* Logo and Company Name */}
       <div className="flex h-16 items-center justify-between border-b px-6 min-w-0">
         <div className="flex items-center space-x-3 min-w-0">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
-            <span className="text-primary-foreground font-bold text-lg">P</span>
-          </div>
+         
           <div className="min-w-0">
-            <h1 className="font-bold text-foreground">{roleInfo.title}</h1>
-            <p className="text-xs text-muted-foreground">{roleInfo.subtitle}</p>
+          <h1 className=" text-foreground font-[family-name:var(--font-caveat)] text-4xl">Poultry360</h1>       
+               <p className="text-xs text-muted-foreground">{roleInfo.subtitle}</p>
           </div>
         </div>
 

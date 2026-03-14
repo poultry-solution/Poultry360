@@ -19,23 +19,23 @@ interface WeightFormState {
 interface WeightModalProps {
   isOpen: boolean;
   onClose: () => void;
-  
+
   // Context props (optional)
   prefilledBatchId?: string;
   prefilledFarmId?: string;
-  
+
   // Selection data (required only if no prefilled context)
   farms?: any[];
   activeBatches?: any[];
-  
+
   // Form state
   weightForm: WeightFormState;
   weightErrors: Record<string, string>;
-  
+
   // Handlers
   onSubmit: (e: React.FormEvent) => Promise<void>;
-  onFieldUpdate: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  
+  onFieldUpdate: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
+
   // Loading
   isPending: boolean;
 }

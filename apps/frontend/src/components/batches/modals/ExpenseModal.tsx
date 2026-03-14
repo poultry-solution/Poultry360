@@ -4,10 +4,18 @@ import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
+import { useI18n } from "@/i18n/useI18n";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { DateInput } from "@/common/components/ui/date-input";
 
-type ExpenseCategory = "Feed" | "Medicine" | "Hatchery" | "Other";
+type ExpenseCategory = "Feed" | "Medicine" | "Other";
 
 interface ExpenseFormState {
   category: ExpenseCategory;
@@ -17,16 +25,16 @@ interface ExpenseFormState {
   feedQuantity: string;
   feedRate: string;
   selectedFeedId: string;
-  hatcheryName: string;
-  hatcheryRate: string;
-  hatcheryQuantity: string;
   medicineName: string;
   medicineRate: string;
   medicineQuantity: string;
   selectedMedicineId: string;
+  selectedOtherId: string;
   otherName: string;
   otherRate: string;
   otherQuantity: string;
+  extraName?: string;
+  extraAmount?: string;
   farmId?: string;
   batchId?: string;
 }
@@ -52,6 +60,7 @@ interface ExpenseModalProps {
   expenseCategories: any[];
   feedInventory: any[];
   medicineInventory: any[];
+  otherInventory?: any[];
   inventoryItems: any[];
   
   // Handlers
@@ -59,6 +68,7 @@ interface ExpenseModalProps {
   onFieldUpdate: (e: React.ChangeEvent<any>) => void;
   onFeedSelection: (id: string) => void;
   onMedicineSelection: (id: string) => void;
+  onOtherSelection?: (id: string) => void;
   
   // Loading
   isPending: boolean;
@@ -77,13 +87,16 @@ export function ExpenseModal({
   expenseCategories,
   feedInventory,
   medicineInventory,
+  otherInventory = [],
   inventoryItems,
   onSubmit,
   onFieldUpdate,
   onFeedSelection,
   onMedicineSelection,
+  onOtherSelection,
   isPending,
 }: ExpenseModalProps) {
+  const { t } = useI18n();
   const showBatchSelector = !prefilledBatchId;
   const showFarmSelector = !prefilledFarmId;
 
@@ -91,134 +104,161 @@ export function ExpenseModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={editingExpenseId ? "Edit Expense" : "Add Expense"}
+      title={editingExpenseId ? t("farmer.dashboard.modals.expense.editTitle") : t("farmer.dashboard.modals.expense.title")}
     >
       <form onSubmit={onSubmit}>
-        <ModalContent>
-          <div className="grid md:grid-cols-2 gap-4">
-            {/* Farm Selector - only show if no prefilled farm */}
-            {showFarmSelector && (
-              <div>
-                <Label htmlFor="farmId">Farm</Label>
-                <select
-                  id="farmId"
-                  name="farmId"
-                  value={expenseForm.farmId || ""}
-                  onChange={onFieldUpdate}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                >
-                  <option value="">Select farm</option>
-                  {farms?.map((farm: any) => (
-                    <option key={farm.id} value={farm.id}>
-                      {farm.name}
-                    </option>
-                  ))}
-                </select>
-                {expenseErrors.farmId && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {expenseErrors.farmId}
-                  </p>
+        <ModalContent className="space-y-6 pb-1">
+          {/* Context: Farm & Batch */}
+          {(showFarmSelector || showBatchSelector) && (
+            <div className="space-y-4">
+              <p className="text-sm font-medium text-muted-foreground">{t("farmer.dashboard.modals.expense.context")}</p>
+              <div className="flex flex-col gap-5">
+                {showFarmSelector && (
+                  <div className="space-y-2">
+                    <Label htmlFor="farmId" className="text-sm font-medium text-foreground">
+                      {t("farmer.dashboard.modals.expense.farm")}
+                    </Label>
+                    <Select
+                      value={expenseForm.farmId || ""}
+                      onValueChange={(v) =>
+                        onFieldUpdate({ target: { name: "farmId", value: v } } as React.ChangeEvent<HTMLInputElement>)
+                      }
+                    >
+                      <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
+                        <SelectValue placeholder={t("farmer.dashboard.modals.expense.selectFarm")} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white">
+                        {farms?.map((farm: any) => (
+                          <SelectItem key={farm.id} value={farm.id}>
+                            {farm.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {expenseErrors.farmId && (
+                      <p className="text-xs text-destructive mt-1.5">{expenseErrors.farmId}</p>
+                    )}
+                  </div>
+                )}
+                {showBatchSelector && (
+                  <div className="space-y-2">
+                    <Label htmlFor="batchId" className="text-sm font-medium text-foreground">
+                      {t("farmer.dashboard.modals.expense.batch")}
+                    </Label>
+                    <Select
+                      value={expenseForm.batchId || ""}
+                      onValueChange={(v) =>
+                        onFieldUpdate({ target: { name: "batchId", value: v } } as React.ChangeEvent<HTMLInputElement>)
+                      }
+                    >
+                      <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
+                        <SelectValue placeholder={t("farmer.dashboard.modals.expense.selectBatch")} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white">
+                        {activeBatches?.map((batch: any) => (
+                          <SelectItem key={batch.id} value={batch.id}>
+                            {batch.batchNumber ?? batch.number} - {batch.farm?.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {expenseErrors.batchId && (
+                      <p className="text-xs text-destructive mt-1.5">{expenseErrors.batchId}</p>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Batch Selector - only show if no prefilled batch */}
-            {showBatchSelector && (
-              <div>
-                <Label htmlFor="batchId">Batch</Label>
-                <select
-                  id="batchId"
-                  name="batchId"
-                  value={expenseForm.batchId || ""}
-                  onChange={onFieldUpdate}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+          {/* Category & Date */}
+          <div className="space-y-4">
+            <p className="text-sm font-medium text-muted-foreground">{t("farmer.dashboard.modals.expense.categoryAndDate")}</p>
+            <div className="flex flex-col gap-5">
+              <div className="space-y-2">
+                <Label htmlFor="category" className="text-sm font-medium text-foreground">
+                  {t("farmer.dashboard.modals.expense.category")}
+                </Label>
+                <Select
+                  value={expenseForm.category}
+                  onValueChange={(v) =>
+                    onFieldUpdate({
+                      target: { name: "category", value: v as ExpenseCategory },
+                    } as React.ChangeEvent<HTMLInputElement>)
+                  }
                 >
-                  <option value="">Select batch</option>
-                  {activeBatches?.map((batch: any) => (
-                    <option key={batch.id} value={batch.id}>
-                      {batch.number} - {batch.farm?.name}
-                    </option>
-                  ))}
-                </select>
-                {expenseErrors.batchId && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {expenseErrors.batchId}
-                  </p>
+                  <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
+                    <SelectValue placeholder={t("farmer.dashboard.modals.expense.selectCategory")} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="Feed">{t("farmer.dashboard.modals.expense.feedFromInventory")}</SelectItem>
+                    <SelectItem value="Medicine">{t("farmer.dashboard.modals.expense.medicineFromInventory")}</SelectItem>
+                    <SelectItem value="Other">{t("farmer.dashboard.modals.expense.other")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <DateInput
+                  label={t("farmer.dashboard.modals.expense.date")}
+                  value={expenseForm.date}
+                  onChange={(value) => onFieldUpdate({ target: { name: "date", value } } as React.ChangeEvent<HTMLInputElement>)}
+                />
+                {expenseErrors.date && (
+                  <p className="text-xs text-destructive mt-1.5">{expenseErrors.date}</p>
                 )}
               </div>
-            )}
+            </div>
+          </div>
 
-            <div>
-              <Label htmlFor="category">Category</Label>
-              <select
-                id="category"
-                name="category"
-                value={expenseForm.category}
-                onChange={onFieldUpdate}
-                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-              >
-                <option value="Feed">Feed</option>
-                <option value="Medicine">Medicine</option>
-                <option value="Hatchery">Hatchery</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div>
-              <DateInput
-                label="Date"
-                value={expenseForm.date}
-                onChange={(value) => onFieldUpdate({ target: { name: 'date', value } } as React.ChangeEvent<HTMLInputElement>)}
-              />
-              {expenseErrors.date && (
-                <p className="text-xs text-red-600 mt-1">
-                  {expenseErrors.date}
-                </p>
-              )}
-            </div>
-            {expenseForm.category === "Feed" && (
-              <div className="md:col-span-2 grid md:grid-cols-3 gap-4 border rounded-md p-4">
-                <div>
-                  <Label htmlFor="selectedFeedId">Feed Brand</Label>
-                  <select
-                    id="selectedFeedId"
-                    name="selectedFeedId"
-                    value={expenseForm.selectedFeedId}
-                    onChange={(e) => onFeedSelection(e.target.value)}
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+          {/* Category-specific details */}
+          {expenseForm.category === "Feed" && (
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
+              <p className="text-sm font-medium text-foreground">{t("farmer.dashboard.modals.expense.feedDetails")}</p>
+              <div className="flex flex-col gap-5">
+                <div className="space-y-2">
+                  <Label htmlFor="selectedFeedId" className="text-sm font-medium text-foreground">
+                    {t("farmer.dashboard.modals.expense.feedFromInventory")}
+                  </Label>
+                  <Select
+                    value={expenseForm.selectedFeedId || ""}
+                    onValueChange={onFeedSelection}
                   >
-                    <option value="">Select feed from inventory</option>
-                    {inventoryItems
-                      .filter((item: any) => item.itemType === "FEED")
-                      .map((feed: any) => (
-                        <option key={feed.id} value={feed.id}>
-                          {feed.name} ({feed.quantity} {feed.unit} available)
-                          - ₹{feed.rate}/unit
-                        </option>
+                    <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
+                      <SelectValue placeholder={t("farmer.dashboard.modals.expense.selectFeedFromInventory")} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      {(feedInventory ?? []).map((feed: any) => (
+                        <SelectItem key={feed.id} value={feed.id}>
+                          {feed.name} ({(feed.quantity ?? feed.currentStock ?? 0)} {feed.unit} available)
+                          {feed.rate != null ? ` - ₹${feed.rate}/unit` : ""}
+                        </SelectItem>
                       ))}
-                  </select>
+                    </SelectContent>
+                  </Select>
                   {expenseErrors.feedBrand && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.feedBrand}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.feedBrand}</p>
                   )}
                 </div>
-                <div>
-                  <Label htmlFor="feedQuantity">Quantity</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="feedQuantity" className="text-sm font-medium text-foreground">
+                    {t("farmer.dashboard.modals.expense.quantity")}
+                  </Label>
                   <Input
                     id="feedQuantity"
                     name="feedQuantity"
                     type="number"
                     value={expenseForm.feedQuantity}
                     onChange={onFieldUpdate}
+                    className="rounded-lg"
                   />
                   {expenseErrors.feedQuantity && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.feedQuantity}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.feedQuantity}</p>
                   )}
                 </div>
-                <div>
-                  <Label htmlFor="feedRate">Rate per piece</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="feedRate" className="text-sm font-medium text-foreground">
+                    {t("farmer.dashboard.modals.expense.ratePerUnit")}
+                  </Label>
                   <Input
                     id="feedRate"
                     name="feedRate"
@@ -226,118 +266,71 @@ export function ExpenseModal({
                     value={expenseForm.feedRate}
                     onChange={onFieldUpdate}
                     readOnly={!!expenseForm.selectedFeedId}
-                    className={expenseForm.selectedFeedId ? "bg-gray-50" : ""}
+                    className={`rounded-lg ${expenseForm.selectedFeedId ? "bg-muted/50 cursor-default" : ""}`}
                     placeholder={
-                      expenseForm.selectedFeedId
-                        ? "Auto-filled from inventory"
-                        : "Enter rate"
+                      expenseForm.selectedFeedId ? t("farmer.dashboard.modals.expense.autoFilledFromInventory") : t("farmer.dashboard.modals.expense.enterRate")
                     }
                   />
                   {expenseErrors.feedRate && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.feedRate}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.feedRate}</p>
                   )}
                   {expenseForm.selectedFeedId && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Rate auto-filled from inventory
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1.5">
+                      {t("farmer.dashboard.modals.expense.rateAutoFilledFromInventory")}
                     </p>
                   )}
                 </div>
               </div>
-            )}
-            {expenseForm.category === "Hatchery" && (
-              <div className="md:col-span-2 grid md:grid-cols-3 gap-4 border rounded-md p-4">
-                <div>
-                  <Label htmlFor="hatcheryName">Hatchery Name</Label>
-                  <Input
-                    id="hatcheryName"
-                    name="hatcheryName"
-                    value={expenseForm.hatcheryName}
-                    onChange={onFieldUpdate}
-                  />
-                  {expenseErrors.hatcheryName && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.hatcheryName}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="hatcheryQuantity">Quantity</Label>
-                  <Input
-                    id="hatcheryQuantity"
-                    name="hatcheryQuantity"
-                    type="number"
-                    value={expenseForm.hatcheryQuantity}
-                    onChange={onFieldUpdate}
-                  />
-                  {expenseErrors.hatcheryQuantity && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.hatcheryQuantity}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="hatcheryRate">Rate</Label>
-                  <Input
-                    id="hatcheryRate"
-                    name="hatcheryRate"
-                    type="number"
-                    value={expenseForm.hatcheryRate}
-                    onChange={onFieldUpdate}
-                  />
-                  {expenseErrors.hatcheryRate && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.hatcheryRate}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-            {expenseForm.category === "Medicine" && (
-              <div className="md:col-span-2 grid md:grid-cols-3 gap-4 border rounded-md p-4">
-                <div>
-                  <Label htmlFor="selectedMedicineId">Medicine Name</Label>
-                  <select
-                    id="selectedMedicineId"
-                    name="selectedMedicineId"
-                    value={expenseForm.selectedMedicineId}
-                    onChange={(e) => onMedicineSelection(e.target.value)}
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+            </div>
+          )}
+          {expenseForm.category === "Medicine" && (
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
+              <p className="text-sm font-medium text-foreground">{t("farmer.dashboard.modals.expense.medicineDetails")}</p>
+              <div className="flex flex-col gap-5">
+                <div className="space-y-2">
+                  <Label htmlFor="selectedMedicineId" className="text-sm font-medium text-foreground">
+                    {t("farmer.dashboard.modals.expense.medicineFromInventory")}
+                  </Label>
+                  <Select
+                    value={expenseForm.selectedMedicineId || ""}
+                    onValueChange={onMedicineSelection}
                   >
-                    <option value="">Select medicine from inventory</option>
-                    {inventoryItems
-                      .filter((item: any) => item.itemType === "MEDICINE")
-                      .map((medicine: any) => (
-                        <option key={medicine.id} value={medicine.id}>
-                          {medicine.name} ({medicine.quantity} {medicine.unit}{" "}
-                          available) - ₹{medicine.rate}/unit
-                        </option>
+                    <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
+                      <SelectValue placeholder={t("farmer.dashboard.modals.expense.selectMedicineFromInventory")} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      {(medicineInventory ?? []).map((medicine: any) => (
+                        <SelectItem key={medicine.id} value={medicine.id}>
+                          {medicine.name} ({(medicine.quantity ?? medicine.currentStock ?? 0)} {medicine.unit} available)
+                          {medicine.rate != null ? ` - ₹${medicine.rate}/unit` : ""}
+                        </SelectItem>
                       ))}
-                  </select>
+                    </SelectContent>
+                  </Select>
                   {expenseErrors.medicineName && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.medicineName}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.medicineName}</p>
                   )}
                 </div>
-                <div>
-                  <Label htmlFor="medicineQuantity">Quantity</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="medicineQuantity" className="text-sm font-medium text-foreground">
+                    {t("farmer.dashboard.modals.expense.quantity")}
+                  </Label>
                   <Input
                     id="medicineQuantity"
                     name="medicineQuantity"
                     type="number"
                     value={expenseForm.medicineQuantity}
                     onChange={onFieldUpdate}
+                    className="rounded-lg"
                   />
                   {expenseErrors.medicineQuantity && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.medicineQuantity}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.medicineQuantity}</p>
                   )}
                 </div>
-                <div>
-                  <Label htmlFor="medicineRate">Rate</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="medicineRate" className="text-sm font-medium text-foreground">
+                    {t("farmer.dashboard.modals.expense.ratePerUnit")}
+                  </Label>
                   <Input
                     id="medicineRate"
                     name="medicineRate"
@@ -345,98 +338,129 @@ export function ExpenseModal({
                     value={expenseForm.medicineRate}
                     onChange={onFieldUpdate}
                     readOnly={!!expenseForm.selectedMedicineId}
-                    className={
-                      expenseForm.selectedMedicineId ? "bg-gray-50" : ""
-                    }
+                    className={`rounded-lg ${expenseForm.selectedMedicineId ? "bg-muted/50 cursor-default" : ""}`}
                     placeholder={
-                      expenseForm.selectedMedicineId
-                        ? "Auto-filled from inventory"
-                        : "Enter rate"
+                      expenseForm.selectedMedicineId ? t("farmer.dashboard.modals.expense.autoFilledFromInventory") : t("farmer.dashboard.modals.expense.enterRate")
                     }
                   />
                   {expenseErrors.medicineRate && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.medicineRate}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.medicineRate}</p>
                   )}
                   {expenseForm.selectedMedicineId && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Rate auto-filled from inventory
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1.5">
+                      {t("farmer.dashboard.modals.expense.rateAutoFilledFromInventory")}
                     </p>
                   )}
                 </div>
               </div>
-            )}
-            {expenseForm.category === "Other" && (
-              <div className="md:col-span-2 grid md:grid-cols-3 gap-4 border rounded-md p-4">
-                <div>
-                  <Label htmlFor="otherName">Expense Name</Label>
-                  <Input
-                    id="otherName"
-                    name="otherName"
-                    value={expenseForm.otherName}
-                    onChange={onFieldUpdate}
-                  />
-                  {expenseErrors.otherName && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.otherName}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="otherQuantity">Quantity</Label>
+            </div>
+          )}
+          {expenseForm.category === "Other" && (
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-5 space-y-4">
+              <p className="text-sm font-medium text-foreground">{t("farmer.dashboard.modals.expense.otherExpenseDetails")}</p>
+              <div className="flex flex-col gap-5">
+                {otherInventory.length > 0 && (
+                  <div className="space-y-2">
+                    <Label htmlFor="selectedOtherId" className="text-sm font-medium text-foreground">
+                      {t("farmer.dashboard.modals.expense.otherFromInventory")}
+                    </Label>
+                    <Select
+                      value={expenseForm.selectedOtherId || "__none__"}
+                      onValueChange={(v) => onOtherSelection?.(v === "__none__" ? "" : v)}
+                    >
+                      <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
+                        <SelectValue placeholder={t("farmer.dashboard.modals.expense.enterManuallyBelow")} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white">
+                        <SelectItem value="__none__">{t("farmer.dashboard.modals.expense.enterManuallyBelow")}</SelectItem>
+                        {(otherInventory ?? []).map((item: any) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {item.name} ({(item.quantity ?? item.currentStock ?? 0)} {item.unit} available)
+                            {item.rate != null ? ` - ₹${item.rate}/unit` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {!expenseForm.selectedOtherId && (
+                  <div className="space-y-2">
+                    <Label htmlFor="otherName" className="text-sm font-medium text-foreground">
+                      {t("farmer.dashboard.modals.expense.expenseName")}
+                    </Label>
+                    <Input
+                      id="otherName"
+                      name="otherName"
+                      value={expenseForm.otherName}
+                      onChange={onFieldUpdate}
+                      className="rounded-lg"
+                    />
+                    {expenseErrors.otherName && (
+                      <p className="text-xs text-destructive mt-1.5">{expenseErrors.otherName}</p>
+                    )}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="otherQuantity" className="text-sm font-medium text-foreground">
+                    {t("farmer.dashboard.modals.expense.quantity")}
+                  </Label>
                   <Input
                     id="otherQuantity"
                     name="otherQuantity"
                     type="number"
                     value={expenseForm.otherQuantity}
                     onChange={onFieldUpdate}
+                    className="rounded-lg"
                   />
                   {expenseErrors.otherQuantity && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.otherQuantity}
-                    </p>
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.otherQuantity}</p>
                   )}
                 </div>
-                <div>
-                  <Label htmlFor="otherRate">Rate</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="otherRate" className="text-sm font-medium text-foreground">
+                    {t("farmer.dashboard.modals.expense.ratePerUnit")}
+                  </Label>
                   <Input
                     id="otherRate"
                     name="otherRate"
                     type="number"
                     value={expenseForm.otherRate}
                     onChange={onFieldUpdate}
+                    readOnly={!!expenseForm.selectedOtherId}
+                    className={`rounded-lg ${expenseForm.selectedOtherId ? "bg-muted/50 cursor-default" : ""}`}
+                    placeholder={
+                      expenseForm.selectedOtherId ? t("farmer.dashboard.modals.expense.autoFilledFromInventory") : t("farmer.dashboard.modals.expense.enterRate")
+                    }
                   />
                   {expenseErrors.otherRate && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {expenseErrors.otherRate}
+                    <p className="text-xs text-destructive mt-1.5">{expenseErrors.otherRate}</p>
+                  )}
+                  {expenseForm.selectedOtherId && (
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1.5">
+                      {t("farmer.dashboard.modals.expense.rateAutoFilledStockDeducted")}
                     </p>
                   )}
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </ModalContent>
-        <ModalFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-          >
-            Cancel
+        <ModalFooter className="flex flex-row justify-end gap-3 pt-2 border-t border-border/60">
+          <Button type="button" variant="outline" onClick={onClose} className="min-w-[84px]">
+            {t("common.cancel")}
           </Button>
           <Button
             type="submit"
-            className="bg-primary hover:bg-primary/90"
+            className="bg-primary hover:bg-primary/90 min-w-[84px]"
             disabled={isPending}
           >
             {isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {editingExpenseId ? "Updating..." : "Creating..."}
+                {editingExpenseId ? t("farmer.dashboard.modals.expense.updating") : t("farmer.dashboard.modals.expense.creating")}
               </>
             ) : (
-              "Save"
+              editingExpenseId ? t("farmer.dashboard.modals.expense.update") : t("common.save")
             )}
           </Button>
         </ModalFooter>

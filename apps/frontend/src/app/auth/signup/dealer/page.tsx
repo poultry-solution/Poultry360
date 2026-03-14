@@ -139,13 +139,11 @@ export default function DealerSignupPage() {
     <div className="min-h-screen bg-background">
       <div className="border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 lg:px-6 h-14 flex items-center">
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-lg">
-                P
-              </span>
-            </div>
-            <span className="font-bold text-foreground">Poultry360</span>
+          <Link
+            href="/"
+            className="text-4xl shrink-0 font-[family-name:var(--font-caveat)]"
+          >
+            Poultry360
           </Link>
         </div>
       </div>
@@ -325,6 +323,15 @@ export default function DealerSignupPage() {
                 className="text-primary hover:underline"
               >
                 {t("auth.dealerSignup.signupOwner")}
+              </Link>
+            </p>
+            <p className="text-sm text-muted-foreground text-center">
+              {t("auth.dealerSignup.registerCompany")}{" "}
+              <Link
+                href="/auth/signup/company"
+                className="text-primary hover:underline"
+              >
+                {t("auth.dealerSignup.signupCompany")}
               </Link>
             </p>
           </div>

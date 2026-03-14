@@ -54,6 +54,7 @@ import { useGetCompanyVerificationRequests } from "@/fetchers/company/companyVer
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
 import { Badge } from "@/common/components/ui/badge";
 import { DateInput } from "@/common/components/ui/date-input";
+import { getNowLocalDateTime } from "@/common/lib/utils";
 
 interface Dealer {
   id: string;
@@ -163,7 +164,7 @@ export default function CompanyDealersPage() {
     dealerId: "",
     amount: 0,
     paymentMethod: "CASH",
-    paymentDate: new Date().toISOString(),
+    paymentDate: getNowLocalDateTime(),
     notes: "",
     reference: "",
     receiptImageUrl: "",
@@ -199,7 +200,7 @@ export default function CompanyDealersPage() {
         dealerId: "",
         amount: 0,
         paymentMethod: "CASH",
-        paymentDate: new Date().toISOString(),
+        paymentDate: getNowLocalDateTime(),
         notes: "",
         reference: "",
         receiptImageUrl: "",

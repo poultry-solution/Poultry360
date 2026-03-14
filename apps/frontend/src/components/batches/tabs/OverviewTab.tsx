@@ -125,13 +125,47 @@ export function OverviewTab({
                   {currentAge} days
                 </span>
               </div>
-              {analytics?.mortalityRate && (
+              {analytics?.mortalityRate != null && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">
                     Mortality Rate:
                   </span>
                   <span className="font-medium">
                     {analytics.mortalityRate.toFixed(2)}%
+                  </span>
+                </div>
+              )}
+              {(batch as { batchType?: string })?.batchType === "BROILER" && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    FCR:
+                  </span>
+                  <span className="font-medium">
+                    {analytics?.fcr != null
+                      ? analytics.fcr.toFixed(2)
+                      : (analytics?.fcrData?.message ?? "—")}
+                  </span>
+                </div>
+              )}
+              {(batch as { batchType?: string })?.batchType === "BROILER" && isBatchClosed && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    FCR [After sales]:
+                  </span>
+                  <span className="font-medium">
+                    {analytics?.fcrAfterSales != null
+                      ? analytics.fcrAfterSales.toFixed(2)
+                      : (analytics?.fcrAfterSalesData?.message ?? "—")}
+                  </span>
+                </div>
+              )}
+              {analytics?.currentAvgWeight != null && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Avg weight (kg):
+                  </span>
+                  <span className="font-medium">
+                    {Number(analytics.currentAvgWeight).toFixed(2)}
                   </span>
                 </div>
               )}

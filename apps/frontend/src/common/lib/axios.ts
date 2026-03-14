@@ -25,6 +25,11 @@ axiosInstance.interceptors.request.use((config: any) => {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }
 
+  // Skip ngrok's browser warning page so the request reaches our backend (avoids CORS * from ngrok)
+  if (typeof window !== "undefined" && API_URL.includes("ngrok")) {
+    config.headers["ngrok-skip-browser-warning"] = "true";
+  }
+
   console.log("🚀 Request:", config.method?.toUpperCase(), config.url);
   return config;
 });
@@ -82,6 +87,13 @@ export const publicApi = axios.create({
   baseURL: API_URL,
   headers: { "Content-Type": "application/json" },
   withCredentials: true,
+});
+
+publicApi.interceptors.request.use((config: any) => {
+  if (typeof window !== "undefined" && API_URL.includes("ngrok")) {
+    config.headers["ngrok-skip-browser-warning"] = "true";
+  }
+  return config;
 });
 
 // ==================== EXPORT ====================

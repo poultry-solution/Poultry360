@@ -77,8 +77,10 @@ export function QuickWeightModal({
     if (!validateForm()) return;
     
     try {
+      const dateRaw = form.date || "";
+      const dateOnly = dateRaw.includes("T") ? dateRaw.split("T")[0] : dateRaw;
       const weightData = {
-        date: `${form.date}T00:00:00.000Z`,
+        date: dateOnly ? `${dateOnly}T00:00:00.000Z` : new Date().toISOString(),
         avgWeight: Number(form.avgWeight),
         sampleCount: Number(form.sampleCount),
         notes: form.notes || undefined,

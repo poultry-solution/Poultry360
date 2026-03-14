@@ -26,27 +26,29 @@ export function MortalityTab({
 }: MortalityTabProps) {
   return (
     <Card>
-      <CardHeader className="flex items-center justify-between">
-        <div>
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <CardTitle>Mortality Records</CardTitle>
-          <CardDescription>
+          <CardDescription className="hidden sm:block">
             Track natural deaths and disease-related losses
           </CardDescription>
         </div>
-        {!isBatchClosed && (
-          <Button
-            className="bg-primary hover:bg-primary/90"
-            onClick={openNewMortality}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Mortality
-          </Button>
-        )}
-        {isBatchClosed && (
-          <Badge variant="secondary" className="bg-gray-100 text-gray-600">
-            Batch Closed - No New Entries
-          </Badge>
-        )}
+        <div className="shrink-0 w-full sm:w-auto">
+          {!isBatchClosed && (
+            <Button
+              className="bg-primary hover:bg-primary/90 w-full sm:w-auto"
+              onClick={openNewMortality}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Mortality
+            </Button>
+          )}
+          {isBatchClosed && (
+            <Badge variant="secondary" className="bg-gray-100 text-gray-600 w-full sm:w-auto justify-center">
+              Batch Closed - No New Entries
+            </Badge>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="p-0">
         {mortalityLoading ? (

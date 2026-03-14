@@ -4,14 +4,12 @@ import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
 import { Plus, Loader2 } from "lucide-react";
 import { DateDisplay } from "@/common/components/ui/date-display";
-import WeightGrowthChart from "@/components/charts/WeightGrowthChart";
 
 interface GrowthTabProps {
   isBatchClosed: boolean;
   weightsLoading: boolean;
   weightsError: any;
   weights: any[];
-  growthChartData: any;
   setIsWeightModalOpen: (open: boolean) => void;
 }
 
@@ -20,38 +18,35 @@ export function GrowthTab({
   weightsLoading,
   weightsError,
   weights,
-  growthChartData,
   setIsWeightModalOpen,
 }: GrowthTabProps) {
   return (
     <Card>
-      <CardHeader className="flex items-center justify-between">
-        <div>
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <CardTitle>Growth (Weights)</CardTitle>
-          <CardDescription>
+          <CardDescription className="hidden sm:block">
             Track average bird weight over time
           </CardDescription>
         </div>
-        {!isBatchClosed && (
-          <Button
-            className="bg-primary hover:bg-primary/90"
-            onClick={() => setIsWeightModalOpen(true)}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Record Weight
-          </Button>
-        )}
-        {isBatchClosed && (
-          <Badge variant="secondary" className="bg-gray-100 text-gray-600">
-            Batch Closed - No New Entries
-          </Badge>
-        )}
+        <div className="shrink-0 w-full sm:w-auto">
+          {!isBatchClosed && (
+            <Button
+              className="bg-primary hover:bg-primary/90 w-full sm:w-auto"
+              onClick={() => setIsWeightModalOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Record Weight
+            </Button>
+          )}
+          {isBatchClosed && (
+            <Badge variant="secondary" className="bg-gray-100 text-gray-600 w-full sm:w-auto justify-center">
+              Batch Closed - No New Entries
+            </Badge>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
-        {/* Chart */}
-        <div className="mb-6">
-          <WeightGrowthChart data={growthChartData} />
-        </div>
         {weightsLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin" />

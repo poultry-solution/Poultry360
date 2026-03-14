@@ -28,25 +28,27 @@ export function SalesTab({
 }: SalesTabProps) {
   return (
     <Card>
-      <CardHeader className="flex items-center justify-between">
-        <div>
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <CardTitle>Sales</CardTitle>
-          <CardDescription>Items sold from this batch</CardDescription>
+          <CardDescription className="hidden sm:block">Items sold from this batch</CardDescription>
         </div>
-        {!isBatchClosed && (
-          <Button
-            className="bg-primary hover:bg-primary/90"
-            onClick={openNewSale}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Sale
-          </Button>
-        )}
-        {isBatchClosed && (
-          <Badge variant="secondary" className="bg-gray-100 text-gray-600">
-            Batch Closed - No New Entries
-          </Badge>
-        )}
+        <div className="shrink-0 w-full sm:w-auto">
+          {!isBatchClosed && (
+            <Button
+              className="bg-primary hover:bg-primary/90 w-full sm:w-auto"
+              onClick={openNewSale}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Sale
+            </Button>
+          )}
+          {isBatchClosed && (
+            <Badge variant="secondary" className="bg-gray-100 text-gray-600 w-full sm:w-auto justify-center">
+              Batch Closed - No New Entries
+            </Badge>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="p-0">
         {salesLoading ? (

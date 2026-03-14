@@ -77,7 +77,7 @@ export const getAllDealers = async (
       // 2. OR userId matches current user (manually created dealers)
       where = {
         OR: [
-          { id: { in: linkedDealerIds.length > 0 ? linkedDealerIds : [null] } },
+          ...(linkedDealerIds.length > 0 ? [{ id: { in: linkedDealerIds } }] : []),
           { userId: currentUserId },
         ],
       };
@@ -410,22 +410,30 @@ export const getDealerById = async (
         : [];
 
       // Map sales to purchases format for the frontend
-      const purchases = sales.map((sale) => ({
-        id: sale.id,
-        itemName:
-          sale.items.map((i: any) => i.product?.name || "Item").join(", ") ||
-          "Sale",
-        purchaseCategory: null,
-        quantity: sale.items.reduce((sum: number, i: any) => sum + i.quantity, 0),
-        freeQuantity: 0,
-        amount: Number(sale.totalAmount),
-        subtotalAmount: sale.subtotalAmount ? Number(sale.subtotalAmount) : null,
-        discountType: sale.discount?.type || null,
-        discountValue: sale.discount?.value ? Number(sale.discount.value) : null,
-        date: sale.date,
-        description: sale.notes,
-        reference: sale.invoiceNumber,
-      }));
+      const purchases = sales.map((sale) => {
+        const quantities = sale.items.map((i: any) => Number(i.quantity));
+        const unitPrices = sale.items.map((i: any) => Number(i.unitPrice));
+        const units = sale.items.map((i: any) => i.unit || "unit");
+        return {
+          id: sale.id,
+          itemName:
+            sale.items.map((i: any) => i.product?.name || "Item").join(", ") ||
+            "Sale",
+          purchaseCategory: null,
+          quantity: quantities.reduce((sum, q) => sum + q, 0),
+          quantities: quantities.length > 0 ? quantities : undefined,
+          unitPrices: unitPrices.length > 0 ? unitPrices : undefined,
+          units: units.length > 0 ? units : undefined,
+          freeQuantity: 0,
+          amount: Number(sale.totalAmount),
+          subtotalAmount: sale.subtotalAmount ? Number(sale.subtotalAmount) : null,
+          discountType: sale.discount?.type || null,
+          discountValue: sale.discount?.value ? Number(sale.discount.value) : null,
+          date: sale.date,
+          description: sale.notes,
+          reference: sale.invoiceNumber,
+        };
+      });
 
       // Map DealerFarmerPayment to payments format
       const paymentsList = farmerPayments.map((p) => ({
@@ -574,6 +582,7 @@ export const getDealerById = async (
         date: t.date,
         description: t.description,
         reference: t.reference,
+        imageUrl: t.imageUrl,
         paymentToPurchaseId: t.paymentToPurchaseId,
       }));
 
@@ -1119,6 +1128,7 @@ export const addDealerTransaction = async (
           date: new Date(date),
           description: description || null,
           reference: reference || null,
+          imageUrl: imageUrl || null,
           dealerId: id,
           entityType: "DEALER",
           entityId: id,
@@ -1234,6 +1244,7 @@ export const deleteDealerTransaction = async (
         type: true,
         amount: true,
         quantity: true,
+        freeQuantity: true,
         date: true,
         description: true,
         inventoryItemId: true,
@@ -1247,10 +1258,16 @@ export const deleteDealerTransaction = async (
     console.log("🔍 Deleting transaction:", txn);
     console.log("🔍 Transaction type:", txn.type);
 
-    // If this is a PURCHASE, ensure stock was not consumed and reverse inventory safely
+    // If this is a PURCHASE, ensure stock was not consumed and reverse inventory safely (paid + free)
     if (txn.type === 'PURCHASE') {
-      if (!txn.inventoryItemId || !txn.quantity) {
+      if (!txn.inventoryItemId) {
         return res.status(400).json({ message: 'Purchase transaction missing inventory linkage; cannot safely delete.' });
+      }
+      const qty = Number(txn.quantity || 0);
+      const freeQty = Number(txn.freeQuantity ?? 0);
+      const totalToReverse = qty + freeQty;
+      if (totalToReverse <= 0) {
+        return res.status(400).json({ message: 'Purchase has no quantity or free quantity to reverse.' });
       }
 
       const item = await prisma.inventoryItem.findUnique({ where: { id: txn.inventoryItemId } });
@@ -1259,10 +1276,9 @@ export const deleteDealerTransaction = async (
       }
 
       const currentStock = Number(item.currentStock || 0);
-      const qty = Number(txn.quantity || 0);
-      if (currentStock < qty) {
+      if (currentStock < totalToReverse) {
         return res.status(400).json({
-          message: `Cannot delete: ${qty} units from purchase have been partially consumed. Available stock: ${currentStock}. Remove usages first.`,
+          message: `Cannot delete: ${totalToReverse} units from purchase have been partially consumed. Available stock: ${currentStock}. Remove usages first.`,
         });
       }
 
@@ -1284,36 +1300,54 @@ export const deleteDealerTransaction = async (
           await tx.entityTransaction.delete({ where: { id: paymentTxn.id } });
         }
 
-        // 2) Reduce inventory stock by the purchased quantity (reverse stock-in)
+        // 2) Reduce inventory stock by paid + free quantity (reverse full stock-in)
         await tx.inventoryItem.update({
           where: { id: txn.inventoryItemId as string },
-          data: { currentStock: { decrement: qty } },
+          data: { currentStock: { decrement: totalToReverse } },
         });
 
-        // 3) Remove a matching inventoryTransaction (PURCHASE) if present
-        const invTxn = await tx.inventoryTransaction.findFirst({
-          where: {
-            itemId: txn.inventoryItemId as string,
-            type: 'PURCHASE',
-            quantity: qty,
-          },
-          orderBy: { date: 'desc' },
-        });
-        if (invTxn) {
-          await tx.inventoryTransaction.delete({ where: { id: invTxn.id } });
+        // 3) Remove paid InventoryTransaction (PURCHASE) if present
+        if (qty > 0) {
+          const paidInvTxn = await tx.inventoryTransaction.findFirst({
+            where: {
+              itemId: txn.inventoryItemId as string,
+              type: 'PURCHASE',
+              quantity: qty,
+            },
+            orderBy: { date: 'desc' },
+          });
+          if (paidInvTxn) {
+            await tx.inventoryTransaction.delete({ where: { id: paidInvTxn.id } });
+          }
         }
 
-        // 4) Remove the linked expense if it exists
+        // 4) Remove free InventoryTransaction (PURCHASE, totalAmount 0) if present
+        if (freeQty > 0) {
+          const freeInvTxn = await tx.inventoryTransaction.findFirst({
+            where: {
+              itemId: txn.inventoryItemId as string,
+              type: 'PURCHASE',
+              quantity: freeQty,
+              totalAmount: 0,
+            },
+            orderBy: { date: 'desc' },
+          });
+          if (freeInvTxn) {
+            await tx.inventoryTransaction.delete({ where: { id: freeInvTxn.id } });
+          }
+        }
+
+        // 5) Remove the linked expense if it exists
         if (txn.expenseId) {
           await tx.expense.delete({ where: { id: txn.expenseId } });
         }
 
-        // 5) Finally, delete the entity transaction
+        // 6) Finally, delete the entity transaction
         console.log("🔍 About to delete entity transaction:", transactionId);
         const deletedEntityTxn = await tx.entityTransaction.delete({ where: { id: transactionId } });
         console.log("✅ Deleted entity transaction:", deletedEntityTxn);
 
-        // 6) Optional cleanup: remove empty inventory item if fully orphaned
+        // 7) Optional cleanup: remove empty inventory item if fully orphaned
         const refreshedItem = await tx.inventoryItem.findUnique({
           where: { id: txn.inventoryItemId as string },
           select: { id: true, currentStock: true },

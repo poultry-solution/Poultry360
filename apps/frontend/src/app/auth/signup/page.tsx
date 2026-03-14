@@ -8,7 +8,7 @@ import { Button } from "@/common/components/ui/button";
 
 import { useAuth, useAuthStore } from "@/common/store/store";
 import { PublicDealerSearchSelect } from "@/common/components/forms/PublicDealerSearchSelect";
-import { Eye, EyeOff, CheckCircle } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
 import { useLoginRedirect } from "@/common/hooks/useRoleBasedRouting";
 import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
@@ -20,15 +20,13 @@ export default function SignupPage() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [step, setStep] = useState<"form" | "otp">("form");
-  const [otp, setOtp] = useState("");
+  const [isPostRegisterRedirecting, setIsPostRegisterRedirecting] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
     companyName: "",
     province: "Bagmati",
     location: "",
-    countryCode: "+977",
     phone: "",
     password: "",
     confirmPassword: "",
@@ -39,8 +37,12 @@ export default function SignupPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-
+    if (name === "phone") {
+      const digits = value.replace(/\D/g, "").slice(0, 10);
+      setFormData((prev) => ({ ...prev, phone: digits }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
     if (error) clearError();
   };
 
@@ -55,8 +57,8 @@ export default function SignupPage() {
       return false;
     }
 
-    if (!formData.phone) {
-      alert(t("auth.signup.errors.phoneRequired"));
+    if (!formData.phone || formData.phone.length !== 10) {
+      alert(t("auth.signup.errors.phoneInvalid") || "Enter a valid 10-digit phone number");
       return false;
     }
 
@@ -68,30 +70,11 @@ export default function SignupPage() {
 
     if (!validateForm()) return;
 
-    // Phone verification only
-
-    // Simulate sending OTP
-    console.log(
-      `Sending OTP to ${formData.countryCode + formData.phone}`
-    );
-    setStep("otp");
-  };
-
-  const handleOtpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (otp !== "11111") {
-      alert(t("auth.signup.errors.invalidOtp"));
-      return;
-    }
-
     try {
-      const name = formData.name;
       const companyFarmLocation = `${formData.province}, ${formData.location}`;
-
-      const phone = `${formData.countryCode}${formData.phone}`;
+      const phone = `+977${formData.phone}`;
       const registerData = {
-        name,
+        name: formData.name,
         phone,
         password: formData.password,
         role: "OWNER" as const,
@@ -101,6 +84,7 @@ export default function SignupPage() {
       };
 
       await register(registerData);
+      setIsPostRegisterRedirecting(true);
 
       const { user } = useAuthStore.getState();
       await handleLoginRedirect(user?.role || "OWNER");
@@ -109,51 +93,42 @@ export default function SignupPage() {
     }
   };
 
-  const getVerificationTarget = () => {
-    return `${formData.countryCode}${formData.phone}`;
-  };
 
-
-  if (isRedirecting) {
-    return <AppLoadingScreen message={t("auth.login.redirecting")} />;
+  if (isLoading || isRedirecting || isPostRegisterRedirecting) {
+    return <AppLoadingScreen message={isLoading ? t("auth.signup.creatingAccount") : t("auth.login.redirecting")} />;
   }
 
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 lg:px-6 h-14 flex items-center">
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-lg">
-                P
-              </span>
-            </div>
-            <span className="font-bold text-foreground">Poultry360</span>
+          <Link
+            href="/"
+            className="text-4xl shrink-0 font-[family-name:var(--font-caveat)]"
+          >
+            Poultry360
           </Link>
         </div>
       </div>
 
       <div className="flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-md bg-card border rounded-xl p-6 shadow-sm">
-          {step === "form" ? (
-            <>
-              <div className="mb-6 text-center">
-                <h1 className="text-2xl font-semibold text-foreground">
-                  {t("auth.signup.title")}
-                </h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {t("auth.signup.subtitle")}
-                </p>
+          <div className="mb-6 text-center">
+            <h1 className="text-2xl font-semibold text-foreground">
+              {t("auth.signup.title")}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {t("auth.signup.subtitle")}
+            </p>
+          </div>
 
-              </div>
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
 
-              {error && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-sm text-red-600">{error}</p>
-                </div>
-              )}
-
-              <form onSubmit={handleFormSubmit} className="space-y-4">
+          <form onSubmit={handleFormSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="companyName">{t("auth.signup.companyNameLabel")}</Label>
                   <Input
@@ -212,26 +187,21 @@ export default function SignupPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="phone">{t("auth.signup.phoneLabel")}</Label>
-                  <div className="flex gap-2">
-                    <select
-                      id="countryCode"
-                      name="countryCode"
-                      value={formData.countryCode}
-                      onChange={handleInputChange}
-                      className="h-10 rounded-md border border-input bg-background px-2 text-sm"
-                      aria-label={t("auth.signup.countryCodeLabel")}
-                    >
-                      <option value="+91">+91 (IN)</option>
-                      <option value="+977">+977 (NP)</option>
-                      <option value="+1">+1 (US)</option>
-                      <option value="+44">+44 (UK)</option>
-                    </select>
+                  <div className="flex items-stretch gap-0">
+                    <div className="flex items-center gap-2 rounded-l-md border border-r-0 bg-muted px-3 text-foreground">
+                      <span aria-hidden>🇳🇵</span>
+                      <span className="text-sm font-medium">+977</span>
+                    </div>
                     <Input
                       id="phone"
                       name="phone"
                       type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]{10}"
                       value={formData.phone}
                       onChange={handleInputChange}
+                      placeholder={t("auth.signup.phonePlaceholder") || "98XXXXXXXX"}
+                      className="rounded-l-none"
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -317,65 +287,6 @@ export default function SignupPage() {
                   {isLoading ? t("auth.signup.creatingAccount") : t("auth.signup.continue")}
                 </Button>
               </form>
-            </>
-          ) : (
-            <>
-              <div className="mb-6 text-center">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle className="w-8 h-8 text-green-600" />
-                </div>
-                <h1 className="text-2xl font-semibold text-foreground">
-                  {t("auth.signup.verifyTitle")}
-                </h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {t("auth.signup.verifySubtitle")}
-                </p>
-                <p className="text-sm font-medium text-foreground">
-                  {getVerificationTarget()}
-                </p>
-              </div>
-
-
-              <form onSubmit={handleOtpSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="otp">{t("auth.signup.verificationCodeLabel")}</Label>
-                  <Input
-                    id="otp"
-                    name="otp"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    required
-                    maxLength={6}
-                    className="text-center text-lg tracking-widest"
-                  />
-                  <p className="text-xs text-blue-600 text-center">
-                    {t("auth.signup.otpTestHint", { code: "11111" })}
-                  </p>
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  {isLoading
-                    ? t("auth.signup.creatingAccount")
-                    : t("auth.signup.verifyCreate")}
-                </Button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep("form");
-                    setOtp("");
-                  }}
-                  className="w-full text-sm text-muted-foreground hover:text-foreground"
-                >
-                  ← {t("auth.signup.backToForm")}
-                </button>
-              </form>
-            </>
-          )}
 
           <div className="mt-6 space-y-2">
             <p className="text-sm text-muted-foreground text-center">
@@ -403,6 +314,15 @@ export default function SignupPage() {
                 className="text-primary hover:underline"
               >
                 {t("auth.signup.signupCompany")}
+              </Link>
+            </p>
+            <p className="text-sm text-muted-foreground text-center">
+              {t("auth.signup.registerDoctor")}{" "}
+              <Link
+                href="/auth/signup/doctor"
+                className="text-primary hover:underline"
+              >
+                {t("auth.signup.signupDoctor")}
               </Link>
             </p>
           </div>

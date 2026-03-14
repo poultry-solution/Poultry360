@@ -34,21 +34,42 @@ import {
   useDeleteExpense,
   useGetExpenseCategories,
 } from "@/fetchers/expenses/expenseQueries";
-import { useGetInventoryTableData } from "@/fetchers/inventory/inventoryQueries";
+import { useGetInventoryTableData, useGetInventoryForExpense } from "@/fetchers/inventory/inventoryQueries";
 import {
   useBatchSalesManagement,
   useGetCustomersForSales,
+  useGetEggInventory,
 } from "@/fetchers/sale/saleQueries";
+import { useGetEggTypes } from "@/fetchers/eggTypes/eggTypeQueries";
 import {
   useGetBatchMortalities,
   useCreateMortality,
   useUpdateMortality,
   useDeleteMortality,
 } from "@/fetchers/mortality/mortalityQueries";
-import { BatchSaleModel } from "@/common/components/ui/batchSaleModel";
+import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/common/components/ui/alert-dialog";
+import { Label } from "@/common/components/ui/label";
+import { Input } from "@/common/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
+import { DateInput } from "@/common/components/ui/date-input";
 import {
   useGetWeights,
-  useGetGrowthChart,
   useAddWeight,
   useUpdateWeight,
   useDeleteWeight,
@@ -62,7 +83,6 @@ import { CloseBatchModal } from "@/components/batches/modals/CloseBatchModal";
 import { DeleteBatchModal } from "@/components/batches/modals/DeleteBatchModal";
 import { TransactionsModal } from "@/components/batches/modals/TransactionsModal";
 import { CustomerTransactionsModal } from "@/components/batches/modals/CustomerTransactionsModal";
-import { LedgerModal } from "@/components/batches/modals/LedgerModal";
 import { OverviewTab } from "@/components/batches/tabs/OverviewTab";
 import { ExpensesTab } from "@/components/batches/tabs/ExpensesTab";
 import { SalesTab } from "@/components/batches/tabs/SalesTab";
@@ -76,8 +96,9 @@ import { createSalesColumns } from "@/components/batches/configs/salesColumns";
 import { createMortalityColumns } from "@/components/batches/configs/mortalityColumns";
 import { createLedgerColumns } from "@/components/batches/configs/ledgerColumns";
 import { Banner } from "@/components/batches/sections/Banner";
+import { getTodayLocalDate } from "@/common/lib/utils";
 
-type ExpenseCategory = "Feed" | "Medicine" | "Hatchery" | "Other";
+type ExpenseCategory = "Feed" | "Medicine" | "Other";
 
 type ExpenseRow = {
   id: number;
@@ -88,9 +109,6 @@ type ExpenseRow = {
   feedBrand?: string;
   feedQuantity?: number;
   feedRate?: number;
-  hatcheryName?: string;
-  hatcheryRate?: number;
-  hatcheryQuantity?: number;
   medicineName?: string;
   medicineRate?: number;
   medicineQuantity?: number;
@@ -113,16 +131,6 @@ type SaleRow = {
   } | null;
   date: string; // yyyy-mm-dd
   categoryId: string;
-};
-
-type LedgerRow = {
-  id: string | number;
-  name: string;
-  phone: string;
-  category: "Chicken" | "Other";
-  sales: number;
-  received: number;
-  balance: number;
 };
 
 const BASE_TABS = [
@@ -185,12 +193,6 @@ export default function BatchDetailPage() {
   const closeBatchMutation = useCloseBatch();
   const verifyPasswordMutation = useVerifyPasswordForBatchDelete();
 
-  // --- State (with localStorage persistence) ---
-  const storageKey = useCallback(
-    (suffix: string) => `p360:batch:${batchId}:${suffix}`,
-    [batchId]
-  );
-
   // Fetch real expense data
   const {
     data: expensesResponse,
@@ -204,9 +206,17 @@ export default function BatchDetailPage() {
   const { data: categoriesResponse } = useGetExpenseCategories("EXPENSE");
   const expenseCategories = categoriesResponse?.data || [];
 
-  // Fetch inventory items for selection (using table data for better structure)
+  // Fetch inventory items (table data for other uses)
   const { data: inventoryResponse } = useGetInventoryTableData();
   const inventoryItems = inventoryResponse?.data || [];
+
+  // Inventory for expense dropdowns: real InventoryItem id + currentStock (so deduction works)
+  const { data: feedForExpenseRes } = useGetInventoryForExpense("FEED");
+  const { data: medicineForExpenseRes } = useGetInventoryForExpense("MEDICINE");
+  const { data: otherForExpenseRes } = useGetInventoryForExpense("OTHER");
+  const feedInventoryForExpense = feedForExpenseRes?.data ?? [];
+  const medicineInventoryForExpense = medicineForExpenseRes?.data ?? [];
+  const otherInventoryForExpense = otherForExpenseRes?.data ?? [];
 
   // Fetch sales data for this batch
   const {
@@ -227,7 +237,9 @@ export default function BatchDetailPage() {
 
   // Customer search for sales
   const [customerSearch, setCustomerSearch] = useState("");
-  const { data: customers = [] } = useGetCustomersForSales(customerSearch);
+  const { data: customers = [] } = useGetCustomersForSales(customerSearch, {
+    enabled: true,
+  });
 
   // Fetch mortality data for this batch
   const {
@@ -317,24 +329,20 @@ export default function BatchDetailPage() {
     error: weightsError,
   } = useGetWeights(safeBatchId, undefined, { enabled: !!batchId });
   const addWeightMutation = useAddWeight(safeBatchId);
-  const { data: growthChartResp } = useGetGrowthChart(safeBatchId, {
-    enabled: !!batchId,
-  });
   const currentWeight = weightsResponse?.data?.currentWeight ?? null;
   const weights = weightsResponse?.data?.weights || [];
-  const growthChartData = growthChartResp?.data || [];
 
   // Manual weight form state
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
   const [weightForm, setWeightForm] = useState({
-    date: new Date().toISOString().split("T")[0],
+    date: getTodayLocalDate(),
     avgWeight: "",
     sampleCount: "",
     notes: "",
   });
   const [weightErrors, setWeightErrors] = useState<Record<string, string>>({});
   function updateWeightField(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
     const { name, value } = e.target;
     setWeightForm((p) => ({ ...p, [name]: value }));
@@ -353,8 +361,11 @@ export default function BatchDetailPage() {
     e.preventDefault();
     if (!validateWeight()) return;
     try {
+      const dateOnly = weightForm.date.includes("T")
+        ? weightForm.date.split("T")[0]
+        : weightForm.date;
       await addWeightMutation.mutateAsync({
-        date: `${weightForm.date}T00:00:00.000Z`,
+        date: `${dateOnly}T00:00:00.000Z`,
         avgWeight: Number(weightForm.avgWeight),
         sampleCount: Number(weightForm.sampleCount),
         notes: weightForm.notes || undefined,
@@ -362,7 +373,7 @@ export default function BatchDetailPage() {
       flash("success", "Weight recorded successfully");
       setIsWeightModalOpen(false);
       setWeightForm({
-        date: new Date().toISOString().split("T")[0],
+        date: getTodayLocalDate(),
         avgWeight: "",
         sampleCount: "",
         notes: "",
@@ -378,7 +389,7 @@ export default function BatchDetailPage() {
 
   function openCloseBatchModal() {
     setCloseBatchForm({
-      endDate: new Date().toISOString().split("T")[0], // Today's date
+      endDate: getTodayLocalDate(), // Today's date
       finalNotes: "",
     });
     setCloseErrors({});
@@ -408,12 +419,12 @@ export default function BatchDetailPage() {
     if (!validateCloseBatch()) return;
 
     try {
+      const raw = closeBatchForm.endDate || "";
+      const dateOnly = raw.includes("T") ? raw.split("T")[0] : raw;
       const result = await closeBatchMutation.mutateAsync({
         id: batchId,
         data: {
-          endDate: closeBatchForm.endDate
-            ? `${closeBatchForm.endDate}T23:59:59.999Z`
-            : undefined,
+          endDate: dateOnly ? `${dateOnly}T23:59:59.000Z` : undefined,
           finalNotes: closeBatchForm.finalNotes || undefined,
         },
       });
@@ -504,50 +515,11 @@ export default function BatchDetailPage() {
   const createExpenseMutation = useCreateExpense();
   const updateExpenseMutation = useUpdateExpense();
   const deleteExpenseMutation = useDeleteExpense();
-  const [ledger, setLedger] = useState<LedgerRow[]>([]);
-
-  // Load ledger data from localStorage
-  useEffect(() => {
-    try {
-      const le = localStorage.getItem(storageKey("ledger"));
-      setLedger(
-        le
-          ? JSON.parse(le)
-          : [
-              {
-                id: 1,
-                name: "Sharma Traders",
-                contact: "9800000000",
-                category: "Chicken",
-                sales: 50000,
-                received: 30000,
-                balance: 20000,
-              },
-              {
-                id: 2,
-                name: "KTM Fresh",
-                contact: "9811111111",
-                category: "Chicken",
-                sales: 38000,
-                received: 38000,
-                balance: 0,
-              },
-            ]
-      );
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchId]);
-
-  // Save ledger data to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(storageKey("ledger"), JSON.stringify(ledger));
-    } catch {}
-  }, [ledger, storageKey]);
-
   // --- Expense Modal ---
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<number | null>(null);
+  const [showDeleteExpenseConfirm, setShowDeleteExpenseConfirm] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState<any | null>(null);
   const [expenseForm, setExpenseForm] = useState({
     category: "Feed" as ExpenseCategory,
     date: "",
@@ -555,53 +527,74 @@ export default function BatchDetailPage() {
     feedBrand: "",
     feedQuantity: "",
     feedRate: "",
-    selectedFeedId: "", // New field for selected feed from inventory
-    hatcheryName: "",
-    hatcheryRate: "",
-    hatcheryQuantity: "",
+    selectedFeedId: "",
     medicineName: "",
     medicineRate: "",
     medicineQuantity: "",
-    selectedMedicineId: "", // New field for selected medicine from inventory
+    selectedMedicineId: "",
+    selectedOtherId: "",
     otherName: "",
     otherRate: "",
     otherQuantity: "",
+    extraName: "",
+    extraAmount: "",
   });
   function updateExpenseField(
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | { target: { name: string; value: string } }
   ) {
     const { name, value } = e.target;
     setExpenseForm((p) => ({ ...p, [name]: value }));
   }
 
-  // Handle feed selection from inventory
+  // Handle feed selection (from for-expense list – id is InventoryItem.id)
   function handleFeedSelection(feedId: string) {
-    const selectedFeed = inventoryItems.find((feed: any) => feed.id === feedId);
+    const selectedFeed = feedInventoryForExpense.find((f: any) => f.id === feedId);
     if (selectedFeed) {
-      console.log("selectedFeed", selectedFeed);
       setExpenseForm((prev) => ({
         ...prev,
         selectedFeedId: feedId,
         feedBrand: selectedFeed.name,
-        feedRate: selectedFeed.rate?.toString() || "0",
+        feedRate: String(selectedFeed.rate ?? 0),
       }));
     }
   }
 
-  // Handle medicine selection from inventory
+  // Handle medicine selection (from for-expense list – id is InventoryItem.id)
   function handleMedicineSelection(medicineId: string) {
-    const selectedMedicine = inventoryItems.find(
-      (medicine: any) => medicine.id === medicineId
-    );
+    const selectedMedicine = medicineInventoryForExpense.find((m: any) => m.id === medicineId);
     if (selectedMedicine) {
       setExpenseForm((prev) => ({
         ...prev,
         selectedMedicineId: medicineId,
         medicineName: selectedMedicine.name,
-        medicineRate: selectedMedicine.rate?.toString() || "0",
+        medicineRate: String(selectedMedicine.rate ?? 0),
       }));
     }
   }
+
+  // Handle other (from inventory) selection – id is InventoryItem.id
+  function handleOtherSelection(otherId: string) {
+    if (!otherId) {
+      setExpenseForm((prev) => ({
+        ...prev,
+        selectedOtherId: "",
+        otherName: prev.otherName,
+        otherRate: "",
+        otherQuantity: "",
+      }));
+      return;
+    }
+    const selectedOther = otherInventoryForExpense.find((o: any) => o.id === otherId);
+    if (selectedOther) {
+      setExpenseForm((prev) => ({
+        ...prev,
+        selectedOtherId: otherId,
+        otherName: selectedOther.name,
+        otherRate: String(selectedOther.rate ?? 0),
+      }));
+    }
+  }
+
   function openNewExpense() {
     setEditingExpenseId(null);
     setExpenseForm({
@@ -612,50 +605,66 @@ export default function BatchDetailPage() {
       feedQuantity: "",
       feedRate: "",
       selectedFeedId: "",
-      hatcheryName: "",
-      hatcheryRate: "",
-      hatcheryQuantity: "",
       medicineName: "",
       medicineRate: "",
       medicineQuantity: "",
       selectedMedicineId: "",
+      selectedOtherId: "",
       otherName: "",
       otherRate: "",
       otherQuantity: "",
+      extraName: "",
+      extraAmount: "",
     });
     setIsExpenseModalOpen(true);
   }
   function openEditExpense(row: any) {
     setEditingExpenseId(parseInt(row.id));
+    const categoryName = row.category?.name || "Other";
+    const category = ["Feed", "Medicine", "Other"].includes(categoryName)
+      ? categoryName
+      : "Other";
     setExpenseForm({
-      category: row.category?.name || "Other",
+      category: category as ExpenseCategory,
       date: row.date ? new Date(row.date).toISOString().slice(0, 10) : "",
       notes: row.description || "",
       feedBrand: "",
       feedQuantity: row.quantity?.toString() || "",
       feedRate: row.unitPrice?.toString() || "",
       selectedFeedId: "",
-      hatcheryName: "",
-      hatcheryRate: row.unitPrice?.toString() || "",
-      hatcheryQuantity: row.quantity?.toString() || "",
       medicineName: "",
       medicineRate: row.unitPrice?.toString() || "",
       medicineQuantity: row.quantity?.toString() || "",
       selectedMedicineId: "",
+      selectedOtherId: "",
       otherName: "",
       otherRate: row.unitPrice?.toString() || "",
       otherQuantity: row.quantity?.toString() || "",
+      extraName: "",
+      extraAmount: "",
     });
     setIsExpenseModalOpen(true);
   }
-  async function deleteExpense(id: number) {
+  async function deleteExpense(id: string) {
     try {
-      await deleteExpenseMutation.mutateAsync(id.toString());
+      await deleteExpenseMutation.mutateAsync(id);
       flash("success", "Expense deleted successfully");
     } catch (error) {
       console.error("Failed to delete expense:", error);
       flash("error", "Failed to delete expense. Please try again.");
     }
+  }
+
+  function openDeleteExpenseConfirm(row: any) {
+    setExpenseToDelete(row);
+    setShowDeleteExpenseConfirm(true);
+  }
+
+  async function handleConfirmDeleteExpense() {
+    if (!expenseToDelete?.id) return;
+    await deleteExpense(expenseToDelete.id);
+    setShowDeleteExpenseConfirm(false);
+    setExpenseToDelete(null);
   }
 
   // Banners
@@ -680,45 +689,49 @@ export default function BatchDetailPage() {
         errs.feedBrand = "Please select a feed from inventory";
       if (!expenseForm.feedQuantity) errs.feedQuantity = "Quantity required";
       if (!expenseForm.feedRate) errs.feedRate = "Rate required";
-
-      // Check if quantity exceeds available inventory
       if (expenseForm.selectedFeedId && expenseForm.feedQuantity) {
-        const selectedFeed = feedInventory.find(
-          (feed: any) => feed.id === expenseForm.selectedFeedId
+        const selectedFeed = feedInventoryForExpense.find(
+          (f: any) => f.id === expenseForm.selectedFeedId
         );
-
         const requestedQty = Number(expenseForm.feedQuantity);
-        if (selectedFeed && requestedQty > selectedFeed.quantity) {
-          errs.feedQuantity = `Only ${selectedFeed.quantity} ${selectedFeed.unit} available`;
+        const available = selectedFeed?.quantity ?? selectedFeed?.currentStock ?? 0;
+        if (selectedFeed && requestedQty > available) {
+          errs.feedQuantity = `Only ${available} ${selectedFeed.unit} available`;
         }
       }
-    } else if (expenseForm.category === "Hatchery") {
-      if (!expenseForm.hatcheryName)
-        errs.hatcheryName = "Hatchery name required";
-      if (!expenseForm.hatcheryQuantity)
-        errs.hatcheryQuantity = "Quantity required";
-      if (!expenseForm.hatcheryRate) errs.hatcheryRate = "Rate required";
     } else if (expenseForm.category === "Medicine") {
       if (!expenseForm.selectedMedicineId)
         errs.medicineName = "Please select a medicine from inventory";
       if (!expenseForm.medicineQuantity)
         errs.medicineQuantity = "Quantity required";
       if (!expenseForm.medicineRate) errs.medicineRate = "Rate required";
-
-      // Check if quantity exceeds available inventory
       if (expenseForm.selectedMedicineId && expenseForm.medicineQuantity) {
-        const selectedMedicine = medicineInventory.find(
-          (medicine: any) => medicine.id === expenseForm.selectedMedicineId
+        const selectedMedicine = medicineInventoryForExpense.find(
+          (m: any) => m.id === expenseForm.selectedMedicineId
         );
         const requestedQty = Number(expenseForm.medicineQuantity);
-        if (selectedMedicine && requestedQty > selectedMedicine.quantity) {
-          errs.medicineQuantity = `Only ${selectedMedicine.quantity} ${selectedMedicine.unit} available`;
+        const available = selectedMedicine?.quantity ?? selectedMedicine?.currentStock ?? 0;
+        if (selectedMedicine && requestedQty > available) {
+          errs.medicineQuantity = `Only ${available} ${selectedMedicine.unit} available`;
         }
       }
-    } else {
-      if (!expenseForm.otherName) errs.otherName = "Expense name required";
-      if (!expenseForm.otherQuantity) errs.otherQuantity = "Quantity required";
-      if (!expenseForm.otherRate) errs.otherRate = "Rate required";
+    } else if (expenseForm.category === "Other") {
+      if (expenseForm.selectedOtherId) {
+        if (!expenseForm.otherQuantity) errs.otherQuantity = "Quantity required";
+        if (!expenseForm.otherRate) errs.otherRate = "Rate required";
+        const selectedOther = otherInventoryForExpense.find(
+          (o: any) => o.id === expenseForm.selectedOtherId
+        );
+        const requestedQty = Number(expenseForm.otherQuantity);
+        const available = selectedOther?.quantity ?? selectedOther?.currentStock ?? 0;
+        if (selectedOther && requestedQty > available) {
+          errs.otherQuantity = `Only ${available} ${selectedOther.unit} available`;
+        }
+      } else {
+        if (!expenseForm.otherName) errs.otherName = "Expense name required";
+        if (!expenseForm.otherQuantity) errs.otherQuantity = "Quantity required";
+        if (!expenseForm.otherRate) errs.otherRate = "Rate required";
+      }
     }
     setExpenseErrors(errs);
     return Object.keys(errs).length === 0;
@@ -734,12 +747,10 @@ export default function BatchDetailPage() {
       let amount = 0;
       let quantity = 0;
       let unitPrice = 0;
-      let description = expenseForm.notes || "";
       const inventoryItems: any[] = [];
 
       const ec = expenseForm.category;
 
-      // Find the appropriate category
       const category = expenseCategories.find((cat: any) =>
         cat.name.toLowerCase().includes(ec.toLowerCase())
       );
@@ -755,33 +766,20 @@ export default function BatchDetailPage() {
         amount = q * r;
         quantity = q;
         unitPrice = r;
-        description = `${expenseForm.feedBrand} - ${description}`;
-
-        // Add inventory item if selected
         if (expenseForm.selectedFeedId && q > 0) {
-          console.log("expenseForm.selectedFeedId", expenseForm.selectedFeedId);
           inventoryItems.push({
             itemId: expenseForm.selectedFeedId,
             quantity: q,
-            notes: `Feed: ${expenseForm.feedBrand}`,
+            notes: `Feed: ${expenseForm.feedBrand || "Feed"}`,
           });
         }
-      } else if (ec === "Hatchery") {
-        const q = Number(expenseForm.hatcheryQuantity || 0);
-        const r = Number(expenseForm.hatcheryRate || 0);
-        amount = q * r;
-        quantity = q;
-        unitPrice = r;
-        description = `${expenseForm.hatcheryName} - ${description}`;
       } else if (ec === "Medicine") {
         const q = Number(expenseForm.medicineQuantity || 0);
         const r = Number(expenseForm.medicineRate || 0);
         amount = q * r;
         quantity = q;
         unitPrice = r;
-        description = `${expenseForm.medicineName} - ${description}`;
 
-        // Add inventory item if selected
         if (expenseForm.selectedMedicineId && q > 0) {
           inventoryItems.push({
             itemId: expenseForm.selectedMedicineId,
@@ -789,13 +787,19 @@ export default function BatchDetailPage() {
             notes: `Medicine: ${expenseForm.medicineName}`,
           });
         }
-      } else {
+      } else if (ec === "Other") {
         const q = Number(expenseForm.otherQuantity || 0);
         const r = Number(expenseForm.otherRate || 0);
         amount = q * r;
         quantity = q;
         unitPrice = r;
-        description = `${expenseForm.otherName} - ${description}`;
+        if (expenseForm.selectedOtherId && q > 0) {
+          inventoryItems.push({
+            itemId: expenseForm.selectedOtherId,
+            quantity: q,
+            notes: `Other: ${expenseForm.otherName || "Other"}`,
+          });
+        }
       }
 
       const expenseData = {
@@ -803,7 +807,6 @@ export default function BatchDetailPage() {
           ? new Date(expenseForm.date).toISOString()
           : new Date().toISOString(),
         amount,
-        description,
         quantity,
         unitPrice,
         farmId: batch?.farmId,
@@ -837,21 +840,47 @@ export default function BatchDetailPage() {
   // --- Sales Modal ---
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
   const [editingSaleId, setEditingSaleId] = useState<number | null>(null);
-  const [saleForm, setSaleForm] = useState({
+  type EggLineRow = { eggTypeId: string; quantity: string; unitPrice: string };
+  const [saleForm, setSaleForm] = useState<{
+    farmId: string;
+    batchId: string;
+    rate: string;
+    quantity: string;
+    weight: string;
+    itemType: string;
+    eggTypeId: string;
+    eggLineItems: EggLineRow[];
+    remaining: boolean;
+    customerId: string;
+    customerName: string;
+    contact: string;
+    customerCategory: string;
+    balance: string;
+    date: string;
+  }>({
+    farmId: "",
+    batchId: "",
     rate: "",
     quantity: "",
     weight: "",
     itemType: "Chicken_Meat",
-    eggCategory: "" as "" | "LARGE" | "MEDIUM" | "SMALL",
+    eggTypeId: "",
+    eggLineItems: [{ eggTypeId: "", quantity: "", unitPrice: "" }],
     remaining: false,
     customerId: "",
     customerName: "",
     contact: "",
     customerCategory: "Chicken",
     balance: "",
-    date: "",
-    categoryId: "",
+    date: getTodayLocalDate(),
   });
+  const { data: eggTypesData } = useGetEggTypes({ enabled: true });
+  const eggTypes = eggTypesData?.data ?? [];
+  const { data: eggInventoryResponse } = useGetEggInventory({
+    batchId: batchId ?? null,
+    enabled: isSaleModalOpen && saleForm.itemType === "EGGS",
+  });
+  const eggInventory = eggInventoryResponse?.data;
   function updateSaleField(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) {
@@ -865,39 +894,55 @@ export default function BatchDetailPage() {
   function openNewSale() {
     setEditingSaleId(null);
     setSaleForm({
+      farmId: batch?.farmId ?? "",
+      batchId: batchId ?? "",
       rate: "",
       quantity: "",
       weight: "",
       itemType: "Chicken_Meat",
-      eggCategory: "",
+      eggTypeId: "",
+      eggLineItems: [{ eggTypeId: "", quantity: "", unitPrice: "" }],
       remaining: false,
       customerId: "",
       customerName: "",
       contact: "",
       customerCategory: "Chicken",
       balance: "",
-      date: new Date().toISOString().split("T")[0],
-      categoryId: "",
+      date: getTodayLocalDate(),
     });
     setCustomerSearch("");
     setIsSaleModalOpen(true);
   }
   function openEditSale(row: SaleRow) {
     setEditingSaleId(row.id);
+    const r = row as any;
+    const eggLines = r.eggLines as { eggTypeId: string; quantity: number; unitPrice: number }[] | undefined;
+    const eggLineItems: EggLineRow[] =
+      eggLines && eggLines.length > 0
+        ? eggLines.map((l: { eggTypeId: string; quantity: number; unitPrice: number }) => ({
+            eggTypeId: l.eggTypeId,
+            quantity: String(l.quantity),
+            unitPrice: String(l.unitPrice),
+          }))
+        : r.eggTypeId
+          ? [{ eggTypeId: r.eggTypeId, quantity: String(row.quantity), unitPrice: String(row.rate) }]
+          : [{ eggTypeId: "", quantity: "", unitPrice: "" }];
     setSaleForm({
+      farmId: batch?.farmId ?? "",
+      batchId: batchId ?? "",
       rate: String(row.rate),
       quantity: String(row.quantity),
-      weight: String((row as any).weight || ""),
-      itemType: (row as any).itemType || "Chicken_Meat",
-      eggCategory: (row as any).eggCategory || "",
+      weight: String(r.weight || ""),
+      itemType: r.itemType || "Chicken_Meat",
+      eggTypeId: r.eggTypeId || "",
+      eggLineItems,
       remaining: row.remaining,
       customerId: "",
       customerName: row.customer?.name || "",
       contact: row.customer?.phone || "",
       customerCategory: row.customer?.category || "Chicken",
       balance: String(row.customer?.balance ?? ""),
-      date: row.date,
-      categoryId: row.categoryId || "",
+      date: row.date?.includes("T") ? row.date.split("T")[0] : row.date || getTodayLocalDate(),
     });
     setCustomerSearch("");
     setIsSaleModalOpen(true);
@@ -915,13 +960,19 @@ export default function BatchDetailPage() {
   const [saleErrors, setSaleErrors] = useState<Record<string, string>>({});
   function validateSale(): boolean {
     const errs: Record<string, string> = {};
-    if (!saleForm.rate) errs.rate = "Rate required";
-    if (!saleForm.quantity) errs.quantity = "Quantity required";
+    if (saleForm.itemType === "EGGS") {
+      const validLines = saleForm.eggLineItems.filter(
+        (l) => l.eggTypeId && Number(l.quantity) > 0 && Number(l.unitPrice) > 0
+      );
+      if (validLines.length === 0) {
+        errs.eggLineItems = "Add at least one egg line (type, quantity, rate)";
+      }
+    } else {
+      if (!saleForm.rate) errs.rate = "Rate required";
+      if (!saleForm.quantity) errs.quantity = "Quantity required";
+    }
     if (saleForm.itemType === "Chicken_Meat") {
       if (!saleForm.weight) errs.weight = "Weight required for Chicken_Meat";
-    }
-    if (saleForm.itemType === "EGGS" && !saleForm.eggCategory) {
-      errs.eggCategory = "Egg category (Large / Medium / Small) required";
     }
     if (!saleForm.date) errs.date = "Date required";
 
@@ -945,9 +996,18 @@ export default function BatchDetailPage() {
       if (!saleForm.customerId && !saleForm.contact) {
         errs.contact = "Contact number required for new customer";
       }
-      // Validate that paid amount doesn't exceed total amount
-      const totalAmount =
-        Number(saleForm.rate || 0) * Number(saleForm.weight || 0);
+      let totalAmount: number;
+      if (saleForm.itemType === "EGGS" && saleForm.eggLineItems.length > 0) {
+        totalAmount = saleForm.eggLineItems.reduce(
+          (sum, l) => sum + Number(l.quantity || 0) * Number(l.unitPrice || 0),
+          0
+        );
+      } else {
+        totalAmount =
+          saleForm.itemType === "Chicken_Meat"
+            ? Number(saleForm.rate || 0) * Number(saleForm.weight || 0)
+            : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0);
+      }
       const paidAmount = Number(saleForm.balance || 0);
       if (paidAmount > totalAmount) {
         errs.balance = `Paid amount cannot exceed total amount of ₹${totalAmount.toLocaleString()}`;
@@ -962,34 +1022,69 @@ export default function BatchDetailPage() {
     if (!validateSale()) return;
 
     try {
+      let amount: number;
+      let quantity: number;
+      let unitPrice: number;
+      let weight: number | null = null;
+
+      if (saleForm.itemType === "EGGS") {
+        const validLines = saleForm.eggLineItems.filter(
+          (l) => l.eggTypeId && Number(l.quantity) > 0 && Number(l.unitPrice) > 0
+        );
+        quantity = validLines.reduce((s, l) => s + Number(l.quantity), 0);
+        amount = validLines.reduce(
+          (s, l) => s + Number(l.quantity) * Number(l.unitPrice),
+          0
+        );
+        unitPrice = validLines.length > 0 ? Number(validLines[0].unitPrice) : 0;
+      } else {
+        quantity = parseFloat(saleForm.quantity);
+        weight =
+          saleForm.itemType === "Chicken_Meat"
+            ? parseFloat(saleForm.weight)
+            : null;
+        unitPrice = parseFloat(saleForm.rate);
+        amount =
+          saleForm.itemType === "Chicken_Meat"
+            ? unitPrice * (weight || 0)
+            : unitPrice * quantity;
+      }
+
+      const paidAmount = saleForm.remaining
+        ? saleForm.balance
+          ? parseFloat(saleForm.balance)
+          : 0
+        : amount;
+      const saleDateRaw = saleForm.date || "";
+      const saleDateOnly = saleDateRaw.includes("T") ? saleDateRaw.split("T")[0] : saleDateRaw;
       const saleData: any = {
-        date: saleForm.date
-          ? `${saleForm.date}T00:00:00.000Z`
+        date: saleDateOnly
+          ? `${saleDateOnly}T00:00:00.000Z`
           : new Date().toISOString(),
-        amount:
-          saleForm.itemType === "Chicken_Meat"
-            ? Number(saleForm.rate || 0) * Number(saleForm.weight || 0)
-            : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0),
-        quantity: Number(saleForm.quantity || 0),
-        weight:
-          saleForm.itemType === "Chicken_Meat"
-            ? Number(saleForm.weight || 0)
-            : null,
-        unitPrice: Number(saleForm.rate || 0),
+        amount,
+        quantity,
+        weight: weight ?? undefined,
+        unitPrice,
         description: undefined,
         isCredit: saleForm.remaining,
-        paidAmount: saleForm.remaining
-          ? Number(saleForm.balance || 0)
-          : saleForm.itemType === "Chicken_Meat"
-            ? Number(saleForm.rate || 0) * Number(saleForm.weight || 0)
-            : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0),
-        farmId: batch?.farmId,
-        batchId: batchId,
+        paidAmount,
+        farmId: saleForm.farmId || batch?.farmId,
+        batchId: saleForm.batchId || batchId,
         itemType: saleForm.itemType,
-        categoryId: saleForm.categoryId,
       };
-      if (saleForm.itemType === "EGGS" && saleForm.eggCategory) {
-        saleData.eggCategory = saleForm.eggCategory;
+      if (saleForm.itemType === "EGGS") {
+        const validLines = saleForm.eggLineItems.filter(
+          (l) => l.eggTypeId && Number(l.quantity) > 0 && Number(l.unitPrice) > 0
+        );
+        if (validLines.length > 0) {
+          saleData.eggLineItems = validLines.map((l) => ({
+            eggTypeId: l.eggTypeId,
+            quantity: Number(l.quantity),
+            unitPrice: Number(l.unitPrice),
+          }));
+        } else if (saleForm.eggTypeId) {
+          saleData.eggTypeId = saleForm.eggTypeId;
+        }
       }
 
       // Handle customer data
@@ -1035,17 +1130,6 @@ export default function BatchDetailPage() {
     }
   }
 
-  // --- Ledger Modal ---
-  const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
-  const [editingLedgerId, setEditingLedgerId] = useState<number | null>(null);
-  const [ledgerForm, setLedgerForm] = useState({
-    name: "",
-    contact: "",
-    category: "Chicken" as "Chicken" | "Other",
-    sales: "",
-    received: "",
-  });
-
   // Payment management state
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<{
@@ -1065,7 +1149,7 @@ export default function BatchDetailPage() {
     useState<any>(null);
   const [paymentForm, setPaymentForm] = useState({
     amount: "",
-    date: new Date().toISOString().split("T")[0],
+    date: getTodayLocalDate(),
     description: "",
     reference: "",
   });
@@ -1088,7 +1172,7 @@ export default function BatchDetailPage() {
   >({});
 
   function updateMortalityField(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
     const { name, value } = e.target;
     setMortalityForm((p) => ({ ...p, [name]: value }));
@@ -1097,7 +1181,7 @@ export default function BatchDetailPage() {
   function openNewMortality() {
     setEditingMortalityId(null);
     setMortalityForm({
-      date: new Date().toISOString().split("T")[0],
+      date: getTodayLocalDate(),
       count: "",
       reason: "Natural Death",
     });
@@ -1181,70 +1265,6 @@ export default function BatchDetailPage() {
     }
   }
 
-  function updateLedgerField(
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) {
-    const { name, value } = e.target;
-    setLedgerForm((p) => ({ ...p, [name]: value }));
-  }
-  function openNewLedger() {
-    setEditingLedgerId(null);
-    setIsLedgerModalOpen(true);
-  }
-  function openEditLedger(row: LedgerRow) {
-    setEditingLedgerId(typeof row.id === "string" ? parseInt(row.id) : row.id);
-    setLedgerForm({
-      name: row.name,
-      contact: row.phone,
-      category: row.category,
-      sales: String(row.sales),
-      received: String(row.received),
-    });
-    setIsLedgerModalOpen(true);
-  }
-  function deleteLedger(id: number) {
-    setLedger((prev) => prev.filter((r) => r.id !== id));
-  }
-
-  const [ledgerErrors, setLedgerErrors] = useState<Record<string, string>>({});
-  function validateLedger(): boolean {
-    const errs: Record<string, string> = {};
-    if (!ledgerForm.name) errs.name = "Name required";
-    setLedgerErrors(errs);
-    return Object.keys(errs).length === 0;
-  }
-  function submitLedger(e: React.FormEvent) {
-    e.preventDefault();
-    const s = Number(ledgerForm.sales || 0),
-      r = Number(ledgerForm.received || 0);
-    const newRow: LedgerRow = {
-      id:
-        editingLedgerId ??
-        (customerBalances.length
-          ? Math.max(
-              ...customerBalances.map((r) =>
-                typeof r.id === "number" ? r.id : parseInt(r.id)
-              )
-            ) + 1
-          : 1),
-      name: ledgerForm.name,
-      phone: ledgerForm.contact,
-      category: ledgerForm.category,
-      sales: s,
-      received: r,
-      balance: s - r,
-    };
-    setLedger((prev) =>
-      editingLedgerId
-        ? prev.map((l) => (l.id === editingLedgerId ? newRow : l))
-        : [newRow, ...prev]
-    );
-    setIsLedgerModalOpen(false);
-    setEditingLedgerId(null);
-    setLedgerErrors({});
-    flash("success", editingLedgerId ? "Ledger updated" : "Ledger entry added");
-  }
-
   // Transactions modal function
   function openTransactionsModal(sale: any) {
     setSelectedSale(sale);
@@ -1266,7 +1286,7 @@ export default function BatchDetailPage() {
     setSelectedCustomer(customer);
     setPaymentForm({
       amount: "",
-      date: new Date().toISOString().split("T")[0],
+      date: getTodayLocalDate(),
       description: `Payment from ${customer.name}`,
       reference: "",
     });
@@ -1328,7 +1348,7 @@ export default function BatchDetailPage() {
       setIsPaymentModalOpen(false);
       setPaymentForm({
         amount: "",
-        date: new Date().toISOString().split("T")[0],
+        date: getTodayLocalDate(),
         description: "",
         reference: "",
       });
@@ -1386,14 +1406,13 @@ export default function BatchDetailPage() {
   // Calculate current age in days
   const currentAge = Math.ceil(
     (new Date().getTime() - new Date(batch.startDate).getTime()) /
-      (1000 * 60 * 60 * 24)
+    (1000 * 60 * 60 * 24)
   );
 
   // Column configurations for DataTable
   const expenseColumns = createExpenseColumns({
     isBatchClosed,
-    openEditExpense,
-    deleteExpense,
+    onDeleteClick: openDeleteExpenseConfirm,
   });
 
   const salesColumns = createSalesColumns({
@@ -1418,76 +1437,75 @@ export default function BatchDetailPage() {
     batchSales,
     openCustomerTransactionsModal,
     openPaymentModal,
-    openEditLedger,
-    deleteLedger,
   });
 
   return (
     <div className="space-y-6">
       {banner && <Banner type={banner.type} message={banner.message} />}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      {/* Top header: mobile = icon-only back + wrapped title/badges; desktop unchanged */}
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 justify-between">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
           <Link
             href="/farmer/dashboard/batches"
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-primary"
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-primary shrink-0 p-1 -m-1 sm:p-0 sm:m-0 rounded"
+            aria-label="Back to batches"
           >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back
+            <ArrowLeft className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Back</span>
           </Link>
-          <span className="text-muted-foreground">/</span>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Layers className="h-6 w-6 text-primary" /> {batch.batchNumber}
+          <span className="text-muted-foreground hidden sm:inline">/</span>
+          <h1 className="text-lg sm:text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2 flex-wrap min-w-0">
+            <Layers className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
+            <span className="break-words min-w-0">{batch.batchNumber}</span>
           </h1>
-          <Badge variant="secondary" className="font-normal">
+          <Badge variant="secondary" className="font-normal shrink-0">
             {(batch as any).batchType === "LAYERS" ? "Layers" : "Broiler"}
           </Badge>
           <Badge
             variant="outline"
             className={
               batch.status === "ACTIVE"
-                ? "text-green-600 border-green-600/30"
-                : "text-gray-600 border-gray-600/30"
+                ? "text-green-600 border-green-600/30 shrink-0"
+                : "text-gray-600 border-gray-600/30 shrink-0"
             }
           >
             {batch.status}
           </Badge>
         </div>
-        <div className="text-right">
+        <div className="text-right shrink-0 w-full sm:w-auto order-last sm:order-none basis-full sm:basis-auto">
           <div className="text-sm text-muted-foreground">Farm</div>
-          <div className="font-medium">{batch.farm.name}</div>
+          <div className="font-medium truncate sm:whitespace-normal">{batch.farm.name}</div>
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div></div>
-        <div className="flex items-center gap-2">
-          {batch.status === "ACTIVE" && (
-            <Button
-              variant="outline"
-              className="text-orange-600 border-orange-200 hover:bg-orange-50"
-              onClick={openCloseBatchModal}
-              disabled={closeBatchMutation.isPending}
-            >
-              {closeBatchMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Closing...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Close Batch
-                </>
-              )}
-            </Button>
-          )}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {batch.status === "ACTIVE" && (
           <Button
             variant="outline"
-            className="text-red-600 border-red-200 hover:bg-red-50"
-            onClick={() => setIsDeleteModalOpen(true)}
+            className="text-orange-600 border-orange-200 hover:bg-orange-50 text-xs sm:text-sm"
+            onClick={openCloseBatchModal}
+            disabled={closeBatchMutation.isPending}
           >
-            <Trash2 className="h-4 w-4 mr-2" /> Delete Batch
+            {closeBatchMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1.5 sm:mr-2 animate-spin shrink-0" />
+                Closing...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-4 w-4 mr-1.5 sm:mr-2 shrink-0" />
+                <span>Close Batch</span>
+              </>
+            )}
           </Button>
-        </div>
+        )}
+        <Button
+          variant="outline"
+          className="text-red-600 border-red-200 hover:bg-red-50 text-xs sm:text-sm"
+          onClick={() => setIsDeleteModalOpen(true)}
+        >
+          <Trash2 className="h-4 w-4 mr-1.5 sm:mr-2 shrink-0" /> <span>Delete Batch</span>
+        </Button>
       </div>
 
       {/* Prompt to close when batch is active but birds are 0 */}
@@ -1530,15 +1548,15 @@ export default function BatchDetailPage() {
         </Card>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5 sm:gap-2">
         {tabs.map((tab) => (
           <Button
             key={tab}
             variant={activeTab === tab ? "default" : "outline"}
             className={
               activeTab === tab
-                ? "bg-primary text-primary-foreground"
-                : "hover:border-primary hover:text-primary"
+                ? "bg-primary text-primary-foreground text-xs sm:text-sm px-2.5 sm:px-4 py-1.5 sm:py-2 h-8 sm:h-9"
+                : "hover:border-primary hover:text-primary text-xs sm:text-sm px-2.5 sm:px-4 py-1.5 sm:py-2 h-8 sm:h-9"
             }
             onClick={() => setActiveTab(tab)}
           >
@@ -1606,7 +1624,6 @@ export default function BatchDetailPage() {
           customerBalances={customerBalances}
           receivableTotal={receivableTotal}
           ledgerColumns={ledgerColumns}
-          openNewLedger={openNewLedger}
         />
       )}
 
@@ -1631,7 +1648,6 @@ export default function BatchDetailPage() {
           weights={weights}
           weightsLoading={weightsLoading}
           weightsError={weightsError}
-          growthChartData={growthChartData}
           setIsWeightModalOpen={setIsWeightModalOpen}
         />
       )}
@@ -1687,8 +1703,8 @@ export default function BatchDetailPage() {
           } catch (e: any) {
             alert(
               e?.response?.data?.message ||
-                e?.message ||
-                "Failed to delete batch"
+              e?.message ||
+              "Failed to delete batch"
             );
           } finally {
             setIsBatchDeleting(false);
@@ -1711,54 +1727,451 @@ export default function BatchDetailPage() {
         expenseForm={expenseForm}
         expenseErrors={expenseErrors}
         expenseCategories={expenseCategories}
-        feedInventory={feedInventory}
-        medicineInventory={medicineInventory}
+        feedInventory={feedInventoryForExpense}
+        medicineInventory={medicineInventoryForExpense}
+        otherInventory={otherInventoryForExpense}
         inventoryItems={inventoryItems}
         onSubmit={submitExpense}
         onFieldUpdate={updateExpenseField}
         onFeedSelection={handleFeedSelection}
         onMedicineSelection={handleMedicineSelection}
+        onOtherSelection={handleOtherSelection}
         isPending={createExpenseMutation.isPending || updateExpenseMutation.isPending}
       />
 
-      {/* Sale Modal with errors */}
-      <BatchSaleModel
-        saleForm={saleForm}
-        saleErrors={saleErrors}
-        updateSaleField={updateSaleField}
-        customerSearch={customerSearch}
-        setCustomerSearch={setCustomerSearch}
-        customers={customers}
-        isCreating={isCreating}
-        isUpdating={isUpdating}
-        isSaleModalOpen={isSaleModalOpen}
-        setIsSaleModalOpen={setIsSaleModalOpen}
-        editingSaleId={editingSaleId}
-        setEditingSaleId={setEditingSaleId}
-        submitSale={submitSale}
-        setSaleForm={setSaleForm}
-        setSaleErrors={setSaleErrors}
-        categoryId={saleForm.categoryId}
-      />
+      {/* Delete expense confirmation */}
+      <AlertDialog open={showDeleteExpenseConfirm} onOpenChange={(open) => { setShowDeleteExpenseConfirm(open); if (!open) setExpenseToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete expense?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this expense?
+              {expenseToDelete?.inventoryUsages?.length > 0 && (
+                <span className="mt-2 block text-foreground/90">
+                  This expense was linked to inventory. The stock will be returned to inventory after deletion.
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleConfirmDeleteExpense(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      {/* Ledger Modal with errors */}
-        <LedgerModal 
-        isOpen={isLedgerModalOpen}
+      {/* Sale Modal — same as sales-ledger New Sale, with farm/batch fixed from current batch */}
+      <Modal
+        isOpen={isSaleModalOpen}
         onClose={() => {
-          setIsLedgerModalOpen(false);
-          setEditingLedgerId(null);
-          setLedgerErrors({});
+          setIsSaleModalOpen(false);
+          setEditingSaleId(null);
+          setSaleErrors({});
+          setCustomerSearch("");
         }}
-        ledgerForm={ledgerForm}
-        ledgerErrors={ledgerErrors}
-      
-        editingLedgerId={editingLedgerId}
-        onSubmit={async (e) => {
-          e.preventDefault();
-          await submitLedger(e);
-        }}
-        onFieldUpdate={updateLedgerField}
-      />
+        title={editingSaleId ? "Edit Sale" : "Add Sale"}
+      >
+        <form onSubmit={submitSale}>
+          <ModalContent>
+            <div className="space-y-4">
+              {/* Read-only: current farm & batch */}
+              {batch && (
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <p className="text-sm text-gray-700">
+                    <strong>Farm:</strong> {(batch as any).farm?.name ?? "—"} · <strong>Batch:</strong> {(batch as any).batchNumber ?? batchId}
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="itemType">Item Type</Label>
+                <Select
+                  value={saleForm.itemType}
+                  onValueChange={(value) => {
+                    updateSaleField({ target: { name: "itemType", value } } as any);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select item type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="EGGS">Eggs</SelectItem>
+                    <SelectItem value="Chicken_Meat">Layers/Chickens (Meat)</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {saleForm.itemType === "EGGS" && (
+                <div className="space-y-3">
+                  <Label>Egg lines (type, quantity, rate per unit)</Label>
+                  {eggInventory?.types && eggInventory.types.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Available: {eggInventory.types.map((t: { name: string; quantity: number }) => `${t.name} ${t.quantity}`).join(" · ")}
+                    </p>
+                  )}
+                  {saleForm.eggLineItems.map((line, idx) => (
+                    <div key={idx} className="flex flex-wrap items-end gap-2 p-2 border rounded-md bg-gray-50/50">
+                      <div className="flex-1 min-w-[120px]">
+                        <Label className="text-xs">Type</Label>
+                        <Select
+                          value={line.eggTypeId}
+                          onValueChange={(value) => {
+                            setSaleForm((p) => ({
+                              ...p,
+                              eggLineItems: p.eggLineItems.map((l, i) =>
+                                i === idx ? { ...l, eggTypeId: value } : l
+                              ),
+                            }));
+                          }}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Egg type" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white">
+                            {eggTypes.map((t) => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {t.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="w-24">
+                        <Label className="text-xs">Qty</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={line.quantity}
+                          onChange={(e) => {
+                            setSaleForm((p) => ({
+                              ...p,
+                              eggLineItems: p.eggLineItems.map((l, i) =>
+                                i === idx ? { ...l, quantity: e.target.value } : l
+                              ),
+                            }));
+                          }}
+                          placeholder="0"
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="w-28">
+                        <Label className="text-xs">Rate (₹)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={line.unitPrice}
+                          onChange={(e) => {
+                            setSaleForm((p) => ({
+                              ...p,
+                              eggLineItems: p.eggLineItems.map((l, i) =>
+                                i === idx ? { ...l, unitPrice: e.target.value } : l
+                              ),
+                            }));
+                          }}
+                          placeholder="0"
+                          className="h-9"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0"
+                        onClick={() => {
+                          setSaleForm((p) => ({
+                            ...p,
+                            eggLineItems: p.eggLineItems.filter((_, i) => i !== idx),
+                          }));
+                        }}
+                        disabled={saleForm.eggLineItems.length <= 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSaleForm((p) => ({
+                        ...p,
+                        eggLineItems: [...p.eggLineItems, { eggTypeId: "", quantity: "", unitPrice: "" }],
+                      }));
+                    }}
+                  >
+                    Add line
+                  </Button>
+                  {saleErrors.eggLineItems && (
+                    <p className="text-xs text-red-600">{saleErrors.eggLineItems}</p>
+                  )}
+                </div>
+              )}
+
+              {saleForm.itemType !== "EGGS" && (
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="rate">Rate (₹)</Label>
+                    <Input
+                      id="rate"
+                      name="rate"
+                      type="number"
+                      value={saleForm.rate}
+                      onChange={updateSaleField}
+                      placeholder="Rate per unit"
+                    />
+                    {saleErrors.rate && (
+                      <p className="text-xs text-red-600 mt-1">{saleErrors.rate}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="quantity">
+                      {saleForm.itemType === "Chicken_Meat"
+                        ? "Quantity (Birds)"
+                        : "Quantity (Units)"}
+                    </Label>
+                    <Input
+                      id="quantity"
+                      name="quantity"
+                      type="number"
+                      value={saleForm.quantity}
+                      onChange={updateSaleField}
+                      placeholder={
+                        saleForm.itemType === "Chicken_Meat"
+                          ? "Number of birds"
+                          : "Number of units"
+                      }
+                    />
+                    {saleErrors.quantity && (
+                      <p className="text-xs text-red-600 mt-1">{saleErrors.quantity}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {saleForm.itemType === "Chicken_Meat" && (
+                <div>
+                  <Label htmlFor="weight">Weight (kg)</Label>
+                  <Input
+                    id="weight"
+                    name="weight"
+                    type="number"
+                    step="0.01"
+                    value={saleForm.weight}
+                    onChange={updateSaleField}
+                    placeholder="Total weight in kg"
+                  />
+                  {saleErrors.weight && (
+                    <p className="text-xs text-red-600 mt-1">{saleErrors.weight}</p>
+                  )}
+                  {saleForm.quantity && saleForm.weight && (
+                    <p className="text-xs text-green-600 mt-1">
+                      Avg weight per bird:{" "}
+                      {(Number(saleForm.weight) / Number(saleForm.quantity)).toFixed(2)} kg
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-md">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Total Amount</span>
+                  <span className="text-lg font-bold text-green-700">
+                    ₹
+                    {saleForm.itemType === "EGGS"
+                      ? saleForm.eggLineItems
+                          .reduce(
+                            (s, l) => s + Number(l.quantity || 0) * Number(l.unitPrice || 0),
+                            0
+                          )
+                          .toLocaleString()
+                      : saleForm.itemType === "Chicken_Meat" && Number(saleForm.weight)
+                        ? (Number(saleForm.rate || 0) * Number(saleForm.weight)).toLocaleString()
+                        : (Number(saleForm.rate || 0) * Number(saleForm.quantity || 0)).toLocaleString()}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {saleForm.itemType === "EGGS"
+                    ? "Sum of (quantity × rate) per line"
+                    : saleForm.itemType === "Chicken_Meat"
+                      ? "Calculated as rate × weight"
+                      : "Calculated as rate × quantity"}
+                </p>
+              </div>
+
+              <div>
+                <DateInput
+                  label="Date"
+                  value={saleForm.date}
+                  onChange={(v) =>
+                    setSaleForm((p) => ({ ...p, date: v.includes("T") ? v.split("T")[0] : v }))
+                  }
+                />
+                {saleErrors.date && (
+                  <p className="text-xs text-red-600 mt-1">{saleErrors.date}</p>
+                )}
+              </div>
+
+              <div className="col-span-2">
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    name="remaining"
+                    checked={saleForm.remaining}
+                    onChange={updateSaleField}
+                    className="h-4 w-4"
+                  />
+                  Remaining balance?
+                </label>
+              </div>
+
+              {saleForm.remaining && (
+                <div className="grid md:grid-cols-2 gap-4 border rounded-md p-4">
+                  <div>
+                    <Label htmlFor="customerSearch">Search Customer</Label>
+                    <div className="relative">
+                      <Input
+                        id="customerSearch"
+                        name="customerSearch"
+                        value={customerSearch}
+                        onChange={(e) => setCustomerSearch(e.target.value)}
+                        placeholder="Search existing customers..."
+                        className="pr-8"
+                      />
+                      {customerSearch && (
+                        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
+                          {customers?.length > 0 ? (
+                            customers.map((customer: any) => (
+                              <div
+                                key={customer.id}
+                                className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                onClick={() => {
+                                  setSaleForm((prev) => ({
+                                    ...prev,
+                                    customerId: customer.id,
+                                    customerName: customer.name,
+                                    contact: customer.phone,
+                                    customerCategory: customer.category || "Chicken",
+                                  }));
+                                  setCustomerSearch("");
+                                }}
+                              >
+                                <div className="font-medium">{customer.name}</div>
+                                <div className="text-sm text-gray-500">{customer.phone}</div>
+                                {customer.category && (
+                                  <div className="text-xs text-blue-600">{customer.category}</div>
+                                )}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="px-3 py-2 text-gray-500 text-sm">No customers found</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="customerName">Customer Name *</Label>
+                    <Input
+                      id="customerName"
+                      name="customerName"
+                      value={saleForm.customerName}
+                      onChange={updateSaleField}
+                      placeholder="Enter new customer name"
+                    />
+                    {saleErrors.customerName && (
+                      <p className="text-xs text-red-600 mt-1">{saleErrors.customerName}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="contact">Contact *</Label>
+                    <Input
+                      id="contact"
+                      name="contact"
+                      value={saleForm.contact}
+                      onChange={updateSaleField}
+                      placeholder="Phone number"
+                    />
+                    {saleErrors.contact && (
+                      <p className="text-xs text-red-600 mt-1">{saleErrors.contact}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="customerCategory">Customer Category</Label>
+                    <Select
+                      value={saleForm.customerCategory || "Chicken"}
+                      onValueChange={(value) => {
+                        updateSaleField({ target: { name: "customerCategory", value } } as any);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white">
+                        <SelectItem value="Chicken">Chicken</SelectItem>
+                        <SelectItem value="Eggs">Eggs</SelectItem>
+                        <SelectItem value="Layer">Layer</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="balance">Amount Paid (Optional)</Label>
+                    <Input
+                      id="balance"
+                      name="balance"
+                      type="number"
+                      value={saleForm.balance}
+                      onChange={updateSaleField}
+                      placeholder="Amount paid (leave empty for full credit)"
+                    />
+                    {saleErrors.balance && (
+                      <p className="text-xs text-red-600 mt-1">{saleErrors.balance}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </ModalContent>
+          <ModalFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsSaleModalOpen(false);
+                setEditingSaleId(null);
+                setSaleErrors({});
+                setCustomerSearch("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="bg-primary hover:bg-primary/90"
+              disabled={isCreating || isUpdating}
+            >
+              {isCreating || isUpdating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {editingSaleId ? "Updating..." : "Creating..."}
+                </>
+              ) : editingSaleId ? (
+                "Update Sale"
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </ModalFooter>
+        </form>
+      </Modal>
 
       {/* Payment Modal */}
       <PaymentModal
@@ -1768,7 +2181,7 @@ export default function BatchDetailPage() {
           setSelectedCustomer(null);
           setPaymentForm({
             amount: "",
-            date: new Date().toISOString().split("T")[0],
+            date: getTodayLocalDate(),
             description: "",
             reference: "",
           });

@@ -198,7 +198,7 @@ export const BatchSaleModel = ({
               <DateInput
                 label="Date"
                 value={saleForm.date}
-                onChange={(value) => setSaleForm(prev => ({ ...prev, date: value }))}
+                onChange={(value) => setSaleForm((prev: any) => ({ ...prev, date: value }))}
               />
               {saleErrors.date && (
                 <p className="text-xs text-red-600 mt-1">{saleErrors.date}</p>
@@ -251,7 +251,7 @@ export const BatchSaleModel = ({
                               key={customer.id}
                               className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                               onClick={() => {
-                                setSaleForm((prev) => ({
+                                setSaleForm((prev: any) => ({
                                   ...prev,
                                   customerId: customer.id,
                                   customerName: customer.name,
@@ -317,6 +317,8 @@ export const BatchSaleModel = ({
                     className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                   >
                     <option value="Chicken">Chicken</option>
+                    <option value="Eggs">Eggs</option>
+                    <option value="Layer">Layer</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>
@@ -348,7 +350,7 @@ export const BatchSaleModel = ({
               setIsSaleModalOpen(false);
               setEditingSaleId(null);
               setSaleErrors({
-                
+
               });
             }}
           >

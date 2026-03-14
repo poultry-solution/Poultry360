@@ -13,7 +13,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/common/components/ui/alert";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
-import { Package, Users, Receipt, TrendingUp, Loader2, X, CheckCircle, Clock, XCircle, AlertCircle, Plus, Truck, DollarSign } from "lucide-react";
+import { Package, Users, Receipt, TrendingUp, Loader2, X, CheckCircle, Clock, XCircle, AlertCircle, Plus, Truck, DollarSign, ClipboardList } from "lucide-react";
 import {
   useGetDealerVerificationRequests,
   useAcknowledgeVerificationRequest,
@@ -111,12 +111,13 @@ export default function DealerHomePage() {
     }
   };
 
-  // Calculate current month date range
+  // Calculate current month date range (local dates to avoid UTC shift)
   const currentDate = new Date();
   const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-  const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59);
-  const startDate = startOfMonth.toISOString().split('T')[0];
-  const endDate = endOfMonth.toISOString().split('T')[0];
+  const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const startDate = `${startOfMonth.getFullYear()}-${pad(startOfMonth.getMonth() + 1)}-${pad(startOfMonth.getDate())}`;
+  const endDate = `${endOfMonth.getFullYear()}-${pad(endOfMonth.getMonth() + 1)}-${pad(endOfMonth.getDate())}`;
 
   // Fetch real data
   const { data: inventoryData, isLoading: inventoryLoading } = useGetInventorySummary();
@@ -197,11 +198,17 @@ export default function DealerHomePage() {
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Link href="/dealer/dashboard/sales/new" className="flex-1 md:flex-none">
             <Button variant="outline" className="w-full md:w-auto gap-2 hover:bg-green-50 hover:text-green-700 border-green-200">
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">{t("dealer.dashboard.buttons.addSale").split(" ")[0]}</span> {t("dealer.dashboard.buttons.addSale").split(" ").slice(1).join(" ")}
+            </Button>
+          </Link>
+          <Link href="/dealer/dashboard/sale-requests" className="flex-1 md:flex-none">
+            <Button variant="outline" className="w-full md:w-auto gap-2 hover:bg-green-50 hover:text-green-700 border-green-200">
+              <ClipboardList className="h-4 w-4" />
+              {t("dealer.dashboard.buttons.saleRequests")}
             </Button>
           </Link>
           <Link href="/dealer/dashboard/consignments" className="flex-1 md:flex-none">

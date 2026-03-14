@@ -115,10 +115,10 @@ export default function FarmerOrderRequestsPage() {
         </Button>
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-            Order Requests
+            {t("farmer.orderRequests.title")}
           </h1>
           <p className="text-muted-foreground text-sm">
-            Manage your sent and received order requests
+            {t("farmer.orderRequests.subtitle")}
           </p>
         </div>
       </div>
@@ -128,11 +128,11 @@ export default function FarmerOrderRequestsPage() {
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="sent" className="flex items-center gap-2">
             <ShoppingCart className="h-4 w-4" />
-            Sent Requests
+            {t("farmer.orderRequests.tabSent")}
           </TabsTrigger>
           <TabsTrigger value="received" className="flex items-center gap-2">
             <FileCheck className="h-4 w-4" />
-            Received Requests
+            {t("farmer.orderRequests.tabReceived")}
           </TabsTrigger>
         </TabsList>
 
@@ -152,6 +152,7 @@ export default function FarmerOrderRequestsPage() {
 
 function SentRequestsTab() {
   const router = useRouter();
+  const { t } = useI18n();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -181,21 +182,21 @@ function SentRequestsTab() {
         return (
           <Badge className="bg-yellow-100 text-yellow-800">
             <Clock className="h-3 w-3 mr-1" />
-            Pending
+            {t("farmer.orderRequests.stats.pending")}
           </Badge>
         );
       case "APPROVED":
         return (
           <Badge className="bg-green-100 text-green-800">
             <CheckCircle className="h-3 w-3 mr-1" />
-            Approved
+            {t("farmer.orderRequests.stats.approved")}
           </Badge>
         );
       case "REJECTED":
         return (
           <Badge className="bg-red-100 text-red-800">
             <XCircle className="h-3 w-3 mr-1" />
-            Rejected
+            {t("farmer.orderRequests.stats.rejected")}
           </Badge>
         );
       default:
@@ -210,7 +211,7 @@ function SentRequestsTab() {
         <Card>
           <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
             <CardTitle className="text-[10px] md:text-sm font-medium text-muted-foreground">
-              Pending
+              {t("farmer.orderRequests.stats.pending")}
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -224,7 +225,7 @@ function SentRequestsTab() {
         <Card>
           <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
             <CardTitle className="text-[10px] md:text-sm font-medium text-muted-foreground">
-              Approved
+              {t("farmer.orderRequests.stats.approved")}
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -234,7 +235,7 @@ function SentRequestsTab() {
         <Card>
           <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
             <CardTitle className="text-[10px] md:text-sm font-medium text-muted-foreground">
-              Rejected
+              {t("farmer.orderRequests.stats.rejected")}
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -244,7 +245,7 @@ function SentRequestsTab() {
         <Card>
           <CardHeader className="px-3 py-2 md:p-6 md:pb-2">
             <CardTitle className="text-[10px] md:text-sm font-medium text-muted-foreground">
-              Total
+              {t("farmer.orderRequests.stats.total")}
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
@@ -265,36 +266,35 @@ function SentRequestsTab() {
               }}
             >
               <SelectTrigger className="h-8 text-xs w-full sm:w-[120px]">
-                <SelectValue placeholder="All Statuses" />
+                <SelectValue placeholder={t("farmer.orderRequests.filterPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All Statuses</SelectItem>
-                <SelectItem value="PENDING">Pending</SelectItem>
-                <SelectItem value="APPROVED">Approved</SelectItem>
-                <SelectItem value="REJECTED">Rejected</SelectItem>
+                <SelectItem value="ALL">{t("farmer.orderRequests.filterPlaceholder")}</SelectItem>
+                <SelectItem value="PENDING">{t("farmer.orderRequests.stats.pending")}</SelectItem>
+                <SelectItem value="APPROVED">{t("farmer.orderRequests.stats.approved")}</SelectItem>
+                <SelectItem value="REJECTED">{t("farmer.orderRequests.stats.rejected")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           {isLoading ? (
             <div className="text-center py-12">
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-              <p className="text-muted-foreground">Loading requests...</p>
+              <p className="text-muted-foreground">{t("farmer.orderRequests.loadingRequests")}</p>
             </div>
           ) : requests.length === 0 ? (
             <div className="text-center py-12">
               <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">
-                No purchase requests yet
+                {t("farmer.orderRequests.noRequestsYet")}
               </h3>
               <p className="text-muted-foreground mb-4">
-                Browse a dealer&apos;s catalog from the Supplier Ledger to place
-                your first order.
+                {t("farmer.orderRequests.emptyHelp")}
               </p>
               <Button
                 variant="outline"
                 onClick={() => router.push("/farmer/dashboard/supplier-ledger")}
               >
-                Go to Supplier Ledger
+                {t("farmer.orderRequests.goToSupplierLedger")}
               </Button>
             </div>
           ) : (
@@ -709,7 +709,7 @@ function ReceivedRequestsTab() {
                       <Button
                         size="sm"
                         variant="destructive"
-                        className="h-7 text-xs"
+                        className="h-7 text-xs bg-red-600 text-white hover:bg-red-700"
                         onClick={() => handleReject(request)}
                       >
                         <XCircle className="h-3.5 w-3.5 mr-1" />
@@ -784,10 +784,10 @@ function ReceivedRequestsTab() {
                   Select the category for inventory tracking
                 </p>
                 <Select value={purchaseCategory} onValueChange={setPurchaseCategory}>
-                  <SelectTrigger>
+                  <SelectTrigger className="!bg-white">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     <SelectItem value="FEED">Feed</SelectItem>
                     <SelectItem value="MEDICINE">Medicine</SelectItem>
                     <SelectItem value="CHICKS">Chicks</SelectItem>
@@ -851,6 +851,7 @@ function ReceivedRequestsTab() {
               onClick={confirmReject}
               disabled={rejectMutation.isPending}
               variant="destructive"
+              className="bg-red-600 text-white hover:bg-red-700"
             >
               {rejectMutation.isPending ? t("farmer.saleRequests.rejecting") : t("farmer.saleRequests.reject")}
             </Button>

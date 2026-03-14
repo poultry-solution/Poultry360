@@ -1,4 +1,5 @@
 import prisma from "../utils/prisma";
+import { Prisma } from "@prisma/client";
 import {
   TransactionType,
   InventoryItemType,
@@ -115,13 +116,25 @@ export class InventoryService {
         },
       });
 
-      // 3. Upsert inventory item (find or create in one operation)
+      // 3. Find or create inventory item by name + rate + supplier (different rate or supplier = separate line)
+      const rateKey = new Prisma.Decimal(Math.round(unitPrice * 100) / 100);
+      const supplierKey =
+        dealerId != null
+          ? `DEALER:${dealerId}`
+          : hatcheryId != null
+            ? `HATCHERY:${hatcheryId}`
+            : medicineSupplierId != null
+              ? `MEDICINE_SUPPLIER:${medicineSupplierId}`
+              : "NONE";
+
       const inventoryItem = await tx.inventoryItem.upsert({
         where: {
-          userId_categoryId_name: {
+          userId_categoryId_name_unitPrice_supplierKey: {
             userId,
             categoryId: category.id,
             name: itemName,
+            unitPrice: rateKey,
+            supplierKey,
           },
         },
         update: unit ? { unit } : {},
@@ -133,6 +146,8 @@ export class InventoryService {
           itemType,
           userId,
           categoryId: category.id,
+          unitPrice: rateKey,
+          supplierKey,
         },
       });
 
@@ -345,6 +360,8 @@ export class InventoryService {
       where: {
         userId,
         itemType,
+        deletedAt: null,
+        currentStock: { gt: 0 },
       },
       include: {
         category: true,
@@ -365,6 +382,8 @@ export class InventoryService {
     return await prisma.inventoryItem.findMany({
       where: {
         userId,
+        deletedAt: null,
+        currentStock: { gt: 0 },
         AND: [
           { minStock: { not: null } },
           { currentStock: { lte: prisma.inventoryItem.fields.minStock } },
@@ -407,15 +426,14 @@ export class InventoryService {
         );
       }
 
-      // 3. Get latest unit price from transactions
-      const latestTransaction = await tx.inventoryTransaction.findFirst({
+      // 3. Effective rate from purchases (total cost / total qty; handles paid + free)
+      const purchaseSums = await tx.inventoryTransaction.aggregate({
         where: { itemId, type: "PURCHASE" },
-        orderBy: { date: "desc" },
+        _sum: { totalAmount: true, quantity: true },
       });
-
-      const unitPrice = latestTransaction
-        ? Number(latestTransaction.unitPrice)
-        : 0;
+      const sumQty = Number(purchaseSums._sum.quantity ?? 0);
+      const sumAmount = Number(purchaseSums._sum.totalAmount ?? 0);
+      const unitPrice = sumQty > 0 ? sumAmount / sumQty : 0;
       const totalAmount = unitPrice * quantity;
 
       // 4. Create expense record (with farm/batch context)

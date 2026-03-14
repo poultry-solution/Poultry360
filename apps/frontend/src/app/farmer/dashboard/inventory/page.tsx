@@ -13,44 +13,40 @@ import {
   Wheat,
   Pill,
   Box,
-  Plus,
   Loader2,
   Egg,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Modal } from "@/common/components/ui/modal";
 import { Input } from "@/common/components/ui/input";
+import { DateInput } from "@/common/components/ui/date-input";
 import { Label } from "@/common/components/ui/label";
 import { DataTable, Column, createColumn } from "@/common/components/ui/data-table";
-import {
-  useInventoryDashboard,
-  useCreateInventoryItem,
-} from "@/fetchers/inventory/inventoryQueries";
+import { useInventoryDashboard } from "@/fetchers/inventory/inventoryQueries";
 import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
 import { useGetEggInventory } from "@/fetchers/sale/saleQueries";
-import { InventoryItemType } from "@myapp/shared-types";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n/useI18n";
 import { useAddDealerTransaction } from "@/fetchers/dealers/dealerQueries";
-import { inventoryKeys } from "@/fetchers/inventory/inventoryQueries";
+import { inventoryKeys, useDeleteInventoryItem } from "@/fetchers/inventory/inventoryQueries";
 import { useQueryClient } from "@tanstack/react-query";
+import { getTodayLocalDate } from "@/common/lib/utils";
 
 export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState<
     "feed" | "chicks" | "medicine" | "other" | "eggs"
   >("feed");
   const { t } = useI18n();
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [reorderRow, setReorderRow] = useState<any>(null);
   const [reorderQuantity, setReorderQuantity] = useState("");
-  const [reorderDate, setReorderDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [reorderDate, setReorderDate] = useState(getTodayLocalDate());
   const reorderMutation = useAddDealerTransaction();
+  const deleteInventoryMutation = useDeleteInventoryItem();
   const queryClient = useQueryClient();
 
   // Use TanStack Query hooks
@@ -65,61 +61,38 @@ export default function InventoryPage() {
   } = useInventoryDashboard();
 
   const { data: batchesData } = useGetAllBatches({}, { enabled: true });
-  const hasLayerBatch = batchesData?.data?.some((batch) => batch.batchType === "LAYERS");
+  const layerBatches = (batchesData?.data ?? []).filter((b: any) => b.batchType === "LAYERS");
+  const hasLayerBatch = layerBatches.length > 0;
+
+  const [selectedEggBatchId, setSelectedEggBatchId] = useState<string | "">("");
+
+  useEffect(() => {
+    if (activeTab === "eggs" && layerBatches.length === 1 && !selectedEggBatchId) {
+      setSelectedEggBatchId(layerBatches[0].id);
+    }
+  }, [activeTab, layerBatches, selectedEggBatchId]);
 
   const { data: eggData, isLoading: isEggLoading } = useGetEggInventory({
-    enabled: hasLayerBatch
+    batchId: activeTab === "eggs" ? (selectedEggBatchId || null) : null,
+    enabled: hasLayerBatch && (activeTab !== "eggs" || !!selectedEggBatchId),
   });
-
-  const createInventoryMutation = useCreateInventoryItem();
-
-  const [formData, setFormData] = useState({
-    name: "",
-    quantity: "",
-    unit: "",
-    rate: "",
-    supplier: "",
-    batchNumber: "",
-    description: "",
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Filter table data based on active tab
   const getFilteredInventory = () => {
     if (activeTab === "eggs") {
-      if (!eggData?.data) return [];
-      return [
-        {
-          id: "large-eggs",
-          name: "Large Eggs",
-          quantity: eggData.data.LARGE || 0,
-          unit: "pcs",
-          itemType: "EGGS",
-          status: (eggData.data.LARGE || 0) > 0 ? "In Stock" : "Out of Stock",
-          rate: 0,
-          value: 0,
-        },
-        {
-          id: "medium-eggs",
-          name: "Medium Eggs",
-          quantity: eggData.data.MEDIUM || 0,
-          unit: "pcs",
-          itemType: "EGGS",
-          status: (eggData.data.MEDIUM || 0) > 0 ? "In Stock" : "Out of Stock",
-          rate: 0,
-          value: 0,
-        },
-        {
-          id: "small-eggs",
-          name: "Small Eggs",
-          quantity: eggData.data.SMALL || 0,
-          unit: "pcs",
-          itemType: "EGGS",
-          status: (eggData.data.SMALL || 0) > 0 ? "In Stock" : "Out of Stock",
-          rate: 0,
-          value: 0,
-        },
-      ];
+      if (!selectedEggBatchId) return [];
+      const types = eggData?.data?.types;
+      if (!types || !Array.isArray(types)) return [];
+      return types.map((t: { id: string; name: string; code: string; quantity: number }) => ({
+        id: t.id,
+        name: `${t.name} Eggs`,
+        quantity: t.quantity ?? 0,
+        unit: "pcs",
+        itemType: "EGGS",
+        status: (t.quantity ?? 0) > 0 ? "In Stock" : "Out of Stock",
+        rate: 0,
+        value: 0,
+      }));
     }
 
     if (!tableData) return [];
@@ -143,67 +116,10 @@ export default function InventoryPage() {
 
   const filteredInventory = getFilteredInventory();
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.name.trim()) newErrors.name = t("farmer.inventory.validation.nameRequired");
-    if (!formData.quantity || parseFloat(formData.quantity) <= 0)
-      newErrors.quantity = t("farmer.inventory.validation.quantityRequired");
-    if (!formData.unit.trim()) newErrors.unit = t("farmer.inventory.validation.unitRequired");
-    if (!formData.rate || parseFloat(formData.rate) <= 0)
-      newErrors.rate = t("farmer.inventory.validation.rateRequired");
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async () => {
-    if (!validateForm()) return;
-
-    try {
-      await createInventoryMutation.mutateAsync({
-        name: formData.name,
-        description: formData.description || undefined,
-        currentStock: parseFloat(formData.quantity),
-        unit: formData.unit,
-        minStock: 0,
-        itemType: (activeTab === "feed"
-          ? "FEED"
-          : activeTab === "chicks"
-            ? "CHICKS"
-            : activeTab === "medicine"
-              ? "MEDICINE"
-              : "OTHER") as InventoryItemType,
-        // categoryId will be automatically created by the backend
-        rate: parseFloat(formData.rate), // Pass rate for initial transaction
-      });
-
-      toast.success(t("farmer.inventory.toasts.added"));
-      setIsAddModalOpen(false);
-      setFormData({
-        name: "",
-        quantity: "",
-        unit: "",
-        rate: "",
-        supplier: "",
-        batchNumber: "",
-        description: "",
-      });
-      setErrors({});
-    } catch (error) {
-      console.error("Failed to add item:", error);
-      // Error toast is handled by axios interceptor
-    }
-  };
-
-  const openAddModal = () => {
-    setIsAddModalOpen(true);
-  };
-
   const openReorderModal = (row: any) => {
     setReorderRow(row);
     setReorderQuantity("");
-    setReorderDate(new Date().toISOString().split("T")[0]);
+    setReorderDate(getTodayLocalDate());
   };
 
   const handleReorderSubmit = async () => {
@@ -364,21 +280,52 @@ export default function InventoryPage() {
       })
     );
 
-    // Reorder action column — only for non-connected dealers
+    // Action column: Reorder (when applicable) + Delete (only when stock is 0)
     baseColumns.push(
-      createColumn("dealerId", "", {
+      createColumn("action", "Action", {
         render: (_, item: any) => {
-          if (!item.dealerId || item.isConnectedDealer) return null;
+          const qty = Number(item.quantity ?? 0);
+          const canDelete = qty === 0;
+          const showReorder = item.dealerId && !item.isConnectedDealer;
           return (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 px-2 text-xs"
-              onClick={() => openReorderModal(item)}
-            >
-              <RefreshCw className="h-3 w-3 mr-1" />
-              {t("farmer.inventory.reorder.button")}
-            </Button>
+            <div className="flex flex-col items-start gap-0.5">
+              <div className="flex items-center gap-1">
+                {showReorder && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => openReorderModal(item)}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    {t("farmer.inventory.reorder.button")}
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-60 disabled:cursor-not-allowed"
+                  disabled={!canDelete || deleteInventoryMutation.isPending}
+                  title={canDelete ? undefined : t("farmer.inventory.deleteDisabledReason")}
+                  aria-label={canDelete ? "Delete" : t("farmer.inventory.deleteDisabledReason")}
+                  onClick={() => {
+                    if (!canDelete) return;
+                    if (!confirm(t("farmer.inventory.deleteConfirm", { name: item.name }))) return;
+                    deleteInventoryMutation.mutate(item.id, {
+                      onSuccess: () => toast.success(t("farmer.inventory.deleteSuccess")),
+                      onError: (err: any) => toast.error(err?.message || "Failed to delete"),
+                    });
+                  }}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+              {!canDelete && (
+                <span className="text-xs text-amber-600 dark:text-amber-500" role="status">
+                  {t("farmer.inventory.deleteDisabledReason")}
+                </span>
+              )}
+            </div>
           );
         },
       })
@@ -424,25 +371,32 @@ export default function InventoryPage() {
                 : t("farmer.inventory.subtitleDefault")}
           </p>
         </div>
-        {activeTab === "other" ? (
-          <Button
-            size="sm"
-            className="text-xs md:text-sm bg-primary hover:bg-primary/90 w-full sm:w-auto"
-            onClick={openAddModal}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            {t("farmer.inventory.addItem")}
-          </Button>
-        ) : activeTab === "eggs" ? (
-          <div className="text-sm text-muted-foreground">
-            Auto-calculated from batch production & sales
+        {activeTab === "eggs" ? (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+            <Label htmlFor="egg-batch-select" className="text-sm font-medium whitespace-nowrap">
+              Layers batch
+            </Label>
+            <select
+              id="egg-batch-select"
+              value={selectedEggBatchId}
+              onChange={(e) => setSelectedEggBatchId(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm min-w-[180px]"
+            >
+              <option value="">Select batch to see egg stock</option>
+              {layerBatches.map((batch: any) => (
+                <option key={batch.id} value={batch.id}>
+                  {batch.batchNumber ?? batch.id}
+                  {batch.farm?.name ? ` (${batch.farm.name})` : ""}
+                </option>
+              ))}
+            </select>
           </div>
         ) : (
           <div className="text-sm text-muted-foreground">
             {t("farmer.inventory.autoAdded")}{" "}
-            {activeTab === "feed"
-              ? t("farmer.inventory.dealerLedger")
-              : t("farmer.inventory.medicalSupplierLedger")}
+            {activeTab === "medicine"
+              ? t("farmer.inventory.medicalSupplierLedger")
+              : t("farmer.inventory.dealerLedger")}
           </div>
         )}
       </div>
@@ -524,7 +478,8 @@ export default function InventoryPage() {
           ].map((tab) => {
             const getTabCount = () => {
               if (tab.key === "eggs") {
-                return (eggData?.data?.LARGE || 0) + (eggData?.data?.MEDIUM || 0) + (eggData?.data?.SMALL || 0);
+                if (!selectedEggBatchId) return 0;
+                return (eggData?.data?.types ?? []).reduce((s: number, t: { quantity?: number }) => s + (t.quantity ?? 0), 0);
               }
               if (!tableData) return 0;
               switch (tab.key) {
@@ -612,27 +567,20 @@ export default function InventoryPage() {
             <div className="text-center py-8 text-muted-foreground">
               <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>{t("farmer.inventory.empty", { category: activeTab })}</p>
-              {activeTab === "other" ? (
-                <Button
-                  size="sm"
-                  className="mt-3 text-xs bg-primary hover:bg-primary/90"
-                  onClick={openAddModal}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  {t("farmer.inventory.emptyAddFirst", {
-                    category: t("farmer.inventory.tabs.other"),
-                  })}
-                </Button>
-              ) : activeTab === "eggs" ? (
+              {activeTab === "eggs" ? (
                 <p className="text-sm mt-2">
-                  No eggs in stock. Record daily egg production in Batches to see data here.
+                  {selectedEggBatchId
+                    ? (isEggLoading
+                      ? "Loading..."
+                      : "No eggs in stock for this batch. Record daily egg production on the batch page.")
+                    : "Select a Layers batch above to see egg inventory."}
                 </p>
               ) : (
                 <p className="text-sm mt-2">
                   {t("farmer.inventory.emptyHelp")}{" "}
-                  {activeTab === "feed"
-                    ? t("farmer.inventory.dealerLedger")
-                    : t("farmer.inventory.medicalSupplierLedger")}
+                  {activeTab === "medicine"
+                    ? t("farmer.inventory.medicalSupplierLedger")
+                    : t("farmer.inventory.dealerLedger")}
                 </p>
               )}
             </div>
@@ -685,12 +633,10 @@ export default function InventoryPage() {
             </div>
 
             <div>
-              <Label htmlFor="reorderDate">{t("farmer.inventory.reorder.date")}</Label>
-              <Input
-                id="reorderDate"
-                type="date"
+              <DateInput
+                label={t("farmer.inventory.reorder.date")}
                 value={reorderDate}
-                onChange={(e) => setReorderDate(e.target.value)}
+                onChange={setReorderDate}
               />
             </div>
 
@@ -718,155 +664,6 @@ export default function InventoryPage() {
                 </>
               ) : (
                 t("farmer.inventory.reorder.submit")
-              )}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Add Item Modal (for Other tab only) */}
-      <Modal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        title={t("farmer.inventory.modal.addOtherTitle")}
-      >
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">{t("farmer.inventory.modal.heading")}</h2>
-
-          <div className="grid gap-4">
-            <div>
-              <Label htmlFor="name">{t("farmer.inventory.modal.itemName")}</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, name: e.target.value }))
-                }
-                placeholder={t("farmer.inventory.modal.itemNamePlaceholder")}
-              />
-              {errors.name && (
-                <p className="text-sm text-red-600 mt-1">{errors.name}</p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="quantity">{t("farmer.inventory.modal.quantity")}</Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  value={formData.quantity}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      quantity: e.target.value,
-                    }))
-                  }
-                  placeholder="0"
-                />
-                {errors.quantity && (
-                  <p className="text-sm text-red-600 mt-1">{errors.quantity}</p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="unit">{t("farmer.inventory.modal.unit")}</Label>
-                <Input
-                  id="unit"
-                  value={formData.unit}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, unit: e.target.value }))
-                  }
-                  placeholder={
-                    activeTab === "feed"
-                      ? t("farmer.inventory.modal.unitPlaceholderFeed")
-                      : activeTab === "chicks"
-                        ? t("farmer.inventory.modal.unitPlaceholderChicks")
-                        : activeTab === "medicine"
-                          ? t("farmer.inventory.modal.unitPlaceholderMedicine")
-                          : t("farmer.inventory.modal.unitPlaceholderOther")
-                  }
-                />
-                {errors.unit && (
-                  <p className="text-sm text-red-600 mt-1">{errors.unit}</p>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="rate">{t("farmer.inventory.modal.rate")}</Label>
-              <Input
-                id="rate"
-                type="number"
-                value={formData.rate}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, rate: e.target.value }))
-                }
-                placeholder="0"
-              />
-              {errors.rate && (
-                <p className="text-sm text-red-600 mt-1">{errors.rate}</p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="supplier">{t("farmer.inventory.modal.supplier")}</Label>
-              <Input
-                id="supplier"
-                value={formData.supplier}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, supplier: e.target.value }))
-                }
-                placeholder={t("farmer.inventory.modal.supplierPlaceholder")}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="batchNumber">{t("farmer.inventory.modal.batchNumber")}</Label>
-              <Input
-                id="batchNumber"
-                value={formData.batchNumber}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    batchNumber: e.target.value,
-                  }))
-                }
-                placeholder={t("farmer.inventory.modal.batchPlaceholder")}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="description">{t("farmer.inventory.modal.description")}</Label>
-              <Input
-                id="description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
-                placeholder={t("farmer.inventory.modal.descriptionPlaceholder")}
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>
-              {t("farmer.inventory.modal.cancel")}
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              className="bg-primary hover:bg-primary/90"
-              disabled={createInventoryMutation.isPending}
-            >
-              {createInventoryMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t("farmer.inventory.modal.adding")}
-                </>
-              ) : (
-                t("farmer.inventory.addItem")
               )}
             </Button>
           </div>

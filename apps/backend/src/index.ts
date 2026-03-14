@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import routes from "./router/index";
 import { getSocketService } from "./services/socketService";
+import { startReminderDispatcher } from "./services/reminderDispatcher";
 dotenv.config();
 
 
@@ -15,22 +16,31 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-const allowedOrigins = (
-  process.env.FRONTEND_URLS ||
-  process.env.FRONTEND_URL ||
-  "http://localhost:3000,http://localhost:3001,http://localhost:3002"
-)
-  .split(",")
-  .map((o) => o.trim());
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "https://poultry360-frontend.vercel.app",
+  "https://poultry360.app",
+  "https://www.poultry360.app",
+];
+
+const defaultOrigin = "https://poultry360.app";
 
 console.log("🔧 Allowed CORS origins:", allowedOrigins);
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+      // With credentials: true we must return a specific origin, never *
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, origin || defaultOrigin);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "ngrok-skip-browser-warning"],
   })
 );
 
@@ -54,6 +64,7 @@ if (process.env.NODE_ENV !== 'test') {
   server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Socket.IO server initialized`);
+    startReminderDispatcher(60_000);
   });
 
   // Graceful shutdown

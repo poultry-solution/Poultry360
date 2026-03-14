@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
-import type { BalanceLimitCheckResult } from "@poultry360/shared-types";
+import type { BalanceLimitCheckResult } from "@myapp/shared-types";
 
 // Query keys
 export const companyDealerAccountKeys = {

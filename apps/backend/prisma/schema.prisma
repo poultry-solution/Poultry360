@@ -221,13 +221,16 @@ model User {
   // Inventory
   inventoryItems InventoryItem[]
 
-  // Egg inventory (Layers: by category)
-  eggInventories EggInventory[]
+  // Egg types (user-defined: Large, XL, etc.)
+  eggTypes EggType[]
 
   // Chat relationships
   farmerConversations Conversation[] @relation("FarmerConversations")
   doctorConversations Conversation[] @relation("DoctorConversations")
   sentMessages        Message[]
+
+  // Reminders
+  reminders Reminder[]
 
   // Batch share relationships
   batchSharesOwned    BatchShare[]     @relation("BatchShareOwner")
@@ -271,6 +274,16 @@ model User {
   // Farmer purchase request relationships
   farmerCarts              FarmerCart[]              @relation("FarmerCarts")
   farmerPurchaseRequests   FarmerPurchaseRequest[]   @relation("FarmerPurchaseRequests")
+
+  // List for sale (farmer marketplace listings)
+  listForSaleListings ListForSale[] @relation("ListForSaleOwner")
+
+  // Staff (farmer/dealer staff salary tracking)
+  staffOwned Staff[] @relation("StaffOwner")
+
+  // Push subscriptions & notifications
+  pushSubscriptions PushSubscription[]
+  notifications     Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -319,6 +332,7 @@ model Farm {
   sales           Sale[]
   inventoryUsages InventoryUsage[]
   vaccinations    Vaccination[]
+  reminders       Reminder[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -361,6 +375,9 @@ model Batch {
 
   // Layers: daily egg production (one record per batch per day)
   eggProductions EggProduction[]
+  // Per-batch egg inventory (so sales show and deduct from this batch's stock)
+  batchEggInventories BatchEggInventory[]
+  reminders Reminder[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -369,42 +386,92 @@ model Batch {
   @@index([farmId, startDate])
 }
 
+// ==================== REMINDERS ====================
+model Reminder {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String   // What to be reminded of
+  reminderDate DateTime // Date (day) when user wants to be reminded
+  isNoticed    Boolean  @default(false) // When true, hide from "due" list
+
+  farmId  String?
+  farm    Farm?   @relation(fields: [farmId], references: [id], onDelete: SetNull)
+  batchId String?
+  batch   Batch?  @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, reminderDate, isNoticed])
+}
+
 // ==================== EGG MODELS (LAYERS) ====================
 
-enum EggCategory {
-  LARGE
-  MEDIUM
-  SMALL
+// User-defined egg types (e.g. Large, Medium, Small or XL, XS, XXL)
+model EggType {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String   // Display name: "Large", "XL"
+  code         String   // Unique per user, used in API: "LARGE", "XL"
+  displayOrder Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  batchEggInventories BatchEggInventory[]
+  productions         EggProductionEntry[]
+  sales               Sale[]
+  saleEggLines        SaleEggLine[]
+
+  @@unique([userId, code])
+  @@index([userId])
 }
 
 model EggProduction {
-  id          String   @id @default(cuid())
-  batchId     String
-  batch       Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  date        DateTime
-  largeCount  Int      @default(0)
-  mediumCount Int      @default(0)
-  smallCount  Int      @default(0)
+  id        String   @id @default(cuid())
+  batchId   String
+  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date      DateTime
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([batchId, date])
+  entries EggProductionEntry[]
+
   @@index([batchId, date])
 }
 
-model EggInventory {
-  id          String      @id @default(cuid())
-  userId      String
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  eggCategory EggCategory
-  quantity    Int         @default(0)
+// One row per egg type per production record (replaces largeCount/mediumCount/smallCount)
+model EggProductionEntry {
+  id              String       @id @default(cuid())
+  eggProductionId String
+  eggProduction   EggProduction @relation(fields: [eggProductionId], references: [id], onDelete: Cascade)
+  eggTypeId       String
+  eggType         EggType      @relation(fields: [eggTypeId], references: [id], onDelete: Cascade)
+  count           Int          @default(0)
+
+  @@unique([eggProductionId, eggTypeId])
+  @@index([eggProductionId])
+}
+
+// Per-batch egg inventory: which eggs belong to which batch (for layers)
+model BatchEggInventory {
+  id        String   @id @default(cuid())
+  batchId   String
+  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  eggTypeId String
+  eggType   EggType  @relation(fields: [eggTypeId], references: [id], onDelete: Cascade)
+  quantity  Int      @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, eggCategory])
-  @@index([userId])
+  @@unique([batchId, eggTypeId])
+  @@index([batchId])
+  @@index([eggTypeId])
 }
 
 // ==================== UNIFIED CATEGORY MODEL ====================
@@ -522,7 +589,8 @@ model Sale {
   description String?
 
   itemType    SalesItemType @default(Chicken_Meat)
-  eggCategory EggCategory?  // For EGGS sales: LARGE, MEDIUM, SMALL
+  eggTypeId   String?       // For EGGS sales: user's egg type
+  eggType     EggType?      @relation(fields: [eggTypeId], references: [id], onDelete: SetNull)
   // Credit tracking (simplified)
   isCredit    Boolean       @default(false)
   paidAmount  Decimal       @default(0) @db.Decimal(10, 2)
@@ -537,6 +605,7 @@ model Sale {
   customerId  String?
   customer    Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
   payments    SalePayment[]
+  eggLines    SaleEggLine[]  // Multiple egg types in one sale (e.g. Large 10, Small 20)
   mortality   Mortality?    @relation(fields: [mortalityId], references: [id], onDelete: Cascade)
   mortalityId String?       @unique
   createdAt   DateTime      @default(now())
@@ -545,6 +614,20 @@ model Sale {
   @@index([farmId, date])
   @@index([customerId])
   @@index([mortalityId])
+}
+
+// Multiple egg type lines per sale (e.g. Large 10 @ ₹5, Small 20 @ ₹4)
+model SaleEggLine {
+  id        String   @id @default(cuid())
+  saleId    String
+  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  eggTypeId String
+  eggType   EggType  @relation(fields: [eggTypeId], references: [id], onDelete: Cascade)
+  quantity  Int      // number of eggs
+  unitPrice Decimal  @db.Decimal(10, 2) // rate per unit for this type
+
+  @@index([saleId])
+  @@index([eggTypeId])
 }
 
 // Track partial payments for credit sales
@@ -576,6 +659,10 @@ model InventoryItem {
   // 🔗 NEW: Item type based on supplier
   itemType InventoryItemType @default(OTHER)
 
+  // Identity: same name + rate + supplier = merge; different rate or supplier = separate line
+  unitPrice   Decimal? @db.Decimal(10, 2)
+  supplierKey String?  // e.g. "DEALER:id", "HATCHERY:id", "MEDICINE_SUPPLIER:id", "NONE"
+
   // Relationships
   userId       String
   user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -587,10 +674,13 @@ model InventoryItem {
   // 🔗 NEW: Connect to supplier transactions
   entityTransactions EntityTransaction[]
 
+  // Soft delete: when set, item is hidden from inventory lists and dropdowns
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, categoryId, name])
+  @@unique([userId, categoryId, name, unitPrice, supplierKey])
 }
 
 model InventoryTransaction {
@@ -2171,4 +2261,169 @@ model DealerProductUnitConversion {
 
   @@unique([dealerProductId, unitName])
   @@index([dealerProductId])
+}
+
+// ==================== LANDING PAGE REVIEWS (PUBLIC) ====================
+// Submitted by anyone (no auth); phone stored but not shown on landing
+model LandingReview {
+  id          String   @id @default(cuid())
+  name        String
+  business    String
+  address     String
+  phoneNumber String   // Stored for contact; not displayed on cards
+  stars       Int      // 1-5
+  review      String   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
+// ==================== LANDING PAGE CONTACT SUBMISSIONS (PUBLIC) ====================
+// Contact form submissions from landing page (no auth)
+model LandingContact {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String
+  phone     String?
+  farmType  String?  // broiler | layer | hatchery | feed-dealer | mixed | other
+  message   String   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
+// ==================== LIST FOR SALE (FARMER MARKETPLACE) ====================
+enum ListForSaleCategory {
+  CHICKEN
+  EGGS
+  LAYERS
+  FISH
+  OTHER
+}
+
+enum ListForSaleStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model ListForSale {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation("ListForSaleOwner", fields: [userId], references: [id], onDelete: Cascade)
+  companyName  String
+  category     ListForSaleCategory
+  phone        String
+  rate         Decimal? @db.Decimal(10, 2)
+  quantity     Decimal  @db.Decimal(10, 2)
+  unit         String
+  availabilityFrom DateTime
+  availabilityTo   DateTime
+  province     String?
+  address      String?
+  avgWeightKg  Decimal? @db.Decimal(6, 2)
+  eggVariants  Json?
+  typeVariants Json?
+  status       ListForSaleStatus @default(ACTIVE)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([category])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ==================== STAFF MANAGEMENT (Farmer / Dealer) ====================
+
+enum StaffStatus {
+  ACTIVE   // Still employed; salary accrues each BS month
+  STOPPED  // No longer employed; no more accrual, show remaining balance
+}
+
+model Staff {
+  id        String      @id @default(cuid())
+  ownerId   String
+  owner     User        @relation("StaffOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  name      String
+  startDate DateTime   // First day of employment (AD stored)
+  endDate   DateTime?  // When stopped (AD); null if ACTIVE
+  status    StaffStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  salaries StaffSalary[]
+  payments StaffPayment[]
+
+  @@index([ownerId])
+  @@index([status])
+}
+
+// ==================== PUSH SUBSCRIPTIONS ====================
+model PushSubscription {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String    @db.Text
+  p256dh    String    @db.Text
+  auth      String    @db.Text
+  userAgent String?
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+
+  @@unique([userId, endpoint])
+  @@index([userId])
+}
+
+// ==================== NOTIFICATIONS ====================
+enum NotificationStatus {
+  UNREAD
+  READ
+  ARCHIVED
+}
+
+model Notification {
+  id        String             @id @default(cuid())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String             // e.g. "REMINDER_DUE", "STAFF_DUE", etc.
+  title     String
+  body      String
+  data      Json?              // { url, reminderId, etc. }
+  status    NotificationStatus @default(UNREAD)
+  createdAt DateTime           @default(now())
+  readAt    DateTime?
+
+  @@index([userId, status, createdAt])
+  @@index([userId, createdAt])
+}
+
+model StaffSalary {
+  id             String   @id @default(cuid())
+  staffId        String
+  staff          Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  monthlyAmount  Decimal  @db.Decimal(12, 2)
+  effectiveFrom  DateTime // First day of BS month in AD (when this salary applies from)
+  createdAt      DateTime @default(now())
+
+  @@index([staffId])
+  @@index([effectiveFrom])
+}
+
+model StaffPayment {
+  id              String   @id @default(cuid())
+  staffId         String
+  staff           Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  amount          Decimal  @db.Decimal(12, 2)
+  paidAt          DateTime
+  note            String?
+  receiptImageUrl String?
+  createdAt       DateTime @default(now())
+
+  @@index([staffId])
+  @@index([paidAt])
 }

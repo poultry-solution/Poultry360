@@ -51,27 +51,27 @@
     "collapse": "Collapse sidebar",
     "roles": {
       "doctor": {
-        "title": "Doctor Portal",
+        
         "subtitle": "Veterinary Services",
         "userTitle": "Doctor"
       },
       "admin": {
-        "title": "Admin Panel",
+       
         "subtitle": "System Management",
         "userTitle": "Administrator"
       },
       "dealer": {
-        "title": "Dealer Portal",
+
         "subtitle": "Feed & Supply Management",
         "userTitle": "Dealer"
       },
       "company": {
-        "title": "Company Portal",
+       
         "subtitle": "Product & Distribution Management",
         "userTitle": "Company"
       },
       "farmer": {
-        "title": "Poultry360",
+     
         "subtitle": "Farm Management",
         "userTitle": "Owner"
       }
@@ -84,6 +84,8 @@
       "supplierLedger": "Supplier Ledger",
       "salesLedger": "Sales Ledger",
       "inventory": "Inventory",
+      "listForSale": "List for sale",
+      "staffManagement": "Staff management",
       "chatWithDoctor": "Chat with Doctor",
       "dashboard": "Dashboard",
       "chat": "Chat",
@@ -161,6 +163,7 @@
       "provinceLabel": "Province (Nepal)",
       "locationLabel": "Location (city / area) *",
       "phoneLabel": "Phone *",
+      "phonePlaceholder": "98XXXXXXXX",
       "countryCodeLabel": "Country code",
       "phoneHelp": "Phone number is required for account verification",
       "languageLabel": "Language *",
@@ -184,10 +187,13 @@
       "signupDealer": "Sign up as Dealer",
       "registerCompany": "Want to register as a company?",
       "signupCompany": "Sign up as Company",
+      "registerDoctor": "Are you a vet or doctor?",
+      "signupDoctor": "Sign up as Doctor",
       "errors": {
         "passwordMismatch": "Passwords do not match!",
         "passwordTooShort": "Password must be at least 6 characters long!",
         "phoneRequired": "Please provide a phone number!",
+        "phoneInvalid": "Enter a valid 10-digit phone number.",
         "invalidOtp": "Invalid OTP! Please enter 11111 for testing."
       }
     },
@@ -242,7 +248,7 @@
       "alreadyHaveAccount": "Already have an account?",
       "login": "Log in",
       "registerOwner": "Want to register as a farm owner?",
-      "signupOwner": "Sign up as Owner",
+      "signupOwner": "Sign up as Farm Owner",
       "registerCompany": "Want to register as a company?",
       "signupCompany": "Sign up as Company",
       "errors": {
@@ -253,9 +259,261 @@
         "passwordMismatch": "Passwords do not match!",
         "registrationFailed": "Registration failed. Please try again."
       }
+    },
+    "doctorSignup": {
+      "title": "Doctor Registration",
+      "subtitle": "Create your doctor account to support farmers",
+      "nameLabel": "Full Name *",
+      "phoneLabel": "Phone Number *",
+      "phonePlaceholder": "98XXXXXXXX",
+      "phoneHelp": "Your contact number for login and notifications.",
+      "clinicNameLabel": "Clinic / Practice Name",
+      "clinicNamePlaceholder": "Optional",
+      "clinicLocationLabel": "Clinic Location",
+      "clinicLocationPlaceholder": "e.g. Province, City",
+      "passwordLabel": "Password *",
+      "confirmPasswordLabel": "Confirm Password *",
+      "createAccount": "Create Doctor Account",
+      "creatingAccount": "Creating account...",
+      "alreadyHaveAccount": "Already have an account?",
+      "login": "Log in",
+      "errors": {
+        "nameRequired": "Name is required!",
+        "phoneInvalid": "Phone number must be exactly 10 digits!",
+        "passwordTooShort": "Password must be at least 6 characters long!",
+        "passwordMismatch": "Passwords do not match!",
+        "registrationFailed": "Registration failed. Please try again."
+      }
     }
   },
   "farmer": {
+    "staff": {
+      "title": "Staff management",
+      "subtitle": "Track staff salary and payments. Balance is calculated by Nepali month.",
+      "addStaff": "Add staff",
+      "name": "Name",
+      "startDate": "Start date",
+      "startMonth": "Start month",
+      "monthlySalary": "Monthly salary (रू)",
+      "balance": "Balance",
+      "due": "Due",
+      "advance": "Advance",
+      "pay": "Pay",
+      "editSalary": "Edit salary",
+      "stop": "Stop",
+      "details": "Details",
+      "currentSalary": "Current salary",
+      "effectiveFrom": "Effective from (month)",
+      "addPayment": "Add payment",
+      "amount": "Amount",
+      "date": "Date",
+      "note": "Note",
+      "receiptImage": "Receipt (optional)",
+      "stopConfirmTitle": "Stop staff?",
+      "stopConfirmMessage": "Salary will no longer accrue. Remaining balance will stay.",
+      "cancel": "Cancel",
+      "save": "Save",
+      "transactions": "Transactions",
+      "accrual": "Salary",
+      "payment": "Payment",
+      "empty": "No staff yet. Add one to get started.",
+      "statusActive": "Active",
+      "statusStopped": "Stopped"
+    },
+    "salesLedger": {
+      "title": "Sales Ledger",
+      "subtitle": "Manage sales, customers, and payments.",
+      "loading": "Loading sales ledger...",
+      "addParty": "Add Party",
+      "newSale": "New Sale",
+      "tabs": {
+        "overview": "Overview",
+        "overviewShort": "Stats",
+        "sales": "Sales",
+        "parties": "Parties",
+        "payments": "Payments",
+        "payShort": "Pay"
+      },
+      "overview": {
+        "sales": "Sales",
+        "credit": "Credit",
+        "parties": "Parties",
+        "due": "Due",
+        "owe": "owe",
+        "dueLabel": "due",
+        "outstanding": "Outstanding",
+        "recentSales": "Recent Sales",
+        "latestTransactions": "Latest transactions"
+      },
+      "filters": "Filters",
+      "search": "Search",
+      "searchPlaceholder": "Search...",
+      "type": "Type",
+      "payment": "Payment",
+      "from": "From",
+      "to": "To",
+      "clear": "Clear",
+      "all": "All",
+      "cash": "Cash",
+      "credit": "Credit",
+      "category": "Category",
+      "balance": "Balance",
+      "hasDue": "Has Due",
+      "cleared": "Cleared",
+      "meat": "Meat",
+      "eggs": "Eggs",
+      "chicks": "Chicks",
+      "feed": "Feed",
+      "other": "Other",
+      "salesRecords": "Sales Records",
+      "total": "total",
+      "partiesTitle": "Parties",
+      "totalOwe": "total, {count} owe",
+      "recentPayments": "Recent Payments",
+      "totalRecords": "total records",
+      "loadingPayments": "Loading payments...",
+      "searchPaymentPlaceholder": "Search description or customer...",
+      "table": {
+        "date": "Date",
+        "itemType": "Item Type",
+        "customer": "Customer",
+        "qty": "Qty",
+        "weightKg": "Weight (kg)",
+        "rate": "Rate",
+        "total": "Total",
+        "credit": "Credit",
+        "yes": "Yes",
+        "no": "No",
+        "paid": "Paid",
+        "due": "Due",
+        "transactions": "Transactions",
+        "payment": "payment",
+        "payments": "payments",
+        "actions": "Actions",
+        "name": "Name",
+        "phone": "Phone",
+        "description": "Description",
+        "amount": "Amount",
+        "receipt": "Receipt",
+        "view": "View",
+        "paymentLabel": "Payment"
+      },
+      "viewCount": "View ({count})",
+      "saleModal": {
+        "editSale": "Edit Sale",
+        "addNewSale": "Add New Sale",
+        "smartForm": "💡 Smart Form: Farm and batch selections are remembered for your next sale to save time!",
+        "selectFarm": "Select Farm *",
+        "chooseFarm": "Choose a farm",
+        "selectBatch": "Select Batch *",
+        "chooseBatch": "Choose a batch",
+        "itemType": "Item Type",
+        "selectItemType": "Select item type",
+        "eggLines": "Egg lines (type, quantity, rate per unit)",
+        "available": "Available:",
+        "type": "Type",
+        "eggType": "Egg type",
+        "addLine": "Add line",
+        "rateRupee": "Rate (₹)",
+        "ratePerUnit": "Rate per unit",
+        "quantityBirds": "Quantity (Birds)",
+        "quantityUnits": "Quantity (Units)",
+        "numberOfBirds": "Number of birds",
+        "numberOfUnits": "Number of units",
+        "weightKg": "Weight (kg)",
+        "totalWeightKg": "Total weight in kg",
+        "avgWeightPerBird": "Avg weight per bird:",
+        "totalAmount": "Total Amount",
+        "sumOfLines": "Sum of (quantity × rate) per line",
+        "calculatedRateWeight": "Calculated as rate × weight",
+        "calculatedRateQty": "Calculated as rate × quantity",
+        "date": "Date",
+        "remainingBalance": "Remaining balance?",
+        "searchCustomer": "Search Customer",
+        "searchExistingCustomers": "Search existing customers...",
+        "noCustomersFound": "No customers found",
+        "customerName": "Customer Name *",
+        "enterNewCustomerName": "Enter new customer name",
+        "contact": "Contact *",
+        "phoneNumber": "Phone number",
+        "customerCategory": "Customer Category",
+        "selectCategory": "Select category",
+        "amountPaidOptional": "Amount Paid (Optional)",
+        "amountPaidPlaceholder": "Amount paid (leave empty for full credit)",
+        "cancel": "Cancel",
+        "updating": "Updating...",
+        "creating": "Creating...",
+        "updateSale": "Update Sale",
+        "createSale": "Create Sale"
+      },
+      "partyModal": {
+        "editParty": "Edit Party",
+        "addNewParty": "Add New Party",
+        "name": "Name",
+        "enterPartyName": "Enter party name",
+        "phone": "Phone",
+        "enterPhoneNumber": "Enter phone number",
+        "category": "Category",
+        "selectCategory": "Select category",
+        "address": "Address",
+        "enterAddressOptional": "Enter address (optional)",
+        "cancel": "Cancel",
+        "updateParty": "Update Party",
+        "createParty": "Create Party"
+      },
+      "paymentModal": {
+        "title": "Record Payment - {name}",
+        "outstandingBalance": "Outstanding Balance:",
+        "phone": "Phone:",
+        "recentTransactions": "Recent Transactions",
+        "saleLabel": "Sale:",
+        "paymentsLabel": "Payments:",
+        "paymentAmount": "Payment Amount *",
+        "enterPaymentAmount": "Enter payment amount",
+        "paymentDate": "Payment Date *",
+        "description": "Description",
+        "paymentDescription": "Payment description",
+        "reference": "Reference",
+        "referencePlaceholder": "Receipt number or reference",
+        "paymentReceiptOptional": "Payment Receipt (Optional)",
+        "uploadReceipt": "Upload receipt",
+        "cancel": "Cancel",
+        "recording": "Recording...",
+        "recordPayment": "Record Payment"
+      },
+      "paymentFrom": "Payment from {name}",
+      "deleteParty": {
+        "title": "Delete Party",
+        "description": "Are you sure you want to delete this party? This action cannot be undone.",
+        "cancel": "Cancel",
+        "delete": "Delete"
+      },
+      "validation": {
+        "selectFarm": "Please select a farm",
+        "selectBatch": "Please select a batch",
+        "addEggLine": "Add at least one egg line (type, quantity, rate)",
+        "enterRate": "Please enter rate",
+        "enterQuantity": "Please enter quantity",
+        "weightRequired": "Weight required for Chicken_Meat",
+        "selectDate": "Please select a date",
+        "selectOrEnterCustomer": "Please select existing customer or enter new customer name",
+        "contactRequired": "Contact number required for new customer",
+        "amountRequired": "Amount is required",
+        "dateRequired": "Date is required"
+      },
+      "toast": {
+        "saleUpdated": "Sale updated successfully",
+        "saleCreated": "Sale created successfully",
+        "partyUpdated": "Party updated successfully",
+        "partyCreated": "Party created successfully",
+        "paymentRecorded": "Payment recorded successfully!",
+        "noCreditSales": "No credit sales found for this customer",
+        "paymentFailed": "Failed to record payment",
+        "partyDeleted": "Party deleted successfully",
+        "deletePartyFailed": "Failed to delete party"
+      },
+      "failedCreateSale": "Failed to create sale. Please try again."
+    },
     "paymentRequests": {
       "title": "Payment Requests",
       "subtitle": "View your payment request history and status",
@@ -310,6 +568,215 @@
           "other": "Other"
         }
       }
+    },
+    "orderRequests": {
+      "title": "Order Requests",
+      "subtitle": "Manage your sent and received order requests",
+      "tabSent": "Sent Requests",
+      "tabReceived": "Received Requests",
+      "stats": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "total": "Total"
+      },
+      "filterPlaceholder": "All Statuses",
+      "loadingRequests": "Loading requests...",
+      "noRequestsYet": "No purchase requests yet",
+      "emptyHelp": "Browse a dealer's catalog from the Supplier Ledger to place your first order.",
+      "goToSupplierLedger": "Go to Supplier Ledger"
+    },
+    "supplierLedger": {
+      "title": "Supplier Ledger",
+      "subtitle": "Track purchases and payments with your suppliers",
+      "orderRequests": "Order Requests",
+      "paymentRequests": "Payment Requests",
+      "stats": {
+        "suppliers": "Suppliers",
+        "activeSuppliers": "Active suppliers",
+        "outstanding": "Outstanding",
+        "amountDue": "Amount due to suppliers",
+        "thisMonth": "This Month",
+        "purchases": "Purchases"
+      },
+      "summaryModal": {
+        "title": "Supplier Balances",
+        "loading": "Loading...",
+        "noSuppliers": "No suppliers found",
+        "close": "Close",
+        "contact": "Contact"
+      },
+      "deleteSupplier": {
+        "title": "Delete Supplier",
+        "connectedWarning": "This is a connected supplier.",
+        "goToDealers": "Go to Connected Dealers page to manage this connection.",
+        "confirmMessage": "Are you sure you want to delete {name}?",
+        "hasTransactions": "This supplier has {count} transactions. Delete all transactions first.",
+        "cancel": "Cancel",
+        "close": "Close",
+        "delete": "Delete",
+        "deleting": "Deleting..."
+      },
+      "toast": {
+        "supplierDeleted": "Supplier deleted successfully",
+        "supplierCreated": "Supplier created successfully!",
+        "entryAdded": "Purchase entry added!",
+        "paymentRecorded": "Payment recorded!",
+        "paymentRequestSent": "Payment request sent! Dealer will review it.",
+        "entriesDeleted": "Selected entries deleted successfully",
+        "failedDeleteEntries": "Failed to delete {count} entry(s)",
+        "passwordFailed": "Password verification failed. Deletion cancelled."
+      },
+      "deleteUsedInBatches": {
+        "title": "Cannot delete",
+        "message": "This product is already used in batches so you can't delete.",
+        "close": "Close"
+      },
+      "confirmDeleteEntries": {
+        "title": "Delete {count} entries?",
+        "warning": "This action cannot be undone. Selected entries will be permanently removed.",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "deleting": "Deleting..."
+      },
+      "confirmPassword": {
+        "title": "Confirm Deletion",
+        "warning": "You are about to delete {count} entries.",
+        "passwordLabel": "Enter your password to confirm",
+        "passwordPlaceholder": "Password",
+        "cancel": "Cancel",
+        "confirm": "Confirm",
+        "deleting": "Deleting..."
+      },
+      "addSupplier": {
+        "title": "Add New Supplier",
+        "nameLabel": "Supplier Name",
+        "namePlaceholder": "e.g. Ram Feed Store",
+        "contactLabel": "Contact",
+        "contactPlaceholder": "Phone number",
+        "addressLabel": "Address (optional)",
+        "addressPlaceholder": "Address",
+        "cancel": "Cancel",
+        "add": "Add Supplier",
+        "adding": "Adding..."
+      },
+      "addEntry": {
+        "title": "Add Purchase — {name}",
+        "supplier": "Supplier",
+        "categoryLabel": "Category",
+        "categoryPlaceholder": "Select category",
+        "itemLabel": "Item Name",
+        "itemPlaceholderFeed": "e.g. Broiler Feed, Layer Feed",
+        "itemPlaceholderMedicine": "e.g. Vitamin Mix, Antibiotics",
+        "itemPlaceholderChicks": "e.g. Day-old Chicks, Broiler Chicks",
+        "itemPlaceholder": "Item name",
+        "unitLabel": "Unit",
+        "unitPlaceholder": "Select unit",
+        "rateLabel": "Rate (per {unit})",
+        "quantityLabel": "Quantity",
+        "freeChicksLabel": "Free Chicks (optional)",
+        "freeCount": "Count",
+        "freePercent": "Percent",
+        "freePlaceholderCount": "e.g. 50",
+        "freePlaceholderPercent": "e.g. 5%",
+        "freeHelp": "Extra chicks given free with the purchase",
+        "total": "Total:",
+        "free": "Free:",
+        "chicks": "chicks",
+        "totalDelivered": "Total delivered:",
+        "dateLabel": "Date",
+        "noteLabel": "Note (optional)",
+        "notePlaceholder": "Additional notes",
+        "cancel": "Cancel",
+        "save": "Save Entry",
+        "saving": "Saving..."
+      },
+      "categories": {
+        "feed": "Feed",
+        "medicine": "Medicine",
+        "chicks": "Chicks",
+        "equipment": "Equipment",
+        "other": "Other"
+      },
+      "recordPayment": {
+        "title": "Record Payment",
+        "supplier": "Supplier:",
+        "balanceDue": "Balance Due:",
+        "amountLabel": "Amount",
+        "amountPlaceholder": "Payment amount",
+        "dateLabel": "Date",
+        "noteLabel": "Note (optional)",
+        "notePlaceholder": "e.g. Cash, Bank transfer, Cheque",
+        "receiptLabel": "Payment receipt (optional)",
+        "receiptPlaceholder": "Upload receipt image",
+        "cancel": "Cancel",
+        "record": "Record Payment",
+        "recording": "Recording..."
+      },
+      "sendPaymentRequest": {
+        "title": "Send Payment Request",
+        "supplier": "Supplier:",
+        "balanceDue": "Balance Due:",
+        "requestSentHint": "This request will be sent to the dealer for approval.",
+        "amountLabel": "Amount",
+        "amountPlaceholder": "Payment amount",
+        "methodLabel": "Payment Method",
+        "methodPlaceholder": "Select method",
+        "referenceLabel": "Reference (optional)",
+        "referencePlaceholder": "e.g. Cheque no., Transaction ID",
+        "paymentDateLabel": "Payment Date",
+        "descriptionLabel": "Description (optional)",
+        "descriptionPlaceholder": "e.g. Monthly payment",
+        "receiptLabel": "Payment receipt (optional)",
+        "receiptPlaceholder": "Upload receipt image",
+        "cancel": "Cancel",
+        "send": "Send Request",
+        "sending": "Sending..."
+      },
+      "methods": {
+        "cash": "Cash",
+        "bankTransfer": "Bank Transfer",
+        "cheque": "Cheque",
+        "upi": "UPI",
+        "other": "Other"
+      },
+      "table": {
+        "category": "Category",
+        "item": "Item",
+        "qty": "Qty",
+        "rate": "Rate",
+        "amount": "Amount",
+        "date": "Date",
+        "note": "Note",
+        "reference": "Reference",
+        "receipt": "Receipt",
+        "view": "View"
+      },
+      "connectedBadge": "Connected",
+      "order": "Order",
+      "noPurchases": "No purchases for this supplier",
+      "noPayments": "No payments for this supplier",
+      "paymentsTab": "Payments",
+      "totalPaid": "Total Paid",
+      "total": "Total",
+      "noSupplierSelected": "No supplier selected",
+      "createSupplierToStart": "Create a new supplier to get started.",
+      "loadingSuppliers": "Loading suppliers...",
+      "failedToLoad": "Failed to load suppliers. Please try again.",
+      "noSuppliersTitle": "No suppliers found",
+      "noSuppliersHelp": "Create your first supplier to start tracking purchases.",
+      "addSupplierButton": "Add Supplier",
+      "addShort": "Add",
+      "addEntryButton": "Add Entry",
+      "selectSupplier": "Select a supplier",
+      "balance": "Balance:",
+      "purchased": "Purchased:",
+      "paid": "Paid:",
+      "delete": "Delete",
+      "details": "Details",
+      "entries": "Entries",
+      "pay": "Pay",
+      "requestPayment": "Request Payment"
     },
     "saleRequests": {
       "title": "Sale Requests",
@@ -475,6 +942,26 @@
       "welcome": "Welcome, {name}!",
       "allFarmsTitle": "All Farms",
       "allBatchesTitle": "All Batches",
+      "reminder": {
+        "title": "Reminders",
+        "what": "What to be reminded of",
+        "placeholder": "e.g. Vaccination due, Feed order",
+        "farm": "Farm (optional)",
+        "batch": "Batch (optional)",
+        "none": "None",
+        "date": "Remind me on",
+        "time": "Time",
+        "add": "Add",
+        "addModalTitle": "Add reminder",
+        "due": "Due – tick when done",
+        "upcoming": "Upcoming (next 24 hours)",
+        "upcomingTag": "Upcoming",
+        "loading": "Loading...",
+        "noDue": "No due reminders",
+        "done": "Done",
+        "doneDelete": "Done – remove from list",
+        "markNoticed": "Mark as noticed"
+      },
       "batchPerformance": {
         "title": "Batch Performance Overview",
         "tabs": {
@@ -501,6 +988,13 @@
       "farmBatches": "Batches: {count}",
       "batchInfo": "{farm} • Birds {count} • Age {days} days",
       "close": "Close",
+      "quickActions": {
+        "addSale": "Add sale",
+        "addExpense": "Add Expense",
+        "addMortality": "Add Mortality",
+        "addEggProduction": "Add Egg Production",
+        "orderRequests": "Order Requests"
+      },
       "moneyToReceive": "Money to Receive",
       "moneyToPay": "Money to Pay",
       "stats": {
@@ -517,12 +1011,6 @@
         "toPay": "To Pay",
         "suppliers": "Suppliers",
         "expenses": "Expenses"
-      },
-      "quickActions": {
-        "expense": "Expense",
-        "sale": "Sale",
-        "mortality": "Mortality",
-        "weight": "Weight"
       },
       "recentActivity": {
         "title": "Recent Activity",
@@ -545,6 +1033,63 @@
         "inHr": "in {count} hr",
         "inDay": "in {count} day{s}",
         "now": "now"
+      },
+      "modals": {
+        "expense": {
+          "title": "Add Expense",
+          "editTitle": "Edit Expense",
+          "context": "Context",
+          "farm": "Farm",
+          "selectFarm": "Select farm",
+          "batch": "Batch",
+          "selectBatch": "Select batch",
+          "categoryAndDate": "Category & date",
+          "category": "Category",
+          "selectCategory": "Select category",
+          "feedFromInventory": "Feed (from inventory)",
+          "medicineFromInventory": "Medicine (from inventory)",
+          "other": "Other",
+          "date": "Date",
+          "feedDetails": "Feed details",
+          "selectFeedFromInventory": "Select feed from inventory",
+          "quantity": "Quantity",
+          "ratePerUnit": "Rate per unit (₹)",
+          "autoFilledFromInventory": "Auto-filled from inventory",
+          "enterRate": "Enter rate",
+          "rateAutoFilledFromInventory": "Rate auto-filled from inventory",
+          "medicineDetails": "Medicine details",
+          "selectMedicineFromInventory": "Select medicine from inventory",
+          "otherExpenseDetails": "Other expense details",
+          "otherFromInventory": "Other (from inventory)",
+          "enterManuallyBelow": "Enter manually below (no inventory deduction)",
+          "expenseName": "Expense name",
+          "rateAutoFilledStockDeducted": "Rate auto-filled from inventory · stock will be deducted",
+          "updating": "Updating...",
+          "creating": "Creating...",
+          "update": "Update"
+        },
+        "mortality": {
+          "title": "Add Mortality Record",
+          "editTitle": "Edit Mortality Record",
+          "noteLabel": "Note",
+          "note": "Record only natural deaths and disease-related losses here. Birds sold are automatically tracked in the Sales section.",
+          "farm": "Farm",
+          "selectFarm": "Select farm",
+          "batch": "Batch",
+          "selectBatch": "Select batch",
+          "date": "Date",
+          "numberOfBirds": "Number of Birds",
+          "enterCount": "Enter count",
+          "reasonOptional": "Reason (Optional)",
+          "reasonPlaceholder": "e.g., Disease, Heat stress, Predator attack, etc.",
+          "currentStatus": "Current Status",
+          "currentBirds": "Current Birds:",
+          "afterAllLosses": "(after all losses)",
+          "naturalDeaths": "Natural Deaths:",
+          "excludingSales": "(excluding sales)",
+          "updating": "Updating...",
+          "creating": "Creating..."
+        }
       }
     },
     "batches": {
@@ -661,8 +1206,8 @@
       "subtitleDefault": "Track feed, medicine, and supplies from purchases.",
       "addItem": "Add Item",
       "autoAdded": "Items are automatically added when you make purchases in",
-      "dealerLedger": "Dealer Ledger",
-      "medicalSupplierLedger": "Medical Supplier Ledger",
+      "dealerLedger": "Supplier  Ledger",
+      "medicalSupplierLedger": " Supplier Ledger",
       "loading": "Loading inventory...",
       "error": "Failed to load inventory. Please try again.",
       "stats": {
@@ -737,7 +1282,10 @@
         "submit": "Place Order",
         "submitting": "Placing...",
         "success": "Reorder placed successfully!"
-      }
+      },
+      "deleteConfirm": "Remove {name} from inventory? It will be hidden from lists.",
+      "deleteSuccess": "Item removed from inventory",
+      "deleteDisabledReason": "You have stock left. Clear or use stock before deleting."
     },
     "dealerLedger": {
       "title": "Dealer Ledger",
@@ -1224,11 +1772,45 @@
     }
   },
   "dealer": {
+    "staff": {
+      "title": "Staff management",
+      "subtitle": "Track staff salary and payments. Balance is calculated by Nepali month.",
+      "addStaff": "Add staff",
+      "name": "Name",
+      "startDate": "Start date",
+      "startMonth": "Start month",
+      "monthlySalary": "Monthly salary (रू)",
+      "balance": "Balance",
+      "due": "Due",
+      "advance": "Advance",
+      "pay": "Pay",
+      "editSalary": "Edit salary",
+      "stop": "Stop",
+      "details": "Details",
+      "currentSalary": "Current salary",
+      "effectiveFrom": "Effective from (month)",
+      "addPayment": "Add payment",
+      "amount": "Amount",
+      "date": "Date",
+      "note": "Note",
+      "receiptImage": "Receipt (optional)",
+      "stopConfirmTitle": "Stop staff?",
+      "stopConfirmMessage": "Salary will no longer accrue. Remaining balance will stay.",
+      "cancel": "Cancel",
+      "save": "Save",
+      "transactions": "Transactions",
+      "accrual": "Salary",
+      "payment": "Payment",
+      "empty": "No staff yet. Add one to get started.",
+      "statusActive": "Active",
+      "statusStopped": "Stopped"
+    },
     "dashboard": {
       "title": "Dealer Dashboard",
       "subtitle": "Manage your inventory, customers, and sales.",
       "buttons": {
         "addSale": "Add Sale",
+        "saleRequests": "Sale Requests",
         "consignments": "Consignments"
       },
       "stats": {
@@ -2138,6 +2720,8 @@
   "landing": {
     "navbar": {
       "features": "Features",
+      "marketplace": "Marketplace",
+      "tutorials": "Tutorials",
       "reviews": "Reviews",
       "contact": "Contact",
       "getStarted": "Get Started",
@@ -2150,7 +2734,6 @@
       "login": "Log in"
     },
     "hero": {
-      "trustBadge": "Trusted by 500+ Poultry Farmers",
       "headingMain": "Manage Your Poultry Business",
       "headingHighlight": " Anytime, Anywhere",
       "description": "Poultry360 makes your poultry business simple, smart, and stress-free. Easily track sales, manage expenses, maintain ledgers, control inventory & more so you can focus on growing your poultry business.",
@@ -2161,12 +2744,50 @@
       "lowStockAlert": "Low Stock Alert",
       "birds": "Birds",
       "revenue": "Revenue",
-      "health": "Health"
+      "health": "Health",
+      "pwaModal": {
+        "title": "Add Poultry360 to your device",
+        "subtitle": "Install the app for quick access from your home screen.",
+        "androidTitle": "Android",
+        "androidStep1": "Open the browser menu (⋮) in the top corner.",
+        "androidStep2": "Tap \"Add to Home screen\" or \"Install app\".",
+        "androidStep3": "Confirm by tapping \"Add\" or \"Install\".",
+        "iphoneTitle": "iPhone / iPad",
+        "iphoneStep1": "Tap the Share button (□ with arrow) at the bottom of Safari.",
+        "iphoneStep2": "Scroll down and tap \"Add to Home Screen\".",
+        "iphoneStep3": "Tap \"Add\" in the top right."
+      }
     },
     "features": {
       "badge": "Key Features",
       "title": "All in One Poultry Management App",
-      "subtitle": "Manage your poultry farm, finances, inventory, and operations effortlessly with Poultry360, everything your farm needs, all in one place.",
+      "subtitle": "Poultry360 brings broiler and layer farmers, feed suppliers, feed mill companies, and veterinary doctors together—manage operations, inventory, and health in one platform.",
+      "learnMore": "Learn More",
+      "modal": {
+        "comingSoon": "Coming soon"
+      },
+      "cards": {
+        "layer": {
+          "title": "Layer Management",
+          "description": "Boost egg production and quality with straightforward tracking for your hens."
+        },
+        "broiler": {
+          "title": "Broiler Management",
+          "description": "Monitor growth and feed use to keep broilers healthy and improve productivity."
+        },
+        "feedSupplier": {
+          "title": "Feed Supplier",
+          "description": "Manage orders, deliveries, and customer relationships in one place."
+        },
+        "feedMill": {
+          "title": "Feed Mill Company",
+          "description": "Produce quality feed with accurate mixing and easy inventory management."
+        },
+        "veterinary": {
+          "title": "Veterinary Doctor",
+          "description": "Track farm visits, prescriptions, and bird health across your client base."
+        }
+      },
       "recordTransactions": "Record Transactions",
       "recordTransactionsDesc": "Add sales, purchases & expenses",
       "manageBirds": "Manage Birds",
@@ -2187,6 +2808,27 @@
       "add": "Add",
       "feed": "Feed",
       "remove": "Remove"
+    },
+    "reviews": {
+      "badge": "Trusted by Farmers",
+      "title": "What Our Farmers Say",
+      "subtitle": "Real stories from poultry farmers who transformed their business with Poultry360",
+      "writeReview": "Write a Review",
+      "name": "Name",
+      "namePlaceholder": "Your name",
+      "business": "Business",
+      "businessPlaceholder": "e.g. Broiler Farmer, Feed Supplier",
+      "address": "Address",
+      "addressPlaceholder": "Your location",
+      "phoneNumber": "Phone Number",
+      "phoneNumberPlaceholder": "Your phone (not shown publicly)",
+      "stars": "Rating",
+      "review": "Your Review",
+      "reviewPlaceholder": "Share your experience with Poultry360...",
+      "submit": "Submit Review",
+      "submitSuccess": "Thank you! Your review has been submitted.",
+      "emptyMessage": "No reviews yet. Be the first to share your experience!",
+      "modalTitle": "Write a Review"
     },
     "contact": {
       "title": "Get in Touch",
@@ -2211,6 +2853,8 @@
       "message": "Message",
       "messagePlaceholder": "Tell us about your poultry farming needs...",
       "sendBtn": "Send Message",
+      "submitSuccess": "Message sent! We'll get back to you soon.",
+      "submitError": "Failed to send message. Please try again.",
       "contactInfo": "Contact Information",
       "contactInfoDesc": "Have questions about Poultry360? We're here to help you get started with smart poultry management.",
       "emailLabel": "Email",
@@ -2221,6 +2865,112 @@
       "saturday": "Saturday",
       "sunday": "Sunday",
       "closed": "Closed"
+    },
+    "listForSale": {
+      "badge": "Marketplace",
+      "title": "Listed for sale",
+      "subtitle": "Products listed by farmers. Contact them directly — no login required.",
+      "emptyCategory": "No listings in this category yet.",
+      "more": "More",
+      "filters": {
+        "all": "All",
+        "chicken": "Chicken",
+        "eggs": "Eggs",
+        "layers": "Layers",
+        "fish": "Fish",
+        "allProvinces": "All provinces"
+      },
+      "contactForRate": "Contact for Rate",
+      "available": "Available",
+      "avgWeight": "Avg weight",
+      "contactLabel": "Contact :",
+      "addressLabel": "Address:",
+      "provinceFilterPlaceholder": "Filter by province"
+    },
+    "marketplacePage": {
+      "badge": "Marketplace",
+      "title": "Marketplace",
+      "subtitle": "Browse all listings from farmers. Contact them directly — no login required.",
+      "emptyCategory": "No listings in this category yet."
+    }
+  },
+  "farmerListForSale": {
+    "pageSubtitle": "Post items for sale. They appear on the public landing page.",
+    "addListing": "Add listing",
+    "filterActive": "Active",
+    "filterArchived": "Archived",
+    "filterAll": "All",
+    "yourListings": "Your listings",
+    "yourListingsDesc": "Edit, archive, or delete anytime.",
+    "emptyList": "No listings yet. Add one to get started.",
+    "edit": "Edit",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "delete": "Delete",
+    "modalAddTitle": "Add listing",
+    "modalEditTitle": "Edit listing",
+    "companyName": "Company name",
+    "category": "Category",
+    "phone": "Phone *",
+    "phonePlaceholder": "Contact number",
+    "rateOptional": "Rate (optional)",
+    "ratePlaceholder": "Price per unit",
+    "quantity": "Quantity *",
+    "unit": "Unit *",
+    "unitPlaceholder": "e.g. kg, piece, dozen",
+    "availabilityFrom": "Availability from *",
+    "availabilityTo": "Availability to *",
+    "province": "Province",
+    "provincePlaceholder": "Select province",
+    "provinceNone": "No province / Not specified",
+    "address": "Detailed address",
+    "addressPlaceholder": "Ward, tole, nearby landmark",
+    "avgWeightKg": "Average weight (kg)",
+    "avgWeightPlaceholder": "kg",
+    "sizesLabel": "Sizes (size, quantity, rate per unit)",
+    "sizePlaceholder": "Size",
+    "qtyPlaceholder": "Qty",
+    "rateColumnHeader": "Rate",
+    "addSize": "+ Add size",
+    "typesLabel": "Types (type, quantity, rate per unit)",
+    "typePlaceholder": "Type",
+    "addType": "+ Add type",
+    "cancel": "Cancel",
+    "saveChanges": "Save changes",
+    "createListing": "Create listing",
+    "deleteModalTitle": "Delete listing?",
+    "deleteModalMessage": "This cannot be undone.",
+    "categories": {
+      "chicken": "Chicken",
+      "eggs": "Eggs",
+      "layers": "Layers",
+      "fish": "Fish",
+      "other": "Other"
+    }
+  },
+  "tutorials": {
+    "title": "Poultry360 Tutorial Hub",
+    "subtitle": "Learn how to use Poultry360 with step-by-step video guides.",
+    "sections": {
+      "gettingStarted": "Getting Started",
+      "broilerLayerFarmer": "Broiler + Layer Farmer",
+      "feedSupplier": "Feed Supplier"
+    },
+    "videos": {
+      "introductionToPoultry360": "Introduction to Poultry360",
+      "farmerManualEndToEnd": "Farmer app using manual end to end",
+      "farmerWithConnectionToDealer": "Farmer with connection to dealer",
+      "layerFarmerIndepth": "Layer Farmer Indepth",
+      "feedSupplierEndToEnd": "Feed supplier end to end",
+      "feedSupplierWithConnectionToFarmer": "Feed supplier with connection to farmer"
+    },
+    "descriptions": {
+      "introductionToPoultry360": "Get started with Poultry360 and explore the platform.",
+      "farmerManualEndToEnd": "Use the farmer app manually from start to finish.",
+      "farmerWithConnectionToDealer": "Farmer workflow when connected to a dealer.",
+      "layerFarmerIndepth": "In-depth guide for layer farmers.",
+      "feedSupplierEndToEnd": "Feed supplier workflow from start to finish.",
+      "feedSupplierWithConnectionToFarmer": "Feed supplier when connected to farmers."
     }
   }
 }

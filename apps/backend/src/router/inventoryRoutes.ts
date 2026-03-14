@@ -13,6 +13,7 @@ import {
   getInventoryUsages,
   getInventoryStatistics,
   getInventoryTableData,
+  getInventoryForExpense,
 } from "../controller/inventoryController";
 import { authMiddleware } from "../middelware/middelware";
 
@@ -26,6 +27,7 @@ router.use((req, res, next) => {
 
 // ==================== INVENTORY ITEMS ====================
 router.get("/", getAllInventoryItems);
+router.get("/for-expense", getInventoryForExpense);
 router.get("/table", getInventoryTableData);
 router.get("/statistics", getInventoryStatistics);
 router.get("/low-stock", getLowStockItems);

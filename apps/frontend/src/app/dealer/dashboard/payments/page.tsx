@@ -53,6 +53,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/common/components/ui/alert-dialog";
+import { getNowLocalDateTime } from "@/common/lib/utils";
 import {
   Select,
   SelectContent,
@@ -95,7 +96,7 @@ export default function DealerPaymentsPage() {
   const [paymentReference, setPaymentReference] = useState("");
   const [paymentReceiptUrl, setPaymentReceiptUrl] = useState("");
   const [paymentDate, setPaymentDate] = useState(
-    new Date().toISOString()
+    getNowLocalDateTime()
   );
 
   // Form state for creating request
@@ -107,7 +108,7 @@ export default function DealerPaymentsPage() {
   const [requestPaymentReference, setRequestPaymentReference] = useState("");
   const [requestPaymentReceiptUrl, setRequestPaymentReceiptUrl] = useState("");
   const [requestPaymentDate, setRequestPaymentDate] = useState(
-    new Date().toISOString()
+    getNowLocalDateTime()
   );
 
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -488,7 +489,7 @@ export default function DealerPaymentsPage() {
                               setPaymentMethod("CASH");
                               setPaymentReference("");
                               setPaymentReceiptUrl("");
-                              setPaymentDate(new Date().toISOString());
+                              setPaymentDate(getNowLocalDateTime());
                               setIsAcceptAndProofDialogOpen(true);
                             }}
                             title="Accept & submit proof"
@@ -506,7 +507,7 @@ export default function DealerPaymentsPage() {
                               setPaymentMethod("CASH");
                               setPaymentReference("");
                               setPaymentReceiptUrl("");
-                              setPaymentDate(new Date().toISOString());
+                              setPaymentDate(getNowLocalDateTime());
                               setIsSubmitProofOpen(true);
                             }}
                             title="Submit proof"

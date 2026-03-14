@@ -14,6 +14,7 @@ import {
   EggProductionRecord,
 } from "@myapp/shared-types";
 import axiosInstance from "@/common/lib/axios";
+import { saleQueryKeys } from "@/fetchers/sale/saleQueries";
 
 // ==================== QUERY KEYS ====================
 export const batchKeys = {
@@ -117,6 +118,7 @@ export const useCreateEggProduction = (batchId: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: batchKeys.eggProduction(batchId) });
       queryClient.invalidateQueries({ queryKey: batchKeys.detail(batchId) });
+      queryClient.invalidateQueries({ queryKey: saleQueryKeys.eggInventory(batchId) });
     },
   });
 };
@@ -131,6 +133,7 @@ export const useUpdateEggProduction = (batchId: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: batchKeys.eggProduction(batchId) });
       queryClient.invalidateQueries({ queryKey: batchKeys.detail(batchId) });
+      queryClient.invalidateQueries({ queryKey: saleQueryKeys.eggInventory(batchId) });
     },
   });
 };
@@ -145,6 +148,7 @@ export const useDeleteEggProduction = (batchId: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: batchKeys.eggProduction(batchId) });
       queryClient.invalidateQueries({ queryKey: batchKeys.detail(batchId) });
+      queryClient.invalidateQueries({ queryKey: saleQueryKeys.eggInventory(batchId) });
     },
   });
 };

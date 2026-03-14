@@ -8,6 +8,7 @@ import { Label } from "@/common/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { DateInput } from "@/common/components/ui/date-input";
 import { useCreateSale, useGetCustomersForSales } from "@/fetchers/sale/saleQueries";
+import { useGetEggTypes } from "@/fetchers/eggTypes/eggTypeQueries";
 
 interface QuickSaleModalProps {
   isOpen: boolean;
@@ -21,7 +22,7 @@ interface QuickSaleForm {
   farmId: string;
   batchId: string;
   itemType: string;
-  eggCategory: string;
+  eggTypeId: string;
   rate: string;
   quantity: string;
   weight: string;
@@ -49,7 +50,7 @@ export function QuickSaleModal({
     farmId: "",
     batchId: "",
     itemType: "Chicken_Meat",
-    eggCategory: "",
+    eggTypeId: "",
     rate: "",
     quantity: "",
     weight: "",
@@ -65,9 +66,11 @@ export function QuickSaleModal({
   const [quickFormErrors, setQuickFormErrors] = useState<FormErrors>({});
   const [customerSearch, setCustomerSearch] = useState("");
 
-  // Fetch customers for sales
-  const { data: customersResponse } = useGetCustomersForSales();
+  // Fetch customers and egg types for sales
+  const { data: customersResponse } = useGetCustomersForSales(undefined, { enabled: true });
   const customers = customersResponse || [];
+  const { data: eggTypesData } = useGetEggTypes({ enabled: true });
+  const eggTypes = eggTypesData?.data ?? [];
 
   // Create sale mutation
   const createSaleMutation = useCreateSale();
@@ -153,8 +156,8 @@ export function QuickSaleModal({
         errors.weight = "Weight required for Chicken_Meat";
     }
     if (quickSaleForm.itemType === "EGGS") {
-      if (!quickSaleForm.eggCategory)
-        errors.eggCategory = "Please select egg category (Large / Medium / Small)";
+      if (!quickSaleForm.eggTypeId)
+        errors.eggTypeId = "Please select egg type";
     }
     if (!quickSaleForm.date) errors.date = "Please select a date";
 
@@ -218,9 +221,11 @@ export function QuickSaleModal({
       const isCredit = quickSaleForm.remaining;
 
       // Create sale data
+      const saleDateRaw = quickSaleForm.date || "";
+      const saleDateOnly = saleDateRaw.includes("T") ? saleDateRaw.split("T")[0] : saleDateRaw;
       const saleData: any = {
-        date: quickSaleForm.date
-          ? `${quickSaleForm.date}T00:00:00.000Z`
+        date: saleDateOnly
+          ? `${saleDateOnly}T00:00:00.000Z`
           : new Date().toISOString(),
         amount,
         quantity,
@@ -236,8 +241,8 @@ export function QuickSaleModal({
       if (quickSaleForm.itemType === "Chicken_Meat" && quickSaleForm.weight) {
         saleData.weight = parseFloat(quickSaleForm.weight);
       }
-      if (quickSaleForm.itemType === "EGGS" && quickSaleForm.eggCategory) {
-        saleData.eggCategory = quickSaleForm.eggCategory;
+      if (quickSaleForm.itemType === "EGGS" && quickSaleForm.eggTypeId) {
+        saleData.eggTypeId = quickSaleForm.eggTypeId;
       }
 
       // Handle customer data
@@ -271,7 +276,7 @@ export function QuickSaleModal({
         farmId: "",
         batchId: "",
         itemType: "Chicken_Meat",
-        eggCategory: "",
+        eggTypeId: "",
         rate: "",
         quantity: "",
         weight: "",
@@ -390,21 +395,23 @@ export function QuickSaleModal({
               </div>
               {quickSaleForm.itemType === "EGGS" && (
                 <div>
-                  <Label htmlFor="eggCategory">Egg Category</Label>
+                  <Label htmlFor="eggTypeId">Egg Type</Label>
                   <select
-                    id="eggCategory"
-                    name="eggCategory"
-                    value={quickSaleForm.eggCategory}
+                    id="eggTypeId"
+                    name="eggTypeId"
+                    value={quickSaleForm.eggTypeId}
                     onChange={updateQuickSaleField}
                     className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                   >
-                    <option value="">Select category</option>
-                    <option value="LARGE">Large</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="SMALL">Small</option>
+                    <option value="">Select egg type</option>
+                    {eggTypes.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
                   </select>
-                  {quickFormErrors.eggCategory && (
-                    <p className="text-xs text-red-600 mt-1">{quickFormErrors.eggCategory}</p>
+                  {quickFormErrors.eggTypeId && (
+                    <p className="text-xs text-red-600 mt-1">{quickFormErrors.eggTypeId}</p>
                   )}
                 </div>
               )}
@@ -610,6 +617,8 @@ export function QuickSaleModal({
                     className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
                   >
                     <option value="Chicken">Chicken</option>
+                    <option value="Eggs">Eggs</option>
+                    <option value="Layer">Layer</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>

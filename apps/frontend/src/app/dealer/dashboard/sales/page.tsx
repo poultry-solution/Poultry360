@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Search, Filter, Eye, CreditCard, Calendar, FileCheck, User, Phone, Package, FileText, Check, X as XIcon, Wallet } from "lucide-react";
-import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import {
   Card,
@@ -43,8 +42,6 @@ export default function DealerSalesPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [isPaidFilter, setIsPaidFilter] = useState<string>("ALL");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
 
   // Get sales
@@ -53,8 +50,6 @@ export default function DealerSalesPage() {
     limit: 10,
     search,
     isPaid: isPaidFilter !== "ALL" ? isPaidFilter === "PAID" : undefined,
-    startDate: startDate || undefined,
-    endDate: endDate || undefined,
   });
 
   // Get selected sale details
@@ -143,20 +138,6 @@ export default function DealerSalesPage() {
                   <SelectItem value="UNPAID">{t("dealer.sales.filters.unpaid")}</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="flex gap-2">
-              <DateInput
-                label={t("dealer.sales.filters.start")}
-                value={startDate}
-                onChange={setStartDate}
-                className="flex-1"
-              />
-              <DateInput
-                label={t("dealer.sales.filters.end")}
-                value={endDate}
-                onChange={setEndDate}
-                className="flex-1"
-              />
             </div>
           </div>
         </CardContent>

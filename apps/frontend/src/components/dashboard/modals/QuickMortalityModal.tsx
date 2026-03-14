@@ -185,7 +185,7 @@ export function QuickMortalityModal({
                 <DateInput
                   label="Date *"
                   value={form.date}
-                  onChange={(value) => updateField({ target: { name: 'date', value } })}
+                  onChange={(value) => updateField({ target: { name: 'date', value } } as any)}
                 />
                 {errors.date && (
                   <p className="text-xs text-red-600 mt-1">{errors.date}</p>

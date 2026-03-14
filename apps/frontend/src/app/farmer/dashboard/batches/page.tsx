@@ -29,6 +29,7 @@ import {
 import { useGetUserFarms as useGetFarms } from "@/fetchers/farms/farmQueries";
 import { toast } from "sonner";
 import { getTodayLocalDate } from "@/common/lib/utils";
+import { getBSMonthDayForDisplay } from "@/common/lib/nepali-date";
 import { BatchResponse, BatchStatus } from "@myapp/shared-types";
 import { useInventoryByType } from "@/fetchers/inventory/inventoryQueries";
 import { DateInput } from "@/common/components/ui/date-input";
@@ -92,12 +93,8 @@ export default function BatchesPage() {
     const farm = farms.find((f: any) => f.id === farmId);
     if (!farm) return "";
 
-    const d = new Date(startDateStr);
-    if (isNaN(d.getTime())) return "";
-
-    // Format date as "Month-Day"
-    const month = d.toLocaleString("en-US", { month: "long" });
-    const day = d.getDate();
+    const bsPart = getBSMonthDayForDisplay(startDateStr);
+    if (!bsPart) return "";
 
     // Add current time (HH-MM-SS with dashes)
     const now = new Date();
@@ -105,7 +102,7 @@ export default function BatchesPage() {
     const mm = String(now.getMinutes()).padStart(2, "0");
     const ss = String(now.getSeconds()).padStart(2, "0");
 
-    return `${month}-${day}-${farm.name}-${hh}-${mm}-${ss}`;
+    return `${bsPart}-${farm.name}-${hh}-${mm}-${ss}`;
   }
 
   function handleChange(

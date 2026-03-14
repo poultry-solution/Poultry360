@@ -21,6 +21,7 @@ import medicalSupplierRoutes from "./medicalSupplierRoutes";
 import hatcheryRoutes from "./hatcheryRoutes";
 import inventoryRoutes from "./inventoryRoutes";
 import eggInventoryRoutes from "./eggInventoryRoutes";
+import eggTypeRoutes from "./eggTypeRoutes";
 import expenseRoutes from "./expenseRoutes";
 import salesRoutes from "./salesRoutes";
 import dashboardRoutes from "./dashboardRoutes";
@@ -46,6 +47,11 @@ import farmerCartRoutes from "./farmerCartRoutes";
 import farmerPurchaseRequestRoutes from "./farmerPurchaseRequestRoutes";
 import dealerPurchaseRequestRoutes from "./dealerPurchaseRequestRoutes";
 import uploadRoutes from "./uploadRoutes";
+import reminderRoutes from "./reminderRoutes";
+import listForSaleRoutes from "./listForSaleRoutes";
+import staffRoutes from "./staffRoutes";
+import pushRoutes from "./pushRoutes";
+import notificationRoutes from "./notificationRoutes";
 
 // Test routes (only in test environment)
 let testRoutes: express.Router | null = null;
@@ -87,6 +93,7 @@ router.use("/medical-suppliers", medicalSupplierRoutes);
 router.use("/hatcheries", hatcheryRoutes);
 router.use("/inventory", inventoryRoutes);
 router.use("/egg-inventory", eggInventoryRoutes);
+router.use("/egg-types", eggTypeRoutes);
 router.use("/expenses", expenseRoutes);
 router.use("/sales", salesRoutes);
 router.use("/dashboard", dashboardRoutes);
@@ -102,6 +109,12 @@ router.use("/admin/companies", adminCompanyRoutes);
 router.use("/admin/dealers", adminDealerRoutes);
 router.use("/public", publicRoutes);
 router.use("/upload", uploadRoutes);
+router.use("/reminders", reminderRoutes);
+router.use("/farmer/list-for-sale", listForSaleRoutes);
+router.use("/farmer/staff", staffRoutes);
+router.use("/dealer/staff", staffRoutes);
+router.use("/push", pushRoutes);
+router.use("/notifications", notificationRoutes);
 
 // Test routes (only in test environment)
 if (testRoutes) {
