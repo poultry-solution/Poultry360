@@ -2427,3 +2427,16 @@ model StaffPayment {
   @@index([staffId])
   @@index([paidAt])
 }
+
+// ==================== PASSWORD RESET OTP ====================
+model PasswordResetOtp {
+  id        String   @id @default(cuid())
+  phone     String
+  otp       String   // 6-digit OTP
+  used      Boolean  @default(false)
+  expiresAt DateTime // OTP expires after 30 minutes
+  createdAt DateTime @default(now())
+
+  @@index([phone, otp, used])
+  @@index([createdAt])
+}

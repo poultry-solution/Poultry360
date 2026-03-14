@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-// import { crossPortAuth } from "@myapp/shared-auth"; // Removed - no longer using shared packages
 import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
 
 interface RoleBasedRedirectProps {

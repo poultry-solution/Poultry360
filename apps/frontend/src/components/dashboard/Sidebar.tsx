@@ -21,6 +21,7 @@ import {
   CreditCard,
   Lightbulb,
   Tag,
+  KeyRound,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { useAuth } from "@/common/store/store";
@@ -80,7 +81,8 @@ export const companyNavigation: NavigationItem[] = [
 
 const adminNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.overview", href: "/admin/dashboard", icon: BarChart3 },
-
+  { nameKey: "sidebar.nav.users", href: "/admin/dashboard/users", icon: Users },
+  { nameKey: "sidebar.nav.passwordResets", href: "/admin/dashboard/password-resets", icon: KeyRound },
 ];
 
 interface SidebarProps {
