@@ -9,7 +9,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@myapp/shared-auth": "workspace:*",
     "@myapp/shared-types": "workspace:*",
     "@myapp/utils": "workspace:*",
     "@radix-ui/react-alert-dialog": "^1.1.15",
