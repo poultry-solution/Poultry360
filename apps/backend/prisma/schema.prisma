@@ -257,6 +257,9 @@ model User {
 
   // Company-Dealer account payments
   companyDealerPaymentsRecorded CompanyDealerPayment[] @relation("CompanyDealerPaymentRecorder")
+  companyPurchasesCreated        CompanyPurchase[]     @relation("CompanyPurchaseCreatedBy")
+  companySupplierPaymentsRecorded CompanySupplierPayment[] @relation("CompanySupplierPaymentRecorder")
+  productionRunsCreated         ProductionRun[]      @relation("ProductionRunCreatedBy")
 
   balanceLimitsSet CompanyDealerAccount[] @relation("BalanceLimitSetter")
 
@@ -308,6 +311,15 @@ model Company {
   verificationRequests DealerVerificationRequest[]
   dealerCarts          DealerCart[]
   dealerAccounts       CompanyDealerAccount[]
+
+  // Supplier & purchasing (feed mill)
+  suppliers            Supplier[]
+  rawMaterials         RawMaterial[]
+  companyPurchases     CompanyPurchase[]
+  supplierPayments      CompanySupplierPayment[]
+
+  // Production (raw materials used → produced items log)
+  productionRuns       ProductionRun[]
 
   @@index([ownerId])
 }
@@ -1988,6 +2000,163 @@ model CompanyLedgerEntry {
   @@index([partyId, partyType])
   @@index([companySaleId])
   @@index([transactionId])
+}
+
+// ==================== COMPANY SUPPLIERS & PURCHASING (feed mill) ====================
+
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String
+  contact   String?
+  address   String?
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  purchases        CompanyPurchase[]
+  payments         CompanySupplierPayment[]
+  productionInputs ProductionInput[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+// Raw materials (inputs) that company purchases; later used in production to make Products (finished goods)
+model RawMaterial {
+  id          String   @id @default(cuid())
+  name        String
+  unit        String
+  currentStock Decimal @default(0) @db.Decimal(12, 2)
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  purchaseItems   CompanyPurchaseItem[]
+  productionInputs ProductionInput[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, name, unit])
+  @@index([companyId])
+}
+
+model CompanyPurchase {
+  id              String   @id @default(cuid())
+  date            DateTime @default(now())
+  referenceNumber String?
+  notes           String?
+  totalAmount     Decimal  @db.Decimal(12, 2)
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  createdById String?
+  createdBy   User?   @relation("CompanyPurchaseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  items CompanyPurchaseItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, date])
+  @@index([supplierId, date])
+}
+
+model CompanyPurchaseItem {
+  id          String   @id @default(cuid())
+  quantity    Decimal  @db.Decimal(12, 2)
+  unitPrice   Decimal  @db.Decimal(12, 2)
+  totalAmount Decimal  @db.Decimal(12, 2)
+
+  purchaseId    String
+  purchase      CompanyPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  rawMaterialId String
+  rawMaterial   RawMaterial     @relation(fields: [rawMaterialId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([purchaseId])
+  @@index([rawMaterialId])
+}
+
+model CompanySupplierPayment {
+  id            String   @id @default(cuid())
+  amount        Decimal  @db.Decimal(12, 2)
+  paymentMethod String   @default("CASH")
+  paymentDate   DateTime @default(now())
+  notes         String?
+  reference     String?
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  recordedById String?
+  recordedBy   User?   @relation("CompanySupplierPaymentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, paymentDate])
+  @@index([supplierId, paymentDate])
+}
+
+// ==================== PRODUCTION (feed mill) ====================
+// Raw materials used (stock decremented) + produced items (log only, no Product link for now)
+model ProductionRun {
+  id              String   @id @default(cuid())
+  date            DateTime @default(now())
+  referenceNumber String?
+  notes           String?
+
+  companyId   String
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?   @relation("ProductionRunCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  inputs  ProductionInput[]
+  outputs ProductionOutput[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, date])
+}
+
+model ProductionInput {
+  id            String   @id @default(cuid())
+  quantity      Decimal  @db.Decimal(12, 2)
+  unitPrice     Decimal  @db.Decimal(12, 2) // bucket identifier (same as purchase rate)
+
+  productionId   String
+  production     ProductionRun @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  rawMaterialId  String
+  rawMaterial    RawMaterial    @relation(fields: [rawMaterialId], references: [id], onDelete: Restrict)
+  supplierId     String
+  supplier       Supplier      @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([productionId])
+  @@index([rawMaterialId])
+  @@index([supplierId])
+}
+
+model ProductionOutput {
+  id          String   @id @default(cuid())
+  productName String
+  quantity    Decimal  @db.Decimal(12, 2)
+  unit        String?  @default("kg")
+
+  productionId String
+  production   ProductionRun @relation(fields: [productionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([productionId])
 }
 
 // ==================== PAYMENT REQUEST MODEL ====================

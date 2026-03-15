@@ -22,6 +22,8 @@ import {
   Lightbulb,
   Tag,
   KeyRound,
+  ShoppingCart,
+  Factory,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { useAuth } from "@/common/store/store";
@@ -69,7 +71,11 @@ export const dealerNavigation: NavigationItem[] = [
 
 export const companyNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.home", href: "/company/dashboard/home", icon: Home },
+  { nameKey: "sidebar.nav.supplierLedger", href: "/company/dashboard/suppliers", icon: FileText },
+  { nameKey: "sidebar.nav.purchases", href: "/company/dashboard/purchases", icon: ShoppingCart },
+  { nameKey: "sidebar.nav.production", href: "/company/dashboard/production", icon: Factory },
   { nameKey: "sidebar.nav.products", href: "/company/dashboard/products", icon: Package },
+
   { nameKey: "sidebar.nav.dealers", href: "/company/dashboard/dealers", icon: Users },
   { nameKey: "sidebar.nav.sales", href: "/company/dashboard/sales", icon: Receipt },
 

@@ -105,6 +105,8 @@
       "performance": "Performance",
       "reports": "Reports",
       "businessInsights": "Business Insights",
+      "purchases": "Purchases",
+      "production": "Production",
       "purchaseRequests": "Purchase Requests",
       "saleRequests": "Sale Requests"
     }
