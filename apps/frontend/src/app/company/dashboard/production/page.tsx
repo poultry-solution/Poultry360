@@ -31,7 +31,7 @@ const inputsSummary = (run: ProductionRun, max = 3) => {
 
 const outputsSummary = (run: ProductionRun, max = 3) => {
   const parts = (run.outputs || []).map(
-    (o) => `${o.productName} ${Number(o.quantity)} ${o.unit ?? "kg"}`
+    (o) => `${o.product?.name ?? o.productName} ${Number(o.quantity)} ${o.product?.unit ?? o.unit ?? "kg"}`
   );
   if (parts.length <= max) return parts.join(", ");
   return parts.slice(0, max).join(", ") + ` +${parts.length - max} more`;
@@ -187,18 +187,43 @@ export default function CompanyProductionPage() {
                       <tr className="bg-muted/50 border-b">
                         <th className="text-left p-2 font-medium">Produced item</th>
                         <th className="text-right p-2 font-medium">Qty</th>
+                        <th className="text-right p-2 font-medium">Value</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {(detailRun.outputs || []).map((o) => (
-                        <tr key={o.id} className="border-b last:border-0">
-                          <td className="p-2">{o.productName}</td>
-                          <td className="p-2 text-right">
-                            {Number(o.quantity).toLocaleString("en-IN", { minimumFractionDigits: 2 })} {o.unit ?? "kg"}
-                          </td>
-                        </tr>
-                      ))}
+                      {(detailRun.outputs || []).map((o) => {
+                        const qty = Number(o.quantity);
+                        const sellingPrice = o.product?.unitSellingPrice != null ? Number(o.product.unitSellingPrice) : 0;
+                        const value = qty * sellingPrice;
+                        return (
+                          <tr key={o.id} className="border-b last:border-0">
+                            <td className="p-2">{o.product?.name ?? o.productName}</td>
+                            <td className="p-2 text-right">
+                              {qty.toLocaleString("en-IN", { minimumFractionDigits: 2 })} {o.product?.unit ?? o.unit ?? "kg"}
+                            </td>
+                            <td className="p-2 text-right">
+                              {o.product?.unitSellingPrice != null ? formatCurrency(value) : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
+                    <tfoot>
+                      <tr className="bg-muted/50 border-t font-medium">
+                        <td className="p-2" colSpan={2}>
+                          Total produced value
+                        </td>
+                        <td className="p-2 text-right">
+                          {formatCurrency(
+                            (detailRun.outputs || []).reduce((sum, o) => {
+                              const qty = Number(o.quantity);
+                              const price = o.product?.unitSellingPrice != null ? Number(o.product.unitSellingPrice) : 0;
+                              return sum + qty * price;
+                            }, 0)
+                          )}
+                        </td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               </div>

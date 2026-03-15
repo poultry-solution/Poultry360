@@ -68,19 +68,49 @@ export const createProductionRun = async (req: Request, res: Response): Promise<
       });
     }
 
-    const validOutputs: { productName: string; quantity: number; unit?: string }[] = [];
+    type OutputSpec = { productId?: string; productName: string; quantity: number; unit?: string };
+    const validOutputs: OutputSpec[] = [];
+    const productIdsToFetch = new Set<string>();
     for (const row of outputs) {
+      const productId = row.productId ? String(row.productId).trim() || undefined : undefined;
       const productName = String(row.productName ?? "").trim();
       const quantity = Number(row.quantity);
-      if (!productName || quantity <= 0) continue;
-      validOutputs.push({
-        productName,
-        quantity,
-        unit: row.unit ? String(row.unit).trim() || undefined : undefined,
-      });
+      if (quantity <= 0) continue;
+      if (productId) {
+        productIdsToFetch.add(productId);
+        validOutputs.push({ productId, productName: "", quantity, unit: undefined });
+      } else if (productName) {
+        validOutputs.push({
+          productName,
+          quantity,
+          unit: row.unit ? String(row.unit).trim() || undefined : undefined,
+        });
+      }
     }
     if (validOutputs.length === 0) {
-      return res.status(400).json({ message: "At least one valid output (name, quantity > 0) is required" });
+      return res.status(400).json({ message: "At least one valid output (product or name + quantity > 0) is required" });
+    }
+
+    // Resolve productId -> name, unit and validate ownership
+    let productMap: Map<string, { name: string; unit: string }> = new Map();
+    if (productIdsToFetch.size > 0) {
+      const products = await prisma.product.findMany({
+        where: { id: { in: [...productIdsToFetch] }, supplierId: userId },
+        select: { id: true, name: true, unit: true },
+      });
+      for (const p of products) productMap.set(p.id, { name: p.name, unit: p.unit });
+      for (const out of validOutputs) {
+        if (out.productId && !productMap.has(out.productId)) {
+          return res.status(400).json({
+            message: `Product not found or does not belong to your company: ${out.productId}`,
+          });
+        }
+        if (out.productId) {
+          const info = productMap.get(out.productId)!;
+          out.productName = info.name;
+          out.unit = info.unit;
+        }
+      }
     }
 
     const remaining = await getBucketRemaining(company.id);
@@ -140,11 +170,18 @@ export const createProductionRun = async (req: Request, res: Response): Promise<
         await tx.productionOutput.create({
           data: {
             productionId: productionRecord.id,
+            productId: out.productId || null,
             productName: out.productName,
             quantity: new Prisma.Decimal(out.quantity),
             unit: out.unit ?? "kg",
           },
         });
+        if (out.productId) {
+          await tx.product.update({
+            where: { id: out.productId },
+            data: { currentStock: { increment: new Prisma.Decimal(out.quantity) } },
+          });
+        }
       }
 
       return tx.productionRun.findUnique({
@@ -156,7 +193,7 @@ export const createProductionRun = async (req: Request, res: Response): Promise<
               supplier: { select: { id: true, name: true } },
             },
           },
-          outputs: true,
+          outputs: { include: { product: { select: { id: true, name: true, unit: true, unitSellingPrice: true } } } },
         },
       });
     });
@@ -200,7 +237,7 @@ export const getProductionRuns = async (req: Request, res: Response): Promise<an
               supplier: { select: { id: true, name: true } },
             },
           },
-          outputs: true,
+          outputs: { include: { product: { select: { id: true, name: true, unit: true, unitSellingPrice: true } } } },
         },
       }),
       prisma.productionRun.count({ where: { companyId: company.id } }),
@@ -245,7 +282,7 @@ export const getProductionRunById = async (req: Request, res: Response): Promise
             supplier: { select: { id: true, name: true } },
           },
         },
-        outputs: true,
+        outputs: { include: { product: { select: { id: true, name: true, unit: true, unitSellingPrice: true } } } },
       },
     });
 

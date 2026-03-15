@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
+import { companyProductKeys } from "./companyProductQueries";
 
 export const companyProductionKeys = {
   all: ["company-production"] as const,
@@ -23,6 +24,8 @@ export interface ProductionOutputRow {
   productName: string;
   quantity: string | number;
   unit: string | null;
+  productId?: string | null;
+  product?: { id: string; name: string; unit: string; unitSellingPrice?: string | number } | null;
 }
 
 export interface ProductionRun {
@@ -42,8 +45,11 @@ export interface CreateProductionRunInput {
   date?: string;
   referenceNumber?: string;
   notes?: string;
-  inputs: Array<{ rawMaterialId: string; quantity: number }>;
-  outputs: Array<{ productName: string; quantity: number; unit?: string }>;
+  inputs: Array<{ rawMaterialId: string; supplierId: string; unitPrice: number; quantity: number }>;
+  outputs: Array<
+    | { productId: string; quantity: number }
+    | { productName: string; quantity: number; unit?: string }
+  >;
 }
 
 export function useGetProductionRuns(params?: { page?: number; limit?: number }) {
@@ -84,6 +90,7 @@ export function useCreateProductionRun() {
       qc.invalidateQueries({ queryKey: companyProductionKeys.lists() });
       qc.invalidateQueries({ queryKey: ["company-raw-materials"] });
       qc.invalidateQueries({ queryKey: ["company-purchases", "aggregated"] });
+      qc.invalidateQueries({ queryKey: companyProductKeys.all });
     },
   });
 }

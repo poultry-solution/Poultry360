@@ -26,6 +26,7 @@ import {
   useGetCompanyPurchasesAggregated,
   type AggregatedPurchaseRow,
 } from "@/fetchers/company/companyPurchaseQueries";
+import { useGetCompanyProducts } from "@/fetchers/company/companyProductQueries";
 import { useCreateProductionRun } from "@/fetchers/company/companyProductionQueries";
 import { toast } from "sonner";
 
@@ -37,15 +38,17 @@ function bucketKey(row: { rawMaterialId: string; supplierId: string; unitPrice: 
 }
 
 type InputLine = { rawMaterialId: string; supplierId: string; unitPrice: number; quantity: number };
-type OutputLine = { productName: string; quantity: number; unit: string };
+type OutputLine = { productId: string; quantity: number };
 
 export default function NewProductionPage() {
   const router = useRouter();
   const { data: aggregatedData } = useGetCompanyPurchasesAggregated();
+  const { data: productsData } = useGetCompanyProducts({ page: 1, limit: 500 });
   const createMutation = useCreateProductionRun();
 
   const buckets: AggregatedPurchaseRow[] = aggregatedData?.data ?? [];
   const bucketsWithStock = buckets.filter((b) => Number(b.remainingQuantity ?? b.totalQuantity ?? 0) > 0);
+  const companyProducts = productsData?.data ?? [];
 
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -54,7 +57,7 @@ export default function NewProductionPage() {
     { rawMaterialId: "", supplierId: "", unitPrice: 0, quantity: 0 },
   ]);
   const [outputLines, setOutputLines] = useState<OutputLine[]>([
-    { productName: "", quantity: 0, unit: "kg" },
+    { productId: "", quantity: 0 },
   ]);
 
   const addInputLine = () => {
@@ -84,7 +87,7 @@ export default function NewProductionPage() {
   };
 
   const addOutputLine = () => {
-    setOutputLines((prev) => [...prev, { productName: "", quantity: 0, unit: "kg" }]);
+    setOutputLines((prev) => [...prev, { productId: "", quantity: 0 }]);
   };
   const updateOutputLine = (index: number, updates: Partial<OutputLine>) => {
     setOutputLines((prev) => {
@@ -101,7 +104,7 @@ export default function NewProductionPage() {
     (l) => l.rawMaterialId && l.supplierId && l.quantity > 0
   );
   const validOutputs = outputLines.filter(
-    (l) => l.productName.trim() && l.quantity > 0
+    (l) => l.productId && l.quantity > 0
   );
 
   const getAvailableForLine = (line: InputLine) => {
@@ -122,7 +125,7 @@ export default function NewProductionPage() {
       return;
     }
     if (validOutputs.length === 0) {
-      toast.error("Add at least one produced item with name and quantity");
+      toast.error("Add at least one produced item (select product and quantity)");
       return;
     }
     for (const inp of validInputs) {
@@ -149,9 +152,8 @@ export default function NewProductionPage() {
           quantity: l.quantity,
         })),
         outputs: validOutputs.map((l) => ({
-          productName: l.productName.trim(),
+          productId: l.productId,
           quantity: l.quantity,
-          unit: l.unit.trim() || "kg",
         })),
       });
       toast.success("Production run recorded. Inventory updated.");
@@ -288,7 +290,7 @@ export default function NewProductionPage() {
             </div>
           </div>
 
-          {/* Outputs */}
+          {/* Outputs: select product from catalog, enter produced quantity (stock is updated) */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-medium">Produced items</h3>
@@ -297,61 +299,76 @@ export default function NewProductionPage() {
                 Add line
               </Button>
             </div>
+            {companyProducts.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No products in catalog yet. Add products from the Products page first, then select them here to log production (stock will increase).
+              </p>
+            )}
             <div className="border rounded-md divide-y">
-              {outputLines.map((line, index) => (
-                <div
-                  key={index}
-                  className="p-3 grid grid-cols-1 sm:grid-cols-12 gap-2 items-end"
-                >
-                  <div className="sm:col-span-4">
-                    <Label className="text-xs">Name</Label>
-                    <Input
-                      value={line.productName}
-                      onChange={(e) =>
-                        updateOutputLine(index, { productName: e.target.value })
-                      }
-                      placeholder="e.g. B1, Broiler Feed"
-                      className="mt-1"
-                    />
+              {outputLines.map((line, index) => {
+                const selectedProduct = line.productId
+                  ? companyProducts.find((p) => p.id === line.productId)
+                  : null;
+                return (
+                  <div
+                    key={index}
+                    className="p-3 grid grid-cols-1 sm:grid-cols-12 gap-2 items-end"
+                  >
+                    <div className="sm:col-span-5">
+                      <Label className="text-xs">Product</Label>
+                      <Select
+                        value={line.productId || ""}
+                        onValueChange={(v) =>
+                          updateOutputLine(index, { productId: v, quantity: line.quantity })
+                        }
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Select product" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {companyProducts.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name} ({p.unit})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="sm:col-span-3">
+                      <Label className="text-xs">Produced quantity</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={line.quantity || ""}
+                        onChange={(e) =>
+                          updateOutputLine(index, {
+                            quantity: Number(e.target.value) || 0,
+                          })
+                        }
+                        placeholder="0"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="sm:col-span-3 text-sm text-muted-foreground flex items-center h-9 mt-1">
+                      {selectedProduct && (
+                        <span>{selectedProduct.unit}</span>
+                      )}
+                    </div>
+                    <div className="sm:col-span-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeOutputLine(index)}
+                        disabled={outputLines.length === 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="sm:col-span-3">
-                    <Label className="text-xs">Quantity</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={line.quantity || ""}
-                      onChange={(e) =>
-                        updateOutputLine(index, {
-                          quantity: Number(e.target.value) || 0,
-                        })
-                      }
-                      placeholder="0"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div className="sm:col-span-3">
-                    <Label className="text-xs">Unit</Label>
-                    <Input
-                      value={line.unit}
-                      onChange={(e) => updateOutputLine(index, { unit: e.target.value })}
-                      placeholder="kg"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div className="sm:col-span-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeOutputLine(index)}
-                      disabled={outputLines.length === 1}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
