@@ -113,22 +113,6 @@ function ConnectionsBadges({ user }: { user: AdminUser }) {
   switch (user.role) {
     case "OWNER":
     case "MANAGER": {
-      const farmCount = user._count.ownedFarms + user._count.managedFarms;
-      if (farmCount > 0) {
-        chips.push(
-          <ConnectionChip
-            key="farms"
-            icon={Tractor}
-            count={farmCount}
-            label={farmCount !== 1 ? "Farms" : "Farm"}
-            color="bg-emerald-50 text-emerald-700 border border-emerald-200"
-            names={[
-              ...user.ownedFarms.map((f) => f.name),
-              ...user.managedFarms.map((f) => f.name),
-            ]}
-          />
-        );
-      }
       if (user._count.dealerConnections > 0) {
         chips.push(
           <ConnectionChip
