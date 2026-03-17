@@ -91,7 +91,13 @@ export default function DealerCompanyPage() {
 
     // Manual company state
     const [isAddManualOpen, setIsAddManualOpen] = useState(false);
-    const [manualForm, setManualForm] = useState({ name: "", phone: "", address: "" });
+    const [manualForm, setManualForm] = useState({
+        name: "",
+        phone: "",
+        address: "",
+        openingBalanceAmount: "",
+        openingBalanceDirection: "OWED" as "OWED" | "ADVANCE",
+    });
     const [purchaseCompany, setPurchaseCompany] = useState<ManualCompany | null>(null);
     const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([{ productName: "", type: "FEED", unit: "kg", quantity: 0, costPrice: 0, sellingPrice: 0 }]);
     const [purchaseNotes, setPurchaseNotes] = useState("");
@@ -308,10 +314,33 @@ export default function DealerCompanyPage() {
             return;
         }
         try {
-            await createManualMutation.mutateAsync(manualForm);
+            const amtRaw = Number(manualForm.openingBalanceAmount || 0);
+            if (Number.isNaN(amtRaw) || amtRaw < 0) {
+                toast.error("Opening balance must be a non-negative number");
+                return;
+            }
+            const openingBalance =
+                amtRaw === 0
+                    ? 0
+                    : manualForm.openingBalanceDirection === "ADVANCE"
+                        ? -amtRaw
+                        : amtRaw;
+
+            await createManualMutation.mutateAsync({
+                name: manualForm.name,
+                phone: manualForm.phone,
+                address: manualForm.address,
+                openingBalance,
+            } as any);
             toast.success("Manual company added successfully");
             setIsAddManualOpen(false);
-            setManualForm({ name: "", phone: "", address: "" });
+            setManualForm({
+                name: "",
+                phone: "",
+                address: "",
+                openingBalanceAmount: "",
+                openingBalanceDirection: "OWED",
+            });
         } catch (error: any) {
             toast.error(error.response?.data?.message || "Failed to add manual company");
         }
@@ -1081,6 +1110,41 @@ export default function DealerCompanyPage() {
                                 onChange={(e) => setManualForm({ ...manualForm, address: e.target.value })}
                                 placeholder="Company address"
                             />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="sm:col-span-2 space-y-2">
+                                <label className="text-sm font-medium">Opening balance (optional)</label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={manualForm.openingBalanceAmount}
+                                    onChange={(e) =>
+                                        setManualForm({ ...manualForm, openingBalanceAmount: e.target.value })
+                                    }
+                                    placeholder="0.00"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Use this if you already had an outstanding balance before using Poultry360.
+                                </p>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Direction</label>
+                                <Select
+                                    value={manualForm.openingBalanceDirection}
+                                    onValueChange={(v) =>
+                                        setManualForm({ ...manualForm, openingBalanceDirection: v as any })
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="OWED">I owe them</SelectItem>
+                                        <SelectItem value="ADVANCE">They owe me (advance paid)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                     </div>
                     <DialogFooter>

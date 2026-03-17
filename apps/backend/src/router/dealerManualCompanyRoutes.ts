@@ -5,6 +5,7 @@ import {
     getManualCompanies,
     updateManualCompany,
     deleteManualCompany,
+    setManualCompanyOpeningBalance,
     recordManualPurchase,
     recordManualCompanyPayment,
     getManualCompanyStatement,
@@ -27,6 +28,7 @@ router.delete("/:id", deleteManualCompany);
 // Purchases & Payments
 router.post("/:id/purchases", recordManualPurchase);
 router.post("/:id/payments", recordManualCompanyPayment);
+router.post("/:id/opening-balance", setManualCompanyOpeningBalance);
 router.get("/:id/statement", getManualCompanyStatement);
 
 // Profit

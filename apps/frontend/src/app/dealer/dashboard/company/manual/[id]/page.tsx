@@ -12,6 +12,7 @@ import {
     Calendar,
     Package,
     CreditCard,
+    Edit,
 } from "lucide-react";
 import {
     Card,
@@ -22,22 +23,77 @@ import {
 } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
-import { useGetManualCompanyStatement } from "@/fetchers/dealer/dealerManualCompanyQueries";
+import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/common/components/ui/dialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/common/components/ui/select";
+import { toast } from "sonner";
+import {
+    useGetManualCompanyStatement,
+    useSetManualCompanyOpeningBalance,
+} from "@/fetchers/dealer/dealerManualCompanyQueries";
 import { DateDisplay } from "@/common/components/ui/date-display";
 
 export default function ManualCompanyAccountPage() {
     const params = useParams();
     const router = useRouter();
     const id = params.id as string;
-    const [activeTab, setActiveTab] = useState<"purchases" | "payments">("purchases");
+    const [activeTab, setActiveTab] = useState<"purchases" | "payments" | "adjustments">("purchases");
+    const [isEditOpeningOpen, setIsEditOpeningOpen] = useState(false);
+    const [openingAmount, setOpeningAmount] = useState<string>("");
+    const [openingDirection, setOpeningDirection] = useState<"OWED" | "ADVANCE">("OWED");
+    const [openingNotes, setOpeningNotes] = useState<string>("");
 
     const { data, isLoading } = useGetManualCompanyStatement(id);
+    const setOpeningMutation = useSetManualCompanyOpeningBalance();
 
     const company = data?.company;
     const transactions = data?.transactions || [];
+    const openingBalance = data?.openingBalance;
 
     const formatCurrency = (amount: number) => {
         return `रू ${Math.abs(amount).toFixed(2)}`;
+    };
+
+    const openEditOpening = () => {
+        const amt = Number(openingBalance?.amount ?? 0);
+        setOpeningDirection(amt < 0 ? "ADVANCE" : "OWED");
+        setOpeningAmount(String(Math.abs(amt || 0)));
+        setOpeningNotes(openingBalance?.notes ?? "");
+        setIsEditOpeningOpen(true);
+    };
+
+    const saveOpening = async () => {
+        const amt = Number(openingAmount || 0);
+        if (Number.isNaN(amt) || amt < 0) {
+            toast.error("Opening balance must be a non-negative number");
+            return;
+        }
+        const signed = amt === 0 ? 0 : openingDirection === "ADVANCE" ? -amt : amt;
+        try {
+            await setOpeningMutation.mutateAsync({
+                companyId: id,
+                openingBalance: signed,
+                notes: openingNotes.trim() || undefined,
+            });
+            toast.success("Opening balance updated");
+            setIsEditOpeningOpen(false);
+        } catch (e: any) {
+            toast.error(e?.response?.data?.message ?? "Failed to update opening balance");
+        }
     };
 
     if (isLoading) {
@@ -115,6 +171,43 @@ export default function ManualCompanyAccountPage() {
                 </CardHeader>
             </Card>
 
+            {/* Opening Balance */}
+            <Card>
+                <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <CardTitle className="text-base">Opening balance</CardTitle>
+                            <CardDescription>
+                                Starting balance before transactions in Poultry360 (editable with history).
+                            </CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={openEditOpening}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                    <div className={`text-xl font-bold ${Number(openingBalance?.amount ?? 0) > 0 ? "text-red-600" : Number(openingBalance?.amount ?? 0) < 0 ? "text-green-600" : ""}`}>
+                        {Number(openingBalance?.amount ?? 0) > 0
+                            ? `${formatCurrency(Number(openingBalance?.amount))} owed`
+                            : Number(openingBalance?.amount ?? 0) < 0
+                                ? `${formatCurrency(Number(openingBalance?.amount))} advance`
+                                : "रू 0.00"}
+                    </div>
+                    {openingBalance?.date && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                            Set on <DateDisplay date={openingBalance.date} format="long" />
+                        </div>
+                    )}
+                    {openingBalance?.notes && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                            Note: {openingBalance.notes}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
             {/* Balance Summary */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Card className="border-l-4 border-l-red-400">
@@ -148,6 +241,7 @@ export default function ManualCompanyAccountPage() {
             {(() => {
                 const purchases = transactions.filter((t: any) => t.type === "PURCHASE");
                 const payments = transactions.filter((t: any) => t.type === "PAYMENT");
+                const adjustments = transactions.filter((t: any) => t.type === "OPENING_BALANCE" || t.type === "ADJUSTMENT");
 
                 return (
                     <Card>
@@ -174,6 +268,16 @@ export default function ManualCompanyAccountPage() {
                                 >
                                     <Wallet className="inline h-4 w-4 mr-1.5 -mt-0.5" />
                                     Payments ({payments.length})
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab("adjustments")}
+                                    className={`px-4 py-2 font-medium transition-colors text-sm ${activeTab === "adjustments"
+                                        ? "border-b-2 border-blue-500 text-blue-600"
+                                        : "text-muted-foreground hover:text-foreground"
+                                        }`}
+                                >
+                                    <CreditCard className="inline h-4 w-4 mr-1.5 -mt-0.5" />
+                                    Adjustments ({adjustments.length})
                                 </button>
                             </div>
                         </CardHeader>
@@ -295,10 +399,104 @@ export default function ManualCompanyAccountPage() {
                                     </div>
                                 )
                             )}
+
+                            {/* Adjustments Tab */}
+                            {activeTab === "adjustments" && (
+                                adjustments.length === 0 ? (
+                                    <div className="text-center py-8 text-muted-foreground">
+                                        <CreditCard className="h-12 w-12 mx-auto mb-3 opacity-40" />
+                                        <p>No adjustments yet</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {adjustments.map((txn: any) => (
+                                            <div key={txn.id} className="border rounded-lg p-4 border-l-4 border-l-blue-400">
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                                            <CreditCard className="h-4 w-4 text-blue-600" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium">
+                                                                {txn.type === "OPENING_BALANCE" ? "Opening balance" : "Adjustment"}
+                                                            </p>
+                                                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                                                <Calendar className="h-3 w-3" />
+                                                                <DateDisplay date={txn.date} format="long" />
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <p className={`text-lg font-bold ${Number(txn.amount) > 0 ? "text-red-600" : Number(txn.amount) < 0 ? "text-green-600" : "text-muted-foreground"}`}>
+                                                        {Number(txn.amount) > 0 ? `+ ${formatCurrency(Number(txn.amount))}` : Number(txn.amount) < 0 ? `- ${formatCurrency(Number(txn.amount))}` : "रू 0.00"}
+                                                    </p>
+                                                </div>
+                                                {txn.notes && (
+                                                    <div className="mt-2 text-xs text-muted-foreground italic">Note: {txn.notes}</div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )
+                            )}
                         </CardContent>
                     </Card>
                 );
             })()}
+
+            {/* Edit Opening Balance Dialog */}
+            <Dialog open={isEditOpeningOpen} onOpenChange={setIsEditOpeningOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Edit opening balance</DialogTitle>
+                        <DialogDescription>
+                            This will create a new opening balance entry (history is preserved) and update the running balance.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="sm:col-span-2 space-y-2">
+                                <Label>Amount</Label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={openingAmount}
+                                    onChange={(e) => setOpeningAmount(e.target.value)}
+                                    placeholder="0.00"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Direction</Label>
+                                <Select value={openingDirection} onValueChange={(v) => setOpeningDirection(v as any)}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="OWED">I owe them</SelectItem>
+                                        <SelectItem value="ADVANCE">They owe me (advance paid)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Notes (optional)</Label>
+                            <Input
+                                value={openingNotes}
+                                onChange={(e) => setOpeningNotes(e.target.value)}
+                                placeholder="Reason / context"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsEditOpeningOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={saveOpening} disabled={setOpeningMutation.isPending}>
+                            {setOpeningMutation.isPending ? "Saving..." : "Save"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

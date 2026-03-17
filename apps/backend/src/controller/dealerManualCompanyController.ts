@@ -9,7 +9,7 @@ export const createManualCompany = async (
 ): Promise<any> => {
     try {
         const userId = req.userId;
-        const { name, phone, address } = req.body;
+        const { name, phone, address, openingBalance } = req.body;
 
         if (!name) {
             return res.status(400).json({ message: "Company name is required" });
@@ -24,13 +24,41 @@ export const createManualCompany = async (
             return res.status(404).json({ message: "Dealer not found" });
         }
 
-        const company = await prisma.dealerManualCompany.create({
-            data: {
-                name: name.trim(),
-                phone: phone || null,
-                address: address || null,
-                dealerId: dealer.id,
-            },
+        // openingBalance is signed: positive = dealer owes company; negative = advance/credit
+        const ob = openingBalance === undefined || openingBalance === null ? 0 : Number(openingBalance);
+        if (Number.isNaN(ob)) {
+            return res.status(400).json({ message: "Opening balance must be a valid number" });
+        }
+
+        const company = await prisma.$transaction(async (tx) => {
+            const created = await tx.dealerManualCompany.create({
+                data: {
+                    name: name.trim(),
+                    phone: phone || null,
+                    address: address || null,
+                    dealerId: dealer.id,
+                },
+            });
+
+            if (ob !== 0) {
+                const newBalance = ob;
+                await tx.dealerManualCompanyAdjustment.create({
+                    data: {
+                        manualCompanyId: created.id,
+                        type: "OPENING_BALANCE",
+                        amount: new Prisma.Decimal(ob),
+                        balanceAfter: new Prisma.Decimal(newBalance),
+                        notes: "Opening balance",
+                    },
+                });
+                await tx.dealerManualCompany.update({
+                    where: { id: created.id },
+                    data: { balance: new Prisma.Decimal(newBalance) },
+                });
+                return tx.dealerManualCompany.findUnique({ where: { id: created.id } });
+            }
+
+            return created;
         });
 
         return res.status(201).json({
@@ -170,6 +198,84 @@ export const deleteManualCompany = async (
         });
     } catch (error: any) {
         console.error("Delete manual company error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+// ==================== SET/UPDATE OPENING BALANCE (APPEND HISTORY) ====================
+export const setManualCompanyOpeningBalance = async (
+    req: Request,
+    res: Response
+): Promise<any> => {
+    try {
+        const userId = req.userId;
+        const { id } = req.params;
+        const { openingBalance, notes, date } = req.body;
+
+        const nextOpening = Number(openingBalance);
+        if (openingBalance === undefined || openingBalance === null || Number.isNaN(nextOpening)) {
+            return res.status(400).json({ message: "openingBalance (number) is required" });
+        }
+
+        const dealer = await prisma.dealer.findUnique({
+            where: { ownerId: userId },
+            select: { id: true },
+        });
+
+        if (!dealer) {
+            return res.status(404).json({ message: "Dealer not found" });
+        }
+
+        const company = await prisma.dealerManualCompany.findUnique({ where: { id } });
+        if (!company || company.dealerId !== dealer.id) {
+            return res.status(404).json({ message: "Manual company not found" });
+        }
+
+        const latest = await prisma.dealerManualCompanyAdjustment.findFirst({
+            where: { manualCompanyId: id, type: "OPENING_BALANCE" },
+            orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+            select: { amount: true },
+        });
+        const prevOpening = latest ? Number(latest.amount) : 0;
+        const delta = nextOpening - prevOpening;
+        const newBalance = Number(company.balance) + delta;
+
+        const adjDate = date ? new Date(date) : new Date();
+
+        const updated = await prisma.$transaction(async (tx) => {
+            await tx.dealerManualCompanyAdjustment.create({
+                data: {
+                    manualCompanyId: id,
+                    type: "OPENING_BALANCE",
+                    amount: new Prisma.Decimal(nextOpening),
+                    date: adjDate,
+                    notes: notes ? String(notes).trim() || null : null,
+                    balanceAfter: new Prisma.Decimal(newBalance),
+                },
+            });
+            return tx.dealerManualCompany.update({
+                where: { id },
+                data: { balance: new Prisma.Decimal(newBalance) },
+            });
+        });
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                company: {
+                    id: updated.id,
+                    name: updated.name,
+                    phone: updated.phone,
+                    address: updated.address,
+                    balance: Number(updated.balance),
+                    totalPurchases: Number(updated.totalPurchases),
+                    totalPayments: Number(updated.totalPayments),
+                },
+            },
+            message: "Opening balance updated",
+        });
+    } catch (error: any) {
+        console.error("Set opening balance error:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 };
@@ -443,7 +549,15 @@ export const getManualCompanyStatement = async (
             orderBy: { paymentDate: "desc" },
         });
 
-        // Merge and sort  
+        // Get adjustments (opening balance & other adjustments)
+        const adjustments = await prisma.dealerManualCompanyAdjustment.findMany({
+            where: { manualCompanyId: id },
+            orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        });
+
+        const latestOpening = adjustments.find((a) => a.type === "OPENING_BALANCE") ?? null;
+
+        // Merge and sort
         const transactions = [
             ...purchases.map((p) => ({
                 type: "PURCHASE" as const,
@@ -464,6 +578,14 @@ export const getManualCompanyStatement = async (
                 paymentMethod: p.paymentMethod,
                 balanceAfter: Number(p.balanceAfter),
             })),
+            ...adjustments.map((a) => ({
+                type: a.type as "OPENING_BALANCE" | "ADJUSTMENT",
+                id: a.id,
+                date: a.date,
+                amount: Number(a.amount),
+                notes: a.notes,
+                balanceAfter: Number(a.balanceAfter),
+            })),
         ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         const total = transactions.length;
@@ -481,6 +603,13 @@ export const getManualCompanyStatement = async (
                     totalPurchases: Number(company.totalPurchases),
                     totalPayments: Number(company.totalPayments),
                 },
+                openingBalance: latestOpening
+                    ? {
+                        amount: Number(latestOpening.amount),
+                        date: latestOpening.date,
+                        notes: latestOpening.notes,
+                    }
+                    : { amount: 0, date: null, notes: null },
                 transactions: paginated,
                 pagination: {
                     page: pageNum,

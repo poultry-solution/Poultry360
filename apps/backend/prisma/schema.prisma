@@ -2241,12 +2241,38 @@ model DealerManualCompany {
 
   purchases DealerManualPurchase[]
   payments  DealerManualCompanyPayment[]
+  adjustments DealerManualCompanyAdjustment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([dealerId, name])
   @@index([dealerId])
+}
+
+enum DealerManualCompanyAdjustmentType {
+  OPENING_BALANCE
+  ADJUSTMENT
+}
+
+model DealerManualCompanyAdjustment {
+  id        String   @id @default(cuid())
+  type      DealerManualCompanyAdjustmentType @default(ADJUSTMENT)
+  // Signed amount: positive = dealer owes company, negative = advance/credit
+  amount    Decimal  @db.Decimal(10, 2)
+  date      DateTime @default(now())
+  notes     String?
+
+  // Balance snapshot after applying this adjustment
+  balanceAfter Decimal @db.Decimal(10, 2)
+
+  manualCompanyId String
+  manualCompany   DealerManualCompany @relation(fields: [manualCompanyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([manualCompanyId, date])
+  @@index([manualCompanyId, type])
 }
 
 model DealerManualPurchase {

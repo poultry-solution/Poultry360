@@ -48,6 +48,30 @@ export interface RecordManualPaymentInput {
     reference?: string;
 }
 
+export interface ManualCompanyAdjustmentTxn {
+    type: "OPENING_BALANCE" | "ADJUSTMENT";
+    id: string;
+    date: string;
+    amount: number;
+    notes?: string | null;
+    balanceAfter?: number;
+}
+
+export interface ManualCompanyStatementResponse {
+    company: {
+        id: string;
+        name: string;
+        phone?: string | null;
+        address?: string | null;
+        balance: number;
+        totalPurchases: number;
+        totalPayments: number;
+    };
+    openingBalance: { amount: number; date: string | null; notes: string | null };
+    transactions: Array<any>;
+    pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
 // ==================== QUERIES ====================
 
 export const useGetManualCompanies = () => {
@@ -178,6 +202,23 @@ export const useRecordManualCompanyPayment = () => {
             queryClient.invalidateQueries({
                 queryKey: manualCompanyKeys.lists(),
             });
+        },
+    });
+};
+
+export const useSetManualCompanyOpeningBalance = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ companyId, openingBalance, notes, date }: { companyId: string; openingBalance: number; notes?: string; date?: string }) => {
+            const { data } = await axiosInstance.post(
+                `/dealer/manual-companies/${companyId}/opening-balance`,
+                { openingBalance, notes, date }
+            );
+            return data;
+        },
+        onSuccess: (_data, vars) => {
+            queryClient.invalidateQueries({ queryKey: manualCompanyKeys.lists() });
+            queryClient.invalidateQueries({ queryKey: manualCompanyKeys.statement(vars.companyId) });
         },
     });
 };
