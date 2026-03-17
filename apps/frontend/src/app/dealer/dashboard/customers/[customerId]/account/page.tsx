@@ -32,6 +32,24 @@ import axiosInstance from "@/common/lib/axios";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DealerAddPaymentDialog } from "@/components/dealer/DealerAddPaymentDialog";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/common/components/ui/dialog";
+import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
+import { toast } from "sonner";
 
 export default function CustomerAccountPage() {
   const params = useParams();
@@ -40,6 +58,10 @@ export default function CustomerAccountPage() {
 
   const [activeTab, setActiveTab] = useState("sales");
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isEditOpeningOpen, setIsEditOpeningOpen] = useState(false);
+  const [openingAmount, setOpeningAmount] = useState<string>("");
+  const [openingDirection, setOpeningDirection] = useState<"OWED" | "ADVANCE">("OWED");
+  const [openingNotes, setOpeningNotes] = useState<string>("");
   const queryClient = useQueryClient();
 
   // Get customer details (prefer direct customer lookup, then fall back to ledger parties)
@@ -129,6 +151,36 @@ export default function CustomerAccountPage() {
     return `रू ${amount.toFixed(2)}`;
   };
 
+  const openingBalance = customer?.openingBalance;
+  const openEditOpening = () => {
+    const amt = Number(openingBalance?.amount ?? 0);
+    setOpeningDirection(amt < 0 ? "ADVANCE" : "OWED");
+    setOpeningAmount(String(Math.abs(amt || 0)));
+    setOpeningNotes(openingBalance?.notes ?? "");
+    setIsEditOpeningOpen(true);
+  };
+
+  const saveOpening = async () => {
+    const amt = Number(openingAmount || 0);
+    if (Number.isNaN(amt) || amt < 0) {
+      toast.error("Opening balance must be a non-negative number");
+      return;
+    }
+    const signed = amt === 0 ? 0 : openingDirection === "ADVANCE" ? -amt : amt;
+    try {
+      await axiosInstance.post(`/sales/customers/${customerId}/opening-balance`, {
+        openingBalance: signed,
+        notes: openingNotes.trim() || undefined,
+      });
+      toast.success("Opening balance updated");
+      setIsEditOpeningOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["dealer-customer", customerId] });
+      queryClient.invalidateQueries({ queryKey: ["dealer-ledger", "party", customerId] });
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? "Failed to update opening balance");
+    }
+  };
+
 
   const dataLoading = isFarmer
     ? accountLoading || statementLoading || salesLoading
@@ -192,6 +244,52 @@ export default function CustomerAccountPage() {
           </Button>
         )}
       </div>
+
+      {/* Opening balance (manual customers only) */}
+      {!isFarmer && (
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle className="text-sm font-medium">Opening balance</CardTitle>
+              <CardDescription>
+                Starting balance before transactions in Poultry360 (editable with history).
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={openEditOpening}>
+              Edit
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div
+              className={`text-2xl font-bold ${Number(openingBalance?.amount ?? 0) > 0
+                ? "text-red-600"
+                : Number(openingBalance?.amount ?? 0) < 0
+                  ? "text-green-600"
+                  : ""
+                }`}
+            >
+              {formatCurrency(Math.abs(Number(openingBalance?.amount ?? 0)))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {Number(openingBalance?.amount ?? 0) > 0
+                ? "Customer owes me"
+                : Number(openingBalance?.amount ?? 0) < 0
+                  ? "I owe customer (advance/credit)"
+                  : "No opening balance"}
+            </p>
+            {openingBalance?.date && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Set on <DateDisplay date={openingBalance.date} format="long" />
+              </p>
+            )}
+            {openingBalance?.notes && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Note: {openingBalance.notes}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Account Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -442,6 +540,61 @@ export default function CustomerAccountPage() {
         }}
         formatCurrency={(n) => formatCurrency(n)}
       />
+
+      {/* Edit Opening Balance Dialog (manual customers only) */}
+      <Dialog open={isEditOpeningOpen} onOpenChange={setIsEditOpeningOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit opening balance</DialogTitle>
+            <DialogDescription>
+              This will create a new opening balance entry (history is preserved) and update the running balance.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2 space-y-2">
+                <Label>Amount</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={openingAmount}
+                  onChange={(e) => setOpeningAmount(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Direction</Label>
+                <Select value={openingDirection} onValueChange={(v) => setOpeningDirection(v as any)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="OWED">Customer owes me</SelectItem>
+                    <SelectItem value="ADVANCE">I owe customer (advance/credit)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Notes (optional)</Label>
+              <Input
+                value={openingNotes}
+                onChange={(e) => setOpeningNotes(e.target.value)}
+                placeholder="Reason / context"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditOpeningOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveOpening}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

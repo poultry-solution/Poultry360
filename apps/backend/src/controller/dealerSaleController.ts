@@ -496,7 +496,7 @@ export const createCustomer = async (
 ): Promise<any> => {
   try {
     const userId = req.userId;
-    const { name, phone, address, category } = req.body;
+    const { name, phone, address, category, openingBalance } = req.body;
 
     // Validation
     if (!name || !phone) {
@@ -521,15 +521,37 @@ export const createCustomer = async (
       });
     }
 
-    // Create customer
-    const customer = await prisma.customer.create({
-      data: {
-        name,
-        phone,
-        address,
-        category,
-        userId: userId as string,
-      },
+    const ob = openingBalance === undefined || openingBalance === null ? 0 : Number(openingBalance);
+    if (Number.isNaN(ob)) {
+      return res.status(400).json({ message: "Opening balance must be a valid number" });
+    }
+
+    // Create customer (and opening balance transaction if provided)
+    const customer = await prisma.$transaction(async (tx) => {
+      const created = await tx.customer.create({
+        data: {
+          name,
+          phone,
+          address,
+          category,
+          userId: userId as string,
+          balance: ob,
+        },
+      });
+
+      if (ob !== 0) {
+        await tx.customerTransaction.create({
+          data: {
+            type: "OPENING_BALANCE",
+            amount: ob,
+            date: new Date(),
+            description: "Opening balance",
+            customerId: created.id,
+          },
+        });
+      }
+
+      return created;
     });
 
     return res.status(201).json({

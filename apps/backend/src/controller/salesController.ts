@@ -1900,7 +1900,7 @@ export const getCustomerById = async (
         },
         transactions: {
           orderBy: { date: "desc" },
-          take: 10,
+          take: 50,
         },
       },
     });
@@ -1909,12 +1909,86 @@ export const getCustomerById = async (
       return res.status(404).json({ message: "Customer not found" });
     }
 
+    const latestOpening = await prisma.customerTransaction.findFirst({
+      where: { customerId: id, type: TransactionType.OPENING_BALANCE },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      select: { amount: true, date: true, description: true, reference: true },
+    });
+
     return res.json({
       success: true,
-      data: customer,
+      data: {
+        ...customer,
+        openingBalance: latestOpening
+          ? {
+              amount: Number(latestOpening.amount),
+              date: latestOpening.date,
+              notes: latestOpening.description ?? null,
+              reference: latestOpening.reference ?? null,
+            }
+          : { amount: 0, date: null, notes: null, reference: null },
+      },
     });
   } catch (error) {
     console.error("Get customer by ID error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== SET/UPDATE CUSTOMER OPENING BALANCE (APPEND HISTORY) ====================
+export const setCustomerOpeningBalance = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.userId;
+    const { openingBalance, notes, date } = req.body;
+
+    const nextOpening = Number(openingBalance);
+    if (openingBalance === undefined || openingBalance === null || Number.isNaN(nextOpening)) {
+      return res.status(400).json({ message: "openingBalance (number) is required" });
+    }
+
+    const customer = await prisma.customer.findFirst({
+      where: { id, userId: currentUserId },
+      select: { id: true, balance: true },
+    });
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    const latest = await prisma.customerTransaction.findFirst({
+      where: { customerId: id, type: TransactionType.OPENING_BALANCE },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      select: { amount: true },
+    });
+    const prevOpening = latest ? Number(latest.amount) : 0;
+    const delta = nextOpening - prevOpening;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.customerTransaction.create({
+        data: {
+          type: TransactionType.OPENING_BALANCE,
+          amount: nextOpening,
+          date: date ? new Date(date) : new Date(),
+          description: notes ? String(notes).trim() || null : "Opening balance",
+          customerId: id,
+        },
+      });
+      return tx.customer.update({
+        where: { id },
+        data: { balance: Number(customer.balance) + delta },
+      });
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: { id: updated.id, balance: Number(updated.balance) },
+      message: "Opening balance updated",
+    });
+  } catch (error) {
+    console.error("Set customer opening balance error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

@@ -30,6 +30,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGetDealerFarmerRequests, useGetConnectedFarmers } from "@/fetchers/dealer/dealerFarmerQueries";
 import { DealerAddPaymentDialog } from "@/components/dealer/DealerAddPaymentDialog";
 import { useI18n } from "@/i18n/useI18n";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
 
 interface Customer {
   id: string;
@@ -60,6 +67,8 @@ export default function DealerCustomersPage() {
     phone: "",
     address: "",
     category: "",
+    openingBalanceAmount: "",
+    openingBalanceDirection: "OWED" as "OWED" | "ADVANCE",
   });
 
   // Get customers
@@ -172,6 +181,8 @@ export default function DealerCustomersPage() {
         phone: customer.phone,
         address: customer.address || "",
         category: customer.category || "",
+        openingBalanceAmount: "",
+        openingBalanceDirection: "OWED",
       });
     } else {
       setEditingCustomer(null);
@@ -180,6 +191,8 @@ export default function DealerCustomersPage() {
         phone: "",
         address: "",
         category: "",
+        openingBalanceAmount: "",
+        openingBalanceDirection: "OWED",
       });
     }
     setIsDialogOpen(true);
@@ -193,6 +206,8 @@ export default function DealerCustomersPage() {
       phone: "",
       address: "",
       category: "",
+      openingBalanceAmount: "",
+      openingBalanceDirection: "OWED",
     });
   };
 
@@ -208,7 +223,24 @@ export default function DealerCustomersPage() {
       // Update customer (if endpoint exists)
       toast.info(t("dealer.customers.messages.updateSoon"));
     } else {
-      createMutation.mutate(formData);
+      const amtRaw = Number(formData.openingBalanceAmount || 0);
+      if (Number.isNaN(amtRaw) || amtRaw < 0) {
+        toast.error("Opening balance must be a non-negative number");
+        return;
+      }
+      const openingBalance =
+        amtRaw === 0
+          ? 0
+          : formData.openingBalanceDirection === "ADVANCE"
+            ? -amtRaw
+            : amtRaw;
+      createMutation.mutate({
+        name: formData.name,
+        phone: formData.phone,
+        address: formData.address,
+        category: formData.category,
+        openingBalance,
+      } as any);
     }
   };
 
@@ -476,6 +508,44 @@ export default function DealerCustomersPage() {
                   placeholder={t("dealer.customers.dialog.categoryPlaceholder")}
                 />
               </div>
+
+              {!editingCustomer && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2 space-y-2">
+                    <Label>Opening balance (optional)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.openingBalanceAmount}
+                      onChange={(e) =>
+                        setFormData({ ...formData, openingBalanceAmount: e.target.value })
+                      }
+                      placeholder="0.00"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Use this if you already had an outstanding balance before using Poultry360.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Direction</Label>
+                    <Select
+                      value={formData.openingBalanceDirection}
+                      onValueChange={(v) =>
+                        setFormData({ ...formData, openingBalanceDirection: v as any })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="OWED">Customer owes me</SelectItem>
+                        <SelectItem value="ADVANCE">I owe customer (advance/credit)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
             </div>
 
             <DialogFooter>
