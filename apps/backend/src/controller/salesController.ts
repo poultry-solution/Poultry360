@@ -85,32 +85,106 @@ export const getAllSalePayments = async (
       ];
     }
 
-    const [payments, total] = await Promise.all([
-      prisma.salePayment.findMany({
-        where,
-        skip,
-        take: Number(limit),
-        include: {
-          sale: {
-            select: {
-              id: true,
-              date: true,
-              amount: true,
-              itemType: true,
-              customer: {
-                select: {
-                  id: true,
-                  name: true,
-                  phone: true,
-                },
+    // Sale-level payments (legacy) + customer-level receipts (new total-balance mode)
+    const salePaymentsPromise = prisma.salePayment.findMany({
+      where,
+      include: {
+        sale: {
+          select: {
+            id: true,
+            date: true,
+            amount: true,
+            itemType: true,
+            customer: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
               },
             },
           },
         },
-        orderBy: { date: "desc" },
-      }),
-      prisma.salePayment.count({ where }),
-    ]);
+      },
+      orderBy: { date: "desc" },
+    });
+    const salePaymentsCountPromise = prisma.salePayment.count({ where });
+
+    // Customer-level receipts: CustomerTransaction(RECEIPT) for customers owned by this user
+    // Note: we apply the same date/search/customer filters at transaction level where possible.
+    const txnWhere: any = {
+      type: TransactionType.RECEIPT,
+      customer: {
+        userId: currentUserId,
+      },
+    };
+    if (customerId) {
+      txnWhere.customerId = customerId as string;
+    }
+    if (startDate || endDate) {
+      txnWhere.date = {};
+      if (startDate) txnWhere.date.gte = new Date(startDate as string);
+      if (endDate) txnWhere.date.lte = new Date(endDate as string);
+    }
+    if (search) {
+      txnWhere.OR = [
+        { description: { contains: search as string, mode: "insensitive" } },
+        { reference: { contains: search as string, mode: "insensitive" } },
+        { customer: { name: { contains: search as string, mode: "insensitive" } } },
+      ];
+    }
+
+    const customerReceiptsPromise = prisma.customerTransaction.findMany({
+      where: txnWhere,
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+          },
+        },
+      },
+      orderBy: { date: "desc" },
+    });
+    const customerReceiptsCountPromise = prisma.customerTransaction.count({
+      where: txnWhere,
+    });
+
+    const [salePayments, salePaymentsTotal, customerReceipts, customerReceiptsTotal] =
+      await Promise.all([
+        salePaymentsPromise,
+        salePaymentsCountPromise,
+        customerReceiptsPromise,
+        customerReceiptsCountPromise,
+      ]);
+
+    // Normalize into one list and paginate in-memory (simple, safe for farmer-scale data)
+    const normalized = [
+      ...salePayments.map((p) => ({
+        id: p.id,
+        date: p.date,
+        amount: Number(p.amount),
+        description: p.description,
+        receiptUrl: p.receiptUrl,
+        source: "SALE_PAYMENT" as const,
+        sale: p.sale,
+      })),
+      ...customerReceipts.map((t) => ({
+        id: t.id,
+        date: t.date,
+        amount: Number(t.amount),
+        description: t.description,
+        receiptUrl: t.imageUrl,
+        source: "CUSTOMER_RECEIPT" as const,
+        sale: { customer: t.customer },
+        reference: t.reference,
+      })),
+    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    const total = salePaymentsTotal + customerReceiptsTotal;
+    const start = skip;
+    const end = skip + Number(limit);
+    const payments = normalized.slice(start, end);
 
     return res.json({
       success: true,
@@ -1440,6 +1514,73 @@ export const addSalePayment = async (
   }
 };
 
+// ==================== ADD CUSTOMER PAYMENT (NO SALE REQUIRED) ====================
+export const addCustomerPayment = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id: customerId } = req.params;
+    const { amount, date, description, reference, receiptUrl } = req.body;
+    const currentUserId = req.userId;
+
+    const numericAmount = Number(amount);
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({ message: "Valid payment amount is required" });
+    }
+
+    const customer = await prisma.customer.findFirst({
+      where: { id: customerId, userId: currentUserId },
+      select: { id: true },
+    });
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    const paymentDate = date ? new Date(date) : new Date();
+
+    const txn = await prisma.$transaction(async (tx) => {
+      // Update customer balance (payment reduces what they owe; may go negative if overpaid)
+      await tx.customer.update({
+        where: { id: customerId },
+        data: {
+          balance: { decrement: numericAmount },
+        },
+      });
+
+      // Keep a transaction record for ledger/history
+      return await tx.customerTransaction.create({
+        data: {
+          type: TransactionType.RECEIPT,
+          amount: numericAmount,
+          date: paymentDate,
+          description: description || "Payment received",
+          reference: reference ? String(reference) : null,
+          imageUrl: receiptUrl || null,
+          customerId,
+        },
+      });
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        transaction: {
+          id: txn.id,
+          type: txn.type,
+          amount: Number(txn.amount),
+          date: txn.date,
+          description: txn.description,
+          reference: txn.reference,
+          imageUrl: txn.imageUrl,
+          customerId: txn.customerId,
+        },
+      },
+      message: "Payment recorded successfully",
+    });
+  } catch (error) {
+    console.error("Add customer payment error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 // ==================== GET SALE STATISTICS ====================
 export const getSaleStatistics = async (
   req: Request,
@@ -1714,12 +1855,21 @@ export const createCustomer = async (
 ): Promise<any> => {
   try {
     const currentUserId = req.userId;
-    const { name, phone, category, address } = req.body;
+    const { name, phone, category, address, openingBalance, openingBalanceNotes } = req.body;
 
     if (!name || !phone) {
       return res.status(400).json({
         message: "Customer name and phone are required"
       });
+    }
+
+    let numericOpeningBalance: number | null = null;
+    if (openingBalance !== undefined && openingBalance !== null && openingBalance !== "") {
+      const n = Number(openingBalance);
+      if (!Number.isFinite(n)) {
+        return res.status(400).json({ message: "openingBalance must be a valid number" });
+      }
+      numericOpeningBalance = n;
     }
 
     // Check if customer already exists
@@ -1739,16 +1889,33 @@ export const createCustomer = async (
       });
     }
 
-    // Create customer
-    const customer = await prisma.customer.create({
-      data: {
-        name,
-        phone,
-        category: category || null,
-        address: address || null,
-        balance: 0,
-        userId: currentUserId as string,
-      },
+    const customer = await prisma.$transaction(async (tx) => {
+      const created = await tx.customer.create({
+        data: {
+          name,
+          phone,
+          category: category || null,
+          address: address || null,
+          balance: numericOpeningBalance ?? 0,
+          userId: currentUserId as string,
+        },
+      });
+
+      if (numericOpeningBalance && numericOpeningBalance !== 0) {
+        await tx.customerTransaction.create({
+          data: {
+            customerId: created.id,
+            type: "OPENING_BALANCE",
+            amount: numericOpeningBalance,
+            date: new Date(),
+            description: openingBalanceNotes ? String(openingBalanceNotes) : "Opening balance",
+            reference: null,
+            imageUrl: null,
+          },
+        });
+      }
+
+      return created;
     });
 
     return res.status(201).json({
@@ -1915,6 +2082,12 @@ export const getCustomerById = async (
       select: { amount: true, date: true, description: true, reference: true },
     });
 
+    const openingBalanceHistory = await prisma.customerTransaction.findMany({
+      where: { customerId: id, type: TransactionType.OPENING_BALANCE },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      select: { id: true, amount: true, date: true, description: true, reference: true },
+    });
+
     return res.json({
       success: true,
       data: {
@@ -1927,6 +2100,13 @@ export const getCustomerById = async (
               reference: latestOpening.reference ?? null,
             }
           : { amount: 0, date: null, notes: null, reference: null },
+        openingBalanceHistory: openingBalanceHistory.map((t) => ({
+          id: t.id,
+          amount: Number(t.amount),
+          date: t.date,
+          notes: t.description ?? null,
+          reference: t.reference ?? null,
+        })),
       },
     });
   } catch (error) {

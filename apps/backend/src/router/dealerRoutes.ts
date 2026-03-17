@@ -6,6 +6,7 @@ import {
   updateDealer,
   deleteDealer,
   addDealerTransaction,
+  setDealerOpeningBalance,
   getDealerStatistics,
   getDealerTransactions,
   deleteDealerTransaction,
@@ -38,6 +39,9 @@ router.post("/", createDealer);
 
 // Add transaction to dealer
 router.post("/:id/transactions", addDealerTransaction);
+
+// Set opening balance (manual suppliers only)
+router.post("/:id/opening-balance", setDealerOpeningBalance);
 
 // Delete a dealer transaction by transaction id
 router.delete("/:id/transactions/:transactionId", deleteDealerTransaction);

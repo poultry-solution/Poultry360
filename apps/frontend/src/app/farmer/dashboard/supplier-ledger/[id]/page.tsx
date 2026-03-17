@@ -12,6 +12,7 @@ import {
   Loader2,
   Store,
   ShoppingCart,
+  Edit,
 } from "lucide-react";
 import {
   Card,
@@ -22,13 +23,30 @@ import {
 } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
+import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/common/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@/common/components/ui/tabs";
-import { useGetDealerById } from "@/fetchers/dealers/dealerQueries";
+import { useGetDealerById, useSetDealerOpeningBalance } from "@/fetchers/dealers/dealerQueries";
+import { toast } from "sonner";
 
 function getCategoryBadgeColor(category: string | null | undefined) {
   switch (category) {
@@ -53,12 +71,19 @@ export default function SupplierDetailPage() {
   const supplierId = params.id as string;
 
   const [activeTab, setActiveTab] = useState("purchases");
+  const [isEditOpeningOpen, setIsEditOpeningOpen] = useState(false);
+  const [openingAmount, setOpeningAmount] = useState("");
+  const [openingDirection, setOpeningDirection] = useState<"OWED" | "ADVANCE">("OWED");
+  const [openingNotes, setOpeningNotes] = useState("");
 
   const { data, isLoading, error, isError } = useGetDealerById(supplierId);
+  const setOpeningBalance = useSetDealerOpeningBalance();
 
   const supplier = data?.data;
   const purchases: any[] = supplier?.purchases ?? [];
   const payments: any[] = supplier?.payments ?? [];
+  const openingBalance = supplier?.openingBalance ?? null;
+  const openingHistory: any[] = supplier?.openingBalanceHistory ?? [];
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -81,6 +106,34 @@ export default function SupplierDetailPage() {
   const paymentRate = totalPurchased
     ? Math.round((totalPaid / totalPurchased) * 100)
     : 0;
+
+  const isManual = supplier?.connectionType !== "CONNECTED";
+
+  function openEditOpening() {
+    const current = openingBalance?.amount != null ? Number(openingBalance.amount) : 0;
+    setOpeningAmount(String(Math.abs(current || 0)));
+    setOpeningDirection(current >= 0 ? "OWED" : "ADVANCE");
+    setOpeningNotes(openingBalance?.notes || "");
+    setIsEditOpeningOpen(true);
+  }
+
+  async function saveOpening() {
+    const amt = Number(openingAmount || 0);
+    if (!Number.isFinite(amt)) return;
+    const signed = openingDirection === "OWED" ? Math.abs(amt) : -Math.abs(amt);
+
+    try {
+      await setOpeningBalance.mutateAsync({
+        dealerId: supplierId,
+        openingBalance: signed,
+        notes: openingNotes || undefined,
+      });
+      toast.success("Opening balance updated");
+      setIsEditOpeningOpen(false);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Failed to update opening balance");
+    }
+  }
 
   if (isLoading) {
     return (
@@ -230,6 +283,43 @@ export default function SupplierDetailPage() {
         </Card>
       </div>
 
+      {isManual && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle>Opening balance</CardTitle>
+              <CardDescription>
+                This affects the supplier’s running balance
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={openEditOpening}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <div className="text-xl font-bold">
+                {formatCurrency(Math.abs(Number(openingBalance?.amount ?? 0)))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {Number(openingBalance?.amount ?? 0) > 0
+                  ? "You owe this supplier"
+                  : Number(openingBalance?.amount ?? 0) < 0
+                    ? "Advance payment"
+                    : "Not set"}
+                {openingBalance?.date ? ` • ${formatDate(openingBalance.date)}` : ""}
+              </p>
+              {openingBalance?.notes && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  {openingBalance.notes}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Statement tabs */}
       <Card>
         <CardHeader>
@@ -240,13 +330,18 @@ export default function SupplierDetailPage() {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className={`grid w-full ${isManual ? "grid-cols-3" : "grid-cols-2"}`}>
               <TabsTrigger value="purchases">
                 Purchases ({purchases.length})
               </TabsTrigger>
               <TabsTrigger value="payments">
                 Payments ({payments.length})
               </TabsTrigger>
+              {isManual && (
+                <TabsTrigger value="opening">
+                  Opening balance ({openingHistory.length})
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="purchases" className="mt-4">
@@ -396,9 +491,106 @@ export default function SupplierDetailPage() {
                 </div>
               )}
             </TabsContent>
+
+            {isManual && (
+              <TabsContent value="opening" className="mt-4">
+                {openingHistory.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">
+                      No opening balance history
+                    </h3>
+                    <p className="text-muted-foreground">
+                      Opening balance changes will appear here
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {openingHistory.map((h: any) => (
+                      <div
+                        key={h.id}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50"
+                      >
+                        <div>
+                          <p className="font-medium">Opening balance</p>
+                          <p className="text-sm text-muted-foreground">
+                            {formatDate(h.date)}
+                          </p>
+                          {h.notes && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {h.notes}
+                            </p>
+                          )}
+                        </div>
+                        <div
+                          className={`text-right text-lg font-bold ${
+                            Number(h.amount) >= 0 ? "text-red-600" : "text-green-600"
+                          }`}
+                        >
+                          {Number(h.amount) >= 0 ? "+" : "-"}
+                          {formatCurrency(Math.abs(Number(h.amount)))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            )}
           </Tabs>
         </CardContent>
       </Card>
+
+      <Dialog open={isEditOpeningOpen} onOpenChange={setIsEditOpeningOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit opening balance</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label>Amount</Label>
+                <Input
+                  value={openingAmount}
+                  onChange={(e) => setOpeningAmount(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <Label>Direction</Label>
+                <Select
+                  value={openingDirection}
+                  onValueChange={(v) => setOpeningDirection(v as "OWED" | "ADVANCE")}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="OWED">I owe supplier</SelectItem>
+                    <SelectItem value="ADVANCE">Supplier owes me (advance paid)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Notes (optional)</Label>
+              <Input
+                value={openingNotes}
+                onChange={(e) => setOpeningNotes(e.target.value)}
+                placeholder="Reason / notes"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditOpeningOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveOpening} disabled={setOpeningBalance.isPending}>
+              {setOpeningBalance.isPending ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

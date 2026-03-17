@@ -249,3 +249,31 @@ export const useDeleteDealerTransaction = () => {
     },
   });
 };
+
+// Set dealer opening balance (manual suppliers only)
+export const useSetDealerOpeningBalance = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      dealerId,
+      openingBalance,
+      notes,
+    }: {
+      dealerId: string;
+      openingBalance: number;
+      notes?: string;
+    }) => {
+      const response = await axiosInstance.post(`/dealers/${dealerId}/opening-balance`, {
+        openingBalance,
+        notes,
+      });
+      return response.data;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: dealerKeys.detail(vars.dealerId) });
+      queryClient.invalidateQueries({ queryKey: dealerKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: dealerKeys.statistics() });
+    },
+  });
+};

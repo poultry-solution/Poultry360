@@ -46,6 +46,7 @@ import {
   useAddDealerTransaction,
   useDeleteDealerTransaction,
   useDeleteDealer,
+  useSetDealerOpeningBalance,
 } from "@/fetchers/dealers/dealerQueries";
 import { useQueryClient } from "@tanstack/react-query";
 import { TransactionType } from "@myapp/shared-types";
@@ -113,6 +114,8 @@ export default function SupplierLedgerPage() {
     name: "",
     contact: "",
     address: "",
+    openingBalanceAmount: "",
+    openingBalanceDirection: "OWED" as "OWED" | "ADVANCE",
   });
   const [newEntry, setNewEntry] = useState({
     category: "FEED",
@@ -160,6 +163,7 @@ export default function SupplierLedgerPage() {
 
   // Mutations
   const createDealerMutation = useCreateDealer();
+  const setOpeningBalanceMutation = useSetDealerOpeningBalance();
   const addTransactionMutation = useAddDealerTransaction();
   const deleteTxn = useDeleteDealerTransaction();
   const deleteDealerMutation = useDeleteDealer();
@@ -403,15 +407,35 @@ export default function SupplierLedgerPage() {
     if (!name || !contact) return;
 
     try {
-      await createDealerMutation.mutateAsync({
+      const created = await createDealerMutation.mutateAsync({
         name,
         contact,
         address: newSupplier.address || undefined,
       });
 
+      const dealerId = created?.data?.id;
+      const openingAmt = Number(newSupplier.openingBalanceAmount || 0);
+      if (dealerId && Number.isFinite(openingAmt) && openingAmt !== 0) {
+        const signed =
+          newSupplier.openingBalanceDirection === "OWED"
+            ? Math.abs(openingAmt)
+            : -Math.abs(openingAmt);
+        await setOpeningBalanceMutation.mutateAsync({
+          dealerId,
+          openingBalance: signed,
+          notes: "Opening balance",
+        });
+      }
+
       toast.success(t("farmer.supplierLedger.toast.supplierCreated"));
       setIsAddSupplierOpen(false);
-      setNewSupplier({ name: "", contact: "", address: "" });
+      setNewSupplier({
+        name: "",
+        contact: "",
+        address: "",
+        openingBalanceAmount: "",
+        openingBalanceDirection: "OWED",
+      });
     } catch (error) {
       console.error("Failed to create supplier:", error);
     }
@@ -959,6 +983,42 @@ export default function SupplierLedgerPage() {
                   }
                   placeholder={t("farmer.supplierLedger.addSupplier.addressPlaceholder")}
                 />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label>Opening balance (optional)</Label>
+                  <Input
+                    value={newSupplier.openingBalanceAmount}
+                    onChange={(e) =>
+                      setNewSupplier({
+                        ...newSupplier,
+                        openingBalanceAmount: e.target.value,
+                      })
+                    }
+                    inputMode="decimal"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <Label>Direction</Label>
+                  <Select
+                    value={newSupplier.openingBalanceDirection}
+                    onValueChange={(v) =>
+                      setNewSupplier({
+                        ...newSupplier,
+                        openingBalanceDirection: v as "OWED" | "ADVANCE",
+                      })
+                    }
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="OWED">I owe supplier</SelectItem>
+                      <SelectItem value="ADVANCE">Supplier owes me (advance paid)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </ModalContent>
