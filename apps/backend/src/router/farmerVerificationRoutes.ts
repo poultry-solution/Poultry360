@@ -14,6 +14,9 @@ import {
   unarchiveFarmerDealerConnection,
   archiveDealerFarmerConnection,
   unarchiveDealerFarmerConnection,
+  setConnectedOpeningBalanceByDealer,
+  acknowledgeConnectedOpeningBalance,
+  disputeConnectedOpeningBalance,
   getArchivedFarmerDealers,
   getArchivedDealerFarmers,
 } from "../controller/farmerVerificationController";
@@ -67,6 +70,24 @@ router.get(
     authMiddleware(req, res, next, [UserRole.OWNER]);
   },
   getDealerDetailsForFarmer
+);
+
+// Farmer acknowledges connected opening balance
+router.post(
+  "/farmers/dealers/:connectionId/opening-balance/ack",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.OWNER]);
+  },
+  acknowledgeConnectedOpeningBalance
+);
+
+// Farmer disputes connected opening balance
+router.post(
+  "/farmers/dealers/:connectionId/opening-balance/dispute",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.OWNER]);
+  },
+  disputeConnectedOpeningBalance
 );
 
 // Acknowledge verification request (mark message as seen)
@@ -141,6 +162,15 @@ router.get(
     authMiddleware(req, res, next, [UserRole.DEALER]);
   },
   getDealerFarmers
+);
+
+// Dealer sets/edits connected opening balance
+router.post(
+  "/dealers/farmers/:connectionId/opening-balance",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.DEALER]);
+  },
+  setConnectedOpeningBalanceByDealer
 );
 
 // Get archived farmers (MUST be before /:connectionId to avoid route collision)

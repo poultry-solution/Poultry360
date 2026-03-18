@@ -86,6 +86,8 @@ export interface FarmerAccountDetail {
   balanceLimit?: number | null;
   balanceLimitSetAt?: string | null;
   balanceLimitSetBy?: string | null;
+  openingBalanceCurrent?: number | null;
+  openingBalanceStatus?: "PENDING_ACK" | "ACKNOWLEDGED" | "DISPUTED" | null;
   dealer: {
     id: string;
     name: string;
@@ -207,19 +209,56 @@ export const useGetArchivedDealerFarmers = () => {
 
 // ==================== MUTATIONS ====================
 
+export interface ApproveFarmerRequestInput {
+  id: string;
+  openingBalance?: number;
+  openingBalanceNotes?: string;
+}
+
+export interface SetConnectedOpeningBalanceInput {
+  connectionId: string;
+  openingBalance: number;
+  notes?: string;
+}
+
 // Approve farmer verification request
 export const useApproveFarmerRequest = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (input: ApproveFarmerRequestInput) => {
       const { data } = await axiosInstance.post<FarmerRequestResponse>(
-        `/verification/dealers/farmer-requests/${id}/approve`
+        `/verification/dealers/farmer-requests/${input.id}/approve`,
+        {
+          openingBalance: input.openingBalance,
+          openingBalanceNotes: input.openingBalanceNotes,
+        }
       );
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dealerFarmerKeys.all });
+    },
+  });
+};
+
+export const useSetConnectedOpeningBalance = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: SetConnectedOpeningBalanceInput) => {
+      const { data } = await axiosInstance.post(
+        `/verification/dealers/farmers/${input.connectionId}/opening-balance`,
+        {
+          openingBalance: input.openingBalance,
+          notes: input.notes,
+        }
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealerFarmerKeys.all });
+      queryClient.invalidateQueries({ queryKey: dealerFarmerKeys.accounts() });
     },
   });
 };

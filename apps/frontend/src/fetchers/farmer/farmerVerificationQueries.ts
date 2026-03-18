@@ -78,6 +78,19 @@ export interface FarmerDealerDetailsAccount {
   lastSaleDate?: string;
   lastPaymentDate?: string;
   balanceLimit?: number | null;
+  openingBalance?: ConnectedOpeningBalanceSnapshot | null;
+  openingBalanceHistory?: ConnectedOpeningBalanceSnapshot[];
+}
+
+export interface ConnectedOpeningBalanceSnapshot {
+  id: string;
+  amount: number;
+  status: "PENDING_ACK" | "ACKNOWLEDGED" | "DISPUTED";
+  notes?: string | null;
+  createdAt: string;
+  createdByRole: "DEALER" | "FARMER";
+  respondedAt?: string | null;
+  farmerResponseNote?: string | null;
 }
 
 export interface FarmerDealerDetailsSale {
@@ -114,6 +127,7 @@ export interface FarmerDealerDetailsTransaction {
 
 export interface FarmerDealerDetailsData {
   dealer: FarmerDealerDetailsDealer;
+  connection?: { id: string };
   account: FarmerDealerDetailsAccount;
   sales: FarmerDealerDetailsSale[];
   payments: FarmerDealerDetailsPayment[];
@@ -286,6 +300,42 @@ export const useUnarchiveFarmerDealer = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: farmerVerificationKeys.dealers() });
       queryClient.invalidateQueries({ queryKey: farmerVerificationKeys.archivedDealers() });
+    },
+  });
+};
+
+export const useAcknowledgeConnectedOpeningBalance = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { connectionId: string; dealerId: string; note?: string }) => {
+      const { data } = await axiosInstance.post(
+        `/verification/farmers/dealers/${input.connectionId}/opening-balance/ack`,
+        { note: input.note }
+      );
+      return data;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: farmerVerificationKeys.dealers() });
+      queryClient.invalidateQueries({ queryKey: farmerVerificationKeys.dealer(vars.dealerId) });
+    },
+  });
+};
+
+export const useDisputeConnectedOpeningBalance = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { connectionId: string; dealerId: string; note?: string }) => {
+      const { data } = await axiosInstance.post(
+        `/verification/farmers/dealers/${input.connectionId}/opening-balance/dispute`,
+        { note: input.note }
+      );
+      return data;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: farmerVerificationKeys.dealers() });
+      queryClient.invalidateQueries({ queryKey: farmerVerificationKeys.dealer(vars.dealerId) });
     },
   });
 };

@@ -67,6 +67,11 @@ export const getDealerFarmerAccount = async (
         balanceLimit: account.balanceLimit != null ? Number(account.balanceLimit) : null,
         balanceLimitSetAt: account.balanceLimitSetAt,
         balanceLimitSetBy: account.balanceLimitSetBy,
+        openingBalanceCurrent:
+          (account as any).openingBalanceCurrent != null
+            ? Number((account as any).openingBalanceCurrent)
+            : null,
+        openingBalanceStatus: (account as any).openingBalanceStatus ?? null,
         dealer: account.dealer,
         farmer: account.farmer,
       },

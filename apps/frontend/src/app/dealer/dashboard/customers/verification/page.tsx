@@ -24,6 +24,7 @@ import {
 } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
 import { Badge } from "@/common/components/ui/badge";
 import {
   Select,
@@ -65,6 +66,9 @@ export default function DealerVerificationPage() {
     action: "approve" | "reject";
     farmerName: string;
   } | null>(null);
+  const [approveOpeningAmount, setApproveOpeningAmount] = useState<string>("");
+  const [approveOpeningDirection, setApproveOpeningDirection] = useState<"OWED" | "ADVANCE">("OWED");
+  const [approveOpeningNotes, setApproveOpeningNotes] = useState<string>("");
   const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const limit = 12;
@@ -104,9 +108,28 @@ export default function DealerVerificationPage() {
     if (!actionRequest) return;
 
     try {
-      await approveMutation.mutateAsync(actionRequest.id);
+      const amount = approveOpeningAmount.trim() === "" ? null : Number(approveOpeningAmount);
+      if (amount !== null && !Number.isFinite(amount)) {
+        toast.error("Opening balance amount must be a valid number");
+        return;
+      }
+      const signedOpening =
+        amount === null || amount === 0
+          ? undefined
+          : approveOpeningDirection === "OWED"
+            ? amount
+            : -amount;
+
+      await approveMutation.mutateAsync({
+        id: actionRequest.id,
+        openingBalance: signedOpening,
+        openingBalanceNotes: approveOpeningNotes.trim() ? approveOpeningNotes.trim() : undefined,
+      });
       toast.success(t("dealer.verification.messages.approved", { name: actionRequest.farmerName }));
       setActionRequest(null);
+      setApproveOpeningAmount("");
+      setApproveOpeningDirection("OWED");
+      setApproveOpeningNotes("");
     } catch (error: any) {
       toast.error(
         error.response?.data?.message || t("dealer.verification.messages.approveFailed")
@@ -447,11 +470,14 @@ export default function DealerVerificationPage() {
                                 size="sm"
                                 className="flex-1 text-green-600 hover:text-green-700 border-green-600 hover:border-green-700"
                                 onClick={() =>
+                                  (setApproveOpeningAmount(""),
+                                  setApproveOpeningDirection("OWED"),
+                                  setApproveOpeningNotes(""),
                                   setActionRequest({
                                     id: request.id,
                                     action: "approve",
                                     farmerName: request.farmer?.name || "this farmer",
-                                  })
+                                  }))
                                 }
                                 disabled={
                                   approveMutation.isPending || rejectMutation.isPending
@@ -610,6 +636,43 @@ export default function DealerVerificationPage() {
                   : t("dealer.verification.dialogs.action.rejectDesc", { name: actionRequest.farmerName })}
               </DialogDescription>
             </DialogHeader>
+            {actionRequest.action === "approve" && (
+              <div className="space-y-3 py-2">
+                <div className="space-y-2">
+                  <Label>Opening balance (optional)</Label>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      placeholder="0"
+                      value={approveOpeningAmount}
+                      onChange={(e) => setApproveOpeningAmount(e.target.value)}
+                    />
+                    <Select
+                      value={approveOpeningDirection}
+                      onValueChange={(v) => setApproveOpeningDirection(v as any)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Direction" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="OWED">Farmer owes me</SelectItem>
+                        <SelectItem value="ADVANCE">I owe farmer (advance/credit)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="Notes (optional)"
+                      value={approveOpeningNotes}
+                      onChange={(e) => setApproveOpeningNotes(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Farmer must acknowledge this opening balance after approval.
+                </p>
+              </div>
+            )}
             <DialogFooter>
               <Button
                 variant="outline"

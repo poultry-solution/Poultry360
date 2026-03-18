@@ -241,6 +241,9 @@ export const getAllSales = async (
         select: { id: true },
       });
       where.farmId = { in: userFarms.map((farm) => farm.id) };
+    } else if (currentUserRole === UserRole.OWNER) {
+      // Owners can only see sales from farms they own
+      where.farm = { ownerId: currentUserId };
     }
 
     if (farmId) {

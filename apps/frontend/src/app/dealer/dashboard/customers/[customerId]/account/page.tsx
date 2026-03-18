@@ -27,6 +27,8 @@ import { useGetPartyLedger } from "@/fetchers/dealer/dealerLedgerQueries";
 import {
   useGetFarmerAccount,
   useGetFarmerAccountStatement,
+  useGetConnectedFarmers,
+  useSetConnectedOpeningBalance,
 } from "@/fetchers/dealer/dealerFarmerQueries";
 import axiosInstance from "@/common/lib/axios";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -62,6 +64,10 @@ export default function CustomerAccountPage() {
   const [openingAmount, setOpeningAmount] = useState<string>("");
   const [openingDirection, setOpeningDirection] = useState<"OWED" | "ADVANCE">("OWED");
   const [openingNotes, setOpeningNotes] = useState<string>("");
+  const [isEditConnectedOpeningOpen, setIsEditConnectedOpeningOpen] = useState(false);
+  const [connectedOpeningAmount, setConnectedOpeningAmount] = useState<string>("");
+  const [connectedOpeningDirection, setConnectedOpeningDirection] = useState<"OWED" | "ADVANCE">("OWED");
+  const [connectedOpeningNotes, setConnectedOpeningNotes] = useState<string>("");
   const queryClient = useQueryClient();
 
   // Get customer details (prefer direct customer lookup, then fall back to ledger parties)
@@ -109,6 +115,8 @@ export default function CustomerAccountPage() {
   );
   const { data: statementData, isLoading: statementLoading } =
     useGetFarmerAccountStatement(farmerId ?? "", { limit: 100 });
+  const { data: connectedFarmersData } = useGetConnectedFarmers();
+  const setConnectedOpeningMutation = useSetConnectedOpeningBalance();
 
   // Sales (for both: list by customerId)
   const { data: salesData, isLoading: salesLoading } = useGetDealerSales({
@@ -129,6 +137,10 @@ export default function CustomerAccountPage() {
   const account = accountData;
   const statement = statementData;
   const transactions = statement?.transactions ?? [];
+  const connectedFarmers = connectedFarmersData?.data || [];
+  const connectionId = isFarmer
+    ? connectedFarmers.find((f: any) => f.id === farmerId)?.dealerFarmerId
+    : undefined;
 
   // Totals: from account for farmer, from sales/ledger for manual
   const totalSales = isFarmer && account
@@ -178,6 +190,52 @@ export default function CustomerAccountPage() {
       queryClient.invalidateQueries({ queryKey: ["dealer-ledger", "party", customerId] });
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? "Failed to update opening balance");
+    }
+  };
+
+  const connectedOpening = isFarmer
+    ? {
+        amount: Number((account as any)?.openingBalanceCurrent ?? 0),
+        status: (account as any)?.openingBalanceStatus ?? null,
+      }
+    : null;
+
+  const openEditConnectedOpening = () => {
+    const amt = Number((account as any)?.openingBalanceCurrent ?? 0);
+    setConnectedOpeningDirection(amt < 0 ? "ADVANCE" : "OWED");
+    setConnectedOpeningAmount(String(Math.abs(amt || 0)));
+    setConnectedOpeningNotes("");
+    setIsEditConnectedOpeningOpen(true);
+  };
+
+  const saveConnectedOpening = async () => {
+    if (!connectionId) {
+      toast.error("Connection not found");
+      return;
+    }
+    const amt = Number(connectedOpeningAmount || 0);
+    if (Number.isNaN(amt) || amt < 0) {
+      toast.error("Opening balance must be a non-negative number");
+      return;
+    }
+    const signed = amt === 0 ? 0 : connectedOpeningDirection === "ADVANCE" ? -amt : amt;
+    try {
+      await setConnectedOpeningMutation.mutateAsync({
+        connectionId,
+        openingBalance: signed,
+        notes: connectedOpeningNotes.trim() || undefined,
+      });
+      toast.success("Connected opening balance set. Farmer acknowledgement required.");
+      setIsEditConnectedOpeningOpen(false);
+      if (farmerId) {
+        queryClient.invalidateQueries({ queryKey: ["dealer-farmer-accounts", "detail", farmerId] });
+        queryClient.invalidateQueries({
+          queryKey: ["dealer-farmer-accounts", "statement", farmerId],
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["dealer-farmers", "farmers"] });
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? "Failed to set connected opening balance");
     }
   };
 
@@ -286,6 +344,56 @@ export default function CustomerAccountPage() {
               <p className="text-xs text-muted-foreground mt-1">
                 Note: {openingBalance.notes}
               </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Connected opening balance (connected farmers only) */}
+      {isFarmer && (
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle className="text-sm font-medium">Connected opening balance</CardTitle>
+              <CardDescription>
+                Farmer must acknowledge every change to this opening balance.
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={openEditConnectedOpening}>
+              Edit
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div
+              className={`text-2xl font-bold ${
+                Number(connectedOpening?.amount ?? 0) > 0
+                  ? "text-red-600"
+                  : Number(connectedOpening?.amount ?? 0) < 0
+                    ? "text-green-600"
+                    : ""
+              }`}
+            >
+              {formatCurrency(Math.abs(Number(connectedOpening?.amount ?? 0)))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {Number(connectedOpening?.amount ?? 0) > 0
+                ? "Farmer owes me"
+                : Number(connectedOpening?.amount ?? 0) < 0
+                  ? "I owe farmer (advance/credit)"
+                  : "No opening balance"}
+            </p>
+            {connectedOpening?.status && (
+              <div className="mt-2">
+                <Badge variant="secondary" className="text-xs">
+                  {connectedOpening.status === "PENDING_ACK"
+                    ? "Pending farmer acknowledgement"
+                    : connectedOpening.status === "ACKNOWLEDGED"
+                      ? "Acknowledged"
+                      : connectedOpening.status === "DISPUTED"
+                        ? "Disputed"
+                        : connectedOpening.status}
+                </Badge>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -591,6 +699,73 @@ export default function CustomerAccountPage() {
             </Button>
             <Button onClick={saveOpening}>
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Connected Opening Balance Dialog (connected farmers only) */}
+      <Dialog
+        open={isEditConnectedOpeningOpen}
+        onOpenChange={setIsEditConnectedOpeningOpen}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit connected opening balance</DialogTitle>
+            <DialogDescription>
+              This will require the farmer to acknowledge again.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2 space-y-2">
+                <Label>Amount</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={connectedOpeningAmount}
+                  onChange={(e) => setConnectedOpeningAmount(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Direction</Label>
+                <Select
+                  value={connectedOpeningDirection}
+                  onValueChange={(v) => setConnectedOpeningDirection(v as any)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="OWED">Farmer owes me</SelectItem>
+                    <SelectItem value="ADVANCE">I owe farmer (advance/credit)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Notes (optional)</Label>
+              <Input
+                value={connectedOpeningNotes}
+                onChange={(e) => setConnectedOpeningNotes(e.target.value)}
+                placeholder="Reason / context"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsEditConnectedOpeningOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={saveConnectedOpening}
+              disabled={setConnectedOpeningMutation.isPending}
+            >
+              {setConnectedOpeningMutation.isPending ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
