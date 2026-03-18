@@ -51,6 +51,7 @@ import {
   useGetDealerAccountStatement,
   useRecordDealerPayment,
   useSetDealerBalanceLimit,
+  useProposeDealerOpeningBalance,
 } from "@/fetchers/company/companyDealerAccountQueries";
 
 export default function DealerAccountPage() {
@@ -62,6 +63,10 @@ export default function DealerAccountPage() {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isEditingLimit, setIsEditingLimit] = useState(false);
   const [newBalanceLimit, setNewBalanceLimit] = useState<string>("");
+  const [isEditOpeningOpen, setIsEditOpeningOpen] = useState(false);
+  const [openingAmount, setOpeningAmount] = useState<string>("");
+  const [openingDirection, setOpeningDirection] = useState<"OWED" | "ADVANCE">("OWED");
+  const [openingNotes, setOpeningNotes] = useState<string>("");
   const [paymentData, setPaymentData] = useState({
     amount: 0,
     paymentMethod: "CASH",
@@ -80,6 +85,7 @@ export default function DealerAccountPage() {
   // Mutations
   const recordPaymentMutation = useRecordDealerPayment();
   const setBalanceLimitMutation = useSetDealerBalanceLimit();
+  const proposeOpeningMutation = useProposeDealerOpeningBalance();
 
   const handleUpdateBalanceLimit = async () => {
     try {
@@ -129,6 +135,40 @@ export default function DealerAccountPage() {
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
+  };
+
+  const openEditOpening = () => {
+    const proposed = Number((account as any)?.openingBalanceProposed ?? 0);
+    const current = Number((account as any)?.openingBalanceCurrent ?? 0);
+    const amt = proposed !== 0 ? proposed : current;
+    setOpeningDirection(amt < 0 ? "ADVANCE" : "OWED");
+    setOpeningAmount(String(Math.abs(amt || 0)));
+    setOpeningNotes("");
+    setIsEditOpeningOpen(true);
+  };
+
+  const saveOpening = async () => {
+    const amt = Number(openingAmount || 0);
+    if (!Number.isFinite(amt) || amt < 0) {
+      toast.error("Opening balance must be a non-negative number");
+      return;
+    }
+    const signed = amt === 0 ? 0 : openingDirection === "ADVANCE" ? -amt : amt;
+    if (signed === 0) {
+      toast.error("Opening balance cannot be 0");
+      return;
+    }
+    try {
+      await proposeOpeningMutation.mutateAsync({
+        dealerId,
+        openingBalance: signed,
+        notes: openingNotes.trim() || undefined,
+      });
+      toast.success("Opening balance proposed. Waiting for dealer approval.");
+      setIsEditOpeningOpen(false);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to propose opening balance");
+    }
   };
 
   if (accountLoading || statementLoading) {
@@ -322,6 +362,123 @@ export default function DealerAccountPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Opening Balance Card (requires dealer approval) */}
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between space-y-0">
+          <div className="space-y-1">
+            <CardTitle>Opening balance</CardTitle>
+            <CardDescription>
+              Propose an opening balance for this dealer connection (dealer must approve).
+            </CardDescription>
+          </div>
+          <Button onClick={openEditOpening}>
+            Edit
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-2xl font-bold">
+              {formatCurrency(
+                Math.abs(
+                  Number((account as any)?.openingBalanceCurrent ?? 0)
+                )
+              )}
+            </p>
+            {(account as any)?.openingBalanceStatus && (
+              <Badge variant="secondary">
+                {(account as any).openingBalanceStatus === "PENDING_ACK"
+                  ? "Pending dealer approval"
+                  : (account as any).openingBalanceStatus === "ACKNOWLEDGED"
+                    ? "Approved"
+                    : (account as any).openingBalanceStatus === "DISPUTED"
+                      ? "Rejected"
+                      : (account as any).openingBalanceStatus}
+              </Badge>
+            )}
+          </div>
+          {(account as any)?.openingBalanceProposed != null && Number((account as any).openingBalanceProposed) !== 0 && (
+            <p className="text-sm text-muted-foreground">
+              Proposed: {formatCurrency(Math.abs(Number((account as any).openingBalanceProposed)))} (waiting for approval)
+            </p>
+          )}
+
+          {Array.isArray((account as any)?.openingBalanceHistory) &&
+          (account as any).openingBalanceHistory.length > 0 ? (
+            <div className="pt-2 border-t">
+              <p className="text-sm font-medium mb-2">History</p>
+              <div className="space-y-2">
+                {(account as any).openingBalanceHistory.slice(0, 8).map((h: any) => (
+                  <div key={h.id} className="flex items-start justify-between gap-3 text-sm border rounded-md p-2">
+                    <div className="text-xs text-muted-foreground">
+                      <div><DateDisplay date={h.createdAt} /></div>
+                      {h.notes ? <div className="mt-0.5">{h.notes}</div> : null}
+                    </div>
+                    <div className={Number(h.amount) >= 0 ? "text-red-600 font-medium" : "text-green-600 font-medium"}>
+                      {Number(h.amount) >= 0 ? "+" : "-"}{formatCurrency(Math.abs(Number(h.amount)))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {/* Edit opening balance dialog */}
+      <Dialog open={isEditOpeningOpen} onOpenChange={setIsEditOpeningOpen}>
+        <DialogContent className="bg-white">
+          <DialogHeader>
+            <DialogTitle>Propose opening balance</DialogTitle>
+            <DialogDescription>
+              Dealer must approve this before it affects the account balance.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2 space-y-2">
+                <Label>Amount</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={openingAmount}
+                  onChange={(e) => setOpeningAmount(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Direction</Label>
+                <Select value={openingDirection} onValueChange={(v) => setOpeningDirection(v as any)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="OWED">Dealer owes company</SelectItem>
+                    <SelectItem value="ADVANCE">Company owes dealer (advance/credit)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Notes (optional)</Label>
+              <Input
+                value={openingNotes}
+                onChange={(e) => setOpeningNotes(e.target.value)}
+                placeholder="Reason / context"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditOpeningOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveOpening} disabled={proposeOpeningMutation.isPending}>
+              {proposeOpeningMutation.isPending ? "Saving..." : "Submit for approval"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Account Statement with Tabs */}
       <Card>

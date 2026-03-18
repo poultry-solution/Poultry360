@@ -53,6 +53,21 @@ enum DealerFarmerAccountAdjustmentCreatedByRole {
   FARMER
 }
 
+enum CompanyDealerAccountAdjustmentType {
+  OPENING_BALANCE
+}
+
+enum CompanyDealerAccountAdjustmentStatus {
+  PENDING_ACK
+  ACKNOWLEDGED
+  DISPUTED
+}
+
+enum CompanyDealerAccountAdjustmentCreatedByRole {
+  COMPANY
+  DEALER
+}
+
 enum ConversationStatus {
   ACTIVE
   CLOSED
@@ -1965,6 +1980,11 @@ model CompanyDealerAccount {
   
   // Running balance (positive = dealer owes company, negative = advance/credit)
   balance         Decimal @default(0) @db.Decimal(10, 2)
+
+  // Opening balance proposal/ack workflow (connected dealer↔company)
+  openingBalanceCurrent  Decimal? @db.Decimal(10, 2) // latest ACKNOWLEDGED snapshot
+  openingBalanceProposed Decimal? @db.Decimal(10, 2) // latest PENDING_ACK proposal
+  openingBalanceStatus   CompanyDealerAccountAdjustmentStatus?
   
   // Totals for reference
   totalSales      Decimal @default(0) @db.Decimal(10, 2)
@@ -1982,6 +2002,7 @@ model CompanyDealerAccount {
   
   sales    CompanySale[]
   payments CompanyDealerPayment[]
+  adjustments CompanyDealerAccountAdjustment[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1989,6 +2010,29 @@ model CompanyDealerAccount {
   @@unique([companyId, dealerId])
   @@index([companyId])
   @@index([dealerId])
+}
+
+model CompanyDealerAccountAdjustment {
+  id        String   @id @default(cuid())
+  accountId String
+  account   CompanyDealerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  type   CompanyDealerAccountAdjustmentType
+  amount Decimal @db.Decimal(10, 2)
+  notes  String?
+
+  createdByRole CompanyDealerAccountAdjustmentCreatedByRole
+  createdById   String
+
+  status CompanyDealerAccountAdjustmentStatus @default(PENDING_ACK)
+
+  dealerResponseNote String?
+  respondedAt        DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([accountId, createdAt])
+  @@index([accountId, status])
 }
 
 model CompanyDealerPayment {

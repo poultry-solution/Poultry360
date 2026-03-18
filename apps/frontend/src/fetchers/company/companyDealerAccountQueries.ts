@@ -36,6 +36,10 @@ export interface AccountDetail {
   balanceLimit?: number | null;
   balanceLimitSetAt?: Date | null;
   balanceLimitSetBy?: string | null;
+  openingBalanceCurrent?: number | null;
+  openingBalanceProposed?: number | null;
+  openingBalanceStatus?: "PENDING_ACK" | "ACKNOWLEDGED" | "DISPUTED" | null;
+  openingBalanceHistory?: CompanyDealerOpeningBalanceAdjustment[];
   dealer: {
     id: string;
     name: string;
@@ -47,6 +51,17 @@ export interface AccountDetail {
     name: string;
     address?: string;
   };
+}
+
+export interface CompanyDealerOpeningBalanceAdjustment {
+  id: string;
+  amount: number;
+  status: "PENDING_ACK" | "ACKNOWLEDGED" | "DISPUTED";
+  notes?: string | null;
+  createdAt: Date;
+  createdByRole: "COMPANY" | "DEALER";
+  respondedAt?: Date | null;
+  dealerResponseNote?: string | null;
 }
 
 export interface AccountTransaction {
@@ -112,6 +127,12 @@ export interface RecordPaymentInput {
   reference?: string;
   receiptImageUrl?: string;
   proofImageUrl?: string;
+}
+
+export interface ProposeOpeningBalanceInput {
+  dealerId: string;
+  openingBalance: number;
+  notes?: string;
 }
 
 // Get all dealer accounts for company
@@ -223,6 +244,28 @@ export const useRecordDealerPayment = () => {
       queryClient.invalidateQueries({
         queryKey: companyDealerAccountKeys.lists(),
       });
+    },
+  });
+};
+
+export const useProposeDealerOpeningBalance = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: ProposeOpeningBalanceInput) => {
+      const { data } = await axiosInstance.post(
+        `/company/dealers/${input.dealerId}/account/opening-balance`,
+        {
+          openingBalance: input.openingBalance,
+          notes: input.notes,
+        }
+      );
+      return data;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: companyDealerAccountKeys.detail(vars.dealerId) });
+      queryClient.invalidateQueries({ queryKey: companyDealerAccountKeys.statement(vars.dealerId, "") });
+      queryClient.invalidateQueries({ queryKey: companyDealerAccountKeys.lists() });
     },
   });
 };

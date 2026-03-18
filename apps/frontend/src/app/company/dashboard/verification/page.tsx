@@ -68,6 +68,9 @@ export default function CompanyVerificationPage() {
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [balanceLimit, setBalanceLimit] = useState<string>("");
+  const [openingAmount, setOpeningAmount] = useState<string>("");
+  const [openingDirection, setOpeningDirection] = useState<"OWED" | "ADVANCE">("OWED");
+  const [openingNotes, setOpeningNotes] = useState<string>("");
 
   // Queries
   const { data: pendingData, isLoading: pendingLoading } = useGetCompanyVerificationRequests({
@@ -120,6 +123,10 @@ export default function CompanyVerificationPage() {
 
   const handleOpenApproveDialog = (request: CompanyVerificationRequest) => {
     setSelectedRequest(request);
+    setBalanceLimit("");
+    setOpeningAmount("");
+    setOpeningDirection("OWED");
+    setOpeningNotes("");
     setIsApproveDialogOpen(true);
   };
 
@@ -132,14 +139,31 @@ export default function CompanyVerificationPage() {
     if (!selectedRequest) return;
 
     try {
+      const amt = openingAmount.trim() === "" ? null : Number(openingAmount);
+      if (amt !== null && !Number.isFinite(amt)) {
+        toast.error("Opening balance amount must be a valid number");
+        return;
+      }
+      const signedOpening =
+        amt === null || amt === 0
+          ? undefined
+          : openingDirection === "OWED"
+            ? amt
+            : -amt;
+
       await approveMutation.mutateAsync({
         requestId: selectedRequest.id,
         balanceLimit: balanceLimit ? parseFloat(balanceLimit) : null,
+        openingBalance: signedOpening,
+        openingBalanceNotes: openingNotes.trim() ? openingNotes.trim() : undefined,
       });
       toast.success("Verification request approved successfully");
       setIsApproveDialogOpen(false);
       setSelectedRequest(null);
       setBalanceLimit("");
+      setOpeningAmount("");
+      setOpeningDirection("OWED");
+      setOpeningNotes("");
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to approve request");
     }
@@ -575,6 +599,40 @@ export default function CompanyVerificationPage() {
             />
             <p className="text-xs text-muted-foreground">
               Set a maximum balance limit for this dealer. You can change this later.
+            </p>
+          </div>
+
+          <div className="space-y-2 pb-4">
+            <Label>Opening balance (optional)</Label>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={openingAmount}
+                onChange={(e) => setOpeningAmount(e.target.value)}
+                placeholder="0.00"
+              />
+              <Select
+                value={openingDirection}
+                onValueChange={(v) => setOpeningDirection(v as any)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Direction" />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  <SelectItem value="OWED">Dealer owes company</SelectItem>
+                  <SelectItem value="ADVANCE">Company owes dealer (advance/credit)</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                value={openingNotes}
+                onChange={(e) => setOpeningNotes(e.target.value)}
+                placeholder="Notes (optional)"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Dealer must accept/reject this opening balance. Balance will update only after acceptance.
             </p>
           </div>
 
