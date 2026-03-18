@@ -6,8 +6,8 @@ export const manualCompanyKeys = {
     all: ["dealer-manual-companies"] as const,
     lists: () => [...manualCompanyKeys.all, "list"] as const,
     list: (archived: boolean) => [...manualCompanyKeys.lists(), { archived }] as const,
-    statement: (id: string) =>
-        [...manualCompanyKeys.all, "statement", id] as const,
+    statement: (id: string, includeVoided?: boolean) =>
+        [...manualCompanyKeys.all, "statement", id, { includeVoided: !!includeVoided }] as const,
 };
 
 // Types
@@ -71,6 +71,15 @@ export interface ManualCompanyStatementResponse {
     };
     openingBalance: { amount: number; date: string | null; notes: string | null };
     transactions: Array<any>;
+    voidedTransactions?: Array<{
+        kind: "PURCHASE" | "PAYMENT";
+        id: string;
+        date: string;
+        amount: number;
+        voidedAt: string;
+        voidedReason?: string | null;
+        itemsCount?: number;
+    }>;
     pagination: { page: number; limit: number; total: number; totalPages: number };
 }
 
@@ -90,13 +99,14 @@ export const useGetManualCompanies = (params?: { archived?: boolean }) => {
     });
 };
 
-export const useGetManualCompanyStatement = (id: string) => {
+export const useGetManualCompanyStatement = (id: string, params?: { includeVoided?: boolean }) => {
+    const includeVoided = params?.includeVoided ?? false;
     return useQuery({
-        queryKey: manualCompanyKeys.statement(id),
+        queryKey: manualCompanyKeys.statement(id, includeVoided),
         queryFn: async () => {
-            const { data } = await axiosInstance.get(
-                `/dealer/manual-companies/${id}/statement`
-            );
+            const { data } = await axiosInstance.get(`/dealer/manual-companies/${id}/statement`, {
+                params: includeVoided ? { includeVoided: true } : undefined,
+            });
             return data.data;
         },
         enabled: !!id,

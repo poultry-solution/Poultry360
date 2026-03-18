@@ -16,9 +16,10 @@ export function useSearchableDealerProductSelect() {
     .filter((product: any) => Number(product.currentStock) > 0)
     .map((product: any) => {
       const sellingPrice = Number(product.sellingPrice) || 0;
+      const supplierName = product.manualCompany?.name || product.supplierCompany?.name;
       return {
         value: product.id,
-        label: product.name,
+        label: supplierName ? `${product.name} (${supplierName})` : product.name,
         subtitle: `Stock: ${product.currentStock} ${product.unit} | Price: रू ${sellingPrice.toFixed(2)}`,
         data: product,
       };

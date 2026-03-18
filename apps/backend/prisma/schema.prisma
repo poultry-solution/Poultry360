@@ -1504,6 +1504,13 @@ model DealerProduct {
   dealerId String
   dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
 
+  // Supplier/source for inventory tracking
+  manualCompanyId String?
+  manualCompany   DealerManualCompany? @relation(fields: [manualCompanyId], references: [id], onDelete: SetNull)
+
+  supplierCompanyId String?
+  supplierCompany   Company? @relation("DealerProductSupplierCompany", fields: [supplierCompanyId], references: [id], onDelete: SetNull)
+
   companyProductId String?
   companyProduct   Product? @relation(fields: [companyProductId], references: [id], onDelete: SetNull)
 
@@ -1519,8 +1526,10 @@ model DealerProduct {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([dealerId, name, costPrice, sellingPrice])
+  @@unique([dealerId, name, costPrice, sellingPrice, manualCompanyId, supplierCompanyId])
   @@index([dealerId])
+  @@index([manualCompanyId])
+  @@index([supplierCompanyId])
   @@index([companyProductId])
 }
 
@@ -2333,6 +2342,7 @@ model DealerManualCompany {
   purchases DealerManualPurchase[]
   payments  DealerManualCompanyPayment[]
   adjustments DealerManualCompanyAdjustment[]
+  suppliedProducts DealerProduct[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

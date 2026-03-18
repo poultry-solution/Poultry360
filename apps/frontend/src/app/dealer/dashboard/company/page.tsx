@@ -1227,50 +1227,6 @@ export default function DealerCompanyPage() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-2">
-                        {/* Quick Restock: pick from existing products */}
-                        {existingProducts.length > 0 && (
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                <p className="text-sm font-medium text-blue-800 mb-2">Quick Restock — Pick an existing product</p>
-                                <Select
-                                    onValueChange={(productId) => {
-                                        const product = existingProducts.find((p: any) => p.id === productId);
-                                        if (product) {
-                                            // Add a new item pre-filled with existing product details
-                                            const newItem: PurchaseItem = {
-                                                productName: product.name,
-                                                type: product.type,
-                                                unit: product.unit,
-                                                quantity: 0,
-                                                costPrice: Number(product.costPrice),
-                                                sellingPrice: Number(product.sellingPrice),
-                                            };
-                                            // Replace the first empty item or add to end
-                                            const firstEmpty = purchaseItems.findIndex(i => !i.productName);
-                                            if (firstEmpty >= 0) {
-                                                const updated = [...purchaseItems];
-                                                updated[firstEmpty] = newItem;
-                                                setPurchaseItems(updated);
-                                            } else {
-                                                setPurchaseItems([...purchaseItems, newItem]);
-                                            }
-                                        }
-                                    }}
-                                >
-                                    <SelectTrigger className="bg-white">
-                                        <SelectValue placeholder="Select a product to restock..." />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-white max-h-60">
-                                        {existingProducts.map((product: any) => (
-                                            <SelectItem key={product.id} value={product.id}>
-                                                {product.name} — रू {Number(product.costPrice).toFixed(2)}/{product.unit} (Stock: {Number(product.currentStock).toFixed(2)})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <p className="text-xs text-blue-600 mt-1">Just enter the quantity — all details are auto-filled from your existing product</p>
-                            </div>
-                        )}
-
                         {purchaseItems.map((item, index) => (
                             <div key={index} className="border rounded-lg p-3 space-y-3">
                                 <div className="flex items-center justify-between">

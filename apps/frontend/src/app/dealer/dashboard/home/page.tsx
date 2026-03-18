@@ -13,7 +13,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/common/components/ui/alert";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
-import { Package, Users, Receipt, TrendingUp, Loader2, X, CheckCircle, Clock, XCircle, AlertCircle, Plus, Truck, DollarSign, ClipboardList } from "lucide-react";
+import { Package, Users, Receipt, Loader2, X, CheckCircle, Clock, XCircle, AlertCircle, Plus, Truck, ClipboardList } from "lucide-react";
 import {
   useGetDealerVerificationRequests,
   useAcknowledgeVerificationRequest,
@@ -23,13 +23,14 @@ import { useGetInventorySummary } from "@/fetchers/dealer/dealerProductQueries";
 import { useGetSalesStatistics, useGetDealerSales } from "@/fetchers/dealer/dealerSaleQueries";
 import { useGetDealerProducts } from "@/fetchers/dealer/dealerProductQueries";
 import { useGetLedgerSummary } from "@/fetchers/dealer/dealerLedgerQueries";
-import { useGetDealerProfitSummary } from "@/fetchers/dealer/dealerManualCompanyQueries";
 import { useI18n } from "@/i18n/useI18n";
 import { DateDisplay } from "@/common/components/ui/date-display";
 
 export default function DealerHomePage() {
   const { t } = useI18n();
   const [dismissedBanners, setDismissedBanners] = useState<Set<string>>(new Set());
+
+  const formatCurrency = (amount: number) => `रू ${Number(amount || 0).toFixed(2)}`;
 
   // Get verification requests to check for unacknowledged messages
   const { data: requestsData } = useGetDealerVerificationRequests();
@@ -133,10 +134,9 @@ export default function DealerHomePage() {
     limit: 10,
   });
   const { data: ledgerSummaryData, isLoading: ledgerLoading } = useGetLedgerSummary();
-  const { data: profitData, isLoading: profitLoading } = useGetDealerProfitSummary();
 
   // Combine loading states
-  const isLoading = inventoryLoading || salesStatsLoading || recentSalesLoading || lowStockLoading || ledgerLoading || profitLoading;
+  const isLoading = inventoryLoading || salesStatsLoading || recentSalesLoading || lowStockLoading || ledgerLoading;
 
   // Extract data
   const inventory = inventoryData?.data;
@@ -146,18 +146,11 @@ export default function DealerHomePage() {
   const ledgerSummary = ledgerSummaryData?.data;
 
   // Helper functions
-  const formatCurrency = (amount: number | undefined) => {
-    if (amount === undefined || amount === null) return "₹ 0";
-    return `₹ ${amount.toLocaleString("en-IN")}`;
-  };
-
-
   // Calculate stats
   const stats = {
     totalInventory: inventory?.totalProducts || 0,
     totalCustomers: ledgerSummary?.outstandingBalances || 0,
     totalSales: salesStats?.totalSales || 0,
-    monthlyRevenue: salesStats?.totalRevenue || 0,
   };
 
   return (
@@ -221,7 +214,7 @@ export default function DealerHomePage() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3">
         <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
             <CardTitle className="text-xs md:text-sm font-medium">{t("dealer.dashboard.stats.totalInventory")}</CardTitle>
@@ -264,43 +257,6 @@ export default function DealerHomePage() {
               <div className="text-xl md:text-2xl font-bold">{stats.totalSales}</div>
             )}
             <p className="text-[10px] md:text-xs text-muted-foreground">{t("dealer.dashboard.stats.thisMonth")}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="p-0">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm font-medium">{t("dealer.dashboard.stats.revenue")}</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-3 md:p-4 pt-0">
-            {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <div className="text-lg md:text-2xl font-bold">{formatCurrency(stats.monthlyRevenue)}</div>
-            )}
-            <p className="text-[10px] md:text-xs text-muted-foreground">{t("dealer.dashboard.stats.thisMonth")}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="p-0 col-span-2 md:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm font-medium">Profit</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-3 md:p-4 pt-0">
-            {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <>
-                <div className={`text-lg md:text-2xl font-bold ${(profitData?.profit || 0) >= 0 ? "text-green-600" : "text-red-600"
-                  }`}>
-                  {formatCurrency(profitData?.profit || 0)}
-                </div>
-                <div className="text-[10px] md:text-xs text-muted-foreground mt-1">
-                  Sales: {formatCurrency(profitData?.totalSales || 0)} • Purchases: {formatCurrency(profitData?.totalPurchases || 0)}
-                </div>
-              </>
-            )}
           </CardContent>
         </Card>
       </div>
@@ -382,7 +338,11 @@ export default function DealerHomePage() {
                     className="flex items-center justify-between border-b pb-2 last:border-0"
                   >
                     <div className="space-y-1">
-                      <p className="text-sm font-medium">{product.name}</p>
+                      <p className="text-sm font-medium">
+                        {product.manualCompany?.name || product.supplierCompany?.name
+                          ? `${product.name} (${product.manualCompany?.name || product.supplierCompany?.name})`
+                          : product.name}
+                      </p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>{t("dealer.dashboard.lowStock.stock", { stock: product.currentStock, unit: product.unit })}</span>
                         {product.minStock && (

@@ -144,6 +144,8 @@ export const getDealerProducts = async (
         take: Number(limit),
         orderBy: { createdAt: "desc" },
         include: {
+          manualCompany: { select: { id: true, name: true, archivedAt: true } },
+          supplierCompany: { select: { id: true, name: true } },
           companyProduct: {
             include: { unitConversions: true },
           },
@@ -193,6 +195,8 @@ export const getDealerProductById = async (
         dealerId: dealer.id,
       },
       include: {
+        manualCompany: { select: { id: true, name: true, archivedAt: true } },
+        supplierCompany: { select: { id: true, name: true } },
         companyProduct: {
           include: { unitConversions: true },
         },
@@ -365,6 +369,14 @@ export const deleteDealerProduct = async (
 
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
+    }
+
+    // Only allow delete when stock is 0 (prevents deleting active inventory items)
+    const currentStock = Number(product.currentStock || 0);
+    if (currentStock !== 0) {
+      return res.status(400).json({
+        message: "Cannot delete product unless stock is 0",
+      });
     }
 
     // Check if product has been used in sales

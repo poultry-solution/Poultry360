@@ -57,7 +57,7 @@ export default function ManualCompanyAccountPage() {
     const params = useParams();
     const router = useRouter();
     const id = params.id as string;
-    const [activeTab, setActiveTab] = useState<"purchases" | "payments" | "adjustments">("purchases");
+    const [activeTab, setActiveTab] = useState<"purchases" | "payments" | "adjustments" | "voided">("purchases");
     const [isEditOpeningOpen, setIsEditOpeningOpen] = useState(false);
     const [openingAmount, setOpeningAmount] = useState<string>("");
     const [openingDirection, setOpeningDirection] = useState<"OWED" | "ADVANCE">("OWED");
@@ -76,7 +76,7 @@ export default function ManualCompanyAccountPage() {
     const [voidReason, setVoidReason] = useState("");
 
     const queryClient = useQueryClient();
-    const { data, isLoading } = useGetManualCompanyStatement(id);
+    const { data, isLoading } = useGetManualCompanyStatement(id, { includeVoided: true });
     const setOpeningMutation = useSetManualCompanyOpeningBalance();
     const updateCompanyMutation = useUpdateManualCompany();
     const voidPurchaseMutation = useVoidManualPurchase();
@@ -84,6 +84,7 @@ export default function ManualCompanyAccountPage() {
 
     const company = data?.company;
     const transactions = data?.transactions || [];
+    const voidedTransactions = (data as any)?.voidedTransactions || [];
     const openingBalance = data?.openingBalance;
 
     const formatCurrency = (amount: number) => {
@@ -289,6 +290,7 @@ export default function ManualCompanyAccountPage() {
                 const purchases = transactions.filter((t: any) => t.type === "PURCHASE");
                 const payments = transactions.filter((t: any) => t.type === "PAYMENT");
                 const adjustments = transactions.filter((t: any) => t.type === "OPENING_BALANCE" || t.type === "ADJUSTMENT");
+                const voided = Array.isArray(voidedTransactions) ? voidedTransactions : [];
 
                 return (
                     <Card>
@@ -325,6 +327,16 @@ export default function ManualCompanyAccountPage() {
                                 >
                                     <CreditCard className="inline h-4 w-4 mr-1.5 -mt-0.5" />
                                     Adjustments ({adjustments.length})
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab("voided")}
+                                    className={`px-4 py-2 font-medium transition-colors text-sm ${activeTab === "voided"
+                                        ? "border-b-2 border-gray-500 text-gray-700"
+                                        : "text-muted-foreground hover:text-foreground"
+                                        }`}
+                                >
+                                    <Trash2 className="inline h-4 w-4 mr-1.5 -mt-0.5" />
+                                    Voided ({voided.length})
                                 </button>
                             </div>
                         </CardHeader>
@@ -521,6 +533,69 @@ export default function ManualCompanyAccountPage() {
                                     </div>
                                 )
                             )}
+
+                            {/* Voided Tab */}
+                            {activeTab === "voided" && (
+                                voided.length === 0 ? (
+                                    <div className="text-center py-8 text-muted-foreground">
+                                        <Trash2 className="h-12 w-12 mx-auto mb-3 opacity-40" />
+                                        <p>No voided records yet</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {voided
+                                            .slice()
+                                            .sort(
+                                                (a: any, b: any) =>
+                                                    new Date(b.voidedAt).getTime() -
+                                                    new Date(a.voidedAt).getTime()
+                                            )
+                                            .map((v: any) => (
+                                                <div key={`${v.kind}-${v.id}`} className="border rounded-lg p-4 border-l-4 border-l-gray-400">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
+                                                                <Trash2 className="h-4 w-4 text-gray-600" />
+                                                            </div>
+                                                            <div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <p className="font-medium">
+                                                                        {v.kind === "PURCHASE" ? "Purchase" : "Payment"}
+                                                                    </p>
+                                                                    <Badge variant="secondary" className="text-xs">
+                                                                        Voided
+                                                                    </Badge>
+                                                                </div>
+                                                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                                                    <Calendar className="h-3 w-3" />
+                                                                    Original: <DateDisplay date={v.date} format="long" />
+                                                                </p>
+                                                                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                                                    <Calendar className="h-3 w-3" />
+                                                                    Voided: <DateDisplay date={v.voidedAt} format="long" />
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-lg font-bold text-gray-700">
+                                                                {v.kind === "PURCHASE" ? "+ " : "- "}
+                                                                {formatCurrency(Number(v.amount))}
+                                                            </p>
+                                                            {v.itemsCount != null && v.kind === "PURCHASE" ? (
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    Items: {v.itemsCount}
+                                                                </p>
+                                                            ) : null}
+                                                        </div>
+                                                    </div>
+                                                    <div className="mt-2 text-xs text-muted-foreground">
+                                                        Reason: {v.voidedReason ? v.voidedReason : "—"}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                    </div>
+                                )
+                            )}
                         </CardContent>
                     </Card>
                 );
@@ -654,6 +729,7 @@ export default function ManualCompanyAccountPage() {
                         </Button>
                         <Button
                             variant="destructive"
+                            className="bg-red-600 text-white hover:bg-red-700"
                             onClick={async () => {
                                 if (!voidConfirm) return;
                                 try {

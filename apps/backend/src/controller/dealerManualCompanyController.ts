@@ -424,6 +424,8 @@ export const recordManualPurchase = async (
                         name: productName,
                         costPrice: new Prisma.Decimal(cost),
                         sellingPrice: new Prisma.Decimal(sell),
+                        manualCompanyId: id,
+                        supplierCompanyId: null,
                     },
                 });
 
@@ -446,6 +448,7 @@ export const recordManualPurchase = async (
                             sellingPrice: new Prisma.Decimal(sell),
                             currentStock: new Prisma.Decimal(qty),
                             dealerId: dealer.id,
+                            manualCompanyId: id,
                         },
                     });
                 }
@@ -762,7 +765,7 @@ export const getManualCompanyStatement = async (
     try {
         const userId = req.userId;
         const { id } = req.params;
-        const { page = "1", limit = "20" } = req.query as any;
+        const { page = "1", limit = "20", includeVoided } = req.query as any;
 
         const dealer = await prisma.dealer.findUnique({
             where: { ownerId: userId },
@@ -784,6 +787,7 @@ export const getManualCompanyStatement = async (
         const pageNum = Number(page);
         const limitNum = Number(limit);
         const skip = (pageNum - 1) * limitNum;
+        const includeVoidedBool = String(includeVoided).toLowerCase() === "true";
 
         // Get purchases
         const purchases = await prisma.dealerManualPurchase.findMany({
@@ -797,6 +801,20 @@ export const getManualCompanyStatement = async (
             where: { manualCompanyId: id, voidedAt: null },
             orderBy: { paymentDate: "desc" },
         });
+
+        const [voidedPurchases, voidedPayments] = includeVoidedBool
+            ? await Promise.all([
+                prisma.dealerManualPurchase.findMany({
+                    where: { manualCompanyId: id, voidedAt: { not: null } },
+                    include: { items: true },
+                    orderBy: { voidedAt: "desc" },
+                }),
+                prisma.dealerManualCompanyPayment.findMany({
+                    where: { manualCompanyId: id, voidedAt: { not: null } },
+                    orderBy: { voidedAt: "desc" },
+                }),
+            ])
+            : [[], []];
 
         // Get adjustments (opening balance & other adjustments)
         const adjustments = await prisma.dealerManualCompanyAdjustment.findMany({
@@ -840,6 +858,28 @@ export const getManualCompanyStatement = async (
         const total = transactions.length;
         const paginated = transactions.slice(skip, skip + limitNum);
 
+        const voidedTransactions = includeVoidedBool
+            ? [
+                ...voidedPurchases.map((p: any) => ({
+                    kind: "PURCHASE" as const,
+                    id: p.id,
+                    date: p.date,
+                    amount: Number(p.totalAmount),
+                    voidedAt: p.voidedAt,
+                    voidedReason: p.voidedReason,
+                    itemsCount: Array.isArray(p.items) ? p.items.length : 0,
+                })),
+                ...voidedPayments.map((p: any) => ({
+                    kind: "PAYMENT" as const,
+                    id: p.id,
+                    date: p.paymentDate,
+                    amount: Number(p.amount),
+                    voidedAt: p.voidedAt,
+                    voidedReason: p.voidedReason,
+                })),
+            ].sort((a, b) => new Date(b.voidedAt).getTime() - new Date(a.voidedAt).getTime())
+            : [];
+
         return res.status(200).json({
             success: true,
             data: {
@@ -860,6 +900,7 @@ export const getManualCompanyStatement = async (
                     }
                     : { amount: 0, date: null, notes: null },
                 transactions: paginated,
+                voidedTransactions,
                 pagination: {
                     page: pageNum,
                     limit: limitNum,
