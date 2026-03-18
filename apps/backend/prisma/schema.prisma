@@ -348,6 +348,9 @@ model Company {
   companyPurchases     CompanyPurchase[]
   supplierPayments      CompanySupplierPayment[]
 
+  // Dealer inventory rows that were created from this connected company
+  suppliedDealerProducts DealerProduct[] @relation("DealerProductSupplierCompany")
+
   // Production (raw materials used → produced items log)
   productionRuns       ProductionRun[]
 
