@@ -418,7 +418,7 @@ export const getDealerCustomers = async (
 ): Promise<any> => {
   try {
     const userId = req.userId;
-    const { search, page = 1, limit = 50 } = req.query;
+    const { search, page = 1, limit = 50, archived } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
 
@@ -432,6 +432,24 @@ export const getDealerCustomers = async (
         { phone: { contains: search as string, mode: "insensitive" } },
         { address: { contains: search as string, mode: "insensitive" } },
       ];
+    }
+
+    // Dealer customers soft-archive (non-connected only for archived tab)
+    const archivedStr =
+      typeof archived === "string"
+        ? archived
+        : Array.isArray(archived)
+          ? archived[0]
+          : undefined;
+    const archivedBool = archivedStr === "true" || archivedStr === "1";
+
+    // Default behavior: Active tab
+    if (archivedBool) {
+      where.archivedAt = { not: null };
+      // Only show archived non-connected customers
+      where.farmerId = null;
+    } else {
+      where.archivedAt = null;
     }
 
     const [customers, total] = await Promise.all([
@@ -449,6 +467,7 @@ export const getDealerCustomers = async (
           balance: true,
           source: true,
           farmerId: true,
+          archivedAt: true,
           createdAt: true,
         },
       }),
@@ -473,9 +492,93 @@ export const getDealerCustomers = async (
       }
     }
 
+    // Compute "usage" flags to decide Delete vs Archive for non-connected customers.
+    const dealerId = dealer?.id;
+    const customerIds = customers.map((c) => c.id);
+
+    let dealerSalesByCustomerId = new Map<string, number>();
+    let saleRequestsByCustomerId = new Map<string, number>();
+    let paymentReceivedByCustomerId = new Map<string, number>();
+    let salePaymentRequestsByCustomerId = new Map<string, number>();
+
+    if (dealerId && customerIds.length > 0) {
+      const dealerSalesGrouped = await prisma.dealerSale.groupBy({
+        by: ["customerId"],
+        where: {
+          dealerId,
+          customerId: { in: customerIds },
+        },
+        _count: { _all: true },
+      });
+
+      dealerSalesGrouped.forEach((r: any) => {
+        if (r.customerId) dealerSalesByCustomerId.set(r.customerId, r._count._all);
+      });
+
+      const saleRequestsGrouped = await prisma.dealerSaleRequest.groupBy({
+        by: ["customerId"],
+        where: {
+          dealerId,
+          customerId: { in: customerIds },
+        },
+        _count: { _all: true },
+      });
+
+      saleRequestsGrouped.forEach((r: any) => {
+        if (r.customerId) saleRequestsByCustomerId.set(r.customerId, r._count._all);
+      });
+
+      const paymentsGrouped = await prisma.dealerLedgerEntry.groupBy({
+        by: ["partyId"],
+        where: {
+          dealerId,
+          partyType: "CUSTOMER",
+          partyId: { in: customerIds },
+          type: "PAYMENT_RECEIVED",
+        },
+        _count: { _all: true },
+      });
+
+      paymentsGrouped.forEach((r: any) => {
+        if (r.partyId) paymentReceivedByCustomerId.set(r.partyId, r._count._all);
+      });
+
+      // Pending/approved bill-wise payments requests (if any)
+      const paymentRequestsGrouped = await prisma.dealerSalePaymentRequest.groupBy({
+        by: ["customerId"],
+        where: {
+          dealerId,
+          customerId: { in: customerIds },
+        },
+        _count: { _all: true },
+      });
+
+      paymentRequestsGrouped.forEach((r: any) => {
+        if (r.customerId) salePaymentRequestsByCustomerId.set(r.customerId, r._count._all);
+      });
+    }
+
+    const enrichedCustomers = customers.map((c: any) => {
+      const hasDealerSales = (dealerSalesByCustomerId.get(c.id) || 0) > 0;
+      const hasDealerSaleRequests = (saleRequestsByCustomerId.get(c.id) || 0) > 0;
+
+      const ledgerPayments = paymentReceivedByCustomerId.get(c.id) || 0;
+      const billWisePaymentRequests = salePaymentRequestsByCustomerId.get(c.id) || 0;
+
+      // For now: ledger payments + bill-wise payment requests
+      const hasPayments = ledgerPayments + billWisePaymentRequests > 0;
+
+      return {
+        ...c,
+        hasDealerSales,
+        hasDealerSaleRequests,
+        hasPayments,
+      };
+    });
+
     return res.status(200).json({
       success: true,
-      data: customers,
+      data: enrichedCustomers,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -485,6 +588,199 @@ export const getDealerCustomers = async (
     });
   } catch (error: any) {
     console.error("Get dealer customers error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== ARCHIVE / UNARCHIVE DEALER CUSTOMERS ====================
+export const archiveDealerCustomer = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    if (!dealer) return res.status(404).json({ message: "Dealer not found" });
+
+    const customer = await prisma.customer.findFirst({
+      where: { id, userId },
+      select: { id: true, balance: true, farmerId: true, source: true },
+    });
+    if (!customer) return res.status(404).json({ message: "Customer not found" });
+
+    // Only non-connected customers can be archived (connected handled later)
+    if (customer.farmerId != null || customer.source === "CONNECTED") {
+      return res.status(400).json({ message: "Cannot archive connected customers" });
+    }
+
+    // Usage flags
+    const hasDealerSales = await prisma.dealerSale.count({
+      where: { dealerId: dealer.id, customerId: id },
+    });
+    const hasDealerSaleRequests = await prisma.dealerSaleRequest.count({
+      where: { dealerId: dealer.id, customerId: id },
+    });
+
+    const ledgerPayments = await prisma.dealerLedgerEntry.count({
+      where: {
+        dealerId: dealer.id,
+        partyType: "CUSTOMER",
+        partyId: id,
+        type: "PAYMENT_RECEIVED",
+      },
+    });
+
+    const salePaymentRequests = await prisma.dealerSalePaymentRequest.count({
+      where: { dealerId: dealer.id, customerId: id },
+    });
+
+    const hasPayments = ledgerPayments + salePaymentRequests > 0;
+
+    const deletable =
+      Number(customer.balance) === 0 &&
+      hasDealerSales === 0 &&
+      hasDealerSaleRequests === 0 &&
+      !hasPayments;
+
+    if (deletable) {
+      return res.status(400).json({
+        message: "Customer is deletable. Archive is not allowed.",
+      });
+    }
+
+    const updated = await prisma.customer.updateMany({
+      where: { id, userId },
+      data: {
+        archivedAt: new Date(),
+        archivedById: userId,
+      },
+    });
+
+    if (updated.count !== 1) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    return res.status(200).json({ success: true, data: updated });
+  } catch (error: any) {
+    console.error("Archive customer error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const unarchiveDealerCustomer = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+
+    const customer = await prisma.customer.findFirst({
+      where: { id, userId },
+      select: { id: true, farmerId: true, source: true, archivedAt: true },
+    });
+    if (!customer) return res.status(404).json({ message: "Customer not found" });
+
+    // Only non-connected customers can be unarchived for now
+    if (customer.farmerId != null || customer.source === "CONNECTED") {
+      return res.status(400).json({ message: "Cannot unarchive connected customers" });
+    }
+
+    if (!customer.archivedAt) {
+      return res.status(400).json({ message: "Customer is not archived" });
+    }
+
+    const updated = await prisma.customer.updateMany({
+      where: { id, userId },
+      data: {
+        archivedAt: null,
+        archivedById: null,
+      },
+    });
+
+    if (updated.count !== 1) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    return res.status(200).json({ success: true, data: updated });
+  } catch (error: any) {
+    console.error("Unarchive customer error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== DELETE DEALER CUSTOMER (NON-CONNECTED ONLY) ====================
+export const deleteDealerCustomer = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    if (!dealer) return res.status(404).json({ message: "Dealer not found" });
+
+    const customer = await prisma.customer.findFirst({
+      where: { id, userId },
+      select: { id: true, balance: true, farmerId: true, source: true },
+    });
+    if (!customer) return res.status(404).json({ message: "Customer not found" });
+
+    if (customer.farmerId != null || customer.source === "CONNECTED") {
+      return res.status(400).json({ message: "Cannot delete connected customers" });
+    }
+
+    const hasDealerSales = await prisma.dealerSale.count({
+      where: { dealerId: dealer.id, customerId: id },
+    });
+    const hasDealerSaleRequests = await prisma.dealerSaleRequest.count({
+      where: { dealerId: dealer.id, customerId: id },
+    });
+
+    const ledgerPayments = await prisma.dealerLedgerEntry.count({
+      where: {
+        dealerId: dealer.id,
+        partyType: "CUSTOMER",
+        partyId: id,
+        type: "PAYMENT_RECEIVED",
+      },
+    });
+
+    const salePaymentRequests = await prisma.dealerSalePaymentRequest.count({
+      where: { dealerId: dealer.id, customerId: id },
+    });
+
+    const hasPayments = ledgerPayments + salePaymentRequests > 0;
+
+    const deletable =
+      Number(customer.balance) === 0 &&
+      hasDealerSales === 0 &&
+      hasDealerSaleRequests === 0 &&
+      !hasPayments;
+
+    if (!deletable) {
+      return res.status(400).json({
+        message:
+          "Customer has sales/payments/opening balance. Archive instead of delete.",
+      });
+    }
+
+    const deleted = await prisma.customer.deleteMany({ where: { id, userId } });
+    if (deleted.count !== 1) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+    return res.status(200).json({ success: true, message: "Customer deleted" });
+  } catch (error: any) {
+    console.error("Delete dealer customer error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

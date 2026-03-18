@@ -1005,6 +1005,10 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Soft archive (dealer UI)
+  archivedAt   DateTime?
+  archivedById String?
+
   @@unique([userId, name])
   @@unique([userId, farmerId]) // Prevent duplicate customers for same farmer-dealer pair
 }
