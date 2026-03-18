@@ -59,7 +59,6 @@ import {
   useDeleteCustomer,
   useGetSalePayments,
   useGetCustomer,
-  useSetCustomerOpeningBalance,
   useAddCustomerPayment,
 } from "@/fetchers/sale/saleQueries";
 
@@ -107,16 +106,12 @@ export default function SalesLedgerPage() {
   const [activeTab, setActiveTab] = useState<TabType>("overview");
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
   const [isPartyModalOpen, setIsPartyModalOpen] = useState(false);
-  const [isPartyDetailsOpen, setIsPartyDetailsOpen] = useState(false);
+  // Party details is now a dedicated page (see /sales-ledger/party/[partyId])
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
   const [editingPartyId, setEditingPartyId] = useState<string | null>(null);
   const [partyToDelete, setPartyToDelete] = useState<string | null>(null);
   const [selectedParty, setSelectedParty] = useState<any>(null);
-  const [isEditOpeningOpen, setIsEditOpeningOpen] = useState(false);
-  const [openingAmount, setOpeningAmount] = useState("");
-  const [openingDirection, setOpeningDirection] = useState<"OWED" | "ADVANCE">("OWED");
-  const [openingNotes, setOpeningNotes] = useState("");
 
   // Filters
   const [salesFilters, setSalesFilters] = useState<SalesFilters>({
@@ -269,14 +264,9 @@ export default function SalesLedgerPage() {
   const createCustomerMutation = useCreateCustomer();
   const updateCustomerMutation = useUpdateCustomer();
   const deleteCustomerMutation = useDeleteCustomer();
-  const setCustomerOpeningBalance = useSetCustomerOpeningBalance();
   const addCustomerPayment = useAddCustomerPayment();
 
   const selectedPartyId = selectedParty?.id as string | undefined;
-  const { data: selectedPartyDetail } = useGetCustomer(selectedPartyId || "", {
-    enabled: isPartyDetailsOpen && !!selectedPartyId,
-  });
-  const selectedPartyFull = selectedPartyDetail?.data;
 
   const { data: editingPartyDetail } = useGetCustomer(editingPartyId || "", {
     enabled: isPartyModalOpen && !!editingPartyId,
@@ -677,37 +667,11 @@ export default function SalesLedgerPage() {
   };
 
   const handleViewParty = (party: any) => {
-    setSelectedParty(party);
-    setIsPartyDetailsOpen(true);
+    if (!party?.id) return;
+    router.push(`/farmer/dashboard/sales-ledger/party/${party.id}`);
   };
 
-  const openEditOpeningBalance = () => {
-    const amount = Number(selectedPartyFull?.openingBalance?.amount ?? 0);
-    setOpeningAmount(String(Math.abs(amount)));
-    setOpeningDirection(amount >= 0 ? "OWED" : "ADVANCE");
-    setOpeningNotes(selectedPartyFull?.openingBalance?.notes ?? "");
-    setIsEditOpeningOpen(true);
-  };
-
-  const saveOpeningBalance = async () => {
-    if (!selectedPartyId) return;
-    const amt = Number(openingAmount || 0);
-    if (!Number.isFinite(amt)) return;
-    const signed =
-      openingDirection === "OWED" ? Math.abs(amt) : -Math.abs(amt);
-
-    try {
-      await setCustomerOpeningBalance.mutateAsync({
-        customerId: selectedPartyId,
-        openingBalance: signed,
-        notes: openingNotes || undefined,
-      });
-      toast.success("Opening balance updated");
-      setIsEditOpeningOpen(false);
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Failed to update opening balance");
-    }
-  };
+  // Opening balance edit is handled on the party details page.
 
   const resetSaleForm = () => {
     setSaleForm((prev) => ({
@@ -921,38 +885,6 @@ export default function SalesLedgerPage() {
           ₹{value.toLocaleString()}
         </span>
       ),
-    },
-    {
-      key: "transactions",
-      label: t("farmer.salesLedger.table.transactions"),
-      type: "actions" as const,
-      align: "center" as const,
-      width: "120px",
-      render: (_: any, row: any) => {
-        // Count total transactions for this customer
-        const customerTransactions = sales.filter(
-          (sale: any) => sale.isCredit && sale.customerId === row.id
-        );
-
-        const totalPayments = customerTransactions.reduce(
-          (sum: number, sale: any) => sum + (sale.payments?.length || 0),
-          0
-        );
-
-        return (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 px-3 text-xs hover:bg-blue-50 hover:border-blue-300"
-            onClick={() => {
-              setSelectedParty(row);
-              setIsPaymentModalOpen(true);
-            }}
-          >
-            {t("farmer.salesLedger.viewCount", { count: totalPayments })}
-          </Button>
-        );
-      },
     },
     {
       key: "actions",
@@ -1243,77 +1175,6 @@ export default function SalesLedgerPage() {
       {/* Payments Tab */}
           {activeTab === "payments" && (
         <div className="space-y-4 md:space-y-6">
-          {/* Payment Filters */}
-          <Card>
-            <CardHeader className="p-3 md:p-6">
-              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                <Filter className="h-4 w-4 md:h-5 md:w-5" />
-                {t("farmer.salesLedger.filters")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-3 md:p-6 pt-0">
-              <div className="grid gap-3 grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
-                <div className="col-span-2 md:col-span-2">
-                  <Label htmlFor="paymentSearch" className="text-xs md:text-sm">{t("farmer.salesLedger.search")}</Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground" />
-                    <Input
-                      id="paymentSearch"
-                      placeholder={t("farmer.salesLedger.searchPaymentPlaceholder")}
-                      value={paymentFilters.search}
-                      onChange={(e) =>
-                        handlePaymentFilterChange("search", e.target.value)
-                      }
-                      className="pl-9 h-8 md:h-10 text-xs md:text-sm"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="paymentStartDate" className="text-xs md:text-sm">{t("farmer.salesLedger.from")}</Label>
-                  <DateInput
-                    value={paymentFilters.startDate}
-                    onChange={(v) =>
-                      handlePaymentFilterChange(
-                        "startDate",
-                        v.includes("T") ? v.split("T")[0] : v
-                      )
-                    }
-                    className="[&_input]:h-8 [&_input]:md:h-10 [&_input]:text-xs [&_input]:md:text-sm"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="paymentEndDate" className="text-xs md:text-sm">{t("farmer.salesLedger.to")}</Label>
-                  <DateInput
-                    value={paymentFilters.endDate}
-                    onChange={(v) =>
-                      handlePaymentFilterChange(
-                        "endDate",
-                        v.includes("T") ? v.split("T")[0] : v
-                      )
-                    }
-                    className="[&_input]:h-8 [&_input]:md:h-10 [&_input]:text-xs [&_input]:md:text-sm"
-                  />
-                </div>
-                <div className="flex items-end">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 md:h-10 text-xs"
-                    onClick={() =>
-                      setPaymentFilters({
-                        search: "",
-                        startDate: "",
-                        endDate: "",
-                      })
-                    }
-                  >
-                    {t("farmer.salesLedger.clear")}
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Payments Table */}
           <Card>
             <CardHeader className="p-3 md:p-6">
@@ -2035,10 +1896,7 @@ export default function SalesLedgerPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        setSelectedParty({ id: editingPartyId });
-                        setIsPartyDetailsOpen(true);
-                      }}
+                      onClick={() => router.push(`/farmer/dashboard/sales-ledger/party/${editingPartyId}`)}
                     >
                       <Eye className="h-4 w-4 mr-2" />
                       View & edit
@@ -2083,146 +1941,6 @@ export default function SalesLedgerPage() {
         </form>
       </Modal>
 
-      {/* Party Details Modal */}
-      <Modal
-        isOpen={isPartyDetailsOpen}
-        onClose={() => {
-          setIsPartyDetailsOpen(false);
-          setSelectedParty(null);
-        }}
-        title={selectedPartyFull?.name ? `${selectedPartyFull.name}` : "Party details"}
-      >
-        <ModalContent>
-          <div className="space-y-4">
-            <div className="rounded-lg border p-4">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div>
-                  <p className="text-sm text-muted-foreground">Current balance</p>
-                  <p className="text-xl font-bold">
-                    ₹{Number(selectedPartyFull?.balance ?? 0).toLocaleString()}
-                  </p>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {selectedPartyFull?.phone ? <div>{selectedPartyFull.phone}</div> : null}
-                  {selectedPartyFull?.address ? <div>{selectedPartyFull.address}</div> : null}
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-lg border p-4">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div>
-                  <p className="text-sm font-medium">Opening balance</p>
-                  <p className="text-sm text-muted-foreground">
-                    ₹{Math.abs(Number(selectedPartyFull?.openingBalance?.amount ?? 0)).toLocaleString()}{" "}
-                    {Number(selectedPartyFull?.openingBalance?.amount ?? 0) > 0
-                      ? "(Party owes me)"
-                      : Number(selectedPartyFull?.openingBalance?.amount ?? 0) < 0
-                        ? "(I owe party)"
-                        : "(Not set)"}
-                  </p>
-                  {selectedPartyFull?.openingBalance?.notes ? (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {selectedPartyFull.openingBalance.notes}
-                    </p>
-                  ) : null}
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={openEditOpeningBalance}
-                  disabled={!selectedPartyId}
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-              </div>
-            </div>
-
-            <div className="rounded-lg border p-4">
-              <p className="text-sm font-medium mb-2">Opening balance history</p>
-              {Array.isArray(selectedPartyFull?.openingBalanceHistory) &&
-              selectedPartyFull.openingBalanceHistory.length > 0 ? (
-                <div className="space-y-2">
-                  {selectedPartyFull.openingBalanceHistory.map((h: any) => (
-                    <div key={h.id} className="flex items-center justify-between gap-3">
-                      <div className="text-xs text-muted-foreground">
-                        <div>{new Date(h.date).toLocaleDateString("en-IN")}</div>
-                        {h.notes ? <div className="mt-0.5">{h.notes}</div> : null}
-                      </div>
-                      <div className={Number(h.amount) >= 0 ? "text-red-600 font-medium" : "text-green-600 font-medium"}>
-                        {Number(h.amount) >= 0 ? "+" : "-"}₹{Math.abs(Number(h.amount)).toLocaleString()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">No opening balance history yet.</p>
-              )}
-            </div>
-          </div>
-        </ModalContent>
-        <ModalFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setIsPartyDetailsOpen(false)}
-          >
-            Close
-          </Button>
-        </ModalFooter>
-      </Modal>
-
-      {/* Edit Opening Balance Modal */}
-      <Modal
-        isOpen={isEditOpeningOpen}
-        onClose={() => setIsEditOpeningOpen(false)}
-        title="Edit opening balance"
-      >
-        <ModalContent>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label>Amount</Label>
-              <Input
-                value={openingAmount}
-                onChange={(e) => setOpeningAmount(e.target.value)}
-                inputMode="decimal"
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <Label>Direction</Label>
-              <Select value={openingDirection} onValueChange={(v) => setOpeningDirection(v as any)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="OWED">Party owes me</SelectItem>
-                  <SelectItem value="ADVANCE">I owe party (credit/advance)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="md:col-span-2">
-              <Label>Notes (optional)</Label>
-              <Input
-                value={openingNotes}
-                onChange={(e) => setOpeningNotes(e.target.value)}
-                placeholder="Reason / notes"
-              />
-            </div>
-          </div>
-        </ModalContent>
-        <ModalFooter>
-          <Button type="button" variant="outline" onClick={() => setIsEditOpeningOpen(false)}>
-            Cancel
-          </Button>
-          <Button type="button" onClick={saveOpeningBalance} disabled={setCustomerOpeningBalance.isPending}>
-            {setCustomerOpeningBalance.isPending ? "Saving..." : "Save"}
-          </Button>
-        </ModalFooter>
-      </Modal>
-
       {/* Payment Modal */}
       <Modal
         isOpen={isPaymentModalOpen}
@@ -2255,49 +1973,6 @@ export default function SalesLedgerPage() {
                   <p className="text-xs text-gray-500 mt-1">
                     {t("farmer.salesLedger.paymentModal.phone")} {selectedParty.phone}
                   </p>
-                </div>
-              )}
-
-              {/* Transaction History */}
-              {selectedParty && (
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm">{t("farmer.salesLedger.paymentModal.recentTransactions")}</h4>
-                  <div className="max-h-32 overflow-y-auto border rounded-md">
-                    {sales
-                      .filter(
-                        (sale: any) =>
-                          sale.isCredit && sale.customerId === selectedParty.id
-                      )
-                      .slice(0, 3)
-                      .map((sale: any) => (
-                        <div
-                          key={sale.id}
-                          className="p-2 border-b last:border-b-0 text-xs"
-                        >
-                          <div className="flex justify-between">
-                            <span>
-                              {t("farmer.salesLedger.paymentModal.saleLabel")} ₹{Number(sale.amount).toLocaleString()}
-                            </span>
-                            <span className="text-gray-500">
-                              <DateDisplay date={sale.date} format="short" />
-                            </span>
-                          </div>
-                          {sale.payments && sale.payments.length > 0 && (
-                            <div className="text-green-600 mt-1">
-                              {t("farmer.salesLedger.paymentModal.paymentsLabel")} {sale.payments.length} (₹
-                              {sale.payments
-                                .reduce(
-                                  (sum: number, p: any) =>
-                                    sum + Number(p.amount),
-                                  0
-                                )
-                                .toLocaleString()}
-                              )
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                  </div>
                 </div>
               )}
 
