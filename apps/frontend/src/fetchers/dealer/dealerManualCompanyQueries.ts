@@ -5,6 +5,7 @@ import axiosInstance from "@/common/lib/axios";
 export const manualCompanyKeys = {
     all: ["dealer-manual-companies"] as const,
     lists: () => [...manualCompanyKeys.all, "list"] as const,
+    list: (archived: boolean) => [...manualCompanyKeys.lists(), { archived }] as const,
     statement: (id: string) =>
         [...manualCompanyKeys.all, "statement", id] as const,
 };
@@ -19,6 +20,7 @@ export interface ManualCompany {
     totalPurchases: number;
     totalPayments: number;
     _count?: { purchases: number; payments: number };
+    archivedAt?: string | null;
     createdAt: string;
 }
 
@@ -74,14 +76,15 @@ export interface ManualCompanyStatementResponse {
 
 // ==================== QUERIES ====================
 
-export const useGetManualCompanies = () => {
+export const useGetManualCompanies = (params?: { archived?: boolean }) => {
+    const archived = params?.archived ?? false;
     return useQuery({
-        queryKey: manualCompanyKeys.lists(),
+        queryKey: manualCompanyKeys.list(archived),
         queryFn: async () => {
             const { data } = await axiosInstance.get<{
                 success: boolean;
                 data: ManualCompany[];
-            }>("/dealer/manual-companies");
+            }>("/dealer/manual-companies", { params: { archived } });
             return data.data;
         },
     });
@@ -146,6 +149,68 @@ export const useUpdateManualCompany = () => {
             queryClient.invalidateQueries({
                 queryKey: manualCompanyKeys.lists(),
             });
+        },
+    });
+};
+
+export const useArchiveManualCompany = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (id: string) => {
+            const { data } = await axiosInstance.post(`/dealer/manual-companies/${id}/archive`);
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: manualCompanyKeys.lists() });
+        },
+    });
+};
+
+export const useUnarchiveManualCompany = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (id: string) => {
+            const { data } = await axiosInstance.post(`/dealer/manual-companies/${id}/unarchive`);
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: manualCompanyKeys.lists() });
+        },
+    });
+};
+
+export const useVoidManualPurchase = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (input: { companyId: string; purchaseId: string; reason?: string }) => {
+            const { data } = await axiosInstance.delete(
+                `/dealer/manual-companies/${input.companyId}/purchases/${input.purchaseId}`,
+                { data: { reason: input.reason } }
+            );
+            return data;
+        },
+        onSuccess: (_data, vars) => {
+            queryClient.invalidateQueries({ queryKey: manualCompanyKeys.statement(vars.companyId) });
+            queryClient.invalidateQueries({ queryKey: manualCompanyKeys.lists() });
+            queryClient.invalidateQueries({ queryKey: ["dealer-products"] });
+            queryClient.invalidateQueries({ queryKey: ["inventory-summary"] });
+        },
+    });
+};
+
+export const useVoidManualPayment = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (input: { companyId: string; paymentId: string; reason?: string }) => {
+            const { data } = await axiosInstance.delete(
+                `/dealer/manual-companies/${input.companyId}/payments/${input.paymentId}`,
+                { data: { reason: input.reason } }
+            );
+            return data;
+        },
+        onSuccess: (_data, vars) => {
+            queryClient.invalidateQueries({ queryKey: manualCompanyKeys.statement(vars.companyId) });
+            queryClient.invalidateQueries({ queryKey: manualCompanyKeys.lists() });
         },
     });
 };

@@ -84,6 +84,7 @@ export const getManualCompanies = async (
 ): Promise<any> => {
     try {
         const userId = req.userId;
+        const { archived } = req.query as any;
 
         const dealer = await prisma.dealer.findUnique({
             where: { ownerId: userId },
@@ -94,11 +95,24 @@ export const getManualCompanies = async (
             return res.status(404).json({ message: "Dealer not found" });
         }
 
+        const archivedBool =
+            archived === undefined
+                ? false
+                : String(archived).toLowerCase() === "true";
+
         const companies = await prisma.dealerManualCompany.findMany({
-            where: { dealerId: dealer.id },
+            where: {
+                dealerId: dealer.id,
+                archivedAt: archivedBool ? { not: null } : null,
+            },
             orderBy: { name: "asc" },
             include: {
-                _count: { select: { purchases: true, payments: true } },
+                _count: {
+                    select: {
+                        purchases: { where: { voidedAt: null } },
+                        payments: { where: { voidedAt: null } },
+                    },
+                },
             },
         });
 
@@ -108,6 +122,63 @@ export const getManualCompanies = async (
         });
     } catch (error: any) {
         console.error("Get manual companies error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+// ==================== ARCHIVE / UNARCHIVE MANUAL COMPANY ====================
+export const archiveManualCompany = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const userId = req.userId;
+        const { id } = req.params;
+
+        const dealer = await prisma.dealer.findUnique({
+            where: { ownerId: userId },
+            select: { id: true },
+        });
+        if (!dealer) return res.status(404).json({ message: "Dealer not found" });
+
+        const company = await prisma.dealerManualCompany.findUnique({ where: { id } });
+        if (!company || company.dealerId !== dealer.id) {
+            return res.status(404).json({ message: "Manual company not found" });
+        }
+
+        const updated = await prisma.dealerManualCompany.update({
+            where: { id },
+            data: { archivedAt: new Date(), archivedById: userId },
+        });
+
+        return res.status(200).json({ success: true, data: updated, message: "Manual company archived" });
+    } catch (error: any) {
+        console.error("Archive manual company error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+export const unarchiveManualCompany = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const userId = req.userId;
+        const { id } = req.params;
+
+        const dealer = await prisma.dealer.findUnique({
+            where: { ownerId: userId },
+            select: { id: true },
+        });
+        if (!dealer) return res.status(404).json({ message: "Dealer not found" });
+
+        const company = await prisma.dealerManualCompany.findUnique({ where: { id } });
+        if (!company || company.dealerId !== dealer.id) {
+            return res.status(404).json({ message: "Manual company not found" });
+        }
+
+        const updated = await prisma.dealerManualCompany.update({
+            where: { id },
+            data: { archivedAt: null, archivedById: null },
+        });
+
+        return res.status(200).json({ success: true, data: updated, message: "Manual company unarchived" });
+    } catch (error: any) {
+        console.error("Unarchive manual company error:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 };
@@ -188,6 +259,21 @@ export const deleteManualCompany = async (
 
         if (!company || company.dealerId !== dealer.id) {
             return res.status(404).json({ message: "Manual company not found" });
+        }
+
+        const [purchaseCount, paymentCount] = await Promise.all([
+            prisma.dealerManualPurchase.count({
+                where: { manualCompanyId: id, voidedAt: null },
+            }),
+            prisma.dealerManualCompanyPayment.count({
+                where: { manualCompanyId: id, voidedAt: null },
+            }),
+        ]);
+
+        if (purchaseCount > 0 || paymentCount > 0) {
+            return res.status(400).json({
+                message: "Company has transactions; archive instead.",
+            });
         }
 
         await prisma.dealerManualCompany.delete({ where: { id } });
@@ -505,6 +591,169 @@ export const recordManualCompanyPayment = async (
     }
 };
 
+// ==================== VOID (REVERSE) PURCHASE ====================
+export const voidManualPurchase = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const userId = req.userId;
+        const { companyId, purchaseId } = req.params;
+        const { reason } = req.body;
+
+        const dealer = await prisma.dealer.findUnique({
+            where: { ownerId: userId },
+            select: { id: true },
+        });
+        if (!dealer) return res.status(404).json({ message: "Dealer not found" });
+
+        const company = await prisma.dealerManualCompany.findUnique({ where: { id: companyId } });
+        if (!company || company.dealerId !== dealer.id) {
+            return res.status(404).json({ message: "Manual company not found" });
+        }
+
+        const purchase = await prisma.dealerManualPurchase.findUnique({
+            where: { id: purchaseId },
+            include: { items: true },
+        });
+        if (!purchase || purchase.manualCompanyId !== companyId) {
+            return res.status(404).json({ message: "Purchase not found" });
+        }
+        if ((purchase as any).voidedAt) {
+            return res.status(400).json({ message: "Purchase already voided" });
+        }
+
+        const result = await prisma.$transaction(async (tx) => {
+            // Stock safety checks
+            for (const item of purchase.items) {
+                if (!item.dealerProductId) continue;
+                const product = await tx.dealerProduct.findUnique({
+                    where: { id: item.dealerProductId },
+                    select: { id: true, currentStock: true },
+                });
+                if (!product) continue;
+                const currentStock = Number(product.currentStock || 0);
+                const qty = Number(item.quantity || 0);
+                if (currentStock < qty) {
+                    throw new Error(
+                        `Cannot delete: ${qty} units from purchase have been partially consumed. Available stock: ${currentStock}.`
+                    );
+                }
+            }
+
+            // Reverse inventory + create reversal transactions
+            for (const item of purchase.items) {
+                if (!item.dealerProductId) continue;
+                const qty = Number(item.quantity || 0);
+                const cost = Number(item.costPrice || 0);
+                const totalAmount = qty * cost;
+
+                await tx.dealerProduct.update({
+                    where: { id: item.dealerProductId },
+                    data: { currentStock: { decrement: new Prisma.Decimal(qty) } },
+                });
+
+                await tx.dealerProductTransaction.create({
+                    data: {
+                        type: "RETURN",
+                        quantity: new Prisma.Decimal(qty),
+                        unitPrice: new Prisma.Decimal(cost),
+                        totalAmount: new Prisma.Decimal(totalAmount),
+                        date: new Date(),
+                        description: `Void manual purchase from ${company.name}`,
+                        reference: `VOID_PURCHASE:${purchaseId}`,
+                        productId: item.dealerProductId,
+                        unit: item.unit || null,
+                    },
+                });
+            }
+
+            // Reverse company totals
+            await tx.dealerManualCompany.update({
+                where: { id: companyId },
+                data: {
+                    balance: { decrement: purchase.totalAmount },
+                    totalPurchases: { decrement: purchase.totalAmount },
+                },
+            });
+
+            // Mark voided
+            const updated = await tx.dealerManualPurchase.update({
+                where: { id: purchaseId },
+                data: {
+                    voidedAt: new Date(),
+                    voidedReason: reason ? String(reason).trim() || null : null,
+                },
+            });
+
+            return updated;
+        });
+
+        return res.status(200).json({
+            success: true,
+            data: result,
+            message: "Purchase voided successfully",
+        });
+    } catch (error: any) {
+        const msg = error.message || "Internal server error";
+        if (msg.startsWith("Cannot delete:")) {
+            return res.status(400).json({ message: msg });
+        }
+        console.error("Void manual purchase error:", error);
+        return res.status(500).json({ message: msg });
+    }
+};
+
+// ==================== VOID (REVERSE) PAYMENT ====================
+export const voidManualCompanyPayment = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const userId = req.userId;
+        const { companyId, paymentId } = req.params;
+        const { reason } = req.body;
+
+        const dealer = await prisma.dealer.findUnique({
+            where: { ownerId: userId },
+            select: { id: true },
+        });
+        if (!dealer) return res.status(404).json({ message: "Dealer not found" });
+
+        const company = await prisma.dealerManualCompany.findUnique({ where: { id: companyId } });
+        if (!company || company.dealerId !== dealer.id) {
+            return res.status(404).json({ message: "Manual company not found" });
+        }
+
+        const payment = await prisma.dealerManualCompanyPayment.findUnique({
+            where: { id: paymentId },
+        });
+        if (!payment || payment.manualCompanyId !== companyId) {
+            return res.status(404).json({ message: "Payment not found" });
+        }
+        if ((payment as any).voidedAt) {
+            return res.status(400).json({ message: "Payment already voided" });
+        }
+
+        const result = await prisma.$transaction(async (tx) => {
+            await tx.dealerManualCompany.update({
+                where: { id: companyId },
+                data: {
+                    balance: { increment: payment.amount },
+                    totalPayments: { decrement: payment.amount },
+                },
+            });
+
+            return tx.dealerManualCompanyPayment.update({
+                where: { id: paymentId },
+                data: {
+                    voidedAt: new Date(),
+                    voidedReason: reason ? String(reason).trim() || null : null,
+                },
+            });
+        });
+
+        return res.status(200).json({ success: true, data: result, message: "Payment voided successfully" });
+    } catch (error: any) {
+        console.error("Void manual payment error:", error);
+        return res.status(500).json({ message: error.message || "Internal server error" });
+    }
+};
+
 // ==================== GET STATEMENT ====================
 export const getManualCompanyStatement = async (
     req: Request,
@@ -538,14 +787,14 @@ export const getManualCompanyStatement = async (
 
         // Get purchases
         const purchases = await prisma.dealerManualPurchase.findMany({
-            where: { manualCompanyId: id },
+            where: { manualCompanyId: id, voidedAt: null },
             include: { items: true },
             orderBy: { date: "desc" },
         });
 
         // Get payments
         const payments = await prisma.dealerManualCompanyPayment.findMany({
-            where: { manualCompanyId: id },
+            where: { manualCompanyId: id, voidedAt: null },
             orderBy: { paymentDate: "desc" },
         });
 

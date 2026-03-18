@@ -2321,6 +2321,10 @@ model DealerManualCompany {
   dealerId String
   dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
 
+  // Archive (instead of delete when there is history)
+  archivedAt   DateTime?
+  archivedById String?
+
   // Running balance (positive = dealer owes company)
   balance        Decimal @default(0) @db.Decimal(10, 2)
   totalPurchases Decimal @default(0) @db.Decimal(10, 2)
@@ -2369,6 +2373,10 @@ model DealerManualPurchase {
   notes       String?
   reference   String?
 
+  // Void instead of hard delete (audit-safe)
+  voidedAt     DateTime?
+  voidedReason String?
+
   manualCompanyId String
   manualCompany   DealerManualCompany @relation(fields: [manualCompanyId], references: [id], onDelete: Cascade)
 
@@ -2411,6 +2419,10 @@ model DealerManualCompanyPayment {
   notes         String?
   reference     String?
   receiptUrl    String?
+
+  // Void instead of hard delete (audit-safe)
+  voidedAt     DateTime?
+  voidedReason String?
 
   // Balance snapshot after this payment
   balanceAfter Decimal @db.Decimal(10, 2)

@@ -69,6 +69,8 @@ import {
     useCreateManualCompany,
     useUpdateManualCompany,
     useDeleteManualCompany,
+    useArchiveManualCompany,
+    useUnarchiveManualCompany,
     useRecordManualPurchase,
     useRecordManualCompanyPayment,
     type ManualCompany,
@@ -106,6 +108,7 @@ export default function DealerCompanyPage() {
     const [paymentMethod, setPaymentMethod] = useState("CASH");
     const [paymentNotes, setPaymentNotes] = useState("");
     const [deleteManualConfirm, setDeleteManualConfirm] = useState<ManualCompany | null>(null);
+    const [manualTab, setManualTab] = useState<"active" | "archived">("active");
 
     // Queries
     const { data: requestsData, isLoading: requestsLoading } =
@@ -126,11 +129,15 @@ export default function DealerCompanyPage() {
     const unarchiveMutation = useUnarchiveDealerCompany();
 
     // Manual company queries & mutations
-    const { data: manualCompaniesData, isLoading: manualLoading } = useGetManualCompanies();
+    const { data: manualCompaniesData, isLoading: manualLoading } = useGetManualCompanies({
+        archived: manualTab === "archived",
+    });
     const createManualMutation = useCreateManualCompany();
     const deleteManualMutation = useDeleteManualCompany();
     const recordPurchaseMutation = useRecordManualPurchase();
     const recordPaymentMutation = useRecordManualCompanyPayment();
+    const archiveManualMutation = useArchiveManualCompany();
+    const unarchiveManualMutation = useUnarchiveManualCompany();
     const manualCompanies = manualCompaniesData || [];
 
     const requests = requestsData?.data || [];
@@ -485,30 +492,7 @@ export default function DealerCompanyPage() {
 
 
 
-            {/* Tab Selector */}
-            <div className="flex gap-2 border-b">
-                <button
-                    onClick={() => setViewTab("active")}
-                    className={`px-4 py-2 font-medium transition-colors ${viewTab === "active"
-                        ? "border-b-2 border-primary text-primary"
-                        : "text-muted-foreground hover:text-foreground"
-                        }`}
-                >
-                    {t("dealer.company.tabs.active")}
-                </button>
-                <button
-                    onClick={() => setViewTab("archived")}
-                    className={`px-4 py-2 font-medium transition-colors ${viewTab === "archived"
-                        ? "border-b-2 border-primary text-primary"
-                        : "text-muted-foreground hover:text-foreground"
-                        }`}
-                >
-                    {t("dealer.company.tabs.archived", { count: archivedCompanies.length })}
-                </button>
-            </div>
-
-            {viewTab === "active" ? (
-                <>
+            <>
                     {/* Manual Companies Section */}
                     <Card>
                         <CardHeader>
@@ -518,6 +502,26 @@ export default function DealerCompanyPage() {
                                     <CardDescription>
                                         Companies added manually for purchase tracking ({manualCompanies.length})
                                     </CardDescription>
+                                    <div className="flex gap-2 border-b mt-3">
+                                        <button
+                                            onClick={() => setManualTab("active")}
+                                            className={`px-3 py-1.5 text-sm font-medium transition-colors ${manualTab === "active"
+                                                ? "border-b-2 border-primary text-primary"
+                                                : "text-muted-foreground hover:text-foreground"
+                                                }`}
+                                        >
+                                            Active
+                                        </button>
+                                        <button
+                                            onClick={() => setManualTab("archived")}
+                                            className={`px-3 py-1.5 text-sm font-medium transition-colors ${manualTab === "archived"
+                                                ? "border-b-2 border-primary text-primary"
+                                                : "text-muted-foreground hover:text-foreground"
+                                                }`}
+                                        >
+                                            Archived
+                                        </button>
+                                    </div>
                                 </div>
                                 <Button
                                     onClick={() => setIsAddManualOpen(true)}
@@ -534,11 +538,13 @@ export default function DealerCompanyPage() {
                             {manualCompanies.length === 0 ? (
                                 <div className="text-center py-8">
                                     <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                                    <h3 className="text-lg font-semibold mb-2">No Manual Companies</h3>
+                                    <h3 className="text-lg font-semibold mb-2">
+                                        {manualTab === "archived" ? "No Archived Manual Companies" : "No Manual Companies"}
+                                    </h3>
                                     <p className="text-muted-foreground mb-4">
                                         Add companies you purchase from that aren&apos;t on the platform
                                     </p>
-                                    <Button onClick={() => setIsAddManualOpen(true)}>
+                                    <Button onClick={() => setIsAddManualOpen(true)} disabled={manualTab === "archived"}>
                                         <Plus className="mr-2 h-4 w-4" />
                                         Add Manual Company
                                     </Button>
@@ -628,14 +634,48 @@ export default function DealerCompanyPage() {
                                                         <Eye className="mr-2 h-4 w-4" />
                                                         Account
                                                     </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => setDeleteManualConfirm(company)}
-                                                        className="text-muted-foreground hover:text-red-600"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
+                                                    {manualTab === "archived" ? (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={async () => {
+                                                                try {
+                                                                    await unarchiveManualMutation.mutateAsync(company.id);
+                                                                    toast.success("Manual company unarchived");
+                                                                } catch (error: any) {
+                                                                    toast.error(error.response?.data?.message || "Failed to unarchive");
+                                                                }
+                                                            }}
+                                                            className="text-muted-foreground hover:text-foreground"
+                                                        >
+                                                            <ArchiveRestore className="h-4 w-4" />
+                                                        </Button>
+                                                    ) : (company._count?.purchases || 0) > 0 || (company._count?.payments || 0) > 0 ? (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={async () => {
+                                                                try {
+                                                                    await archiveManualMutation.mutateAsync(company.id);
+                                                                    toast.success("Manual company archived");
+                                                                } catch (error: any) {
+                                                                    toast.error(error.response?.data?.message || "Failed to archive");
+                                                                }
+                                                            }}
+                                                            className="text-muted-foreground hover:text-foreground"
+                                                        >
+                                                            <Archive className="h-4 w-4" />
+                                                        </Button>
+                                                    ) : (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => setDeleteManualConfirm(company)}
+                                                            className="text-muted-foreground hover:text-red-600"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </CardContent>
                                         </Card>
@@ -648,13 +688,42 @@ export default function DealerCompanyPage() {
                     {/* Connected Companies Section */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>{t("dealer.company.connected.title")}</CardTitle>
-                            <CardDescription>
-                                {t("dealer.company.connected.subtitle", { count: filteredConnectedCompanies.length })}
-                            </CardDescription>
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <CardTitle>{t("dealer.company.connected.title")}</CardTitle>
+                                    <CardDescription>
+                                        {t("dealer.company.connected.subtitle", {
+                                            count: viewTab === "active"
+                                                ? filteredConnectedCompanies.length
+                                                : archivedCompanies.length,
+                                        })}
+                                    </CardDescription>
+                                </div>
+                                <div className="flex gap-2 border-b">
+                                    <button
+                                        onClick={() => setViewTab("active")}
+                                        className={`px-3 py-1.5 text-sm font-medium transition-colors ${viewTab === "active"
+                                            ? "border-b-2 border-primary text-primary"
+                                            : "text-muted-foreground hover:text-foreground"
+                                            }`}
+                                    >
+                                        {t("dealer.company.tabs.active")}
+                                    </button>
+                                    <button
+                                        onClick={() => setViewTab("archived")}
+                                        className={`px-3 py-1.5 text-sm font-medium transition-colors ${viewTab === "archived"
+                                            ? "border-b-2 border-primary text-primary"
+                                            : "text-muted-foreground hover:text-foreground"
+                                            }`}
+                                    >
+                                        {t("dealer.company.tabs.archived", { count: archivedCompanies.length })}
+                                    </button>
+                                </div>
+                            </div>
                         </CardHeader>
                         <CardContent>
-                            {filteredConnectedCompanies.length === 0 ? (
+                            {viewTab === "active" ? (
+                                filteredConnectedCompanies.length === 0 ? (
                                 <div className="text-center py-8">
                                     <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                                     <h3 className="text-lg font-semibold mb-2">{t("dealer.company.connected.empty.title")}</h3>
@@ -771,6 +840,75 @@ export default function DealerCompanyPage() {
                                         </Card>
                                     ))}
                                 </div>
+                            )
+                            ) : (
+                                archivedCompanies.length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <Archive className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                                        <h3 className="text-lg font-semibold mb-2">{t("dealer.company.archived.empty.title")}</h3>
+                                        <p className="text-muted-foreground">
+                                            {t("dealer.company.archived.empty.desc")}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                        {archivedCompanies.map((company) => (
+                                            <Card key={company.id} className="relative border-gray-300 bg-gray-50/30">
+                                                <CardHeader>
+                                                    <div className="flex items-start justify-between">
+                                                        <div className="flex-1">
+                                                            <CardTitle className="text-lg">{company.name}</CardTitle>
+                                                            {company.address && (
+                                                                <CardDescription className="mt-1">
+                                                                    {company.address}
+                                                                </CardDescription>
+                                                            )}
+                                                        </div>
+                                                        <Badge className="bg-gray-200 text-gray-700 hover:bg-gray-200">
+                                                            <Archive className="mr-1 h-3 w-3" />
+                                                            {t("dealer.company.badges.archived")}
+                                                        </Badge>
+                                                    </div>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <div className="space-y-2 text-sm">
+                                                        {company.owner && (
+                                                            <>
+                                                                <div className="flex justify-between">
+                                                                    <span className="text-muted-foreground">{t("dealer.company.connected.card.owner")}</span>
+                                                                    <span className="font-medium">{company.owner.name}</span>
+                                                                </div>
+                                                                <div className="flex justify-between">
+                                                                    <span className="text-muted-foreground">{t("dealer.company.connected.card.contact")}</span>
+                                                                    <span className="font-medium">{company.owner.phone}</span>
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                        <div className="flex justify-between">
+                                                            <span className="text-muted-foreground">{t("dealer.company.connected.card.connected")}</span>
+                                                            <span className="font-medium">
+                                                                <DateDisplay date={company.connectedAt} />
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="mt-4">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="w-full"
+                                                            onClick={() => handleUnarchive(company.dealerCompanyId, company.name)}
+                                                            disabled={unarchiveMutation.isPending}
+                                                        >
+                                                            <ArchiveRestore className="mr-2 h-4 w-4" />
+                                                            {t("dealer.company.buttons.restore")}
+                                                        </Button>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                )
                             )}
                         </CardContent>
                     </Card>
@@ -891,89 +1029,7 @@ export default function DealerCompanyPage() {
                             )}
                         </CardContent>
                     </Card>
-
-
-                </>
-            ) : (
-                /* Archived Companies Tab */
-                <Card>
-                    <CardHeader>
-                        <CardTitle>{t("dealer.company.archived.title")}</CardTitle>
-                        <CardDescription>
-                            {t("dealer.company.archived.subtitle", { count: archivedCompanies.length })}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {archivedCompanies.length === 0 ? (
-                            <div className="text-center py-8">
-                                <Archive className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                                <h3 className="text-lg font-semibold mb-2">{t("dealer.company.archived.empty.title")}</h3>
-                                <p className="text-muted-foreground">
-                                    {t("dealer.company.archived.empty.desc")}
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                {archivedCompanies.map((company) => (
-                                    <Card key={company.id} className="relative border-gray-300 bg-gray-50/30">
-                                        <CardHeader>
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex-1">
-                                                    <CardTitle className="text-lg">{company.name}</CardTitle>
-                                                    {company.address && (
-                                                        <CardDescription className="mt-1">
-                                                            {company.address}
-                                                        </CardDescription>
-                                                    )}
-                                                </div>
-                                                <Badge className="bg-gray-200 text-gray-700 hover:bg-gray-200">
-                                                    <Archive className="mr-1 h-3 w-3" />
-                                                    {t("dealer.company.badges.archived")}
-                                                </Badge>
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="space-y-2 text-sm">
-                                                {company.owner && (
-                                                    <>
-                                                        <div className="flex justify-between">
-                                                            <span className="text-muted-foreground">{t("dealer.company.connected.card.owner")}</span>
-                                                            <span className="font-medium">{company.owner.name}</span>
-                                                        </div>
-                                                        <div className="flex justify-between">
-                                                            <span className="text-muted-foreground">{t("dealer.company.connected.card.contact")}</span>
-                                                            <span className="font-medium">{company.owner.phone}</span>
-                                                        </div>
-                                                    </>
-                                                )}
-                                                <div className="flex justify-between">
-                                                    <span className="text-muted-foreground">{t("dealer.company.connected.card.connected")}</span>
-                                                    <span className="font-medium">
-                                                        <DateDisplay date={company.connectedAt} />
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <div className="mt-4">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="w-full"
-                                                    onClick={() => handleUnarchive(company.dealerCompanyId, company.name)}
-                                                    disabled={unarchiveMutation.isPending}
-                                                >
-                                                    <ArchiveRestore className="mr-2 h-4 w-4" />
-                                                    {t("dealer.company.buttons.restore")}
-                                                </Button>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            )}
+            </>
 
             {/* Archive Confirmation Dialog */}
             {archiveConfirm && (
@@ -1426,7 +1482,7 @@ export default function DealerCompanyPage() {
                             <DialogHeader>
                                 <DialogTitle>Delete Manual Company</DialogTitle>
                                 <DialogDescription>
-                                    Are you sure you want to delete &quot;{deleteManualConfirm.name}&quot;? All purchase and payment history for this company will be removed. Inventory items will not be affected.
+                                    Are you sure you want to delete &quot;{deleteManualConfirm.name}&quot;? This is only allowed when the company has no purchases/payments.
                                 </DialogDescription>
                             </DialogHeader>
                             <DialogFooter>
