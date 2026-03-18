@@ -509,136 +509,6 @@ export default function DealerCompanyPage() {
 
             {viewTab === "active" ? (
                 <>
-                    {/* Connected Companies Section */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>{t("dealer.company.connected.title")}</CardTitle>
-                            <CardDescription>
-                                {t("dealer.company.connected.subtitle", { count: filteredConnectedCompanies.length })}
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {filteredConnectedCompanies.length === 0 ? (
-                                <div className="text-center py-8">
-                                    <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                                    <h3 className="text-lg font-semibold mb-2">{t("dealer.company.connected.empty.title")}</h3>
-                                    <p className="text-muted-foreground mb-4">
-                                        {search
-                                            ? t("dealer.company.connected.empty.descSearch")
-                                            : t("dealer.company.connected.empty.descDefault")}
-                                    </p>
-                                    {!search && (
-                                        <Button onClick={() => setIsApplyDialogOpen(true)}>
-                                            <Plus className="mr-2 h-4 w-4" />
-                                            {t("dealer.company.buttons.apply")}
-                                        </Button>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                    {filteredConnectedCompanies.map((company) => (
-                                        <Card key={company.id} className="relative overflow-hidden border-green-200 bg-green-50/30">
-                                            <CardHeader>
-                                                <div className="flex items-start justify-between">
-                                                    <div className="flex-1">
-                                                        <CardTitle className="text-lg">{company.name}</CardTitle>
-                                                        {company.address && (
-                                                            <CardDescription className="mt-1">
-                                                                {company.address}
-                                                            </CardDescription>
-                                                        )}
-                                                    </div>
-                                                    <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-                                                        <CheckCircle className="mr-1 h-3 w-3" />
-                                                        {t("dealer.company.badges.connected")}
-                                                    </Badge>
-                                                </div>
-                                            </CardHeader>
-                                            <CardContent>
-                                                {(() => {
-                                                    const balance = getCompanyBalance(company.id);
-                                                    return (
-                                                        <>
-                                                            <div className="space-y-2 text-sm">
-                                                                {/* Balance Display */}
-                                                                <div className="flex justify-between">
-                                                                    <span className="text-muted-foreground">{t("dealer.company.connected.card.balance")}</span>
-                                                                    <span
-                                                                        className={`font-bold ${balance > 0
-                                                                            ? "text-red-600"
-                                                                            : balance < 0
-                                                                                ? "text-green-600"
-                                                                                : ""
-                                                                            }`}
-                                                                    >
-                                                                        {balance > 0
-                                                                            ? `${formatCurrency(balance)} ${t("dealer.company.connected.card.owed")}`
-                                                                            : balance < 0
-                                                                                ? `${formatCurrency(balance)} ${t("dealer.company.connected.card.advance")}`
-                                                                                : "रू 0.00"}
-                                                                    </span>
-                                                                </div>
-                                                                {company.owner && (
-                                                                    <>
-                                                                        <div className="flex justify-between">
-                                                                            <span className="text-muted-foreground">{t("dealer.company.connected.card.owner")}</span>
-                                                                            <span className="font-medium">{company.owner.name}</span>
-                                                                        </div>
-                                                                        <div className="flex justify-between">
-                                                                            <span className="text-muted-foreground">{t("dealer.company.connected.card.contact")}</span>
-                                                                            <span className="font-medium">{company.owner.phone}</span>
-                                                                        </div>
-                                                                    </>
-                                                                )}
-                                                                <div className="flex justify-between">
-                                                                    <span className="text-muted-foreground">{t("dealer.company.connected.card.connected")}</span>
-                                                                    <span className="font-medium text-green-600">
-                                                                        <DateDisplay date={company.connectedAt} />
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="mt-4 flex gap-2">
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    className="flex-1"
-                                                                    onClick={() => router.push(`/dealer/dashboard/companies/${company.id}/account`)}
-                                                                >
-                                                                    <Wallet className="mr-2 h-4 w-4" />
-                                                                    {t("dealer.company.buttons.viewAccount")}
-                                                                </Button>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    className="flex-1"
-                                                                    onClick={() => {
-                                                                        window.location.href = `/dealer/dashboard/company/${company.id}/catalog`;
-                                                                    }}
-                                                                >
-                                                                    <Eye className="mr-2 h-4 w-4" />
-                                                                    {t("dealer.company.buttons.viewCatalog")}
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => setArchiveConfirm({ id: company.dealerCompanyId, name: company.name })}
-                                                                    className="text-muted-foreground hover:text-foreground"
-                                                                >
-                                                                    <Archive className="h-4 w-4" />
-                                                                </Button>
-                                                            </div>
-                                                        </>
-                                                    );
-                                                })()}
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
                     {/* Manual Companies Section */}
                     <Card>
                         <CardHeader>
@@ -767,6 +637,136 @@ export default function DealerCompanyPage() {
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Connected Companies Section */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>{t("dealer.company.connected.title")}</CardTitle>
+                            <CardDescription>
+                                {t("dealer.company.connected.subtitle", { count: filteredConnectedCompanies.length })}
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {filteredConnectedCompanies.length === 0 ? (
+                                <div className="text-center py-8">
+                                    <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                                    <h3 className="text-lg font-semibold mb-2">{t("dealer.company.connected.empty.title")}</h3>
+                                    <p className="text-muted-foreground mb-4">
+                                        {search
+                                            ? t("dealer.company.connected.empty.descSearch")
+                                            : t("dealer.company.connected.empty.descDefault")}
+                                    </p>
+                                    {!search && (
+                                        <Button onClick={() => setIsApplyDialogOpen(true)}>
+                                            <Plus className="mr-2 h-4 w-4" />
+                                            {t("dealer.company.buttons.apply")}
+                                        </Button>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                    {filteredConnectedCompanies.map((company) => (
+                                        <Card key={company.id} className="relative overflow-hidden border-green-200 bg-green-50/30">
+                                            <CardHeader>
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex-1">
+                                                        <CardTitle className="text-lg">{company.name}</CardTitle>
+                                                        {company.address && (
+                                                            <CardDescription className="mt-1">
+                                                                {company.address}
+                                                            </CardDescription>
+                                                        )}
+                                                    </div>
+                                                    <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                                                        <CheckCircle className="mr-1 h-3 w-3" />
+                                                        {t("dealer.company.badges.connected")}
+                                                    </Badge>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent>
+                                                {(() => {
+                                                    const balance = getCompanyBalance(company.id);
+                                                    return (
+                                                        <>
+                                                            <div className="space-y-2 text-sm">
+                                                                {/* Balance Display */}
+                                                                <div className="flex justify-between">
+                                                                    <span className="text-muted-foreground">{t("dealer.company.connected.card.balance")}</span>
+                                                                    <span
+                                                                        className={`font-bold ${balance > 0
+                                                                            ? "text-red-600"
+                                                                            : balance < 0
+                                                                                ? "text-green-600"
+                                                                                : ""
+                                                                            }`}
+                                                                    >
+                                                                        {balance > 0
+                                                                            ? `${formatCurrency(balance)} ${t("dealer.company.connected.card.owed")}`
+                                                                            : balance < 0
+                                                                                ? `${formatCurrency(balance)} ${t("dealer.company.connected.card.advance")}`
+                                                                                : "रू 0.00"}
+                                                                    </span>
+                                                                </div>
+                                                                {company.owner && (
+                                                                    <>
+                                                                        <div className="flex justify-between">
+                                                                            <span className="text-muted-foreground">{t("dealer.company.connected.card.owner")}</span>
+                                                                            <span className="font-medium">{company.owner.name}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between">
+                                                                            <span className="text-muted-foreground">{t("dealer.company.connected.card.contact")}</span>
+                                                                            <span className="font-medium">{company.owner.phone}</span>
+                                                                        </div>
+                                                                    </>
+                                                                )}
+                                                                <div className="flex justify-between">
+                                                                    <span className="text-muted-foreground">{t("dealer.company.connected.card.connected")}</span>
+                                                                    <span className="font-medium text-green-600">
+                                                                        <DateDisplay date={company.connectedAt} />
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="mt-4 flex gap-2">
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="flex-1"
+                                                                    onClick={() => router.push(`/dealer/dashboard/companies/${company.id}/account`)}
+                                                                >
+                                                                    <Wallet className="mr-2 h-4 w-4" />
+                                                                    {t("dealer.company.buttons.viewAccount")}
+                                                                </Button>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="flex-1"
+                                                                    onClick={() => {
+                                                                        window.location.href = `/dealer/dashboard/company/${company.id}/catalog`;
+                                                                    }}
+                                                                >
+                                                                    <Eye className="mr-2 h-4 w-4" />
+                                                                    {t("dealer.company.buttons.viewCatalog")}
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => setArchiveConfirm({ id: company.dealerCompanyId, name: company.name })}
+                                                                    className="text-muted-foreground hover:text-foreground"
+                                                                >
+                                                                    <Archive className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
                                             </CardContent>
                                         </Card>
                                     ))}
