@@ -304,50 +304,7 @@ export default function CustomerAccountPage() {
       </div>
 
       {/* Opening balance (manual customers only) */}
-      {!isFarmer && (
-        <Card>
-          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-            <div>
-              <CardTitle className="text-sm font-medium">Opening balance</CardTitle>
-              <CardDescription>
-                Starting balance before transactions in Poultry360 (editable with history).
-              </CardDescription>
-            </div>
-            <Button variant="outline" size="sm" onClick={openEditOpening}>
-              Edit
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`text-2xl font-bold ${Number(openingBalance?.amount ?? 0) > 0
-                ? "text-red-600"
-                : Number(openingBalance?.amount ?? 0) < 0
-                  ? "text-green-600"
-                  : ""
-                }`}
-            >
-              {formatCurrency(Math.abs(Number(openingBalance?.amount ?? 0)))}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {Number(openingBalance?.amount ?? 0) > 0
-                ? "Customer owes me"
-                : Number(openingBalance?.amount ?? 0) < 0
-                  ? "I owe customer (advance/credit)"
-                  : "No opening balance"}
-            </p>
-            {openingBalance?.date && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Set on <DateDisplay date={openingBalance.date} format="long" />
-              </p>
-            )}
-            {openingBalance?.notes && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Note: {openingBalance.notes}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      {/* Opening balance now shown as a small summary card inside the grid (manual customers only) */}
 
       {/* Connected opening balance (connected farmers only) */}
       {isFarmer && (
@@ -400,7 +357,7 @@ export default function CustomerAccountPage() {
       )}
 
       {/* Account Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className={`grid gap-4 ${isFarmer ? "md:grid-cols-3" : "md:grid-cols-4"}`}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
@@ -465,23 +422,38 @@ export default function CustomerAccountPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Payment Rate
-            </CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {totalSales
-                ? Math.round((totalPaid / totalSales) * 100)
-                : 0}
-              %
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Paid vs Sold</p>
-          </CardContent>
-        </Card>
+        {!isFarmer && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Opening balance</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div
+                className={`text-2xl font-bold ${Number(openingBalance?.amount ?? 0) > 0
+                  ? "text-red-600"
+                  : Number(openingBalance?.amount ?? 0) < 0
+                    ? "text-green-600"
+                    : ""
+                  }`}
+              >
+                {formatCurrency(Math.abs(Number(openingBalance?.amount ?? 0)))}
+              </div>
+              <div className="flex items-center justify-between gap-2 mt-1">
+                <p className="text-xs text-muted-foreground">
+                  {Number(openingBalance?.amount ?? 0) > 0
+                    ? "Customer owes me"
+                    : Number(openingBalance?.amount ?? 0) < 0
+                      ? "I owe customer (advance/credit)"
+                      : "No opening balance"}
+                </p>
+                <Button variant="outline" size="sm" onClick={openEditOpening}>
+                  Edit
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Account Statement with Tabs */}

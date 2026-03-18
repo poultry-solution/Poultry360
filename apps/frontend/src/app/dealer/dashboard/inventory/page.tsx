@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Search, Package, AlertTriangle, TrendingUp, Check, X, ArrowRightLeft, Trash2, Repeat } from "lucide-react";
+import { Search, Package, AlertTriangle, TrendingUp, Check, X, ArrowRightLeft, Repeat } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -34,7 +34,6 @@ import {
   useGetDealerProducts,
   useGetInventorySummary,
   useUpdateDealerProduct,
-  useDeleteDealerProduct,
 } from "@/fetchers/dealer/dealerProductQueries";
 import { useRecordManualPurchase } from "@/fetchers/dealer/dealerManualCompanyQueries";
 import { useI18n } from "@/i18n/useI18n";
@@ -129,11 +128,9 @@ export default function DealerInventoryPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("");
-  const [deleteConfirm, setDeleteConfirm] = useState<any | null>(null);
   const [reorderRow, setReorderRow] = useState<any | null>(null);
   const [reorderDate, setReorderDate] = useState<string>(new Date().toISOString());
   const [reorderQty, setReorderQty] = useState<string>("");
-  const deleteMutation = useDeleteDealerProduct();
   const recordPurchaseMutation = useRecordManualPurchase();
 
   // Queries
@@ -397,18 +394,6 @@ export default function DealerInventoryPage() {
                           <Repeat className="h-4 w-4" />
                         </Button>
                       )}
-
-                      {stock === 0 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-muted-foreground hover:text-red-600"
-                          onClick={() => setDeleteConfirm(row)}
-                          title="Delete (only when stock is 0)"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
                     </div>
                   );
                 },
@@ -447,45 +432,6 @@ export default function DealerInventoryPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* Delete confirm dialog */}
-      <Dialog open={!!deleteConfirm} onOpenChange={(o) => !o && setDeleteConfirm(null)}>
-        <DialogContent className="max-w-md bg-white">
-          <DialogHeader>
-            <DialogTitle>Delete inventory item?</DialogTitle>
-            <DialogDescription>
-              This can only be deleted when stock is 0. This will remove the item from your inventory list.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="text-sm">
-            <div className="font-medium">{deleteConfirm?.name}</div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Current stock: {Number(deleteConfirm?.currentStock || 0).toFixed(2)} {deleteConfirm?.unit}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-red-600 text-white hover:bg-red-700"
-              onClick={async () => {
-                if (!deleteConfirm) return;
-                try {
-                  await deleteMutation.mutateAsync(deleteConfirm.id);
-                  toast.success("Item deleted");
-                  setDeleteConfirm(null);
-                } catch (e: any) {
-                  toast.error(e?.response?.data?.message || "Failed to delete");
-                }
-              }}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Reorder dialog */}
       <Dialog open={!!reorderRow} onOpenChange={(o) => !o && setReorderRow(null)}>
