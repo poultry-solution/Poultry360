@@ -451,7 +451,8 @@ export const approveFarmerRequest = async (
       }
 
       // Create or update connected account ledger (DealerFarmerAccount)
-      // Opening balance is stored as an account-level adjustment and applied to the running balance.
+      // Opening balance is stored as an account-level adjustment.
+      // IMPORTANT: While status is PENDING_ACK, we do NOT mutate running balance.
       if (numericOpeningBalance !== null && numericOpeningBalance !== 0) {
         const account = await tx.dealerFarmerAccount.upsert({
           where: {
@@ -463,7 +464,8 @@ export const approveFarmerRequest = async (
           create: {
             dealerId: verificationRequest.dealerId,
             farmerId: verificationRequest.farmerId,
-            // Always apply opening via delta below to avoid double-counting on first create.
+            // Initialize running balance to 0.
+            // The pending amount is applied to running balance only when the farmer acknowledges.
             balance: 0,
             totalSales: 0,
             totalPayments: 0,
@@ -471,26 +473,11 @@ export const approveFarmerRequest = async (
             openingBalanceStatus: "PENDING_ACK",
           },
           update: {
-            // We'll apply delta below based on previous opening snapshot.
-          },
-          select: { id: true },
-        });
-
-        const prev = await tx.dealerFarmerAccountAdjustment.findFirst({
-          where: { accountId: account.id, type: "OPENING_BALANCE" },
-          orderBy: { createdAt: "desc" },
-          select: { amount: true },
-        });
-        const prevAmount = prev ? Number(prev.amount) : 0;
-        const delta = numericOpeningBalance - prevAmount;
-
-        await tx.dealerFarmerAccount.update({
-          where: { id: account.id },
-          data: {
-            balance: { increment: delta },
+            // Do not touch running balance while pending.
             openingBalanceCurrent: numericOpeningBalance,
             openingBalanceStatus: "PENDING_ACK",
           },
+          select: { id: true },
         });
 
         await tx.dealerFarmerAccountAdjustment.create({
@@ -608,26 +595,15 @@ export const setConnectedOpeningBalanceByDealer = async (req: Request, res: Resp
           balance: 0,
           totalSales: 0,
           totalPayments: 0,
+            openingBalanceCurrent: numericOpening,
+            openingBalanceStatus: "PENDING_ACK",
         },
-        update: {},
-        select: { id: true },
-      });
-
-      const prev = await tx.dealerFarmerAccountAdjustment.findFirst({
-        where: { accountId: account.id, type: "OPENING_BALANCE" },
-        orderBy: { createdAt: "desc" },
-        select: { amount: true },
-      });
-      const prevAmount = prev ? Number(prev.amount) : 0;
-      const delta = numericOpening - prevAmount;
-
-      await tx.dealerFarmerAccount.update({
-        where: { id: account.id },
-        data: {
-          balance: { increment: delta },
+        update: {
+          // Do not touch running balance while pending.
           openingBalanceCurrent: numericOpening,
           openingBalanceStatus: "PENDING_ACK",
         },
+        select: { id: true },
       });
 
       const adj = await tx.dealerFarmerAccountAdjustment.create({
@@ -689,7 +665,7 @@ export const acknowledgeConnectedOpeningBalance = async (req: Request, res: Resp
     const result = await prismaAny.$transaction(async (tx: any) => {
       const account = await tx.dealerFarmerAccount.findUnique({
         where: { dealerId_farmerId: { dealerId: connection.dealerId, farmerId: connection.farmerId } },
-        select: { id: true },
+        select: { id: true, balance: true, totalSales: true, totalPayments: true },
       });
       if (!account) throw new Error("Account not found");
 
@@ -700,6 +676,14 @@ export const acknowledgeConnectedOpeningBalance = async (req: Request, res: Resp
       if (!pending) {
         return { ok: false, message: "No pending opening balance to acknowledge" };
       }
+
+      const newAmount = Number(pending.amount);
+
+      // Balance always includes (openingEffective + totalSales - totalPayments).
+      // So we compute the currently-effective opening component and replace it with the pending amount.
+      const currentOpeningEffective =
+        Number(account.balance) - Number(account.totalSales) + Number(account.totalPayments);
+      const delta = newAmount - currentOpeningEffective;
 
       const updated = await tx.dealerFarmerAccountAdjustment.update({
         where: { id: pending.id },
@@ -712,7 +696,12 @@ export const acknowledgeConnectedOpeningBalance = async (req: Request, res: Resp
 
       await tx.dealerFarmerAccount.update({
         where: { id: account.id },
-        data: { openingBalanceStatus: "ACKNOWLEDGED" },
+        data: {
+          // Apply the pending amount only at acknowledgement time.
+          balance: { increment: delta },
+          openingBalanceCurrent: newAmount,
+          openingBalanceStatus: "ACKNOWLEDGED",
+        },
       });
 
       return { ok: true, adjustment: updated };
@@ -764,7 +753,7 @@ export const disputeConnectedOpeningBalance = async (req: Request, res: Response
     const result = await prismaAny.$transaction(async (tx: any) => {
       const account = await tx.dealerFarmerAccount.findUnique({
         where: { dealerId_farmerId: { dealerId: connection.dealerId, farmerId: connection.farmerId } },
-        select: { id: true },
+        select: { id: true, balance: true, totalSales: true, totalPayments: true },
       });
       if (!account) throw new Error("Account not found");
 
@@ -775,6 +764,19 @@ export const disputeConnectedOpeningBalance = async (req: Request, res: Response
       if (!pending) {
         return { ok: false, message: "No pending opening balance to dispute" };
       }
+
+      const latestAcknowledged = await tx.dealerFarmerAccountAdjustment.findFirst({
+        where: { accountId: account.id, type: "OPENING_BALANCE", status: "ACKNOWLEDGED" },
+        orderBy: { createdAt: "desc" },
+        select: { amount: true },
+      });
+
+      const targetOpening = latestAcknowledged ? Number(latestAcknowledged.amount) : 0;
+
+      // Replace the currently-effective opening component with the latest acknowledged one.
+      const currentOpeningEffective =
+        Number(account.balance) - Number(account.totalSales) + Number(account.totalPayments);
+      const delta = targetOpening - currentOpeningEffective;
 
       const updated = await tx.dealerFarmerAccountAdjustment.update({
         where: { id: pending.id },
@@ -787,7 +789,12 @@ export const disputeConnectedOpeningBalance = async (req: Request, res: Response
 
       await tx.dealerFarmerAccount.update({
         where: { id: account.id },
-        data: { openingBalanceStatus: "DISPUTED" },
+        data: {
+          // If this pending opening was already included in running balance (old flow/data),
+          // this removes it by restoring the last acknowledged opening component.
+          balance: { increment: delta },
+          openingBalanceStatus: "DISPUTED",
+        },
       });
 
       return { ok: true, adjustment: updated };
