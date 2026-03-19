@@ -1022,6 +1022,9 @@ model CustomerTransaction {
   reference   String?
   imageUrl    String? // Payment/Transaction related image URL
 
+  // Soft delete
+  deletedAt DateTime?
+
   // Relationships
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)

@@ -17,6 +17,7 @@ import {
   getCustomerById,
   setCustomerOpeningBalance,
   addCustomerPayment,
+  softDeleteCustomerPayment,
   getAllSalePayments,
 } from "../controller/salesController";
 import { authMiddleware } from "../middelware/middelware";
@@ -62,6 +63,9 @@ router.post("/customers/:id/opening-balance", setCustomerOpeningBalance);
 
 // POST /api/sales/customers/:id/payments - Record payment without sale
 router.post("/customers/:id/payments", addCustomerPayment);
+
+// DELETE /api/sales/customers/:id/payments/:transactionId - Soft delete customer payment
+router.delete("/customers/:id/payments/:transactionId", softDeleteCustomerPayment);
 
 // DELETE /api/sales/customers/:id - Delete customer
 router.delete("/customers/:id", deleteCustomer);

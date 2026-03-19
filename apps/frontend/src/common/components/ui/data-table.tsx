@@ -47,6 +47,8 @@ export interface DataTableProps<T = any> {
   isRowSelected?: (row: T) => boolean;
   onToggleRow?: (row: T) => void;
   getRowKey?: (row: T, index: number) => string;
+  rowClassName?: (row: T, index: number) => string;
+  isRowSelectable?: (row: T) => boolean;
 }
 
 export function DataTable<T = any>({
@@ -67,7 +69,9 @@ export function DataTable<T = any>({
   onToggleAll,
   isRowSelected,
   onToggleRow,
-  getRowKey
+  getRowKey,
+  rowClassName,
+  isRowSelectable,
 }: DataTableProps<T>) {
   const gridTemplate = React.useMemo(() => {
     const base = columns.map((c) => `minmax(${c.width ?? '140px'}, 1fr)`);
@@ -223,19 +227,24 @@ export function DataTable<T = any>({
                   key={getRowKey ? getRowKey(row, index) : index}
                   className={cn(
                     "grid hover:bg-gray-50 transition-colors duration-150",
-                    index % 2 === 0 ? "bg-white" : "bg-gray-50/30"
+                    index % 2 === 0 ? "bg-white" : "bg-gray-50/30",
+                    rowClassName?.(row, index)
                   )}
                   style={{ gridTemplateColumns: gridTemplate }}
                 >
                   {selectable && (
                     <div className={cn("px-4 py-3 text-sm border-r border-gray-200 flex items-center justify-center")}>
-                      <input
-                        type="checkbox"
-                        aria-label="Select row"
-                        className="h-4 w-4 cursor-pointer"
-                        checked={isRowSelected ? !!isRowSelected(row) : false}
-                        onChange={() => onToggleRow && onToggleRow(row)}
-                      />
+                      {(!isRowSelectable || isRowSelectable(row)) ? (
+                        <input
+                          type="checkbox"
+                          aria-label="Select row"
+                          className="h-4 w-4 cursor-pointer"
+                          checked={isRowSelected ? !!isRowSelected(row) : false}
+                          onChange={() => onToggleRow && onToggleRow(row)}
+                        />
+                      ) : (
+                        <div className="h-4 w-4" />
+                      )}
                     </div>
                   )}
                   {columns.map((column) => (

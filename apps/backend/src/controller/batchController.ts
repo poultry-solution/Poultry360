@@ -747,13 +747,24 @@ export const deleteBatch = async (
 
     const onlyInitialUsagesPresent = initialUsages.length === usageCount;
 
-    // Block deletion if there is any non-initial data present
+
+    console.log("onlyInitialUsagesPresent", onlyInitialUsagesPresent);
+    console.log("usageCount", usageCount);
+    console.log("nonInitialExpenseExists", nonInitialExpenseExists);
+    console.log("existingBatch._count.sales", existingBatch._count.sales);
+    console.log("existingBatch._count.mortalities", existingBatch._count.mortalities);
+    console.log("existingBatch._count.vaccinations", existingBatch._count.vaccinations);
+    console.log("existingBatch._count.feedConsumptions", existingBatch._count.feedConsumptions);
+    console.log("existingBatch._count.birdWeights", existingBatch._count.birdWeights);
+
+    // Block deletion if there is any non-initial data present.
+    // Note: `feedConsumptions` and `birdWeights` are derived/auxiliary records and
+    // are safely removed when the batch is deleted (Prisma relation `onDelete: Cascade`).
     if (
       existingBatch._count.sales > 0 ||
       existingBatch._count.mortalities > 0 ||
       existingBatch._count.vaccinations > 0 ||
       existingBatch._count.feedConsumptions > 0 ||
-      existingBatch._count.birdWeights > 0 ||
       nonInitialExpenseExists ||
       (!onlyInitialUsagesPresent && usageCount > 0)
     ) {

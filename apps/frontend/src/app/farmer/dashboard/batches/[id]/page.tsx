@@ -1754,12 +1754,13 @@ export default function BatchDetailPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteExpenseMutation.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => { e.preventDefault(); handleConfirmDeleteExpense(); }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteExpenseMutation.isPending}
             >
-              Delete
+              {deleteExpenseMutation.isPending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

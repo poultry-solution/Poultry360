@@ -330,6 +330,37 @@ export const useAddSalePayment = () => {
   });
 };
 
+export const useSoftDeleteCustomerPayment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      customerId,
+      transactionId,
+      password,
+    }: {
+      customerId: string;
+      transactionId: string;
+      password: string;
+    }) => {
+      const response = await axiosInstance.delete(
+        `/sales/customers/${customerId}/payments/${transactionId}`,
+        { data: { password } }
+      );
+      return response.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: [...saleQueryKeys.all, "payments"] });
+      queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
+      queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
+      queryClient.invalidateQueries({
+        queryKey: ["customers", "detail", variables.customerId],
+      });
+    },
+  });
+};
+
 export const useAddCustomerPayment = () => {
   const queryClient = useQueryClient();
 

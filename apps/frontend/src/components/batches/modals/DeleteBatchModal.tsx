@@ -59,13 +59,15 @@ export function DeleteBatchModal({
       </ModalContent>
       <ModalFooter>
         <Button
+          className="cursor-pointer"
           variant="outline"
           onClick={onClose}
+          disabled={isDeleting}
         >
           Cancel
         </Button>
         <Button
-          className="bg-red-600 hover:bg-red-700 text-white"
+            className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
           disabled={isDeleting || !deletePassword}
           onClick={onDelete}
         >

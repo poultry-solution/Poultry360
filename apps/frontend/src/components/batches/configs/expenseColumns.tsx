@@ -76,7 +76,7 @@ export function createExpenseColumns({
             <Button
               variant="outline"
               size="sm"
-              className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
+              className="h-8 w-8 p-0 cursor-pointer hover:bg-red-50 hover:border-red-300"
               onClick={() => onDeleteClick(row)}
             >
               <Trash2 className="h-4 w-4" />
