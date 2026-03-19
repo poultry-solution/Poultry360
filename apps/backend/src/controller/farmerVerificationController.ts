@@ -463,7 +463,8 @@ export const approveFarmerRequest = async (
           create: {
             dealerId: verificationRequest.dealerId,
             farmerId: verificationRequest.farmerId,
-            balance: numericOpeningBalance,
+            // Always apply opening via delta below to avoid double-counting on first create.
+            balance: 0,
             totalSales: 0,
             totalPayments: 0,
             openingBalanceCurrent: numericOpeningBalance,

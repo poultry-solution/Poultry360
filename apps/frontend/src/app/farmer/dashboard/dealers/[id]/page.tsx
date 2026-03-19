@@ -59,6 +59,9 @@ export default function FarmerDealerAccountPage() {
   const connectionId = payload?.connection?.id;
   const opening = account?.openingBalance ?? null;
   const openingHistory = account?.openingBalanceHistory ?? [];
+  const openingHistoryWithoutCurrent = opening
+    ? openingHistory.filter((entry) => entry.id !== opening.id)
+    : openingHistory;
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -294,11 +297,11 @@ export default function FarmerDealerAccountPage() {
             </div>
           )}
 
-          {openingHistory.length > 0 && (
+          {openingHistoryWithoutCurrent.length > 0 && (
             <div className="pt-2 border-t">
               <p className="text-sm font-medium mb-2">History</p>
               <div className="space-y-2">
-                {openingHistory.map((h) => (
+                {openingHistoryWithoutCurrent.map((h) => (
                   <div key={h.id} className="flex items-start justify-between gap-3 text-sm">
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
