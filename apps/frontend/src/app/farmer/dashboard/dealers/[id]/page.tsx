@@ -22,7 +22,21 @@ import {
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
-import { useGetDealerDetailsForFarmer } from "@/fetchers/farmer/farmerVerificationQueries";
+import { Input } from "@/common/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/common/components/ui/dialog";
+import { toast } from "sonner";
+import {
+  useAcknowledgeConnectedOpeningBalance,
+  useDisputeConnectedOpeningBalance,
+  useGetDealerDetailsForFarmer,
+} from "@/fetchers/farmer/farmerVerificationQueries";
 
 export default function FarmerDealerAccountPage() {
   const params = useParams();
@@ -30,14 +44,24 @@ export default function FarmerDealerAccountPage() {
   const dealerId = params.id as string;
 
   const [activeTab, setActiveTab] = useState("sales");
+  const [isDisputeOpen, setIsDisputeOpen] = useState(false);
+  const [disputeNote, setDisputeNote] = useState("");
 
   const { data, isLoading, error, isError } = useGetDealerDetailsForFarmer(dealerId);
+  const ackOpeningMutation = useAcknowledgeConnectedOpeningBalance();
+  const disputeOpeningMutation = useDisputeConnectedOpeningBalance();
 
   const payload = data?.data;
   const dealer = payload?.dealer;
   const account = payload?.account;
   const sales = payload?.sales ?? [];
   const payments = payload?.payments ?? [];
+  const connectionId = payload?.connection?.id;
+  const opening = account?.openingBalance ?? null;
+  const openingHistory = account?.openingBalanceHistory ?? [];
+  const openingHistoryWithoutCurrent = opening
+    ? openingHistory.filter((entry) => entry.id !== opening.id)
+    : openingHistory;
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -55,6 +79,25 @@ export default function FarmerDealerAccountPage() {
   const totalPaid = account?.totalPayments ?? 0;
   const currentBalance = account?.balance ?? 0;
   const paymentRate = totalSales ? Math.round((totalPaid / totalSales) * 100) : 0;
+
+  const openingStatusBadge = (status: string) => {
+    switch (status) {
+      case "PENDING_ACK":
+        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pending</Badge>;
+      case "ACKNOWLEDGED":
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Acknowledged</Badge>;
+      case "DISPUTED":
+        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Disputed</Badge>;
+      default:
+        return <Badge>{status}</Badge>;
+    }
+  };
+
+  const describeSignedAmount = (amount: number) => {
+    if (amount > 0) return "You owe dealer";
+    if (amount < 0) return "Dealer owes you (advance/credit)";
+    return "Settled";
+  };
 
   if (isLoading) {
     return (
@@ -185,6 +228,104 @@ export default function FarmerDealerAccountPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Opening balance acknowledgement (connected) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Opening balance</CardTitle>
+          <CardDescription>
+            Dealer can propose an opening balance; you must acknowledge (or dispute) each change.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!opening ? (
+            <p className="text-sm text-muted-foreground">No opening balance has been set for this connection.</p>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium">{formatCurrency(Math.abs(opening.amount))}</p>
+                    {openingStatusBadge(opening.status)}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{describeSignedAmount(opening.amount)}</p>
+                  {opening.notes && (
+                    <p className="text-sm text-muted-foreground mt-1">{opening.notes}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Proposed on {formatDate(opening.createdAt)}
+                  </p>
+                  {opening.respondedAt && (
+                    <p className="text-xs text-muted-foreground">
+                      Responded on {formatDate(opening.respondedAt)}
+                      {opening.farmerResponseNote ? ` • ${opening.farmerResponseNote}` : ""}
+                    </p>
+                  )}
+                </div>
+
+                {opening.status === "PENDING_ACK" && connectionId && (
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={async () => {
+                        try {
+                          await ackOpeningMutation.mutateAsync({
+                            connectionId,
+                            dealerId,
+                          });
+                          toast.success("Opening balance acknowledged");
+                        } catch (e: any) {
+                          toast.error(e?.response?.data?.message || "Failed to acknowledge opening balance");
+                        }
+                      }}
+                      disabled={ackOpeningMutation.isPending}
+                    >
+                      {ackOpeningMutation.isPending ? "Saving..." : "Acknowledge"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setDisputeNote("");
+                        setIsDisputeOpen(true);
+                      }}
+                      disabled={disputeOpeningMutation.isPending}
+                    >
+                      Dispute
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {openingHistoryWithoutCurrent.length > 0 && (
+            <div className="pt-2 border-t">
+              <p className="text-sm font-medium mb-2">History</p>
+              <div className="space-y-2">
+                {openingHistoryWithoutCurrent.map((h) => (
+                  <div key={h.id} className="flex items-start justify-between gap-3 text-sm">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium">{formatCurrency(Math.abs(h.amount))}</span>
+                        {openingStatusBadge(h.status)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {describeSignedAmount(h.amount)} • {formatDate(h.createdAt)}
+                      </div>
+                      {h.notes && <div className="text-xs text-muted-foreground">{h.notes}</div>}
+                      {h.respondedAt && (
+                        <div className="text-xs text-muted-foreground">
+                          Responded: {formatDate(h.respondedAt)}
+                          {h.farmerResponseNote ? ` • ${h.farmerResponseNote}` : ""}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Statement tabs */}
       <Card>
@@ -333,6 +474,47 @@ export default function FarmerDealerAccountPage() {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Dispute dialog */}
+      <Dialog open={isDisputeOpen} onOpenChange={setIsDisputeOpen}>
+        <DialogContent className="bg-white">
+          <DialogHeader>
+            <DialogTitle>Dispute opening balance</DialogTitle>
+            <DialogDescription>
+              Add an optional note explaining why you disagree. Dealer will need to set it again.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder="Reason (optional)"
+            value={disputeNote}
+            onChange={(e) => setDisputeNote(e.target.value)}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDisputeOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!connectionId) return;
+                try {
+                  await disputeOpeningMutation.mutateAsync({
+                    connectionId,
+                    dealerId,
+                    note: disputeNote.trim() ? disputeNote.trim() : undefined,
+                  });
+                  toast.success("Opening balance disputed");
+                  setIsDisputeOpen(false);
+                } catch (e: any) {
+                  toast.error(e?.response?.data?.message || "Failed to dispute opening balance");
+                }
+              }}
+              disabled={disputeOpeningMutation.isPending || !connectionId}
+            >
+              {disputeOpeningMutation.isPending ? "Saving..." : "Submit dispute"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

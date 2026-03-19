@@ -5,12 +5,16 @@ import {
   recordDealerPayment,
   setDealerBalanceLimit,
   checkDealerBalanceLimit,
+  proposeDealerOpeningBalance,
+  proposeDealerOpeningBalanceForDealer,
   getCompanyAccount,
   getCompanyAccountStatement,
   recordCompanyPayment,
   getAllDealerAccounts,
   getAllCompanyAccounts,
   getAllDealerPayments,
+  acknowledgeCompanyOpeningBalance,
+  disputeCompanyOpeningBalance,
 } from "../controller/companyDealerAccountController";
 import { authMiddleware } from "../middelware/middelware";
 
@@ -59,6 +63,20 @@ router.post(
   recordDealerPayment
 );
 
+// Propose opening balance (company side; dealer must acknowledge)
+router.post(
+  "/company/dealers/:connectionId/opening-balance",
+  (req, res, next) => authMiddleware(req, res, next, ["COMPANY"]),
+  proposeDealerOpeningBalance
+);
+
+// Propose opening balance by dealerId (matches company dealer account page)
+router.post(
+  "/company/dealers/:dealerId/account/opening-balance",
+  (req, res, next) => authMiddleware(req, res, next, ["COMPANY"]),
+  proposeDealerOpeningBalanceForDealer
+);
+
 // Get all dealer payments for company
 router.get(
   "/company/payments",
@@ -93,6 +111,20 @@ router.post(
   "/dealer/companies/:companyId/payments",
   (req, res, next) => authMiddleware(req, res, next, ["DEALER"]),
   recordCompanyPayment
+);
+
+// Dealer acknowledges opening balance proposal
+router.post(
+  "/dealer/companies/:companyId/opening-balance/ack",
+  (req, res, next) => authMiddleware(req, res, next, ["DEALER"]),
+  acknowledgeCompanyOpeningBalance
+);
+
+// Dealer disputes opening balance proposal
+router.post(
+  "/dealer/companies/:companyId/opening-balance/dispute",
+  (req, res, next) => authMiddleware(req, res, next, ["DEALER"]),
+  disputeCompanyOpeningBalance
 );
 
 export default router;

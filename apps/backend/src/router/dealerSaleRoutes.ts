@@ -9,6 +9,9 @@ import {
   createCustomer,
   getDealerCustomers,
   getSalesStatistics,
+  archiveDealerCustomer,
+  unarchiveDealerCustomer,
+  deleteDealerCustomer,
 } from "../controller/dealerSaleController";
 import {
   getSaleRequests,
@@ -45,6 +48,11 @@ router.get("/companies/search", searchCompanies);
 
 // Create customer on-the-fly
 router.post("/customers", createCustomer);
+
+// Archive / Unarchive / Delete dealer customers (non-connected only)
+router.post("/customers/:id/archive", archiveDealerCustomer);
+router.post("/customers/:id/unarchive", unarchiveDealerCustomer);
+router.delete("/customers/:id", deleteDealerCustomer);
 
 // ==================== SALE REQUEST ROUTES ====================
 // IMPORTANT: These must come BEFORE /:id route to avoid conflicts

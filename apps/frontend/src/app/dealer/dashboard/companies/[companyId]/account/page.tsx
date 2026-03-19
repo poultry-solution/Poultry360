@@ -43,6 +43,8 @@ import { toast } from "sonner";
 import {
   useGetCompanyAccount,
   useGetCompanyAccountStatement,
+  useAcknowledgeCompanyOpeningBalance,
+  useDisputeCompanyOpeningBalance,
 } from "@/fetchers/dealer/dealerCompanyAccountQueries";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { useCreateDealerPaymentRequest } from "@/fetchers/dealer/paymentRequestQueries";
@@ -53,6 +55,8 @@ export default function CompanyAccountPage() {
   const companyId = params.companyId as string;
 
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isDisputeOpen, setIsDisputeOpen] = useState(false);
+  const [disputeNote, setDisputeNote] = useState("");
   const [paymentRequestData, setPaymentRequestData] = useState({
     amount: 0,
     paymentMethod: "CASH",
@@ -68,6 +72,8 @@ export default function CompanyAccountPage() {
 
   // Mutations
   const createPaymentRequestMutation = useCreateDealerPaymentRequest();
+  const ackOpeningMutation = useAcknowledgeCompanyOpeningBalance();
+  const disputeOpeningMutation = useDisputeCompanyOpeningBalance();
 
   const handleSendPaymentRequest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +107,16 @@ export default function CompanyAccountPage() {
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
   };
+
+  const openingCurrent = Number((account as any)?.openingBalanceCurrent ?? 0);
+  const openingProposed =
+    (account as any)?.openingBalanceProposed != null
+      ? Number((account as any).openingBalanceProposed)
+      : null;
+  const openingStatus = (account as any)?.openingBalanceStatus ?? null;
+  const openingHistory = Array.isArray((account as any)?.openingBalanceHistory)
+    ? (account as any).openingBalanceHistory
+    : [];
 
 
   if (accountLoading || statementLoading) {
@@ -234,6 +250,119 @@ export default function CompanyAccountPage() {
         </Card>
       </div>
 
+      {/* Opening balance proposal */}
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between space-y-0">
+          <div className="space-y-1">
+            <CardTitle>Opening balance</CardTitle>
+            <CardDescription>
+              Company proposes; dealer must accept/reject. Only accepted opening balance changes your total balance.
+            </CardDescription>
+          </div>
+          {openingStatus && (
+            <Badge variant="secondary">
+              {openingStatus === "PENDING_ACK"
+                ? "Pending your approval"
+                : openingStatus === "ACKNOWLEDGED"
+                  ? "Approved"
+                  : openingStatus === "DISPUTED"
+                    ? "Rejected"
+                    : openingStatus}
+            </Badge>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-xs text-muted-foreground">Current (acknowledged)</p>
+              <p className="text-2xl font-bold">{formatCurrency(Math.abs(openingCurrent))}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {openingCurrent > 0
+                  ? "You owe company"
+                  : openingCurrent < 0
+                    ? "Company owes you (advance/credit)"
+                    : "Not set"}
+              </p>
+            </div>
+
+            {openingStatus === "PENDING_ACK" && openingProposed != null && (
+              <div className="border rounded-md p-3 bg-muted/20 min-w-[240px]">
+                <p className="text-xs text-muted-foreground">Proposed</p>
+                <p className="text-lg font-semibold">
+                  {formatCurrency(Math.abs(openingProposed))}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {openingProposed > 0
+                    ? "You owe company"
+                    : "Company owes you (advance/credit)"}
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <Button
+                    onClick={async () => {
+                      try {
+                        await ackOpeningMutation.mutateAsync({ companyId });
+                        toast.success("Opening balance approved");
+                      } catch (e: any) {
+                        toast.error(
+                          e?.response?.data?.message || "Failed to approve opening balance"
+                        );
+                      }
+                    }}
+                    disabled={ackOpeningMutation.isPending}
+                  >
+                    {ackOpeningMutation.isPending ? "Saving..." : "Accept"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setDisputeNote("");
+                      setIsDisputeOpen(true);
+                    }}
+                    disabled={disputeOpeningMutation.isPending}
+                  >
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {openingHistory.length > 0 && (
+            <div className="pt-2 border-t">
+              <p className="text-sm font-medium mb-2">History</p>
+              <div className="space-y-2">
+                {openingHistory.slice(0, 8).map((h: any) => (
+                  <div
+                    key={h.id}
+                    className="flex items-start justify-between gap-3 border rounded-md p-2 text-sm"
+                  >
+                    <div className="text-xs text-muted-foreground">
+                      <div>
+                        <DateDisplay date={h.createdAt} />
+                      </div>
+                      {h.notes ? <div className="mt-0.5">{h.notes}</div> : null}
+                      {h.dealerResponseNote ? (
+                        <div className="mt-0.5">Dealer: {h.dealerResponseNote}</div>
+                      ) : null}
+                    </div>
+                    <div
+                      className={
+                        Number(h.amount) >= 0
+                          ? "text-red-600 font-medium"
+                          : "text-green-600 font-medium"
+                      }
+                    >
+                      {Number(h.amount) >= 0 ? "+" : "-"}
+                      {formatCurrency(Math.abs(Number(h.amount)))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Account Statement */}
       <Card>
         <CardHeader>
@@ -342,6 +471,49 @@ export default function CompanyAccountPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Reject Opening Balance Dialog */}
+      <Dialog open={isDisputeOpen} onOpenChange={setIsDisputeOpen}>
+        <DialogContent className="bg-white max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reject opening balance</DialogTitle>
+            <DialogDescription>
+              Add an optional note. Company can propose again.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Note (optional)</Label>
+            <Textarea
+              value={disputeNote}
+              onChange={(e) => setDisputeNote(e.target.value)}
+              placeholder="Reason"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDisputeOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                try {
+                  await disputeOpeningMutation.mutateAsync({
+                    companyId,
+                    note: disputeNote.trim() ? disputeNote.trim() : undefined,
+                  });
+                  toast.success("Opening balance rejected");
+                  setIsDisputeOpen(false);
+                } catch (e: any) {
+                  toast.error(e?.response?.data?.message || "Failed to reject opening balance");
+                }
+              }}
+              disabled={disputeOpeningMutation.isPending}
+            >
+              {disputeOpeningMutation.isPending ? "Saving..." : "Reject"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Submit Payment Dialog */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>

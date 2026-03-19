@@ -32,6 +32,10 @@ export interface AccountDetail {
   totalPayments: number;
   lastSaleDate?: Date;
   lastPaymentDate?: Date;
+  openingBalanceCurrent?: number | null;
+  openingBalanceProposed?: number | null;
+  openingBalanceStatus?: "PENDING_ACK" | "ACKNOWLEDGED" | "DISPUTED" | null;
+  openingBalanceHistory?: CompanyDealerOpeningBalanceAdjustment[];
   dealer: {
     id: string;
     name: string;
@@ -43,6 +47,17 @@ export interface AccountDetail {
     name: string;
     address?: string;
   };
+}
+
+export interface CompanyDealerOpeningBalanceAdjustment {
+  id: string;
+  amount: number;
+  status: "PENDING_ACK" | "ACKNOWLEDGED" | "DISPUTED";
+  notes?: string | null;
+  createdAt: Date;
+  createdByRole: "COMPANY" | "DEALER";
+  respondedAt?: Date | null;
+  dealerResponseNote?: string | null;
 }
 
 export interface AccountTransaction {
@@ -82,6 +97,11 @@ export interface RecordPaymentInput {
   reference?: string;
   receiptImageUrl?: string;
   proofImageUrl?: string;
+}
+
+export interface DealerOpeningBalanceResponseInput {
+  companyId: string;
+  note?: string;
 }
 
 // Get all company accounts for dealer
@@ -161,6 +181,44 @@ export const useRecordCompanyPayment = () => {
       queryClient.invalidateQueries({
         queryKey: dealerCompanyAccountKeys.lists(),
       });
+    },
+  });
+};
+
+export const useAcknowledgeCompanyOpeningBalance = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: DealerOpeningBalanceResponseInput) => {
+      const { data } = await axiosInstance.post(
+        `/dealer/companies/${input.companyId}/opening-balance/ack`,
+        { note: input.note }
+      );
+      return data;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: dealerCompanyAccountKeys.detail(vars.companyId) });
+      queryClient.invalidateQueries({ queryKey: dealerCompanyAccountKeys.statement(vars.companyId, "") });
+      queryClient.invalidateQueries({ queryKey: dealerCompanyAccountKeys.lists() });
+    },
+  });
+};
+
+export const useDisputeCompanyOpeningBalance = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: DealerOpeningBalanceResponseInput) => {
+      const { data } = await axiosInstance.post(
+        `/dealer/companies/${input.companyId}/opening-balance/dispute`,
+        { note: input.note }
+      );
+      return data;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: dealerCompanyAccountKeys.detail(vars.companyId) });
+      queryClient.invalidateQueries({ queryKey: dealerCompanyAccountKeys.statement(vars.companyId, "") });
+      queryClient.invalidateQueries({ queryKey: dealerCompanyAccountKeys.lists() });
     },
   });
 };

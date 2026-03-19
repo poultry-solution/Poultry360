@@ -147,7 +147,7 @@ async function main() {
   const dealer2 = await prisma.dealer.upsert({
     where: { ownerId: dealerUser2.id },
     create: {
-      name: "Gurung Agro Supplies",
+      name: "Gurung Agro Supplies", 
       contact: "+9779800000021",
       address: "Suryabinayak, Bhaktapur",
       ownerId: dealerUser2.id,

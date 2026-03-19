@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Users, Edit, Trash2, Phone, MapPin, Link2, CheckCircle2, DollarSign } from "lucide-react";
+import { Plus, Search, Users, Edit, Trash2, Archive, ArchiveRestore, Phone, MapPin, Link2, CheckCircle2, DollarSign } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -30,6 +30,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGetDealerFarmerRequests, useGetConnectedFarmers } from "@/fetchers/dealer/dealerFarmerQueries";
 import { DealerAddPaymentDialog } from "@/components/dealer/DealerAddPaymentDialog";
 import { useI18n } from "@/i18n/useI18n";
+import { Tabs, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
 
 interface Customer {
   id: string;
@@ -42,12 +50,17 @@ interface Customer {
   farmerId?: string; // Link to farmer for connected customers
   createdAt: Date;
   partyType?: "CUSTOMER" | "FARMER"; // For farmers from ledger parties
+  archivedAt?: string | null;
+  hasDealerSales?: boolean;
+  hasDealerSaleRequests?: boolean;
+  hasPayments?: boolean;
 }
 
 export default function DealerCustomersPage() {
   const router = useRouter();
   const { t } = useI18n();
   const [search, setSearch] = useState("");
+  const [customerTab, setCustomerTab] = useState<"active" | "archived">("active");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
 
@@ -60,14 +73,19 @@ export default function DealerCustomersPage() {
     phone: "",
     address: "",
     category: "",
+    openingBalanceAmount: "",
+    openingBalanceDirection: "OWED" as "OWED" | "ADVANCE",
   });
 
   // Get customers
   const { data: customersData, isLoading: customersLoading } = useQuery({
-    queryKey: ["dealer-customers", search],
+    queryKey: ["dealer-customers", search, customerTab],
     queryFn: async () => {
       const { data } = await axiosInstance.get("/dealer/sales/customers", {
-        params: search ? { search } : {},
+        params: {
+          ...(search ? { search } : {}),
+          archived: customerTab === "archived" ? "true" : "false",
+        },
       });
       return data;
     },
@@ -98,7 +116,8 @@ export default function DealerCustomersPage() {
 
   // Combine customers and farmers
   const manualCustomers: Customer[] = customersData?.data || [];
-  const ledgerParties: any[] = ledgerPartiesData?.data || [];
+  const ledgerParties: any[] =
+    customerTab === "active" ? ledgerPartiesData?.data || [] : [];
   const connectedFarmers = connectedFarmersData?.data || [];
 
   // Create a map of existing customers by ID
@@ -149,10 +168,10 @@ export default function DealerCustomersPage() {
     },
   });
 
-  // Delete customer mutation
+  // Delete / Archive / Unarchive dealer customers
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { data } = await axiosInstance.delete(`/sales/customers/${id}`);
+      const { data } = await axiosInstance.delete(`/dealer/sales/customers/${id}`);
       return data;
     },
     onSuccess: () => {
@@ -164,6 +183,40 @@ export default function DealerCustomersPage() {
     },
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await axiosInstance.post(
+        `/dealer/sales/customers/${id}/archive`
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
+      toast.success("Customer archived");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to archive customer");
+    },
+  });
+
+  const unarchiveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await axiosInstance.post(
+        `/dealer/sales/customers/${id}/unarchive`
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
+      toast.success("Customer unarchived");
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to unarchive customer"
+      );
+    },
+  });
+
   const handleOpenDialog = (customer?: Customer) => {
     if (customer) {
       setEditingCustomer(customer);
@@ -172,6 +225,8 @@ export default function DealerCustomersPage() {
         phone: customer.phone,
         address: customer.address || "",
         category: customer.category || "",
+        openingBalanceAmount: "",
+        openingBalanceDirection: "OWED",
       });
     } else {
       setEditingCustomer(null);
@@ -180,6 +235,8 @@ export default function DealerCustomersPage() {
         phone: "",
         address: "",
         category: "",
+        openingBalanceAmount: "",
+        openingBalanceDirection: "OWED",
       });
     }
     setIsDialogOpen(true);
@@ -193,6 +250,8 @@ export default function DealerCustomersPage() {
       phone: "",
       address: "",
       category: "",
+      openingBalanceAmount: "",
+      openingBalanceDirection: "OWED",
     });
   };
 
@@ -208,13 +267,40 @@ export default function DealerCustomersPage() {
       // Update customer (if endpoint exists)
       toast.info(t("dealer.customers.messages.updateSoon"));
     } else {
-      createMutation.mutate(formData);
+      const amtRaw = Number(formData.openingBalanceAmount || 0);
+      if (Number.isNaN(amtRaw) || amtRaw < 0) {
+        toast.error("Opening balance must be a non-negative number");
+        return;
+      }
+      const openingBalance =
+        amtRaw === 0
+          ? 0
+          : formData.openingBalanceDirection === "ADVANCE"
+            ? -amtRaw
+            : amtRaw;
+      createMutation.mutate({
+        name: formData.name,
+        phone: formData.phone,
+        address: formData.address,
+        category: formData.category,
+        openingBalance,
+      } as any);
     }
   };
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(t("dealer.customers.messages.deleteConfirm", { name }))) return;
     deleteMutation.mutate(id);
+  };
+
+  const handleArchive = async (id: string, name: string) => {
+    if (!confirm(`Archive customer "${name}"?`)) return;
+    archiveMutation.mutate(id);
+  };
+
+  const handleUnarchive = async (id: string, name: string) => {
+    if (!confirm(`Unarchive customer "${name}"?`)) return;
+    unarchiveMutation.mutate(id);
   };
 
   const customers = allCustomers;
@@ -267,6 +353,19 @@ export default function DealerCustomersPage() {
             <span className="sm:hidden">{t("dealer.customers.buttons.addMobile")}</span>
           </Button>
         </div>
+      </div>
+
+      {/* Active / Archived tabs */}
+      <div className="flex items-center justify-between gap-3">
+        <Tabs
+          value={customerTab}
+          onValueChange={(v) => setCustomerTab(v as "active" | "archived")}
+        >
+          <TabsList>
+            <TabsTrigger value="active">Active</TabsTrigger>
+            <TabsTrigger value="archived">Archived</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* Search */}
@@ -394,14 +493,59 @@ export default function DealerCustomersPage() {
                     >
                       <Edit className="h-3.5 w-3.5" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={() => handleDelete(row.id, row.name)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5 text-red-600" />
-                    </Button>
+
+                    {(() => {
+                      const isConnected =
+                        row.farmerId != null || row.source === "CONNECTED";
+                      if (isConnected) return null;
+
+                      const isDeletable =
+                        Number(row.balance) === 0 &&
+                        !row.hasDealerSales &&
+                        !row.hasDealerSaleRequests &&
+                        !row.hasPayments;
+
+                      if (customerTab === "archived") {
+                        return (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={() => handleUnarchive(row.id, row.name)}
+                            title="Unarchive"
+                          >
+                            <ArchiveRestore className="h-3.5 w-3.5 text-green-600" />
+                          </Button>
+                        );
+                      }
+
+                      // customerTab === "active"
+                      if (isDeletable) {
+                        return (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={() => handleDelete(row.id, row.name)}
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                          </Button>
+                        );
+                      }
+
+                      return (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => handleArchive(row.id, row.name)}
+                          title="Archive"
+                        >
+                          <Archive className="h-3.5 w-3.5 text-orange-600" />
+                        </Button>
+                      );
+                    })()}
                   </div>
                 )
               }
@@ -476,6 +620,44 @@ export default function DealerCustomersPage() {
                   placeholder={t("dealer.customers.dialog.categoryPlaceholder")}
                 />
               </div>
+
+              {!editingCustomer && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2 space-y-2">
+                    <Label>Opening balance (optional)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.openingBalanceAmount}
+                      onChange={(e) =>
+                        setFormData({ ...formData, openingBalanceAmount: e.target.value })
+                      }
+                      placeholder="0.00"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Use this if you already had an outstanding balance before using Poultry360.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Direction</Label>
+                    <Select
+                      value={formData.openingBalanceDirection}
+                      onValueChange={(v) =>
+                        setFormData({ ...formData, openingBalanceDirection: v as any })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="OWED">Customer owes me</SelectItem>
+                        <SelectItem value="ADVANCE">I owe customer (advance/credit)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
             </div>
 
             <DialogFooter>

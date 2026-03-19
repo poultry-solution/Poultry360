@@ -12,10 +12,16 @@ export const createCompanyProduct = async (
 
     const { name, description, type, unit, unitSellingPrice, unitCostPrice, quantity, imageUrl, unitConversions } = req.body;
 
-    // Validation
-    if (!name || !type || !unit || !unitSellingPrice || !quantity) {
+    // Validation (quantity may be 0 - stock is added via production)
+    if (!name || !type || !unit || unitSellingPrice == null) {
       return res.status(400).json({
-        message: "Name, type, unit, unit selling price, and quantity are required",
+        message: "Name, type, unit, and unit selling price are required",
+      });
+    }
+    const qty = Number(quantity);
+    if (quantity == null || isNaN(qty) || qty < 0) {
+      return res.status(400).json({
+        message: "Quantity must be a non-negative number (use 0 and add stock via production)",
       });
     }
 
@@ -28,9 +34,9 @@ export const createCompanyProduct = async (
       return res.status(404).json({ message: "Company not found" });
     }
 
-    const totalPrice = Number(unitSellingPrice) * Number(quantity);
+    const totalPrice = Number(unitSellingPrice) * qty;
 
-    // Create product with optional unit conversions
+    // Create product with optional unit conversions (quantity/currentStock may be 0)
     const product = await prisma.product.create({
       data: {
         name,
@@ -39,8 +45,8 @@ export const createCompanyProduct = async (
         unit,
         unitSellingPrice: new Prisma.Decimal(unitSellingPrice),
         unitCostPrice: unitCostPrice ? new Prisma.Decimal(unitCostPrice) : new Prisma.Decimal(0),
-        quantity: new Prisma.Decimal(quantity),
-        currentStock: new Prisma.Decimal(quantity),
+        quantity: new Prisma.Decimal(qty),
+        currentStock: new Prisma.Decimal(qty),
         totalPrice: new Prisma.Decimal(totalPrice),
         imageUrl: imageUrl || null,
         supplierId: userId as string,

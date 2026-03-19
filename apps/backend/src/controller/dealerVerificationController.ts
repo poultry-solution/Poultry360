@@ -407,7 +407,7 @@ export const approveVerificationRequest = async (
 ): Promise<any> => {
   try {
     const { id } = req.params;
-    const { balanceLimit } = req.body;
+    const { balanceLimit, openingBalance, openingBalanceNotes } = req.body;
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
@@ -523,6 +523,53 @@ export const approveVerificationRequest = async (
             balanceLimitSetBy: currentUserId,
           },
         });
+      }
+
+      // Optional opening balance proposal (requires dealer acknowledgement)
+      if (openingBalance !== undefined && openingBalance !== null && openingBalance !== "") {
+        const numericOpening = Number(openingBalance);
+        if (!Number.isFinite(numericOpening)) {
+          throw new Error("openingBalance must be a valid number");
+        }
+        if (numericOpening !== 0) {
+          const account = await tx.companyDealerAccount.upsert({
+            where: {
+              companyId_dealerId: {
+                companyId: verificationRequest.companyId,
+                dealerId: verificationRequest.dealerId,
+              },
+            },
+            update: {},
+            create: {
+              companyId: verificationRequest.companyId,
+              dealerId: verificationRequest.dealerId,
+              balance: new Prisma.Decimal(0),
+              totalSales: new Prisma.Decimal(0),
+              totalPayments: new Prisma.Decimal(0),
+            },
+            select: { id: true },
+          });
+
+          await tx.companyDealerAccountAdjustment.create({
+            data: {
+              accountId: account.id,
+              type: "OPENING_BALANCE",
+              amount: new Prisma.Decimal(numericOpening),
+              notes: openingBalanceNotes ? String(openingBalanceNotes) : "Opening balance",
+              createdByRole: "COMPANY",
+              createdById: currentUserId,
+              status: "PENDING_ACK",
+            },
+          });
+
+          await tx.companyDealerAccount.update({
+            where: { id: account.id },
+            data: {
+              openingBalanceProposed: new Prisma.Decimal(numericOpening),
+              openingBalanceStatus: "PENDING_ACK",
+            },
+          });
+        }
       }
 
       return request;

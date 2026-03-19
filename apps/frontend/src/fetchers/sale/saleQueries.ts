@@ -330,6 +330,41 @@ export const useAddSalePayment = () => {
   });
 };
 
+export const useAddCustomerPayment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      customerId,
+      data,
+    }: {
+      customerId: string;
+      data: {
+        amount: number;
+        date?: string;
+        description?: string;
+        reference?: string;
+        receiptUrl?: string;
+      };
+    }) => {
+      const response = await axiosInstance.post(
+        `/sales/customers/${customerId}/payments`,
+        data
+      );
+      return response.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
+      queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
+      queryClient.invalidateQueries({
+        queryKey: ["customers", "detail", variables.customerId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["sale-payments"] });
+    },
+  });
+};
+
 // Create sales category
 export const useCreateSalesCategory = () => {
   const queryClient = useQueryClient();
@@ -628,6 +663,35 @@ export const useDeleteCustomer = () => {
     onSuccess: (data, id) => {
       // Remove customer from cache and invalidate lists
       queryClient.removeQueries({ queryKey: ["customers", "detail", id] });
+      queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
+    },
+  });
+};
+
+export const useSetCustomerOpeningBalance = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      customerId,
+      openingBalance,
+      notes,
+      date,
+    }: {
+      customerId: string;
+      openingBalance: number;
+      notes?: string;
+      date?: string;
+    }) => {
+      const response = await axiosInstance.post(`/sales/customers/${customerId}/opening-balance`, {
+        openingBalance,
+        notes,
+        ...(date ? { date } : {}),
+      });
+      return response.data;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["customers", "detail", vars.customerId] });
       queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
     },
   });

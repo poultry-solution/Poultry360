@@ -488,8 +488,18 @@ export const getDealerById = async (
 
     const transactions = await prisma.entityTransaction.findMany({
       where: { dealerId: id },
-      orderBy: { date: "desc" },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     });
+
+    const openingBalanceTxn = transactions.find((t) => t.type === "OPENING_BALANCE") || null;
+    const openingBalanceHistory = transactions
+      .filter((t) => t.type === "OPENING_BALANCE")
+      .map((t) => ({
+        id: t.id,
+        amount: Number(t.amount),
+        date: t.date,
+        notes: t.description,
+      }));
 
     const currentMonth = new Date();
     currentMonth.setDate(1);
@@ -591,6 +601,15 @@ export const getDealerById = async (
       data: {
         ...dealer,
         balance,
+        openingBalance: openingBalanceTxn
+          ? {
+              id: openingBalanceTxn.id,
+              amount: Number(openingBalanceTxn.amount),
+              date: openingBalanceTxn.date,
+              notes: openingBalanceTxn.description,
+            }
+          : null,
+        openingBalanceHistory,
         thisMonthAmount,
         totalTransactions: transactions.length,
         transactionTable,
@@ -977,7 +996,14 @@ export const addDealerTransaction = async (
     const numericAmount = Number(amount);
     const numericQuantity = quantity !== undefined && quantity !== null ? Number(quantity) : null;
     const numericPaymentAmount = paymentAmount !== undefined && paymentAmount !== null ? Number(paymentAmount) : null;
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+    if (!Number.isFinite(numericAmount)) {
+      return res.status(400).json({ message: "Amount must be a valid number" });
+    }
+    if (type === TransactionType.OPENING_BALANCE) {
+      if (numericAmount === 0) {
+        return res.status(400).json({ message: "Opening balance cannot be zero" });
+      }
+    } else if (numericAmount <= 0) {
       return res.status(400).json({ message: "Amount must be a positive number" });
     }
 
@@ -1149,6 +1175,9 @@ export const addDealerTransaction = async (
         if (txn.type === "PURCHASE" || txn.type === "ADJUSTMENT") {
           balanceIncrement += amt;
           purchaseIncrement += amt;
+        } else if (txn.type === "OPENING_BALANCE") {
+          // Signed snapshot value; affects balance but not purchases/payments totals
+          balanceIncrement += amt;
         } else if (txn.type === "PAYMENT" || txn.type === "RECEIPT") {
           balanceIncrement -= amt;
           paymentIncrement += amt;
@@ -1172,6 +1201,87 @@ export const addDealerTransaction = async (
     });
   } catch (error) {
     console.error("Add dealer transaction error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== SET DEALER OPENING BALANCE (MANUAL ONLY) ====================
+export const setDealerOpeningBalance = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.userId;
+    const { openingBalance, notes } = req.body;
+
+    if (!currentUserId) {
+      return res.status(400).json({ message: "No User found in Controller" });
+    }
+
+    const numericOpening = Number(openingBalance);
+    if (!Number.isFinite(numericOpening)) {
+      return res.status(400).json({ message: "openingBalance must be a valid number" });
+    }
+
+    const dealer = await prisma.dealer.findUnique({ where: { id } });
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    // Manual only: must be created by the farmer and NOT connected
+    const isManualDealer = dealer.userId === currentUserId;
+    const dealerFarmerConnection = await prisma.dealerFarmer.findFirst({
+      where: {
+        dealerId: id,
+        farmerId: currentUserId,
+        archivedByFarmer: false,
+      },
+      select: { id: true },
+    });
+
+    if (!isManualDealer || dealerFarmerConnection) {
+      return res.status(400).json({ message: "Opening balance can only be set for manual suppliers" });
+    }
+
+    const prev = await prisma.entityTransaction.findFirst({
+      where: { dealerId: id, type: TransactionType.OPENING_BALANCE },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      select: { amount: true },
+    });
+
+    const prevAmount = prev ? Number(prev.amount) : 0;
+    const delta = numericOpening - prevAmount;
+
+    const [txn] = await prisma.$transaction([
+      prisma.entityTransaction.create({
+        data: {
+          type: TransactionType.OPENING_BALANCE,
+          amount: numericOpening,
+          quantity: null,
+          itemName: null,
+          date: new Date(),
+          description: notes ? String(notes) : null,
+          reference: null,
+          imageUrl: null,
+          dealerId: id,
+          entityType: "DEALER",
+          entityId: id,
+          paymentToPurchaseId: null,
+        },
+      }),
+      prisma.dealer.update({
+        where: { id },
+        data: {
+          balance: { increment: delta },
+        },
+      }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: txn,
+      message: "Opening balance updated successfully",
+    });
+  } catch (error) {
+    console.error("Set dealer opening balance error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

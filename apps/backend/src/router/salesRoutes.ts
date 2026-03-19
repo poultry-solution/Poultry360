@@ -15,6 +15,8 @@ import {
   updateCustomer,
   deleteCustomer,
   getCustomerById,
+  setCustomerOpeningBalance,
+  addCustomerPayment,
   getAllSalePayments,
 } from "../controller/salesController";
 import { authMiddleware } from "../middelware/middelware";
@@ -54,6 +56,12 @@ router.post("/customers", createCustomer);
 
 // PUT /api/sales/customers/:id - Update customer
 router.put("/customers/:id", updateCustomer);
+
+// POST /api/sales/customers/:id/opening-balance - Set/update opening balance (history preserved)
+router.post("/customers/:id/opening-balance", setCustomerOpeningBalance);
+
+// POST /api/sales/customers/:id/payments - Record payment without sale
+router.post("/customers/:id/payments", addCustomerPayment);
 
 // DELETE /api/sales/customers/:id - Delete customer
 router.delete("/customers/:id", deleteCustomer);

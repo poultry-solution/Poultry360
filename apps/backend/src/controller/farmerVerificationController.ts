@@ -351,6 +351,7 @@ export const approveFarmerRequest = async (
     const { id } = req.params;
     const currentUserId = req.userId;
     const currentUserRole = req.role;
+    const { openingBalance, openingBalanceNotes } = req.body;
 
     // Only dealers can approve
     if (currentUserRole !== UserRole.DEALER) {
@@ -404,6 +405,18 @@ export const approveFarmerRequest = async (
       });
     }
 
+    let numericOpeningBalance: number | null = null;
+    if (openingBalance !== undefined && openingBalance !== null && openingBalance !== "") {
+      const n = Number(openingBalance);
+      if (!Number.isFinite(n)) {
+        return res.status(400).json({
+          success: false,
+          message: "openingBalance must be a valid number",
+        });
+      }
+      numericOpeningBalance = n;
+    }
+
     // Update request to APPROVED and create DealerFarmer relationship
     const updatedRequest = await prismaWithVerification.$transaction(async (tx: any) => {
       // Update verification status
@@ -437,7 +450,68 @@ export const approveFarmerRequest = async (
         });
       }
 
-3      // Auto-create Customer for connected farmer
+      // Create or update connected account ledger (DealerFarmerAccount)
+      // Opening balance is stored as an account-level adjustment.
+      // IMPORTANT: While status is PENDING_ACK, we do NOT mutate running balance.
+      if (numericOpeningBalance !== null && numericOpeningBalance !== 0) {
+        const account = await tx.dealerFarmerAccount.upsert({
+          where: {
+            dealerId_farmerId: {
+              dealerId: verificationRequest.dealerId,
+              farmerId: verificationRequest.farmerId,
+            },
+          },
+          create: {
+            dealerId: verificationRequest.dealerId,
+            farmerId: verificationRequest.farmerId,
+            // Initialize running balance to 0.
+            // The pending amount is applied to running balance only when the farmer acknowledges.
+            balance: 0,
+            totalSales: 0,
+            totalPayments: 0,
+            openingBalanceCurrent: numericOpeningBalance,
+            openingBalanceStatus: "PENDING_ACK",
+          },
+          update: {
+            // Do not touch running balance while pending.
+            openingBalanceCurrent: numericOpeningBalance,
+            openingBalanceStatus: "PENDING_ACK",
+          },
+          select: { id: true },
+        });
+
+        await tx.dealerFarmerAccountAdjustment.create({
+          data: {
+            accountId: account.id,
+            type: "OPENING_BALANCE",
+            amount: numericOpeningBalance,
+            notes: openingBalanceNotes ? String(openingBalanceNotes) : "Opening balance",
+            createdByRole: "DEALER",
+            createdById: currentUserId,
+            status: "PENDING_ACK",
+          },
+        });
+      } else {
+        // Ensure account exists (even if no opening balance provided)
+        await tx.dealerFarmerAccount.upsert({
+          where: {
+            dealerId_farmerId: {
+              dealerId: verificationRequest.dealerId,
+              farmerId: verificationRequest.farmerId,
+            },
+          },
+          create: {
+            dealerId: verificationRequest.dealerId,
+            farmerId: verificationRequest.farmerId,
+            balance: 0,
+            totalSales: 0,
+            totalPayments: 0,
+          },
+          update: {},
+        });
+      }
+
+      // Auto-create Customer for connected farmer
       const existingCustomer = await tx.customer.findFirst({
         where: {
           userId: dealer.ownerId,
@@ -472,6 +546,279 @@ export const approveFarmerRequest = async (
       success: false,
       message: error.message || "Internal server error",
     });
+  }
+};
+
+// ==================== DEALER: SET/EDIT CONNECTED OPENING BALANCE ====================
+export const setConnectedOpeningBalanceByDealer = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { connectionId } = req.params;
+    const { openingBalance, notes } = req.body;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    if (currentUserRole !== UserRole.DEALER) {
+      return res.status(403).json({ success: false, message: "Only dealers can set opening balance" });
+    }
+
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: currentUserId },
+      select: { id: true },
+    });
+    if (!dealer) {
+      return res.status(404).json({ success: false, message: "Dealer account not found" });
+    }
+
+    const numericOpening = Number(openingBalance);
+    if (!Number.isFinite(numericOpening)) {
+      return res.status(400).json({ success: false, message: "openingBalance must be a valid number" });
+    }
+
+    const connection = await prismaWithVerification.dealerFarmer.findUnique({
+      where: { id: connectionId },
+      select: { id: true, dealerId: true, farmerId: true },
+    });
+    if (!connection || connection.dealerId !== dealer.id) {
+      return res.status(404).json({ success: false, message: "Connection not found" });
+    }
+
+    const prismaAny = prisma as any;
+
+    const result = await prismaAny.$transaction(async (tx: any) => {
+      const account = await tx.dealerFarmerAccount.upsert({
+        where: {
+          dealerId_farmerId: { dealerId: connection.dealerId, farmerId: connection.farmerId },
+        },
+        create: {
+          dealerId: connection.dealerId,
+          farmerId: connection.farmerId,
+          balance: 0,
+          totalSales: 0,
+          totalPayments: 0,
+            openingBalanceCurrent: numericOpening,
+            openingBalanceStatus: "PENDING_ACK",
+        },
+        update: {
+          // Do not touch running balance while pending.
+          openingBalanceCurrent: numericOpening,
+          openingBalanceStatus: "PENDING_ACK",
+        },
+        select: { id: true },
+      });
+
+      const adj = await tx.dealerFarmerAccountAdjustment.create({
+        data: {
+          accountId: account.id,
+          type: "OPENING_BALANCE",
+          amount: numericOpening,
+          notes: notes ? String(notes) : "Opening balance",
+          createdByRole: "DEALER",
+          createdById: currentUserId,
+          status: "PENDING_ACK",
+        },
+      });
+
+      return { accountId: account.id, adjustment: adj };
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        accountId: result.accountId,
+        openingBalance: {
+          id: result.adjustment.id,
+          amount: Number(result.adjustment.amount),
+          status: result.adjustment.status,
+          notes: result.adjustment.notes,
+          createdAt: result.adjustment.createdAt,
+        },
+      },
+      message: "Opening balance set. Farmer acknowledgement required.",
+    });
+  } catch (error: any) {
+    console.error("Set connected opening balance error:", error);
+    return res.status(500).json({ success: false, message: error.message || "Internal server error" });
+  }
+};
+
+// ==================== FARMER: ACKNOWLEDGE CONNECTED OPENING BALANCE ====================
+export const acknowledgeConnectedOpeningBalance = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { connectionId } = req.params;
+    const { note } = req.body;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    if (currentUserRole !== UserRole.OWNER) {
+      return res.status(403).json({ success: false, message: "Only farmers can acknowledge opening balance" });
+    }
+
+    const connection = await prismaWithVerification.dealerFarmer.findUnique({
+      where: { id: connectionId },
+      select: { dealerId: true, farmerId: true },
+    });
+    if (!connection || connection.farmerId !== currentUserId) {
+      return res.status(404).json({ success: false, message: "Connection not found" });
+    }
+
+    const prismaAny = prisma as any;
+    const result = await prismaAny.$transaction(async (tx: any) => {
+      const account = await tx.dealerFarmerAccount.findUnique({
+        where: { dealerId_farmerId: { dealerId: connection.dealerId, farmerId: connection.farmerId } },
+        select: { id: true, balance: true, totalSales: true, totalPayments: true },
+      });
+      if (!account) throw new Error("Account not found");
+
+      const pending = await tx.dealerFarmerAccountAdjustment.findFirst({
+        where: { accountId: account.id, type: "OPENING_BALANCE", status: "PENDING_ACK" },
+        orderBy: { createdAt: "desc" },
+      });
+      if (!pending) {
+        return { ok: false, message: "No pending opening balance to acknowledge" };
+      }
+
+      const newAmount = Number(pending.amount);
+
+      // Balance always includes (openingEffective + totalSales - totalPayments).
+      // So we compute the currently-effective opening component and replace it with the pending amount.
+      const currentOpeningEffective =
+        Number(account.balance) - Number(account.totalSales) + Number(account.totalPayments);
+      const delta = newAmount - currentOpeningEffective;
+
+      const updated = await tx.dealerFarmerAccountAdjustment.update({
+        where: { id: pending.id },
+        data: {
+          status: "ACKNOWLEDGED",
+          farmerResponseNote: note ? String(note) : null,
+          respondedAt: new Date(),
+        },
+      });
+
+      await tx.dealerFarmerAccount.update({
+        where: { id: account.id },
+        data: {
+          // Apply the pending amount only at acknowledgement time.
+          balance: { increment: delta },
+          openingBalanceCurrent: newAmount,
+          openingBalanceStatus: "ACKNOWLEDGED",
+        },
+      });
+
+      return { ok: true, adjustment: updated };
+    });
+
+    if (result.ok === false) {
+      return res.status(400).json({ success: false, message: (result as any).message });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        openingBalance: {
+          id: (result as any).adjustment.id,
+          amount: Number((result as any).adjustment.amount),
+          status: (result as any).adjustment.status,
+          respondedAt: (result as any).adjustment.respondedAt,
+        },
+      },
+      message: "Opening balance acknowledged",
+    });
+  } catch (error: any) {
+    console.error("Acknowledge connected opening balance error:", error);
+    return res.status(500).json({ success: false, message: error.message || "Internal server error" });
+  }
+};
+
+// ==================== FARMER: DISPUTE CONNECTED OPENING BALANCE ====================
+export const disputeConnectedOpeningBalance = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { connectionId } = req.params;
+    const { note } = req.body;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    if (currentUserRole !== UserRole.OWNER) {
+      return res.status(403).json({ success: false, message: "Only farmers can dispute opening balance" });
+    }
+
+    const connection = await prismaWithVerification.dealerFarmer.findUnique({
+      where: { id: connectionId },
+      select: { dealerId: true, farmerId: true },
+    });
+    if (!connection || connection.farmerId !== currentUserId) {
+      return res.status(404).json({ success: false, message: "Connection not found" });
+    }
+
+    const prismaAny = prisma as any;
+    const result = await prismaAny.$transaction(async (tx: any) => {
+      const account = await tx.dealerFarmerAccount.findUnique({
+        where: { dealerId_farmerId: { dealerId: connection.dealerId, farmerId: connection.farmerId } },
+        select: { id: true, balance: true, totalSales: true, totalPayments: true },
+      });
+      if (!account) throw new Error("Account not found");
+
+      const pending = await tx.dealerFarmerAccountAdjustment.findFirst({
+        where: { accountId: account.id, type: "OPENING_BALANCE", status: "PENDING_ACK" },
+        orderBy: { createdAt: "desc" },
+      });
+      if (!pending) {
+        return { ok: false, message: "No pending opening balance to dispute" };
+      }
+
+      const latestAcknowledged = await tx.dealerFarmerAccountAdjustment.findFirst({
+        where: { accountId: account.id, type: "OPENING_BALANCE", status: "ACKNOWLEDGED" },
+        orderBy: { createdAt: "desc" },
+        select: { amount: true },
+      });
+
+      const targetOpening = latestAcknowledged ? Number(latestAcknowledged.amount) : 0;
+
+      // Replace the currently-effective opening component with the latest acknowledged one.
+      const currentOpeningEffective =
+        Number(account.balance) - Number(account.totalSales) + Number(account.totalPayments);
+      const delta = targetOpening - currentOpeningEffective;
+
+      const updated = await tx.dealerFarmerAccountAdjustment.update({
+        where: { id: pending.id },
+        data: {
+          status: "DISPUTED",
+          farmerResponseNote: note ? String(note) : null,
+          respondedAt: new Date(),
+        },
+      });
+
+      await tx.dealerFarmerAccount.update({
+        where: { id: account.id },
+        data: {
+          // If this pending opening was already included in running balance (old flow/data),
+          // this removes it by restoring the last acknowledged opening component.
+          balance: { increment: delta },
+          openingBalanceStatus: "DISPUTED",
+        },
+      });
+
+      return { ok: true, adjustment: updated };
+    });
+
+    if (result.ok === false) {
+      return res.status(400).json({ success: false, message: (result as any).message });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        openingBalance: {
+          id: (result as any).adjustment.id,
+          amount: Number((result as any).adjustment.amount),
+          status: (result as any).adjustment.status,
+          respondedAt: (result as any).adjustment.respondedAt,
+        },
+      },
+      message: "Opening balance disputed",
+    });
+  } catch (error: any) {
+    console.error("Dispute connected opening balance error:", error);
+    return res.status(500).json({ success: false, message: error.message || "Internal server error" });
   }
 };
 
@@ -850,6 +1197,14 @@ export const getDealerDetailsForFarmer = async (
           : null,
     };
 
+    const prismaAny = prisma as any;
+    const openingAdjustments = await prismaAny.dealerFarmerAccountAdjustment.findMany({
+      where: { accountId: accountRecord.id, type: "OPENING_BALANCE" },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+    const latestOpening = openingAdjustments[0] || null;
+
     // Get full statement (sales + payments, merged as transactions) - one call
     const statement = await DealerFarmerAccountService.getAccountStatement({
       dealerId: dealerId as string,
@@ -862,7 +1217,34 @@ export const getDealerDetailsForFarmer = async (
       success: true,
       data: {
         dealer,
-        account,
+        connection: {
+          id: dealerFarmerLink.id,
+        },
+        account: {
+          ...account,
+          openingBalance: latestOpening
+            ? {
+                id: latestOpening.id,
+                amount: Number(latestOpening.amount),
+                status: latestOpening.status,
+                notes: latestOpening.notes,
+                createdAt: latestOpening.createdAt,
+                createdByRole: latestOpening.createdByRole,
+                respondedAt: latestOpening.respondedAt,
+                farmerResponseNote: latestOpening.farmerResponseNote,
+              }
+            : null,
+          openingBalanceHistory: openingAdjustments.map((a: any) => ({
+            id: a.id,
+            amount: Number(a.amount),
+            status: a.status,
+            notes: a.notes,
+            createdAt: a.createdAt,
+            createdByRole: a.createdByRole,
+            respondedAt: a.respondedAt,
+            farmerResponseNote: a.farmerResponseNote,
+          })),
+        },
         sales: statement.sales,
         payments: statement.payments,
         transactions: statement.transactions,

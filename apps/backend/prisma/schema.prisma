@@ -38,6 +38,36 @@ enum TransactionType {
   RETURN
 }
 
+enum DealerFarmerAccountAdjustmentType {
+  OPENING_BALANCE
+}
+
+enum DealerFarmerAccountAdjustmentStatus {
+  PENDING_ACK
+  ACKNOWLEDGED
+  DISPUTED
+}
+
+enum DealerFarmerAccountAdjustmentCreatedByRole {
+  DEALER
+  FARMER
+}
+
+enum CompanyDealerAccountAdjustmentType {
+  OPENING_BALANCE
+}
+
+enum CompanyDealerAccountAdjustmentStatus {
+  PENDING_ACK
+  ACKNOWLEDGED
+  DISPUTED
+}
+
+enum CompanyDealerAccountAdjustmentCreatedByRole {
+  COMPANY
+  DEALER
+}
+
 enum ConversationStatus {
   ACTIVE
   CLOSED
@@ -257,6 +287,9 @@ model User {
 
   // Company-Dealer account payments
   companyDealerPaymentsRecorded CompanyDealerPayment[] @relation("CompanyDealerPaymentRecorder")
+  companyPurchasesCreated        CompanyPurchase[]     @relation("CompanyPurchaseCreatedBy")
+  companySupplierPaymentsRecorded CompanySupplierPayment[] @relation("CompanySupplierPaymentRecorder")
+  productionRunsCreated         ProductionRun[]      @relation("ProductionRunCreatedBy")
 
   balanceLimitsSet CompanyDealerAccount[] @relation("BalanceLimitSetter")
 
@@ -308,6 +341,18 @@ model Company {
   verificationRequests DealerVerificationRequest[]
   dealerCarts          DealerCart[]
   dealerAccounts       CompanyDealerAccount[]
+
+  // Supplier & purchasing (feed mill)
+  suppliers            Supplier[]
+  rawMaterials         RawMaterial[]
+  companyPurchases     CompanyPurchase[]
+  supplierPayments      CompanySupplierPayment[]
+
+  // Dealer inventory rows that were created from this connected company
+  suppliedDealerProducts DealerProduct[] @relation("DealerProductSupplierCompany")
+
+  // Production (raw materials used → produced items log)
+  productionRuns       ProductionRun[]
 
   @@index([ownerId])
 }
@@ -513,6 +558,7 @@ model Product {
   companySaleItems CompanySaleItem[]
   cartItems        DealerCartItem[]
   unitConversions  ProductUnitConversion[]
+  productionOutputs ProductionOutput[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -959,6 +1005,10 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Soft archive (dealer UI)
+  archivedAt   DateTime?
+  archivedById String?
+
   @@unique([userId, name])
   @@unique([userId, farmerId]) // Prevent duplicate customers for same farmer-dealer pair
 }
@@ -1169,6 +1219,10 @@ model DealerFarmerAccount {
   // Running balance (positive = farmer owes dealer, negative = advance/credit)
   balance         Decimal @default(0) @db.Decimal(10, 2)
 
+  // Latest proposed/confirmed opening balance snapshot for this connected account
+  openingBalanceCurrent Decimal? @db.Decimal(10, 2)
+  openingBalanceStatus  DealerFarmerAccountAdjustmentStatus?
+
   // Totals for reference
   totalSales      Decimal @default(0) @db.Decimal(10, 2)
   totalPayments   Decimal @default(0) @db.Decimal(10, 2)
@@ -1185,6 +1239,7 @@ model DealerFarmerAccount {
 
   sales    DealerSale[]
   payments DealerFarmerPayment[]
+  adjustments DealerFarmerAccountAdjustment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1219,6 +1274,29 @@ model DealerFarmerPayment {
   createdAt DateTime @default(now())
 
   @@index([accountId, paymentDate])
+}
+
+model DealerFarmerAccountAdjustment {
+  id        String   @id @default(cuid())
+  accountId String
+  account   DealerFarmerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  type   DealerFarmerAccountAdjustmentType
+  amount Decimal @db.Decimal(10, 2)
+  notes  String?
+
+  createdByRole DealerFarmerAccountAdjustmentCreatedByRole
+  createdById   String
+
+  status DealerFarmerAccountAdjustmentStatus @default(PENDING_ACK)
+
+  farmerResponseNote String?
+  respondedAt        DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([accountId, createdAt])
+  @@index([accountId, status])
 }
 
 // ==================== DEALER VERIFICATION REQUESTS ====================
@@ -1433,6 +1511,13 @@ model DealerProduct {
   dealerId String
   dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
 
+  // Supplier/source for inventory tracking
+  manualCompanyId String?
+  manualCompany   DealerManualCompany? @relation(fields: [manualCompanyId], references: [id], onDelete: SetNull)
+
+  supplierCompanyId String?
+  supplierCompany   Company? @relation("DealerProductSupplierCompany", fields: [supplierCompanyId], references: [id], onDelete: SetNull)
+
   companyProductId String?
   companyProduct   Product? @relation(fields: [companyProductId], references: [id], onDelete: SetNull)
 
@@ -1448,8 +1533,10 @@ model DealerProduct {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([dealerId, name, costPrice, sellingPrice])
+  @@unique([dealerId, name, costPrice, sellingPrice, manualCompanyId, supplierCompanyId])
   @@index([dealerId])
+  @@index([manualCompanyId])
+  @@index([supplierCompanyId])
   @@index([companyProductId])
 }
 
@@ -1909,6 +1996,11 @@ model CompanyDealerAccount {
   
   // Running balance (positive = dealer owes company, negative = advance/credit)
   balance         Decimal @default(0) @db.Decimal(10, 2)
+
+  // Opening balance proposal/ack workflow (connected dealer↔company)
+  openingBalanceCurrent  Decimal? @db.Decimal(10, 2) // latest ACKNOWLEDGED snapshot
+  openingBalanceProposed Decimal? @db.Decimal(10, 2) // latest PENDING_ACK proposal
+  openingBalanceStatus   CompanyDealerAccountAdjustmentStatus?
   
   // Totals for reference
   totalSales      Decimal @default(0) @db.Decimal(10, 2)
@@ -1926,6 +2018,7 @@ model CompanyDealerAccount {
   
   sales    CompanySale[]
   payments CompanyDealerPayment[]
+  adjustments CompanyDealerAccountAdjustment[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1933,6 +2026,29 @@ model CompanyDealerAccount {
   @@unique([companyId, dealerId])
   @@index([companyId])
   @@index([dealerId])
+}
+
+model CompanyDealerAccountAdjustment {
+  id        String   @id @default(cuid())
+  accountId String
+  account   CompanyDealerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  type   CompanyDealerAccountAdjustmentType
+  amount Decimal @db.Decimal(10, 2)
+  notes  String?
+
+  createdByRole CompanyDealerAccountAdjustmentCreatedByRole
+  createdById   String
+
+  status CompanyDealerAccountAdjustmentStatus @default(PENDING_ACK)
+
+  dealerResponseNote String?
+  respondedAt        DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([accountId, createdAt])
+  @@index([accountId, status])
 }
 
 model CompanyDealerPayment {
@@ -1988,6 +2104,166 @@ model CompanyLedgerEntry {
   @@index([partyId, partyType])
   @@index([companySaleId])
   @@index([transactionId])
+}
+
+// ==================== COMPANY SUPPLIERS & PURCHASING (feed mill) ====================
+
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String
+  contact   String?
+  address   String?
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  purchases        CompanyPurchase[]
+  payments         CompanySupplierPayment[]
+  productionInputs ProductionInput[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+// Raw materials (inputs) that company purchases; later used in production to make Products (finished goods)
+model RawMaterial {
+  id          String   @id @default(cuid())
+  name        String
+  unit        String
+  currentStock Decimal @default(0) @db.Decimal(12, 2)
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  purchaseItems   CompanyPurchaseItem[]
+  productionInputs ProductionInput[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, name, unit])
+  @@index([companyId])
+}
+
+model CompanyPurchase {
+  id              String   @id @default(cuid())
+  date            DateTime @default(now())
+  referenceNumber String?
+  notes           String?
+  totalAmount     Decimal  @db.Decimal(12, 2)
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  createdById String?
+  createdBy   User?   @relation("CompanyPurchaseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  items CompanyPurchaseItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, date])
+  @@index([supplierId, date])
+}
+
+model CompanyPurchaseItem {
+  id          String   @id @default(cuid())
+  quantity    Decimal  @db.Decimal(12, 2)
+  unitPrice   Decimal  @db.Decimal(12, 2)
+  totalAmount Decimal  @db.Decimal(12, 2)
+
+  purchaseId    String
+  purchase      CompanyPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  rawMaterialId String
+  rawMaterial   RawMaterial     @relation(fields: [rawMaterialId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([purchaseId])
+  @@index([rawMaterialId])
+}
+
+model CompanySupplierPayment {
+  id            String   @id @default(cuid())
+  amount        Decimal  @db.Decimal(12, 2)
+  paymentMethod String   @default("CASH")
+  paymentDate   DateTime @default(now())
+  notes         String?
+  reference     String?
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  recordedById String?
+  recordedBy   User?   @relation("CompanySupplierPaymentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, paymentDate])
+  @@index([supplierId, paymentDate])
+}
+
+// ==================== PRODUCTION (feed mill) ====================
+// Raw materials used (stock decremented) + produced items (log only, no Product link for now)
+model ProductionRun {
+  id              String   @id @default(cuid())
+  date            DateTime @default(now())
+  referenceNumber String?
+  notes           String?
+
+  companyId   String
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?   @relation("ProductionRunCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  inputs  ProductionInput[]
+  outputs ProductionOutput[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, date])
+}
+
+model ProductionInput {
+  id            String   @id @default(cuid())
+  quantity      Decimal  @db.Decimal(12, 2)
+  unitPrice     Decimal  @db.Decimal(12, 2) // bucket identifier (same as purchase rate)
+
+  productionId   String
+  production     ProductionRun @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  rawMaterialId  String
+  rawMaterial    RawMaterial    @relation(fields: [rawMaterialId], references: [id], onDelete: Restrict)
+  supplierId     String
+  supplier       Supplier      @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([productionId])
+  @@index([rawMaterialId])
+  @@index([supplierId])
+}
+
+model ProductionOutput {
+  id          String   @id @default(cuid())
+  productName String   // Denormalized for display; when productId is set, matches product.name
+  quantity    Decimal  @db.Decimal(12, 2)
+  unit        String?  @default("kg")
+
+  productionId String
+  production   ProductionRun @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  productId    String?
+  product      Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([productionId])
+  @@index([productId])
 }
 
 // ==================== PAYMENT REQUEST MODEL ====================
@@ -2061,6 +2337,10 @@ model DealerManualCompany {
   dealerId String
   dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
 
+  // Archive (instead of delete when there is history)
+  archivedAt   DateTime?
+  archivedById String?
+
   // Running balance (positive = dealer owes company)
   balance        Decimal @default(0) @db.Decimal(10, 2)
   totalPurchases Decimal @default(0) @db.Decimal(10, 2)
@@ -2068,6 +2348,8 @@ model DealerManualCompany {
 
   purchases DealerManualPurchase[]
   payments  DealerManualCompanyPayment[]
+  adjustments DealerManualCompanyAdjustment[]
+  suppliedProducts DealerProduct[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2076,12 +2358,41 @@ model DealerManualCompany {
   @@index([dealerId])
 }
 
+enum DealerManualCompanyAdjustmentType {
+  OPENING_BALANCE
+  ADJUSTMENT
+}
+
+model DealerManualCompanyAdjustment {
+  id        String   @id @default(cuid())
+  type      DealerManualCompanyAdjustmentType @default(ADJUSTMENT)
+  // Signed amount: positive = dealer owes company, negative = advance/credit
+  amount    Decimal  @db.Decimal(10, 2)
+  date      DateTime @default(now())
+  notes     String?
+
+  // Balance snapshot after applying this adjustment
+  balanceAfter Decimal @db.Decimal(10, 2)
+
+  manualCompanyId String
+  manualCompany   DealerManualCompany @relation(fields: [manualCompanyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([manualCompanyId, date])
+  @@index([manualCompanyId, type])
+}
+
 model DealerManualPurchase {
   id          String   @id @default(cuid())
   date        DateTime @default(now())
   totalAmount Decimal  @db.Decimal(10, 2)
   notes       String?
   reference   String?
+
+  // Void instead of hard delete (audit-safe)
+  voidedAt     DateTime?
+  voidedReason String?
 
   manualCompanyId String
   manualCompany   DealerManualCompany @relation(fields: [manualCompanyId], references: [id], onDelete: Cascade)
@@ -2125,6 +2436,10 @@ model DealerManualCompanyPayment {
   notes         String?
   reference     String?
   receiptUrl    String?
+
+  // Void instead of hard delete (audit-safe)
+  voidedAt     DateTime?
+  voidedReason String?
 
   // Balance snapshot after this payment
   balanceAfter Decimal @db.Decimal(10, 2)

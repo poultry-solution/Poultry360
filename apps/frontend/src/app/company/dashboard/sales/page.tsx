@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Receipt, Search, Eye, Calendar } from "lucide-react";
+import { Plus, Eye } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -11,14 +11,6 @@ import {
   CardTitle,
 } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
-import { Input } from "@/common/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/common/components/ui/select";
 import { DataTable, Column } from "@/common/components/ui/data-table";
 import { Badge } from "@/common/components/ui/badge";
 import {
@@ -26,22 +18,15 @@ import {
   type CompanySale,
 } from "@/fetchers/company/companySaleQueries";
 import { DateDisplay } from "@/common/components/ui/date-display";
-import { DateInput } from "@/common/components/ui/date-input";
 
 export default function CompanySalesPage() {
   const router = useRouter();
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
 
   // Get sales
   const { data: salesData, isLoading } = useGetCompanySales({
     page,
     limit: 10,
-    search,
-    startDate: startDate || undefined,
-    endDate: endDate || undefined,
   });
 
   const sales: CompanySale[] = salesData?.data || [];
@@ -70,39 +55,6 @@ export default function CompanySalesPage() {
           <span className="sm:hidden">Create</span>
         </Button>
       </div>
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-4 pb-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search invoice..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <DateInput
-                label="Start"
-                value={startDate}
-                onChange={setStartDate}
-                className="flex-1 sm:w-[130px]"
-              />
-              <DateInput
-                label="End"
-                value={endDate}
-                onChange={setEndDate}
-                className="flex-1 sm:w-[130px]"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Sales Table */}
       <Card>
