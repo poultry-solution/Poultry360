@@ -817,6 +817,10 @@ model EntityTransaction {
   paymentToPurchase   EntityTransaction?  @relation("PaymentToPurchase", fields: [paymentToPurchaseId], references: [id], onDelete: SetNull)
   paymentsForPurchase EntityTransaction[] @relation("PaymentToPurchase")
 
+  // Dealer general payment (manual customer) — for delete/reversal
+  sourceDealerLedgerEntryId String?
+  sourceDealerLedgerEntry   DealerLedgerEntry? @relation("EntityTxFromDealerLedgerPayment", fields: [sourceDealerLedgerEntryId], references: [id], onDelete: SetNull)
+
   // Keep generic fields for backward compatibility and flexibility
   entityType String? // "DEALER", "HATCHERY", "MEDICINE_SUPPLIER", "CUSTOMER"
   entityId   String? // The actual entity ID (for custom entities)
@@ -838,6 +842,7 @@ model EntityTransaction {
   @@index([entityType, entityId, date])
   @@index([inventoryItemId, date])
   @@index([paymentToPurchaseId, date])
+  @@index([sourceDealerLedgerEntryId])
 }
 
 // ==================== SUPPLIERS (SIMPLIFIED) ====================
@@ -1640,9 +1645,14 @@ model DealerSalePayment {
   saleId String
   sale   DealerSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
+  // Set for FIFO allocations from DealerService.addGeneralPayment (one ledger row, N sale payments)
+  linkedLedgerEntryId String?
+  linkedLedgerEntry   DealerLedgerEntry? @relation("DealerSalePaymentGeneralLedger", fields: [linkedLedgerEntryId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
 
   @@index([saleId, date])
+  @@index([linkedLedgerEntryId])
 }
 
 // ==================== DEALER SALE PAYMENT REQUEST MODELS ====================
@@ -1893,6 +1903,9 @@ model DealerLedgerEntry {
   partyType String?
 
   createdAt DateTime @default(now())
+
+  linkedSalePaymentsFromGeneral DealerSalePayment[] @relation("DealerSalePaymentGeneralLedger")
+  entityTransactionsFromGeneral EntityTransaction[] @relation("EntityTxFromDealerLedgerPayment")
 
   @@index([dealerId, date])
   @@index([partyId, partyType])
