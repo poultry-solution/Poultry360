@@ -118,7 +118,7 @@ export default function FarmDetailPage() {
       toast.success("Farm deleted successfully!");
 
       // Navigate immediately to prevent further queries
-      router.replace("/dashboard/farms");
+      router.replace("/farmer/dashboard/farms");
     } catch (error) {
       console.error("Failed to delete farm:", error);
       // Reset deleted state on error
@@ -648,7 +648,7 @@ export default function FarmDetailPage() {
           </Button>
           <Button
             variant="destructive"
-            className="bg-red-600 hover:bg-red-700 text-white"
+            className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
             onClick={handleDeleteFarm}
             disabled={deleteFarmMutation.isPending}
           >
@@ -695,7 +695,7 @@ export default function FarmDetailPage() {
           </Button>
           <Button
             variant="default"
-            className="bg-red-600 hover:bg-red-700 text-white"
+            className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
             onClick={async () => {
               if (!batchToDelete) return;
               try {

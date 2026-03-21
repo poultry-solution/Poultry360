@@ -790,6 +790,12 @@ export const deleteExpense = async (
             managers: true,
           },
         },
+        category: {
+          select: {
+            name: true,
+            type: true,
+          },
+        },
         inventoryUsages: true,
         _count: {
           select: {
@@ -833,7 +839,21 @@ export const deleteExpense = async (
         });
       }
 
-      // 2. Delete the expense
+      // 2. Delete associated feed consumption records if this is a feed expense
+      if (
+        existingExpense.category?.type === CategoryType.EXPENSE &&
+        existingExpense.category?.name.toLowerCase() === "feed" &&
+        existingExpense.batchId
+      ) {
+        await tx.feedConsumption.deleteMany({
+          where: {
+            batchId: existingExpense.batchId,
+            date: existingExpense.date,
+          },
+        });
+      }
+
+      // 3. Delete the expense
       await tx.expense.delete({
         where: { id },
       });

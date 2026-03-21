@@ -366,21 +366,19 @@ export default function SupplierLedgerPage() {
     let firstErrorMessage: string | null = null;
 
     try {
-      await Promise.all(
-        ids.map(async (entryId) => {
-          try {
-            await deleteTxn.mutateAsync({
-              dealerId: activeSupplierId,
-              transactionId: entryId,
-              password: passwordForm.password,
-            });
-          } catch (e: any) {
-            failed += 1;
-            const msg = e?.response?.data?.message;
-            if (msg && !firstErrorMessage) firstErrorMessage = msg;
-          }
-        })
-      );
+      for (const entryId of ids) {
+        try {
+          await deleteTxn.mutateAsync({
+            dealerId: activeSupplierId,
+            transactionId: entryId,
+            password: passwordForm.password,
+          });
+        } catch (e: any) {
+          failed += 1;
+          const msg = e?.response?.data?.message;
+          if (msg && !firstErrorMessage) firstErrorMessage = msg;
+        }
+      }
 
       exitDeleteMode();
       setIsPasswordModalOpen(false);

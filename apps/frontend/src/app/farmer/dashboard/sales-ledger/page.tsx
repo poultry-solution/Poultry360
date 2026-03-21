@@ -49,6 +49,7 @@ import {
   UserPlus,
   Receipt,
   AlertCircle,
+  X,
 } from "lucide-react";
 import {
   useSalesManagement,
@@ -60,6 +61,7 @@ import {
   useGetSalePayments,
   useGetCustomer,
   useAddCustomerPayment,
+  useSoftDeleteCustomerPayment,
 } from "@/fetchers/sale/saleQueries";
 
 import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
@@ -112,6 +114,16 @@ export default function SalesLedgerPage() {
   const [editingPartyId, setEditingPartyId] = useState<string | null>(null);
   const [partyToDelete, setPartyToDelete] = useState<string | null>(null);
   const [selectedParty, setSelectedParty] = useState<any>(null);
+
+  // Payment delete mode
+  const [showDeletedPayments, setShowDeletedPayments] = useState(false);
+  const [isPaymentDeleteMode, setIsPaymentDeleteMode] = useState(false);
+  const [selectedPaymentIds, setSelectedPaymentIds] = useState<Set<string>>(new Set());
+  const [isConfirmPaymentDeleteOpen, setIsConfirmPaymentDeleteOpen] = useState(false);
+  const [isPaymentPasswordModalOpen, setIsPaymentPasswordModalOpen] = useState(false);
+  const [paymentDeletePasswordForm, setPaymentDeletePasswordForm] = useState({ password: "" });
+  const [paymentDeleteError, setPaymentDeleteError] = useState<{ message: string } | null>(null);
+  const softDeletePayment = useSoftDeleteCustomerPayment();
 
   // Filters
   const [salesFilters, setSalesFilters] = useState<SalesFilters>({
@@ -336,6 +348,92 @@ export default function SalesLedgerPage() {
   const handlePaymentFilterChange = (key: keyof PaymentFilters, value: string) => {
     setPaymentFilters((prev) => ({ ...prev, [key]: value }));
   };
+
+  // Payment delete mode handlers
+  function toggleAllPayments() {
+    const selectablePayments = payments.filter(
+      (p: any) => p.source === "CUSTOMER_RECEIPT" && !p.deletedAt
+    );
+    if (!selectablePayments.length) return;
+    if (selectedPaymentIds.size === selectablePayments.length) {
+      setSelectedPaymentIds(new Set());
+    } else {
+      setSelectedPaymentIds(new Set(selectablePayments.map((p: any) => p.id)));
+    }
+  }
+
+  function toggleOnePayment(row: any) {
+    setSelectedPaymentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(row.id)) next.delete(row.id);
+      else next.add(row.id);
+      return next;
+    });
+  }
+
+  function exitPaymentDeleteMode() {
+    setIsPaymentDeleteMode(false);
+    setSelectedPaymentIds(new Set());
+  }
+
+  async function confirmDeletePayments() {
+    if (selectedPaymentIds.size === 0) return;
+    setIsConfirmPaymentDeleteOpen(false);
+    setIsPaymentPasswordModalOpen(true);
+  }
+
+  async function handlePaymentDeletePasswordConfirm() {
+    if (selectedPaymentIds.size === 0 || !paymentDeletePasswordForm.password) return;
+
+    // Build a map of id -> customerId before deleting
+    const idToCustomerId = new Map<string, string>();
+    for (const p of payments) {
+      if (selectedPaymentIds.has(p.id) && p.customerId) {
+        idToCustomerId.set(p.id, p.customerId);
+      }
+    }
+
+    const ids = Array.from(selectedPaymentIds);
+    let failed = 0;
+    let firstErrorMessage: string | null = null;
+
+    try {
+      for (const entryId of ids) {
+        const customerId = idToCustomerId.get(entryId);
+        if (!customerId) {
+          failed += 1;
+          continue;
+        }
+        try {
+          await softDeletePayment.mutateAsync({
+            customerId,
+            transactionId: entryId,
+            password: paymentDeletePasswordForm.password,
+          });
+        } catch (e: any) {
+          failed += 1;
+          const msg = e?.response?.data?.message;
+          if (msg && !firstErrorMessage) firstErrorMessage = msg;
+        }
+      }
+
+      exitPaymentDeleteMode();
+      setIsPaymentPasswordModalOpen(false);
+      setPaymentDeletePasswordForm({ password: "" });
+
+      if (failed === 0) {
+        toast.success("Payments deleted successfully");
+      } else {
+        setPaymentDeleteError({
+          message: firstErrorMessage || `Failed to delete ${failed} payment(s)`,
+        });
+      }
+    } catch (error) {
+      toast.error("Password verification failed");
+      setIsPaymentPasswordModalOpen(false);
+      setPaymentDeletePasswordForm({ password: "" });
+    }
+  }
 
   // Handle sale form field updates (same as home page)
   const updateSaleField = (
@@ -811,18 +909,6 @@ export default function SalesLedgerPage() {
       ),
     },
     {
-      key: "transactions",
-      label: t("farmer.salesLedger.table.transactions"),
-      type: "actions" as const,
-      align: "center" as const,
-      width: "120px",
-      render: (_: any, row: any) => (
-        <span className="text-sm text-muted-foreground">
-          {row.payments?.length ?? 0} {(row.payments?.length ?? 0) !== 1 ? t("farmer.salesLedger.table.payments") : t("farmer.salesLedger.table.payment")}
-        </span>
-      ),
-    },
-    {
       key: "actions",
       label: t("farmer.salesLedger.table.actions"),
       type: "actions" as const,
@@ -1178,10 +1264,59 @@ export default function SalesLedgerPage() {
           {/* Payments Table */}
           <Card>
             <CardHeader className="p-3 md:p-6">
-              <CardTitle className="text-base md:text-lg">{t("farmer.salesLedger.recentPayments")}</CardTitle>
-              <CardDescription className="text-xs md:text-sm">
-                {paymentsPagination?.total || 0} {t("farmer.salesLedger.totalRecords")}
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base md:text-lg">{t("farmer.salesLedger.recentPayments")}</CardTitle>
+                  <CardDescription className="text-xs md:text-sm">
+                    {paymentsPagination?.total || 0} {t("farmer.salesLedger.totalRecords")}
+                  </CardDescription>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {isPaymentDeleteMode ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={exitPaymentDeleteMode}
+                      >
+                        <X className="h-3 w-3 mr-1" /> Cancel
+                      </Button>
+                      <Button
+                        className="bg-red-600 hover:bg-red-700 text-white h-7 text-xs"
+                        size="sm"
+                        disabled={selectedPaymentIds.size === 0 || softDeletePayment.isPending}
+                        onClick={() => setIsConfirmPaymentDeleteOpen(true)}
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        {selectedPaymentIds.size}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={`h-7 text-xs ${showDeletedPayments ? "bg-gray-100" : ""}`}
+                        onClick={() => setShowDeletedPayments((v) => !v)}
+                      >
+                        <Eye className="h-3 w-3 mr-1 sm:mr-0" />
+                        <span className="hidden sm:inline sm:ml-1">{showDeletedPayments ? "Hide Deleted" : "Show Deleted"}</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setIsPaymentDeleteMode(true)}
+                        disabled={payments.length === 0}
+                      >
+                        <Trash2 className="h-3 w-3 mr-1 sm:mr-0" />
+                        <span className="hidden sm:inline sm:ml-1">Delete Entries</span>
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-3 md:p-6 pt-0">
               {paymentsLoading ? (
@@ -1192,7 +1327,7 @@ export default function SalesLedgerPage() {
               ) : (
                 <div className="overflow-x-auto">
                   <DataTable
-                    data={payments}
+                    data={showDeletedPayments ? payments : payments.filter((p: any) => !p.deletedAt)}
                     columns={[
                       {
                         key: "date",
@@ -1239,6 +1374,17 @@ export default function SalesLedgerPage() {
                           ),
                       },
                     ]}
+                    selectable={isPaymentDeleteMode}
+                    isAllSelected={
+                      payments.filter((p: any) => p.source === "CUSTOMER_RECEIPT" && !p.deletedAt).length > 0 &&
+                      selectedPaymentIds.size === payments.filter((p: any) => p.source === "CUSTOMER_RECEIPT" && !p.deletedAt).length
+                    }
+                    onToggleAll={toggleAllPayments}
+                    isRowSelected={(row: any) => selectedPaymentIds.has(row.id)}
+                    onToggleRow={toggleOnePayment}
+                    getRowKey={(row: any) => row.id}
+                    isRowSelectable={(row: any) => row.source === "CUSTOMER_RECEIPT" && !row.deletedAt}
+                    rowClassName={(row: any) => row.deletedAt ? "opacity-40" : ""}
                     showFooter={true}
                     footerContent={
                       <div className="flex items-center justify-between text-xs md:text-sm text-muted-foreground w-full">
@@ -2106,6 +2252,116 @@ export default function SalesLedgerPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Confirm Delete Payments Modal */}
+      <Modal
+        isOpen={isConfirmPaymentDeleteOpen}
+        onClose={() => setIsConfirmPaymentDeleteOpen(false)}
+        title={`Delete ${selectedPaymentIds.size} payment(s)?`}
+      >
+        <ModalContent>
+          <p className="text-sm text-muted-foreground">
+            This will soft-delete the selected payments and reverse their effect on customer balances. Deleted payments will remain visible (dimmed) for audit purposes.
+          </p>
+        </ModalContent>
+        <ModalFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsConfirmPaymentDeleteOpen(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="bg-red-600 hover:bg-red-700 text-white"
+            onClick={confirmDeletePayments}
+            disabled={softDeletePayment.isPending}
+          >
+            {softDeletePayment.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+              </>
+            ) : (
+              "Delete"
+            )}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Payment Delete Password Modal */}
+      <Modal
+        isOpen={isPaymentPasswordModalOpen}
+        onClose={() => {
+          setIsPaymentPasswordModalOpen(false);
+          setPaymentDeletePasswordForm({ password: "" });
+        }}
+        title="Confirm Password"
+      >
+        <ModalContent>
+          <div className="space-y-4">
+            <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+              <p className="text-sm text-red-800">
+                <strong>
+                  You are about to delete {selectedPaymentIds.size} payment(s). This will reverse the balance for affected customers.
+                </strong>
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="payment-delete-password">Enter your password to confirm</Label>
+              <Input
+                id="payment-delete-password"
+                type="password"
+                value={paymentDeletePasswordForm.password}
+                onChange={(e) => setPaymentDeletePasswordForm({ password: e.target.value })}
+                placeholder="Enter password"
+                required
+                className="mt-1"
+              />
+            </div>
+          </div>
+        </ModalContent>
+        <ModalFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setIsPaymentPasswordModalOpen(false);
+              setPaymentDeletePasswordForm({ password: "" });
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="bg-red-600 hover:bg-red-700 text-white"
+            onClick={handlePaymentDeletePasswordConfirm}
+            disabled={!paymentDeletePasswordForm.password || softDeletePayment.isPending}
+          >
+            {softDeletePayment.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...
+              </>
+            ) : (
+              "Confirm Delete"
+            )}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Payment Delete Error Modal */}
+      <Modal
+        isOpen={!!paymentDeleteError}
+        onClose={() => setPaymentDeleteError(null)}
+        title="Delete Failed"
+      >
+        <ModalContent>
+          <div className="space-y-4">
+            <p className="text-sm text-red-600">{paymentDeleteError?.message}</p>
+          </div>
+        </ModalContent>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setPaymentDeleteError(null)}>
+            Close
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div >
   );
 }

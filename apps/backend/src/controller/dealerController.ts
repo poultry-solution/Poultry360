@@ -1423,6 +1423,7 @@ export const deleteDealerTransaction = async (
               itemId: txn.inventoryItemId as string,
               type: 'PURCHASE',
               quantity: qty,
+              date: txn.date,
             },
             orderBy: { date: 'desc' },
           });
@@ -1439,6 +1440,7 @@ export const deleteDealerTransaction = async (
               type: 'PURCHASE',
               quantity: freeQty,
               totalAmount: 0,
+              date: txn.date,
             },
             orderBy: { date: 'desc' },
           });
@@ -1531,7 +1533,7 @@ export const deleteDealerTransaction = async (
           where: { dealerId: id },
         });
         const newBalance = remainingTxns.reduce((sum, t) => {
-          if (t.type === "PURCHASE" || t.type === "ADJUSTMENT") return sum + Number(t.amount);
+          if (t.type === "PURCHASE" || t.type === "ADJUSTMENT" || t.type === "OPENING_BALANCE") return sum + Number(t.amount);
           if (t.type === "PAYMENT" || t.type === "RECEIPT") return sum - Number(t.amount);
           return sum;
         }, 0);

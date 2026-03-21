@@ -168,6 +168,8 @@ export const getAllSalePayments = async (
         receiptUrl: p.receiptUrl,
         source: "SALE_PAYMENT" as const,
         sale: p.sale,
+        deletedAt: null,
+        customerId: p.sale?.customer?.id || null,
       })),
       ...customerReceipts.map((t) => ({
         id: t.id,
@@ -178,6 +180,8 @@ export const getAllSalePayments = async (
         source: "CUSTOMER_RECEIPT" as const,
         sale: { customer: t.customer },
         reference: t.reference,
+        deletedAt: t.deletedAt,
+        customerId: t.customerId,
       })),
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -1580,6 +1584,91 @@ export const addCustomerPayment = async (req: Request, res: Response): Promise<a
     });
   } catch (error) {
     console.error("Add customer payment error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== SOFT DELETE CUSTOMER PAYMENT ====================
+export const softDeleteCustomerPayment = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id: customerId, transactionId } = req.params;
+    const { password } = req.body;
+    const currentUserId = req.userId;
+
+    // Verify password is provided
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: "Password confirmation is required for deletion",
+      });
+    }
+
+    // Verify user's password
+    const user = await prisma.user.findUnique({
+      where: { id: currentUserId },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const bcrypt = require("bcrypt");
+    const isValidPassword = await bcrypt.compare(password, user.password);
+
+    if (!isValidPassword) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid password. Deletion cancelled.",
+      });
+    }
+
+    // Verify customer belongs to user
+    const customer = await prisma.customer.findFirst({
+      where: { id: customerId, userId: currentUserId },
+      select: { id: true },
+    });
+
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    // Verify transaction exists, is a RECEIPT, and is not already soft-deleted
+    const txn = await prisma.customerTransaction.findFirst({
+      where: {
+        id: transactionId,
+        customerId,
+        type: TransactionType.RECEIPT,
+        deletedAt: null,
+      },
+    });
+
+    if (!txn) {
+      return res.status(404).json({ message: "Payment not found or already deleted" });
+    }
+
+    // Soft-delete and reverse balance atomically
+    await prisma.$transaction(async (tx) => {
+      // Reverse the payment effect: increment balance (original payment decremented it)
+      await tx.customer.update({
+        where: { id: customerId },
+        data: {
+          balance: { increment: Number(txn.amount) },
+        },
+      });
+
+      // Soft-delete the transaction
+      await tx.customerTransaction.update({
+        where: { id: transactionId },
+        data: { deletedAt: new Date() },
+      });
+    });
+
+    return res.json({
+      success: true,
+      message: "Payment deleted successfully",
+    });
+  } catch (error) {
+    console.error("Soft delete customer payment error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
