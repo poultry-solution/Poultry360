@@ -175,3 +175,24 @@ export function getBSMonthDayForDisplay(adDate: Date | string): string {
   const long = formatBSLong(dateObj);
   return long.replace(/\s(\d+), \d+$/, "-$1");
 }
+
+const AD_YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Inclusive Nepal calendar-day bounds as ISO-8601 with fixed +05:45 offset (no DST).
+ * Use AD YYYY-MM-DD from the BS picker `adDate` string — do not use Date.toISOString() for day edges.
+ */
+export function nepalInclusiveRangeToIsoParams(
+  startAdYmd: string,
+  endAdYmd: string
+): { startDate: string; endDate: string } {
+  const start = startAdYmd.trim();
+  const end = endAdYmd.trim();
+  if (!AD_YMD.test(start) || !AD_YMD.test(end)) {
+    throw new Error("Invalid AD date format (expected YYYY-MM-DD)");
+  }
+  return {
+    startDate: `${start}T00:00:00.000+05:45`,
+    endDate: `${end}T23:59:59.999+05:45`,
+  };
+}
