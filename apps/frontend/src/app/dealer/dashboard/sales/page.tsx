@@ -7,7 +7,6 @@ import Calendar from "@sbmdkl/nepali-datepicker-reactjs";
 import "@sbmdkl/nepali-datepicker-reactjs/dist/index.css";
 import { Label } from "@/common/components/ui/label";
 import {
-  convertADtoBS,
   nepalInclusiveRangeToIsoParams,
   parseDateStringLocal,
 } from "@/common/lib/nepali-date";
@@ -114,8 +113,9 @@ export default function DealerSalesPage() {
     setCalendarResetKey((k) => k + 1);
   };
 
-  const defaultBsForPicker = (draftAd: string) =>
-    convertADtoBS(draftAd || getTodayLocalDate());
+  /** Nepali Calendar typings expect `Date` for defaultDate (not BS string). */
+  const defaultAdDateForPicker = (draftAd: string): Date =>
+    parseDateStringLocal(draftAd || getTodayLocalDate());
 
   const emptyTableMessage = !appliedRange
     ? t("dealer.sales.table.emptyBeforeFilter")
@@ -198,7 +198,7 @@ export default function DealerSalesPage() {
                     : adDate;
                   setDraftStartAd(ymd);
                 }}
-                defaultDate={defaultBsForPicker(draftStartAd) as unknown as string}
+                defaultDate={defaultAdDateForPicker(draftStartAd)}
                 className="w-full rounded-md border border-input"
                 theme="dark"
                 language="en"
@@ -219,7 +219,7 @@ export default function DealerSalesPage() {
                     : adDate;
                   setDraftEndAd(ymd);
                 }}
-                defaultDate={defaultBsForPicker(draftEndAd) as unknown as string}
+                defaultDate={defaultAdDateForPicker(draftEndAd)}
                 className="w-full rounded-md border border-input"
                 theme="dark"
                 language="en"
