@@ -790,6 +790,11 @@ export const deleteExpense = async (
             managers: true,
           },
         },
+        batch: {
+          select: {
+            batchNumber: true,
+          },
+        },
         category: {
           select: {
             name: true,
@@ -819,6 +824,23 @@ export const deleteExpense = async (
       if (!hasAccess) {
         return res.status(403).json({ message: "Access denied" });
       }
+    }
+
+    // Initial batch-creation expenses (chicks/inventory at batch start) are not linked to
+    // InventoryUsage via expenseId; deleteExpense would not restore stock. Removal is handled
+    // when deleting the batch (see batchController). Block direct delete — same marker as batch delete.
+    const batchNumber = existingExpense.batch?.batchNumber;
+    if (
+      existingExpense.batchId &&
+      batchNumber &&
+      (existingExpense.description || "").includes(
+        `batch creation ${batchNumber}`
+      )
+    ) {
+      return res.status(400).json({
+        message:
+          "This expense was recorded when the batch started and cannot be deleted here. It is removed if you delete the batch (when allowed), or contact support.",
+      });
     }
 
     return await prisma.$transaction(async (tx) => {
