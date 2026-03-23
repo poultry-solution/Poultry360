@@ -10,6 +10,7 @@ import { Textarea } from "@/common/components/ui/textarea";
 import { useLoginRedirect } from "@/common/hooks/useRoleBasedRouting";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { toast } from "sonner";
+import { useAuthStore } from "@/common/store/store";
 
 import {
   useGetOnboardingPaymentContext,
@@ -30,6 +31,7 @@ export default function PaymentPage() {
   const { data: context, isLoading, refetch } = useGetOnboardingPaymentContext();
   const { data: historyData } = useGetOnboardingPaymentHistory();
   const submitMutation = useSubmitOnboardingPayment();
+  const validateToken = useAuthStore((s) => s.validateToken);
 
   const [receiptUrl, setReceiptUrl] = useState("");
   const [notes, setNotes] = useState("");
@@ -149,7 +151,12 @@ export default function PaymentPage() {
               </p>
               <Button
                 type="button"
-                onClick={() => handleLoginRedirect(context.userRole)}
+                onClick={async () => {
+                  // Critical: refresh auth store onboarding/payment state
+                  // so RoleBasedRouting guard doesn't redirect back to `/payment`.
+                  await validateToken();
+                  handleLoginRedirect(context.userRole);
+                }}
               >
                 Continue
               </Button>
