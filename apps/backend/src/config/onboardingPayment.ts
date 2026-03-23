@@ -47,6 +47,7 @@ export function getOnboardingAmountForRole(
   role: UserRole,
   rolePricing: OnboardingPaymentResolvedSettings["rolePricing"]
 ): number {
+  if (role === "DOCTOR" || role === "SUPER_ADMIN") return 0;
   if (role === "OWNER") return rolePricing.OWNER;
   if (role === "MANAGER") return rolePricing.MANAGER;
   if (role === "DEALER") return rolePricing.DEALER;

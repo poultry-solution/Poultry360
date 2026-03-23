@@ -60,8 +60,8 @@ export const authMiddleware = async (
   // allow only auth + onboarding payment endpoints.
   try {
     if (req.userId) {
-      // SUPER_ADMIN is always allowed through
-      if (role !== "SUPER_ADMIN") {
+      // SUPER_ADMIN and DOCTOR are not payment-gated
+      if (role !== "SUPER_ADMIN" && role !== "DOCTOR") {
         const onboarding = await prisma.userOnboardingPayment.findUnique({
           where: { userId: req.userId },
           select: { state: true, lockedUntilApproved: true },

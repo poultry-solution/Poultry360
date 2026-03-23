@@ -29,6 +29,15 @@ const generateTokens = (userId: string, role: UserRole) => {
   return { accessToken, refreshToken };
 };
 
+const isPaymentGateRequiredForRole = (role: UserRole): boolean => {
+  return (
+    role === UserRole.OWNER ||
+    role === UserRole.MANAGER ||
+    role === UserRole.DEALER ||
+    role === UserRole.COMPANY
+  );
+};
+
 export const login = async (req: Request, res: Response): Promise<any> => {
   try {
     const { success, data, error } = LoginSchema.safeParse(req.body);
@@ -203,12 +212,16 @@ export const register = async (req: Request, res: Response): Promise<any> => {
         },
       });
 
-      // Create payment-gated onboarding for new signups
+      const requiresPaymentGate = isPaymentGateRequiredForRole(user.role);
+
+      // Create onboarding row for new signups
       await tx.userOnboardingPayment.create({
         data: {
           userId: user.id,
-          state: UserOnboardingPaymentState.PENDING_PAYMENT,
-          lockedUntilApproved: true,
+          state: requiresPaymentGate
+            ? UserOnboardingPaymentState.PENDING_PAYMENT
+            : UserOnboardingPaymentState.PAYMENT_APPROVED,
+          lockedUntilApproved: requiresPaymentGate,
         },
       });
 
@@ -247,6 +260,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     });
 
     // Return access token and user data
+    const requiresPaymentGate = isPaymentGateRequiredForRole(user.role);
     return res.status(201).json({
       accessToken: tokens.accessToken,
       user: {
@@ -262,9 +276,11 @@ export const register = async (req: Request, res: Response): Promise<any> => {
         managedFarms: user.managedFarms,
         ownedFarms: user.ownedFarms,
       },
-      requiresPayment: true,
+      requiresPayment: requiresPaymentGate,
       onboarding: {
-        state: UserOnboardingPaymentState.PENDING_PAYMENT,
+        state: requiresPaymentGate
+          ? UserOnboardingPaymentState.PENDING_PAYMENT
+          : UserOnboardingPaymentState.PAYMENT_APPROVED,
         amountNpr: getOnboardingAmountForRole(user.role, settings.rolePricing),
       },
     });
@@ -777,8 +793,8 @@ export const registerEntity = async (
         await tx.userOnboardingPayment.create({
           data: {
             userId: user.id,
-            state: UserOnboardingPaymentState.PENDING_PAYMENT,
-            lockedUntilApproved: true,
+            state: UserOnboardingPaymentState.PAYMENT_APPROVED,
+            lockedUntilApproved: false,
           },
         });
 
@@ -879,6 +895,8 @@ export const registerEntity = async (
     });
 
     // Return access token and user data
+    const requiresPaymentGate = isPaymentGateRequiredForRole(result.user.role);
+
     const responsePayload: any = {
       success: true,
       accessToken: tokens.accessToken,
@@ -890,9 +908,11 @@ export const registerEntity = async (
         status: result.user.status,
       },
       message: `${result.entityType} account created successfully`,
-      requiresPayment: true,
+      requiresPayment: requiresPaymentGate,
       onboarding: {
-        state: UserOnboardingPaymentState.PENDING_PAYMENT,
+        state: requiresPaymentGate
+          ? UserOnboardingPaymentState.PENDING_PAYMENT
+          : UserOnboardingPaymentState.PAYMENT_APPROVED,
         amountNpr: getOnboardingAmountForRole(
           result.user.role,
           settings.rolePricing
