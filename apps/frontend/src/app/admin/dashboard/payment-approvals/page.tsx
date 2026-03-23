@@ -156,11 +156,11 @@ export default function PaymentApprovalsPage() {
             <div className="space-y-1">
               <label className="text-sm font-medium">Role</label>
               <Select
-                value={filters.role ?? ""}
+                value={filters.role ?? "ALL"}
                 onValueChange={(v) =>
                   setFilters((prev) => ({
                     ...prev,
-                    role: (v || undefined) as any,
+                    role: v === "ALL" ? undefined : (v as any),
                   }))
                 }
               >
@@ -168,9 +168,12 @@ export default function PaymentApprovalsPage() {
                   <SelectValue placeholder="All roles" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All roles</SelectItem>
+                  <SelectItem value="ALL">All roles</SelectItem>
                   {ROLE_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value ?? ""}>
+                    <SelectItem
+                      key={String(opt.value)}
+                      value={String(opt.value)}
+                    >
                       {opt.label}
                     </SelectItem>
                   ))}
