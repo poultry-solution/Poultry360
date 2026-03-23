@@ -1,6 +1,8 @@
 import { UserRole } from "@myapp/shared-types";
 import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
+import prisma from "../utils/prisma";
+import { UserOnboardingPaymentState } from "@prisma/client";
 
 declare global {
   namespace Express {
@@ -13,12 +15,12 @@ declare global {
 }
 
 // make it dynamic to accept rotes  as paramters to allow any user to access the route
-export const authMiddleware = (
+export const authMiddleware = async (
   req: Request,
   res: Response,
   next: NextFunction,
   allowedRoles: UserRole[] = []
-): any => {
+): Promise<any> => {
   console.log("authMiddleware");
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: "No token provided" });
@@ -51,6 +53,41 @@ export const authMiddleware = (
 
   if (allowedRoles.length > 0 && !allowedRoles.includes(role)) {
     return res.status(403).json({ error: "Access denied for this role" });
+  }
+
+  // Payment-gated onboarding (new signups only)
+  // If a user has a UserOnboardingPayment row and it's not approved yet,
+  // allow only auth + onboarding payment endpoints.
+  try {
+    if (req.userId) {
+      // SUPER_ADMIN is always allowed through
+      if (role !== "SUPER_ADMIN") {
+        const onboarding = await prisma.userOnboardingPayment.findUnique({
+          where: { userId: req.userId },
+          select: { state: true, lockedUntilApproved: true },
+        });
+
+        const isLocked =
+          onboarding?.lockedUntilApproved &&
+          onboarding.state !== UserOnboardingPaymentState.PAYMENT_APPROVED;
+
+        if (isLocked) {
+          const url = req.originalUrl || req.url;
+
+          const isAuthEndpoint = url.startsWith("/auth/");
+          const isOnboardingPaymentEndpoint = url.startsWith("/onboarding/payment");
+
+          if (!isAuthEndpoint && !isOnboardingPaymentEndpoint) {
+            return res.status(403).json({
+              code: "PAYMENT_APPROVAL_REQUIRED",
+              message: "Payment approval required to access this account.",
+            });
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // Don't hard-fail auth if onboarding check errors
   }
 
   next();

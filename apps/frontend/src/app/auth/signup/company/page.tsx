@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
@@ -9,12 +10,11 @@ import { Eye, EyeOff, Building2 } from "lucide-react";
 import axiosInstance from "@/common/lib/axios";
 import { useAuthStore } from "@/common/store/store";
 import { useI18n } from "@/i18n/useI18n";
-import { useLoginRedirect } from "@/common/hooks/useRoleBasedRouting";
 import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
 
 export default function CompanySignupPage() {
     const { t } = useI18n();
-    const { isRedirecting, handleLoginRedirect } = useLoginRedirect();
+    const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showPassword, setShowPassword] = useState(false);
@@ -90,7 +90,7 @@ export default function CompanySignupPage() {
                 entityAddress: formData.companyAddress || undefined,
             });
 
-            const { accessToken, user } = response.data;
+            const { accessToken, user, onboarding } = response.data;
 
             // Update auth store
             useAuthStore.setState({
@@ -102,6 +102,12 @@ export default function CompanySignupPage() {
                     companyFarmLocation: user.companyFarmLocation,
                     role: user.role,
                     status: user.status,
+                    onboardingPayment: onboarding
+                        ? {
+                            state: onboarding.state,
+                            lockedUntilApproved: true,
+                          }
+                        : null,
                     language: user.language || "ENGLISH",
                     calendarType: user.calendarType || "AD",
                     managedFarms: [],
@@ -114,7 +120,7 @@ export default function CompanySignupPage() {
                 isInitialized: true,
             });
 
-            await handleLoginRedirect(user.role || "COMPANY");
+            router.push("/payment");
         } catch (err: any) {
             setError(
                 err.response?.data?.message ||
@@ -126,10 +132,6 @@ export default function CompanySignupPage() {
             setIsLoading(false);
         }
     };
-
-    if (isRedirecting) {
-        return <AppLoadingScreen message={t("auth.login.redirecting")} />;
-    }
 
     return (
         <div className="min-h-screen bg-background">

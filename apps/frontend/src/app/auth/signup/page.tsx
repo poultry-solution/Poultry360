@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
@@ -10,13 +11,12 @@ import { useAuth, useAuthStore } from "@/common/store/store";
 import { PublicDealerSearchSelect } from "@/common/components/forms/PublicDealerSearchSelect";
 import { Eye, EyeOff } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
-import { useLoginRedirect } from "@/common/hooks/useRoleBasedRouting";
 import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
 
 export default function SignupPage() {
   const { register, isLoading, error, clearError } = useAuth();
   const { t } = useI18n();
-  const { isRedirecting, handleLoginRedirect } = useLoginRedirect();
+  const router = useRouter();
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -85,16 +85,14 @@ export default function SignupPage() {
 
       await register(registerData);
       setIsPostRegisterRedirecting(true);
-
-      const { user } = useAuthStore.getState();
-      await handleLoginRedirect(user?.role || "OWNER");
+      router.push("/payment");
     } catch (err) {
       console.error("Registration failed:", err);
     }
   };
 
 
-  if (isLoading || isRedirecting || isPostRegisterRedirecting) {
+  if (isLoading || isPostRegisterRedirecting) {
     return <AppLoadingScreen message={isLoading ? t("auth.signup.creatingAccount") : t("auth.login.redirecting")} />;
   }
 

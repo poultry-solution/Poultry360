@@ -47,3 +47,6 @@ export const queryConfig = {
   retryDelay: (attemptIndex: number) =>
     Math.min(1000 * 2 ** attemptIndex, 30000),
 };
+
+// ==================== ONBOARDING QUERIES ====================
+export * from "./onboarding/onboardingPaymentQueries";

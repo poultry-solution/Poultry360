@@ -318,8 +318,70 @@ model User {
   pushSubscriptions PushSubscription[]
   notifications     Notification[]
 
+  // Payment-gated onboarding (new users only)
+  onboarding           UserOnboardingPayment?
+  paymentSubmissions  UserPaymentSubmission[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum UserOnboardingPaymentState {
+  PENDING_PAYMENT
+  PENDING_REVIEW
+  PAYMENT_REJECTED
+  PAYMENT_APPROVED
+}
+
+enum UserPaymentSubmissionStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+model UserOnboardingPayment {
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  state              UserOnboardingPaymentState @default(PENDING_PAYMENT)
+  lockedUntilApproved Boolean                   @default(true)
+
+  approvedAt DateTime?
+  approvedBy String?
+
+  rejectedAt DateTime?
+  rejectedBy String?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([state])
+}
+
+model UserPaymentSubmission {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  amountNpr Decimal @db.Decimal(10, 2)
+  roleAtSubmission UserRole
+
+  receiptUrl String
+  notes String?
+
+  status UserPaymentSubmissionStatus @default(PENDING_REVIEW)
+
+  reviewedAt DateTime?
+  reviewerId String?
+  reviewRejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status, createdAt])
+  @@index([status, createdAt])
 }
 
 model Company {
