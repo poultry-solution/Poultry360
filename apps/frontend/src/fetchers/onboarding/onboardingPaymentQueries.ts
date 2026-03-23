@@ -18,6 +18,7 @@ export interface OnboardingPaymentContext {
   lockedUntilApproved: boolean;
   amountNpr: number;
   qr: {
+    qrImageUrl: string | null;
     qrText: string;
     phoneDisplay: string;
     accountHint: string;

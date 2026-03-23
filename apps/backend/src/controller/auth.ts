@@ -4,7 +4,10 @@ import bcrypt from "bcrypt";
 import prisma from "../utils/prisma";
 import { UserOnboardingPaymentState, UserRole, UserStatus } from "@prisma/client";
 import { LoginSchema, SignupSchema } from "@myapp/shared-types";
-import { getOnboardingAmountForRole } from "../config/onboardingPayment";
+import {
+  getOnboardingAmountForRole,
+  getOnboardingPaymentSettings,
+} from "../config/onboardingPayment";
 
 const generateTokens = (userId: string, role: UserRole) => {
   const accessToken = jwt.sign(
@@ -225,6 +228,11 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     });
 
     const user = result;
+    const settings = await getOnboardingPaymentSettings();
+    if (!settings) {
+      console.error("Onboarding payment settings row not found");
+      return res.status(500).json({ message: "Onboarding payment settings not configured" });
+    }
 
     // Generate tokens
     const tokens = generateTokens(user.id, user.role);
@@ -257,7 +265,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       requiresPayment: true,
       onboarding: {
         state: UserOnboardingPaymentState.PENDING_PAYMENT,
-        amountNpr: getOnboardingAmountForRole(user.role),
+        amountNpr: getOnboardingAmountForRole(user.role, settings.rolePricing),
       },
     });
   } catch (error) {
@@ -856,6 +864,11 @@ export const registerEntity = async (
 
     // Generate tokens
     const tokens = generateTokens(result.user.id, result.user.role);
+    const settings = await getOnboardingPaymentSettings();
+    if (!settings) {
+      console.error("Onboarding payment settings row not found");
+      return res.status(500).json({ message: "Onboarding payment settings not configured" });
+    }
 
     res.cookie("refreshToken", tokens.refreshToken, {
       httpOnly: true,
@@ -880,7 +893,10 @@ export const registerEntity = async (
       requiresPayment: true,
       onboarding: {
         state: UserOnboardingPaymentState.PENDING_PAYMENT,
-        amountNpr: getOnboardingAmountForRole(result.user.role),
+        amountNpr: getOnboardingAmountForRole(
+          result.user.role,
+          settings.rolePricing
+        ),
       },
     };
 

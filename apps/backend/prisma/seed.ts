@@ -8,6 +8,24 @@ async function main() {
 
   const hashedPassword = await bcrypt.hash("password123", 10);
 
+  // ==================== ONBOARDING PAYMENT SETTINGS ====================
+  console.log("Creating onboarding payment settings...");
+  await prisma.onboardingPaymentSettings.upsert({
+    where: { id: "default" },
+    create: {
+      id: "default",
+      ownerAmountNpr: 6999,
+      managerAmountNpr: 6999,
+      dealerAmountNpr: 7875,
+      companyAmountNpr: 30000,
+      qrImageUrl: "/payment-qr.png",
+      qrText: "Poultry360 Onboarding Payment",
+      phoneDisplay: "+977 9809781908",
+      accountHint: "Pay the onboarding fee to activate your account.",
+    },
+    update: {},
+  });
+
   // ==================== SUPER ADMIN ====================
   console.log("Creating SUPER_ADMIN...");
   const superAdmin = await prisma.user.upsert({

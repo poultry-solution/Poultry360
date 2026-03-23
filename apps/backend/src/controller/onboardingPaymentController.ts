@@ -7,7 +7,7 @@ import {
 } from "@prisma/client";
 import {
   getOnboardingAmountForRole,
-  onboardingPaymentQr,
+  getOnboardingPaymentSettings,
 } from "../config/onboardingPayment";
 
 export const getOnboardingPaymentContext = async (
@@ -17,6 +17,12 @@ export const getOnboardingPaymentContext = async (
   try {
     const userId = req.userId;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const settings = await getOnboardingPaymentSettings();
+    if (!settings) {
+      console.error("Onboarding payment settings row not found");
+      return res.status(500).json({ message: "Onboarding payment settings not configured" });
+    }
 
     const [user, onboarding, latestSubmission] = await Promise.all([
       prisma.user.findUnique({
@@ -44,8 +50,11 @@ export const getOnboardingPaymentContext = async (
         userRole: user.role,
         state: onboarding.state,
         lockedUntilApproved: onboarding.lockedUntilApproved,
-        amountNpr: getOnboardingAmountForRole(user.role as UserRole),
-        qr: onboardingPaymentQr,
+        amountNpr: getOnboardingAmountForRole(
+          user.role as UserRole,
+          settings.rolePricing
+        ),
+        qr: settings.qr,
         rejectionReason:
           onboarding.rejectionReason ||
           latestSubmission?.reviewRejectionReason ||
@@ -65,6 +74,12 @@ export const submitOnboardingPayment = async (
   try {
     const userId = req.userId;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const settings = await getOnboardingPaymentSettings();
+    if (!settings) {
+      console.error("Onboarding payment settings row not found");
+      return res.status(500).json({ message: "Onboarding payment settings not configured" });
+    }
 
     const { receiptUrl, notes } = req.body as {
       receiptUrl?: string;
@@ -107,7 +122,10 @@ export const submitOnboardingPayment = async (
     }
 
     // Create submission + move onboarding into review
-    const amountNpr = getOnboardingAmountForRole(user.role as UserRole);
+    const amountNpr = getOnboardingAmountForRole(
+      user.role as UserRole,
+      settings.rolePricing
+    );
 
     await prisma.$transaction(async (tx) => {
       await tx.userPaymentSubmission.create({

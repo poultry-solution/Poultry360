@@ -384,6 +384,25 @@ model UserPaymentSubmission {
   @@index([status, createdAt])
 }
 
+model OnboardingPaymentSettings {
+  id String @id @default("default")
+
+  ownerAmountNpr   Decimal @db.Decimal(10, 2) @default(6999)
+  managerAmountNpr Decimal @db.Decimal(10, 2) @default(6999)
+  dealerAmountNpr  Decimal @db.Decimal(10, 2) @default(7875)
+  companyAmountNpr Decimal @db.Decimal(10, 2) @default(30000)
+
+  qrImageUrl   String?
+  qrText       String?
+  phoneDisplay String @default("+977 9809781908")
+  accountHint  String @default("Pay the onboarding fee to activate your account.")
+
+  updatedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Company {
   id        String   @id @default(cuid())
   name      String

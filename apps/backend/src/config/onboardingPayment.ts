@@ -1,28 +1,56 @@
 import { UserRole } from "@prisma/client";
+import prisma from "../utils/prisma";
 
-export const onboardingPaymentPricing: Record<UserRole, number> = {
-  // Owners/farmers (OWNER, MANAGER, FARMER depending on your roles usage)
-  OWNER: 6999,
-  MANAGER: 6999,
-  // Connected roles
-  DEALER: 7875,
-  COMPANY: 30000,
-  DOCTOR: 30000,
-  SUPER_ADMIN: 0,
-};
+const SETTINGS_ID = "default";
 
-export const onboardingPaymentQr: {
-  qrText: string;
-  phoneDisplay: string;
-  accountHint: string;
-} = {
-  // Replace with your real QR payload once you have it.
-  qrText: "Poultry360 Onboarding Payment",
-  phoneDisplay: "+977 9809781908",
-  accountHint: "Pay the onboarding fee to activate your account.",
-};
+export interface OnboardingPaymentResolvedSettings {
+  rolePricing: {
+    OWNER: number;
+    MANAGER: number;
+    DEALER: number;
+    COMPANY: number;
+  };
+  qr: {
+    qrImageUrl: string | null;
+    qrText: string;
+    phoneDisplay: string;
+    accountHint: string;
+  };
+}
 
-export function getOnboardingAmountForRole(role: UserRole): number {
-  return onboardingPaymentPricing[role] ?? onboardingPaymentPricing.OWNER;
+export async function getOnboardingPaymentSettings(): Promise<OnboardingPaymentResolvedSettings | null> {
+  const settings = await prisma.onboardingPaymentSettings.findUnique({
+    where: { id: SETTINGS_ID },
+  });
+
+  if (!settings) {
+    return null;
+  }
+
+  return {
+    rolePricing: {
+      OWNER: Number(settings.ownerAmountNpr),
+      MANAGER: Number(settings.managerAmountNpr),
+      DEALER: Number(settings.dealerAmountNpr),
+      COMPANY: Number(settings.companyAmountNpr),
+    },
+    qr: {
+      qrImageUrl: settings.qrImageUrl || null,
+      qrText: settings.qrText || "Poultry360 Onboarding Payment",
+      phoneDisplay: settings.phoneDisplay,
+      accountHint: settings.accountHint,
+    },
+  };
+}
+
+export function getOnboardingAmountForRole(
+  role: UserRole,
+  rolePricing: OnboardingPaymentResolvedSettings["rolePricing"]
+): number {
+  if (role === "OWNER") return rolePricing.OWNER;
+  if (role === "MANAGER") return rolePricing.MANAGER;
+  if (role === "DEALER") return rolePricing.DEALER;
+  if (role === "COMPANY") return rolePricing.COMPANY;
+  return rolePricing.OWNER;
 }
 

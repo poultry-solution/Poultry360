@@ -20,7 +20,6 @@ import {
 } from "@/fetchers/onboarding/onboardingPaymentQueries";
 
 import { Loader2 } from "lucide-react";
-import Image from "next/image";
 
 function formatAmount(amountNpr: number) {
   return `NPR ${Number(amountNpr).toLocaleString("en-US")}`;
@@ -172,14 +171,17 @@ export default function PaymentPage() {
                 </p>
               </div>
               <div className="space-y-2">
-              <Image
-  src="/payment-qr.png"
-  alt="Poultry360 Onboarding Payment"
-  width={320}
-  height={320}
-  className="w-full max-w-[320px] mx-auto border rounded"
-/>
-            
+                {context.qr.qrImageUrl ? (
+                  <img
+                    src={context.qr.qrImageUrl}
+                    alt={context.qr.qrText || "Poultry360 Onboarding Payment"}
+                    className="w-full max-w-[320px] mx-auto border rounded"
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    QR image is not configured yet. Please contact admin.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
