@@ -79,8 +79,16 @@ export const authMiddleware = async (
           // Using `includes()` makes the whitelist robust.
           const isAuthEndpoint = url.includes("/auth/");
           const isOnboardingPaymentEndpoint = url.includes("/onboarding/payment");
+          // Payment receipt upload (Cloudinary direct upload) needs a signed params call.
+          const isUploadSignatureEndpoint =
+            url.includes("/upload/signature") ||
+            url.includes("/upload/delete");
 
-          if (!isAuthEndpoint && !isOnboardingPaymentEndpoint) {
+          if (
+            !isAuthEndpoint &&
+            !isOnboardingPaymentEndpoint &&
+            !isUploadSignatureEndpoint
+          ) {
             return res.status(403).json({
               code: "PAYMENT_APPROVAL_REQUIRED",
               message: "Payment approval required to access this account.",
