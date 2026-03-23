@@ -19,6 +19,7 @@ import {
 } from "@/fetchers/onboarding/onboardingPaymentQueries";
 
 import { Loader2 } from "lucide-react";
+import Image from "next/image";
 
 function formatAmount(amountNpr: number) {
   return `NPR ${Number(amountNpr).toLocaleString("en-US")}`;
@@ -164,14 +165,14 @@ export default function PaymentPage() {
                 </p>
               </div>
               <div className="space-y-2">
-                <Textarea
-                  value={context.qr.qrText}
-                  readOnly
-                  rows={3}
-                />
-                <p className="text-xs text-muted-foreground">
-                  If you can’t scan, use the text payload in your banking app.
-                </p>
+              <Image
+  src="/payment-qr.png"
+  alt="Poultry360 Onboarding Payment"
+  width={320}
+  height={320}
+  className="w-full max-w-[320px] mx-auto border rounded"
+/>
+            
               </div>
 
               <div className="space-y-1">

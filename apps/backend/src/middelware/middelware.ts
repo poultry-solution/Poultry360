@@ -73,21 +73,28 @@ export const authMiddleware = async (
 
         if (isLocked) {
           const url = req.originalUrl || req.url;
+          const path = req.path || "";
 
           // Important: on prod your server is mounted under `/api/v1`,
           // so `originalUrl` can look like `/api/v1/onboarding/payment/history`.
           // Using `includes()` makes the whitelist robust.
-          const isAuthEndpoint = url.includes("/auth/");
-          const isOnboardingPaymentEndpoint = url.includes("/onboarding/payment");
+          const isAuthEndpoint =
+            path.startsWith("/auth") || url.includes("/auth/");
+
+          const isOnboardingPaymentEndpoint =
+            path.startsWith("/onboarding/payment") ||
+            url.includes("/onboarding/payment");
+
           // Payment receipt upload (Cloudinary direct upload) needs a signed params call.
-          const isUploadSignatureEndpoint =
-            url.includes("/upload/signature") ||
-            url.includes("/upload/delete");
+          // In prod, the middleware matching can be tricky due to mounts like `/api/v1`,
+          // so we allow all `/upload/*` endpoints for locked onboarding users.
+          const isUploadEndpoint =
+            path.startsWith("/upload") || url.includes("/upload/");
 
           if (
             !isAuthEndpoint &&
             !isOnboardingPaymentEndpoint &&
-            !isUploadSignatureEndpoint
+            !isUploadEndpoint
           ) {
             return res.status(403).json({
               code: "PAYMENT_APPROVAL_REQUIRED",
