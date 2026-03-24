@@ -53,7 +53,7 @@ export default function DealerSalesPage() {
   } | null>(null);
   const [calendarResetKey, setCalendarResetKey] = useState(0);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteSaleId, setDeleteSaleId] = useState<string | null>(null);
   const [deletePassword, setDeletePassword] = useState("");
   const deleteSaleMutation = useDeleteDealerSale();
 
@@ -374,9 +374,9 @@ export default function DealerSalesPage() {
                         variant="ghost"
                         size="sm"
                         className="h-7 w-7 p-0 cursor-pointer text-destructive hover:text-destructive"
-                        onClick={() => {
-                          setSelectedSaleId(row.id);
-                          setDeleteConfirmOpen(true);
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteSaleId(row.id);
                           setDeletePassword("");
                         }}
                         title="Delete sale"
@@ -424,7 +424,7 @@ export default function DealerSalesPage() {
       </Card>
 
       {/* Delete Sale Confirmation */}
-      <Dialog open={deleteConfirmOpen} onOpenChange={(open) => { if (!open) { setDeleteConfirmOpen(false); setDeletePassword(""); } }}>
+      <Dialog open={!!deleteSaleId} onOpenChange={(open) => { if (!open) { setDeleteSaleId(null); setDeletePassword(""); } }}>
         <DialogContent className="max-w-sm bg-white">
           <DialogHeader>
             <DialogTitle>Delete Sale</DialogTitle>
@@ -443,7 +443,7 @@ export default function DealerSalesPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => { setDeleteConfirmOpen(false); setDeletePassword(""); }}
+                onClick={() => { setDeleteSaleId(null); setDeletePassword(""); }}
               >
                 Cancel
               </Button>
@@ -452,13 +452,13 @@ export default function DealerSalesPage() {
                 size="sm"
                 disabled={!deletePassword || deleteSaleMutation.isPending}
                 onClick={() => {
-                  if (!selectedSaleId) return;
+                  if (!deleteSaleId) return;
                   deleteSaleMutation.mutate(
-                    { saleId: selectedSaleId, password: deletePassword },
+                    { saleId: deleteSaleId, password: deletePassword },
                     {
                       onSuccess: () => {
                         toast.success("Sale deleted successfully");
-                        setDeleteConfirmOpen(false);
+                        setDeleteSaleId(null);
                         setDeletePassword("");
                         setSelectedSaleId(null);
                       },
@@ -490,7 +490,7 @@ export default function DealerSalesPage() {
                   size="sm"
                   className="text-destructive border-destructive/40 hover:bg-destructive/10"
                   onClick={() => {
-                    setDeleteConfirmOpen(true);
+                    setDeleteSaleId(selectedSaleId);
                     setDeletePassword("");
                   }}
                 >
