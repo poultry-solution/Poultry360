@@ -6,6 +6,7 @@ import {
   UpdateSaleSchema,
   SaleSchema,
 } from "@myapp/shared-types";
+import { generateNextFarmerInvoiceNumber } from "../utils/invoiceNumber";
 
 // ==================== GET ALL SALE PAYMENTS ====================
 export const getAllSalePayments = async (
@@ -584,6 +585,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       itemType,
       eggTypeId,
       eggLineItems,
+      invoiceNumber: customInvoiceNumber,
     } = data;
 
     const useEggLines = itemType === SalesItemType.EGGS && eggLineItems != null && eggLineItems.length > 0;
@@ -847,9 +849,13 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
         ? eggLineItems![0].unitPrice
         : numericUnitPrice;
 
+      // Generate invoice number (custom or auto-sequential)
+      const invoiceNumber = customInvoiceNumber?.trim() || await generateNextFarmerInvoiceNumber(currentUserId, tx);
+
       // 1. Create the sale
       const sale = await tx.sale.create({
         data: {
+          invoiceNumber,
           date: new Date(date),
           amount: numericAmount,
           quantity: numericQuantity,

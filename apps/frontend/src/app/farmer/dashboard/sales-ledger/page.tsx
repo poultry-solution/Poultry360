@@ -183,6 +183,9 @@ export default function SalesLedgerPage() {
     balance: "",
   });
 
+  const [useCustomInvoice, setUseCustomInvoice] = useState(false);
+  const [invoiceNumber, setInvoiceNumber] = useState("");
+
   const [partyForm, setPartyForm] = useState({
     name: "",
     phone: "",
@@ -574,6 +577,7 @@ export default function SalesLedgerPage() {
         farmId: saleForm.farmId,
         batchId: saleForm.batchId,
         itemType: saleForm.itemType,
+        ...(invoiceNumber.trim() ? { invoiceNumber: invoiceNumber.trim() } : {}),
       };
       if (saleForm.itemType === "EGGS") {
         const validLines = saleForm.eggLineItems.filter(
@@ -789,6 +793,8 @@ export default function SalesLedgerPage() {
       balance: "",
     }));
     setCustomerSearch("");
+    setUseCustomInvoice(false);
+    setInvoiceNumber("");
     setErrors({});
   };
 
@@ -800,6 +806,14 @@ export default function SalesLedgerPage() {
       type: "date" as const,
       width: "120px",
       render: (value: string) => <DateDisplay date={value} format="short" />,
+    },
+    {
+      key: "invoiceNumber",
+      label: "Invoice",
+      width: "100px",
+      render: (value: string | null) => (
+        <span className="text-xs font-medium">{value || "—"}</span>
+      ),
     },
     {
       key: "itemType",
@@ -1425,6 +1439,39 @@ export default function SalesLedgerPage() {
                 <p className="text-sm text-blue-700">
                   {t("farmer.salesLedger.saleModal.smartForm")}
                 </p>
+              </div>
+
+              {/* Custom Invoice Number (Toggle) */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border transition-colors ${
+                    useCustomInvoice
+                      ? "bg-primary/10 border-primary/30 text-primary"
+                      : "border-dashed border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50"
+                  }`}
+                  onClick={() => {
+                    setUseCustomInvoice(!useCustomInvoice);
+                    if (useCustomInvoice) setInvoiceNumber("");
+                  }}
+                >
+                  <div className={`h-3.5 w-3.5 rounded-sm border flex items-center justify-center ${
+                    useCustomInvoice ? "bg-primary border-primary" : "border-muted-foreground/50"
+                  }`}>
+                    {useCustomInvoice && <span className="text-white text-[10px] leading-none">✓</span>}
+                  </div>
+                  Custom invoice number
+                </button>
+                {useCustomInvoice ? (
+                  <Input
+                    placeholder="e.g. BILL-001"
+                    value={invoiceNumber}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                    className="max-w-[200px] h-8 text-sm"
+                  />
+                ) : (
+                  <span className="text-xs text-muted-foreground">Invoice will be auto-generated (e.g. INV-001)</span>
+                )}
               </div>
 
               {/* Farm Selection */}

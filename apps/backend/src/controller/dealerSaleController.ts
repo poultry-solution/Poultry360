@@ -22,6 +22,7 @@ export const createDealerSale = async (
       notes,
       date,
       discount,
+      invoiceNumber,
     } = req.body;
 
     // Validation
@@ -100,6 +101,7 @@ export const createDealerSale = async (
         discount && discount.value > 0
           ? { type: discount.type, value: Number(discount.value) }
           : undefined,
+      invoiceNumber: invoiceNumber?.trim() || undefined,
     });
 
     return res.status(201).json({

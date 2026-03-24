@@ -656,6 +656,7 @@ export declare const CreateSaleSchema: z.ZodObject<{
         unitPrice: z.ZodNumber;
     }, z.core.$strip>>>;
     categoryId: z.ZodOptional<z.ZodString>;
+    invoiceNumber: z.ZodOptional<z.ZodString>;
     customerData: z.ZodOptional<z.ZodObject<{
         name: z.ZodString;
         phone: z.ZodString;
@@ -2621,6 +2622,7 @@ export declare const schemas: {
             unitPrice: z.ZodNumber;
         }, z.core.$strip>>>;
         categoryId: z.ZodOptional<z.ZodString>;
+        invoiceNumber: z.ZodOptional<z.ZodString>;
         customerData: z.ZodOptional<z.ZodObject<{
             name: z.ZodString;
             phone: z.ZodString;
