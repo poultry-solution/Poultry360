@@ -205,6 +205,7 @@ export const useDeleteDealerManualGeneralPayment = (customerId: string) => {
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.all });
       queryClient.invalidateQueries({ queryKey: ["dealer-customer", customerId] });
       queryClient.invalidateQueries({ queryKey: dealerLedgerKeys.party(customerId) });
+      queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
     },
   });
 };

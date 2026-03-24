@@ -204,6 +204,29 @@ export const useAddSalePayment = () => {
   });
 };
 
+// Delete dealer sale (manual customer only, password required)
+export const useDeleteDealerSale = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ saleId, password }: { saleId: string; password: string }) => {
+      const { data } = await axiosInstance.delete(`/dealer/sales/${saleId}`, {
+        data: { password },
+      });
+      return data;
+    },
+    onSuccess: (_data, _vars, _ctx) => {
+      // Invalidate everything that could be affected by sale deletion
+      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
+      queryClient.invalidateQueries({ queryKey: ["dealerProducts"] });
+      queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
+      queryClient.invalidateQueries({ queryKey: ["dealer-customer"] });
+      queryClient.invalidateQueries({ queryKey: ["dealer-customer-search"] });
+    },
+  });
+};
+
 // Create customer on-the-fly
 export const useCreateCustomer = () => {
   const queryClient = useQueryClient();

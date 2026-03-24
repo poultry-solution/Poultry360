@@ -154,16 +154,16 @@ export default function CustomerAccountPage() {
     ? connectedFarmers.find((f: any) => f.id === farmerId)?.dealerFarmerId
     : undefined;
 
-  // Totals: from account for farmer, from sales/ledger for manual
+  // Totals: from account for farmer, from customer model for manual
   const totalSales = isFarmer && account
     ? Number(account.totalSales)
-    : sales.reduce((sum: number, sale: any) => sum + Number(sale.totalAmount), 0);
+    : Number(customer?.totalSales ?? 0);
   const totalPaid = isFarmer && account
     ? Number(account.totalPayments)
-    : sales.reduce((sum: number, sale: any) => sum + Number(sale.paidAmount), 0);
+    : Number(customer?.totalPayments ?? 0);
   const currentBalance = isFarmer && account
     ? Number(account.balance)
-    : (customer?.balance ?? sales.reduce((sum: number, sale: any) => sum + Number(sale.dueAmount || 0), 0));
+    : Number(customer?.balance ?? 0);
 
   const payments = isFarmer
     ? transactions.filter((t: any) => t.type === "PAYMENT")
@@ -522,47 +522,73 @@ export default function CustomerAccountPage() {
                   {sales.map((sale: any) => (
                     <div
                       key={sale.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50"
+                      className="p-4 border rounded-lg hover:bg-accent/50"
                     >
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-lg bg-blue-100">
-                          <Receipt className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium">Sale</p>
-                            {sale.invoiceNumber && (
-                              <Badge variant="outline" className="text-xs">
-                                {sale.invoiceNumber}
-                              </Badge>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 rounded-lg bg-blue-100">
+                            <Receipt className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">Sale</p>
+                              {sale.invoiceNumber && (
+                                <Badge variant="outline" className="text-xs">
+                                  {sale.invoiceNumber}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              <DateDisplay date={sale.date} />
+                            </p>
+                            {sale.notes && (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {sale.notes}
+                              </p>
                             )}
                           </div>
-                          <p className="text-sm text-muted-foreground">
-                            <DateDisplay date={sale.date} />
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-red-600">
+                            +{formatCurrency(Number(sale.totalAmount))}
                           </p>
-                          {sale.notes && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {sale.notes}
-                            </p>
-                          )}
-                          {sale.items && sale.items.length > 0 && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {sale.items.length} item(s)
+                          {Number(sale.paidAmount) > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              Paid at sale: {formatCurrency(Number(sale.paidAmount))}
                             </p>
                           )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-red-600">
-                          +{formatCurrency(Number(sale.totalAmount))}
-                        </p>
-                        {/* Hide per-sale due for farmers; payments are account-level only */}
-                        {!isFarmer && sale.dueAmount && Number(sale.dueAmount) > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            Due: {formatCurrency(Number(sale.dueAmount))}
-                          </p>
-                        )}
-                      </div>
+                      {/* Item details */}
+                      {sale.items && sale.items.length > 0 && (
+                        <div className="mt-3 ml-11 border-t pt-2">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="text-muted-foreground">
+                                <th className="text-left py-1 font-medium">Product</th>
+                                <th className="text-right py-1 font-medium">Qty</th>
+                                <th className="text-right py-1 font-medium">Price</th>
+                                <th className="text-right py-1 font-medium">Total</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {sale.items.map((item: any, idx: number) => (
+                                <tr key={item.id || idx} className="border-t border-dashed">
+                                  <td className="py-1">{item.product?.name || item.dealerProduct?.name || "Product"}</td>
+                                  <td className="py-1 text-right">{Number(item.quantity)}{item.unit ? ` ${item.unit}` : ""}</td>
+                                  <td className="py-1 text-right">{formatCurrency(Number(item.unitPrice))}</td>
+                                  <td className="py-1 text-right font-medium">{formatCurrency(Number(item.totalAmount))}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {sale.discount && (
+                            <p className="text-xs text-green-600 mt-1">
+                              Discount: {sale.discount.type === "PERCENT" ? `${sale.discount.value}%` : formatCurrency(Number(sale.discount.value))}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -664,13 +690,11 @@ export default function CustomerAccountPage() {
           balance: currentBalance,
         }}
         onSuccess={() => {
-          queryClient.invalidateQueries({
-            queryKey: ["dealer-customer", customerId],
-          });
-          queryClient.invalidateQueries({
-            queryKey: dealerLedgerKeys.party(customerId),
-          });
+          queryClient.invalidateQueries({ queryKey: ["dealer-customer", customerId] });
+          queryClient.invalidateQueries({ queryKey: dealerLedgerKeys.party(customerId) });
           queryClient.invalidateQueries({ queryKey: ["dealer-sales"] });
+          queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
+          queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
         }}
         formatCurrency={(n) => formatCurrency(n)}
       />
@@ -688,7 +712,7 @@ export default function CustomerAccountPage() {
           <DialogHeader>
             <DialogTitle>Delete payment</DialogTitle>
             <DialogDescription>
-              This reverses the payment on the customer balance, sale allocations, and dealer
+              This reverses the payment on the customer account balance and dealer
               ledger. Enter your account password to confirm.
               {deletePaymentTarget != null && (
                 <span className="block mt-2 font-medium text-foreground">

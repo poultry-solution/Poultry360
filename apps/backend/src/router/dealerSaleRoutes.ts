@@ -12,6 +12,7 @@ import {
   archiveDealerCustomer,
   unarchiveDealerCustomer,
   deleteDealerCustomer,
+  deleteDealerSale,
 } from "../controller/dealerSaleController";
 import {
   getSaleRequests,
@@ -69,6 +70,9 @@ router.get("/requests/:id", getSaleRequestById);
 // IMPORTANT: This must come AFTER specific routes like /requests, /statistics, etc.
 // Get dealer sale by ID
 router.get("/:id", getDealerSaleById);
+
+// Delete dealer sale (manual customer only, password required)
+router.delete("/:id", deleteDealerSale);
 
 // Add payment to sale
 router.post("/:id/payments", addSalePayment);
