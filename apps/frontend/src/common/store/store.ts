@@ -33,6 +33,14 @@ export interface User {
   companyFarmLocation?: string;
   role: "OWNER" | "MANAGER" | "DOCTOR" | "DEALER" | "COMPANY" | "SUPER_ADMIN";
   status: "ACTIVE" | "INACTIVE" | "PENDING_VERIFICATION";
+  onboardingPayment?: {
+    state:
+      | "PENDING_PAYMENT"
+      | "PENDING_REVIEW"
+      | "PAYMENT_REJECTED"
+      | "PAYMENT_APPROVED";
+    lockedUntilApproved: boolean;
+  } | null;
   language?: "ENGLISH" | "NEPALI";
   calendarType?: "AD" | "BS";
   managedFarms?: string[]; // Array of farm IDs for managers
@@ -159,6 +167,13 @@ export const useAuthStore = create<AuthState>()(
               companyFarmLocation: user.companyFarmLocation,
               role: user.role,
               status: user.status || "ACTIVE",
+              onboardingPayment: user.onboardingPayment
+                ? {
+                    state: user.onboardingPayment.state,
+                    lockedUntilApproved:
+                      user.onboardingPayment.lockedUntilApproved,
+                  }
+                : null,
               language: user.language || "ENGLISH",
               calendarType: user.calendarType || "AD",
               managedFarms: user.managedFarms || [],
@@ -196,7 +211,7 @@ export const useAuthStore = create<AuthState>()(
               body: JSON.stringify(data),
             });
 
-            const { accessToken, user } = response;
+            const { accessToken, user, onboarding } = response;
 
             // Transform user data to match our interface
             const transformedUser: User = {
@@ -207,6 +222,12 @@ export const useAuthStore = create<AuthState>()(
               companyFarmLocation: user.companyFarmLocation,
               role: user.role,
               status: "ACTIVE", // New users are active by default
+              onboardingPayment: onboarding
+                ? {
+                    state: onboarding.state,
+                    lockedUntilApproved: true,
+                  }
+                : null,
               language: user.language || "ENGLISH",
               calendarType: user.calendarType || "AD",
               managedFarms: [],
@@ -305,6 +326,18 @@ export const useAuthStore = create<AuthState>()(
                 companyFarmLocation: response.user.companyFarmLocation,
                 role: response.user.role,
                 status: response.user.status || "ACTIVE",
+                onboardingPayment: response.user.onboardingPayment
+                  ? {
+                      state:
+                        response.user.onboardingPayment.state as
+                          | "PENDING_PAYMENT"
+                          | "PENDING_REVIEW"
+                          | "PAYMENT_REJECTED"
+                          | "PAYMENT_APPROVED",
+                      lockedUntilApproved:
+                        response.user.onboardingPayment.lockedUntilApproved,
+                    }
+                  : null,
                 language: response.user.language || "ENGLISH",
                 calendarType: response.user.calendarType || "AD",
                 managedFarms: response.user.managedFarms || [],

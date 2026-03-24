@@ -85,16 +85,19 @@ export interface CreateCustomerInput {
 }
 
 // Get dealer sales with filters
-export const useGetDealerSales = (params?: {
-  page?: number;
-  limit?: number;
-  search?: string;
-  startDate?: string;
-  endDate?: string;
-  isPaid?: boolean;
-  customerId?: string;
-  farmerId?: string;
-}) => {
+export const useGetDealerSales = (
+  params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    startDate?: string;
+    endDate?: string;
+    isPaid?: boolean;
+    customerId?: string;
+    farmerId?: string;
+  },
+  options?: { enabled?: boolean }
+) => {
   const queryString = new URLSearchParams(
     Object.entries(params || {})
       .filter(([_, v]) => v !== undefined)
@@ -107,6 +110,7 @@ export const useGetDealerSales = (params?: {
       const { data } = await axiosInstance.get(`/dealer/sales?${queryString}`);
       return data;
     },
+    enabled: options?.enabled ?? true,
   });
 };
 

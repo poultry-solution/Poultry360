@@ -11,6 +11,7 @@ import {
   Plus,
   Receipt,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import {
   Card,
@@ -23,7 +24,11 @@ import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
 import { useGetDealerSales } from "@/fetchers/dealer/dealerSaleQueries";
-import { useGetPartyLedger } from "@/fetchers/dealer/dealerLedgerQueries";
+import {
+  dealerLedgerKeys,
+  useGetPartyLedger,
+  useDeleteDealerManualGeneralPayment,
+} from "@/fetchers/dealer/dealerLedgerQueries";
 import {
   useGetFarmerAccount,
   useGetFarmerAccountStatement,
@@ -68,7 +73,14 @@ export default function CustomerAccountPage() {
   const [connectedOpeningAmount, setConnectedOpeningAmount] = useState<string>("");
   const [connectedOpeningDirection, setConnectedOpeningDirection] = useState<"OWED" | "ADVANCE">("OWED");
   const [connectedOpeningNotes, setConnectedOpeningNotes] = useState<string>("");
+  const [deletePaymentTarget, setDeletePaymentTarget] = useState<{
+    id: string;
+    amount: number;
+  } | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
   const queryClient = useQueryClient();
+
+  const deleteManualPaymentMutation = useDeleteDealerManualGeneralPayment(customerId);
 
   // Get customer details (prefer direct customer lookup, then fall back to ledger parties)
   const { data: customerData, isLoading: customerLoading } = useQuery({
@@ -239,6 +251,24 @@ export default function CustomerAccountPage() {
     }
   };
 
+  const confirmDeleteManualPayment = async () => {
+    if (!deletePaymentTarget) return;
+    if (!deletePassword.trim()) {
+      toast.error("Enter your password to confirm");
+      return;
+    }
+    try {
+      await deleteManualPaymentMutation.mutateAsync({
+        ledgerEntryId: deletePaymentTarget.id,
+        password: deletePassword,
+      });
+      toast.success("Payment deleted and balances updated");
+      setDeletePaymentTarget(null);
+      setDeletePassword("");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? "Failed to delete payment");
+    }
+  };
 
   const dataLoading = isFarmer
     ? accountLoading || statementLoading || salesLoading
@@ -584,7 +614,7 @@ export default function CustomerAccountPage() {
                           )}
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right flex flex-col items-end gap-2">
                         <p className="text-lg font-bold text-green-600">
                           -{formatCurrency(Number(payment.amount))}
                         </p>
@@ -593,6 +623,26 @@ export default function CustomerAccountPage() {
                             Balance: {formatCurrency(Number(payment.balanceAfter ?? payment.balance))}
                           </p>
                         )}
+                        {!isFarmer &&
+                          payment.type === "PAYMENT_RECEIVED" &&
+                          !payment.saleId && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                              onClick={() => {
+                                setDeletePaymentTarget({
+                                  id: payment.id,
+                                  amount: Number(payment.amount),
+                                });
+                                setDeletePassword("");
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Delete
+                            </Button>
+                          )}
                       </div>
                     </div>
                   ))}
@@ -617,9 +667,76 @@ export default function CustomerAccountPage() {
           queryClient.invalidateQueries({
             queryKey: ["dealer-customer", customerId],
           });
+          queryClient.invalidateQueries({
+            queryKey: dealerLedgerKeys.party(customerId),
+          });
+          queryClient.invalidateQueries({ queryKey: ["dealer-sales"] });
         }}
         formatCurrency={(n) => formatCurrency(n)}
       />
+
+      <Dialog
+        open={!!deletePaymentTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletePaymentTarget(null);
+            setDeletePassword("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete payment</DialogTitle>
+            <DialogDescription>
+              This reverses the payment on the customer balance, sale allocations, and dealer
+              ledger. Enter your account password to confirm.
+              {deletePaymentTarget != null && (
+                <span className="block mt-2 font-medium text-foreground">
+                  Amount: {formatCurrency(deletePaymentTarget.amount)}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="delete-payment-password">Password</Label>
+            <Input
+              id="delete-payment-password"
+              type="password"
+              autoComplete="current-password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void confirmDeleteManualPayment();
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeletePaymentTarget(null);
+                setDeletePassword("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void confirmDeleteManualPayment()}
+              disabled={deleteManualPaymentMutation.isPending}
+            >
+              {deleteManualPaymentMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                "Delete payment"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Opening Balance Dialog (manual customers only) */}
       <Dialog open={isEditOpeningOpen} onOpenChange={setIsEditOpeningOpen}>

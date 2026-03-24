@@ -649,9 +649,12 @@ export default function BatchDetailPage() {
     try {
       await deleteExpenseMutation.mutateAsync(id);
       flash("success", "Expense deleted successfully");
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Failed to delete expense:", error);
-      flash("error", "Failed to delete expense. Please try again.");
+      const msg =
+        (error as { response?: { data?: { message?: string } } })?.response
+          ?.data?.message || "Failed to delete expense. Please try again.";
+      flash("error", msg);
     }
   }
 
@@ -1413,6 +1416,7 @@ export default function BatchDetailPage() {
   const expenseColumns = createExpenseColumns({
     isBatchClosed,
     onDeleteClick: openDeleteExpenseConfirm,
+    batchNumber: batch.batchNumber,
   });
 
   const salesColumns = createSalesColumns({

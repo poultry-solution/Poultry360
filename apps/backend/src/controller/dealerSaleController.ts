@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
+import { parseDealerSaleDateRange } from "../utils/dealerSaleDateRange";
 import { DealerService } from "../services/dealerService";
 import { DealerSaleRequestService } from "../services/dealerSaleRequestService";
 import { DealerFarmerAccountService } from "../services/dealerFarmerAccountService";
@@ -125,6 +126,8 @@ export const getDealerSales = async (
       search,
       isPaid,
       customerId,
+      startDate,
+      endDate,
     } = req.query;
 
     // Get the dealer record
@@ -158,6 +161,17 @@ export const getDealerSales = async (
 
     if (customerId) {
       where.customerId = customerId;
+    }
+
+    const rangeResult = parseDealerSaleDateRange(startDate, endDate);
+    if (!rangeResult.ok) {
+      return res.status(400).json({ message: rangeResult.message });
+    }
+    if (rangeResult.range) {
+      where.date = {
+        gte: rangeResult.range.gte,
+        lte: rangeResult.range.lte,
+      };
     }
 
     const [sales, total] = await Promise.all([
@@ -883,10 +897,15 @@ export const getSalesStatistics = async (
       dealerId: dealer.id,
     };
 
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) where.date.gte = new Date(startDate as string);
-      if (endDate) where.date.lte = new Date(endDate as string);
+    const statsRange = parseDealerSaleDateRange(startDate, endDate);
+    if (!statsRange.ok) {
+      return res.status(400).json({ message: statsRange.message });
+    }
+    if (statsRange.range) {
+      where.date = {
+        gte: statsRange.range.gte,
+        lte: statsRange.range.lte,
+      };
     }
 
     // Get totals

@@ -22,7 +22,9 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
+  /* HSL component vars from :root — must wrap in hsl() or bg-destructive/text tokens resolve invalid (invisible buttons on white dialogs) */
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

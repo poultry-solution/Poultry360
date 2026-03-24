@@ -318,6 +318,87 @@ model User {
   pushSubscriptions PushSubscription[]
   notifications     Notification[]
 
+  // Payment-gated onboarding (new users only)
+  onboarding           UserOnboardingPayment?
+  paymentSubmissions  UserPaymentSubmission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum UserOnboardingPaymentState {
+  PENDING_PAYMENT
+  PENDING_REVIEW
+  PAYMENT_REJECTED
+  PAYMENT_APPROVED
+}
+
+enum UserPaymentSubmissionStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+model UserOnboardingPayment {
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  state              UserOnboardingPaymentState @default(PENDING_PAYMENT)
+  lockedUntilApproved Boolean                   @default(true)
+
+  approvedAt DateTime?
+  approvedBy String?
+
+  rejectedAt DateTime?
+  rejectedBy String?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([state])
+}
+
+model UserPaymentSubmission {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  amountNpr Decimal @db.Decimal(10, 2)
+  roleAtSubmission UserRole
+
+  receiptUrl String
+  notes String?
+
+  status UserPaymentSubmissionStatus @default(PENDING_REVIEW)
+
+  reviewedAt DateTime?
+  reviewerId String?
+  reviewRejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status, createdAt])
+  @@index([status, createdAt])
+}
+
+model OnboardingPaymentSettings {
+  id String @id @default("default")
+
+  ownerAmountNpr   Decimal @db.Decimal(10, 2) @default(6999)
+  managerAmountNpr Decimal @db.Decimal(10, 2) @default(6999)
+  dealerAmountNpr  Decimal @db.Decimal(10, 2) @default(7875)
+  companyAmountNpr Decimal @db.Decimal(10, 2) @default(30000)
+
+  qrImageUrl   String?
+  qrText       String?
+  phoneDisplay String @default("+977 9809781908")
+  accountHint  String @default("Pay the onboarding fee to activate your account.")
+
+  updatedBy String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -817,6 +898,10 @@ model EntityTransaction {
   paymentToPurchase   EntityTransaction?  @relation("PaymentToPurchase", fields: [paymentToPurchaseId], references: [id], onDelete: SetNull)
   paymentsForPurchase EntityTransaction[] @relation("PaymentToPurchase")
 
+  // Dealer general payment (manual customer) — for delete/reversal
+  sourceDealerLedgerEntryId String?
+  sourceDealerLedgerEntry   DealerLedgerEntry? @relation("EntityTxFromDealerLedgerPayment", fields: [sourceDealerLedgerEntryId], references: [id], onDelete: SetNull)
+
   // Keep generic fields for backward compatibility and flexibility
   entityType String? // "DEALER", "HATCHERY", "MEDICINE_SUPPLIER", "CUSTOMER"
   entityId   String? // The actual entity ID (for custom entities)
@@ -838,6 +923,7 @@ model EntityTransaction {
   @@index([entityType, entityId, date])
   @@index([inventoryItemId, date])
   @@index([paymentToPurchaseId, date])
+  @@index([sourceDealerLedgerEntryId])
 }
 
 // ==================== SUPPLIERS (SIMPLIFIED) ====================
@@ -1640,9 +1726,14 @@ model DealerSalePayment {
   saleId String
   sale   DealerSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
+  // Set for FIFO allocations from DealerService.addGeneralPayment (one ledger row, N sale payments)
+  linkedLedgerEntryId String?
+  linkedLedgerEntry   DealerLedgerEntry? @relation("DealerSalePaymentGeneralLedger", fields: [linkedLedgerEntryId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
 
   @@index([saleId, date])
+  @@index([linkedLedgerEntryId])
 }
 
 // ==================== DEALER SALE PAYMENT REQUEST MODELS ====================
@@ -1893,6 +1984,9 @@ model DealerLedgerEntry {
   partyType String?
 
   createdAt DateTime @default(now())
+
+  linkedSalePaymentsFromGeneral DealerSalePayment[] @relation("DealerSalePaymentGeneralLedger")
+  entityTransactionsFromGeneral EntityTransaction[] @relation("EntityTxFromDealerLedgerPayment")
 
   @@index([dealerId, date])
   @@index([partyId, partyType])

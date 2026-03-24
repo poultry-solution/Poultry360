@@ -8,6 +8,7 @@ import {
   exportLedger,
   getDealerLedgerParties,
   addDealerPayment,
+  deleteDealerManualGeneralPayment,
 } from "../controller/dealerLedgerController";
 import { authMiddleware } from "../middelware/middelware";
 
@@ -39,6 +40,9 @@ router.get("/party/:partyId", getPartyLedger);
 
 // Add payment
 router.post("/payments", addDealerPayment);
+
+// Delete account-level general payment (manual customer only; password body)
+router.delete("/payments/:ledgerEntryId", deleteDealerManualGeneralPayment);
 
 // Create manual adjustment
 router.post("/adjustment", createAdjustment);

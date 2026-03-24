@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
+import { dealerSaleKeys } from "@/fetchers/dealer/dealerSaleQueries";
 
 // Query keys
 export const dealerLedgerKeys = {
@@ -177,6 +178,33 @@ export const useGetDealerLedgerParties = (search?: string) => {
         params: { search },
       });
       return data;
+    },
+  });
+};
+
+/** Delete an account-level general payment (manual customer only). Requires password in body. */
+export const useDeleteDealerManualGeneralPayment = (customerId: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      ledgerEntryId,
+      password,
+    }: {
+      ledgerEntryId: string;
+      password: string;
+    }) => {
+      const { data } = await axiosInstance.delete(
+        `/dealer/ledger/payments/${ledgerEntryId}`,
+        { data: { password } }
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealerLedgerKeys.all });
+      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["dealer-customer", customerId] });
+      queryClient.invalidateQueries({ queryKey: dealerLedgerKeys.party(customerId) });
     },
   });
 };

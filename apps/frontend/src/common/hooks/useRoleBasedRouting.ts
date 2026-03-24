@@ -22,42 +22,42 @@ const ROLE_ROUTES: RoleRouteConfig = {
     defaultRoute: "/doctor/dashboard",
     port: 3000,
     isCrossPort: false,
-    allowedPaths: ["/doctor", "/auth"],
+    allowedPaths: ["/doctor", "/auth", "/payment"],
   },
   OWNER: {
     basePath: "/farmer",
     defaultRoute: "/farmer/dashboard/home",
     port: 3000,
     isCrossPort: false,
-    allowedPaths: ["/farmer", "/auth"],
+    allowedPaths: ["/farmer", "/auth", "/payment"],
   },
   MANAGER: {
     basePath: "/farmer",
     defaultRoute: "/farmer/dashboard/home",
     port: 3000,
     isCrossPort: false,
-    allowedPaths: ["/farmer", "/auth"],
+    allowedPaths: ["/farmer", "/auth", "/payment"],
   },
   SUPER_ADMIN: {
     basePath: "/admin",
     defaultRoute: "/admin/dashboard",
     port: 3000,
     isCrossPort: false,
-    allowedPaths: ["/admin", "/auth"],
+    allowedPaths: ["/admin", "/auth", "/payment"],
   },
   DEALER: {
     basePath: "/dealer",
     defaultRoute: "/dealer/dashboard/home",
     port: 3000,
     isCrossPort: false,
-    allowedPaths: ["/dealer", "/auth"],
+    allowedPaths: ["/dealer", "/auth", "/payment"],
   },
   COMPANY: {
     basePath: "/company",
     defaultRoute: "/company/dashboard/home",
     port: 3000,
     isCrossPort: false,
-    allowedPaths: ["/company", "/auth"],
+    allowedPaths: ["/company", "/auth", "/payment"],
   },
 };
 
@@ -114,6 +114,26 @@ export const useRoleBasedRouting = () => {
 
     // Public share pages should never trigger redirects
     if (typeof window !== "undefined" && window.location.pathname.startsWith("/share/")) {
+      return;
+    }
+
+    // Payment-gated onboarding: force non-approved users onto `/payment`.
+    if (
+      user.onboardingPayment?.lockedUntilApproved &&
+      user.onboardingPayment.state !== "PAYMENT_APPROVED"
+    ) {
+      if (!pathname.startsWith("/payment")) {
+        router.push("/payment");
+        return;
+      }
+    }
+
+    // If approved user somehow visits `/payment`, send them to role dashboard.
+    if (
+      pathname.startsWith("/payment") &&
+      user.onboardingPayment?.state === "PAYMENT_APPROVED"
+    ) {
+      await navigateToRoleDashboard(userRole);
       return;
     }
 

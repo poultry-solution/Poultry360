@@ -40,6 +40,8 @@ import accountRoutes from "./accountRoutes";
 import adminCompanyRoutes from "./adminCompanyRoutes";
 import adminDealerRoutes from "./adminDealerRoutes";
 import adminUserRoutes from "./adminUserRoutes";
+import adminPaymentApprovalsRoutes from "./adminPaymentApprovalsRoutes";
+import adminOnboardingPaymentSettingsRoutes from "./adminOnboardingPaymentSettingsRoutes";
 import publicRoutes from "./publicRoutes";
 import dealerVerificationRoutes from "./dealerVerificationRoutes";
 import farmerVerificationRoutes from "./farmerVerificationRoutes";
@@ -57,6 +59,7 @@ import listForSaleRoutes from "./listForSaleRoutes";
 import staffRoutes from "./staffRoutes";
 import pushRoutes from "./pushRoutes";
 import notificationRoutes from "./notificationRoutes";
+import onboardingPaymentRoutes from "./onboardingPaymentRoutes";
 
 // Test routes (only in test environment)
 let testRoutes: express.Router | null = null;
@@ -117,6 +120,9 @@ router.use("/account", accountRoutes);
 router.use("/admin/companies", adminCompanyRoutes);
 router.use("/admin/dealers", adminDealerRoutes);
 router.use("/admin/users", adminUserRoutes);
+router.use("/admin/payment-approvals", adminPaymentApprovalsRoutes);
+router.use("/admin/onboarding-payment-settings", adminOnboardingPaymentSettingsRoutes);
+router.use("/onboarding/payment", onboardingPaymentRoutes);
 router.use("/public", publicRoutes);
 router.use("/upload", uploadRoutes);
 router.use("/reminders", reminderRoutes);

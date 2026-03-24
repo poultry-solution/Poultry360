@@ -100,6 +100,7 @@
       "overview": "Overview",
       "users": "Users",
       "passwordResets": "Password Resets",
+      "paymentApprovals": "Payment Approvals",
       "financial": "Financial",
       "suppliers": "Suppliers",
       "performance": "Performance",
@@ -2318,10 +2319,17 @@
         "paid": "Paid",
         "unpaid": "Unpaid",
         "start": "Start",
-        "end": "End"
+        "end": "End",
+        "startDateLabel": "From (BS)",
+        "endDateLabel": "To (BS)",
+        "find": "Find",
+        "clear": "Clear dates",
+        "bothDatesRequired": "Please select both start and end dates.",
+        "invalidRange": "Start date must be on or before end date."
       },
       "table": {
         "title": "Sales Records",
+        "descriptionHint": "Select a date range and tap Find to load sales.",
         "description": "{count} total sales transactions",
         "invoice": "Invoice",
         "date": "Date",
@@ -2330,6 +2338,8 @@
         "type": "Type",
         "actions": "Actions",
         "empty": "No sales found. Record your first sale to get started.",
+        "emptyBeforeFilter": "Choose a start date and an end date (Nepali calendar), then tap Find to load sales.",
+        "emptyInRange": "No sales in this date range.",
         "was": "Was {amount}",
         "off": "{amount} off"
       },

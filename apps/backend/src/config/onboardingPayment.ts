@@ -1,0 +1,57 @@
+import { UserRole } from "@prisma/client";
+import prisma from "../utils/prisma";
+
+const SETTINGS_ID = "default";
+
+export interface OnboardingPaymentResolvedSettings {
+  rolePricing: {
+    OWNER: number;
+    MANAGER: number;
+    DEALER: number;
+    COMPANY: number;
+  };
+  qr: {
+    qrImageUrl: string | null;
+    qrText: string;
+    phoneDisplay: string;
+    accountHint: string;
+  };
+}
+
+export async function getOnboardingPaymentSettings(): Promise<OnboardingPaymentResolvedSettings | null> {
+  const settings = await prisma.onboardingPaymentSettings.findUnique({
+    where: { id: SETTINGS_ID },
+  });
+
+  if (!settings) {
+    return null;
+  }
+
+  return {
+    rolePricing: {
+      OWNER: Number(settings.ownerAmountNpr),
+      MANAGER: Number(settings.managerAmountNpr),
+      DEALER: Number(settings.dealerAmountNpr),
+      COMPANY: Number(settings.companyAmountNpr),
+    },
+    qr: {
+      qrImageUrl: settings.qrImageUrl || null,
+      qrText: settings.qrText || "Poultry360 Onboarding Payment",
+      phoneDisplay: settings.phoneDisplay,
+      accountHint: settings.accountHint,
+    },
+  };
+}
+
+export function getOnboardingAmountForRole(
+  role: UserRole,
+  rolePricing: OnboardingPaymentResolvedSettings["rolePricing"]
+): number {
+  if (role === "DOCTOR" || role === "SUPER_ADMIN") return 0;
+  if (role === "OWNER") return rolePricing.OWNER;
+  if (role === "MANAGER") return rolePricing.MANAGER;
+  if (role === "DEALER") return rolePricing.DEALER;
+  if (role === "COMPANY") return rolePricing.COMPANY;
+  return rolePricing.OWNER;
+}
+

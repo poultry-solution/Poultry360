@@ -2,8 +2,12 @@ import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import prisma from "../utils/prisma";
-import { UserRole, UserStatus } from "@prisma/client";
+import { UserOnboardingPaymentState, UserRole, UserStatus } from "@prisma/client";
 import { LoginSchema, SignupSchema } from "@myapp/shared-types";
+import {
+  getOnboardingAmountForRole,
+  getOnboardingPaymentSettings,
+} from "../config/onboardingPayment";
 
 const generateTokens = (userId: string, role: UserRole) => {
   const accessToken = jwt.sign(
@@ -23,6 +27,15 @@ const generateTokens = (userId: string, role: UserRole) => {
   );
 
   return { accessToken, refreshToken };
+};
+
+const isPaymentGateRequiredForRole = (role: UserRole): boolean => {
+  return (
+    role === UserRole.OWNER ||
+    role === UserRole.MANAGER ||
+    role === UserRole.DEALER ||
+    role === UserRole.COMPANY
+  );
 };
 
 export const login = async (req: Request, res: Response): Promise<any> => {
@@ -65,6 +78,11 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     // Generate tokens
     const tokens = generateTokens(user.id, user.role);
 
+    const onboardingPayment = await prisma.userOnboardingPayment.findUnique({
+      where: { userId: user.id },
+      select: { state: true, lockedUntilApproved: true },
+    });
+
     res.cookie("refreshToken", tokens.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -87,6 +105,12 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       ownedFarms: user.ownedFarms?.map((farm) => farm.id),
       dealer: user.dealer,
       company: user.company,
+      onboardingPayment: onboardingPayment
+        ? {
+            state: onboardingPayment.state,
+            lockedUntilApproved: onboardingPayment.lockedUntilApproved,
+          }
+        : null,
     };
 
     console.log("userWithFarms", userWithFarms);
@@ -188,6 +212,19 @@ export const register = async (req: Request, res: Response): Promise<any> => {
         },
       });
 
+      const requiresPaymentGate = isPaymentGateRequiredForRole(user.role);
+
+      // Create onboarding row for new signups
+      await tx.userOnboardingPayment.create({
+        data: {
+          userId: user.id,
+          state: requiresPaymentGate
+            ? UserOnboardingPaymentState.PENDING_PAYMENT
+            : UserOnboardingPaymentState.PAYMENT_APPROVED,
+          lockedUntilApproved: requiresPaymentGate,
+        },
+      });
+
       // If dealerId provided and user is owner/farmer, create verification request
       if (dealerId && (role === UserRole.OWNER || !role)) {
         await (tx as any).farmerVerificationRequest.create({
@@ -204,6 +241,11 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     });
 
     const user = result;
+    const settings = await getOnboardingPaymentSettings();
+    if (!settings) {
+      console.error("Onboarding payment settings row not found");
+      return res.status(500).json({ message: "Onboarding payment settings not configured" });
+    }
 
     // Generate tokens
     const tokens = generateTokens(user.id, user.role);
@@ -218,6 +260,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     });
 
     // Return access token and user data
+    const requiresPaymentGate = isPaymentGateRequiredForRole(user.role);
     return res.status(201).json({
       accessToken: tokens.accessToken,
       user: {
@@ -232,6 +275,13 @@ export const register = async (req: Request, res: Response): Promise<any> => {
         calendarType: user.calendarType,
         managedFarms: user.managedFarms,
         ownedFarms: user.ownedFarms,
+      },
+      requiresPayment: requiresPaymentGate,
+      onboarding: {
+        state: requiresPaymentGate
+          ? UserOnboardingPaymentState.PENDING_PAYMENT
+          : UserOnboardingPaymentState.PAYMENT_APPROVED,
+        amountNpr: getOnboardingAmountForRole(user.role, settings.rolePricing),
       },
     });
   } catch (error) {
@@ -426,6 +476,12 @@ export const validateToken = async (
       });
     }
 
+    // Fetch payment-gated onboarding state (if it exists)
+    const onboardingPayment = await prisma.userOnboardingPayment.findUnique({
+      where: { userId: userData.id },
+      select: { state: true, lockedUntilApproved: true },
+    });
+
     // Prepare user response
     let userResponse: any = {
       id: userData.id,
@@ -441,6 +497,12 @@ export const validateToken = async (
       ownedFarms: userData.ownedFarms,
       dealer: userData.dealer,
       company: userData.company,
+      onboardingPayment: onboardingPayment
+        ? {
+            state: onboardingPayment.state,
+            lockedUntilApproved: onboardingPayment.lockedUntilApproved,
+          }
+        : null,
     };
 
     // Add storeId for farm managers
@@ -727,6 +789,15 @@ export const registerEntity = async (
             CompanyFarmLocation: entityAddress || null,
           },
         });
+
+        await tx.userOnboardingPayment.create({
+          data: {
+            userId: user.id,
+            state: UserOnboardingPaymentState.PAYMENT_APPROVED,
+            lockedUntilApproved: false,
+          },
+        });
+
         return { user, entity: null, entityType: "DOCTOR" as const };
       }
 
@@ -740,6 +811,14 @@ export const registerEntity = async (
           status: UserStatus.ACTIVE,
           language: "ENGLISH",
           calendarType: "AD",
+        },
+      });
+
+      await tx.userOnboardingPayment.create({
+        data: {
+          userId: user.id,
+          state: UserOnboardingPaymentState.PENDING_PAYMENT,
+          lockedUntilApproved: true,
         },
       });
 
@@ -801,6 +880,11 @@ export const registerEntity = async (
 
     // Generate tokens
     const tokens = generateTokens(result.user.id, result.user.role);
+    const settings = await getOnboardingPaymentSettings();
+    if (!settings) {
+      console.error("Onboarding payment settings row not found");
+      return res.status(500).json({ message: "Onboarding payment settings not configured" });
+    }
 
     res.cookie("refreshToken", tokens.refreshToken, {
       httpOnly: true,
@@ -811,6 +895,8 @@ export const registerEntity = async (
     });
 
     // Return access token and user data
+    const requiresPaymentGate = isPaymentGateRequiredForRole(result.user.role);
+
     const responsePayload: any = {
       success: true,
       accessToken: tokens.accessToken,
@@ -822,6 +908,16 @@ export const registerEntity = async (
         status: result.user.status,
       },
       message: `${result.entityType} account created successfully`,
+      requiresPayment: requiresPaymentGate,
+      onboarding: {
+        state: requiresPaymentGate
+          ? UserOnboardingPaymentState.PENDING_PAYMENT
+          : UserOnboardingPaymentState.PAYMENT_APPROVED,
+        amountNpr: getOnboardingAmountForRole(
+          result.user.role,
+          settings.rolePricing
+        ),
+      },
     };
 
     if (result.entity) {

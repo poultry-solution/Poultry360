@@ -633,6 +633,169 @@ export const addDealerPayment = async (
   }
 };
 
+// ==================== DELETE MANUAL CUSTOMER GENERAL PAYMENT ====================
+/**
+ * Reverses a mistaken account-level general payment (POST /dealer/ledger/payments without saleId).
+ * Manual customers only (Customer.farmerId == null). Password required.
+ */
+export const deleteDealerManualGeneralPayment = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { ledgerEntryId } = req.params;
+    const { password } = req.body ?? {};
+
+    if (!password || typeof password !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Password confirmation is required for deletion",
+      });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const bcrypt = require("bcrypt");
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid password. Deletion cancelled.",
+      });
+    }
+
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    const entry = await prisma.dealerLedgerEntry.findFirst({
+      where: { id: ledgerEntryId, dealerId: dealer.id },
+    });
+
+    if (!entry) {
+      return res.status(404).json({ message: "Ledger entry not found" });
+    }
+
+    if (entry.type !== "PAYMENT_RECEIVED") {
+      return res.status(400).json({
+        message: "Only payment entries can be deleted",
+      });
+    }
+
+    if (entry.partyType !== "CUSTOMER" || !entry.partyId) {
+      return res.status(400).json({
+        message: "Only manual customer payments can be deleted",
+      });
+    }
+
+    // Bill-level payments attach saleId on the ledger row; only allow account-level general payments
+    if (entry.saleId != null) {
+      return res.status(400).json({
+        message: "Delete bill-level payments from the sale flow is not supported here",
+      });
+    }
+
+    const customer = await prisma.customer.findFirst({
+      where: { id: entry.partyId, userId },
+      select: { id: true, farmerId: true },
+    });
+
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    if (customer.farmerId != null) {
+      return res.status(400).json({
+        message: "Delete payment is only available for manual customers",
+      });
+    }
+
+    const paymentAmount = Number(entry.amount);
+    const deletedCreatedAt = entry.createdAt;
+    const deletedId = entry.id;
+
+    await prisma.$transaction(async (tx) => {
+      const splits = await tx.dealerSalePayment.findMany({
+        where: { linkedLedgerEntryId: ledgerEntryId },
+        include: { sale: true },
+      });
+
+      for (const sp of splits) {
+        const sale = sp.sale;
+        const alloc = Number(sp.amount);
+        const newPaidAmount = Number(sale.paidAmount) - alloc;
+        const newDueAmount = Number(sale.totalAmount) - newPaidAmount;
+
+        if (newPaidAmount < -0.0001) {
+          throw new Error("Invalid payment reversal: paid amount would become negative");
+        }
+
+        await tx.dealerSale.update({
+          where: { id: sale.id },
+          data: {
+            paidAmount: new Prisma.Decimal(newPaidAmount),
+            dueAmount: newDueAmount > 0 ? new Prisma.Decimal(newDueAmount) : null,
+          },
+        });
+
+        await tx.dealerSalePayment.delete({ where: { id: sp.id } });
+      }
+
+      await tx.customer.update({
+        where: { id: customer.id },
+        data: {
+          balance: { increment: new Prisma.Decimal(paymentAmount) },
+        },
+      });
+
+      await tx.entityTransaction.deleteMany({
+        where: { sourceDealerLedgerEntryId: ledgerEntryId },
+      });
+
+      await tx.dealerLedgerEntry.delete({
+        where: { id: ledgerEntryId },
+      });
+
+      await tx.dealerLedgerEntry.updateMany({
+        where: {
+          dealerId: dealer.id,
+          OR: [
+            { createdAt: { gt: deletedCreatedAt } },
+            {
+              AND: [
+                { createdAt: deletedCreatedAt },
+                { id: { gt: deletedId } },
+              ],
+            },
+          ],
+        },
+        data: {
+          balance: { increment: new Prisma.Decimal(paymentAmount) },
+        },
+      });
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment deleted and balances reverted",
+    });
+  } catch (error: any) {
+    console.error("Delete dealer manual general payment error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
 // Helper function to convert entries to CSV
 function convertToCSV(entries: any[]): string {
   const headers = [
