@@ -2739,9 +2739,9 @@
       "getStarted": "सुरु गर्नुहोस्",
       "signUpAs": "यसको रूपमा दर्ता गर्नुहोस्",
       "signUpDescription": "Poultry360 मा सुरु गर्न आफ्नो खाताको प्रकार छान्नुहोस्",
-      "farmer": "किसान",
-      "dealer": "डिलर",
-      "company": "कम्पनी",
+      "farmer": "लेयर/ब्रोइलर किसान",
+      "dealer": "फिड डिलर",
+      "company": "फिड मिल कम्पनी",
       "alreadyHaveAccount": "पहिले नै खाता छ?",
       "login": "लग इन"
     },

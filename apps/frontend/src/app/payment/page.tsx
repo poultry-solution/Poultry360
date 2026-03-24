@@ -25,6 +25,26 @@ function formatAmount(amountNpr: number) {
   return `NPR ${Number(amountNpr).toLocaleString("en-US")}`;
 }
 
+/** Human-readable label for onboarding payment (shown to users, not raw enum). */
+function getOnboardingAccountLabel(userRole: string): string {
+  switch (userRole) {
+    case "OWNER":
+      return "Layer/Broiler farmer";
+    case "MANAGER":
+      return "Farm manager";
+    case "DEALER":
+      return "Feed dealer";
+    case "COMPANY":
+      return "Company";
+    case "DOCTOR":
+      return "Doctor";
+    case "SUPER_ADMIN":
+      return "Administrator";
+    default:
+      return userRole;
+  }
+}
+
 export default function PaymentPage() {
   const { handleLoginRedirect } = useLoginRedirect();
   const { data: context, isLoading, refetch } = useGetOnboardingPaymentContext();
@@ -104,12 +124,15 @@ export default function PaymentPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary">
-              State: {context.state}
-            </Badge>
-            <Badge variant="outline">
-              Amount: {formatAmount(context.amountNpr)}
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-3">
+            <p className="text-sm">
+              <span className="text-muted-foreground">You are activating: </span>
+              <span className="font-medium text-foreground">
+                {getOnboardingAccountLabel(context.userRole)}
+              </span>
+            </p>
+            <Badge variant="outline" className="w-fit">
+              Amount: {formatAmount(context.amountNpr)} per year
             </Badge>
           </div>
 

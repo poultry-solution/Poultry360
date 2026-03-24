@@ -2740,9 +2740,9 @@
       "getStarted": "Get Started",
       "signUpAs": "Sign Up As",
       "signUpDescription": "Choose your account type to get started with Poultry360",
-      "farmer": "Farmer",
-      "dealer": "Dealer",
-      "company": "Company",
+      "farmer": "Layer/Broiler Farmer",
+      "dealer": "Feed Dealer",
+      "company": "Feed mill company",
       "alreadyHaveAccount": "Already have an account?",
       "login": "Log in"
     },
