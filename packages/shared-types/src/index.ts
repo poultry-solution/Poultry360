@@ -574,6 +574,7 @@ export const CreateSaleSchema = z
       unitPrice: z.number().positive(),
     })).optional(),
     categoryId: z.string().optional(),
+    invoiceNumber: z.string().optional(),
     customerData: z.object({
       name: z.string(),
       phone: z.string(),

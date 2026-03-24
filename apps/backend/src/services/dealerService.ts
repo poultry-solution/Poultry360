@@ -5,6 +5,7 @@ import {
   distributeDiscountToItems,
   type DiscountType,
 } from "../utils/discountHelpers";
+import { generateNextInvoiceNumber } from "../utils/invoiceNumber";
 
 export class DealerService {
   /**
@@ -24,6 +25,7 @@ export class DealerService {
     notes?: string;
     date: Date;
     discount?: { type: DiscountType; value: number };
+    invoiceNumber?: string;
   }) {
     const {
       dealerId,
@@ -34,6 +36,7 @@ export class DealerService {
       notes,
       date,
       discount: discountInput,
+      invoiceNumber: customInvoiceNumber,
     } = data;
 
     // Validate that customerId is provided
@@ -66,7 +69,6 @@ export class DealerService {
     const totalAmount = Math.round((subtotal - discountAmount) * 100) / 100;
     const dueAmount = totalAmount - paidAmount;
     const isCredit = dueAmount > 0;
-    const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
     const itemTotals =
       discountAmount > 0
@@ -96,7 +98,10 @@ export class DealerService {
         }
       }
 
-      // 2. Create the sale
+      // 2. Generate invoice number (custom or auto-sequential)
+      const invoiceNumber = customInvoiceNumber?.trim() || await generateNextInvoiceNumber(dealerId, tx);
+
+      // 3. Create the sale
       const sale = await tx.dealerSale.create({
         data: {
           invoiceNumber,

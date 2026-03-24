@@ -73,6 +73,8 @@ export default function NewSalePage() {
   const [paidAmount, setPaidAmount] = useState(0);
   const [discountType, setDiscountType] = useState<"PERCENT" | "FLAT">("PERCENT");
   const [discountValue, setDiscountValue] = useState<number>(0);
+  const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [useCustomInvoice, setUseCustomInvoice] = useState(false);
   const [isCreateCustomerOpen, setIsCreateCustomerOpen] = useState(false);
   const [newCustomerData, setNewCustomerData] = useState({
     name: "",
@@ -221,6 +223,7 @@ export default function NewSalePage() {
           discountValue > 0
             ? { type: discountType, value: discountValue }
             : undefined,
+        invoiceNumber: invoiceNumber.trim() || undefined,
       });
 
       toast.success(t("dealer.newSale.messages.success"));
@@ -311,6 +314,39 @@ export default function NewSalePage() {
               </Button>
             </CardContent>
           </Card>
+
+          {/* Custom Invoice Number (Toggle) */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border transition-colors ${
+                useCustomInvoice
+                  ? "bg-primary/10 border-primary/30 text-primary"
+                  : "border-dashed border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50"
+              }`}
+              onClick={() => {
+                setUseCustomInvoice(!useCustomInvoice);
+                if (useCustomInvoice) setInvoiceNumber("");
+              }}
+            >
+              <div className={`h-3.5 w-3.5 rounded-sm border flex items-center justify-center ${
+                useCustomInvoice ? "bg-primary border-primary" : "border-muted-foreground/50"
+              }`}>
+                {useCustomInvoice && <span className="text-white text-[10px] leading-none">✓</span>}
+              </div>
+              Custom invoice number
+            </button>
+            {useCustomInvoice ? (
+              <Input
+                placeholder="e.g. BILL-001"
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                className="max-w-[200px] h-8 text-sm"
+              />
+            ) : (
+              <span className="text-xs text-muted-foreground">Invoice will be auto-generated (e.g. INV-001)</span>
+            )}
+          </div>
 
           {/* Products Section */}
           <Card>

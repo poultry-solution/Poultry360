@@ -7,6 +7,7 @@ import {
   distributeDiscountToItems,
   type DiscountType,
 } from "../utils/discountHelpers";
+import { generateNextInvoiceNumber } from "../utils/invoiceNumber";
 
 export class DealerSaleRequestService {
   /**
@@ -236,12 +237,12 @@ export class DealerSaleRequestService {
           })()
         : null;
 
-    // 5. Generate invoice number
-    const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-
-    // 6. Execute dealer-side transaction (long timeout: many items + ledger + account)
+    // 5. Execute dealer-side transaction (long timeout: many items + ledger + account)
     const saleId = await prisma.$transaction(
       async (tx) => {
+      // Generate sequential invoice number inside transaction
+      const invoiceNumber = await generateNextInvoiceNumber(request.dealerId, tx);
+
       // Re-validate stock availability
       for (const item of request.items) {
         const product = await tx.dealerProduct.findUnique({
@@ -420,7 +421,7 @@ export class DealerSaleRequestService {
         },
       });
 
-      return sale.id;
+      return { saleId: sale.id, invoiceNumber };
       },
       { timeout: 20000 }
     );
@@ -436,8 +437,8 @@ export class DealerSaleRequestService {
         unitPrice: Number(requestItem.unitPrice),
         totalAmount: Number(requestItem.totalAmount),
         date: request.date,
-        description: `Purchase - Invoice ${invoiceNumber}`,
-        reference: invoiceNumber,
+        description: `Purchase - Invoice ${saleId.invoiceNumber}`,
+        reference: saleId.invoiceNumber,
         purchaseCategory: purchaseCategory as any,
         userId: request.farmerId,
       });
@@ -445,7 +446,7 @@ export class DealerSaleRequestService {
 
     // Fetch the complete sale details
     return await prisma.dealerSale.findUnique({
-      where: { id: saleId },
+      where: { id: saleId.saleId },
       include: {
         items: {
           include: {

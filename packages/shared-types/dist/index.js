@@ -434,6 +434,7 @@ exports.CreateSaleSchema = zod_1.z
         unitPrice: zod_1.z.number().positive(),
     })).optional(),
     categoryId: zod_1.z.string().optional(),
+    invoiceNumber: zod_1.z.string().optional(),
     customerData: zod_1.z.object({
         name: zod_1.z.string(),
         phone: zod_1.z.string(),

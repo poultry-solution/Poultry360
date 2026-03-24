@@ -707,13 +707,14 @@ enum SalesItemType {
 }
 
 model Sale {
-  id          String   @id @default(cuid())
-  date        DateTime
-  amount      Decimal  @db.Decimal(10, 2)
-  quantity    Decimal  @db.Decimal(10, 2)
-  weight      Decimal? @db.Decimal(10, 2)
-  unitPrice   Decimal  @db.Decimal(10, 2)
-  description String?
+  id            String   @id @default(cuid())
+  invoiceNumber String?  @unique
+  date          DateTime
+  amount        Decimal  @db.Decimal(10, 2)
+  quantity      Decimal  @db.Decimal(10, 2)
+  weight        Decimal? @db.Decimal(10, 2)
+  unitPrice     Decimal  @db.Decimal(10, 2)
+  description   String?
 
   itemType    SalesItemType @default(Chicken_Meat)
   eggTypeId   String?       // For EGGS sales: user's egg type
@@ -741,6 +742,7 @@ model Sale {
   @@index([farmId, date])
   @@index([customerId])
   @@index([mortalityId])
+  @@index([invoiceNumber])
 }
 
 // Multiple egg type lines per sale (e.g. Large 10 @ ₹5, Small 20 @ ₹4)

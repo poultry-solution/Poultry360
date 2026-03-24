@@ -68,6 +68,7 @@ export interface CreateDealerSaleInput {
   notes?: string;
   date?: Date;
   discount?: { type: "PERCENT" | "FLAT"; value: number };
+  invoiceNumber?: string;
 }
 
 export interface AddSalePaymentInput {
