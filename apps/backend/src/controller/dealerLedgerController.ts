@@ -602,6 +602,13 @@ export const addDealerPayment = async (
       return res.status(403).json({ message: "Customer not found or access denied" });
     }
 
+    // Connected customers (farmerId set) must use the dealer-farmer account payment flow
+    if (customer.farmerId) {
+      return res.status(400).json({
+        message: "Connected farmer payments must be recorded through the farmer account page, not this endpoint.",
+      });
+    }
+
     // Account-level payment for manual customers
     const result = await DealerService.addAccountPayment({
       customerId: resolvedCustomerId,
