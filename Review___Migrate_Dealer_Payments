@@ -1,0 +1,13 @@
+I have the following comments after thorough review of file. Implement the comments by following the instructions verbatim.
+
+---
+## Comment 1: Manual customer sales still advertise bill-level paid/due status even though later payments now bypass the sale entirely.
+
+Define one explicit manual-customer settlement contract across `apps/backend/src/services/dealerService.ts` and `apps/backend/src/controller/dealerSaleController.ts`. If manual customers are now account-based, stop exposing `DealerSale.paidAmount`, `dueAmount`, and `isCredit` as live settlement state for payment filters and statistics; derive current status from the account-level source instead. Then update the manual sales/detail consumer in `apps/frontend/src/app/dealer/dashboard/sales/page.tsx` so it does not present stale bill-level values as the current payment truth.
+
+### Relevant Files
+- /home/sidd/ideas/Poultry360/apps/backend/src/services/dealerService.ts
+- /home/sidd/ideas/Poultry360/apps/backend/src/controller/dealerSaleController.ts
+- /home/sidd/ideas/Poultry360/apps/frontend/src/app/dealer/dashboard/sales/page.tsx
+- /home/sidd/ideas/Poultry360/apps/frontend/src/app/dealer/dashboard/customers/[customerId]/account/page.tsx
+---

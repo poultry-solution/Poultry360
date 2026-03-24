@@ -4,6 +4,7 @@ import { parseDealerSaleDateRange } from "../utils/dealerSaleDateRange";
 import { DealerService } from "../services/dealerService";
 import { DealerSaleRequestService } from "../services/dealerSaleRequestService";
 import { DealerFarmerAccountService } from "../services/dealerFarmerAccountService";
+import bcrypt from "bcrypt";
 
 // ==================== CREATE DEALER SALE ====================
 export const createDealerSale = async (
@@ -153,6 +154,8 @@ export const getDealerSales = async (
       ];
     }
 
+    // For manual customers, dueAmount is frozen at sale creation (initial payment only).
+    // This filter reflects whether the sale was fully paid at the time of sale.
     if (isPaid === "true") {
       where.dueAmount = null;
     } else if (isPaid === "false") {
@@ -915,9 +918,9 @@ export const getSalesStatistics = async (
 
     const totalSales = sales.length;
     const totalRevenue = sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0);
-    const totalPaid = sales.reduce((sum, sale) => sum + Number(sale.paidAmount), 0);
-    const totalDue = sales.reduce((sum, sale) => sum + Number(sale.dueAmount || 0), 0);
-    const creditSales = sales.filter((sale) => sale.isCredit).length;
+    // paidAmount/dueAmount on DealerSale reflect only the initial payment at sale time
+    const totalPaidAtSale = sales.reduce((sum, sale) => sum + Number(sale.paidAmount), 0);
+    const creditSales = sales.filter((sale) => Number(sale.paidAmount) < Number(sale.totalAmount)).length;
 
     // Get top customers
     const topCustomers = await prisma.dealerSale.groupBy({
@@ -957,8 +960,8 @@ export const getSalesStatistics = async (
       data: {
         totalSales,
         totalRevenue,
-        totalPaid,
-        totalDue,
+        totalPaid: totalPaidAtSale,
+        totalDue: totalRevenue - totalPaidAtSale,
         creditSales,
         topCustomers: topCustomersWithDetails,
       },
@@ -966,6 +969,76 @@ export const getSalesStatistics = async (
   } catch (error: any) {
     console.error("Get sales statistics error:", error);
     return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== DELETE DEALER SALE (MANUAL CUSTOMER ONLY) ====================
+export const deleteDealerSale = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+    const { password } = req.body ?? {};
+
+    if (!password || typeof password !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Password confirmation is required for deletion",
+      });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid password. Deletion cancelled.",
+      });
+    }
+
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    // Verify sale belongs to dealer and is for manual customer
+    const sale = await prisma.dealerSale.findFirst({
+      where: { id, dealerId: dealer.id },
+      include: { customer: { select: { farmerId: true } } },
+    });
+    if (!sale) {
+      return res.status(404).json({ message: "Sale not found" });
+    }
+    if (sale.customer?.farmerId) {
+      return res.status(400).json({
+        message: "Cannot delete connected farmer sales",
+      });
+    }
+
+    await DealerService.deleteDealerSale({
+      saleId: id,
+      dealerId: dealer.id,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Sale deleted and inventory reverted successfully",
+    });
+  } catch (error: any) {
+    console.error("Delete dealer sale error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
   }
 };
 

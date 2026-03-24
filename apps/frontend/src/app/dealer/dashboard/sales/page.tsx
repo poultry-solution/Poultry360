@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Eye, CreditCard, Calendar as CalendarIcon, FileCheck, User, Phone, Package, FileText, Check, X as XIcon, Wallet } from "lucide-react";
+import { Plus, Search, Eye, CreditCard, Calendar as CalendarIcon, FileCheck, User, Phone, Package, FileText, Check, X as XIcon, Wallet, Trash2 } from "lucide-react";
 import Calendar from "@sbmdkl/nepali-datepicker-reactjs";
 import "@sbmdkl/nepali-datepicker-reactjs/dist/index.css";
 import { Label } from "@/common/components/ui/label";
@@ -35,6 +35,7 @@ import { Badge } from "@/common/components/ui/badge";
 import {
   useGetDealerSales,
   useGetDealerSaleById,
+  useDeleteDealerSale,
   type DealerSale,
 } from "@/fetchers/dealer/dealerSaleQueries";
 import { useI18n } from "@/i18n/useI18n";
@@ -52,6 +53,9 @@ export default function DealerSalesPage() {
   } | null>(null);
   const [calendarResetKey, setCalendarResetKey] = useState(0);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const deleteSaleMutation = useDeleteDealerSale();
 
   const appliedIso = useMemo(() => {
     if (!appliedRange) return null;
@@ -334,19 +338,28 @@ export default function DealerSalesPage() {
                 key: 'isCredit',
                 label: t("dealer.sales.table.type"),
                 width: '70px',
-                render: (val) => (
-                  <Badge variant={val ? "secondary" : "default"} className="text-xs">
-                    {val ? t("dealer.sales.badges.credit") : t("dealer.sales.badges.cash")}
-                  </Badge>
-                )
+                render: (val, row) => {
+                  const isAccount = Boolean(row.accountId ?? row.farmerId ?? row.customer?.farmerId);
+                  if (isAccount) {
+                    return <Badge variant="outline" className="text-xs">Account</Badge>;
+                  }
+                  const hadInitialPayment = Number(row.paidAmount) > 0;
+                  return (
+                    <Badge variant={hadInitialPayment ? "default" : "secondary"} className="text-xs">
+                      {hadInitialPayment ? t("dealer.sales.badges.cash") : t("dealer.sales.badges.credit")}
+                    </Badge>
+                  );
+                }
               },
               {
                 key: 'actions',
                 label: t("dealer.sales.table.actions"),
                 align: 'right',
-                width: '50px',
-                render: (_, row) => (
-                  <div className="flex justify-end">
+                width: '80px',
+                render: (_, row) => {
+                  const isAccount = Boolean(row.accountId ?? row.farmerId ?? row.customer?.farmerId);
+                  return (
+                  <div className="flex justify-end gap-1">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -356,8 +369,24 @@ export default function DealerSalesPage() {
                     >
                       <Eye className="h-3.5 w-3.5" />
                     </Button>
+                    {!isAccount && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 cursor-pointer text-destructive hover:text-destructive"
+                        onClick={() => {
+                          setSelectedSaleId(row.id);
+                          setDeleteConfirmOpen(true);
+                          setDeletePassword("");
+                        }}
+                        title="Delete sale"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
-                )
+                  );
+                }
               }
             ] as Column[]}
           />
@@ -394,13 +423,82 @@ export default function DealerSalesPage() {
         </CardContent>
       </Card>
 
+      {/* Delete Sale Confirmation */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={(open) => { if (!open) { setDeleteConfirmOpen(false); setDeletePassword(""); } }}>
+        <DialogContent className="max-w-sm bg-white">
+          <DialogHeader>
+            <DialogTitle>Delete Sale</DialogTitle>
+            <DialogDescription>
+              This will permanently delete this sale, revert inventory, and undo the initial payment. Enter your password to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <Input
+              type="password"
+              placeholder="Enter your password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+            />
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setDeleteConfirmOpen(false); setDeletePassword(""); }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={!deletePassword || deleteSaleMutation.isPending}
+                onClick={() => {
+                  if (!selectedSaleId) return;
+                  deleteSaleMutation.mutate(
+                    { saleId: selectedSaleId, password: deletePassword },
+                    {
+                      onSuccess: () => {
+                        toast.success("Sale deleted successfully");
+                        setDeleteConfirmOpen(false);
+                        setDeletePassword("");
+                        setSelectedSaleId(null);
+                      },
+                      onError: (err: any) => {
+                        toast.error(err?.response?.data?.message || "Failed to delete sale");
+                      },
+                    }
+                  );
+                }}
+              >
+                {deleteSaleMutation.isPending ? "Deleting..." : "Delete Sale"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Sale Detail Modal */}
       <Dialog open={!!selectedSaleId} onOpenChange={(open) => { if (!open) setSelectedSaleId(null); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
-            <DialogTitle className="text-xl">
-              Invoice #{sale?.invoiceNumber || sale?.id?.slice(0, 8) || "..."}
-            </DialogTitle>
+            <div className="flex items-center justify-between gap-2">
+              <DialogTitle className="text-xl">
+                Invoice #{sale?.invoiceNumber || sale?.id?.slice(0, 8) || "..."}
+              </DialogTitle>
+              {sale && !isFarmerAccountSale && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                  onClick={() => {
+                    setDeleteConfirmOpen(true);
+                    setDeletePassword("");
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Delete
+                </Button>
+              )}
+            </div>
             <DialogDescription>
               {sale ? <span>Sale created on <DateDisplay date={sale.date} format="long" /></span> : "Loading..."}
             </DialogDescription>
@@ -430,17 +528,11 @@ export default function DealerSalesPage() {
                   <div className="text-xs text-muted-foreground">Total Amount</div>
                   <div className="text-lg font-bold">{formatCurrency(totalAmount)}</div>
                 </div>
-                {!isFarmerAccountSale && (
-                  <>
-                    <div className="p-3 bg-green-50 rounded-lg">
-                      <div className="text-xs text-muted-foreground">Paid</div>
-                      <div className="text-lg font-bold text-green-600">{formatCurrency(paidAmount)}</div>
-                    </div>
-                    <div className="p-3 bg-red-50 rounded-lg">
-                      <div className="text-xs text-muted-foreground">Due</div>
-                      <div className="text-lg font-bold text-red-600">{formatCurrency(dueAmount)}</div>
-                    </div>
-                  </>
+                {!isFarmerAccountSale && paidAmount > 0 && (
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <div className="text-xs text-muted-foreground">Paid at Sale</div>
+                    <div className="text-lg font-bold text-green-600">{formatCurrency(paidAmount)}</div>
+                  </div>
                 )}
               </div>
 
@@ -470,21 +562,18 @@ export default function DealerSalesPage() {
                   ) : (
                     <>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Type</span>
-                        <Badge variant={sale.isCredit ? "destructive" : "default"} className="text-xs">
-                          {sale.isCredit ? "Credit" : "Cash"}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Method</span>
                         <span className="font-medium">{sale.paymentMethod || "—"}</span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Status</span>
-                        <Badge variant={dueAmount > 0 ? "destructive" : "secondary"} className="text-xs">
-                          {dueAmount > 0 ? "Pending" : "Fully Paid"}
-                        </Badge>
-                      </div>
+                      {paidAmount > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Paid at Sale</span>
+                          <span className="font-medium text-green-600">{formatCurrency(paidAmount)}</span>
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Payments are tracked at the customer account level.
+                      </p>
                     </>
                   )}
                 </div>
@@ -547,12 +636,12 @@ export default function DealerSalesPage() {
                 </div>
               </div>
 
-              {/* Payment History */}
+              {/* Initial Payment at Sale */}
               {!isFarmerAccountSale && sale.payments && sale.payments.length > 0 && (
                 <div className="border rounded-lg overflow-hidden">
                   <div className="p-3 border-b bg-muted/30">
                     <h4 className="font-semibold text-sm">
-                      Payment History ({sale.payments.length} payment{sale.payments.length > 1 ? "s" : ""})
+                      Initial Payment at Sale
                     </h4>
                   </div>
                   <div className="p-3 space-y-2">
@@ -568,20 +657,6 @@ export default function DealerSalesPage() {
                         </Badge>
                       </div>
                     ))}
-                    <div className="p-3 bg-muted rounded-lg space-y-1 mt-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Total Amount:</span>
-                        <span className="font-semibold">{formatCurrency(totalAmount)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm text-green-600">
-                        <span>Total Paid:</span>
-                        <span className="font-semibold">{formatCurrency(paidAmount)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm text-red-600 pt-1 border-t">
-                        <span className="font-semibold">Remaining:</span>
-                        <span className="font-bold">{formatCurrency(dueAmount)}</span>
-                      </div>
-                    </div>
                   </div>
                 </div>
               )}

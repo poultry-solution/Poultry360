@@ -256,23 +256,17 @@ export class DealerService {
 
       await Promise.all(ledgerEntries);
 
-      // 8. Update Customer.balance
-      const customer = await tx.customer.findUnique({
+      // 8. Update Customer balance and account totals
+      await tx.customer.update({
         where: { id: customerId },
-        select: { balance: true },
+        data: {
+          balance: { increment: new Prisma.Decimal(dueAmount) },
+          totalSales: { increment: new Prisma.Decimal(totalAmount) },
+          ...(paidAmount > 0
+            ? { totalPayments: { increment: new Prisma.Decimal(paidAmount) } }
+            : {}),
+        },
       });
-
-      if (customer) {
-        const currentCustomerBalance = Number(customer.balance || 0);
-        const newCustomerBalance = currentCustomerBalance + dueAmount;
-
-        await tx.customer.update({
-          where: { id: customerId },
-          data: {
-            balance: new Prisma.Decimal(newCustomerBalance),
-          },
-        });
-      }
 
       // Return sale ID - fetch full details outside transaction
       return sale.id;
@@ -320,6 +314,13 @@ export class DealerService {
 
       if (!sale) {
         throw new Error("Sale not found");
+      }
+
+      // Block bill-level payments for manual customers — use account-level payment instead
+      if (sale.customerId && !sale.customer?.farmerId) {
+        throw new Error(
+          "Manual customer payments are now account-based. Use the account payment flow instead."
+        );
       }
 
       const currentDue = Number(sale.dueAmount || 0);
@@ -441,9 +442,10 @@ export class DealerService {
   }
 
   /**
-   * Add general payment without specific sale - auto-allocates to oldest unpaid sales using FIFO
+   * Account-level payment for manual customers (replaces FIFO addGeneralPayment).
+   * Payments go against the customer account balance, not individual bills.
    */
-  static async addGeneralPayment(data: {
+  static async addAccountPayment(data: {
     customerId: string;
     dealerId: string;
     amount: number;
@@ -456,83 +458,43 @@ export class DealerService {
     const { customerId, dealerId, amount, date, description, paymentMethod, receiptUrl, reference } = data;
 
     return await prisma.$transaction(async (tx) => {
-      // 1. Get customer with current balance
+      // 1. Get customer
       const customer = await tx.customer.findUnique({
         where: { id: customerId },
-        select: { id: true, name: true, balance: true, farmerId: true },
+        select: { id: true, name: true, balance: true },
       });
 
       if (!customer) {
         throw new Error("Customer not found");
       }
 
-      // 2. Fetch all unpaid sales for this customer, ordered by date (FIFO)
-      const unpaidSales = await tx.dealerSale.findMany({
-        where: {
-          dealerId,
-          customerId,
-          dueAmount: { gt: 0 },
-        },
-        orderBy: { date: "asc" }, // Oldest first (FIFO)
-        include: {
-          customer: true,
+      // 2. Update customer balance and totalPayments (account-level)
+      const newBalance = Number(customer.balance) - amount;
+      await tx.customer.update({
+        where: { id: customerId },
+        data: {
+          balance: new Prisma.Decimal(newBalance),
+          totalPayments: { increment: new Prisma.Decimal(amount) },
         },
       });
 
-      // 3. Plan FIFO allocations in memory (so we can create the ledger row first and link every split)
-      let remainingPayment = amount;
-      const allocationPlan: Array<{
-        sale: (typeof unpaidSales)[0];
-        allocationAmount: number;
-      }> = [];
-
-      for (const sale of unpaidSales) {
-        if (remainingPayment <= 0) break;
-
-        const saleDue = Number(sale.dueAmount || 0);
-        const allocationAmount = Math.min(remainingPayment, saleDue);
-
-        allocationPlan.push({ sale, allocationAmount });
-        remainingPayment -= allocationAmount;
-      }
-
-      const allocations = allocationPlan.map(({ sale, allocationAmount }) => ({
-        saleId: sale.id,
-        amount: allocationAmount,
-        invoiceNumber: sale.invoiceNumber,
-      }));
-
-      const advanceAfterAllocations = remainingPayment;
-
-      // 4. Create the single dealer ledger row first (links all DealerSalePayment splits)
+      // 3. Get current ledger balance
       const lastLedgerEntry = await tx.dealerLedgerEntry.findFirst({
         where: { dealerId },
         orderBy: { createdAt: "desc" },
       });
-
       const currentLedgerBalance = lastLedgerEntry ? Number(lastLedgerEntry.balance) : 0;
-      const ledgerBalance = currentLedgerBalance - amount;
-      const allocationSummary =
-        allocations.length > 0
-          ? `Allocated to ${allocations.length} sale(s)` +
-            (advanceAfterAllocations > 0
-              ? ` + रू ${advanceAfterAllocations.toFixed(2)} advance`
-              : "")
-          : `Advance payment: रू ${amount.toFixed(2)}`;
+      const newLedgerBalance = currentLedgerBalance - amount;
 
-      const ledgerEntry = await tx.dealerLedgerEntry.create({
+      // 4. Create ledger entry (no saleId — account-level payment)
+      await tx.dealerLedgerEntry.create({
         data: {
           type: "PAYMENT_RECEIVED",
           amount: new Prisma.Decimal(amount),
-          balance: new Prisma.Decimal(ledgerBalance),
+          balance: new Prisma.Decimal(newLedgerBalance),
           date,
-          description:
-            description ||
-            `General payment from ${customer.name} - ${allocationSummary}`,
-          reference:
-            reference ||
-            allocations.map((a) => a.invoiceNumber).filter(Boolean).join(", ") ||
-            undefined,
+          description: description || `Payment from ${customer.name}`,
+          reference: reference || undefined,
           dealerId,
           partyId: customerId,
           partyType: "CUSTOMER",
@@ -540,101 +502,110 @@ export class DealerService {
         },
       });
 
-      const ledgerId = ledgerEntry.id;
-
-      // 5. Apply allocations: DealerSalePayment + sale updates + farmer EntityTransaction (linked to ledger)
-      for (const { sale, allocationAmount } of allocationPlan) {
-        await tx.dealerSalePayment.create({
-          data: {
-            amount: new Prisma.Decimal(allocationAmount),
-            date,
-            description:
-              description ||
-              `General payment allocation - Invoice ${sale.invoiceNumber}`,
-            paymentMethod,
-            saleId: sale.id,
-            linkedLedgerEntryId: ledgerId,
-          },
-        });
-
-        const newPaidAmount = Number(sale.paidAmount) + allocationAmount;
-        const newDueAmount = Number(sale.totalAmount) - newPaidAmount;
-
-        await tx.dealerSale.update({
-          where: { id: sale.id },
-          data: {
-            paidAmount: new Prisma.Decimal(newPaidAmount),
-            dueAmount: newDueAmount > 0 ? new Prisma.Decimal(newDueAmount) : null,
-          },
-        });
-
-        if (sale.customer?.farmerId) {
-          const purchaseTxn = await tx.entityTransaction.findFirst({
-            where: {
-              dealerId,
-              reference: sale.invoiceNumber,
-              type: "PURCHASE",
-            },
-            orderBy: { createdAt: "desc" },
-          });
-
-          if (purchaseTxn) {
-            await tx.entityTransaction.create({
-              data: {
-                type: "PAYMENT",
-                amount: new Prisma.Decimal(allocationAmount),
-                date,
-                description:
-                  description || `Payment - Invoice ${sale.invoiceNumber}`,
-                reference: reference || sale.invoiceNumber || undefined,
-                dealerId,
-                paymentToPurchaseId: purchaseTxn.id,
-                imageUrl: receiptUrl,
-                sourceDealerLedgerEntryId: ledgerId,
-              },
-            });
-          }
-        }
-      }
-
-      // 5b. Remaining advance as farmer-side PAYMENT EntityTransaction (if linked)
-      if (advanceAfterAllocations > 0 && customer.farmerId) {
-        await tx.entityTransaction.create({
-          data: {
-            type: "PAYMENT",
-            amount: new Prisma.Decimal(advanceAfterAllocations),
-            date,
-            description:
-              description ||
-              `Advance payment - रू ${advanceAfterAllocations.toFixed(2)} credit`,
-            dealerId,
-            reference: reference || "ADVANCE",
-            imageUrl: receiptUrl,
-            sourceDealerLedgerEntryId: ledgerId,
-          },
-        });
-      }
-
-      // 6. Update Customer.balance with the full payment
-      const currentBalance = Number(customer.balance);
-      const newBalance = currentBalance - amount;
-
-      await tx.customer.update({
-        where: { id: customerId },
-        data: {
-          balance: new Prisma.Decimal(newBalance),
-        },
-      });
-
       return {
         success: true,
         totalAmount: amount,
-        allocatedToSales: amount - advanceAfterAllocations,
-        advanceAmount: advanceAfterAllocations,
         newCustomerBalance: newBalance,
-        allocations,
-        ledgerEntryId: ledgerId,
       };
+    });
+  }
+
+  /**
+   * Delete a manual customer sale: revert stock, balance, ledger, and remove sale records.
+   */
+  static async deleteDealerSale(data: {
+    saleId: string;
+    dealerId: string;
+  }) {
+    return await prisma.$transaction(async (tx) => {
+      // 1. Fetch sale with items and customer
+      const sale = await tx.dealerSale.findUnique({
+        where: { id: data.saleId },
+        include: {
+          items: true,
+          customer: { select: { id: true, farmerId: true } },
+        },
+      });
+
+      if (!sale) throw new Error("Sale not found");
+      if (sale.dealerId !== data.dealerId) throw new Error("Unauthorized");
+      if (sale.customer?.farmerId) throw new Error("Cannot delete connected farmer sales");
+
+      const totalAmount = Number(sale.totalAmount);
+      const initialPaidAmount = Number(sale.paidAmount);
+      const dueAmount = totalAmount - initialPaidAmount;
+
+      // 2. Revert product stock (increment back)
+      for (const item of sale.items) {
+        const qty = item.baseQuantity ?? item.quantity;
+        await tx.dealerProduct.update({
+          where: { id: item.productId },
+          data: { currentStock: { increment: qty } },
+        });
+      }
+
+      // 3. Revert customer balance and totals
+      if (sale.customerId) {
+        await tx.customer.update({
+          where: { id: sale.customerId },
+          data: {
+            balance: { decrement: new Prisma.Decimal(dueAmount) },
+            totalSales: { decrement: new Prisma.Decimal(totalAmount) },
+            totalPayments: { decrement: new Prisma.Decimal(initialPaidAmount) },
+          },
+        });
+      }
+
+      // 4. Fix ledger: find sale-related entries, compute net effect, delete, fix running balances
+      const saleLedgerEntries = await tx.dealerLedgerEntry.findMany({
+        where: { saleId: data.saleId, dealerId: data.dealerId },
+        orderBy: { createdAt: "asc" },
+      });
+
+      // Net effect: SALE adds to balance, PAYMENT_RECEIVED subtracts
+      let netLedgerEffect = 0;
+      for (const entry of saleLedgerEntries) {
+        if (entry.type === "SALE") netLedgerEffect += Number(entry.amount);
+        else if (entry.type === "PAYMENT_RECEIVED") netLedgerEffect -= Number(entry.amount);
+      }
+
+      const oldestEntry = saleLedgerEntries[0];
+
+      // Delete the sale-related ledger entries
+      await tx.dealerLedgerEntry.deleteMany({
+        where: { saleId: data.saleId, dealerId: data.dealerId },
+      });
+
+      // Fix running balances for all subsequent ledger entries
+      if (oldestEntry) {
+        await tx.dealerLedgerEntry.updateMany({
+          where: {
+            dealerId: data.dealerId,
+            OR: [
+              { createdAt: { gt: oldestEntry.createdAt } },
+              {
+                AND: [
+                  { createdAt: oldestEntry.createdAt },
+                  { id: { gt: oldestEntry.id } },
+                ],
+              },
+            ],
+          },
+          data: {
+            balance: { decrement: new Prisma.Decimal(netLedgerEffect) },
+          },
+        });
+      }
+
+      // 5. Delete product transactions for this sale
+      await tx.dealerProductTransaction.deleteMany({
+        where: { dealerSaleId: data.saleId },
+      });
+
+      // 6. Delete the sale (cascades: DealerSaleItem, DealerSalePayment, SaleDiscount)
+      await tx.dealerSale.delete({ where: { id: data.saleId } });
+
+      return { success: true };
     });
   }
 
