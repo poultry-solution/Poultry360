@@ -2717,6 +2717,21 @@ model LandingContact {
   @@index([createdAt])
 }
 
+// ==================== BOOK A DEMO ENQUIRIES (PUBLIC) ====================
+// Landing page "Book a demo" modal submissions (no auth required).
+model DemoEnquiry {
+  id           String   @id @default(cuid())
+  companyName String
+  // Stored in normalized format including country code (e.g. +977XXXXXXXXXX)
+  phoneNumber String
+  message     String?  @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
 // ==================== LIST FOR SALE (FARMER MARKETPLACE) ====================
 enum ListForSaleCategory {
   CHICKEN

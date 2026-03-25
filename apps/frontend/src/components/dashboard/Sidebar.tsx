@@ -94,6 +94,11 @@ const adminNavigation: NavigationItem[] = [
     href: "/admin/dashboard/payment-approvals",
     icon: CreditCard,
   },
+  {
+    nameKey: "sidebar.nav.enquiries",
+    href: "/admin/dashboard/enquiries",
+    icon: MessageCircle,
+  },
 ];
 
 interface SidebarProps {

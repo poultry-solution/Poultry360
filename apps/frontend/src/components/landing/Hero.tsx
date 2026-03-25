@@ -10,10 +10,12 @@ import {
 } from "@/common/components/ui/dialog";
 import { Monitor, Download, Smartphone } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
+import BookDemoModal from "@/components/landing/BookDemoModal";
 
 export default function Hero() {
   const { t } = useI18n();
   const [pwaModalOpen, setPwaModalOpen] = useState(false);
+  const [bookDemoOpen, setBookDemoOpen] = useState(false);
 
   return (
     <section className="max-w-7xl mx-auto px-4 lg:px-6 py-10 lg:py-24">
@@ -33,12 +35,14 @@ export default function Hero() {
 
           {/* CTA Buttons - full width stacked on mobile, row on sm+ */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-            <a href="/auth/signup" className="w-full sm:w-auto block">
-              <Button className="w-full sm:w-auto min-h-[44px] bg-primary hover:bg-primary/90 text-primary-foreground px-6 sm:px-8 py-3 rounded-lg flex items-center justify-center">
-                <Monitor className="w-5 h-5 mr-2 shrink-0" />
-                {t("landing.hero.useWeb")}
-              </Button>
-            </a>
+            <Button
+              type="button"
+              onClick={() => setBookDemoOpen(true)}
+              className="w-full sm:w-auto min-h-[44px] bg-primary hover:bg-primary/90 text-primary-foreground px-6 sm:px-8 py-3 rounded-lg flex items-center justify-center"
+            >
+              <Monitor className="w-5 h-5 mr-2 shrink-0" />
+              {t("landing.hero.bookDemo")}
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -151,6 +155,8 @@ export default function Hero() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <BookDemoModal open={bookDemoOpen} onOpenChange={setBookDemoOpen} />
     </section>
   );
 }

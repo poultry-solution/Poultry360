@@ -101,6 +101,7 @@
       "users": "Users",
       "passwordResets": "Password Resets",
       "paymentApprovals": "Payment Approvals",
+      "enquiries": "Enquiries",
       "financial": "Financial",
       "suppliers": "Suppliers",
       "performance": "Performance",
@@ -2751,6 +2752,7 @@
       "headingHighlight": " Anytime, Anywhere",
       "description": "Poultry360 makes your poultry business simple, smart, and stress-free. Easily track sales, manage expenses, maintain ledgers, control inventory & more so you can focus on growing your poultry business.",
       "useWeb": "Use Web Version",
+      "bookDemo": "Book a demo",
       "download": "Download Poultry360",
       "notifications": "Notifications",
       "paymentDue": "Payment Due",
@@ -2769,6 +2771,20 @@
         "iphoneStep1": "Tap the Share button (□ with arrow) at the bottom of Safari.",
         "iphoneStep2": "Scroll down and tap \"Add to Home Screen\".",
         "iphoneStep3": "Tap \"Add\" in the top right."
+      },
+      "bookDemoModal": {
+        "title": "Book a demo",
+        "companyName": "Company Name",
+        "companyNamePlaceholder": "Enter company name",
+        "phoneNumber": "Phone Number",
+        "phonePlaceholder": "98XXXXXXXX",
+        "phoneHelp": "Enter your Nepal number (without +977).",
+        "message": "Message (optional)",
+        "messagePlaceholder": "Write a short message",
+        "submitBtn": "Submit request",
+        "submitting": "Submitting...",
+        "submitSuccess": "Demo request submitted successfully",
+        "submitError": "Failed to submit demo request"
       }
     },
     "features": {
@@ -2991,5 +3007,16 @@
     "trialEndsAt": "Trial ends: {date}",
     "startTrialCta": "Start free trial ({days} days)",
     "trialStartedSuccess": "Trial started successfully. You can use the app during the trial."
+  },
+  "admin": {
+    "demoEnquiries": {
+      "title": "Book a demo enquiries",
+      "subtitle": "Requests submitted from the landing page.",
+      "empty": "No enquiries found.",
+      "company": "Company",
+      "phone": "Phone",
+      "message": "Message",
+      "createdAt": "Submitted At"
+    }
   }
 }
