@@ -2528,6 +2528,8 @@
         "deleteConfirm": "Are you sure you want to delete \"{name}\"?",
         "createSuccess": "Customer created successfully",
         "createFailed": "Failed to create customer",
+        "updateSuccess": "Customer updated successfully",
+        "updateFailed": "Failed to update customer",
         "deleteSuccess": "Customer deleted successfully",
         "deleteFailed": "Failed to delete customer"
       },
