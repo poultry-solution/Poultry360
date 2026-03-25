@@ -198,32 +198,6 @@ export default function PaymentPage() {
             </div>
           )}
 
-          {canStartTrial && (
-            <div className="flex flex-wrap gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={startTrialMutation.isPending}
-                onClick={async () => {
-                  try {
-                    await startTrialMutation.mutateAsync();
-                    await validateToken();
-                    await refetch();
-                    toast.success(
-                      t("onboardingPaymentTrial.trialStartedSuccess")
-                    );
-                  } catch {
-                    toast.error("Failed to start trial. Please try again.");
-                  }
-                }}
-              >
-                {t("onboardingPaymentTrial.startTrialCta", {
-                  days: context.trialDurationDays,
-                })}
-              </Button>
-            </div>
-          )}
-
           {context.state === "PAYMENT_APPROVED" && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
@@ -287,6 +261,32 @@ export default function PaymentPage() {
               </div>
 
               <div className="flex gap-2 flex-wrap">
+                {canStartTrial && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={startTrialMutation.isPending || !!receiptUrl}
+                    onClick={async () => {
+                      try {
+                        await startTrialMutation.mutateAsync();
+                        await validateToken();
+                        await refetch();
+                        // Trial should unlock the app, so route user to dashboard immediately.
+                        await handleLoginRedirect(context.userRole);
+                        toast.success(
+                          t("onboardingPaymentTrial.trialStartedSuccess")
+                        );
+                      } catch {
+                        toast.error("Failed to start trial. Please try again.");
+                      }
+                    }}
+                  >
+                    {t("onboardingPaymentTrial.startTrialCta", {
+                      days: context.trialDurationDays,
+                    })}
+                  </Button>
+                )}
+
                 <Button
                   type="button"
                   onClick={onSubmit}
