@@ -2736,6 +2736,7 @@
   "landing": {
     "navbar": {
       "features": "Features",
+      "pricing": "Pricing",
       "marketplace": "Marketplace",
       "tutorials": "Tutorials",
       "reviews": "Reviews",
@@ -3012,7 +3013,7 @@
   },
   "onboardingPaymentFlow": {
     "title": "Activate your account",
-    "subtitle": "Choose how you want to get started, or complete payment to unlock full access.",
+    "subtitle": "Choose how you want to get started.",
     "roleLabel": "You are activating:",
     "amountPerYear": "{amount} / year",
     "trialUnavailable": "Your free trial has already been used. Complete payment below to continue.",

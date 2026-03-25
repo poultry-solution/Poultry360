@@ -56,11 +56,11 @@ export default function Pricing() {
         "Staff salary management",
       ],
       accent: {
-        border: "border-primary/20",
-        glow: "from-primary/8 to-transparent",
-        badge: "bg-primary/10",
-        badgeText: "text-primary",
-        ctaVariant: "default",
+        border: "border-emerald-400/20",
+        glow: "from-emerald-500/15 to-transparent",
+        badge: "bg-emerald-500/10",
+        badgeText: "text-emerald-600",
+        ctaVariant: "outline",
       },
     },
     {
@@ -113,7 +113,7 @@ export default function Pricing() {
   ];
 
   return (
-    <section className="py-16 lg:py-24">
+    <section id="pricing" className="py-16 lg:py-24 scroll-mt-20">
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="text-center mb-10 lg:mb-14">
           <Badge className="bg-primary text-primary-foreground px-4 py-2 rounded-full mb-4">
