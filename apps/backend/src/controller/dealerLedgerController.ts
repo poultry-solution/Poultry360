@@ -284,6 +284,45 @@ export const getLedgerSummary = async (
       return sum + (balance < 0 ? Math.abs(balance) : 0); // Sum absolute value of negative balances
     }, 0);
 
+    // Net position (can be negative when advances outweigh due)
+    // Customer side: positive = money to receive; negative = money to give (advance)
+    const manualCustomerAgg = await prisma.customer.aggregate({
+      where: { userId },
+      _sum: { balance: true },
+    });
+    const manualCustomerNetBalance = Number(manualCustomerAgg._sum.balance || 0);
+
+    const connectedFarmerAgg = await prisma.dealerFarmerAccount.aggregate({
+      where: { dealerId: dealer.id },
+      _sum: { balance: true },
+    });
+    const connectedFarmerNetBalance = Number(
+      connectedFarmerAgg._sum.balance || 0
+    );
+
+    const netCustomerBalance =
+      manualCustomerNetBalance + connectedFarmerNetBalance;
+
+    // Company side: dealer owes company when balance > 0; dealer has paid advance when balance < 0
+    const connectedCompanyAgg = await prisma.companyDealerAccount.aggregate({
+      where: { dealerId: dealer.id },
+      _sum: { balance: true },
+    });
+    const connectedCompanyNetBalance = Number(
+      connectedCompanyAgg._sum.balance || 0
+    );
+
+    const manualCompanyAgg = await prisma.dealerManualCompany.aggregate({
+      where: { dealerId: dealer.id, archivedAt: null },
+      _sum: { balance: true },
+    });
+    const manualCompanyNetBalance = Number(
+      manualCompanyAgg._sum.balance || 0
+    );
+
+    const netCompanyBalance =
+      connectedCompanyNetBalance + manualCompanyNetBalance;
+
     // Get entries grouped by type for other stats
     const entriesByType = await prisma.dealerLedgerEntry.groupBy({
       by: ["type"],
@@ -325,6 +364,8 @@ export const getLedgerSummary = async (
         totalPaidAmount,
         totalDueAmount, // Only positive balances (customers owe dealer)
         totalAdvances, // Negative balances (dealer owes customers)
+        netCustomerBalance,
+        netCompanyBalance,
         totalPurchases,
         totalPaymentsReceived,
         totalPaymentsMade,
