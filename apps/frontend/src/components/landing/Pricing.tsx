@@ -57,7 +57,7 @@ export default function Pricing() {
       ],
       accent: {
         border: "border-primary/20",
-        glow: "from-primary/15 to-transparent",
+        glow: "from-primary/8 to-transparent",
         badge: "bg-primary/10",
         badgeText: "text-primary",
         ctaVariant: "default",
@@ -89,7 +89,7 @@ export default function Pricing() {
     {
       id: "feed-mill",
       title: "Feed Mill company",
-      priceLine: "NPR 3999 / year",
+      priceLine: "NPR 39999 / year",
       ctaLabel: "Start free trial",
       trialHref: "/auth/signup/company",
       features: [
