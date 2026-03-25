@@ -346,6 +346,10 @@ model UserOnboardingPayment {
   state              UserOnboardingPaymentState @default(PENDING_PAYMENT)
   lockedUntilApproved Boolean                   @default(true)
 
+  // Optional free-trial end time. When null, user has not started a trial yet.
+  // When set, trial access is active only if trialEndsAt is in the future.
+  trialEndsAt DateTime?
+
   approvedAt DateTime?
   approvedBy String?
 

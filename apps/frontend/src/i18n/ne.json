@@ -2984,5 +2984,11 @@
       "feedSupplierEndToEnd": "सुरुदेखि अन्त्यसम्म फिड सप्लायर वर्कफ्लो।",
       "feedSupplierWithConnectionToFarmer": "किसानहरूसँग जोडिएको फिड सप्लायर।"
     }
+  },
+  "onboardingPaymentTrial": {
+    "trialActive": "तपाईंको निःशुल्क ट्रायल सक्रिय छ।",
+    "trialEndsAt": "ट्रायल समाप्त हुन्छ: {date}",
+    "startTrialCta": "निःशुल्क ट्रायल सुरु गर्नुहोस् ({days} दिन)",
+    "trialStartedSuccess": "ट्रायल सफलतापूर्वक सुरु भयो। ट्रायल अवधिभर तपाईंले एप प्रयोग गर्न सक्नुहुन्छ।"
   }
 }

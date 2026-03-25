@@ -4,6 +4,7 @@ import { UserRole } from "@prisma/client";
 import {
   getOnboardingPaymentContext,
   getOnboardingPaymentHistory,
+  startOnboardingTrial,
   submitOnboardingPayment,
 } from "../controller/onboardingPaymentController";
 
@@ -25,6 +26,7 @@ router.use((req, res, next) => {
 });
 
 router.get("/context", getOnboardingPaymentContext);
+router.post("/start-trial", startOnboardingTrial);
 router.post("/submit", submitOnboardingPayment);
 router.get("/history", getOnboardingPaymentHistory);
 

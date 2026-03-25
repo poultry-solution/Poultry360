@@ -68,6 +68,13 @@ export const useRoleBasedRouting = () => {
   const { user, isAuthenticated } = useAuthStore();
   const [isCheckingRoute, setIsCheckingRoute] = useState(false);
 
+  const isTrialAccessActive = (trialEndsAt?: string | null): boolean => {
+    if (!trialEndsAt) return false;
+    const end = new Date(trialEndsAt).getTime();
+    if (!Number.isFinite(end)) return false;
+    return end > Date.now();
+  };
+
   // Check if current path is allowed for user's role
   const isPathAllowed = (userRole: string, currentPath: string): boolean => {
     // Public share pages are always allowed
@@ -118,10 +125,13 @@ export const useRoleBasedRouting = () => {
     }
 
     // Payment-gated onboarding: force non-approved users onto `/payment`.
-    if (
+    const trialActive = isTrialAccessActive(user.onboardingPayment?.trialEndsAt);
+    const isPaymentGateBlocking =
       user.onboardingPayment?.lockedUntilApproved &&
-      user.onboardingPayment.state !== "PAYMENT_APPROVED"
-    ) {
+      user.onboardingPayment?.state !== "PAYMENT_APPROVED" &&
+      (!trialActive || user.onboardingPayment?.state === "PENDING_REVIEW");
+
+    if (isPaymentGateBlocking) {
       if (!pathname.startsWith("/payment")) {
         router.push("/payment");
         return;
@@ -154,6 +164,46 @@ export const useRoleBasedRouting = () => {
       });
     }
   }, [isAuthenticated, user, pathname]);
+
+  // When trial ends, proactively re-run the gate and redirect to `/payment`.
+  // This avoids waiting for an API call to fail after the trial expires.
+  useEffect(() => {
+    if (!isAuthenticated || !user?.onboardingPayment?.trialEndsAt) return;
+    if (user.onboardingPayment.state === "PAYMENT_APPROVED") return;
+
+    const trialEnd = new Date(user.onboardingPayment.trialEndsAt).getTime();
+    if (!Number.isFinite(trialEnd)) return;
+
+    const delayMs = trialEnd - Date.now();
+    if (delayMs <= 0) {
+      if (!pathname.startsWith("/payment") && user.onboardingPayment?.lockedUntilApproved) {
+        router.push("/payment");
+      }
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      const stillTrialActive = isTrialAccessActive(user.onboardingPayment?.trialEndsAt);
+      if (stillTrialActive) return;
+
+      if (
+        !pathname.startsWith("/payment") &&
+        user.onboardingPayment?.lockedUntilApproved &&
+        user.onboardingPayment.state !== "PAYMENT_APPROVED"
+      ) {
+        router.push("/payment");
+      }
+    }, delayMs + 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    isAuthenticated,
+    user?.onboardingPayment?.trialEndsAt,
+    user?.onboardingPayment?.lockedUntilApproved,
+    user?.onboardingPayment?.state,
+    pathname,
+    router,
+  ]);
 
   return {
     isCheckingRoute,

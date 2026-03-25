@@ -2,7 +2,7 @@ import { UserRole } from "@myapp/shared-types";
 import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
 import prisma from "../utils/prisma";
-import { UserOnboardingPaymentState } from "@prisma/client";
+import { isOnboardingPaymentGateBlocking } from "../config/onboardingTrial";
 
 declare global {
   namespace Express {
@@ -64,12 +64,16 @@ export const authMiddleware = async (
       if (role !== "SUPER_ADMIN" && role !== "DOCTOR") {
         const onboarding = await prisma.userOnboardingPayment.findUnique({
           where: { userId: req.userId },
-          select: { state: true, lockedUntilApproved: true },
+          select: { state: true, lockedUntilApproved: true, trialEndsAt: true },
         });
 
-        const isLocked =
-          onboarding?.lockedUntilApproved &&
-          onboarding.state !== UserOnboardingPaymentState.PAYMENT_APPROVED;
+        const isLocked = onboarding
+          ? isOnboardingPaymentGateBlocking({
+              state: onboarding.state,
+              lockedUntilApproved: onboarding.lockedUntilApproved,
+              trialEndsAt: onboarding.trialEndsAt,
+            })
+          : false;
 
         if (isLocked) {
           const url = req.originalUrl || req.url;

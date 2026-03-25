@@ -16,6 +16,9 @@ export interface OnboardingPaymentContext {
   userRole: string;
   state: OnboardingPaymentState;
   lockedUntilApproved: boolean;
+  trialEndsAt: string | null;
+  trialDurationDays: number;
+  trialActive: boolean;
   amountNpr: number;
   qr: {
     qrImageUrl: string | null;
@@ -85,6 +88,24 @@ export const useSubmitOnboardingPayment = () => {
           queryKey: onboardingPaymentKeys.history(),
         }),
       ]);
+    },
+  });
+};
+
+export const useStartOnboardingTrial = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await axiosInstance.post(
+        "/onboarding/payment/start-trial"
+      );
+      return data;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: onboardingPaymentKeys.context(),
+      });
     },
   });
 };

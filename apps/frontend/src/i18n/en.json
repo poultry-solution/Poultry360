@@ -2985,5 +2985,11 @@
       "feedSupplierEndToEnd": "Feed supplier workflow from start to finish.",
       "feedSupplierWithConnectionToFarmer": "Feed supplier when connected to farmers."
     }
+  },
+  "onboardingPaymentTrial": {
+    "trialActive": "Your free trial is active.",
+    "trialEndsAt": "Trial ends: {date}",
+    "startTrialCta": "Start free trial ({days} days)",
+    "trialStartedSuccess": "Trial started successfully. You can use the app during the trial."
   }
 }

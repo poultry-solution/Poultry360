@@ -11,11 +11,13 @@ import { useLoginRedirect } from "@/common/hooks/useRoleBasedRouting";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { toast } from "sonner";
 import { useAuthStore } from "@/common/store/store";
+import { useI18n } from "@/i18n/useI18n";
 
 import {
   useGetOnboardingPaymentContext,
   useGetOnboardingPaymentHistory,
   useSubmitOnboardingPayment,
+  useStartOnboardingTrial,
   type OnboardingPaymentSubmission,
 } from "@/fetchers/onboarding/onboardingPaymentQueries";
 
@@ -50,7 +52,9 @@ export default function PaymentPage() {
   const { data: context, isLoading, refetch } = useGetOnboardingPaymentContext();
   const { data: historyData } = useGetOnboardingPaymentHistory();
   const submitMutation = useSubmitOnboardingPayment();
+  const startTrialMutation = useStartOnboardingTrial();
   const validateToken = useAuthStore((s) => s.validateToken);
+  const { t } = useI18n();
 
   const [receiptUrl, setReceiptUrl] = useState("");
   const [notes, setNotes] = useState("");
@@ -69,6 +73,19 @@ export default function PaymentPage() {
   const canUploadAndSubmit =
     context?.state === "PENDING_PAYMENT" ||
     context?.state === "PAYMENT_REJECTED";
+
+  const canStartTrial =
+    (context?.state === "PENDING_PAYMENT" ||
+      context?.state === "PAYMENT_REJECTED") &&
+    !context?.trialEndsAt;
+
+  const formatTrialEndsAt = (iso: string) => {
+    try {
+      return new Date(iso).toLocaleString();
+    } catch {
+      return iso;
+    }
+  };
 
   const onSubmit = async () => {
     if (!receiptUrl) {
@@ -163,6 +180,47 @@ export default function PaymentPage() {
                   <span className="font-medium">{context.rejectionReason}</span>
                 </p>
               )}
+            </div>
+          )}
+
+          {context.state !== "PAYMENT_APPROVED" &&
+            context.trialActive &&
+            context.trialEndsAt && (
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">
+                {t("onboardingPaymentTrial.trialActive")}
+              </p>
+              <p className="text-sm">
+                {t("onboardingPaymentTrial.trialEndsAt", {
+                  date: formatTrialEndsAt(context.trialEndsAt),
+                })}
+              </p>
+            </div>
+          )}
+
+          {canStartTrial && (
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={startTrialMutation.isPending}
+                onClick={async () => {
+                  try {
+                    await startTrialMutation.mutateAsync();
+                    await validateToken();
+                    await refetch();
+                    toast.success(
+                      t("onboardingPaymentTrial.trialStartedSuccess")
+                    );
+                  } catch {
+                    toast.error("Failed to start trial. Please try again.");
+                  }
+                }}
+              >
+                {t("onboardingPaymentTrial.startTrialCta", {
+                  days: context.trialDurationDays,
+                })}
+              </Button>
             </div>
           )}
 

@@ -80,7 +80,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
     const onboardingPayment = await prisma.userOnboardingPayment.findUnique({
       where: { userId: user.id },
-      select: { state: true, lockedUntilApproved: true },
+      select: { state: true, lockedUntilApproved: true, trialEndsAt: true },
     });
 
     res.cookie("refreshToken", tokens.refreshToken, {
@@ -109,6 +109,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         ? {
             state: onboardingPayment.state,
             lockedUntilApproved: onboardingPayment.lockedUntilApproved,
+            trialEndsAt: onboardingPayment.trialEndsAt,
           }
         : null,
     };
@@ -479,7 +480,7 @@ export const validateToken = async (
     // Fetch payment-gated onboarding state (if it exists)
     const onboardingPayment = await prisma.userOnboardingPayment.findUnique({
       where: { userId: userData.id },
-      select: { state: true, lockedUntilApproved: true },
+      select: { state: true, lockedUntilApproved: true, trialEndsAt: true },
     });
 
     // Prepare user response
@@ -501,6 +502,7 @@ export const validateToken = async (
         ? {
             state: onboardingPayment.state,
             lockedUntilApproved: onboardingPayment.lockedUntilApproved,
+            trialEndsAt: onboardingPayment.trialEndsAt,
           }
         : null,
     };
