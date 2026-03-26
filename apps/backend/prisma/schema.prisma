@@ -254,6 +254,10 @@ model User {
   hatcherySuppliers   HatcherySupplier[]       @relation("HatcheryOwnerSuppliers")
   hatcheryInventory   HatcheryInventoryItem[]  @relation("HatcheryOwnerInventory")
 
+  // Hatchery batches + egg types
+  hatcheryBatches     HatcheryBatch[]          @relation("HatcheryBatches")
+  hatcheryEggTypes    HatcheryEggType[]        @relation("HatcheryEggTypes")
+
   suppliedProducts Product[] @relation("ProductSupplier")
 
   // Inventory
@@ -2994,6 +2998,8 @@ model HatcheryInventoryItem {
   deletedAt        DateTime?
 
   transactions     HatcheryInventoryTxn[]
+  batchPlacements  HatcheryBatchPlacement[]
+  batchExpenses    HatcheryBatchExpense[]
 
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -3023,6 +3029,236 @@ model HatcheryInventoryTxn {
 
   @@index([itemId])
   @@index([sourceSupplierTxnId])
+}
+
+// ==================== HATCHERY BATCH + EGG PRODUCTION ====================
+
+enum HatcheryBatchType {
+  PARENT_FLOCK
+  INCUBATION
+}
+
+enum HatcheryBatchStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum HatcheryEggTxnType {
+  PRODUCTION
+  SALE
+  ADJUSTMENT
+}
+
+enum HatcheryBatchExpenseType {
+  INVENTORY
+  MANUAL
+}
+
+// Parent flock batch (or incubation batch skeleton for later)
+model HatcheryBatch {
+  id               String              @id @default(cuid())
+  hatcheryOwnerId  String
+  hatcheryOwner    User                @relation("HatcheryBatches", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+
+  type             HatcheryBatchType   @default(PARENT_FLOCK)
+  status           HatcheryBatchStatus @default(ACTIVE)
+  code             String              // auto-generated e.g. "PF-001"
+  name             String?             // optional user override
+  startDate        DateTime
+  endDate          DateTime?
+  notes            String?
+
+  // Parent flock only fields (null for INCUBATION type)
+  initialParents   Int?
+  currentParents   Int?
+  placedAt         DateTime?
+
+  placements       HatcheryBatchPlacement[]
+  mortalities      HatcheryBatchMortality[]
+  expenses         HatcheryBatchExpense[]
+  eggProductions   HatcheryEggProduction[]
+  eggStockRows     HatcheryEggStock[]
+  eggTxns          HatcheryEggTxn[]
+  eggSales         HatcheryEggSale[]
+  parentSales      HatcheryParentSale[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([hatcheryOwnerId, code])
+  @@index([hatcheryOwnerId])
+  @@index([status])
+  @@index([type])
+}
+
+// Records each inventory row+quantity used at batch creation (multi-row placement)
+model HatcheryBatchPlacement {
+  id              String                @id @default(cuid())
+  batchId         String
+  batch           HatcheryBatch         @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  inventoryItemId String
+  inventoryItem   HatcheryInventoryItem @relation(fields: [inventoryItemId], references: [id])
+  quantity        Int
+
+  createdAt       DateTime @default(now())
+
+  @@index([batchId])
+}
+
+// Mortality record per day
+model HatcheryBatchMortality {
+  id        String        @id @default(cuid())
+  batchId   String
+  batch     HatcheryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date      DateTime
+  count     Int
+  note      String?
+  createdAt DateTime      @default(now())
+
+  @@index([batchId])
+  @@index([date])
+}
+
+// Expense (inventory-backed or manual utility/labor)
+model HatcheryBatchExpense {
+  id              String                   @id @default(cuid())
+  batchId         String
+  batch           HatcheryBatch            @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date            DateTime
+  type            HatcheryBatchExpenseType @default(MANUAL)
+  category        String                   // "feed", "medicine", "utilities", "labor", or custom
+  itemName        String
+  quantity        Decimal?                 @db.Decimal(12, 4)
+  unit            String?
+  unitPrice       Decimal?                 @db.Decimal(12, 4)
+  amount          Decimal                  @db.Decimal(12, 2)
+  note            String?
+
+  // Only set when type=INVENTORY
+  inventoryItemId    String?
+  inventoryItem      HatcheryInventoryItem? @relation(fields: [inventoryItemId], references: [id])
+  inventoryTxnId     String?               // ID of the HatcheryInventoryTxn created for this expense
+
+  createdAt       DateTime @default(now())
+
+  @@index([batchId])
+  @@index([date])
+}
+
+// Global egg type per hatchery (HATCHABLE is required/system; user adds others)
+model HatcheryEggType {
+  id              String   @id @default(cuid())
+  hatcheryOwnerId String
+  hatcheryOwner   User     @relation("HatcheryEggTypes", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+  name            String
+  isHatchable     Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  productionLines HatcheryEggProductionLine[]
+  eggStockRows    HatcheryEggStock[]
+  eggTxns         HatcheryEggTxn[]
+  eggSales        HatcheryEggSale[]
+
+  @@unique([hatcheryOwnerId, name])
+  @@index([hatcheryOwnerId])
+}
+
+// One production record per date/batch entry
+model HatcheryEggProduction {
+  id        String                    @id @default(cuid())
+  batchId   String
+  batch     HatcheryBatch             @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date      DateTime
+  note      String?
+  lines     HatcheryEggProductionLine[]
+  createdAt DateTime                  @default(now())
+
+  @@index([batchId])
+  @@index([date])
+}
+
+// One line per egg type in a production entry
+model HatcheryEggProductionLine {
+  id           String                @id @default(cuid())
+  productionId String
+  production   HatcheryEggProduction @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  eggTypeId    String
+  eggType      HatcheryEggType       @relation(fields: [eggTypeId], references: [id])
+  count        Int
+
+  @@index([productionId])
+  @@index([eggTypeId])
+}
+
+// Running stock per batch+type (upserted on each production/sale)
+model HatcheryEggStock {
+  id           String          @id @default(cuid())
+  batchId      String
+  batch        HatcheryBatch   @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  eggTypeId    String
+  eggType      HatcheryEggType @relation(fields: [eggTypeId], references: [id])
+  currentStock Int             @default(0)
+
+  updatedAt    DateTime @updatedAt
+
+  @@unique([batchId, eggTypeId])
+  @@index([batchId])
+}
+
+// Immutable movement log for egg stock (used for reversals + auditing)
+model HatcheryEggTxn {
+  id        String             @id @default(cuid())
+  batchId   String
+  batch     HatcheryBatch      @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  eggTypeId String
+  eggType   HatcheryEggType    @relation(fields: [eggTypeId], references: [id])
+  type      HatcheryEggTxnType
+  count     Int
+  date      DateTime
+  sourceId  String?            // productionId or saleId for traceability
+  note      String?
+  createdAt DateTime           @default(now())
+
+  @@index([batchId])
+  @@index([eggTypeId])
+  @@index([sourceId])
+}
+
+// Egg sale record (reduces egg stock for the batch)
+model HatcheryEggSale {
+  id           String          @id @default(cuid())
+  batchId      String
+  batch        HatcheryBatch   @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  eggTypeId    String
+  eggType      HatcheryEggType @relation(fields: [eggTypeId], references: [id])
+  date         DateTime
+  count        Int
+  unitPrice    Decimal         @db.Decimal(12, 4)
+  amount       Decimal         @db.Decimal(12, 2)
+  customerName String?
+  note         String?
+  createdAt    DateTime        @default(now())
+
+  @@index([batchId])
+  @@index([date])
+}
+
+// Parent bird sale record (reduces currentParents)
+model HatcheryParentSale {
+  id           String        @id @default(cuid())
+  batchId      String
+  batch        HatcheryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date         DateTime
+  count        Int
+  unitPrice    Decimal       @db.Decimal(12, 4)
+  amount       Decimal       @db.Decimal(12, 2)
+  customerName String?
+  note         String?
+  createdAt    DateTime      @default(now())
+
+  @@index([batchId])
+  @@index([date])
 }
 
 // ==================== PASSWORD RESET OTP ====================

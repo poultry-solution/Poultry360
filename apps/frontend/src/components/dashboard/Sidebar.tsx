@@ -90,6 +90,9 @@ export const hatcheryNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.home", href: "/hatchery/dashboard/home", icon: Home },
   { nameKey: "sidebar.nav.hatcherySupplierLedger", href: "/hatchery/dashboard/supplier-ledger", icon: Truck },
   { nameKey: "sidebar.nav.hatcheryInventory", href: "/hatchery/dashboard/inventory", icon: Package },
+  { nameKey: "sidebar.nav.hatcheryBatches", href: "/hatchery/dashboard/batches", icon: Layers },
+  { nameKey: "sidebar.nav.hatcheryEggInventory", href: "/hatchery/dashboard/egg-inventory", icon: Egg },
+  { nameKey: "sidebar.nav.hatcheryEggTypes", href: "/hatchery/dashboard/egg-types", icon: Tag },
 ];
 
 const adminNavigation: NavigationItem[] = [

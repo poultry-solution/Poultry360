@@ -117,7 +117,10 @@
       "saleRequests": "Sale Requests",
       "hatcheryOverview": "Overview",
       "hatcherySupplierLedger": "Supplier Ledger",
-      "hatcheryInventory": "Inventory"
+      "hatcheryInventory": "Inventory",
+      "hatcheryBatches": "Batches",
+      "hatcheryEggInventory": "Egg Inventory",
+      "hatcheryEggTypes": "Egg Types"
     }
   },
   "settings": {
