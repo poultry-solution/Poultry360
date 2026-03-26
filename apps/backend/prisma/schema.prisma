@@ -257,6 +257,7 @@ model User {
   // Hatchery batches + egg types
   hatcheryBatches     HatcheryBatch[]          @relation("HatcheryBatches")
   hatcheryEggTypes    HatcheryEggType[]        @relation("HatcheryEggTypes")
+  hatcheryIncubations HatcheryIncubationBatch[] @relation("HatcheryIncubationBatches")
 
   suppliedProducts Product[] @relation("ProductSupplier")
 
@@ -3000,6 +3001,7 @@ model HatcheryInventoryItem {
   transactions     HatcheryInventoryTxn[]
   batchPlacements  HatcheryBatchPlacement[]
   batchExpenses    HatcheryBatchExpense[]
+  chickSales       HatcheryChickSale[]      @relation("ChickSaleInventory")
 
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -3081,6 +3083,7 @@ model HatcheryBatch {
   eggTxns          HatcheryEggTxn[]
   eggSales         HatcheryEggSale[]
   parentSales      HatcheryParentSale[]
+  incubations      HatcheryIncubationBatch[] @relation("ParentFlockIncubations")
 
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -3159,6 +3162,8 @@ model HatcheryEggType {
   eggStockRows    HatcheryEggStock[]
   eggTxns         HatcheryEggTxn[]
   eggSales        HatcheryEggSale[]
+  incubationBatches HatcheryIncubationBatch[] @relation("HatchableEggTypeIncubations")
+  eggMoves        HatcheryEggMove[]           @relation("EggMoveType")
 
   @@unique([hatcheryOwnerId, name])
   @@index([hatcheryOwnerId])
@@ -3258,6 +3263,172 @@ model HatcheryParentSale {
   createdAt    DateTime      @default(now())
 
   @@index([batchId])
+  @@index([date])
+}
+
+// ==================== HATCHERY INCUBATION + CHICK OUTPUT ====================
+
+enum HatcheryIncubationStage {
+  SETTER
+  CANDLING
+  HATCHER
+  COMPLETED
+}
+
+enum HatcheryIncubationLossType {
+  INFERTILE
+  EARLY_DEAD
+  LATE_DEAD
+  UNHATCHED
+  WEAK_CULL
+}
+
+enum HatcheryChickGrade {
+  A
+  B
+  CULL
+}
+
+enum HatcheryChickTxnType {
+  PRODUCTION
+  SALE
+  ADJUSTMENT
+}
+
+// An incubation run: linked to a parent flock batch, consumes HATCHABLE eggs
+model HatcheryIncubationBatch {
+  id                  String                    @id @default(cuid())
+  hatcheryOwnerId     String
+  hatcheryOwner       User                      @relation("HatcheryIncubationBatches", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+  parentBatchId       String
+  parentBatch         HatcheryBatch             @relation("ParentFlockIncubations", fields: [parentBatchId], references: [id])
+  hatchableEggTypeId  String
+  hatchableEggType    HatcheryEggType           @relation("HatchableEggTypeIncubations", fields: [hatchableEggTypeId], references: [id])
+
+  stage               HatcheryIncubationStage   @default(SETTER)
+  code                String                    // auto-generated e.g. "IN-001"
+  name                String?
+  startDate           DateTime
+  eggsSetCount        Int
+
+  // Stage timestamps
+  setterAt            DateTime?
+  candledAt           DateTime?
+  transferredAt       DateTime?
+  hatchedAt           DateTime?
+
+  notes               String?
+
+  eggMoves            HatcheryEggMove[]
+  losses              HatcheryIncubationLoss[]
+  hatchResults        HatcheryHatchResult[]
+  chickStocks         HatcheryChickStock[]
+  chickTxns           HatcheryChickTxn[]
+  chickSales          HatcheryChickSale[]
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([hatcheryOwnerId, code])
+  @@index([hatcheryOwnerId])
+  @@index([parentBatchId])
+  @@index([stage])
+}
+
+// Audit log of eggs consumed from a parent batch for this incubation
+model HatcheryEggMove {
+  id                  String                   @id @default(cuid())
+  incubationBatchId   String
+  incubationBatch     HatcheryIncubationBatch  @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+  parentBatchId       String
+  eggTypeId           String
+  eggType             HatcheryEggType          @relation("EggMoveType", fields: [eggTypeId], references: [id])
+  count               Int
+  date                DateTime
+  createdAt           DateTime @default(now())
+
+  @@index([incubationBatchId])
+  @@index([parentBatchId])
+}
+
+// Losses during candling or in hatcher
+model HatcheryIncubationLoss {
+  id                  String                    @id @default(cuid())
+  incubationBatchId   String
+  incubationBatch     HatcheryIncubationBatch   @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+  type                HatcheryIncubationLossType
+  date                DateTime
+  count               Int
+  note                String?
+  createdAt           DateTime @default(now())
+
+  @@index([incubationBatchId])
+}
+
+// Final hatch outcome: grade breakdown + losses
+model HatcheryHatchResult {
+  id                  String                   @id @default(cuid())
+  incubationBatchId   String
+  incubationBatch     HatcheryIncubationBatch  @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+  date                DateTime
+  hatchedA            Int      @default(0)
+  hatchedB            Int      @default(0)
+  cull                Int      @default(0)
+  lateDead            Int      @default(0)
+  unhatched           Int      @default(0)
+  note                String?
+  createdAt           DateTime @default(now())
+
+  @@index([incubationBatchId])
+}
+
+// Running chick stock per incubation batch + grade
+model HatcheryChickStock {
+  id                  String                   @id @default(cuid())
+  incubationBatchId   String
+  incubationBatch     HatcheryIncubationBatch  @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+  grade               HatcheryChickGrade
+  currentStock        Int                      @default(0)
+  updatedAt           DateTime @updatedAt
+
+  @@unique([incubationBatchId, grade])
+  @@index([incubationBatchId])
+}
+
+// Immutable chick movement log
+model HatcheryChickTxn {
+  id                  String                   @id @default(cuid())
+  incubationBatchId   String
+  incubationBatch     HatcheryIncubationBatch  @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+  grade               HatcheryChickGrade
+  type                HatcheryChickTxnType
+  count               Int
+  date                DateTime
+  sourceId            String?
+  note                String?
+  createdAt           DateTime @default(now())
+
+  @@index([incubationBatchId])
+  @@index([sourceId])
+}
+
+// Chick sale record
+model HatcheryChickSale {
+  id                  String                   @id @default(cuid())
+  incubationBatchId   String
+  incubationBatch     HatcheryIncubationBatch  @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+  grade               HatcheryChickGrade
+  date                DateTime
+  count               Int
+  unitPrice           Decimal                  @db.Decimal(12, 4)
+  amount              Decimal                  @db.Decimal(12, 2)
+  customerName        String?
+  note                String?
+  inventoryItemId     String?
+  inventoryItem       HatcheryInventoryItem?   @relation("ChickSaleInventory", fields: [inventoryItemId], references: [id])
+  createdAt           DateTime @default(now())
+
+  @@index([incubationBatchId])
   @@index([date])
 }
 

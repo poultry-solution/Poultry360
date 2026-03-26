@@ -120,7 +120,8 @@
       "hatcheryInventory": "Inventory",
       "hatcheryBatches": "Batches",
       "hatcheryEggInventory": "Egg Inventory",
-      "hatcheryEggTypes": "Egg Types"
+      "hatcheryEggTypes": "Egg Types",
+      "hatcheryIncubations": "Incubations"
     }
   },
   "settings": {

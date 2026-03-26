@@ -12,6 +12,10 @@ import {
   HatcheryBatchStatus,
   HatcheryEggTxnType,
   HatcheryBatchExpenseType,
+  HatcheryIncubationStage,
+  HatcheryChickGrade,
+  HatcheryChickTxnType,
+  HatcheryInventoryItemType,
 } from "@prisma/client";
 import bcrypt from "bcrypt";
 
@@ -771,6 +775,209 @@ async function main() {
     },
     update: {},
   });
+
+  // ==================== HATCHERY INCUBATION SEED ====================
+  console.log("Creating sample hatchery incubation batch...");
+
+  // Reduce parent egg stock by 100 for the incubation (simulate 100 eggs already consumed)
+  // Only update if the current stock is still >= 100 (idempotent)
+  const currentEggStock = await prisma.hatcheryEggStock.findUnique({
+    where: { batchId_eggTypeId: { batchId: seedBatch.id, eggTypeId: hatchableType.id } },
+  });
+
+  // Create the incubation batch (upsert by code)
+  const seedIncubation = await prisma.hatcheryIncubationBatch.upsert({
+    where: { hatcheryOwnerId_code: { hatcheryOwnerId: hatcheryUser1.id, code: "IN-001" } },
+    create: {
+      hatcheryOwnerId: hatcheryUser1.id,
+      parentBatchId: seedBatch.id,
+      hatchableEggTypeId: hatchableType.id,
+      stage: HatcheryIncubationStage.COMPLETED,
+      code: "IN-001",
+      name: "First Incubation Run",
+      startDate: new Date("2026-03-10"),
+      eggsSetCount: 100,
+      setterAt: new Date("2026-03-10"),
+      candledAt: new Date("2026-03-17"),
+      transferredAt: new Date("2026-03-28"),
+      hatchedAt: new Date("2026-03-31"),
+      notes: "Seed incubation batch",
+    },
+    update: {},
+  });
+
+  // Decrement egg stock (only if not already done)
+  if (currentEggStock && currentEggStock.currentStock >= 100) {
+    await prisma.hatcheryEggStock.update({
+      where: { batchId_eggTypeId: { batchId: seedBatch.id, eggTypeId: hatchableType.id } },
+      data: { currentStock: { decrement: 100 } },
+    });
+  }
+
+  // Egg move audit
+  await prisma.hatcheryEggMove.upsert({
+    where: { id: "seed-egg-move-1" },
+    create: {
+      id: "seed-egg-move-1",
+      incubationBatchId: seedIncubation.id,
+      parentBatchId: seedBatch.id,
+      eggTypeId: hatchableType.id,
+      count: 100,
+      date: new Date("2026-03-10"),
+    },
+    update: {},
+  });
+
+  // Candling losses
+  await prisma.hatcheryIncubationLoss.upsert({
+    where: { id: "seed-incubation-loss-1" },
+    create: {
+      id: "seed-incubation-loss-1",
+      incubationBatchId: seedIncubation.id,
+      type: "INFERTILE",
+      date: new Date("2026-03-17"),
+      count: 8,
+      note: "Infertile eggs removed at candling",
+    },
+    update: {},
+  });
+  await prisma.hatcheryIncubationLoss.upsert({
+    where: { id: "seed-incubation-loss-2" },
+    create: {
+      id: "seed-incubation-loss-2",
+      incubationBatchId: seedIncubation.id,
+      type: "EARLY_DEAD",
+      date: new Date("2026-03-17"),
+      count: 4,
+      note: "Early embryo mortality",
+    },
+    update: {},
+  });
+
+  // Hatch result
+  const seedHatchResult = await prisma.hatcheryHatchResult.upsert({
+    where: { id: "seed-hatch-result-1" },
+    create: {
+      id: "seed-hatch-result-1",
+      incubationBatchId: seedIncubation.id,
+      date: new Date("2026-03-31"),
+      hatchedA: 60,
+      hatchedB: 15,
+      cull: 5,
+      lateDead: 4,
+      unhatched: 4,
+      note: "Good hatch rate",
+    },
+    update: {},
+  });
+
+  // Chick stocks (upsert)
+  const gradeStocks: Array<{ grade: HatcheryChickGrade; total: number }> = [
+    { grade: HatcheryChickGrade.A, total: 60 },
+    { grade: HatcheryChickGrade.B, total: 15 },
+    { grade: HatcheryChickGrade.CULL, total: 5 },
+  ];
+
+  for (const { grade, total } of gradeStocks) {
+    await prisma.hatcheryChickStock.upsert({
+      where: { incubationBatchId_grade: { incubationBatchId: seedIncubation.id, grade } },
+      create: { incubationBatchId: seedIncubation.id, grade, currentStock: total },
+      update: {},
+    });
+
+    // Chick txn for production
+    await prisma.hatcheryChickTxn.upsert({
+      where: { id: `seed-chick-txn-prod-${grade}` },
+      create: {
+        id: `seed-chick-txn-prod-${grade}`,
+        incubationBatchId: seedIncubation.id,
+        grade,
+        type: HatcheryChickTxnType.PRODUCTION,
+        count: total,
+        date: new Date("2026-03-31"),
+        sourceId: seedHatchResult.id,
+        note: "Seed hatch production",
+      },
+      update: {},
+    });
+
+    // Inventory lot for sellable chicks
+    const supplierKey = `INCUBATION_BATCH:${seedIncubation.id}:${grade}`;
+    const lotName = `Hatched Chicks Grade ${grade} (IN-001)`;
+
+    const existingLot = await prisma.hatcheryInventoryItem.findFirst({
+      where: { hatcheryOwnerId: hatcheryUser1.id, supplierKey },
+    });
+
+    if (!existingLot) {
+      await prisma.hatcheryInventoryItem.create({
+        data: {
+          hatcheryOwnerId: hatcheryUser1.id,
+          itemType: HatcheryInventoryItemType.CHICKS,
+          name: lotName,
+          unit: "chicks",
+          unitPrice: 0,
+          supplierKey,
+          currentStock: total,
+        },
+      });
+    }
+  }
+
+  // Seed one chick sale (Grade A, 20 chicks)
+  const gradeALot = await prisma.hatcheryInventoryItem.findFirst({
+    where: {
+      hatcheryOwnerId: hatcheryUser1.id,
+      supplierKey: `INCUBATION_BATCH:${seedIncubation.id}:A`,
+    },
+  });
+
+  if (gradeALot) {
+    const existingSale = await prisma.hatcheryChickSale.findFirst({
+      where: { id: "seed-chick-sale-1" },
+    });
+    if (!existingSale) {
+      await prisma.hatcheryChickSale.create({
+        data: {
+          id: "seed-chick-sale-1",
+          incubationBatchId: seedIncubation.id,
+          grade: HatcheryChickGrade.A,
+          date: new Date("2026-04-01"),
+          count: 20,
+          unitPrice: 55,
+          amount: 1100,
+          customerName: "Ram Poultry Farm",
+          note: "First chick sale",
+          inventoryItemId: gradeALot.id,
+        },
+      });
+
+      // Adjust chick stock
+      await prisma.hatcheryChickStock.update({
+        where: { incubationBatchId_grade: { incubationBatchId: seedIncubation.id, grade: HatcheryChickGrade.A } },
+        data: { currentStock: { decrement: 20 } },
+      });
+
+      // Adjust inventory lot
+      await prisma.hatcheryInventoryItem.update({
+        where: { id: gradeALot.id },
+        data: { currentStock: { decrement: 20 } },
+      });
+
+      // Chick txn for sale
+      await prisma.hatcheryChickTxn.create({
+        data: {
+          incubationBatchId: seedIncubation.id,
+          grade: HatcheryChickGrade.A,
+          type: HatcheryChickTxnType.SALE,
+          count: -20,
+          date: new Date("2026-04-01"),
+          sourceId: "seed-chick-sale-1",
+          note: "Seed chick sale",
+        },
+      });
+    }
+  }
 
   // ==================== SUMMARY ====================
   console.log("\n✅ Database seeded successfully!");

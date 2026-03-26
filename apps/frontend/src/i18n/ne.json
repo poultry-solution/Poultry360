@@ -119,7 +119,8 @@
       "hatcheryInventory": "भण्डार",
       "hatcheryBatches": "ब्याच",
       "hatcheryEggInventory": "अण्डा भण्डार",
-      "hatcheryEggTypes": "अण्डा प्रकार"
+      "hatcheryEggTypes": "अण्डा प्रकार",
+      "hatcheryIncubations": "ईनक्युबेसन"
     }
   },
   "settings": {
