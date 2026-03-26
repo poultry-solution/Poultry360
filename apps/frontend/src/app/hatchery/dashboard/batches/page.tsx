@@ -10,6 +10,13 @@ import {
   X,
   Loader2,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/common/components/ui/dialog";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Badge } from "@/common/components/ui/badge";
@@ -235,125 +242,116 @@ export default function HatcheryBatchesPage() {
       </div>
 
       {/* Create Modal */}
-      {showCreate && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
-            <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-lg font-bold">Create Parent Flock Batch</h2>
-              <button
-                onClick={() => { setShowCreate(false); resetForm(); }}
-                className="p-1 hover:bg-gray-100 rounded-lg"
-              >
-                <X className="h-5 w-5" />
-              </button>
+      <Dialog open={showCreate} onOpenChange={(open) => { if (!open) { setShowCreate(false); resetForm(); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create Parent Flock Batch</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {formError && (
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                <p className="text-sm text-red-600">{formError}</p>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Start Date
+              </label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
             </div>
 
-            <div className="p-6 space-y-4">
-              {formError && (
-                <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                  <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-                  <p className="text-sm text-red-600">{formError}</p>
-                </div>
-              )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Notes (optional)
+              </label>
+              <Input
+                placeholder="Any notes about this batch"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Date
+            {/* Placements */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Chick Placements (from Inventory)
                 </label>
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
+                <button
+                  onClick={addPlacementRow}
+                  className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                >
+                  <Plus className="h-3 w-3" /> Add Row
+                </button>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notes (optional)
-                </label>
-                <Input
-                  placeholder="Any notes about this batch"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </div>
-
-              {/* Placements */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Chick Placements (from Inventory)
-                  </label>
-                  <button
-                    onClick={addPlacementRow}
-                    className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-                  >
-                    <Plus className="h-3 w-3" /> Add Row
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  {placements.map((placement, idx) => (
-                    <div key={idx} className="flex gap-2 items-center">
-                      <select
-                        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
-                        value={placement.inventoryItemId}
-                        onChange={(e) => updatePlacement(idx, "inventoryItemId", e.target.value)}
+              <div className="space-y-2">
+                {placements.map((placement, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <select
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                      value={placement.inventoryItemId}
+                      onChange={(e) => updatePlacement(idx, "inventoryItemId", e.target.value)}
+                    >
+                      <option value="">Select inventory item</option>
+                      {inventoryItems.map((item: any) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name} — {Number(item.currentStock).toLocaleString()} {item.unit} in stock
+                        </option>
+                      ))}
+                    </select>
+                    <Input
+                      type="number"
+                      min="1"
+                      placeholder="Qty"
+                      className="w-28"
+                      value={placement.quantity}
+                      onChange={(e) => updatePlacement(idx, "quantity", e.target.value)}
+                    />
+                    {placements.length > 1 && (
+                      <button
+                        onClick={() => removePlacementRow(idx)}
+                        className="p-1 hover:bg-red-50 text-red-400 rounded"
                       >
-                        <option value="">Select inventory item</option>
-                        {inventoryItems.map((item: any) => (
-                          <option key={item.id} value={item.id}>
-                            {item.name} — {Number(item.currentStock).toLocaleString()} {item.unit} in stock
-                          </option>
-                        ))}
-                      </select>
-                      <Input
-                        type="number"
-                        min="1"
-                        placeholder="Qty"
-                        className="w-28"
-                        value={placement.quantity}
-                        onChange={(e) => updatePlacement(idx, "quantity", e.target.value)}
-                      />
-                      {placements.length > 1 && (
-                        <button
-                          onClick={() => removePlacementRow(idx)}
-                          className="p-1 hover:bg-red-50 text-red-400 rounded"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {inventoryItems.length === 0 && (
-                  <p className="text-xs text-amber-600 mt-1">
-                    No chick inventory items found. Add chicks to inventory first.
-                  </p>
-                )}
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
-            </div>
 
-            <div className="flex gap-3 p-6 border-t">
-              <Button
-                className="flex-1"
-                onClick={handleCreate}
-                disabled={createMutation.isPending}
-              >
-                {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Create Batch
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => { setShowCreate(false); resetForm(); }}
-              >
-                Cancel
-              </Button>
+              {inventoryItems.length === 0 && (
+                <p className="text-xs text-amber-600 mt-1">
+                  No chick inventory items found. Add chicks to inventory first.
+                </p>
+              )}
             </div>
           </div>
-        </div>
-      )}
+
+          <DialogFooter>
+            <Button
+              onClick={handleCreate}
+              disabled={createMutation.isPending}
+            >
+              {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Create Batch
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => { setShowCreate(false); resetForm(); }}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -65,6 +65,36 @@ export class HatcheryInventoryService {
       Math.round(unitPrice * 100) / 100
     );
 
+    const totalReceived = quantity + freeQuantity;
+
+    // Find existing item (if any) to compute weighted-average cost
+    const existing = await tx.hatcheryInventoryItem.findUnique({
+      where: {
+        hatcheryOwnerId_itemType_name_unitPrice_supplierKey: {
+          hatcheryOwnerId,
+          itemType,
+          name: itemName,
+          unitPrice: roundedUnitPrice,
+          supplierKey,
+        },
+      },
+    });
+
+    // Weighted-average effective cost:
+    //   new purchase: totalAmount / totalReceived
+    //   merge into existing lot: (existingStock*existingCost + newAmount) / (existingStock + totalReceived)
+    let newEffectiveCost: number;
+    if (existing) {
+      const existingStock = Number(existing.currentStock);
+      const existingCost = Number(existing.effectiveUnitCost ?? existing.unitPrice);
+      const totalCostBasis = existingStock * existingCost + totalAmount;
+      const totalUnits = existingStock + totalReceived;
+      newEffectiveCost = totalUnits > 0 ? totalCostBasis / totalUnits : unitPrice;
+    } else {
+      newEffectiveCost = totalReceived > 0 ? totalAmount / totalReceived : unitPrice;
+    }
+    const roundedEffectiveCost = Math.round(newEffectiveCost * 10000) / 10000;
+
     // Upsert inventory item by identity key
     const inventoryItem = await tx.hatcheryInventoryItem.upsert({
       where: {
@@ -76,13 +106,14 @@ export class HatcheryInventoryService {
           supplierKey,
         },
       },
-      update: { unit },
+      update: { unit, effectiveUnitCost: roundedEffectiveCost },
       create: {
         hatcheryOwnerId,
         itemType,
         name: itemName,
         unit,
         unitPrice: roundedUnitPrice,
+        effectiveUnitCost: roundedEffectiveCost,
         supplierKey,
         currentStock: 0,
       },
@@ -121,9 +152,7 @@ export class HatcheryInventoryService {
     await tx.hatcheryInventoryItem.update({
       where: { id: inventoryItem.id },
       data: {
-        currentStock: {
-          increment: quantity + freeQuantity,
-        },
+        currentStock: { increment: totalReceived },
       },
     });
 
@@ -133,6 +162,7 @@ export class HatcheryInventoryService {
   /**
    * Reverse the inventory effect of a purchase txn (used when deleting a supplier txn).
    * Decrements stock by the quantity recorded in each matching inventory txn.
+   * If stock has already been consumed, throws an error and blocks deletion.
    */
   static async reverseInventoryForSupplierTxn(
     tx: Prisma.TransactionClient,
@@ -142,14 +172,55 @@ export class HatcheryInventoryService {
       where: { sourceSupplierTxnId: supplierTxnId },
     });
 
+    // Group by itemId — one supplier txn may touch one item (paid + free = two inv txns)
+    const byItem = new Map<string, { totalQty: number; totalAmount: number }>();
     for (const invTxn of invTxns) {
+      const existing = byItem.get(invTxn.itemId) ?? { totalQty: 0, totalAmount: 0 };
+      byItem.set(invTxn.itemId, {
+        totalQty: existing.totalQty + Number(invTxn.quantity),
+        totalAmount: existing.totalAmount + Number(invTxn.amount ?? 0),
+      });
+    }
+
+    for (const [itemId, removed] of byItem.entries()) {
+      const item = await tx.hatcheryInventoryItem.findUniqueOrThrow({ where: { id: itemId } });
+      const currentStock = Number(item.currentStock);
+      if (currentStock < removed.totalQty) {
+        throw new Error(
+          `Cannot delete purchase: "${item.name}" has already been consumed in usage/placements. ` +
+            `Available stock: ${currentStock}, trying to reverse: ${removed.totalQty}.`
+        );
+      }
+    }
+
+    // Safe to reverse now.
+    for (const invTxn of invTxns) {
+      await tx.hatcheryInventoryTxn.delete({ where: { id: invTxn.id } });
+    }
+
+    // Recompute effectiveUnitCost from remaining PURCHASE txns for each affected item
+    for (const [itemId, removed] of byItem.entries()) {
+      const item = await tx.hatcheryInventoryItem.findUniqueOrThrow({ where: { id: itemId } });
+      const newStock = Number(item.currentStock) - removed.totalQty;
+
+      // Remaining purchase txns (after deletion)
+      const remainingPurchases = await tx.hatcheryInventoryTxn.aggregate({
+        where: { itemId, type: HatcheryInventoryTxnType.PURCHASE },
+        _sum: { quantity: true, amount: true },
+      });
+
+      const remainingQty = Number(remainingPurchases._sum.quantity ?? 0);
+      const remainingAmount = Number(remainingPurchases._sum.amount ?? 0);
+      const newEffective =
+        remainingQty > 0 ? remainingAmount / remainingQty : Number(item.unitPrice);
+
       await tx.hatcheryInventoryItem.update({
-        where: { id: invTxn.itemId },
+        where: { id: itemId },
         data: {
-          currentStock: { decrement: invTxn.quantity },
+          currentStock: newStock,
+          effectiveUnitCost: Math.round(newEffective * 10000) / 10000,
         },
       });
-      await tx.hatcheryInventoryTxn.delete({ where: { id: invTxn.id } });
     }
   }
 }

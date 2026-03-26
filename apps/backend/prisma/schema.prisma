@@ -2993,10 +2993,11 @@ model HatcheryInventoryItem {
   itemType         HatcheryInventoryItemType
   name             String
   unit             String                    @default("kg")
-  unitPrice        Decimal                   @db.Decimal(12, 4)
-  supplierKey      String                    @default("NONE")
-  currentStock     Decimal                   @db.Decimal(12, 4) @default(0)
-  minStock         Decimal?                  @db.Decimal(12, 4)
+  unitPrice           Decimal                   @db.Decimal(12, 4)
+  effectiveUnitCost   Decimal?                  @db.Decimal(12, 4)  // weighted-avg cost per unit (paid÷(paid+free))
+  supplierKey         String                    @default("NONE")
+  currentStock        Decimal                   @db.Decimal(12, 4) @default(0)
+  minStock            Decimal?                  @db.Decimal(12, 4)
   deletedAt        DateTime?
 
   transactions     HatcheryInventoryTxn[]

@@ -276,6 +276,23 @@ export function useReopenHatcheryBatch(id: string) {
   });
 }
 
+// Delete batch (password-confirmed on backend)
+export function useDeleteHatcheryBatch(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { password: string }) => {
+      const { data } = await axiosInstance.delete(`/hatchery/batches/${id}`, {
+        data: payload,
+      });
+      return data as { success: boolean };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: hatcheryBatchKeys.lists() });
+      qc.removeQueries({ queryKey: hatcheryBatchKeys.detail(id) });
+    },
+  });
+}
+
 // Mortality
 export function useHatcheryMortalities(batchId: string) {
   return useQuery({

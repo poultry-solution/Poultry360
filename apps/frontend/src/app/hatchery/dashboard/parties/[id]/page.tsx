@@ -2,11 +2,18 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Plus, Trash2, Loader2, X } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Badge } from "@/common/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/common/components/ui/dialog";
 import { DataTable, type Column } from "@/common/components/ui/data-table";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import {
@@ -209,74 +216,69 @@ export default function HatcheryPartyDetailPage() {
       )}
 
       {/* Payment modal */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Record Payment</h2>
-              <Button variant="ghost" size="icon" onClick={() => setShowPaymentModal(false)}>
-                <X className="h-4 w-4" />
-              </Button>
+      <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Record Payment</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleAddPayment} className="space-y-3">
+            <div>
+              <label className="text-sm font-medium">Date *</label>
+              <Input
+                type="date"
+                value={paymentForm.date}
+                onChange={(e) => setPaymentForm((f) => ({ ...f, date: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Amount (Rs) *</label>
+              <Input
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={paymentForm.amount}
+                onChange={(e) => setPaymentForm((f) => ({ ...f, amount: e.target.value }))}
+                placeholder="0.00"
+                required
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Method</label>
+              <Input
+                value={paymentForm.method}
+                onChange={(e) => setPaymentForm((f) => ({ ...f, method: e.target.value }))}
+                placeholder="Cash, Bank, etc."
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Note</label>
+              <Input
+                value={paymentForm.note}
+                onChange={(e) => setPaymentForm((f) => ({ ...f, note: e.target.value }))}
+                placeholder="Optional note"
+              />
             </div>
 
-            <form onSubmit={handleAddPayment} className="space-y-3">
-              <div>
-                <label className="text-sm font-medium">Date *</label>
-                <Input
-                  type="date"
-                  value={paymentForm.date}
-                  onChange={(e) => setPaymentForm((f) => ({ ...f, date: e.target.value }))}
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Amount (Rs) *</label>
-                <Input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={paymentForm.amount}
-                  onChange={(e) => setPaymentForm((f) => ({ ...f, amount: e.target.value }))}
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Method</label>
-                <Input
-                  value={paymentForm.method}
-                  onChange={(e) => setPaymentForm((f) => ({ ...f, method: e.target.value }))}
-                  placeholder="Cash, Bank, etc."
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Note</label>
-                <Input
-                  value={paymentForm.note}
-                  onChange={(e) => setPaymentForm((f) => ({ ...f, note: e.target.value }))}
-                  placeholder="Optional note"
-                />
-              </div>
+            {addPayment.isError && (
+              <p className="text-sm text-red-500">
+                {(addPayment.error as any)?.response?.data?.error ?? "Failed to record payment"}
+              </p>
+            )}
 
-              {addPayment.isError && (
-                <p className="text-sm text-red-500">
-                  {(addPayment.error as any)?.response?.data?.error ?? "Failed to record payment"}
-                </p>
-              )}
-
-              <div className="flex gap-2 justify-end pt-2">
-                <Button type="button" variant="outline" onClick={() => setShowPaymentModal(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={addPayment.isPending}>
-                  {addPayment.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-                  Save
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowPaymentModal(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={addPayment.isPending}>
+                {addPayment.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                Save
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

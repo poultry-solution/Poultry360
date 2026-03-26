@@ -6,6 +6,7 @@ import {
   createHatcheryBatch,
   getHatcheryBatch,
   updateHatcheryBatch,
+  deleteHatcheryBatch,
   closeHatcheryBatch,
   reopenHatcheryBatch,
   listHatcheryMortalities,
@@ -42,6 +43,7 @@ router.post("/", createHatcheryBatch);
 router.get("/egg-inventory", getEggInventory);
 router.get("/:id", getHatcheryBatch);
 router.put("/:id", updateHatcheryBatch);
+router.delete("/:id", deleteHatcheryBatch);
 router.post("/:id/close", closeHatcheryBatch);
 router.post("/:id/reopen", reopenHatcheryBatch);
 

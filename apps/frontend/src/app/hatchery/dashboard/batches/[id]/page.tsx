@@ -22,6 +22,7 @@ import {
   useHatcheryBatch,
   useCloseHatcheryBatch,
   useReopenHatcheryBatch,
+  useDeleteHatcheryBatch,
   useHatcheryMortalities,
   useAddHatcheryMortality,
   useDeleteHatcheryMortality,
@@ -72,6 +73,15 @@ function today() {
   return new Date().toISOString().split("T")[0];
 }
 
+function isInitialPlacementExpense(expense: HatcheryBatchExpense) {
+  return (
+    expense.type === "INVENTORY" &&
+    expense.category === "CHICKS" &&
+    !!expense.inventoryTxnId &&
+    expense.note === "Initial flock placement"
+  );
+}
+
 export default function HatcheryBatchDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -80,8 +90,25 @@ export default function HatcheryBatchDetailPage() {
   const { data: batch, isLoading, error } = useHatcheryBatch(id);
   const closeMutation = useCloseHatcheryBatch(id);
   const reopenMutation = useReopenHatcheryBatch(id);
+  const deleteBatchMutation = useDeleteHatcheryBatch(id);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const isClosed = batch?.status === "CLOSED";
+
+  async function handleDeleteBatch() {
+    setActionError(null);
+    const password = window.prompt(
+      "Enter your password to delete this batch. This is allowed only when no operational data exists."
+    );
+    if (!password) return;
+    if (!confirm("Delete this batch permanently?")) return;
+    try {
+      await deleteBatchMutation.mutateAsync({ password });
+      router.push("/hatchery/dashboard/batches");
+    } catch (err: any) {
+      setActionError(err?.response?.data?.error ?? "Failed to delete batch");
+    }
+  }
 
   if (isLoading) {
     return (
@@ -137,28 +164,64 @@ export default function HatcheryBatchDetailPage() {
         </div>
 
         {isClosed ? (
-          <Button
-            variant="outline"
-            onClick={() => reopenMutation.mutate()}
-            disabled={reopenMutation.isPending}
-          >
-            <UnlockIcon className="h-4 w-4 mr-1" />
-            Reopen
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="border-red-300 text-red-700 hover:bg-red-50"
+              onClick={handleDeleteBatch}
+              disabled={deleteBatchMutation.isPending}
+            >
+              {deleteBatchMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-1" />
+              )}
+              Delete Batch
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => reopenMutation.mutate()}
+              disabled={reopenMutation.isPending}
+            >
+              <UnlockIcon className="h-4 w-4 mr-1" />
+              Reopen
+            </Button>
+          </div>
         ) : (
-          <Button
-            variant="outline"
-            className="border-gray-300 text-gray-700"
-            onClick={() => {
-              if (confirm("Mark this batch as CLOSED?")) closeMutation.mutate();
-            }}
-            disabled={closeMutation.isPending}
-          >
-            <LockIcon className="h-4 w-4 mr-1" />
-            Close Batch
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="border-red-300 text-red-700 hover:bg-red-50"
+              onClick={handleDeleteBatch}
+              disabled={deleteBatchMutation.isPending}
+            >
+              {deleteBatchMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-1" />
+              )}
+              Delete Batch
+            </Button>
+            <Button
+              variant="outline"
+              className="border-gray-300 text-gray-700"
+              onClick={() => {
+                if (confirm("Mark this batch as CLOSED?")) closeMutation.mutate();
+              }}
+              disabled={closeMutation.isPending}
+            >
+              <LockIcon className="h-4 w-4 mr-1" />
+              Close Batch
+            </Button>
+          </div>
         )}
       </div>
+
+      {actionError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
 
       {/* CLOSED warning */}
       {isClosed && (
@@ -535,7 +598,9 @@ function ExpensesTab({ batchId }: { batchId: string }) {
       label: "",
       align: "right",
       render: (_, row) =>
-        deleteId === row.id ? (
+        isInitialPlacementExpense(row) ? (
+          <span className="text-xs text-gray-400">Locked</span>
+        ) : deleteId === row.id ? (
           <div className="flex gap-2 justify-end">
             <Button
               size="sm"

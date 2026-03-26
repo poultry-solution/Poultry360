@@ -35,7 +35,8 @@ export class HatcheryBatchExpenseService {
       );
     }
 
-    const unitPrice = Number(item.unitPrice);
+    // Use effective (free-qty-adjusted) cost per unit so free birds are not over-charged
+    const unitPrice = Number(item.effectiveUnitCost ?? item.unitPrice);
     const amount = Math.round(unitPrice * quantity * 100) / 100;
 
     // Create inventory usage txn

@@ -425,6 +425,12 @@ export const deleteHatcherySupplierTransaction = async (
       err.message === "Transaction not found"
     )
       return res.status(404).json({ message: err.message });
+    if (
+      typeof err.message === "string" &&
+      err.message.startsWith("Cannot delete purchase:")
+    ) {
+      return res.status(400).json({ message: err.message });
+    }
     return res.status(500).json({ message: "Internal server error" });
   }
 };

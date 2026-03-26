@@ -2,11 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Users, ChevronRight, X, Loader2 } from "lucide-react";
+import { Plus, Users, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { DataTable, type Column } from "@/common/components/ui/data-table";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/common/components/ui/dialog";
 import {
   useHatcheryParties,
   useCreateHatcheryParty,
@@ -98,77 +105,72 @@ export default function HatcheryPartiesPage() {
         getRowKey={(r) => r.id}
       />
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Add Party</h2>
-              <Button variant="ghost" size="icon" onClick={() => setShowModal(false)}>
-                <X className="h-4 w-4" />
-              </Button>
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Party</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleCreate} className="space-y-3">
+            <div>
+              <label className="text-sm font-medium">Name *</label>
+              <Input
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Party name"
+                required
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Phone *</label>
+              <Input
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                placeholder="Phone number (unique)"
+                required
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Address</label>
+              <Input
+                value={form.address}
+                onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                placeholder="Optional"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Opening Balance (Rs)</label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.openingBalance}
+                onChange={(e) => setForm((f) => ({ ...f, openingBalance: e.target.value }))}
+                placeholder="0.00"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Amount already owed to you before using this system.
+              </p>
             </div>
 
-            <form onSubmit={handleCreate} className="space-y-3">
-              <div>
-                <label className="text-sm font-medium">Name *</label>
-                <Input
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="Party name"
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Phone *</label>
-                <Input
-                  value={form.phone}
-                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                  placeholder="Phone number (unique)"
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Address</label>
-                <Input
-                  value={form.address}
-                  onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-                  placeholder="Optional"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Opening Balance (Rs)</label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.openingBalance}
-                  onChange={(e) => setForm((f) => ({ ...f, openingBalance: e.target.value }))}
-                  placeholder="0.00"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Amount already owed to you before using this system.
-                </p>
-              </div>
+            {createParty.isError && (
+              <p className="text-sm text-red-500">
+                {(createParty.error as any)?.response?.data?.error ?? "Failed to create party"}
+              </p>
+            )}
 
-              {createParty.isError && (
-                <p className="text-sm text-red-500">
-                  {(createParty.error as any)?.response?.data?.error ?? "Failed to create party"}
-                </p>
-              )}
-
-              <div className="flex gap-2 justify-end pt-2">
-                <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={createParty.isPending}>
-                  {createParty.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-                  Create
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createParty.isPending}>
+                {createParty.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                Create
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

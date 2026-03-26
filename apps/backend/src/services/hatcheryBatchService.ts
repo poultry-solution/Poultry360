@@ -1,4 +1,4 @@
-import { Prisma, HatcheryBatchType, HatcheryInventoryTxnType } from "@prisma/client";
+import { Prisma, HatcheryBatchType, HatcheryInventoryTxnType, HatcheryBatchExpenseType } from "@prisma/client";
 import prisma from "../utils/prisma";
 
 export class HatcheryBatchService {
@@ -74,8 +74,16 @@ export class HatcheryBatchService {
         },
       });
 
-      // Create placements + decrement inventory stock
+      // Create placements + decrement inventory stock + record initial placement expense
       for (const placement of placements) {
+        const item = await tx.hatcheryInventoryItem.findUniqueOrThrow({
+          where: { id: placement.inventoryItemId },
+        });
+
+        // Use effective (free-qty-adjusted) cost per unit; fall back to unitPrice
+        const costPerUnit = Number(item.effectiveUnitCost ?? item.unitPrice);
+        const expenseAmount = Math.round(costPerUnit * placement.quantity * 100) / 100;
+
         await tx.hatcheryBatchPlacement.create({
           data: {
             batchId: batch.id,
@@ -84,19 +92,39 @@ export class HatcheryBatchService {
           },
         });
 
-        await tx.hatcheryInventoryTxn.create({
+        const invTxn = await tx.hatcheryInventoryTxn.create({
           data: {
             itemId: placement.inventoryItemId,
             type: HatcheryInventoryTxnType.USAGE,
             quantity: placement.quantity,
+            unitPrice: costPerUnit,
+            amount: expenseAmount,
             date: startDate,
-            note: `Placed into batch ${code}`,
+            note: `Initial placement into batch ${code}`,
           },
         });
 
         await tx.hatcheryInventoryItem.update({
           where: { id: placement.inventoryItemId },
           data: { currentStock: { decrement: placement.quantity } },
+        });
+
+        // Record as a batch expense so it shows in Total Expenses
+        await tx.hatcheryBatchExpense.create({
+          data: {
+            batchId: batch.id,
+            date: startDate,
+            type: HatcheryBatchExpenseType.INVENTORY,
+            category: "CHICKS",
+            itemName: item.name,
+            quantity: placement.quantity,
+            unit: item.unit,
+            unitPrice: costPerUnit,
+            amount: expenseAmount,
+            note: "Initial flock placement",
+            inventoryItemId: placement.inventoryItemId,
+            inventoryTxnId: invTxn.id,
+          },
         });
       }
 

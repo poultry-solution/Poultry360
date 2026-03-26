@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { Prisma, HatcheryBatchStatus, HatcheryBatchType, HatcheryBatchExpenseType } from "@prisma/client";
+import bcrypt from "bcrypt";
 import prisma from "../utils/prisma";
 import { HatcheryBatchService } from "../services/hatcheryBatchService";
 import { HatcheryBatchExpenseService } from "../services/hatcheryBatchExpenseService";
@@ -9,6 +10,20 @@ function getOwnerId(req: Request): string {
   // Keep consistent with existing controllers + middleware contract.
   // `authMiddleware` sets `req.userId`.
   return (req as any).userId as string;
+}
+
+function isInitialPlacementExpense(expense: {
+  type: HatcheryBatchExpenseType;
+  category: string;
+  inventoryTxnId: string | null;
+  note: string | null;
+}) {
+  return (
+    expense.type === HatcheryBatchExpenseType.INVENTORY &&
+    expense.category === "CHICKS" &&
+    !!expense.inventoryTxnId &&
+    expense.note === "Initial flock placement"
+  );
 }
 
 // ─── Batch CRUD ─────────────────────────────────────────────────────────────
@@ -201,6 +216,116 @@ export async function reopenHatcheryBatch(req: Request, res: Response) {
     });
 
     return res.json(updated);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+export async function deleteHatcheryBatch(req: Request, res: Response) {
+  try {
+    const ownerId = getOwnerId(req);
+    const { id: batchId } = req.params;
+    const { password } = req.body ?? {};
+
+    if (!password) {
+      return res.status(400).json({ error: "Password confirmation is required" });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: ownerId } });
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) {
+      return res.status(401).json({ error: "Invalid password. Deletion cancelled." });
+    }
+
+    const batch = await prisma.hatcheryBatch.findFirst({
+      where: { id: batchId, hatcheryOwnerId: ownerId },
+      include: {
+        placements: true,
+        expenses: true,
+      },
+    });
+    if (!batch) return res.status(404).json({ error: "Batch not found" });
+
+    const [mortalityCount, eggProductionCount, eggSaleCount, parentSaleCount, incubationCount] =
+      await Promise.all([
+        prisma.hatcheryBatchMortality.count({ where: { batchId } }),
+        prisma.hatcheryEggProduction.count({ where: { batchId } }),
+        prisma.hatcheryEggSale.count({ where: { batchId } }),
+        prisma.hatcheryParentSale.count({ where: { batchId } }),
+        prisma.hatcheryIncubationBatch.count({ where: { parentBatchId: batchId } }),
+      ]);
+
+    if (
+      mortalityCount > 0 ||
+      eggProductionCount > 0 ||
+      eggSaleCount > 0 ||
+      parentSaleCount > 0 ||
+      incubationCount > 0
+    ) {
+      return res.status(400).json({
+        error:
+          "Batch cannot be deleted because it already has operational data (mortality, egg production/sales, parent sales, or incubation links).",
+      });
+    }
+
+    const initialExpenses = batch.expenses.filter(isInitialPlacementExpense);
+    const nonInitialExpenses = batch.expenses.filter((e) => !isInitialPlacementExpense(e));
+    if (nonInitialExpenses.length > 0) {
+      return res.status(400).json({
+        error:
+          "Batch cannot be deleted because non-initial expenses exist. Delete those records first.",
+      });
+    }
+
+    // Consistency check: every initial placement must have a matching initial expense row.
+    if (batch.placements.length !== initialExpenses.length) {
+      return res.status(400).json({
+        error: "Cannot delete due to inconsistent initial placement records.",
+      });
+    }
+    const placementKeyQty = new Map<string, number>();
+    for (const p of batch.placements) {
+      const key = `${p.inventoryItemId}::${p.quantity}`;
+      placementKeyQty.set(key, (placementKeyQty.get(key) ?? 0) + 1);
+    }
+    for (const e of initialExpenses) {
+      const qty = Number(e.quantity ?? 0);
+      const key = `${e.inventoryItemId}::${qty}`;
+      placementKeyQty.set(key, (placementKeyQty.get(key) ?? 0) - 1);
+    }
+    const isConsistent = [...placementKeyQty.values()].every((v) => v === 0);
+    if (!isConsistent) {
+      return res.status(400).json({
+        error: "Cannot delete due to inconsistent initial placement records.",
+      });
+    }
+
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Revert initial placement inventory usage.
+      for (const expense of initialExpenses) {
+        const qty = Number(expense.quantity ?? 0);
+        if (!expense.inventoryItemId || !expense.inventoryTxnId || qty <= 0) {
+          throw new Error("Cannot delete due to inconsistent initial placement records.");
+        }
+
+        await tx.hatcheryInventoryItem.update({
+          where: { id: expense.inventoryItemId },
+          data: { currentStock: { increment: qty } },
+        });
+
+        await tx.hatcheryInventoryTxn.delete({
+          where: { id: expense.inventoryTxnId },
+        });
+      }
+
+      await tx.hatcheryBatch.delete({
+        where: { id: batchId },
+      });
+    });
+
+    return res.json({ success: true });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
@@ -400,6 +525,13 @@ export async function deleteHatcheryExpense(req: Request, res: Response) {
       where: { id: expenseId, batchId },
     });
     if (!expense) return res.status(404).json({ error: "Expense not found" });
+
+    if (isInitialPlacementExpense(expense)) {
+      return res.status(400).json({
+        error:
+          "Initial flock placement expense cannot be deleted individually. Delete the full batch if it was created by mistake.",
+      });
+    }
 
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await HatcheryBatchExpenseService.deleteExpense(tx, expenseId);

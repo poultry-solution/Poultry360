@@ -2,12 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, FlaskConical, ChevronRight, X, Loader2 } from "lucide-react";
+import { Plus, FlaskConical, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Badge } from "@/common/components/ui/badge";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { DataTable, type Column } from "@/common/components/ui/data-table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/common/components/ui/dialog";
 import {
   useIncubationBatches,
   useCreateIncubationBatch,
@@ -193,98 +200,93 @@ export default function IncubationsPage() {
       />
 
       {/* Create Modal */}
-      {showCreate && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-background rounded-xl shadow-xl w-full max-w-lg p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold">New Incubation Batch</h2>
-              <button onClick={resetCreate} className="text-muted-foreground hover:text-foreground">
-                <X className="h-5 w-5" />
-              </button>
+      <Dialog open={showCreate} onOpenChange={(open) => !open && resetCreate()}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>New Incubation Batch</DialogTitle>
+          </DialogHeader>
+
+          {formError && (
+            <div className="bg-destructive/10 text-destructive text-sm px-3 py-2 rounded-md">
+              {formError}
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Parent Flock Batch <span className="text-destructive">*</span>
+              </label>
+              <select
+                className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                value={parentBatchId}
+                onChange={(e) => setParentBatchId(e.target.value)}
+              >
+                <option value="">— Select batch —</option>
+                {parentBatches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.code}{b.name ? ` – ${b.name}` : ""}
+                  </option>
+                ))}
+              </select>
+              {parentBatchId && <StagePreview parentBatchId={parentBatchId} />}
             </div>
 
-            {formError && (
-              <div className="bg-destructive/10 text-destructive text-sm px-3 py-2 rounded-md">
-                {formError}
-              </div>
-            )}
-
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  Parent Flock Batch <span className="text-destructive">*</span>
+                  Start Date <span className="text-destructive">*</span>
                 </label>
-                <select
-                  className="w-full border rounded-md px-3 py-2 text-sm bg-background"
-                  value={parentBatchId}
-                  onChange={(e) => setParentBatchId(e.target.value)}
-                >
-                  <option value="">— Select batch —</option>
-                  {parentBatches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.code}{b.name ? ` – ${b.name}` : ""}
-                    </option>
-                  ))}
-                </select>
-                {parentBatchId && <StagePreview parentBatchId={parentBatchId} />}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Start Date <span className="text-destructive">*</span>
-                  </label>
-                  <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Eggs Set (count) <span className="text-destructive">*</span>
-                  </label>
-                  <Input
-                    type="number"
-                    min={1}
-                    placeholder="e.g. 500"
-                    value={eggsSetCount}
-                    onChange={(e) => setEggsSetCount(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Batch Name (optional)</label>
                 <Input
-                  placeholder="e.g. Batch Jan-2026"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium mb-1">Notes</label>
+                <label className="block text-sm font-medium mb-1">
+                  Eggs Set (count) <span className="text-destructive">*</span>
+                </label>
                 <Input
-                  placeholder="Any notes..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  type="number"
+                  min={1}
+                  placeholder="e.g. 500"
+                  value={eggsSetCount}
+                  onChange={(e) => setEggsSetCount(e.target.value)}
                 />
               </div>
             </div>
 
-            <div className="flex gap-2 justify-end pt-2">
-              <Button variant="outline" onClick={resetCreate}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreate} disabled={createMutation.isPending}>
-                {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Create Incubation
-              </Button>
+            <div>
+              <label className="block text-sm font-medium mb-1">Batch Name (optional)</label>
+              <Input
+                placeholder="e.g. Batch Jan-2026"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Notes</label>
+              <Input
+                placeholder="Any notes..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
             </div>
           </div>
-        </div>
-      )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={resetCreate}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreate} disabled={createMutation.isPending}>
+              {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Create Incubation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
