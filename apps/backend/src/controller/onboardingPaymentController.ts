@@ -109,7 +109,7 @@ export const startOnboardingTrial = async (
       return res.status(400).json({ message: "Account is already active" });
     }
 
-    const allowedRoles: UserRole[] = ["OWNER", "MANAGER", "DEALER", "COMPANY"];
+    const allowedRoles: UserRole[] = ["OWNER", "MANAGER", "DEALER", "COMPANY", "HATCHERY"];
     if (!allowedRoles.includes(user.role as UserRole)) {
       return res.status(400).json({
         message: "Trial is not available for your role",

@@ -18,6 +18,7 @@ async function main() {
       managerAmountNpr: 6999,
       dealerAmountNpr: 7875,
       companyAmountNpr: 30000,
+      hatcheryAmountNpr: 9999,
       qrImageUrl: "/payment-qr.png",
       qrText: "Poultry360 Onboarding Payment",
       phoneDisplay: "+977 9809781908",
@@ -182,6 +183,33 @@ async function main() {
       address: "Main Road, Biratnagar",
       ownerId: dealerUser3.id,
       classification: "SELF_CREATED",
+    },
+    update: {},
+  });
+
+  // ==================== HATCHERY USERS ====================
+  console.log("Creating Hatchery user...");
+  const hatcheryUser1 = await prisma.user.upsert({
+    where: { phone: "+9779800000060" },
+    create: {
+      phone: "+9779800000060",
+      name: "Sunita Karki",
+      password: hashedPassword,
+      role: UserRole.HATCHERY,
+      status: UserStatus.ACTIVE,
+      language: Language.ENGLISH,
+      calendarType: CalendarType.AD,
+    },
+    update: {},
+  });
+
+  await prisma.hatcheryBusiness.upsert({
+    where: { ownerId: hatcheryUser1.id },
+    create: {
+      name: "Karki Premium Hatchery",
+      contact: "+9779800000060",
+      address: "Hetauda Industrial Area, Makwanpur",
+      ownerId: hatcheryUser1.id,
     },
     update: {},
   });

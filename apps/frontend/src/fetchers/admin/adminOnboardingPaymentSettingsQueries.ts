@@ -11,6 +11,7 @@ export interface AdminOnboardingPaymentSettings {
   managerAmountNpr: number;
   dealerAmountNpr: number;
   companyAmountNpr: number;
+  hatcheryAmountNpr: number;
   qrImageUrl: string | null;
   qrText: string | null;
   phoneDisplay: string;
@@ -28,6 +29,7 @@ export interface UpdateAdminOnboardingPaymentSettingsPayload {
   managerAmountNpr: number;
   dealerAmountNpr: number;
   companyAmountNpr: number;
+  hatcheryAmountNpr: number;
   qrImageUrl: string;
   qrText?: string;
   phoneDisplay: string;

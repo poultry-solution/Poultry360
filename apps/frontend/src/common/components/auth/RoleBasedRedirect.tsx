@@ -52,6 +52,18 @@ const ROLE_ROUTES: RoleRouteConfig = {
     port: 3000,
     isCrossPort: false,
   },
+  COMPANY: {
+    basePath: "/company",
+    defaultRoute: "/company/dashboard/home",
+    port: 3000,
+    isCrossPort: false,
+  },
+  HATCHERY: {
+    basePath: "/hatchery",
+    defaultRoute: "/hatchery/dashboard/home",
+    port: 3000,
+    isCrossPort: false,
+  },
 };
 
 export const RoleBasedRedirect: React.FC<RoleBasedRedirectProps> = ({

@@ -34,6 +34,7 @@ export const getAdminOnboardingPaymentSettings = async (
         managerAmountNpr: Number(settings.managerAmountNpr),
         dealerAmountNpr: Number(settings.dealerAmountNpr),
         companyAmountNpr: Number(settings.companyAmountNpr),
+        hatcheryAmountNpr: Number(settings.hatcheryAmountNpr),
         qrImageUrl: settings.qrImageUrl,
         qrText: settings.qrText,
         phoneDisplay: settings.phoneDisplay,
@@ -60,6 +61,7 @@ export const updateAdminOnboardingPaymentSettings = async (
       managerAmountNpr,
       dealerAmountNpr,
       companyAmountNpr,
+      hatcheryAmountNpr,
       qrImageUrl,
       qrText,
       phoneDisplay,
@@ -69,6 +71,7 @@ export const updateAdminOnboardingPaymentSettings = async (
       managerAmountNpr?: unknown;
       dealerAmountNpr?: unknown;
       companyAmountNpr?: unknown;
+      hatcheryAmountNpr?: unknown;
       qrImageUrl?: unknown;
       qrText?: unknown;
       phoneDisplay?: unknown;
@@ -79,12 +82,14 @@ export const updateAdminOnboardingPaymentSettings = async (
     const managerAmount = toNumberOrNull(managerAmountNpr);
     const dealerAmount = toNumberOrNull(dealerAmountNpr);
     const companyAmount = toNumberOrNull(companyAmountNpr);
+    const hatcheryAmount = toNumberOrNull(hatcheryAmountNpr);
 
     if (
       ownerAmount === null ||
       managerAmount === null ||
       dealerAmount === null ||
-      companyAmount === null
+      companyAmount === null ||
+      hatcheryAmount === null
     ) {
       return res.status(400).json({
         message: "All role prices are required and must be valid numbers.",
@@ -95,7 +100,8 @@ export const updateAdminOnboardingPaymentSettings = async (
       ownerAmount < 0 ||
       managerAmount < 0 ||
       dealerAmount < 0 ||
-      companyAmount < 0
+      companyAmount < 0 ||
+      hatcheryAmount < 0
     ) {
       return res.status(400).json({
         message: "Role prices must be zero or positive.",
@@ -128,6 +134,7 @@ export const updateAdminOnboardingPaymentSettings = async (
         managerAmountNpr: managerAmount,
         dealerAmountNpr: dealerAmount,
         companyAmountNpr: companyAmount,
+        hatcheryAmountNpr: hatcheryAmount,
         qrImageUrl: qrImageUrl.trim(),
         qrText: typeof qrText === "string" && qrText.trim() ? qrText.trim() : null,
         phoneDisplay: phoneDisplay.trim(),
@@ -139,6 +146,7 @@ export const updateAdminOnboardingPaymentSettings = async (
         managerAmountNpr: managerAmount,
         dealerAmountNpr: dealerAmount,
         companyAmountNpr: companyAmount,
+        hatcheryAmountNpr: hatcheryAmount,
         qrImageUrl: qrImageUrl.trim(),
         qrText: typeof qrText === "string" && qrText.trim() ? qrText.trim() : null,
         phoneDisplay: phoneDisplay.trim(),
@@ -154,6 +162,7 @@ export const updateAdminOnboardingPaymentSettings = async (
         managerAmountNpr: Number(updated.managerAmountNpr),
         dealerAmountNpr: Number(updated.dealerAmountNpr),
         companyAmountNpr: Number(updated.companyAmountNpr),
+        hatcheryAmountNpr: Number(updated.hatcheryAmountNpr),
         qrImageUrl: updated.qrImageUrl,
         qrText: updated.qrText,
         phoneDisplay: updated.phoneDisplay,

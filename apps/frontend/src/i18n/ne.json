@@ -74,6 +74,10 @@
   
         "subtitle": "फार्म व्यवस्थापन",
         "userTitle": "मालिक"
+      },
+      "hatchery": {
+        "subtitle": "ह्याचरी व्यवस्थापन",
+        "userTitle": "ह्याचरी"
       }
     },
     "nav": {
@@ -109,7 +113,8 @@
       "purchases": "खरिद",
       "production": "उत्पादन",
       "purchaseRequests": "खरिद अनुरोध",
-      "saleRequests": "बिक्री अनुरोध"
+      "saleRequests": "बिक्री अनुरोध",
+      "hatcheryOverview": "अवलोकन"
     }
   },
   "settings": {
@@ -284,6 +289,36 @@
       "errors": {
         "nameRequired": "नाम आवश्यक छ!",
         "phoneInvalid": "फोन नम्बर ठीक १० अंकको हुनुपर्छ!",
+        "passwordTooShort": "पासवर्ड कम्तिमा 6 अक्षरको हुनुपर्छ!",
+        "passwordMismatch": "पासवर्ड मिलेन!",
+        "registrationFailed": "दर्ता असफल भयो। कृपया पुन: प्रयास गर्नुहोस्।"
+      }
+    },
+    "hatcherySignup": {
+      "title": "ह्याचरी दर्ता",
+      "subtitle": "अन्त-देखि-अन्त सञ्चालन व्यवस्थापन गर्न ह्याचरी खाता बनाउनुहोस्",
+      "ownerNameLabel": "मालिकको नाम *",
+      "phoneLabel": "फोन नम्बर *",
+      "phonePlaceholder": "98XXXXXXXX",
+      "phoneHelp": "यो नम्बर मालिक र ह्याचरी सम्पर्कको लागि प्रयोग गरिनेछ।",
+      "hatcheryNameLabel": "ह्याचरीको नाम *",
+      "hatcheryNameHelp": "तपाईंको ह्याचरी व्यापारको नाम",
+      "hatcheryAddressLabel": "ह्याचरीको ठेगाना",
+      "hatcheryAddressPlaceholder": "वैकल्पिक व्यापार ठेगाना",
+      "passwordLabel": "पासवर्ड *",
+      "confirmPasswordLabel": "पासवर्ड पुष्टि गर्नुहोस् *",
+      "createAccount": "ह्याचरी खाता बनाउनुहोस्",
+      "creatingAccount": "खाता बनाउँदैछ...",
+      "alreadyHaveAccount": "पहिले नै खाता छ?",
+      "login": "लगइन",
+      "registerOwner": "फार्म मालिकको रूपमा दर्ता गर्न चाहनुहुन्छ?",
+      "signupOwner": "फार्म मालिकको रूपमा साइन अप गर्नुहोस्",
+      "registerDealer": "डिलरको रूपमा दर्ता गर्न चाहनुहुन्छ?",
+      "signupDealer": "डिलरको रूपमा साइन अप गर्नुहोस्",
+      "errors": {
+        "ownerNameRequired": "मालिकको नाम आवश्यक छ!",
+        "phoneInvalid": "फोन नम्बर ठीक १० अंकको हुनुपर्छ!",
+        "hatcheryNameRequired": "ह्याचरीको नाम आवश्यक छ!",
         "passwordTooShort": "पासवर्ड कम्तिमा 6 अक्षरको हुनुपर्छ!",
         "passwordMismatch": "पासवर्ड मिलेन!",
         "registrationFailed": "दर्ता असफल भयो। कृपया पुन: प्रयास गर्नुहोस्।"
@@ -2746,6 +2781,7 @@
       "farmer": "लेयर/ब्रोइलर किसान",
       "dealer": "फिड डिलर",
       "company": "फिड मिल कम्पनी",
+      "hatchery": "ह्याचरी",
       "alreadyHaveAccount": "पहिले नै खाता छ?",
       "login": "लग इन"
     },

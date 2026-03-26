@@ -34,7 +34,7 @@ export interface AdminPaymentApprovalsFilters {
   page?: number;
   limit?: number;
   status?: PaymentSubmissionStatus;
-  role?: "OWNER" | "MANAGER" | "DOCTOR" | "DEALER" | "COMPANY";
+  role?: "OWNER" | "MANAGER" | "DOCTOR" | "DEALER" | "COMPANY" | "HATCHERY";
   search?: string;
 }
 

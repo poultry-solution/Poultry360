@@ -24,6 +24,7 @@ import {
   KeyRound,
   ShoppingCart,
   Factory,
+  Egg,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { useAuth } from "@/common/store/store";
@@ -85,6 +86,11 @@ export const companyNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.businessInsights", href: "/company/dashboard/business-insights", icon: Lightbulb },
 ];
 
+export const hatcheryNavigation: NavigationItem[] = [
+  { nameKey: "sidebar.nav.home", href: "/hatchery/dashboard/home", icon: Home },
+  { nameKey: "sidebar.nav.hatcheryOverview", href: "/hatchery/dashboard/overview", icon: Egg },
+];
+
 const adminNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.overview", href: "/admin/dashboard", icon: BarChart3 },
   { nameKey: "sidebar.nav.users", href: "/admin/dashboard/users", icon: Users },
@@ -102,7 +108,7 @@ const adminNavigation: NavigationItem[] = [
 ];
 
 interface SidebarProps {
-  role?: "OWNER" | "MANAGER" | "DOCTOR" | "SUPER_ADMIN" | "DEALER" | "COMPANY";
+  role?: "OWNER" | "MANAGER" | "DOCTOR" | "SUPER_ADMIN" | "DEALER" | "COMPANY" | "HATCHERY";
   isCollapsed?: boolean;
   onToggle?: () => void;
 }
@@ -118,6 +124,7 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
     if (role === "SUPER_ADMIN") return adminNavigation;
     if (role === "DEALER") return dealerNavigation;
     if (role === "COMPANY") return companyNavigation;
+    if (role === "HATCHERY") return hatcheryNavigation;
     return farmerNavigation; // Default to farmer navigation
   };
 
@@ -151,6 +158,12 @@ export default function Sidebar({ role, isCollapsed = false, onToggle }: Sidebar
         
         subtitle: t("sidebar.roles.company.subtitle"),
         userTitle: t("sidebar.roles.company.userTitle")
+      };
+    }
+    if (role === "HATCHERY") {
+      return {
+        subtitle: t("sidebar.roles.hatchery.subtitle"),
+        userTitle: t("sidebar.roles.hatchery.userTitle")
       };
     }
     return {

@@ -18,6 +18,7 @@ enum UserRole {
   DOCTOR
   DEALER
   COMPANY
+  HATCHERY
   SUPER_ADMIN
 }
 
@@ -246,6 +247,8 @@ model User {
   company Company? @relation("CompanyOwner")
 
   managedCompanies Company[] @relation("CompanyManagedBy")
+
+  hatcheryBusiness HatcheryBusiness?
   suppliedProducts Product[] @relation("ProductSupplier")
 
   // Inventory
@@ -391,10 +394,11 @@ model UserPaymentSubmission {
 model OnboardingPaymentSettings {
   id String @id @default("default")
 
-  ownerAmountNpr   Decimal @db.Decimal(10, 2) @default(6999)
-  managerAmountNpr Decimal @db.Decimal(10, 2) @default(6999)
-  dealerAmountNpr  Decimal @db.Decimal(10, 2) @default(7875)
-  companyAmountNpr Decimal @db.Decimal(10, 2) @default(30000)
+  ownerAmountNpr    Decimal @db.Decimal(10, 2) @default(6999)
+  managerAmountNpr  Decimal @db.Decimal(10, 2) @default(6999)
+  dealerAmountNpr   Decimal @db.Decimal(10, 2) @default(7875)
+  companyAmountNpr  Decimal @db.Decimal(10, 2) @default(30000)
+  hatcheryAmountNpr Decimal @db.Decimal(10, 2) @default(9999)
 
   qrImageUrl   String?
   qrText       String?
@@ -1045,6 +1049,20 @@ model Hatchery {
   updatedAt DateTime @updatedAt
 
   @@unique([userId, name])
+}
+
+// Authenticated Hatchery business entity (role=HATCHERY login)
+model HatcheryBusiness {
+  id      String  @id @default(cuid())
+  name    String
+  contact String
+  address String?
+
+  ownerId String @unique
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model MedicineSupplier {

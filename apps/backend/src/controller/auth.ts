@@ -34,7 +34,8 @@ const isPaymentGateRequiredForRole = (role: UserRole): boolean => {
     role === UserRole.OWNER ||
     role === UserRole.MANAGER ||
     role === UserRole.DEALER ||
-    role === UserRole.COMPANY
+    role === UserRole.COMPANY ||
+    role === UserRole.HATCHERY
   );
 };
 
@@ -708,10 +709,10 @@ export const registerEntity = async (
       });
     }
 
-    if (!entityType || !["DEALER", "COMPANY", "DOCTOR"].includes(entityType)) {
+    if (!entityType || !["DEALER", "COMPANY", "DOCTOR", "HATCHERY"].includes(entityType)) {
       return res.status(400).json({
         success: false,
-        message: "Entity type must be DEALER, COMPANY, or DOCTOR",
+        message: "Entity type must be DEALER, COMPANY, DOCTOR, or HATCHERY",
       });
     }
 
@@ -722,11 +723,11 @@ export const registerEntity = async (
       });
     }
 
-    // Contact is required only for Dealers
-    if (entityType === "DEALER" && !entityContact) {
+    // Contact is required for Dealers and Hatcheries
+    if ((entityType === "DEALER" || entityType === "HATCHERY") && !entityContact) {
       return res.status(400).json({
         success: false,
-        message: "Dealer contact is required",
+        message: `${entityType === "DEALER" ? "Dealer" : "Hatchery"} contact is required`,
       });
     }
 
@@ -772,7 +773,9 @@ export const registerEntity = async (
         ? UserRole.DEALER
         : entityType === "COMPANY"
           ? UserRole.COMPANY
-          : UserRole.DOCTOR;
+          : entityType === "HATCHERY"
+            ? UserRole.HATCHERY
+            : UserRole.DOCTOR;
 
     // Create user and entity in a transaction
     const result = await prisma.$transaction(async (tx) => {
@@ -857,6 +860,25 @@ export const registerEntity = async (
         }
 
         return { user, entity: dealer, entityType: "DEALER" };
+      } else if (entityType === "HATCHERY") {
+        const existingHatchery = await tx.hatcheryBusiness.findUnique({
+          where: { ownerId: user.id },
+        });
+
+        if (existingHatchery) {
+          throw new Error("User already owns a hatchery account");
+        }
+
+        const hatchery = await tx.hatcheryBusiness.create({
+          data: {
+            name: entityName,
+            contact: entityContact,
+            address: entityAddress || null,
+            ownerId: user.id,
+          },
+        });
+
+        return { user, entity: hatchery, entityType: "HATCHERY" };
       } else {
         // COMPANY
         // Check if owner already has a company

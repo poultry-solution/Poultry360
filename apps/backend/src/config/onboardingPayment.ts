@@ -9,6 +9,7 @@ export interface OnboardingPaymentResolvedSettings {
     MANAGER: number;
     DEALER: number;
     COMPANY: number;
+    HATCHERY: number;
   };
   qr: {
     qrImageUrl: string | null;
@@ -33,6 +34,7 @@ export async function getOnboardingPaymentSettings(): Promise<OnboardingPaymentR
       MANAGER: Number(settings.managerAmountNpr),
       DEALER: Number(settings.dealerAmountNpr),
       COMPANY: Number(settings.companyAmountNpr),
+      HATCHERY: Number(settings.hatcheryAmountNpr),
     },
     qr: {
       qrImageUrl: settings.qrImageUrl || null,
@@ -52,6 +54,7 @@ export function getOnboardingAmountForRole(
   if (role === "MANAGER") return rolePricing.MANAGER;
   if (role === "DEALER") return rolePricing.DEALER;
   if (role === "COMPANY") return rolePricing.COMPANY;
+  if (role === "HATCHERY") return rolePricing.HATCHERY;
   return rolePricing.OWNER;
 }
 

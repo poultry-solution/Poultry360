@@ -91,6 +91,11 @@ export default function Navbar() {
                     <span className="w-8 text-xl">🏢</span> {t("landing.navbar.company")}
                   </Link>
                 </Button>
+                <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
+                  <Link href="/auth/signup/hatchery">
+                    <span className="w-8 text-xl">🥚</span> {t("landing.navbar.hatchery")}
+                  </Link>
+                </Button>
               </div>
               <div className="text-center mt-1 text-sm text-muted-foreground">
                 {t("landing.navbar.alreadyHaveAccount")}{" "}
@@ -199,6 +204,11 @@ export default function Navbar() {
                     <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
                       <Link href="/auth/signup/company">
                         <span className="w-8 text-xl">🏢</span> {t("landing.navbar.company")}
+                      </Link>
+                    </Button>
+                    <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
+                      <Link href="/auth/signup/hatchery">
+                        <span className="w-8 text-xl">🥚</span> {t("landing.navbar.hatchery")}
                       </Link>
                     </Button>
                   </div>

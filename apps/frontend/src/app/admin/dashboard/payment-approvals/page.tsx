@@ -66,6 +66,7 @@ const ROLE_OPTIONS: Array<{
   { value: "MANAGER", label: "Manager" },
   { value: "DEALER", label: "Dealer" },
   { value: "COMPANY", label: "Company" },
+  { value: "HATCHERY", label: "Hatchery" },
   { value: "DOCTOR", label: "Doctor" },
 ];
 
@@ -110,6 +111,7 @@ export default function PaymentApprovalsPage() {
   const [managerAmountNpr, setManagerAmountNpr] = useState("6999");
   const [dealerAmountNpr, setDealerAmountNpr] = useState("7875");
   const [companyAmountNpr, setCompanyAmountNpr] = useState("30000");
+  const [hatcheryAmountNpr, setHatcheryAmountNpr] = useState("9999");
   const [qrImageUrl, setQrImageUrl] = useState("");
   const [qrText, setQrText] = useState("Poultry360 Onboarding Payment");
   const [phoneDisplay, setPhoneDisplay] = useState("+977 9809781908");
@@ -126,6 +128,7 @@ export default function PaymentApprovalsPage() {
     setManagerAmountNpr(String(current.managerAmountNpr));
     setDealerAmountNpr(String(current.dealerAmountNpr));
     setCompanyAmountNpr(String(current.companyAmountNpr));
+    setHatcheryAmountNpr(String(current.hatcheryAmountNpr ?? 9999));
     setQrImageUrl(current.qrImageUrl || "");
     setQrText(current.qrText || "Poultry360 Onboarding Payment");
     setPhoneDisplay(current.phoneDisplay || "+977 9809781908");
@@ -171,18 +174,20 @@ export default function PaymentApprovalsPage() {
     const manager = Number(managerAmountNpr);
     const dealer = Number(dealerAmountNpr);
     const company = Number(companyAmountNpr);
+    const hatchery = Number(hatcheryAmountNpr);
 
     if (
       !Number.isFinite(owner) ||
       !Number.isFinite(manager) ||
       !Number.isFinite(dealer) ||
-      !Number.isFinite(company)
+      !Number.isFinite(company) ||
+      !Number.isFinite(hatchery)
     ) {
       toast.error("All prices must be valid numbers.");
       return;
     }
 
-    if (owner < 0 || manager < 0 || dealer < 0 || company < 0) {
+    if (owner < 0 || manager < 0 || dealer < 0 || company < 0 || hatchery < 0) {
       toast.error("Prices cannot be negative.");
       return;
     }
@@ -203,6 +208,7 @@ export default function PaymentApprovalsPage() {
         managerAmountNpr: manager,
         dealerAmountNpr: dealer,
         companyAmountNpr: company,
+        hatcheryAmountNpr: hatchery,
         qrImageUrl: qrImageUrl.trim(),
         qrText: qrText.trim() || "Poultry360 Onboarding Payment",
         phoneDisplay: phoneDisplay.trim(),
@@ -355,6 +361,15 @@ export default function PaymentApprovalsPage() {
                         min="0"
                         value={companyAmountNpr}
                         onChange={(e) => setCompanyAmountNpr(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Hatchery price (NPR)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={hatcheryAmountNpr}
+                        onChange={(e) => setHatcheryAmountNpr(e.target.value)}
                       />
                     </div>
                   </div>

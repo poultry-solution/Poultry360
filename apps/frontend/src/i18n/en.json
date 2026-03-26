@@ -74,6 +74,10 @@
      
         "subtitle": "Farm Management",
         "userTitle": "Owner"
+      },
+      "hatchery": {
+        "subtitle": "Hatchery Management",
+        "userTitle": "Hatchery"
       }
     },
     "nav": {
@@ -110,7 +114,8 @@
       "purchases": "Purchases",
       "production": "Production",
       "purchaseRequests": "Purchase Requests",
-      "saleRequests": "Sale Requests"
+      "saleRequests": "Sale Requests",
+      "hatcheryOverview": "Overview"
     }
   },
   "settings": {
@@ -285,6 +290,36 @@
       "errors": {
         "nameRequired": "Name is required!",
         "phoneInvalid": "Phone number must be exactly 10 digits!",
+        "passwordTooShort": "Password must be at least 6 characters long!",
+        "passwordMismatch": "Passwords do not match!",
+        "registrationFailed": "Registration failed. Please try again."
+      }
+    },
+    "hatcherySignup": {
+      "title": "Hatchery Registration",
+      "subtitle": "Create your hatchery account to manage end-to-end operations",
+      "ownerNameLabel": "Owner Name *",
+      "phoneLabel": "Phone Number *",
+      "phonePlaceholder": "98XXXXXXXX",
+      "phoneHelp": "This number will be used for both owner and hatchery contact.",
+      "hatcheryNameLabel": "Hatchery Name *",
+      "hatcheryNameHelp": "Your hatchery business name",
+      "hatcheryAddressLabel": "Hatchery Address",
+      "hatcheryAddressPlaceholder": "Optional business address",
+      "passwordLabel": "Password *",
+      "confirmPasswordLabel": "Confirm Password *",
+      "createAccount": "Create Hatchery Account",
+      "creatingAccount": "Creating account...",
+      "alreadyHaveAccount": "Already have an account?",
+      "login": "Log in",
+      "registerOwner": "Want to register as a farm owner?",
+      "signupOwner": "Sign up as Farm Owner",
+      "registerDealer": "Want to register as a dealer?",
+      "signupDealer": "Sign up as Dealer",
+      "errors": {
+        "ownerNameRequired": "Owner name is required!",
+        "phoneInvalid": "Phone number must be exactly 10 digits!",
+        "hatcheryNameRequired": "Hatchery name is required!",
         "passwordTooShort": "Password must be at least 6 characters long!",
         "passwordMismatch": "Passwords do not match!",
         "registrationFailed": "Registration failed. Please try again."
@@ -2747,6 +2782,7 @@
       "farmer": "Layer/Broiler Farmer",
       "dealer": "Feed Dealer",
       "company": "Feed mill company",
+      "hatchery": "Hatchery",
       "alreadyHaveAccount": "Already have an account?",
       "login": "Log in"
     },

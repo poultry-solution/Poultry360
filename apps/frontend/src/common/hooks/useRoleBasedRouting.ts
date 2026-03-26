@@ -59,6 +59,13 @@ const ROLE_ROUTES: RoleRouteConfig = {
     isCrossPort: false,
     allowedPaths: ["/company", "/auth", "/payment"],
   },
+  HATCHERY: {
+    basePath: "/hatchery",
+    defaultRoute: "/hatchery/dashboard/home",
+    port: 3000,
+    isCrossPort: false,
+    allowedPaths: ["/hatchery", "/auth", "/payment"],
+  },
 };
 
 
