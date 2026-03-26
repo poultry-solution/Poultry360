@@ -120,6 +120,7 @@
       "hatcheryInventory": "Inventory",
       "hatcheryBatches": "Batches",
       "hatcheryEggInventory": "Egg Inventory",
+      "hatcheryProducedChicks": "Produced Chicks",
       "hatcheryEggTypes": "Egg Types",
       "hatcheryIncubations": "Incubations",
       "hatcheryParties": "Parties"

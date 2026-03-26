@@ -14,6 +14,7 @@ import {
   listChickSales,
   addChickSale,
   deleteChickSale,
+  listProducedChickStock,
   getHatchableStockForBatch,
 } from "../controller/hatcheryIncubationController";
 
@@ -44,6 +45,9 @@ router.delete("/hatchery/incubations/:id/hatch-results/:hatchResultId", deleteHa
 router.get("/hatchery/incubations/:id/chick-sales", listChickSales);
 router.post("/hatchery/incubations/:id/chick-sales", addChickSale);
 router.delete("/hatchery/incubations/:id/chick-sales/:saleId", deleteChickSale);
+
+// Produced chick stock (global/filterable view)
+router.get("/hatchery/produced-chicks/stock", listProducedChickStock);
 
 // Helper: hatchable egg stock preview for a parent batch
 router.get("/hatchery/parent-batches/:batchId/hatchable-stock", getHatchableStockForBatch);

@@ -25,6 +25,7 @@ import {
   ShoppingCart,
   Factory,
   Egg,
+  Bird,
   FlaskConical,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
@@ -94,6 +95,7 @@ export const hatcheryNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.hatcheryBatches", href: "/hatchery/dashboard/batches", icon: Layers },
   { nameKey: "sidebar.nav.hatcheryIncubations", href: "/hatchery/dashboard/incubations", icon: FlaskConical },
   { nameKey: "sidebar.nav.hatcheryEggInventory", href: "/hatchery/dashboard/egg-inventory", icon: Egg },
+  { nameKey: "sidebar.nav.hatcheryProducedChicks", href: "/hatchery/dashboard/produced-chicks", icon: Bird },
   { nameKey: "sidebar.nav.hatcheryEggTypes", href: "/hatchery/dashboard/egg-types", icon: Tag },
   { nameKey: "sidebar.nav.hatcheryParties", href: "/hatchery/dashboard/parties", icon: Users },
 ];

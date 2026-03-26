@@ -107,6 +107,26 @@ export interface HatchableStock {
   eggTypeId: string | null;
 }
 
+export interface ProducedChickStockRow {
+  id: string;
+  incubationBatchId: string;
+  grade: ChickGrade;
+  currentStock: number;
+  incubationBatch: {
+    id: string;
+    code: string;
+    name: string | null;
+    stage: IncubationStage;
+    parentBatchId: string;
+    parentBatch: {
+      id: string;
+      code: string;
+      name: string | null;
+      status: string;
+    };
+  };
+}
+
 // ==================== KEYS ====================
 
 export const incubationKeys = {
@@ -119,6 +139,8 @@ export const incubationKeys = {
   chickSales: (id: string) => [...incubationKeys.all, id, "chick-sales"] as const,
   hatchableStock: (batchId: string) =>
     ["hatchery-hatchable-stock", batchId] as const,
+  producedChickStock: (filters: { parentBatchId?: string; incubationBatchId?: string }) =>
+    ["hatchery-produced-chick-stock", filters] as const,
 };
 
 // ==================== HOOKS ====================
@@ -178,6 +200,22 @@ export function useCreateIncubationBatch() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: incubationKeys.all });
+    },
+  });
+}
+
+export function useProducedChickStock(filters: {
+  parentBatchId?: string;
+  incubationBatchId?: string;
+} = {}) {
+  return useQuery({
+    queryKey: incubationKeys.producedChickStock(filters),
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filters.parentBatchId) params.set("parentBatchId", filters.parentBatchId);
+      if (filters.incubationBatchId) params.set("incubationBatchId", filters.incubationBatchId);
+      const { data } = await axiosInstance.get(`/hatchery/produced-chicks/stock?${params}`);
+      return data as ProducedChickStockRow[];
     },
   });
 }
@@ -273,6 +311,7 @@ export function useAddHatchResult(incubationBatchId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: incubationKeys.detail(incubationBatchId) });
       qc.invalidateQueries({ queryKey: incubationKeys.hatchResults(incubationBatchId) });
+      qc.invalidateQueries({ queryKey: ["hatchery-produced-chick-stock"] });
     },
   });
 }
@@ -288,6 +327,7 @@ export function useDeleteHatchResult(incubationBatchId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: incubationKeys.detail(incubationBatchId) });
       qc.invalidateQueries({ queryKey: incubationKeys.hatchResults(incubationBatchId) });
+      qc.invalidateQueries({ queryKey: ["hatchery-produced-chick-stock"] });
     },
   });
 }
@@ -328,6 +368,7 @@ export function useAddChickSale(incubationBatchId: string) {
       qc.invalidateQueries({ queryKey: incubationKeys.detail(incubationBatchId) });
       qc.invalidateQueries({ queryKey: incubationKeys.chickSales(incubationBatchId) });
       qc.invalidateQueries({ queryKey: ["hatchery-parties"] });
+      qc.invalidateQueries({ queryKey: ["hatchery-produced-chick-stock"] });
     },
   });
 }
@@ -344,6 +385,7 @@ export function useDeleteChickSale(incubationBatchId: string) {
       qc.invalidateQueries({ queryKey: incubationKeys.detail(incubationBatchId) });
       qc.invalidateQueries({ queryKey: incubationKeys.chickSales(incubationBatchId) });
       qc.invalidateQueries({ queryKey: ["hatchery-parties"] });
+      qc.invalidateQueries({ queryKey: ["hatchery-produced-chick-stock"] });
     },
   });
 }

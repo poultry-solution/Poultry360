@@ -358,6 +358,59 @@ export async function deleteChickSale(req: Request, res: Response) {
   }
 }
 
+// ─── Produced Chick Stock (global + filters) ─────────────────────────────────
+
+export async function listProducedChickStock(req: Request, res: Response) {
+  try {
+    const ownerId = getOwnerId(req);
+    const { parentBatchId, incubationBatchId } = req.query as Record<string, string>;
+
+    const where: any = {
+      incubationBatch: {
+        hatcheryOwnerId: ownerId,
+      },
+    };
+
+    if (parentBatchId) {
+      where.incubationBatch.parentBatchId = parentBatchId;
+    }
+    if (incubationBatchId) {
+      where.incubationBatchId = incubationBatchId;
+    }
+
+    const rows = await prisma.hatcheryChickStock.findMany({
+      where,
+      include: {
+        incubationBatch: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            stage: true,
+            parentBatchId: true,
+            parentBatch: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                status: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [
+        { incubationBatch: { startDate: "desc" } },
+        { grade: "asc" },
+      ],
+    });
+
+    return res.json(rows);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 // ─── Hatchable egg stock preview ─────────────────────────────────────────────
 
 export async function getHatchableStockForBatch(req: Request, res: Response) {
