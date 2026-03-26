@@ -3098,6 +3098,7 @@
       "MANAGER": "Farm manager",
       "DEALER": "Feed dealer",
       "COMPANY": "Company",
+      "HATCHERY": "Hatchery",
       "DOCTOR": "Doctor",
       "SUPER_ADMIN": "Administrator"
     }
