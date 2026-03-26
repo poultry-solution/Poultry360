@@ -15,7 +15,6 @@ import {
   HatcheryIncubationStage,
   HatcheryChickGrade,
   HatcheryChickTxnType,
-  HatcheryInventoryItemType,
 } from "@prisma/client";
 import bcrypt from "bcrypt";
 
