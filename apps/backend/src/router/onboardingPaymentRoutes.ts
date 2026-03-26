@@ -18,6 +18,7 @@ router.use((req, res, next) => {
     UserRole.MANAGER,
     UserRole.DEALER,
     UserRole.COMPANY,
+    UserRole.HATCHERY,
     // shared-types UserRole union might not include DOCTOR at compile-time;
     // runtime role checks still work because the JWT stores the string value.
     "DOCTOR",
