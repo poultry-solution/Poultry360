@@ -314,7 +314,7 @@ export async function addChickSale(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
     const { id: incubationBatchId } = req.params;
-    const { grade, date, count, unitPrice, customerName, note } = req.body;
+    const { grade, date, count, unitPrice, partyId, note } = req.body;
 
     if (!grade || !date || !count || !unitPrice) {
       return res.status(400).json({ error: "grade, date, count, and unitPrice are required" });
@@ -332,7 +332,7 @@ export async function addChickSale(req: Request, res: Response) {
         date: new Date(date),
         count: parseInt(count),
         unitPrice: Number(unitPrice),
-        customerName,
+        partyId: partyId || undefined,
         note,
       });
     });

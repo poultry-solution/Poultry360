@@ -45,6 +45,7 @@ import {
   type HatcheryParentSale,
 } from "@/fetchers/hatchery/hatcheryBatchQueries";
 import { useGetHatcheryInventory } from "@/fetchers/hatchery/hatcheryInventoryQueries";
+import { useHatcheryParties, type HatcheryParty } from "@/fetchers/hatchery/hatcheryPartyQueries";
 
 type Tab =
   | "overview"
@@ -949,18 +950,21 @@ function SalesTab({
   const { data: eggTypes = [] } = useHatcheryEggTypes();
   const { data: eggSales = [], isLoading: eggSalesLoading } = useHatcheryEggSales(batchId);
   const { data: parentSales = [], isLoading: parentSalesLoading } = useHatcheryParentSales(batchId);
+  const { data: partiesData } = useHatcheryParties();
 
   const addEggSaleMutation = useAddHatcheryEggSale(batchId);
   const deleteEggSaleMutation = useDeleteHatcheryEggSale(batchId);
   const addParentSaleMutation = useAddHatcheryParentSale(batchId);
   const deleteParentSaleMutation = useDeleteHatcheryParentSale(batchId);
 
+  const parties = partiesData?.parties ?? [];
+
   // Egg sale form
   const [eggDate, setEggDate] = useState(today());
   const [eggTypeId, setEggTypeId] = useState("");
   const [eggCount, setEggCount] = useState("");
   const [eggUnitPrice, setEggUnitPrice] = useState("");
-  const [eggCustomer, setEggCustomer] = useState("");
+  const [eggPartyId, setEggPartyId] = useState("");
   const [eggNote, setEggNote] = useState("");
   const [eggFormError, setEggFormError] = useState<string | null>(null);
   const [deleteEggSaleId, setDeleteEggSaleId] = useState<string | null>(null);
@@ -968,11 +972,22 @@ function SalesTab({
   // Parent sale form
   const [parentDate, setParentDate] = useState(today());
   const [parentCount, setParentCount] = useState("");
-  const [parentUnitPrice, setParentUnitPrice] = useState("");
-  const [parentCustomer, setParentCustomer] = useState("");
+  const [parentTotalWeight, setParentTotalWeight] = useState("");
+  const [parentRatePerKg, setParentRatePerKg] = useState("");
+  const [parentPartyId, setParentPartyId] = useState("");
   const [parentNote, setParentNote] = useState("");
   const [parentFormError, setParentFormError] = useState<string | null>(null);
   const [deleteParentSaleId, setDeleteParentSaleId] = useState<string | null>(null);
+
+  // Computed preview for parent sale
+  const parentAmount =
+    parentTotalWeight && parentRatePerKg
+      ? Math.round(parseFloat(parentTotalWeight) * parseFloat(parentRatePerKg) * 100) / 100
+      : null;
+  const parentAvgWeight =
+    parentTotalWeight && parentCount && parseInt(parentCount) > 0
+      ? Math.round((parseFloat(parentTotalWeight) / parseInt(parentCount)) * 1000) / 1000
+      : null;
 
   async function handleAddEggSale() {
     setEggFormError(null);
@@ -982,12 +997,12 @@ function SalesTab({
         date: eggDate,
         count: parseInt(eggCount),
         unitPrice: Number(eggUnitPrice),
-        customerName: eggCustomer || undefined,
+        partyId: eggPartyId || undefined,
         note: eggNote || undefined,
       });
       setEggCount("");
       setEggUnitPrice("");
-      setEggCustomer("");
+      setEggPartyId("");
       setEggNote("");
     } catch (err: any) {
       setEggFormError(err?.response?.data?.error ?? "Failed to record sale");
@@ -1000,13 +1015,15 @@ function SalesTab({
       await addParentSaleMutation.mutateAsync({
         date: parentDate,
         count: parseInt(parentCount),
-        unitPrice: Number(parentUnitPrice),
-        customerName: parentCustomer || undefined,
+        totalWeightKg: parseFloat(parentTotalWeight),
+        ratePerKg: parseFloat(parentRatePerKg),
+        partyId: parentPartyId || undefined,
         note: parentNote || undefined,
       });
       setParentCount("");
-      setParentUnitPrice("");
-      setParentCustomer("");
+      setParentTotalWeight("");
+      setParentRatePerKg("");
+      setParentPartyId("");
       setParentNote("");
     } catch (err: any) {
       setParentFormError(err?.response?.data?.error ?? "Failed to record sale");
@@ -1018,7 +1035,11 @@ function SalesTab({
     { key: "eggType", label: "Type", render: (_, r) => <span>{r.eggType.name}</span> },
     { key: "count", label: "Qty", align: "right", render: (_, r) => r.count.toLocaleString() },
     { key: "amount", label: "Amount", align: "right", render: (_, r) => <span className="font-medium">{fmtNPR(r.amount)}</span> },
-    { key: "customerName", label: "Customer", render: (_, r) => <span className="text-gray-500 text-sm">{r.customerName ?? "—"}</span> },
+    {
+      key: "partyId",
+      label: "Party",
+      render: (_, r) => <span className="text-gray-500 text-sm">{r.party?.name ?? (r.partyId ? "—" : "Cash")}</span>,
+    },
     {
       key: "__actions",
       label: "",
@@ -1040,8 +1061,15 @@ function SalesTab({
   const parentSaleColumns: Column<HatcheryParentSale>[] = [
     { key: "date", label: "Date", render: (_, r) => <DateDisplay date={r.date} /> },
     { key: "count", label: "Birds", align: "right", render: (_, r) => r.count.toLocaleString() },
+    { key: "totalWeightKg", label: "Total Wt (kg)", align: "right", render: (_, r) => Number(r.totalWeightKg).toFixed(2) },
+    { key: "avgWeightKg", label: "Avg Wt (kg)", align: "right", render: (_, r) => Number(r.avgWeightKg).toFixed(3) },
+    { key: "ratePerKg", label: "Rate/kg", align: "right", render: (_, r) => `Rs ${Number(r.ratePerKg).toFixed(2)}` },
     { key: "amount", label: "Amount", align: "right", render: (_, r) => <span className="font-medium">{fmtNPR(r.amount)}</span> },
-    { key: "customerName", label: "Customer", render: (_, r) => <span className="text-gray-500 text-sm">{r.customerName ?? "—"}</span> },
+    {
+      key: "partyId",
+      label: "Party",
+      render: (_, r) => <span className="text-gray-500 text-sm">{r.party?.name ?? (r.partyId ? "—" : "Cash")}</span>,
+    },
     {
       key: "__actions",
       label: "",
@@ -1091,7 +1119,14 @@ function SalesTab({
             </select>
             <Input type="number" min="1" placeholder="Count" value={eggCount} onChange={(e) => setEggCount(e.target.value)} className="w-24" />
             <Input type="number" min="0" placeholder="Unit price" value={eggUnitPrice} onChange={(e) => setEggUnitPrice(e.target.value)} className="w-28" />
-            <Input placeholder="Customer" value={eggCustomer} onChange={(e) => setEggCustomer(e.target.value)} className="w-36" />
+            <select
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white min-w-36"
+              value={eggPartyId}
+              onChange={(e) => setEggPartyId(e.target.value)}
+            >
+              <option value="">Cash sale</option>
+              {parties.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.phone})</option>)}
+            </select>
             <Input placeholder="Note" value={eggNote} onChange={(e) => setEggNote(e.target.value)} className="flex-1 min-w-28" />
             <Button onClick={handleAddEggSale} disabled={addEggSaleMutation.isPending || !eggTypeId || !eggCount || !eggUnitPrice}>
               {addEggSaleMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -1121,14 +1156,28 @@ function SalesTab({
           <div className="flex flex-wrap gap-2">
             <Input type="date" value={parentDate} onChange={(e) => setParentDate(e.target.value)} className="w-40" />
             <Input type="number" min="1" placeholder="Bird count" value={parentCount} onChange={(e) => setParentCount(e.target.value)} className="w-28" />
-            <Input type="number" min="0" placeholder="Unit price" value={parentUnitPrice} onChange={(e) => setParentUnitPrice(e.target.value)} className="w-28" />
-            <Input placeholder="Customer" value={parentCustomer} onChange={(e) => setParentCustomer(e.target.value)} className="w-36" />
+            <Input type="number" min="0" step="0.001" placeholder="Total weight (kg)" value={parentTotalWeight} onChange={(e) => setParentTotalWeight(e.target.value)} className="w-36" />
+            <Input type="number" min="0" step="0.01" placeholder="Rate/kg" value={parentRatePerKg} onChange={(e) => setParentRatePerKg(e.target.value)} className="w-28" />
+            <select
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white min-w-36"
+              value={parentPartyId}
+              onChange={(e) => setParentPartyId(e.target.value)}
+            >
+              <option value="">Cash sale</option>
+              {parties.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.phone})</option>)}
+            </select>
             <Input placeholder="Note" value={parentNote} onChange={(e) => setParentNote(e.target.value)} className="flex-1 min-w-28" />
-            <Button onClick={handleAddParentSale} disabled={addParentSaleMutation.isPending || !parentCount || !parentUnitPrice}>
+            <Button onClick={handleAddParentSale} disabled={addParentSaleMutation.isPending || !parentCount || !parentTotalWeight || !parentRatePerKg}>
               {addParentSaleMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Sell
             </Button>
           </div>
+          {(parentAmount !== null || parentAvgWeight !== null) && (
+            <p className="text-xs text-muted-foreground">
+              {parentAvgWeight !== null && <>Avg weight: <span className="font-medium">{parentAvgWeight} kg/bird</span>{" · "}</>}
+              {parentAmount !== null && <>Total amount: <span className="font-medium text-foreground">Rs {parentAmount.toFixed(2)}</span></>}
+            </p>
+          )}
         </div>
 
         <div className="bg-white border rounded-xl overflow-hidden">

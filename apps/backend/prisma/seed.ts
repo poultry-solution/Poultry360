@@ -15,6 +15,7 @@ import {
   HatcheryIncubationStage,
   HatcheryChickGrade,
   HatcheryChickTxnType,
+  HatcheryPartyTxnType,
 } from "@prisma/client";
 import bcrypt from "bcrypt";
 
@@ -945,7 +946,6 @@ async function main() {
           count: 20,
           unitPrice: 55,
           amount: 1100,
-          customerName: "Ram Poultry Farm",
           note: "First chick sale",
           inventoryItemId: gradeALot.id,
         },
@@ -976,6 +976,71 @@ async function main() {
         },
       });
     }
+  }
+
+  // ==================== HATCHERY PARTIES ====================
+  const existingParty = await prisma.hatcheryParty.findFirst({
+    where: { hatcheryOwnerId: hatcheryUser1.id, phone: "9800000001" },
+  });
+
+  let seedParty = existingParty;
+  if (!seedParty) {
+    const openingBalance = 5000;
+    seedParty = await prisma.hatcheryParty.create({
+      data: {
+        id: "seed-hatchery-party-1",
+        hatcheryOwnerId: hatcheryUser1.id,
+        name: "Ram Poultry Farm",
+        phone: "9800000001",
+        address: "Chitwan, Nepal",
+        openingBalance,
+        balance: openingBalance,
+      },
+    });
+
+    // Opening balance txn
+    await prisma.hatcheryPartyTxn.create({
+      data: {
+        partyId: seedParty.id,
+        type: HatcheryPartyTxnType.OPENING_BALANCE,
+        date: new Date("2026-01-01"),
+        amount: openingBalance,
+        balanceAfter: openingBalance,
+        sourceType: "opening_balance",
+        note: "Opening balance from before system use",
+      },
+    });
+
+    // Seed a payment reducing the balance
+    const payment = await prisma.hatcheryPartyPayment.create({
+      data: {
+        id: "seed-hatchery-payment-1",
+        partyId: seedParty.id,
+        date: new Date("2026-02-01"),
+        amount: 2000,
+        method: "Cash",
+        note: "Seed payment",
+      },
+    });
+
+    const balanceAfterPayment = openingBalance - 2000;
+    await prisma.hatcheryPartyTxn.create({
+      data: {
+        partyId: seedParty.id,
+        type: HatcheryPartyTxnType.PAYMENT,
+        date: new Date("2026-02-01"),
+        amount: -2000,
+        balanceAfter: balanceAfterPayment,
+        sourceType: "payment",
+        sourceId: payment.id,
+        note: "Seed payment",
+      },
+    });
+
+    await prisma.hatcheryParty.update({
+      where: { id: seedParty.id },
+      data: { balance: balanceAfterPayment },
+    });
   }
 
   // ==================== SUMMARY ====================

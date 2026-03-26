@@ -130,7 +130,8 @@ export interface HatcheryEggSale {
   count: number;
   unitPrice: number;
   amount: number;
-  customerName: string | null;
+  partyId: string | null;
+  party?: { id: string; name: string; phone: string } | null;
   note: string | null;
   createdAt: string;
   eggType: { id: string; name: string; isHatchable: boolean };
@@ -141,9 +142,12 @@ export interface HatcheryParentSale {
   batchId: string;
   date: string;
   count: number;
-  unitPrice: number;
+  totalWeightKg: number;
+  avgWeightKg: number;
+  ratePerKg: number;
   amount: number;
-  customerName: string | null;
+  partyId: string | null;
+  party?: { id: string; name: string; phone: string } | null;
   note: string | null;
   createdAt: string;
 }
@@ -426,7 +430,7 @@ export function useAddHatcheryEggSale(batchId: string) {
       date: string;
       count: number;
       unitPrice: number;
-      customerName?: string;
+      partyId?: string;
       note?: string;
     }) => {
       const { data } = await axiosInstance.post(`/hatchery/batches/${batchId}/egg-sales`, payload);
@@ -436,6 +440,7 @@ export function useAddHatcheryEggSale(batchId: string) {
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.eggSales(batchId) });
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.detail(batchId) });
       qc.invalidateQueries({ queryKey: ["hatcheryEggInventory"] });
+      qc.invalidateQueries({ queryKey: ["hatchery-parties"] });
     },
   });
 }
@@ -450,6 +455,7 @@ export function useDeleteHatcheryEggSale(batchId: string) {
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.eggSales(batchId) });
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.detail(batchId) });
       qc.invalidateQueries({ queryKey: ["hatcheryEggInventory"] });
+      qc.invalidateQueries({ queryKey: ["hatchery-parties"] });
     },
   });
 }
@@ -472,8 +478,9 @@ export function useAddHatcheryParentSale(batchId: string) {
     mutationFn: async (payload: {
       date: string;
       count: number;
-      unitPrice: number;
-      customerName?: string;
+      totalWeightKg: number;
+      ratePerKg: number;
+      partyId?: string;
       note?: string;
     }) => {
       const { data } = await axiosInstance.post(`/hatchery/batches/${batchId}/parent-sales`, payload);
@@ -482,6 +489,7 @@ export function useAddHatcheryParentSale(batchId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.parentSales(batchId) });
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.detail(batchId) });
+      qc.invalidateQueries({ queryKey: ["hatchery-parties"] });
     },
   });
 }
@@ -495,6 +503,7 @@ export function useDeleteHatcheryParentSale(batchId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.parentSales(batchId) });
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.detail(batchId) });
+      qc.invalidateQueries({ queryKey: ["hatchery-parties"] });
     },
   });
 }

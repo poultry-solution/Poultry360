@@ -1,4 +1,5 @@
 import { Prisma, HatcheryEggTxnType } from "@prisma/client";
+import { HatcheryPartyService } from "./hatcheryPartyService";
 
 export class HatcheryEggService {
   /**
@@ -133,11 +134,11 @@ export class HatcheryEggService {
       date: Date;
       count: number;
       unitPrice: number;
-      customerName?: string;
+      partyId?: string;
       note?: string;
     }
   ) {
-    const { batchId, eggTypeId, date, count, unitPrice, customerName, note } =
+    const { batchId, eggTypeId, date, count, unitPrice, partyId, note } =
       data;
 
     if (!Number.isInteger(count) || count <= 0) {
@@ -164,7 +165,7 @@ export class HatcheryEggService {
         count,
         unitPrice,
         amount,
-        customerName,
+        partyId,
         note,
       },
     });
@@ -185,6 +186,10 @@ export class HatcheryEggService {
         note,
       },
     });
+
+    if (partyId) {
+      await HatcheryPartyService.recordSale(tx, partyId, sale.id, "egg_sale", amount, date);
+    }
 
     return sale;
   }
@@ -210,6 +215,10 @@ export class HatcheryEggService {
     await tx.hatcheryEggTxn.deleteMany({
       where: { sourceId: saleId, type: HatcheryEggTxnType.SALE },
     });
+
+    if (sale.partyId) {
+      await HatcheryPartyService.reverseSale(tx, saleId, "egg_sale");
+    }
 
     await tx.hatcheryEggSale.delete({ where: { id: saleId } });
   }

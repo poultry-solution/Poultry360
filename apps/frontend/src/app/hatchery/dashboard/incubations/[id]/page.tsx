@@ -30,6 +30,7 @@ import {
   type ChickSale,
   type ChickGrade,
 } from "@/fetchers/hatchery/hatcheryIncubationQueries";
+import { useHatcheryParties } from "@/fetchers/hatchery/hatcheryPartyQueries";
 
 type Tab = "overview" | "candling" | "transfer" | "hatch-results" | "chick-stock" | "chick-sales";
 
@@ -506,17 +507,19 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
   const { data: sales, isLoading } = useChickSales(batchId);
   const addMutation = useAddChickSale(batchId);
   const deleteMutation = useDeleteChickSale(batchId);
+  const { data: partiesData } = useHatcheryParties();
 
   const [grade, setGrade] = useState<ChickGrade>("A");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [count, setCount] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
-  const [customerName, setCustomerName] = useState("");
+  const [partyId, setPartyId] = useState("");
   const [note, setNote] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const stocks: Array<{ grade: ChickGrade; currentStock: number }> = batch.chickStocks ?? [];
+  const parties = partiesData?.parties ?? [];
 
   async function handleAdd() {
     setErr(null);
@@ -528,12 +531,12 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
         date,
         count: parseInt(count),
         unitPrice: parseFloat(unitPrice),
-        customerName: customerName || undefined,
+        partyId: partyId || undefined,
         note: note || undefined,
       });
       setCount("");
       setUnitPrice("");
-      setCustomerName("");
+      setPartyId("");
       setNote("");
     } catch (e: any) {
       setErr(e?.response?.data?.error ?? e.message);
@@ -565,7 +568,7 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
     { key: "count", label: "Count", render: (_, s) => <span className="font-semibold">{s.count}</span> },
     { key: "unitPrice", label: "Unit Price", render: (_, s) => `₹${Number(s.unitPrice).toFixed(2)}` },
     { key: "amount", label: "Amount", render: (_, s) => <span className="font-semibold">₹{Number(s.amount).toLocaleString()}</span> },
-    { key: "customerName", label: "Customer", render: (_, s) => s.customerName ?? "—" },
+    { key: "partyId", label: "Party", render: (_, s) => s.party?.name ?? (s.partyId ? "—" : "Cash") },
     { key: "note", label: "Note", render: (_, s) => s.note ?? "—" },
     {
       key: "actions",
@@ -631,8 +634,17 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
             <Input type="number" min={0} step={0.01} value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} placeholder="0.00" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Customer Name</label>
-            <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Optional" />
+            <label className="block text-sm font-medium mb-1">Party (credit) / blank = cash</label>
+            <select
+              className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+              value={partyId}
+              onChange={(e) => setPartyId(e.target.value)}
+            >
+              <option value="">Cash sale</option>
+              {parties.map((p) => (
+                <option key={p.id} value={p.id}>{p.name} ({p.phone})</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Note</label>

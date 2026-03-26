@@ -66,6 +66,7 @@ import hatcheryInventoryRoutes from "./hatcheryInventoryRoutes";
 import hatcheryBatchRoutes from "./hatcheryBatchRoutes";
 import hatcheryEggTypeRoutes from "./hatcheryEggTypeRoutes";
 import hatcheryIncubationRoutes from "./hatcheryIncubationRoutes";
+import hatcheryPartyRoutes from "./hatcheryPartyRoutes";
 
 // Test routes (only in test environment)
 let testRoutes: express.Router | null = null;
@@ -135,6 +136,7 @@ router.use("/hatchery/inventory", hatcheryInventoryRoutes);
 router.use("/hatchery/batches", hatcheryBatchRoutes);
 router.use("/hatchery/egg-types", hatcheryEggTypeRoutes);
 router.use("/", hatcheryIncubationRoutes);
+router.use("/", hatcheryPartyRoutes);
 router.use("/public", publicRoutes);
 router.use("/upload", uploadRoutes);
 router.use("/reminders", reminderRoutes);

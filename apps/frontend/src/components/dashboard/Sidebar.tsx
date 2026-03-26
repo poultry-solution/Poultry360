@@ -95,6 +95,7 @@ export const hatcheryNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.hatcheryIncubations", href: "/hatchery/dashboard/incubations", icon: FlaskConical },
   { nameKey: "sidebar.nav.hatcheryEggInventory", href: "/hatchery/dashboard/egg-inventory", icon: Egg },
   { nameKey: "sidebar.nav.hatcheryEggTypes", href: "/hatchery/dashboard/egg-types", icon: Tag },
+  { nameKey: "sidebar.nav.hatcheryParties", href: "/hatchery/dashboard/parties", icon: Users },
 ];
 
 const adminNavigation: NavigationItem[] = [

@@ -94,7 +94,8 @@ export interface ChickSale {
   count: number;
   unitPrice: number;
   amount: number;
-  customerName: string | null;
+  partyId: string | null;
+  party?: { id: string; name: string; phone: string } | null;
   note: string | null;
   inventoryItemId: string | null;
   createdAt: string;
@@ -314,7 +315,7 @@ export function useAddChickSale(incubationBatchId: string) {
       date: string;
       count: number;
       unitPrice: number;
-      customerName?: string;
+      partyId?: string;
       note?: string;
     }) => {
       const { data } = await axiosInstance.post(
@@ -326,6 +327,7 @@ export function useAddChickSale(incubationBatchId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: incubationKeys.detail(incubationBatchId) });
       qc.invalidateQueries({ queryKey: incubationKeys.chickSales(incubationBatchId) });
+      qc.invalidateQueries({ queryKey: ["hatchery-parties"] });
     },
   });
 }
@@ -341,6 +343,7 @@ export function useDeleteChickSale(incubationBatchId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: incubationKeys.detail(incubationBatchId) });
       qc.invalidateQueries({ queryKey: incubationKeys.chickSales(incubationBatchId) });
+      qc.invalidateQueries({ queryKey: ["hatchery-parties"] });
     },
   });
 }

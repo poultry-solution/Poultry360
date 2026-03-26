@@ -1,4 +1,5 @@
 import { Prisma, HatcheryChickGrade, HatcheryChickTxnType } from "@prisma/client";
+import { HatcheryPartyService } from "./hatcheryPartyService";
 
 function chickLotKey(incubationBatchId: string, grade: HatcheryChickGrade) {
   return `INCUBATION_BATCH:${incubationBatchId}:${grade}`;
@@ -20,7 +21,7 @@ export class HatcheryChickSalesService {
       date: Date;
       count: number;
       unitPrice: number;
-      customerName?: string;
+      partyId?: string;
       note?: string;
     }
   ) {
@@ -31,7 +32,7 @@ export class HatcheryChickSalesService {
       date,
       count,
       unitPrice,
-      customerName,
+      partyId,
       note,
     } = data;
 
@@ -71,7 +72,7 @@ export class HatcheryChickSalesService {
         count,
         unitPrice,
         amount,
-        customerName,
+        partyId,
         note,
         inventoryItemId: lot.id,
       },
@@ -101,6 +102,10 @@ export class HatcheryChickSalesService {
         note,
       },
     });
+
+    if (partyId) {
+      await HatcheryPartyService.recordSale(tx, partyId, sale.id, "chick_sale", amount, date);
+    }
 
     return sale;
   }
@@ -147,6 +152,10 @@ export class HatcheryChickSalesService {
     await tx.hatcheryChickTxn.deleteMany({
       where: { sourceId: saleId, type: HatcheryChickTxnType.SALE },
     });
+
+    if (sale.partyId) {
+      await HatcheryPartyService.reverseSale(tx, saleId, "chick_sale");
+    }
 
     await tx.hatcheryChickSale.delete({ where: { id: saleId } });
   }

@@ -121,7 +121,8 @@
       "hatcheryBatches": "Batches",
       "hatcheryEggInventory": "Egg Inventory",
       "hatcheryEggTypes": "Egg Types",
-      "hatcheryIncubations": "Incubations"
+      "hatcheryIncubations": "Incubations",
+      "hatcheryParties": "Parties"
     }
   },
   "settings": {

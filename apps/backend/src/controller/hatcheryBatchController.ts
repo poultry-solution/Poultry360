@@ -664,7 +664,7 @@ export async function addEggSale(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
     const { id: batchId } = req.params;
-    const { eggTypeId, date, count, unitPrice, customerName, note } = req.body;
+    const { eggTypeId, date, count, unitPrice, partyId, note } = req.body;
 
     if (!eggTypeId || !date || !count || !unitPrice) {
       return res.status(400).json({ error: "eggTypeId, date, count, and unitPrice are required" });
@@ -682,7 +682,7 @@ export async function addEggSale(req: Request, res: Response) {
         date: new Date(date),
         count: parseInt(count),
         unitPrice: Number(unitPrice),
-        customerName,
+        partyId: partyId || undefined,
         note,
       });
     });
@@ -745,10 +745,12 @@ export async function addParentSale(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
     const { id: batchId } = req.params;
-    const { date, count, unitPrice, customerName, note } = req.body;
+    const { date, count, totalWeightKg, ratePerKg, partyId, note } = req.body;
 
-    if (!date || !count || !unitPrice) {
-      return res.status(400).json({ error: "date, count, and unitPrice are required" });
+    if (!date || !count || !totalWeightKg || !ratePerKg) {
+      return res.status(400).json({
+        error: "date, count, totalWeightKg, and ratePerKg are required",
+      });
     }
 
     const batch = await prisma.hatcheryBatch.findFirst({
@@ -763,25 +765,38 @@ export async function addParentSale(req: Request, res: Response) {
       });
     }
 
-    const amount = Math.round(Number(unitPrice) * saleCount * 100) / 100;
+    const totalKg = parseFloat(totalWeightKg);
+    const rate = parseFloat(ratePerKg);
+    const avgWeightKg = saleCount > 0 ? Math.round((totalKg / saleCount) * 1000) / 1000 : 0;
+    const amount = Math.round(totalKg * rate * 100) / 100;
 
-    const [sale] = await prisma.$transaction([
-      prisma.hatcheryParentSale.create({
+    const sale = await prisma.$transaction(async (tx) => {
+      const created = await tx.hatcheryParentSale.create({
         data: {
           batchId,
           date: new Date(date),
           count: saleCount,
-          unitPrice: Number(unitPrice),
+          totalWeightKg: totalKg,
+          avgWeightKg,
+          ratePerKg: rate,
           amount,
-          customerName,
+          partyId: partyId || null,
           note,
         },
-      }),
-      prisma.hatcheryBatch.update({
+      });
+
+      await tx.hatcheryBatch.update({
         where: { id: batchId },
         data: { currentParents: { decrement: saleCount } },
-      }),
-    ]);
+      });
+
+      if (partyId) {
+        const { HatcheryPartyService } = await import("../services/hatcheryPartyService");
+        await HatcheryPartyService.recordSale(tx, partyId, created.id, "parent_sale", amount, new Date(date));
+      }
+
+      return created;
+    });
 
     return res.status(201).json(sale);
   } catch (err: any) {
@@ -804,13 +819,19 @@ export async function deleteParentSale(req: Request, res: Response) {
     });
     if (!sale) return res.status(404).json({ error: "Sale not found" });
 
-    await prisma.$transaction([
-      prisma.hatcheryParentSale.delete({ where: { id: saleId } }),
-      prisma.hatcheryBatch.update({
+    await prisma.$transaction(async (tx) => {
+      if (sale.partyId) {
+        const { HatcheryPartyService } = await import("../services/hatcheryPartyService");
+        await HatcheryPartyService.reverseSale(tx, saleId, "parent_sale");
+      }
+
+      await tx.hatcheryParentSale.delete({ where: { id: saleId } });
+
+      await tx.hatcheryBatch.update({
         where: { id: batchId },
         data: { currentParents: { increment: sale.count } },
-      }),
-    ]);
+      });
+    });
 
     return res.json({ success: true });
   } catch (err: any) {
