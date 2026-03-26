@@ -14,6 +14,7 @@ import { Badge } from "@/common/components/ui/badge";
 import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
 import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { DataTable, type Column } from "@/common/components/ui/data-table";
 import { toast } from "sonner";
 import {
   Package,
@@ -214,6 +215,125 @@ export default function HatcheryInventoryPage() {
     item.supplierKey !== "NONE" &&
     item.supplierKey.startsWith("HATCHERY_SUPPLIER:");
 
+  const columns: Column<HatcheryInventoryItem>[] = [
+    {
+      key: "name",
+      label: "Item",
+      width: "220px",
+      render: (_value, row) => {
+        const isLow =
+          row.minStock !== null &&
+          Number(row.currentStock) < Number(row.minStock);
+        return (
+          <div className="flex items-center gap-1.5">
+            {isLow && (
+              <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+            )}
+            <span className="font-medium">{row.name}</span>
+          </div>
+        );
+      },
+    },
+    {
+      key: "itemType",
+      label: "Type",
+      width: "140px",
+      render: (value) => (
+        <Badge className={`text-xs ${TYPE_COLORS[value as HatcheryInventoryItemType]}`}>
+          {String(value)}
+        </Badge>
+      ),
+    },
+    {
+      key: "currentStock",
+      label: "Stock",
+      align: "right",
+      width: "160px",
+      render: (value, row) => (
+        <span className="font-semibold">
+          {fmtStock(value)}{" "}
+          <span className="text-muted-foreground font-normal">{row.unit}</span>
+        </span>
+      ),
+    },
+    {
+      key: "unitPrice",
+      label: "Unit Price",
+      align: "right",
+      width: "140px",
+      render: (value) => (
+        <span className="text-muted-foreground">
+          Rs.{" "}
+          {Number(value || 0).toLocaleString("en-NP", {
+            minimumFractionDigits: 2,
+          })}
+        </span>
+      ),
+    },
+    {
+      key: "minStock",
+      label: "Min Stock",
+      align: "right",
+      width: "160px",
+      render: (value, row) =>
+        value !== null && value !== undefined ? (
+          <span className="text-muted-foreground">
+            {fmtStock(value)} {row.unit}
+          </span>
+        ) : (
+          "—"
+        ),
+    },
+    {
+      key: "__actions",
+      label: "Actions",
+      align: "right",
+      width: "260px",
+      render: (_value, row) => (
+        <div className="flex items-center justify-end gap-1">
+          {canReorder(row) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-orange-600 hover:text-orange-700"
+              onClick={() => openReorder(row)}
+            >
+              <RefreshCw className="w-3 h-3 mr-1" />
+              Reorder
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => openUsage(row)}
+          >
+            <Minus className="w-3 h-3 mr-1" />
+            Use
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => openEdit(row)}
+          >
+            Edit
+          </Button>
+          {Number(row.currentStock) === 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-red-500 hover:text-red-600"
+              onClick={() => openDelete(row)}
+            >
+              <Trash2 className="w-3 h-3" />
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -305,110 +425,17 @@ export default function HatcheryInventoryPage() {
           </p>
         </div>
       ) : (
-        <div className="rounded-lg border overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="text-left p-3 font-medium">Item</th>
-                <th className="text-left p-3 font-medium">Type</th>
-                <th className="text-right p-3 font-medium">Stock</th>
-                <th className="text-right p-3 font-medium">Unit Price</th>
-                <th className="text-right p-3 font-medium">Min Stock</th>
-                <th className="text-right p-3 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => {
-                const isLow =
-                  item.minStock !== null &&
-                  Number(item.currentStock) < Number(item.minStock);
-                return (
-                  <tr
-                    key={item.id}
-                    className={`border-b hover:bg-muted/30 ${
-                      isLow ? "bg-red-50/50" : ""
-                    }`}
-                  >
-                    <td className="p-3">
-                      <div className="flex items-center gap-1.5">
-                        {isLow && (
-                          <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                        )}
-                        <span className="font-medium">{item.name}</span>
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <Badge
-                        className={`text-xs ${TYPE_COLORS[item.itemType]}`}
-                      >
-                        {item.itemType}
-                      </Badge>
-                    </td>
-                    <td className="p-3 text-right font-semibold">
-                      {fmtStock(item.currentStock)}{" "}
-                      <span className="text-muted-foreground font-normal">
-                        {item.unit}
-                      </span>
-                    </td>
-                    <td className="p-3 text-right text-muted-foreground">
-                      Rs.{" "}
-                      {Number(item.unitPrice).toLocaleString("en-NP", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </td>
-                    <td className="p-3 text-right text-muted-foreground">
-                      {item.minStock !== null
-                        ? `${fmtStock(item.minStock)} ${item.unit}`
-                        : "—"}
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center justify-end gap-1">
-                        {canReorder(item) && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs text-orange-600 hover:text-orange-700"
-                            onClick={() => openReorder(item)}
-                          >
-                            <RefreshCw className="w-3 h-3 mr-1" />
-                            Reorder
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => openUsage(item)}
-                        >
-                          <Minus className="w-3 h-3 mr-1" />
-                          Use
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => openEdit(item)}
-                        >
-                          Edit
-                        </Button>
-                        {Number(item.currentStock) === 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs text-red-500 hover:text-red-600"
-                            onClick={() => openDelete(item)}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          data={items}
+          columns={columns}
+          emptyMessage="No inventory items"
+          rowClassName={(row) => {
+            const isLow =
+              row.minStock !== null &&
+              Number(row.currentStock) < Number(row.minStock);
+            return isLow ? "bg-red-50/50" : "";
+          }}
+        />
       )}
 
       {/* ==================== MODALS ==================== */}
