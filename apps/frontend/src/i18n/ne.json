@@ -114,7 +114,9 @@
       "production": "उत्पादन",
       "purchaseRequests": "खरिद अनुरोध",
       "saleRequests": "बिक्री अनुरोध",
-      "hatcheryOverview": "अवलोकन"
+      "hatcheryOverview": "अवलोकन",
+      "hatcherySupplierLedger": "सप्लायर लेजर",
+      "hatcheryInventory": "भण्डार"
     }
   },
   "settings": {

@@ -88,7 +88,8 @@ export const companyNavigation: NavigationItem[] = [
 
 export const hatcheryNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.home", href: "/hatchery/dashboard/home", icon: Home },
-  { nameKey: "sidebar.nav.hatcheryOverview", href: "/hatchery/dashboard/overview", icon: Egg },
+  { nameKey: "sidebar.nav.hatcherySupplierLedger", href: "/hatchery/dashboard/supplier-ledger", icon: Truck },
+  { nameKey: "sidebar.nav.hatcheryInventory", href: "/hatchery/dashboard/inventory", icon: Package },
 ];
 
 const adminNavigation: NavigationItem[] = [

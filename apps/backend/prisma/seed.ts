@@ -1,4 +1,14 @@
-import { PrismaClient, UserRole, UserStatus, Language, CalendarType } from "@prisma/client";
+import {
+  PrismaClient,
+  UserRole,
+  UserStatus,
+  Language,
+  CalendarType,
+  HatcherySupplierTxnType,
+  HatcheryPurchaseCategory,
+  HatcheryInventoryItemType,
+  HatcheryInventoryTxnType,
+} from "@prisma/client";
 import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
@@ -210,6 +220,112 @@ async function main() {
       contact: "+9779800000060",
       address: "Hetauda Industrial Area, Makwanpur",
       ownerId: hatcheryUser1.id,
+    },
+    update: {},
+  });
+
+  // ==================== HATCHERY SAMPLE SUPPLIERS + INVENTORY ====================
+  console.log("Creating sample hatchery suppliers and inventory...");
+
+  const hatcheryFeedSupplier = await prisma.hatcherySupplier.upsert({
+    where: { hatcheryOwnerId_name: { hatcheryOwnerId: hatcheryUser1.id, name: "Krishna Feeds" } },
+    create: {
+      hatcheryOwnerId: hatcheryUser1.id,
+      name: "Krishna Feeds",
+      contact: "+9779811000001",
+      address: "Birgunj, Parsa",
+      openingBalance: 15000,
+      balance: 15000,
+    },
+    update: {},
+  });
+
+  await prisma.hatcherySupplierTxn.upsert({
+    where: { id: "seed-hatchery-ob-1" },
+    create: {
+      id: "seed-hatchery-ob-1",
+      supplierId: hatcheryFeedSupplier.id,
+      type: HatcherySupplierTxnType.OPENING_BALANCE,
+      amount: 15000,
+      balanceAfter: 15000,
+      date: new Date("2026-01-01"),
+      note: "Opening balance",
+    },
+    update: {},
+  });
+
+  const hatcheryMedSupplier = await prisma.hatcherySupplier.upsert({
+    where: { hatcheryOwnerId_name: { hatcheryOwnerId: hatcheryUser1.id, name: "Vet Care Pharma" } },
+    create: {
+      hatcheryOwnerId: hatcheryUser1.id,
+      name: "Vet Care Pharma",
+      contact: "+9779822000002",
+      address: "Kathmandu, Kirtipur",
+      openingBalance: 0,
+      balance: 8500,
+    },
+    update: {},
+  });
+
+  // Purchase txn for medicine supplier
+  const medPurchaseTxn = await prisma.hatcherySupplierTxn.upsert({
+    where: { id: "seed-hatchery-med-purchase-1" },
+    create: {
+      id: "seed-hatchery-med-purchase-1",
+      supplierId: hatcheryMedSupplier.id,
+      type: HatcherySupplierTxnType.PURCHASE,
+      amount: 8500,
+      balanceAfter: 8500,
+      date: new Date("2026-03-15"),
+      purchaseCategory: HatcheryPurchaseCategory.MEDICINE,
+      items: {
+        create: [
+          {
+            itemName: "Newcastle Vaccine",
+            quantity: 500,
+            freeQuantity: 0,
+            unit: "doses",
+            unitPrice: 17,
+            totalAmount: 8500,
+          },
+        ],
+      },
+    },
+    update: {},
+  });
+
+  // Inventory item for the medicine purchased
+  await prisma.hatcheryInventoryItem.upsert({
+    where: {
+      hatcheryOwnerId_itemType_name_unitPrice_supplierKey: {
+        hatcheryOwnerId: hatcheryUser1.id,
+        itemType: HatcheryInventoryItemType.MEDICINE,
+        name: "Newcastle Vaccine",
+        unitPrice: 17,
+        supplierKey: `HATCHERY_SUPPLIER:${hatcheryMedSupplier.id}`,
+      },
+    },
+    create: {
+      hatcheryOwnerId: hatcheryUser1.id,
+      itemType: HatcheryInventoryItemType.MEDICINE,
+      name: "Newcastle Vaccine",
+      unit: "doses",
+      unitPrice: 17,
+      supplierKey: `HATCHERY_SUPPLIER:${hatcheryMedSupplier.id}`,
+      currentStock: 500,
+      minStock: 100,
+      transactions: {
+        create: [
+          {
+            type: HatcheryInventoryTxnType.PURCHASE,
+            quantity: 500,
+            unitPrice: 17,
+            amount: 8500,
+            date: new Date("2026-03-15"),
+            sourceSupplierTxnId: medPurchaseTxn.id,
+          },
+        ],
+      },
     },
     update: {},
   });

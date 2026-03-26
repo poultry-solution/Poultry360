@@ -249,6 +249,11 @@ model User {
   managedCompanies Company[] @relation("CompanyManagedBy")
 
   hatcheryBusiness HatcheryBusiness?
+
+  // Hatchery supplier ledger + inventory
+  hatcherySuppliers   HatcherySupplier[]       @relation("HatcheryOwnerSuppliers")
+  hatcheryInventory   HatcheryInventoryItem[]  @relation("HatcheryOwnerInventory")
+
   suppliedProducts Product[] @relation("ProductSupplier")
 
   // Inventory
@@ -2879,6 +2884,145 @@ model StaffPayment {
 
   @@index([staffId])
   @@index([paidAt])
+}
+
+// ==================== HATCHERY SUPPLIER LEDGER + INVENTORY ====================
+
+enum HatcherySupplierTxnType {
+  PURCHASE
+  PAYMENT
+  ADJUSTMENT
+  OPENING_BALANCE
+}
+
+enum HatcheryPurchaseCategory {
+  FEED
+  MEDICINE
+  CHICKS
+  OTHER
+}
+
+enum HatcheryInventoryItemType {
+  FEED
+  MEDICINE
+  CHICKS
+  OTHER
+}
+
+enum HatcheryInventoryTxnType {
+  PURCHASE
+  USAGE
+  ADJUSTMENT
+}
+
+// Hatchery-owned supplier master (separate from farmer dealer/medicine supplier)
+model HatcherySupplier {
+  id               String  @id @default(cuid())
+  hatcheryOwnerId  String
+  hatcheryOwner    User    @relation("HatcheryOwnerSuppliers", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+
+  name             String
+  contact          String?
+  address          String?
+  openingBalance   Decimal @db.Decimal(12, 2) @default(0)
+  balance          Decimal @db.Decimal(12, 2) @default(0)
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  transactions     HatcherySupplierTxn[]
+
+  @@index([hatcheryOwnerId])
+  @@unique([hatcheryOwnerId, name])
+}
+
+// Hatchery supplier ledger transaction (purchase / payment / adjustment / opening balance)
+model HatcherySupplierTxn {
+  id               String                   @id @default(cuid())
+  supplierId       String
+  supplier         HatcherySupplier         @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  type             HatcherySupplierTxnType
+  amount           Decimal                  @db.Decimal(12, 2)
+  balanceAfter     Decimal                  @db.Decimal(12, 2)
+  date             DateTime
+  note             String?
+
+  purchaseCategory HatcheryPurchaseCategory?
+  receiptImageUrl  String?
+  reference        String?
+
+  items            HatcherySupplierPurchaseItem[]
+  inventoryTxns    HatcheryInventoryTxn[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([supplierId])
+  @@index([date])
+}
+
+// Line items for a hatchery supplier PURCHASE transaction
+model HatcherySupplierPurchaseItem {
+  id            String              @id @default(cuid())
+  txnId         String
+  txn           HatcherySupplierTxn @relation(fields: [txnId], references: [id], onDelete: Cascade)
+
+  itemName      String
+  quantity      Decimal             @db.Decimal(12, 4)
+  freeQuantity  Decimal             @db.Decimal(12, 4) @default(0)
+  unit          String              @default("kg")
+  unitPrice     Decimal             @db.Decimal(12, 4)
+  totalAmount   Decimal             @db.Decimal(12, 2)
+
+  @@index([txnId])
+}
+
+// Hatchery inventory item (feed / medicine / chicks / other – no expiry)
+model HatcheryInventoryItem {
+  id               String                    @id @default(cuid())
+  hatcheryOwnerId  String
+  hatcheryOwner    User                      @relation("HatcheryOwnerInventory", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+
+  itemType         HatcheryInventoryItemType
+  name             String
+  unit             String                    @default("kg")
+  unitPrice        Decimal                   @db.Decimal(12, 4)
+  supplierKey      String                    @default("NONE")
+  currentStock     Decimal                   @db.Decimal(12, 4) @default(0)
+  minStock         Decimal?                  @db.Decimal(12, 4)
+  deletedAt        DateTime?
+
+  transactions     HatcheryInventoryTxn[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([hatcheryOwnerId, itemType, name, unitPrice, supplierKey])
+  @@index([hatcheryOwnerId])
+  @@index([itemType])
+}
+
+// Hatchery inventory transaction (PURCHASE / USAGE / ADJUSTMENT)
+model HatcheryInventoryTxn {
+  id                   String                    @id @default(cuid())
+  itemId               String
+  item                 HatcheryInventoryItem     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  type                 HatcheryInventoryTxnType
+  quantity             Decimal                   @db.Decimal(12, 4)
+  unitPrice            Decimal?                  @db.Decimal(12, 4)
+  amount               Decimal?                  @db.Decimal(12, 2)
+  date                 DateTime
+  note                 String?
+
+  sourceSupplierTxnId  String?
+  sourceSupplierTxn    HatcherySupplierTxn?      @relation(fields: [sourceSupplierTxnId], references: [id], onDelete: SetNull)
+
+  createdAt            DateTime @default(now())
+
+  @@index([itemId])
+  @@index([sourceSupplierTxnId])
 }
 
 // ==================== PASSWORD RESET OTP ====================

@@ -61,6 +61,8 @@ import staffRoutes from "./staffRoutes";
 import pushRoutes from "./pushRoutes";
 import notificationRoutes from "./notificationRoutes";
 import onboardingPaymentRoutes from "./onboardingPaymentRoutes";
+import hatcherySupplierRoutes from "./hatcherySupplierRoutes";
+import hatcheryInventoryRoutes from "./hatcheryInventoryRoutes";
 
 // Test routes (only in test environment)
 let testRoutes: express.Router | null = null;
@@ -125,6 +127,8 @@ router.use("/admin/payment-approvals", adminPaymentApprovalsRoutes);
 router.use("/admin/onboarding-payment-settings", adminOnboardingPaymentSettingsRoutes);
 router.use("/admin/demo-enquiries", adminDemoEnquiryRoutes);
 router.use("/onboarding/payment", onboardingPaymentRoutes);
+router.use("/hatchery/suppliers", hatcherySupplierRoutes);
+router.use("/hatchery/inventory", hatcheryInventoryRoutes);
 router.use("/public", publicRoutes);
 router.use("/upload", uploadRoutes);
 router.use("/reminders", reminderRoutes);

@@ -115,7 +115,9 @@
       "production": "Production",
       "purchaseRequests": "Purchase Requests",
       "saleRequests": "Sale Requests",
-      "hatcheryOverview": "Overview"
+      "hatcheryOverview": "Overview",
+      "hatcherySupplierLedger": "Supplier Ledger",
+      "hatcheryInventory": "Inventory"
     }
   },
   "settings": {
