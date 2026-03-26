@@ -52,7 +52,8 @@ export default function HatcheryBatchesPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const createMutation = useCreateHatcheryBatch();
-  const { data: inventoryItems = [] } = useGetHatcheryInventoryTable("CHICKS");
+  const { data: inventoryTableRes } = useGetHatcheryInventoryTable("CHICKS");
+  const inventoryItems: any[] = inventoryTableRes?.data ?? [];
 
   function addPlacementRow() {
     setPlacements((prev) => [...prev, { inventoryItemId: "", quantity: "" }]);

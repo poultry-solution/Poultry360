@@ -6,7 +6,9 @@ import { HatcheryBatchExpenseService } from "../services/hatcheryBatchExpenseSer
 import { HatcheryEggService } from "../services/hatcheryEggService";
 
 function getOwnerId(req: Request): string {
-  return (req as any).user?.id as string;
+  // Keep consistent with existing controllers + middleware contract.
+  // `authMiddleware` sets `req.userId`.
+  return (req as any).userId as string;
 }
 
 // ─── Batch CRUD ─────────────────────────────────────────────────────────────

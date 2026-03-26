@@ -426,7 +426,8 @@ function ExpensesTab({ batchId }: { batchId: string }) {
   const { data: expenses = [], isLoading } = useHatcheryExpenses(batchId);
   const addMutation = useAddHatcheryExpense(batchId);
   const deleteMutation = useDeleteHatcheryExpense(batchId);
-  const { data: inventoryItems = [] } = useGetHatcheryInventory();
+  const { data: inventoryRes } = useGetHatcheryInventory();
+  const inventoryItems: any[] = inventoryRes?.data ?? [];
 
   const [expenseType, setExpenseType] = useState<"INVENTORY" | "MANUAL">("INVENTORY");
   const [date, setDate] = useState(today());
@@ -445,7 +446,7 @@ function ExpensesTab({ batchId }: { batchId: string }) {
   const effectiveCategory = category === "_custom" ? customCategory : category;
 
   // Auto-fill amount when picking inventory item + qty
-  const selectedItem = (inventoryItems as any[]).find((i) => i.id === inventoryItemId);
+  const selectedItem = inventoryItems.find((i) => i.id === inventoryItemId);
   const computedAmount =
     expenseType === "INVENTORY" && selectedItem && quantity
       ? Math.round(Number(selectedItem.unitPrice) * Number(quantity) * 100) / 100
@@ -617,7 +618,7 @@ function ExpensesTab({ batchId }: { batchId: string }) {
                 onChange={(e) => setInventoryItemId(e.target.value)}
               >
                 <option value="">Select item</option>
-                {(inventoryItems as any[]).map((item) => (
+                {inventoryItems.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name} ({item.unit}) — {Number(item.currentStock)} in stock @ NPR {Number(item.unitPrice)}
                   </option>
