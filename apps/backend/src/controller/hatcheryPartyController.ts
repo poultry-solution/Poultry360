@@ -2,7 +2,9 @@ import { Request, Response } from "express";
 import { HatcheryPartyService } from "../services/hatcheryPartyService";
 
 function getOwnerId(req: Request): string {
-  return (req as any).user?.id;
+  // Hatchery controllers in this codebase use req.userId from auth middleware.
+  // Fallback to req.user?.id for compatibility, but never return undefined.
+  return (req as any).userId || (req as any).user?.id || "";
 }
 
 // ─── Party list + create ────────────────────────────────────────────────────
