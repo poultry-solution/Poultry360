@@ -1,114 +1,209 @@
 "use client";
 
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import axiosInstance from "@/common/lib/axios";
+import { Card, CardContent } from "@/common/components/ui/card";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/common/components/ui/card";
-import { Egg, Building2, TrendingUp, Clock } from "lucide-react";
+  Egg,
+  Layers,
+  FlaskConical,
+  Bird,
+  CalendarDays,
+  DollarSign,
+  Users,
+  AlertTriangle,
+} from "lucide-react";
 import { useAuthStore } from "@/common/store/store";
-import { useI18n } from "@/i18n/useI18n";
+import { useHatcheryBatches, useHatcheryEggInventory } from "@/fetchers/hatchery/hatcheryBatchQueries";
+import { useIncubationBatches, useProducedChickStock } from "@/fetchers/hatchery/hatcheryIncubationQueries";
+import { useHatcheryParties } from "@/fetchers/hatchery/hatcheryPartyQueries";
+import { useGetHatcheryInventoryStatistics } from "@/fetchers/hatchery/hatcheryInventoryQueries";
+
+function fmtNpr(amount: number) {
+  return `NPR ${amount.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function KpiCard({
+  title,
+  value,
+  subtitle,
+  icon: Icon,
+  valueClassName,
+}: {
+  title: string;
+  value: string | number;
+  subtitle?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  valueClassName?: string;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs text-muted-foreground">{title}</p>
+            <p className={`text-2xl font-bold mt-1 ${valueClassName ?? "text-foreground"}`}>{value}</p>
+            {subtitle ? <p className="text-xs text-muted-foreground mt-1">{subtitle}</p> : null}
+          </div>
+          <Icon className="h-5 w-5 text-muted-foreground" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function HatcheryHomePage() {
   const { user } = useAuthStore();
-  const { t } = useI18n();
+  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
 
-  const hatcheryName = user?.hatchery?.name ?? user?.name ?? "Your Hatchery";
+  const { data: parentBatchData, isLoading: isParentBatchLoading } = useHatcheryBatches({
+    type: "PARENT_FLOCK",
+    limit: 200,
+  });
+  const { data: activeParentBatchData, isLoading: isActiveParentBatchLoading } = useHatcheryBatches({
+    type: "PARENT_FLOCK",
+    status: "ACTIVE",
+    limit: 200,
+  });
+  const { data: incubationData, isLoading: isIncubationLoading } = useIncubationBatches({ limit: 200 });
+  const { data: eggStockRows = [], isLoading: isEggStockLoading } = useHatcheryEggInventory();
+  const { data: producedChickRows = [], isLoading: isProducedChickLoading } = useProducedChickStock();
+  const { data: partiesData, isLoading: isPartiesLoading } = useHatcheryParties();
+  const { data: statsRes, isLoading: isInventoryStatsLoading } = useGetHatcheryInventoryStatistics();
+
+  const parentBatchIds = (parentBatchData?.batches ?? []).map((b) => b.id);
+  const incubationIds = (incubationData?.batches ?? []).map((b) => b.id);
+
+  const todayEggProductionQuery = useQuery({
+    queryKey: ["hatchery-home", "today-egg-production", parentBatchIds, today],
+    enabled: parentBatchIds.length > 0,
+    queryFn: async () => {
+      const responses = await Promise.all(
+        parentBatchIds.map((id) => axiosInstance.get(`/hatchery/batches/${id}/egg-productions`))
+      );
+      let total = 0;
+      for (const resp of responses) {
+        const records = (resp.data ?? []) as Array<{
+          date: string;
+          lines?: Array<{ count: number }>;
+        }>;
+        for (const r of records) {
+          if (!String(r.date).startsWith(today)) continue;
+          total += (r.lines ?? []).reduce((sum, line) => sum + Number(line.count ?? 0), 0);
+        }
+      }
+      return total;
+    },
+    initialData: 0,
+  });
+
+  const todayChickSalesRevenueQuery = useQuery({
+    queryKey: ["hatchery-home", "today-chick-sales-revenue", incubationIds, today],
+    enabled: incubationIds.length > 0,
+    queryFn: async () => {
+      const responses = await Promise.all(
+        incubationIds.map((id) => axiosInstance.get(`/hatchery/incubations/${id}/chick-sales`))
+      );
+      let total = 0;
+      for (const resp of responses) {
+        const sales = (resp.data ?? []) as Array<{ date: string; amount: number | string }>;
+        for (const s of sales) {
+          if (!String(s.date).startsWith(today)) continue;
+          total += Number(s.amount ?? 0);
+        }
+      }
+      return total;
+    },
+    initialData: 0,
+  });
+
+  const activeParentBatches = activeParentBatchData?.total ?? 0;
+  const activeIncubations = (incubationData?.batches ?? []).filter(
+    (b) => b.stage === "SETTER" || b.stage === "CANDLING" || b.stage === "HATCHER"
+  ).length;
+  const totalEggStock = eggStockRows.reduce((sum, row) => sum + Number(row.currentStock ?? 0), 0);
+  const totalProducedChicks = producedChickRows.reduce(
+    (sum, row) => sum + Number(row.currentStock ?? 0),
+    0
+  );
+  const outstandingPartiesBalance = (partiesData?.parties ?? []).reduce(
+    (sum, p) => sum + Number(p.balance ?? 0),
+    0
+  );
+  const lowStockItems = Number(statsRes?.data?.lowStockCount ?? 0);
+  const isLoadingCards =
+    isParentBatchLoading ||
+    isActiveParentBatchLoading ||
+    isIncubationLoading ||
+    isEggStockLoading ||
+    isProducedChickLoading ||
+    isPartiesLoading ||
+    isInventoryStatsLoading ||
+    todayEggProductionQuery.isLoading ||
+    todayChickSalesRevenueQuery.isLoading;
 
   return (
     <div className="space-y-6">
-      {/* Welcome banner */}
-      <div className="rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100 p-6">
-        <div className="flex items-center gap-3 mb-1">
-          <Egg className="w-7 h-7 text-orange-500" />
-          <h1 className="text-2xl font-bold text-foreground">
-            Welcome back, {user?.name}
-          </h1>
-        </div>
-        <p className="text-muted-foreground ml-10">
-          {hatcheryName} &mdash; Hatchery Management Dashboard
-        </p>
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Welcome, {user?.name ?? "User"}</h1>
       </div>
 
-      {/* Coming soon stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card className="border-dashed border-orange-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Egg Inventory
-            </CardTitle>
-            <Egg className="h-4 w-4 text-orange-400" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-xl font-semibold text-muted-foreground/60">
-              Coming soon
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Track your egg stock levels
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-dashed border-orange-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Hatch Rate
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-orange-400" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-xl font-semibold text-muted-foreground/60">
-              Coming soon
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Monitor hatch performance
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-dashed border-orange-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Active Batches
-            </CardTitle>
-            <Building2 className="h-4 w-4 text-orange-400" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-xl font-semibold text-muted-foreground/60">
-              Coming soon
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Manage incubation cycles
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {isLoadingCards ? (
+          Array.from({ length: 8 }).map((_, idx) => (
+            <Card key={`kpi-skeleton-${idx}`}>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-2 w-full">
+                    <div className="h-3 w-32 rounded bg-muted animate-pulse" />
+                    <div className="h-7 w-20 rounded bg-muted animate-pulse" />
+                    <div className="h-3 w-40 rounded bg-muted animate-pulse" />
+                  </div>
+                  <div className="h-5 w-5 rounded bg-muted animate-pulse" />
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <>
+            <KpiCard title="Active Parent Batches" value={activeParentBatches} subtitle="Parent flock batches currently active" icon={Layers} />
+            <KpiCard title="Active Incubations" value={activeIncubations} subtitle="Setter/Candling/Hatcher stages" icon={FlaskConical} />
+            <KpiCard title="Total Egg Stock" value={totalEggStock.toLocaleString()} subtitle="Across all egg types and batches" icon={Egg} />
+            <KpiCard title="Total Produced Chicks" value={totalProducedChicks.toLocaleString()} subtitle="Available stock across incubations" icon={Bird} />
+            <KpiCard
+              title="Today Egg Production"
+              value={todayEggProductionQuery.data?.toLocaleString() ?? "0"}
+              subtitle={`Production records on ${today}`}
+              icon={CalendarDays}
+            />
+            <KpiCard
+              title="Today Chick Sales Revenue"
+              value={fmtNpr(todayChickSalesRevenueQuery.data ?? 0)}
+              subtitle={`Chick sales on ${today}`}
+              icon={DollarSign}
+              valueClassName="text-green-700"
+            />
+            <KpiCard
+              title="Outstanding Parties Balance"
+              value={fmtNpr(outstandingPartiesBalance)}
+              subtitle="Total receivable from hatchery parties"
+              icon={Users}
+              valueClassName={outstandingPartiesBalance > 0 ? "text-red-600" : "text-green-700"}
+            />
+            <KpiCard
+              title="Low Inventory Items"
+              value={lowStockItems}
+              subtitle="Items at or below minimum stock"
+              icon={AlertTriangle}
+              valueClassName={lowStockItems > 0 ? "text-red-600" : "text-green-700"}
+            />
+          </>
+        )}
       </div>
-
-      {/* Roadmap card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-orange-500" />
-            <CardTitle>Hatchery Module &mdash; Coming Soon</CardTitle>
-          </div>
-          <CardDescription>
-            We are building a full end-to-end hatchery management system for
-            you. Features in the pipeline:
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2 text-sm text-muted-foreground list-disc list-inside">
-            <li>Egg collection &amp; inventory tracking</li>
-            <li>Incubation batch management with automated timers</li>
-            <li>Hatch rate analytics and mortality reports</li>
-            <li>Chick sale orders and customer ledger</li>
-            <li>Supplier &amp; breed management</li>
-            <li>Revenue and expense tracking</li>
-          </ul>
-        </CardContent>
-      </Card>
     </div>
   );
 }
