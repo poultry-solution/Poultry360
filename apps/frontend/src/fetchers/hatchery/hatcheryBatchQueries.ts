@@ -38,6 +38,32 @@ export interface HatcheryBatchDetail extends HatcheryBatch {
     totalExpenses: number;
     eggStock: HatcheryEggStockRow[];
     parentSalesCount: number;
+    businessSnapshot?: {
+      financial: {
+        totalExpenses: number;
+        eggSalesRevenue: number;
+        parentSalesRevenue: number;
+        chickSalesRevenue: number;
+        totalRevenue: number;
+        profitOrLoss: number;
+      };
+      production: {
+        producedA: number;
+        producedB: number;
+        producedCull: number;
+        producedTotal: number;
+        soldTotal: number;
+        unsoldTotal: number;
+      };
+      incubation: {
+        incubationCount: number;
+        eggsSetTotal: number;
+        candlingLossTotal: number;
+        fertileEggsTotal: number;
+        weightedHatchabilityPct: number;
+        weightedHatchOfTotalPct: number;
+      };
+    };
   };
 }
 

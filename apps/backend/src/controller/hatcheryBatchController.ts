@@ -1,5 +1,11 @@
 import { Request, Response } from "express";
-import { Prisma, HatcheryBatchStatus, HatcheryBatchType, HatcheryBatchExpenseType } from "@prisma/client";
+import {
+  Prisma,
+  HatcheryBatchStatus,
+  HatcheryBatchType,
+  HatcheryBatchExpenseType,
+  HatcheryIncubationLossType,
+} from "@prisma/client";
 import bcrypt from "bcrypt";
 import prisma from "../utils/prisma";
 import { HatcheryBatchService } from "../services/hatcheryBatchService";
@@ -122,8 +128,19 @@ export async function getHatcheryBatch(req: Request, res: Response) {
       return res.status(404).json({ error: "Batch not found" });
     }
 
-    // Compute quick summary stats
-    const [totalMortality, totalExpenses, eggStockRows, parentSalesCount] =
+    // Compute quick summary stats + business snapshot metrics
+    const [
+      totalMortality,
+      totalExpenses,
+      eggStockRows,
+      parentSalesCount,
+      eggSalesAgg,
+      parentSalesAgg,
+      incubationAgg,
+      candlingLossAgg,
+      hatchResultAgg,
+      chickSalesAgg,
+    ] =
       await Promise.all([
         prisma.hatcheryBatchMortality.aggregate({
           where: { batchId: id },
@@ -141,15 +158,99 @@ export async function getHatcheryBatch(req: Request, res: Response) {
           where: { batchId: id },
           _sum: { count: true },
         }),
+        prisma.hatcheryEggSale.aggregate({
+          where: { batchId: id },
+          _sum: { count: true, amount: true },
+        }),
+        prisma.hatcheryParentSale.aggregate({
+          where: { batchId: id },
+          _sum: { count: true, amount: true },
+        }),
+        prisma.hatcheryIncubationBatch.aggregate({
+          where: { parentBatchId: id, hatcheryOwnerId: ownerId },
+          _count: { id: true },
+          _sum: { eggsSetCount: true },
+        }),
+        prisma.hatcheryIncubationLoss.aggregate({
+          where: {
+            incubationBatch: { parentBatchId: id, hatcheryOwnerId: ownerId },
+            type: {
+              in: [
+                HatcheryIncubationLossType.INFERTILE,
+                HatcheryIncubationLossType.EARLY_DEAD,
+              ],
+            },
+          },
+          _sum: { count: true },
+        }),
+        prisma.hatcheryHatchResult.aggregate({
+          where: { incubationBatch: { parentBatchId: id, hatcheryOwnerId: ownerId } },
+          _sum: { hatchedA: true, hatchedB: true, cull: true },
+        }),
+        prisma.hatcheryChickSale.aggregate({
+          where: { incubationBatch: { parentBatchId: id, hatcheryOwnerId: ownerId } },
+          _sum: { count: true, amount: true },
+        }),
       ]);
+
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+
+    const totalExpensesAmount = Number(totalExpenses._sum.amount ?? 0);
+    const eggSalesRevenue = Number(eggSalesAgg._sum.amount ?? 0);
+    const parentSalesRevenue = Number(parentSalesAgg._sum.amount ?? 0);
+    const chickSalesRevenue = Number(chickSalesAgg._sum.amount ?? 0);
+    const totalRevenue = eggSalesRevenue + parentSalesRevenue + chickSalesRevenue;
+    const profitOrLoss = totalRevenue - totalExpensesAmount;
+
+    const producedA = hatchResultAgg._sum.hatchedA ?? 0;
+    const producedB = hatchResultAgg._sum.hatchedB ?? 0;
+    const producedCull = hatchResultAgg._sum.cull ?? 0;
+    const producedTotal = producedA + producedB + producedCull;
+    const soldTotal = chickSalesAgg._sum.count ?? 0;
+    const unsoldTotal = producedTotal - soldTotal;
+
+    const incubationCount = incubationAgg._count.id ?? 0;
+    const eggsSetTotal = incubationAgg._sum.eggsSetCount ?? 0;
+    const candlingLossTotal = candlingLossAgg._sum.count ?? 0;
+    const fertileEggsTotal = eggsSetTotal - candlingLossTotal;
+    const weightedHatchabilityPct =
+      fertileEggsTotal > 0 ? round2((producedTotal / fertileEggsTotal) * 100) : 0;
+    const weightedHatchOfTotalPct =
+      eggsSetTotal > 0 ? round2((producedTotal / eggsSetTotal) * 100) : 0;
 
     return res.json({
       ...batch,
       summary: {
         totalMortality: totalMortality._sum.count ?? 0,
-        totalExpenses: Number(totalExpenses._sum.amount ?? 0),
+        totalExpenses: totalExpensesAmount,
         eggStock: eggStockRows,
         parentSalesCount: parentSalesCount._sum.count ?? 0,
+        businessSnapshot: {
+          financial: {
+            totalExpenses: round2(totalExpensesAmount),
+            eggSalesRevenue: round2(eggSalesRevenue),
+            parentSalesRevenue: round2(parentSalesRevenue),
+            chickSalesRevenue: round2(chickSalesRevenue),
+            totalRevenue: round2(totalRevenue),
+            profitOrLoss: round2(profitOrLoss),
+          },
+          production: {
+            producedA,
+            producedB,
+            producedCull,
+            producedTotal,
+            soldTotal,
+            unsoldTotal,
+          },
+          incubation: {
+            incubationCount,
+            eggsSetTotal,
+            candlingLossTotal,
+            fertileEggsTotal,
+            weightedHatchabilityPct,
+            weightedHatchOfTotalPct,
+          },
+        },
       },
     });
   } catch (err: any) {

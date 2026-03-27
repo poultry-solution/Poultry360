@@ -39,6 +39,7 @@ import {
   useAddHatcheryParentSale,
   useDeleteHatcheryParentSale,
   useHatcheryEggTypes,
+  type HatcheryBatchDetail,
   type HatcheryBatchMortality,
   type HatcheryBatchExpense,
   type HatcheryEggProduction,
@@ -265,7 +266,9 @@ export default function HatcheryBatchDetailPage() {
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 
-function OverviewTab({ batch }: { batch: any }) {
+function OverviewTab({ batch }: { batch: HatcheryBatchDetail }) {
+  const snapshot = batch.summary?.businessSnapshot;
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -283,50 +286,103 @@ function OverviewTab({ batch }: { batch: any }) {
         />
       </div>
 
-      {/* Placements */}
-      {batch.placements && batch.placements.length > 0 && (
-        <div className="bg-white border rounded-xl p-4">
-          <h3 className="font-semibold text-gray-900 mb-3">Initial Placements</h3>
-          <div className="space-y-2">
-            {batch.placements.map((p: any) => (
-              <div
-                key={p.id}
-                className="flex items-center justify-between text-sm py-2 border-b last:border-0"
-              >
-                <span className="text-gray-700">{p.inventoryItem?.name}</span>
-                <span className="font-medium">
-                  {p.quantity.toLocaleString()} {p.inventoryItem?.unit}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <div className="bg-white border rounded-xl p-4 space-y-4">
+        <h3 className="font-semibold text-gray-900">Business Snapshot</h3>
 
-      {/* Egg Stock Summary */}
-      {batch.summary?.eggStock?.length > 0 && (
-        <div className="bg-white border rounded-xl p-4">
-          <h3 className="font-semibold text-gray-900 mb-3">Current Egg Stock</h3>
-          <div className="space-y-2">
-            {batch.summary.eggStock.map((s: any) => (
-              <div
-                key={s.id}
-                className="flex items-center justify-between text-sm py-2 border-b last:border-0"
+        <div>
+          <p className="text-xs font-medium text-gray-500 mb-2">Financial</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-gray-500">Total Revenue</p>
+              <p className="text-lg font-bold text-gray-900">
+                {fmtNPR(snapshot?.financial.totalRevenue ?? 0)}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Egg: {fmtNPR(snapshot?.financial.eggSalesRevenue ?? 0)} · Parent: {fmtNPR(snapshot?.financial.parentSalesRevenue ?? 0)} · Chick: {fmtNPR(snapshot?.financial.chickSalesRevenue ?? 0)}
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-gray-500">Total Expenses</p>
+              <p className="text-lg font-bold text-gray-900">
+                {fmtNPR(snapshot?.financial.totalExpenses ?? batch.summary?.totalExpenses ?? 0)}
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-gray-500">Profit / Loss</p>
+              <p
+                className={`text-lg font-bold ${
+                  (snapshot?.financial.profitOrLoss ?? 0) >= 0 ? "text-green-700" : "text-red-600"
+                }`}
               >
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-700">{s.eggType?.name}</span>
-                  {s.eggType?.isHatchable && (
-                    <CheckCircle className="h-3.5 w-3.5 text-green-600" />
-                  )}
-                </div>
-                <span className="font-bold text-gray-900">
-                  {s.currentStock.toLocaleString()} eggs
-                </span>
-              </div>
-            ))}
+                {fmtNPR(snapshot?.financial.profitOrLoss ?? 0)}
+              </p>
+            </div>
           </div>
         </div>
-      )}
+
+        <div>
+          <p className="text-xs font-medium text-gray-500 mb-2">Production</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-gray-500">Total Chicks Produced</p>
+              <p className="text-lg font-bold text-gray-900">
+                {(snapshot?.production.producedTotal ?? 0).toLocaleString()}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                A: {(snapshot?.production.producedA ?? 0).toLocaleString()} · B: {(snapshot?.production.producedB ?? 0).toLocaleString()} · CULL: {(snapshot?.production.producedCull ?? 0).toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-gray-500">Total Produced Chicks Sold</p>
+              <p className="text-lg font-bold text-gray-900">
+                {(snapshot?.production.soldTotal ?? 0).toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-gray-500">Unsold Produced Chicks</p>
+              <p className="text-lg font-bold text-gray-900">
+                {(snapshot?.production.unsoldTotal ?? 0).toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-medium text-gray-500 mb-2">Incubation Performance</p>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-gray-500">Incubations Done</p>
+              <p className="text-lg font-bold text-gray-900">
+                {(snapshot?.incubation.incubationCount ?? 0).toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-gray-500">Total Candling Loss</p>
+              <p className="text-lg font-bold text-gray-900">
+                {(snapshot?.incubation.candlingLossTotal ?? 0).toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-gray-500">Fertile Eggs (Total)</p>
+              <p className="text-lg font-bold text-gray-900">
+                {(snapshot?.incubation.fertileEggsTotal ?? 0).toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-gray-500">Avg Hatchability (Weighted)</p>
+              <p className="text-lg font-bold text-gray-900">
+                {Number(snapshot?.incubation.weightedHatchabilityPct ?? 0).toFixed(2)}%
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-gray-500">Hatch of Total (Weighted)</p>
+              <p className="text-lg font-bold text-gray-900">
+                {Number(snapshot?.incubation.weightedHatchOfTotalPct ?? 0).toFixed(2)}%
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {batch.notes && (
         <div className="bg-gray-50 border rounded-xl p-4">
