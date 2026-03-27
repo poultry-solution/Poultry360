@@ -217,6 +217,25 @@ export async function getHatcheryBatch(req: Request, res: Response) {
       fertileEggsTotal > 0 ? round2((producedTotal / fertileEggsTotal) * 100) : 0;
     const weightedHatchOfTotalPct =
       eggsSetTotal > 0 ? round2((producedTotal / eggsSetTotal) * 100) : 0;
+    const totalRelevantCost = totalExpensesAmount;
+    const saleableTotal = producedA + producedB;
+    const costPerProducedChick =
+      producedTotal > 0 ? round2(totalRelevantCost / producedTotal) : null;
+    const costPerSaleableChick =
+      saleableTotal > 0 ? round2(totalRelevantCost / saleableTotal) : null;
+    const costEngineWarnings: string[] = [];
+    if (producedTotal <= 0) {
+      costEngineWarnings.push(
+        "Cost per produced chick is unavailable until at least one chick is produced."
+      );
+    }
+    if (saleableTotal <= 0) {
+      costEngineWarnings.push(
+        "Cost per saleable chick is unavailable until at least one saleable chick (A or B) is produced."
+      );
+    }
+    const costEngineStatus =
+      producedTotal > 0 && saleableTotal > 0 ? "READY" : "INSUFFICIENT_DATA";
 
     return res.json({
       ...batch,
@@ -250,6 +269,16 @@ export async function getHatcheryBatch(req: Request, res: Response) {
             weightedHatchabilityPct,
             weightedHatchOfTotalPct,
           },
+        },
+        costEngine: {
+          totalRelevantCost: round2(totalRelevantCost),
+          producedTotal,
+          saleableTotal,
+          costPerProducedChick,
+          costPerSaleableChick,
+          saleableDefinition: "A_PLUS_B",
+          status: costEngineStatus,
+          warnings: costEngineWarnings,
         },
       },
     });

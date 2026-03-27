@@ -268,6 +268,7 @@ export default function HatcheryBatchDetailPage() {
 
 function OverviewTab({ batch }: { batch: HatcheryBatchDetail }) {
   const snapshot = batch.summary?.businessSnapshot;
+  const costEngine = batch.summary?.costEngine;
 
   return (
     <div className="space-y-4">
@@ -377,6 +378,56 @@ function OverviewTab({ batch }: { batch: HatcheryBatchDetail }) {
               </p>
             </div>
           </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-medium text-gray-500 mb-2">Cost Engine</p>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-gray-500">Total Relevant Cost</p>
+              <p className="text-lg font-bold text-gray-900">
+                {fmtNPR(costEngine?.totalRelevantCost ?? 0)}
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-gray-500">Produced Chicks (A+B+CULL)</p>
+              <p className="text-lg font-bold text-gray-900">
+                {(costEngine?.producedTotal ?? 0).toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-gray-500">Saleable Chicks (A+B)</p>
+              <p className="text-lg font-bold text-gray-900">
+                {(costEngine?.saleableTotal ?? 0).toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-gray-500">Cost / Produced Chick</p>
+              <p className="text-lg font-bold text-gray-900">
+                {costEngine?.costPerProducedChick === null
+                  ? "—"
+                  : fmtNPR(costEngine?.costPerProducedChick ?? 0)}
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-gray-500">Cost / Saleable Chick</p>
+              <p className="text-lg font-bold text-gray-900">
+                {costEngine?.costPerSaleableChick === null
+                  ? "—"
+                  : fmtNPR(costEngine?.costPerSaleableChick ?? 0)}
+              </p>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            V1 includes parent batch expenses only.
+          </p>
+          {costEngine?.warnings?.length ? (
+            <ul className="text-xs text-amber-700 mt-2 space-y-1 list-disc list-inside">
+              {costEngine.warnings.map((w: string, idx: number) => (
+                <li key={`${w}-${idx}`}>{w}</li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       </div>
 

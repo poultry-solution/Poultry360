@@ -64,6 +64,16 @@ export interface HatcheryBatchDetail extends HatcheryBatch {
         weightedHatchOfTotalPct: number;
       };
     };
+    costEngine?: {
+      totalRelevantCost: number;
+      producedTotal: number;
+      saleableTotal: number;
+      costPerProducedChick: number | null;
+      costPerSaleableChick: number | null;
+      saleableDefinition: "A_PLUS_B";
+      status: "READY" | "INSUFFICIENT_DATA";
+      warnings: string[];
+    };
   };
 }
 
