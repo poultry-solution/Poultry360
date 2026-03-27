@@ -271,7 +271,7 @@ function OverviewTab({ batch }: { batch: HatcheryBatchDetail }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <StatCard label="Initial Birds" value={batch.initialParents?.toLocaleString() ?? "—"} />
         <StatCard label="Current Birds" value={batch.currentParents?.toLocaleString() ?? "—"} />
         <StatCard
@@ -279,11 +279,7 @@ function OverviewTab({ batch }: { batch: HatcheryBatchDetail }) {
           value={batch.summary?.totalMortality?.toLocaleString() ?? "0"}
           variant="danger"
         />
-        <StatCard
-          label="Total Expenses"
-          value={fmtNPR(batch.summary?.totalExpenses ?? 0)}
-          variant="primary"
-        />
+    
       </div>
 
       <div className="bg-white border rounded-xl p-4 space-y-4">
