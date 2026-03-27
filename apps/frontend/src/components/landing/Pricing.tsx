@@ -110,6 +110,33 @@ export default function Pricing() {
         ctaClassName: "hover:border-indigo-500/50",
       },
     },
+    {
+      id: "hatchery",
+      title: "Hatchery",
+      priceLine: "NPR 15999 / year",
+      ctaLabel: "Start free trial",
+      trialHref: "/auth/signup/hatchery",
+      features: [
+        "Supplier ledger management",
+        "Inventory management",
+        "Parent flock batch management",
+        "Egg production tracking by type",
+        "Batch-wise egg inventory",
+        "Incubation lifecycle (setter/candling/hatcher)",
+        "Hatch result and chick grade tracking",
+        "Chick sales management",
+        "Party ledger and payments",
+        "Produced chicks stock view",
+      ],
+      accent: {
+        border: "border-amber-500/20",
+        glow: "from-amber-500/15 to-transparent",
+        badge: "bg-amber-500/10",
+        badgeText: "text-amber-700",
+        ctaVariant: "outline",
+        ctaClassName: "hover:border-amber-500/50",
+      },
+    },
   ];
 
   return (
@@ -127,7 +154,7 @@ export default function Pricing() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-5 lg:gap-7">
+        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5 lg:gap-7">
           {plans.map((plan) => (
             <Card
               key={plan.id}
@@ -153,6 +180,7 @@ export default function Pricing() {
                       {plan.id === "layer-broiler" ? "For Layer/Broiler" : ""}
                       {plan.id === "feed-dealer" ? "For Feed Dealer" : ""}
                       {plan.id === "feed-mill" ? "For Feed Mill" : ""}
+                      {plan.id === "hatchery" ? "For Hatchery" : ""}
                     </p>
                     <h3 className="text-xl font-bold text-gray-900">
                       {plan.title}
