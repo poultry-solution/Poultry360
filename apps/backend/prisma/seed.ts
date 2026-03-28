@@ -901,81 +901,48 @@ async function main() {
       update: {},
     });
 
-    // Inventory lot for sellable chicks
-    const supplierKey = `INCUBATION_BATCH:${seedIncubation.id}:${grade}`;
-    const lotName = `Hatched Chicks Grade ${grade} (IN-001)`;
-
-    const existingLot = await prisma.hatcheryInventoryItem.findFirst({
-      where: { hatcheryOwnerId: hatcheryUser1.id, supplierKey },
-    });
-
-    if (!existingLot) {
-      await prisma.hatcheryInventoryItem.create({
-        data: {
-          hatcheryOwnerId: hatcheryUser1.id,
-          itemType: HatcheryInventoryItemType.CHICKS,
-          name: lotName,
-          unit: "chicks",
-          unitPrice: 0,
-          supplierKey,
-          currentStock: total,
-        },
-      });
-    }
   }
 
-  // Seed one chick sale (Grade A, 20 chicks)
-  const gradeALot = await prisma.hatcheryInventoryItem.findFirst({
-    where: {
-      hatcheryOwnerId: hatcheryUser1.id,
-      supplierKey: `INCUBATION_BATCH:${seedIncubation.id}:A`,
-    },
+  // Seed one chick sale (Grade A, 20 chicks) — stock from hatcheryChickStock only
+  const existingSale = await prisma.hatcheryChickSale.findFirst({
+    where: { id: "seed-chick-sale-1" },
   });
-
-  if (gradeALot) {
-    const existingSale = await prisma.hatcheryChickSale.findFirst({
-      where: { id: "seed-chick-sale-1" },
+  if (!existingSale) {
+    await prisma.hatcheryChickSale.create({
+      data: {
+        id: "seed-chick-sale-1",
+        incubationBatchId: seedIncubation.id,
+        grade: HatcheryChickGrade.A,
+        date: new Date("2026-04-01"),
+        count: 20,
+        unitPrice: 55,
+        amount: 1100,
+        note: "First chick sale",
+        inventoryItemId: null,
+      },
     });
-    if (!existingSale) {
-      await prisma.hatcheryChickSale.create({
-        data: {
-          id: "seed-chick-sale-1",
+
+    await prisma.hatcheryChickStock.update({
+      where: {
+        incubationBatchId_grade: {
           incubationBatchId: seedIncubation.id,
           grade: HatcheryChickGrade.A,
-          date: new Date("2026-04-01"),
-          count: 20,
-          unitPrice: 55,
-          amount: 1100,
-          note: "First chick sale",
-          inventoryItemId: gradeALot.id,
         },
-      });
+      },
+      data: { currentStock: { decrement: 20 } },
+    });
 
-      // Adjust chick stock
-      await prisma.hatcheryChickStock.update({
-        where: { incubationBatchId_grade: { incubationBatchId: seedIncubation.id, grade: HatcheryChickGrade.A } },
-        data: { currentStock: { decrement: 20 } },
-      });
-
-      // Adjust inventory lot
-      await prisma.hatcheryInventoryItem.update({
-        where: { id: gradeALot.id },
-        data: { currentStock: { decrement: 20 } },
-      });
-
-      // Chick txn for sale
-      await prisma.hatcheryChickTxn.create({
-        data: {
-          incubationBatchId: seedIncubation.id,
-          grade: HatcheryChickGrade.A,
-          type: HatcheryChickTxnType.SALE,
-          count: -20,
-          date: new Date("2026-04-01"),
-          sourceId: "seed-chick-sale-1",
-          note: "Seed chick sale",
-        },
-      });
-    }
+    await prisma.hatcheryChickTxn.create({
+      data: {
+        incubationBatchId: seedIncubation.id,
+        grade: HatcheryChickGrade.A,
+        type: HatcheryChickTxnType.SALE,
+        count: -20,
+        date: new Date("2026-04-01"),
+        sourceId: "seed-chick-sale-1",
+        note: "Seed chick sale",
+      },
+    });
   }
 
   // ==================== HATCHERY PARTIES ====================

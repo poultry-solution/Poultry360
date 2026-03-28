@@ -1,16 +1,9 @@
 import { Prisma, HatcheryChickGrade, HatcheryChickTxnType } from "@prisma/client";
 import { HatcheryPartyService } from "./hatcheryPartyService";
 
-function chickLotKey(incubationBatchId: string, grade: HatcheryChickGrade) {
-  return `INCUBATION_BATCH:${incubationBatchId}:${grade}`;
-}
-
 export class HatcheryChickSalesService {
   /**
-   * Sell chicks by grade.
-   * - Validate batch-wise chick stock by grade
-   * - Validate inventory lot stock
-   * - Decrement both + create sale record + write chick txn
+   * Sell chicks by grade (stock from hatcheryChickStock / Produced Chicks — not hatcheryInventoryItem).
    */
   static async sellChicks(
     tx: Prisma.TransactionClient,
@@ -50,17 +43,6 @@ export class HatcheryChickSalesService {
       );
     }
 
-    // Find inventory lot
-    const supplierKey = chickLotKey(incubationBatchId, grade);
-    const lot = await tx.hatcheryInventoryItem.findFirst({
-      where: { hatcheryOwnerId, supplierKey },
-    });
-    if (!lot || Number(lot.currentStock) < count) {
-      throw new Error(
-        `Insufficient inventory lot stock for grade ${grade}: have ${lot?.currentStock ?? 0}, need ${count}`
-      );
-    }
-
     const amount = Math.round(unitPrice * count * 100) / 100;
 
     // Create sale
@@ -74,19 +56,13 @@ export class HatcheryChickSalesService {
         amount,
         partyId,
         note,
-        inventoryItemId: lot.id,
+        inventoryItemId: null,
       },
     });
 
     // Decrement batch-wise chick stock
     await tx.hatcheryChickStock.update({
       where: { incubationBatchId_grade: { incubationBatchId, grade } },
-      data: { currentStock: { decrement: count } },
-    });
-
-    // Decrement inventory lot
-    await tx.hatcheryInventoryItem.update({
-      where: { id: lot.id },
       data: { currentStock: { decrement: count } },
     });
 
@@ -111,7 +87,7 @@ export class HatcheryChickSalesService {
   }
 
   /**
-   * Delete a chick sale and restore stock in both batch-wise and inventory lot.
+   * Delete a chick sale and restore batch-wise chick stock (and legacy inventory lot if present).
    */
   static async deleteChickSale(
     tx: Prisma.TransactionClient,

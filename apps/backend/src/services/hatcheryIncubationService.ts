@@ -5,15 +5,8 @@ import {
   HatcheryIncubationLossType,
   HatcheryChickGrade,
   HatcheryChickTxnType,
-  HatcheryInventoryTxnType,
-  HatcheryInventoryItemType,
 } from "@prisma/client";
 import prisma from "../utils/prisma";
-
-// Build the inventory lot supplierKey for a chick grade
-function chickLotKey(incubationBatchId: string, grade: HatcheryChickGrade) {
-  return `INCUBATION_BATCH:${incubationBatchId}:${grade}`;
-}
 
 export class HatcheryIncubationService {
   /**
@@ -184,7 +177,7 @@ export class HatcheryIncubationService {
    * - Creates HatcheryHatchResult row
    * - Upserts HatcheryChickStock by grade
    * - Writes HatcheryChickTxn(PRODUCTION) per grade
-   * - Upserts inventory lots for sellable chicks
+   * Produced chicks are not mirrored into hatcheryInventoryItem (see Produced Chicks page).
    */
   static async recordHatchResults(
     tx: Prisma.TransactionClient,
@@ -253,51 +246,6 @@ export class HatcheryIncubationService {
           note,
         },
       });
-
-      // Upsert inventory lot for sellable chicks
-      const supplierKey = chickLotKey(incubationBatchId, grade);
-      const lotName = `Hatched Chicks Grade ${grade} (${incubation.code})`;
-
-      const lot = await tx.hatcheryInventoryItem.upsert({
-        where: {
-          hatcheryOwnerId_itemType_name_unitPrice_supplierKey: {
-            hatcheryOwnerId,
-            itemType: HatcheryInventoryItemType.CHICKS,
-            name: lotName,
-            unitPrice: 0,
-            supplierKey,
-          },
-        },
-        update: {},
-        create: {
-          hatcheryOwnerId,
-          itemType: HatcheryInventoryItemType.CHICKS,
-          name: lotName,
-          unit: "chicks",
-          unitPrice: 0,
-          supplierKey,
-          currentStock: 0,
-        },
-      });
-
-      // Increment inventory lot stock
-      await tx.hatcheryInventoryItem.update({
-        where: { id: lot.id },
-        data: { currentStock: { increment: count } },
-      });
-
-      // Inventory txn for audit
-      await tx.hatcheryInventoryTxn.create({
-        data: {
-          itemId: lot.id,
-          type: HatcheryInventoryTxnType.PURCHASE,
-          quantity: count,
-          unitPrice: 0,
-          amount: 0,
-          date,
-          note: `Hatch result: ${incubation.code} grade ${grade}`,
-        },
-      });
     }
 
     // Mark stage as COMPLETED
@@ -310,7 +258,7 @@ export class HatcheryIncubationService {
   }
 
   /**
-   * Delete a hatch result and reverse all associated chick stock + inventory lot stock.
+   * Delete a hatch result and reverse associated chick stock.
    * Also reverts stage back to HATCHER.
    */
   static async deleteHatchResult(
@@ -372,25 +320,6 @@ export class HatcheryIncubationService {
           sourceId: hatchResultId,
         },
       });
-
-      // Revert inventory lot
-      const supplierKey = chickLotKey(incubationBatchId, grade);
-      const lot = await tx.hatcheryInventoryItem.findFirst({
-        where: { hatcheryOwnerId, supplierKey },
-      });
-      if (lot) {
-        await tx.hatcheryInventoryItem.update({
-          where: { id: lot.id },
-          data: { currentStock: { decrement: count } },
-        });
-        // Remove inventory txn for this hatch
-        await tx.hatcheryInventoryTxn.deleteMany({
-          where: {
-            itemId: lot.id,
-            note: { contains: `Hatch result: ${result.incubationBatch.code} grade ${grade}` },
-          },
-        });
-      }
     }
 
     await tx.hatcheryHatchResult.delete({ where: { id: hatchResultId } });

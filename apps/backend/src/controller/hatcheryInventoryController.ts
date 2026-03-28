@@ -6,6 +6,10 @@ import {
 } from "@prisma/client";
 import { HatcherySupplierService } from "../services/hatcherySupplierService";
 import { HatcheryPurchaseCategory } from "@prisma/client";
+import {
+  excludeProducedChickInventoryLots,
+  PRODUCED_CHICK_LOT_KEY_PREFIX,
+} from "../utils/hatcheryInventoryScope";
 
 const VALID_TYPES = Object.values(HatcheryInventoryItemType);
 
@@ -21,6 +25,7 @@ export const listHatcheryInventory = async (
     const where: any = {
       hatcheryOwnerId: userId,
       deletedAt: null,
+      ...excludeProducedChickInventoryLots,
     };
     if (itemType && VALID_TYPES.includes(itemType as HatcheryInventoryItemType))
       where.itemType = itemType;
@@ -50,7 +55,11 @@ export const hatcheryInventoryTable = async (
     const userId = req.userId!;
     const { itemType } = req.query;
 
-    const where: any = { hatcheryOwnerId: userId, deletedAt: null };
+    const where: any = {
+      hatcheryOwnerId: userId,
+      deletedAt: null,
+      ...excludeProducedChickInventoryLots,
+    };
     if (itemType && VALID_TYPES.includes(itemType as HatcheryInventoryItemType))
       where.itemType = itemType;
 
@@ -75,7 +84,11 @@ export const hatcheryInventoryStatistics = async (
     const userId = req.userId!;
 
     const items = await prisma.hatcheryInventoryItem.findMany({
-      where: { hatcheryOwnerId: userId, deletedAt: null },
+      where: {
+        hatcheryOwnerId: userId,
+        deletedAt: null,
+        ...excludeProducedChickInventoryLots,
+      },
     });
 
     const totalItems = items.length;
@@ -127,6 +140,7 @@ export const hatcheryLowStockItems = async (
         hatcheryOwnerId: userId,
         deletedAt: null,
         minStock: { not: null },
+        ...excludeProducedChickInventoryLots,
       },
     });
 
@@ -158,6 +172,7 @@ export const hatcheryInventoryByType = async (
         hatcheryOwnerId: userId,
         itemType: itemType as HatcheryInventoryItemType,
         deletedAt: null,
+        ...excludeProducedChickInventoryLots,
       },
       orderBy: { name: "asc" },
     });
@@ -185,6 +200,12 @@ export const getHatcheryInventoryItem = async (
       },
     });
     if (!item) return res.status(404).json({ message: "Item not found" });
+    if (item.supplierKey.startsWith(PRODUCED_CHICK_LOT_KEY_PREFIX)) {
+      return res.status(404).json({
+        message:
+          "Produced chick stock is managed under Produced Chicks, not Inventory.",
+      });
+    }
 
     return res.json({ success: true, data: item });
   } catch (err) {
