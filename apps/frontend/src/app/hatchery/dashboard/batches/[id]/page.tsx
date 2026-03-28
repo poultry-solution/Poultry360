@@ -74,6 +74,19 @@ function today() {
   return new Date().toISOString().split("T")[0];
 }
 
+/** Inclusive calendar days from batch start through end date (or today if still active). Minimum 1. */
+function hatcheryBatchProductionDays(
+  startDate: string,
+  endDate: string | null | undefined
+): number {
+  const s = new Date(startDate);
+  const e = endDate ? new Date(endDate) : new Date();
+  const utcS = Date.UTC(s.getFullYear(), s.getMonth(), s.getDate());
+  const utcE = Date.UTC(e.getFullYear(), e.getMonth(), e.getDate());
+  const diffDays = Math.floor((utcE - utcS) / 86400000) + 1;
+  return Math.max(1, diffDays);
+}
+
 function isInitialPlacementExpense(expense: HatcheryBatchExpense) {
   return (
     expense.type === "INVENTORY" &&
@@ -257,7 +270,7 @@ export default function HatcheryBatchDetailPage() {
       {activeTab === "overview" && <OverviewTab batch={batch} />}
       {activeTab === "expenses" && <ExpensesTab batchId={id} />}
       {activeTab === "mortality" && <MortalityTab batchId={id} currentParents={batch.currentParents ?? 0} />}
-      {activeTab === "egg-production" && <EggProductionTab batchId={id} />}
+      {activeTab === "egg-production" && <EggProductionTab batchId={id} batch={batch} />}
       {activeTab === "egg-stock" && <EggStockTab batch={batch} />}
       {activeTab === "sales" && <SalesTab batchId={id} currentParents={batch.currentParents ?? 0} />}
     </div>
@@ -878,7 +891,13 @@ function ExpensesTab({ batchId }: { batchId: string }) {
 
 // ─── Egg Production Tab ───────────────────────────────────────────────────────
 
-function EggProductionTab({ batchId }: { batchId: string }) {
+function EggProductionTab({
+  batchId,
+  batch,
+}: {
+  batchId: string;
+  batch: HatcheryBatchDetail;
+}) {
   const { data: productions = [], isLoading } = useHatcheryEggProductions(batchId);
   const { data: eggTypes = [] } = useHatcheryEggTypes();
   const addMutation = useAddHatcheryEggProduction(batchId);
@@ -919,11 +938,18 @@ function EggProductionTab({ batchId }: { batchId: string }) {
   });
   const grandTotal = Object.values(typeTotals).reduce((s, v) => s + v, 0);
 
+  const productionDays = hatcheryBatchProductionDays(batch.startDate, batch.endDate);
+  const currentHens =
+    batch.type === "PARENT_FLOCK" ? (batch.currentParents ?? 0) : 0;
+  const henDays = currentHens > 0 ? currentHens * productionDays : 0;
+  const eggsPerHenDay =
+    grandTotal > 0 && henDays > 0 ? grandTotal / henDays : null;
+
   return (
     <div className="space-y-4">
-      {/* Summary cards */}
+      {/* Summary cards (mix % per type kept; lay rate uses current hens × days) */}
       {eggTypes.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {eggTypes.map((type) => (
             <div key={type.id} className="bg-white border rounded-xl p-3">
               <div className="flex items-center gap-1 mb-1">
@@ -943,6 +969,28 @@ function EggProductionTab({ batchId }: { batchId: string }) {
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
             <p className="text-xs text-amber-600 mb-1">Total Eggs</p>
             <p className="text-xl font-bold text-amber-800">{grandTotal.toLocaleString()}</p>
+          </div>
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 md:col-span-2 lg:col-span-2">
+            <p className="text-xs text-emerald-700 mb-1">Eggs / hen / day</p>
+            <p className="text-xl font-bold text-emerald-900">
+              {eggsPerHenDay != null ? eggsPerHenDay.toFixed(3) : "—"}
+            </p>
+            {eggsPerHenDay != null && (
+              <p className="text-xs text-emerald-700/85 mt-1 leading-snug">
+                {grandTotal.toLocaleString()} eggs ÷ ({currentHens.toLocaleString()} hens ×{" "}
+                {productionDays} days)
+              </p>
+            )}
+            {batch.type === "PARENT_FLOCK" &&
+              currentHens === 0 &&
+              grandTotal > 0 && (
+                <p className="text-xs text-amber-800 mt-1 leading-snug">
+                  Set <strong>current</strong> bird count (Overview) to compute lay rate.
+                </p>
+              )}
+            {batch.type !== "PARENT_FLOCK" && grandTotal > 0 && (
+              <p className="text-xs text-gray-600 mt-1">Lay rate applies to parent flocks.</p>
+            )}
           </div>
         </div>
       )}
