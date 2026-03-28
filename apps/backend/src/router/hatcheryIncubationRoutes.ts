@@ -20,36 +20,41 @@ import {
 
 const router = express.Router();
 
-router.use((req, res, next) => {
-  authMiddleware(req, res, next, [UserRole.HATCHERY] as any);
-});
+/** Per-route only: this router is mounted at `/`, so a blanket `router.use` would block /notifications, /push, etc. */
+const requireHatchery: express.RequestHandler = (req, res, next) => {
+  void authMiddleware(req, res, next, [UserRole.HATCHERY] as any);
+};
 
 // Incubation batches
-router.get("/hatchery/incubations", listIncubationBatches);
-router.post("/hatchery/incubations", createIncubationBatch);
-router.get("/hatchery/incubations/:id", getIncubationBatch);
+router.get("/hatchery/incubations", requireHatchery, listIncubationBatches);
+router.post("/hatchery/incubations", requireHatchery, createIncubationBatch);
+router.get("/hatchery/incubations/:id", requireHatchery, getIncubationBatch);
 
 // Stage transitions
-router.post("/hatchery/incubations/:id/candling", recordCandling);
-router.post("/hatchery/incubations/:id/transfer", transferToHatcher);
+router.post("/hatchery/incubations/:id/candling", requireHatchery, recordCandling);
+router.post("/hatchery/incubations/:id/transfer", requireHatchery, transferToHatcher);
 
 // Losses
-router.get("/hatchery/incubations/:id/losses", listIncubationLosses);
+router.get("/hatchery/incubations/:id/losses", requireHatchery, listIncubationLosses);
 
 // Hatch results
-router.get("/hatchery/incubations/:id/hatch-results", listHatchResults);
-router.post("/hatchery/incubations/:id/hatch-results", addHatchResult);
-router.delete("/hatchery/incubations/:id/hatch-results/:hatchResultId", deleteHatchResult);
+router.get("/hatchery/incubations/:id/hatch-results", requireHatchery, listHatchResults);
+router.post("/hatchery/incubations/:id/hatch-results", requireHatchery, addHatchResult);
+router.delete(
+  "/hatchery/incubations/:id/hatch-results/:hatchResultId",
+  requireHatchery,
+  deleteHatchResult
+);
 
 // Chick sales
-router.get("/hatchery/incubations/:id/chick-sales", listChickSales);
-router.post("/hatchery/incubations/:id/chick-sales", addChickSale);
-router.delete("/hatchery/incubations/:id/chick-sales/:saleId", deleteChickSale);
+router.get("/hatchery/incubations/:id/chick-sales", requireHatchery, listChickSales);
+router.post("/hatchery/incubations/:id/chick-sales", requireHatchery, addChickSale);
+router.delete("/hatchery/incubations/:id/chick-sales/:saleId", requireHatchery, deleteChickSale);
 
 // Produced chick stock (global/filterable view)
-router.get("/hatchery/produced-chicks/stock", listProducedChickStock);
+router.get("/hatchery/produced-chicks/stock", requireHatchery, listProducedChickStock);
 
 // Helper: hatchable egg stock preview for a parent batch
-router.get("/hatchery/parent-batches/:batchId/hatchable-stock", getHatchableStockForBatch);
+router.get("/hatchery/parent-batches/:batchId/hatchable-stock", requireHatchery, getHatchableStockForBatch);
 
 export default router;
