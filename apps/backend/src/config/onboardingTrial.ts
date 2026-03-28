@@ -1,6 +1,6 @@
 import { UserOnboardingPaymentState } from "@prisma/client";
 
-const DEFAULT_TRIAL_DURATION_DAYS = 2;
+const DEFAULT_TRIAL_DURATION_DAYS = 7;
 
 function parsePositiveInt(value: string | undefined): number | null {
   if (!value) return null;
