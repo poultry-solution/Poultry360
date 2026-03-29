@@ -2797,7 +2797,7 @@
     "hero": {
       "headingMain": "Manage Your Poultry Business",
       "headingHighlight": " Anytime, Anywhere",
-      "description": "Poultry360 makes your poultry business simple, smart, and stress-free. Easily track sales, manage expenses, maintain ledgers, control inventory & more so you can focus on growing your poultry business.",
+      "description": "One platform for Nepal's poultry chain—from layer and broiler farms to feed dealers, feed mills, hatcheries, and vets.",
       "useWeb": "Use Web Version",
       "bookDemo": "Book a demo",
       "download": "Download Poultry360",
@@ -2837,11 +2837,7 @@
     "features": {
       "badge": "Key Features",
       "title": "All in One Poultry Management App",
-      "subtitle": "Poultry360 brings broiler and layer farmers, feed suppliers, feed mill companies, and veterinary doctors together—manage operations, inventory, and health in one platform.",
-      "learnMore": "Learn More",
-      "modal": {
-        "comingSoon": "Coming soon"
-      },
+      "subtitle": "Poultry360 brings broiler and layer farmers, feed suppliers, feed mill companies, hatcheries, and veterinary doctors together—manage operations, inventory, and health in one platform.",
       "cards": {
         "layer": {
           "title": "Layer Management",
@@ -2859,31 +2855,15 @@
           "title": "Feed Mill Company",
           "description": "Produce quality feed with accurate mixing and easy inventory management."
         },
+        "hatchery": {
+          "title": "Hatchery",
+          "description": "Run parent flocks, egg production, incubation, hatch results, chick grades, sales, and supplier and party ledgers in one place."
+        },
         "veterinary": {
           "title": "Veterinary Doctor",
           "description": "Track farm visits, prescriptions, and bird health across your client base."
         }
-      },
-      "recordTransactions": "Record Transactions",
-      "recordTransactionsDesc": "Add sales, purchases & expenses",
-      "manageBirds": "Manage Birds",
-      "manageBirdsDesc": "Track bird health & production",
-      "manageInventory": "Manage Inventory",
-      "manageInventoryDesc": "Keep track of feed & supplies",
-      "farmInsights": "Farm Insights",
-      "farmInsightsDesc": "View farm performance reports",
-      "vaccinationSchedule": "Vaccination Schedule",
-      "vaccinationScheduleDesc": "Track & manage vaccination programs",
-      "feedCalculator": "Feed Calculator",
-      "feedCalculatorDesc": "Calculate optimal feed requirements",
-      "mortalityTracking": "Mortality Tracking",
-      "mortalityTrackingDesc": "Monitor & analyze bird losses",
-      "mortalityRate": "Mortality Rate: 2.3%",
-      "productionPlanning": "Production Planning",
-      "productionPlanningDesc": "Plan & schedule production cycles",
-      "add": "Add",
-      "feed": "Feed",
-      "remove": "Remove"
+      }
     },
     "reviews": {
       "badge": "Trusted by Farmers",
