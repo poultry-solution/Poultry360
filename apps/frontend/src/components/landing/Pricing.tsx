@@ -36,7 +36,7 @@ export default function Pricing() {
     {
       id: "layer-broiler",
       title: "Layer / Broiler Farmer",
-      priceLine: "NPR 4999 / year",
+      priceLine: "NPR 3800 / year",
       ctaLabel: "Start free trial",
       trialHref: "/auth/signup",
       features: [
@@ -44,16 +44,20 @@ export default function Pricing() {
         "Batch management",
         "Expenses management",
         "Mortality management",
-        "FCR evaluation",
         "Sales management",
         "Sales balance management",
         "Parties management",
         "Inventory management",
         "Purchase management",
-        "Feed dealer management",
+        "Feed Suppplier management",
         "Connection supplier features",
         "List for sale your products",
         "Staff salary management",
+        "FCR evaluation",
+        "Egg production tracking by type",
+        "Egg % Tracking ",
+
+
       ],
       accent: {
         border: "border-emerald-400/20",
@@ -66,7 +70,7 @@ export default function Pricing() {
     {
       id: "feed-dealer",
       title: "Feed Dealer",
-      priceLine: "NPR 4999 / year",
+      priceLine: "NPR 4700 / year",
       ctaLabel: "Start free trial",
       trialHref: "/auth/signup/dealer",
       features: [
@@ -113,7 +117,7 @@ export default function Pricing() {
     {
       id: "hatchery",
       title: "Hatchery",
-      priceLine: "NPR 15999 / year",
+      priceLine: "NPR 15600 / year",
       ctaLabel: "Start free trial",
       trialHref: "/auth/signup/hatchery",
       features: [
