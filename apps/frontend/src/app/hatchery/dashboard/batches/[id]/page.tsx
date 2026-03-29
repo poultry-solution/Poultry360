@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -46,7 +46,11 @@ import {
   type HatcheryEggSale,
   type HatcheryParentSale,
 } from "@/fetchers/hatchery/hatcheryBatchQueries";
-import { useGetHatcheryInventory } from "@/fetchers/hatchery/hatcheryInventoryQueries";
+import {
+  useGetHatcheryInventory,
+  type HatcheryInventoryItem,
+  type HatcheryInventoryItemType,
+} from "@/fetchers/hatchery/hatcheryInventoryQueries";
 import { useHatcheryParties, type HatcheryParty } from "@/fetchers/hatchery/hatcheryPartyQueries";
 
 type Tab =
@@ -600,19 +604,23 @@ function MortalityTab({
 
 // ─── Expenses Tab ─────────────────────────────────────────────────────────────
 
-const EXPENSE_CATEGORIES = ["feed", "medicine", "utilities", "labor", "other"];
+const INVENTORY_ITEM_TYPE_OPTIONS: { value: HatcheryInventoryItemType; label: string }[] = [
+  { value: "FEED", label: "Feed" },
+  { value: "MEDICINE", label: "Medicine" },
+  { value: "CHICKS", label: "Chicks" },
+  { value: "OTHER", label: "Other" },
+];
 
 function ExpensesTab({ batchId }: { batchId: string }) {
   const { data: expenses = [], isLoading } = useHatcheryExpenses(batchId);
   const addMutation = useAddHatcheryExpense(batchId);
   const deleteMutation = useDeleteHatcheryExpense(batchId);
   const { data: inventoryRes } = useGetHatcheryInventory();
-  const inventoryItems: any[] = inventoryRes?.data ?? [];
+  const inventoryItems: HatcheryInventoryItem[] = inventoryRes?.data ?? [];
 
   const [expenseType, setExpenseType] = useState<"INVENTORY" | "MANUAL">("INVENTORY");
   const [date, setDate] = useState(today());
-  const [category, setCategory] = useState("feed");
-  const [customCategory, setCustomCategory] = useState("");
+  const [inventoryCategory, setInventoryCategory] = useState<HatcheryInventoryItemType>("FEED");
   const [inventoryItemId, setInventoryItemId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [itemName, setItemName] = useState("");
@@ -623,10 +631,13 @@ function ExpensesTab({ batchId }: { batchId: string }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const effectiveCategory = category === "_custom" ? customCategory : category;
+  const filteredInventoryItems = useMemo(
+    () => inventoryItems.filter((i) => i.itemType === inventoryCategory),
+    [inventoryItems, inventoryCategory]
+  );
 
   // Auto-fill amount when picking inventory item + qty
-  const selectedItem = inventoryItems.find((i) => i.id === inventoryItemId);
+  const selectedItem = filteredInventoryItems.find((i) => i.id === inventoryItemId);
   const computedAmount =
     expenseType === "INVENTORY" && selectedItem && quantity
       ? Math.round(Number(selectedItem.unitPrice) * Number(quantity) * 100) / 100
@@ -639,7 +650,7 @@ function ExpensesTab({ batchId }: { batchId: string }) {
         await addMutation.mutateAsync({
           date,
           type: "INVENTORY",
-          category: effectiveCategory,
+          category: inventoryCategory,
           inventoryItemId,
           quantity: Number(quantity),
         });
@@ -647,7 +658,7 @@ function ExpensesTab({ batchId }: { batchId: string }) {
         await addMutation.mutateAsync({
           date,
           type: "MANUAL",
-          category: effectiveCategory,
+          category: "manual",
           itemName,
           quantity: quantity ? Number(quantity) : undefined,
           unit: unit || undefined,
@@ -772,24 +783,21 @@ function ExpensesTab({ batchId }: { batchId: string }) {
         <div className="flex flex-wrap gap-2">
           <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-40" />
 
-          <select
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            {EXPENSE_CATEGORIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-            <option value="_custom">custom...</option>
-          </select>
-
-          {category === "_custom" && (
-            <Input
-              placeholder="Category name"
-              value={customCategory}
-              onChange={(e) => setCustomCategory(e.target.value)}
-              className="w-36"
-            />
+          {expenseType === "INVENTORY" && (
+            <select
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+              value={inventoryCategory}
+              onChange={(e) => {
+                setInventoryCategory(e.target.value as HatcheryInventoryItemType);
+                setInventoryItemId("");
+              }}
+            >
+              {INVENTORY_ITEM_TYPE_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
           )}
 
           {expenseType === "INVENTORY" ? (
@@ -800,7 +808,7 @@ function ExpensesTab({ batchId }: { batchId: string }) {
                 onChange={(e) => setInventoryItemId(e.target.value)}
               >
                 <option value="">Select item</option>
-                {inventoryItems.map((item) => (
+                {filteredInventoryItems.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name} ({item.unit}) — {Number(item.currentStock)} in stock @ NPR {Number(item.unitPrice)}
                   </option>
