@@ -605,6 +605,8 @@ export class ConsignmentService {
               currentStock: {
                 increment: acceptedQty,
               },
+              // Restocked from consignment acceptance: make it visible again.
+              hiddenAt: null,
             },
           });
         } else {
@@ -618,6 +620,7 @@ export class ConsignmentService {
               sellingPrice: sellingPrice,
               currentStock: acceptedQty,
               dealerId: consignment.toDealerId!,
+              hiddenAt: null,
             },
           });
         }

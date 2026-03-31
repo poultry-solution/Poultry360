@@ -33,6 +33,8 @@ import {
 import {
   useGetDealerProducts,
   useGetInventorySummary,
+  useHideDealerProduct,
+  useUnhideDealerProduct,
   useUpdateDealerProduct,
 } from "@/fetchers/dealer/dealerProductQueries";
 import { useRecordManualPurchase } from "@/fetchers/dealer/dealerManualCompanyQueries";
@@ -128,10 +130,13 @@ export default function DealerInventoryPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("");
+  const [showHidden, setShowHidden] = useState(false);
   const [reorderRow, setReorderRow] = useState<any | null>(null);
   const [reorderDate, setReorderDate] = useState<string>(new Date().toISOString());
   const [reorderQty, setReorderQty] = useState<string>("");
   const recordPurchaseMutation = useRecordManualPurchase();
+  const hideMutation = useHideDealerProduct();
+  const unhideMutation = useUnhideDealerProduct();
 
   // Queries
   const { data: summaryData, isLoading: summaryLoading } = useGetInventorySummary();
@@ -140,6 +145,7 @@ export default function DealerInventoryPage() {
     limit: 10,
     search,
     type: typeFilter || undefined,
+    includeHidden: showHidden,
   });
 
   const summary = summaryData?.data;
@@ -258,6 +264,17 @@ export default function DealerInventoryPage() {
                 <SelectItem value="OTHER">{t("dealer.inventory.filters.other")}</SelectItem>
               </SelectContent>
             </Select>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Input
+                type="checkbox"
+                checked={showHidden}
+                onChange={(e) => {
+                  setShowHidden(e.target.checked);
+                  setPage(1);
+                }}
+              />
+              Show hidden
+            </label>
           </div>
           <CardDescription className="text-xs md:text-sm">
             {pagination?.total || 0} {t("dealer.inventory.stats.products")}
@@ -375,11 +392,16 @@ export default function DealerInventoryPage() {
                 render: (_val, row: any) => {
                   const stock = Number(row.currentStock || 0);
                   const canReorder = !!row.manualCompanyId;
-                  if (!canReorder && stock !== 0) return null;
+                  const isZeroStock = stock === 0;
+                  const isHidden = !!row.hiddenAt;
+
+                  // Keep existing behavior: show reorder only when stock != 0 and manual company exists.
+                  // For stock == 0, show Hide/Unhide instead of reorder.
+                  if (!isZeroStock && !canReorder) return null;
 
                   return (
                     <div className="flex items-center justify-end gap-1">
-                      {canReorder && (
+                      {!isZeroStock && canReorder && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -392,6 +414,32 @@ export default function DealerInventoryPage() {
                           title="Reorder (create a new purchase)"
                         >
                           <Repeat className="h-4 w-4" />
+                        </Button>
+                      )}
+
+                      {isZeroStock && !isHidden && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground hover:text-primary"
+                          disabled={hideMutation.isPending || unhideMutation.isPending}
+                          onClick={() => hideMutation.mutateAsync(row.id)}
+                          title="Hide this zero-stock product"
+                        >
+                          Hide
+                        </Button>
+                      )}
+
+                      {isZeroStock && isHidden && showHidden && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground hover:text-primary"
+                          disabled={hideMutation.isPending || unhideMutation.isPending}
+                          onClick={() => unhideMutation.mutateAsync(row.id)}
+                          title="Unhide this product"
+                        >
+                          Unhide
                         </Button>
                       )}
                     </div>

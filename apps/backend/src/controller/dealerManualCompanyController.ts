@@ -435,6 +435,9 @@ export const recordManualPurchase = async (
                         where: { id: dealerProduct.id },
                         data: {
                             currentStock: { increment: new Prisma.Decimal(qty) },
+                            // If this item was previously hidden at zero stock,
+                            // restocking should make it visible again.
+                            hiddenAt: null,
                         },
                     });
                 } else {
