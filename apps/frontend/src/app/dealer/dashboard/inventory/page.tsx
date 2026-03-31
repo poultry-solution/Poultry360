@@ -11,7 +11,6 @@ import {
 } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
-import { Label } from "@/common/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -21,15 +20,6 @@ import {
 } from "@/common/components/ui/select";
 import { DataTable, Column } from "@/common/components/ui/data-table";
 import { Badge } from "@/common/components/ui/badge";
-import { DateInput } from "@/common/components/ui/date-input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/common/components/ui/dialog";
 import {
   useGetDealerProducts,
   useGetInventorySummary,
@@ -37,10 +27,9 @@ import {
   useUnhideDealerProduct,
   useUpdateDealerProduct,
 } from "@/fetchers/dealer/dealerProductQueries";
-import { useRecordManualPurchase } from "@/fetchers/dealer/dealerManualCompanyQueries";
 import { useI18n } from "@/i18n/useI18n";
 import { toast } from "sonner";
-import { getTodayLocalDate } from "@/common/lib/utils";
+import BulkReorderDialog from "./BulkReorderDialog";
 
 // Inline editable price cell component
 function EditablePriceCell({ value, productId }: { value: number; productId: string }) {
@@ -131,10 +120,7 @@ export default function DealerInventoryPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [showHidden, setShowHidden] = useState(false);
-  const [reorderRow, setReorderRow] = useState<any | null>(null);
-  const [reorderDate, setReorderDate] = useState<string>(new Date().toISOString());
-  const [reorderQty, setReorderQty] = useState<string>("");
-  const recordPurchaseMutation = useRecordManualPurchase();
+  const [reorderOpen, setReorderOpen] = useState(false);
   const hideMutation = useHideDealerProduct();
   const unhideMutation = useUnhideDealerProduct();
 
@@ -239,7 +225,7 @@ export default function DealerInventoryPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1 relative">
+            <div className="relative sm:w-[220px] md:w-[280px]">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder={t("dealer.inventory.filters.searchPlaceholder")}
@@ -248,6 +234,14 @@ export default function DealerInventoryPage() {
                 className="pl-10"
               />
             </div>
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setReorderOpen(true)}
+            >
+              <Repeat className="h-4 w-4" />
+              Reorder
+            </Button>
             <Select
               value={typeFilter}
               onValueChange={(value) => { setTypeFilter(value === "ALL" ? "" : value); setPage(1); }}
@@ -391,32 +385,11 @@ export default function DealerInventoryPage() {
                 align: "right",
                 render: (_val, row: any) => {
                   const stock = Number(row.currentStock || 0);
-                  const canReorder = !!row.manualCompanyId;
                   const isZeroStock = stock === 0;
                   const isHidden = !!row.hiddenAt;
 
-                  // Keep existing behavior: show reorder only when stock != 0 and manual company exists.
-                  // For stock == 0, show Hide/Unhide instead of reorder.
-                  if (!isZeroStock && !canReorder) return null;
-
                   return (
                     <div className="flex items-center justify-end gap-1">
-                      {!isZeroStock && canReorder && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-muted-foreground hover:text-primary"
-                          onClick={() => {
-                            setReorderRow(row);
-                            setReorderDate(new Date(getTodayLocalDate()).toISOString());
-                            setReorderQty("");
-                          }}
-                          title="Reorder (create a new purchase)"
-                        >
-                          <Repeat className="h-4 w-4" />
-                        </Button>
-                      )}
-
                       {isZeroStock && !isHidden && (
                         <Button
                           variant="ghost"
@@ -481,120 +454,7 @@ export default function DealerInventoryPage() {
         </CardContent>
       </Card>
 
-      {/* Reorder dialog */}
-      <Dialog open={!!reorderRow} onOpenChange={(o) => !o && setReorderRow(null)}>
-        <DialogContent className="max-w-lg bg-white">
-          <DialogHeader>
-            <DialogTitle>Reorder item</DialogTitle>
-            <DialogDescription>
-              This will create a new purchase record under the same manual company and increase stock.
-            </DialogDescription>
-          </DialogHeader>
-
-          {!!reorderRow?.manualCompanyId && !reorderRow?.manualCompany && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              This company no longer exists (deleted). Reorder is disabled.
-            </div>
-          )}
-
-          {!!reorderRow?.manualCompany?.archivedAt && (
-            <div className="rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
-              This company is archived. You can reorder, but consider unarchiving it.
-            </div>
-          )}
-
-          <div className="grid gap-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Company</Label>
-                <div className="h-9 px-3 flex items-center rounded-md border bg-muted/30 text-sm">
-                  {reorderRow?.manualCompany?.name || "—"}
-                </div>
-              </div>
-              <div className="space-y-1">
-                <DateInput
-                  label="Date"
-                  value={reorderDate}
-                  onChange={setReorderDate}
-                />
-              </div>
-            </div>
-
-            <div className="rounded-md border p-3 text-sm space-y-1">
-              <div className="font-medium">{reorderRow?.name}</div>
-              <div className="text-xs text-muted-foreground">
-                Type: {reorderRow?.type} • Unit: {reorderRow?.unit}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Cost: रू {Number(reorderRow?.costPrice || 0).toFixed(2)} • Sell: रू {Number(reorderRow?.sellingPrice || 0).toFixed(2)}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label>Quantity</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="Enter quantity"
-                value={reorderQty}
-                onChange={(e) => setReorderQty(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setReorderRow(null)}
-              disabled={recordPurchaseMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={async () => {
-                if (!reorderRow?.manualCompanyId) return;
-                if (!reorderRow?.manualCompany) {
-                  toast.error("Company not found (deleted)");
-                  return;
-                }
-                const qty = Number(reorderQty);
-                if (!qty || Number.isNaN(qty) || qty <= 0) {
-                  toast.error("Please enter a valid quantity");
-                  return;
-                }
-                try {
-                  await recordPurchaseMutation.mutateAsync({
-                    companyId: reorderRow.manualCompanyId,
-                    date: reorderDate,
-                    items: [
-                      {
-                        productName: reorderRow.name,
-                        type: reorderRow.type,
-                        unit: reorderRow.unit,
-                        quantity: qty,
-                        costPrice: Number(reorderRow.costPrice || 0),
-                        sellingPrice: Number(reorderRow.sellingPrice || 0),
-                      },
-                    ],
-                  } as any);
-                  toast.success("Purchase created");
-                  setReorderRow(null);
-                } catch (e: any) {
-                  toast.error(e?.response?.data?.message || "Failed to reorder");
-                }
-              }}
-              disabled={
-                recordPurchaseMutation.isPending ||
-                !reorderRow?.manualCompanyId ||
-                (!!reorderRow?.manualCompanyId && !reorderRow?.manualCompany)
-              }
-            >
-              {recordPurchaseMutation.isPending ? "Saving..." : "Create purchase"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <BulkReorderDialog open={reorderOpen} onOpenChange={setReorderOpen} />
     </div>
   );
 }

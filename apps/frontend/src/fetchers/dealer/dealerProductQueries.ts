@@ -30,6 +30,10 @@ export interface DealerProduct {
   minStock?: number;
   sku?: string;
   dealerId: string;
+  manualCompanyId?: string | null;
+  manualCompany?: { id: string; name: string; archivedAt?: string | null } | null;
+  supplierCompanyId?: string | null;
+  supplierCompany?: { id: string; name: string } | null;
   companyProductId?: string;
   companyProduct?: any;
   unitConversions?: UnitConversion[];
