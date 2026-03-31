@@ -375,7 +375,7 @@ export const recordManualPurchase = async (
     try {
         const userId = req.userId;
         const { id } = req.params;
-        const { items, notes, reference, date } = req.body;
+        const { items, notes, reference, date, tradeDiscountAmount } = req.body;
 
         if (!items || !Array.isArray(items) || items.length === 0) {
             return res.status(400).json({
@@ -401,7 +401,7 @@ export const recordManualPurchase = async (
         }
 
         const result = await prisma.$transaction(async (tx) => {
-            let totalAmount = 0;
+            let grossTotalAmount = 0;
             const purchaseItems: any[] = [];
 
             for (const item of items) {
@@ -415,7 +415,7 @@ export const recordManualPurchase = async (
                 const cost = Number(costPrice);
                 const sell = Number(sellingPrice);
                 const itemTotal = qty * cost;
-                totalAmount += itemTotal;
+                grossTotalAmount += itemTotal;
 
                 // Find or create DealerProduct
                 let dealerProduct = await tx.dealerProduct.findFirst({
@@ -483,11 +483,25 @@ export const recordManualPurchase = async (
                 });
             }
 
+            const discountNum =
+                tradeDiscountAmount === undefined || tradeDiscountAmount === null || tradeDiscountAmount === ""
+                    ? 0
+                    : Number(tradeDiscountAmount);
+            if (Number.isNaN(discountNum) || discountNum < 0) {
+                throw new Error("Trade discount must be a valid non-negative number");
+            }
+            if (discountNum > grossTotalAmount) {
+                const grossStr = grossTotalAmount.toFixed(2);
+                throw new Error(`Trade discount cannot exceed gross total (${grossStr})`);
+            }
+            const netTotalAmount = grossTotalAmount - discountNum;
+
             // Create purchase record
             const purchase = await tx.dealerManualPurchase.create({
                 data: {
                     date: date ? new Date(date) : new Date(),
-                    totalAmount: new Prisma.Decimal(totalAmount),
+                    totalAmount: new Prisma.Decimal(netTotalAmount),
+                    tradeDiscountAmount: discountNum > 0 ? new Prisma.Decimal(discountNum) : null,
                     notes: notes || null,
                     reference: reference || null,
                     manualCompanyId: id,
@@ -504,8 +518,8 @@ export const recordManualPurchase = async (
             await tx.dealerManualCompany.update({
                 where: { id },
                 data: {
-                    balance: { increment: new Prisma.Decimal(totalAmount) },
-                    totalPurchases: { increment: new Prisma.Decimal(totalAmount) },
+                    balance: { increment: new Prisma.Decimal(netTotalAmount) },
+                    totalPurchases: { increment: new Prisma.Decimal(netTotalAmount) },
                 },
             });
 
@@ -518,9 +532,17 @@ export const recordManualPurchase = async (
             message: "Purchase recorded successfully. Items added to inventory.",
         });
     } catch (error: any) {
+        const msg = error.message || "Internal server error";
+        if (
+            msg.startsWith("Trade discount") ||
+            msg.includes("Trade discount") ||
+            msg === "Trade discount must be a valid non-negative number"
+        ) {
+            return res.status(400).json({ message: msg });
+        }
         console.error("Record manual purchase error:", error);
         return res.status(500).json({
-            message: error.message || "Internal server error",
+            message: msg,
         });
     }
 };
@@ -834,6 +856,7 @@ export const getManualCompanyStatement = async (
                 id: p.id,
                 date: p.date,
                 amount: Number(p.totalAmount),
+                tradeDiscountAmount: Number((p as any).tradeDiscountAmount ?? 0),
                 notes: p.notes,
                 reference: p.reference,
                 items: p.items,
@@ -868,6 +891,7 @@ export const getManualCompanyStatement = async (
                     id: p.id,
                     date: p.date,
                     amount: Number(p.totalAmount),
+                    tradeDiscountAmount: Number(p.tradeDiscountAmount ?? 0),
                     voidedAt: p.voidedAt,
                     voidedReason: p.voidedReason,
                     itemsCount: Array.isArray(p.items) ? p.items.length : 0,

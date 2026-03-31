@@ -2522,6 +2522,7 @@ model DealerManualPurchase {
   id          String   @id @default(cuid())
   date        DateTime @default(now())
   totalAmount Decimal  @db.Decimal(10, 2)
+  tradeDiscountAmount Decimal? @db.Decimal(10, 2)
   notes       String?
   reference   String?
 

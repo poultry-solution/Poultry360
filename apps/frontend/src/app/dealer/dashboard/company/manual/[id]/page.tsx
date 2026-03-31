@@ -388,6 +388,32 @@ export default function ManualCompanyAccountPage() {
                                                     </div>
                                                 </div>
 
+                                                <div className="mt-3 rounded-md border bg-gray-50 px-3 py-2 text-sm space-y-1">
+                                                    {(() => {
+                                                        const basicTotal = Array.isArray(txn.items)
+                                                            ? txn.items.reduce((s: number, it: any) => s + Number(it.totalAmount || 0), 0)
+                                                            : 0;
+                                                        const tradeDiscount = Number(txn.tradeDiscountAmount || 0);
+                                                        const netTotal = Number(txn.amount || 0);
+                                                        return (
+                                                            <>
+                                                                <div className="flex justify-between">
+                                                                    <span className="text-muted-foreground">Basic total</span>
+                                                                    <span className="font-medium">{formatCurrency(basicTotal)}</span>
+                                                                </div>
+                                                                <div className="flex justify-between">
+                                                                    <span className="text-muted-foreground">Trade discount</span>
+                                                                    <span className="font-medium text-green-700">- {formatCurrency(tradeDiscount)}</span>
+                                                                </div>
+                                                                <div className="flex justify-between border-t pt-1">
+                                                                    <span className="font-medium">Net total</span>
+                                                                    <span className="font-semibold">{formatCurrency(netTotal)}</span>
+                                                                </div>
+                                                            </>
+                                                        );
+                                                    })()}
+                                                </div>
+
                                                 {txn.items && txn.items.length > 0 && (
                                                     <div className="mt-3 border-t pt-3">
                                                         <p className="text-xs text-muted-foreground mb-2 font-medium">Items purchased:</p>
