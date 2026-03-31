@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Calendar from "@sbmdkl/nepali-datepicker-reactjs";
+import "@sbmdkl/nepali-datepicker-reactjs/dist/index.css";
 import {
     Plus,
     Search,
@@ -64,6 +66,8 @@ import { useGetAllCompanyAccounts } from "@/fetchers/dealer/dealerCompanyAccount
 import { PublicCompanySearchSelect } from "@/common/components/forms/PublicCompanySearchSelect";
 import { useI18n } from "@/i18n/useI18n";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { getTodayLocalDate } from "@/common/lib/utils";
+import { convertADtoBS } from "@/common/lib/nepali-date";
 import {
     useGetManualCompanies,
     useCreateManualCompany,
@@ -101,6 +105,7 @@ export default function DealerCompanyPage() {
         openingBalanceDirection: "OWED" as "OWED" | "ADVANCE",
     });
     const [purchaseCompany, setPurchaseCompany] = useState<ManualCompany | null>(null);
+    const [purchaseDateAd, setPurchaseDateAd] = useState(getTodayLocalDate());
     const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([{ productName: "", type: "FEED", unit: "kg", quantity: 0, costPrice: 0, sellingPrice: 0 }]);
     const [purchaseNotes, setPurchaseNotes] = useState("");
     const [paymentCompany, setPaymentCompany] = useState<ManualCompany | null>(null);
@@ -376,6 +381,7 @@ export default function DealerCompanyPage() {
                 companyId: purchaseCompany.id,
                 items: validItems,
                 notes: purchaseNotes || undefined,
+                date: new Date((purchaseDateAd || getTodayLocalDate()) + "T12:00:00").toISOString(),
             });
             toast.success("Purchase recorded! Items added to inventory.");
             setPurchaseCompany(null);
@@ -385,6 +391,13 @@ export default function DealerCompanyPage() {
             toast.error(error.response?.data?.message || "Failed to record purchase");
         }
     };
+
+    /**
+     * Nepali datepicker validates defaultDate with string.split — it must be BS YYYY-MM-DD.
+     * Typings incorrectly say Date; use `as any`.
+     */
+    const defaultBsDateForPicker = (draftAd: string): string =>
+        convertADtoBS(draftAd || getTodayLocalDate());
 
     const handleRecordPayment = async () => {
         if (!paymentCompany || !paymentAmount || Number(paymentAmount) <= 0) {
@@ -1227,6 +1240,24 @@ export default function DealerCompanyPage() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <label className="text-xs text-muted-foreground">Date</label>
+                            <Calendar
+                                onChange={({
+                                    adDate,
+                                }: {
+                                    bsDate: string;
+                                    adDate: string;
+                                }) => {
+                                    const ymd = adDate.includes("T") ? adDate.split("T")[0] : adDate;
+                                    setPurchaseDateAd(ymd);
+                                }}
+                                defaultDate={defaultBsDateForPicker(purchaseDateAd) as any}
+                                className="w-full rounded-md border border-input"
+                                theme="dark"
+                                language="en"
+                            />
+                        </div>
                         {purchaseItems.map((item, index) => (
                             <div key={index} className="border rounded-lg p-3 space-y-3">
                                 <div className="flex items-center justify-between">
