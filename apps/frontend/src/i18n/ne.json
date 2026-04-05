@@ -3122,6 +3122,15 @@
     "closed": "दिन बन्द भयो",
     "history": "इतिहास",
     "noMovements": "आज कुनै नगद आवागमन छैन।",
+    "deleteMovement": "मेटाउनुहोस्",
+    "deleteMovementConfirm": {
+      "title": "यो आवागमन मेटाउने?",
+      "description": "यसले आजको लाइन हटाउँछ। दिनको खुल्ने मौज्दात उही रहन्छ; बन्द मौज्दात अपडेट हुन्छ।",
+      "confirm": "मेटाउनुहोस्",
+      "cancel": "रद्द गर्नुहोस्"
+    },
+    "deleteMovementSuccess": "आवागमन मेटाइयो",
+    "deleteMovementError": "आवागमन मेटाउन सकिएन",
     "movement": {
       "in": "भित्र",
       "out": "बाहिर",

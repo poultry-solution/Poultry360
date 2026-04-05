@@ -90,6 +90,19 @@ export function useAddFarmerCashMovement() {
   });
 }
 
+export function useDeleteFarmerCashMovement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (movementId: string) => {
+      await axiosInstance.delete(`/farmer/cash-in-hand/movements/${encodeURIComponent(movementId)}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: farmerCashInHandKeys.today() });
+      qc.invalidateQueries({ queryKey: ["cash-in-hand-closed-day"] });
+    },
+  });
+}
+
 export function useCloseFarmerCashDay() {
   const qc = useQueryClient();
   return useMutation({

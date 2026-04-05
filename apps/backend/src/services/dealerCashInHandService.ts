@@ -226,6 +226,33 @@ export async function addMovement(
   });
 }
 
+export async function deleteMovement(dealerId: string, movementId: string): Promise<void> {
+  const settings = await getSettings(dealerId);
+  if (!settings) throw new Error("Cash book not set up yet");
+
+  const todayBs = getNepalBsTodayString();
+  await ensureSystemCloseYesterday(dealerId, todayBs, settings);
+
+  const todayClose = await prisma.dealerCashDayClose.findUnique({
+    where: { dealerId_bsDate: { dealerId, bsDate: todayBs } },
+  });
+  if (todayClose) {
+    throw new Error("Today is already closed. Movements cannot be deleted.");
+  }
+
+  const movement = await prisma.dealerCashMovement.findFirst({
+    where: { id: movementId, dealerId },
+  });
+  if (!movement) {
+    throw new Error("Movement not found");
+  }
+  if (movement.bsDate !== todayBs) {
+    throw new Error("Only today's movements can be deleted");
+  }
+
+  await prisma.dealerCashMovement.delete({ where: { id: movementId } });
+}
+
 // ── Close day ─────────────────────────────────────────────────────────────────
 
 export async function closeToday(dealerId: string): Promise<{

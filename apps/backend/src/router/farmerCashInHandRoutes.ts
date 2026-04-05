@@ -4,6 +4,7 @@ import {
   getToday,
   setup,
   addMovement,
+  deleteMovement,
   closeDay,
   getHistory,
   getClosedDayDetail,
@@ -18,6 +19,7 @@ router.use((req, res, next) => {
 router.get("/today", getToday);
 router.post("/setup", setup);
 router.post("/movements", addMovement);
+router.delete("/movements/:id", deleteMovement);
 router.post("/close-day", closeDay);
 router.get("/history", getHistory);
 router.get("/closed-day/:bsDate", getClosedDayDetail);

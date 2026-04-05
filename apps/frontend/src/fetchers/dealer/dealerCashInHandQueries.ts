@@ -96,6 +96,19 @@ export function useAddCashMovement() {
   });
 }
 
+export function useDeleteCashMovement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (movementId: string) => {
+      await axiosInstance.delete(`/dealer/cash-in-hand/movements/${encodeURIComponent(movementId)}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: cashInHandKeys.today() });
+      qc.invalidateQueries({ queryKey: ["cash-in-hand-closed-day"] });
+    },
+  });
+}
+
 export function useCloseCashDay() {
   const qc = useQueryClient();
   return useMutation({

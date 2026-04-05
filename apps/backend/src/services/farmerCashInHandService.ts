@@ -191,6 +191,33 @@ export async function addMovement(
   });
 }
 
+export async function deleteMovement(userId: string, movementId: string): Promise<void> {
+  const settings = await getSettings(userId);
+  if (!settings) throw new Error("Cash book not set up yet");
+
+  const todayBs = getNepalBsTodayString();
+  await ensureSystemCloseYesterday(userId, todayBs, settings);
+
+  const todayClose = await prisma.farmerCashDayClose.findUnique({
+    where: { userId_bsDate: { userId, bsDate: todayBs } },
+  });
+  if (todayClose) {
+    throw new Error("Today is already closed. Movements cannot be deleted.");
+  }
+
+  const movement = await prisma.farmerCashMovement.findFirst({
+    where: { id: movementId, userId },
+  });
+  if (!movement) {
+    throw new Error("Movement not found");
+  }
+  if (movement.bsDate !== todayBs) {
+    throw new Error("Only today's movements can be deleted");
+  }
+
+  await prisma.farmerCashMovement.delete({ where: { id: movementId } });
+}
+
 export async function closeToday(userId: string): Promise<{
   bsDate: string;
   opening: number;

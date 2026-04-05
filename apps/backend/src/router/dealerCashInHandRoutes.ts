@@ -4,6 +4,7 @@ import {
   getToday,
   setup,
   addMovement,
+  deleteMovement,
   closeDay,
   getHistory,
   getClosedDayDetail,
@@ -23,6 +24,9 @@ router.post("/setup", setup);
 
 // POST /dealer/cash-in-hand/movements
 router.post("/movements", addMovement);
+
+// DELETE /dealer/cash-in-hand/movements/:id
+router.delete("/movements/:id", deleteMovement);
 
 // POST /dealer/cash-in-hand/close-day
 router.post("/close-day", closeDay);

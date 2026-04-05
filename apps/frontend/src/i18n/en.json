@@ -3123,6 +3123,15 @@
     "closed": "Day Closed",
     "history": "History",
     "noMovements": "No cash movements recorded today.",
+    "deleteMovement": "Delete",
+    "deleteMovementConfirm": {
+      "title": "Delete this movement?",
+      "description": "This removes the line from today. Opening balance for the day stays the same; closing balance will update.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "deleteMovementSuccess": "Movement deleted",
+    "deleteMovementError": "Failed to delete movement",
     "movement": {
       "in": "IN",
       "out": "OUT",

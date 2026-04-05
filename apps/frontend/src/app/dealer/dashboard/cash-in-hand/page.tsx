@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Wallet, ArrowDownLeft, ArrowUpRight, Lock, History, Plus } from "lucide-react";
+import { Wallet, ArrowDownLeft, ArrowUpRight, Lock, History, Plus, Trash2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -39,6 +39,7 @@ import {
   useSetupCashBook,
   useAddCashMovement,
   useCloseCashDay,
+  useDeleteCashMovement,
   type TodayLedger,
 } from "@/fetchers/dealer/dealerCashInHandQueries";
 import { useI18n } from "@/i18n/useI18n";
@@ -225,7 +226,9 @@ function TodayLedgerView({ data }: { data: TodayLedger }) {
   const [inOpen, setInOpen] = useState(false);
   const [outOpen, setOutOpen] = useState(false);
   const [closeDayOpen, setCloseDayOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const closeMutation = useCloseCashDay();
+  const deleteMutation = useDeleteCashMovement();
 
   const handleCloseDay = async () => {
     try {
@@ -239,6 +242,17 @@ function TodayLedgerView({ data }: { data: TodayLedger }) {
       toast.error(err?.response?.data?.message || "Failed to close day");
     } finally {
       setCloseDayOpen(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDeleteId) return;
+    try {
+      await deleteMutation.mutateAsync(pendingDeleteId);
+      toast.success(t("cashInHand.deleteMovementSuccess"));
+      setPendingDeleteId(null);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || t("cashInHand.deleteMovementError"));
     }
   };
 
@@ -327,39 +341,53 @@ function TodayLedgerView({ data }: { data: TodayLedger }) {
           ) : (
             <div className="divide-y">
               {data.movements.map((m) => (
-                <div key={m.id} className="flex items-center justify-between py-3">
-                  <div className="flex items-center gap-3">
+                <div key={m.id} className="flex items-center justify-between gap-2 py-3">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
                     {m.direction === "IN" ? (
-                      <div className="rounded-full bg-green-100 p-1.5">
+                      <div className="rounded-full bg-green-100 p-1.5 shrink-0">
                         <ArrowDownLeft className="h-4 w-4 text-green-700" />
                       </div>
                     ) : (
-                      <div className="rounded-full bg-red-100 p-1.5">
+                      <div className="rounded-full bg-red-100 p-1.5 shrink-0">
                         <ArrowUpRight className="h-4 w-4 text-red-700" />
                       </div>
                     )}
-                    <div>
-                      <p className="text-sm font-medium">{m.partyName}</p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{m.partyName}</p>
                       {m.notes && (
                         <p className="text-xs text-muted-foreground">{m.notes}</p>
                       )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p
-                      className={`text-sm font-semibold ${
-                        m.direction === "IN" ? "text-green-700" : "text-red-600"
-                      }`}
-                    >
-                      {m.direction === "IN" ? "+" : "-"}
-                      {formatNPR(m.amount)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(m.createdAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <div className="text-right">
+                      <p
+                        className={`text-sm font-semibold ${
+                          m.direction === "IN" ? "text-green-700" : "text-red-600"
+                        }`}
+                      >
+                        {m.direction === "IN" ? "+" : "-"}
+                        {formatNPR(m.amount)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(m.createdAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                    {!data.isClosed && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        aria-label={t("cashInHand.deleteMovement")}
+                        onClick={() => setPendingDeleteId(m.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -389,6 +417,30 @@ function TodayLedgerView({ data }: { data: TodayLedger }) {
             >
               {t("cashInHand.closeDayConfirm.confirm")}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!pendingDeleteId} onOpenChange={(o) => !o && setPendingDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("cashInHand.deleteMovementConfirm.title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("cashInHand.deleteMovementConfirm.description")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              {t("cashInHand.deleteMovementConfirm.cancel")}
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={handleConfirmDelete}
+            >
+              {deleteMutation.isPending ? "…" : t("cashInHand.deleteMovementConfirm.confirm")}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

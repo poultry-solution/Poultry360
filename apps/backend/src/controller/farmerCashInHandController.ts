@@ -71,6 +71,31 @@ export const addMovement = async (req: Request, res: Response): Promise<any> => 
   }
 };
 
+export const deleteMovement = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const userId = req.userId!;
+    const movementId = String(req.params.id || "");
+    if (!movementId) {
+      return res.status(400).json({ message: "Movement id is required" });
+    }
+
+    await CashService.deleteMovement(userId, movementId);
+    return res.status(200).json({ success: true, message: "Movement deleted" });
+  } catch (err: any) {
+    if (
+      err.message === "Cash book not set up yet" ||
+      err.message.startsWith("Today is already closed") ||
+      err.message === "Movement not found" ||
+      err.message === "Only today's movements can be deleted"
+    ) {
+      const status = err.message === "Movement not found" ? 404 : 400;
+      return res.status(status).json({ message: err.message });
+    }
+    console.error("Farmer cash deleteMovement error:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 export const closeDay = async (req: Request, res: Response): Promise<any> => {
   try {
     const userId = req.userId!;
