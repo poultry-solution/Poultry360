@@ -110,6 +110,7 @@ export default function DealerCompanyPage() {
     const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([{ productName: "", type: "FEED", unit: "kg", quantity: 0, costPrice: 0, sellingPrice: 0 }]);
     const [purchaseNotes, setPurchaseNotes] = useState("");
     const [paymentCompany, setPaymentCompany] = useState<ManualCompany | null>(null);
+    const [paymentDateAd, setPaymentDateAd] = useState(getTodayLocalDate());
     const [paymentAmount, setPaymentAmount] = useState("");
     const [paymentMethod, setPaymentMethod] = useState("CASH");
     const [paymentNotes, setPaymentNotes] = useState("");
@@ -422,9 +423,13 @@ export default function DealerCompanyPage() {
                 amount: Number(paymentAmount),
                 paymentMethod: paymentMethod,
                 notes: paymentNotes || undefined,
+                paymentDate: new Date(
+                    (paymentDateAd || getTodayLocalDate()) + "T12:00:00"
+                ).toISOString(),
             });
             toast.success("Payment recorded successfully");
             setPaymentCompany(null);
+            setPaymentDateAd(getTodayLocalDate());
             setPaymentAmount("");
             setPaymentMethod("CASH");
             setPaymentNotes("");
@@ -644,6 +649,7 @@ export default function DealerCompanyPage() {
                                                         className="flex-1"
                                                         onClick={() => {
                                                             setPaymentCompany(company);
+                                                            setPaymentDateAd(getTodayLocalDate());
                                                             setPaymentAmount("");
                                                             setPaymentNotes("");
                                                         }}
@@ -1451,6 +1457,24 @@ export default function DealerCompanyPage() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <label className="text-xs text-muted-foreground">Date</label>
+                            <Calendar
+                                onChange={({
+                                    adDate,
+                                }: {
+                                    bsDate: string;
+                                    adDate: string;
+                                }) => {
+                                    const ymd = adDate.includes("T") ? adDate.split("T")[0] : adDate;
+                                    setPaymentDateAd(ymd);
+                                }}
+                                defaultDate={defaultBsDateForPicker(paymentDateAd) as any}
+                                className="w-full rounded-md border border-input"
+                                theme="dark"
+                                language="en"
+                            />
+                        </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Amount *</label>
                             <Input
