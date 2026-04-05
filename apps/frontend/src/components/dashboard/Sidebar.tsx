@@ -27,6 +27,7 @@ import {
   Egg,
   Bird,
   FlaskConical,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { useAuth } from "@/common/store/store";
@@ -70,6 +71,7 @@ export const dealerNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.customers", href: "/dealer/dashboard/customers", icon: Users },
   { nameKey: "sidebar.nav.sales", href: "/dealer/dashboard/sales", icon: Receipt },
   { nameKey: "sidebar.nav.staffManagement", href: "/dealer/dashboard/staff", icon: Users },
+  { nameKey: "sidebar.nav.cashInHand", href: "/dealer/dashboard/cash-in-hand", icon: Wallet },
 ];
 
 export const companyNavigation: NavigationItem[] = [

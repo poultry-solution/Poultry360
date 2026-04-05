@@ -115,6 +115,7 @@
       "production": "Production",
       "purchaseRequests": "Purchase Requests",
       "saleRequests": "Sale Requests",
+      "cashInHand": "Cash In Hand",
       "hatcheryOverview": "Overview",
       "hatcherySupplierLedger": "Supplier Ledger",
       "hatcheryInventory": "Inventory",
@@ -3101,5 +3102,43 @@
       "message": "Message",
       "createdAt": "Submitted At"
     }
+  },
+  "cashInHand": {
+    "title": "Cash In Hand",
+    "subtitle": "Track physical cash movements for your business",
+    "setup": {
+      "title": "Set Up Cash Book",
+      "description": "Enter your opening cash balance to start tracking cash in hand.",
+      "label": "Opening Balance (NPR)",
+      "placeholder": "0.00",
+      "button": "Set Up"
+    },
+    "today": "Today",
+    "opening": "Opening",
+    "closing": "Closing (so far)",
+    "closingFinal": "Closing",
+    "addIn": "Add Cash In",
+    "addOut": "Add Cash Out",
+    "closeDay": "Close Day",
+    "closed": "Day Closed",
+    "history": "History",
+    "noMovements": "No cash movements recorded today.",
+    "movement": {
+      "in": "IN",
+      "out": "OUT",
+      "party": "Party Name",
+      "partyPlaceholder": "Who paid / who received",
+      "notes": "Notes (optional)",
+      "notesPlaceholder": "Reference or description",
+      "amount": "Amount (NPR)",
+      "submit": "Record"
+    },
+    "closeDayConfirm": {
+      "title": "Close Today?",
+      "description": "This will lock today's cash entries. No further movements can be added until tomorrow.",
+      "confirm": "Close Day",
+      "cancel": "Cancel"
+    },
+    "historyEmpty": "No closed days yet."
   }
 }
