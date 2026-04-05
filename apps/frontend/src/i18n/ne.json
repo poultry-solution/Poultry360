@@ -3138,6 +3138,17 @@
       "confirm": "दिन बन्द गर्नुहोस्",
       "cancel": "रद्द गर्नुहोस्"
     },
-    "historyEmpty": "अहिलेसम्म कुनै बन्द दिन छैन।"
+    "historyEmpty": "अहिलेसम्म कुनै बन्द दिन छैन।",
+    "historyDetail": {
+      "title": "बन्द दिन",
+      "movementsTitle": "आवागमन",
+      "noMovements": "यस दिन कुनै आवागमन दर्ता छैन।",
+      "openBalance": "खुल्ने",
+      "closeBalance": "बन्द",
+      "loadError": "दिनको विवरण लोड गर्न सकिएन।",
+      "tapHint": "आवागमन हेर्न पङ्क्ति छुनुहोस्",
+      "autoClosed": "स्वतः बन्द",
+      "closedByYou": "तपाईंले बन्द गर्नुभयो"
+    }
   }
 }

@@ -319,6 +319,12 @@ model User {
   dealerFarmerBalanceLimitsSet    DealerFarmerAccount[]          @relation("DealerFarmerBalanceLimitSetter")
   dealerCashMovementsRecorded     DealerCashMovement[]           @relation("DealerCashMovementRecorder")
 
+  // Farmer cash in hand (per user account)
+  farmerCashSettings              FarmerCashSettings?
+  farmerCashBookMovements         FarmerCashMovement[]           @relation("FarmerCashBook")
+  farmerCashDayCloses             FarmerCashDayClose[]           @relation("FarmerCashDayCloseOwner")
+  farmerCashMovementsRecorded     FarmerCashMovement[]           @relation("FarmerCashMovementRecorder")
+
   // Farmer purchase request relationships
   farmerCarts              FarmerCart[]              @relation("FarmerCarts")
   farmerPurchaseRequests   FarmerPurchaseRequest[]   @relation("FarmerPurchaseRequests")
@@ -2644,6 +2650,50 @@ model DealerCashDayClose {
 
   @@unique([dealerId, bsDate])
   @@index([dealerId, bsDate])
+}
+
+// ==================== FARMER CASH IN HAND ====================
+
+model FarmerCashSettings {
+  id             String  @id @default(cuid())
+  userId         String  @unique
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  initialOpening Decimal @db.Decimal(10, 2)
+  startBsDate    String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FarmerCashMovement {
+  id           String                  @id @default(cuid())
+  userId       String
+  user         User                    @relation("FarmerCashBook", fields: [userId], references: [id], onDelete: Cascade)
+  bsDate       String
+  direction    CashMovementDirection
+  amount       Decimal                 @db.Decimal(10, 2)
+  partyName    String
+  notes        String?
+  recordedById String?
+  recordedBy   User?                   @relation("FarmerCashMovementRecorder", fields: [recordedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, bsDate])
+}
+
+model FarmerCashDayClose {
+  id               String             @id @default(cuid())
+  userId           String
+  user             User               @relation("FarmerCashDayCloseOwner", fields: [userId], references: [id], onDelete: Cascade)
+  bsDate           String
+  openingSnapshot  Decimal            @db.Decimal(10, 2)
+  closingSnapshot  Decimal            @db.Decimal(10, 2)
+  source           CashDayCloseSource
+  closedAt         DateTime
+
+  @@unique([userId, bsDate])
+  @@index([userId, bsDate])
 }
 
 // ==================== FARMER CART & PURCHASE REQUEST ====================

@@ -311,3 +311,40 @@ export async function getHistory(
 
   return result;
 }
+
+const BS_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Movements for a closed BS day (must have a day-close row). */
+export async function getClosedDayDetail(dealerId: string, bsDate: string) {
+  if (!BS_DATE_REGEX.test(bsDate)) {
+    throw new Error("Invalid bsDate");
+  }
+
+  const close = await prisma.dealerCashDayClose.findUnique({
+    where: { dealerId_bsDate: { dealerId, bsDate } },
+  });
+  if (!close) {
+    throw new Error("Day not found or not closed");
+  }
+
+  const movements = await prisma.dealerCashMovement.findMany({
+    where: { dealerId, bsDate },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return {
+    bsDate,
+    openingSnapshot: Number(close.openingSnapshot),
+    closingSnapshot: Number(close.closingSnapshot),
+    source: close.source,
+    closedAt: close.closedAt,
+    movements: movements.map((m) => ({
+      id: m.id,
+      direction: m.direction,
+      amount: Number(m.amount),
+      partyName: m.partyName,
+      notes: m.notes,
+      createdAt: m.createdAt,
+    })),
+  };
+}

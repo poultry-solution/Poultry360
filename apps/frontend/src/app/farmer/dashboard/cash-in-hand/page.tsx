@@ -34,13 +34,13 @@ import {
 import { Textarea } from "@/common/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
 import {
-  useGetCashToday,
-  useGetCashHistory,
-  useSetupCashBook,
-  useAddCashMovement,
-  useCloseCashDay,
+  useGetFarmerCashToday,
+  useGetFarmerCashHistory,
+  useSetupFarmerCashBook,
+  useAddFarmerCashMovement,
+  useCloseFarmerCashDay,
   type TodayLedger,
-} from "@/fetchers/dealer/dealerCashInHandQueries";
+} from "@/fetchers/farmer/farmerCashInHandQueries";
 import { useI18n } from "@/i18n/useI18n";
 import { toast } from "sonner";
 import { HistoryDayDetailDialog } from "@/components/cash-in-hand/HistoryDayDetailDialog";
@@ -54,12 +54,10 @@ function formatNPR(value: number) {
   }).format(value);
 }
 
-// ── Setup screen ──────────────────────────────────────────────────────────────
-
 function SetupScreen() {
   const { t } = useI18n();
   const [opening, setOpening] = useState("");
-  const setupMutation = useSetupCashBook();
+  const setupMutation = useSetupFarmerCashBook();
 
   const handleSetup = async () => {
     const amt = Number(opening);
@@ -112,8 +110,6 @@ function SetupScreen() {
   );
 }
 
-// ── Movement dialog ───────────────────────────────────────────────────────────
-
 interface MovementDialogProps {
   direction: "IN" | "OUT";
   open: boolean;
@@ -125,7 +121,7 @@ function MovementDialog({ direction, open, onOpenChange }: MovementDialogProps) 
   const [amount, setAmount] = useState("");
   const [partyName, setPartyName] = useState("");
   const [notes, setNotes] = useState("");
-  const addMutation = useAddCashMovement();
+  const addMutation = useAddFarmerCashMovement();
 
   const handleClose = () => {
     setAmount("");
@@ -218,14 +214,12 @@ function MovementDialog({ direction, open, onOpenChange }: MovementDialogProps) 
   );
 }
 
-// ── Today ledger ──────────────────────────────────────────────────────────────
-
 function TodayLedgerView({ data }: { data: TodayLedger }) {
   const { t } = useI18n();
   const [inOpen, setInOpen] = useState(false);
   const [outOpen, setOutOpen] = useState(false);
   const [closeDayOpen, setCloseDayOpen] = useState(false);
-  const closeMutation = useCloseCashDay();
+  const closeMutation = useCloseFarmerCashDay();
 
   const handleCloseDay = async () => {
     try {
@@ -244,7 +238,6 @@ function TodayLedgerView({ data }: { data: TodayLedger }) {
 
   return (
     <div className="space-y-6">
-      {/* Balance cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
@@ -282,7 +275,6 @@ function TodayLedgerView({ data }: { data: TodayLedger }) {
         </Card>
       </div>
 
-      {/* Action buttons */}
       {!data.isClosed && (
         <div className="flex flex-wrap gap-2">
           <Button
@@ -314,10 +306,9 @@ function TodayLedgerView({ data }: { data: TodayLedger }) {
         </div>
       )}
 
-      {/* Movements list */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Today's Movements</CardTitle>
+          <CardTitle className="text-base">Today&apos;s Movements</CardTitle>
         </CardHeader>
         <CardContent>
           {data.movements.length === 0 ? (
@@ -368,11 +359,9 @@ function TodayLedgerView({ data }: { data: TodayLedger }) {
         </CardContent>
       </Card>
 
-      {/* Movement dialogs */}
       <MovementDialog direction="IN" open={inOpen} onOpenChange={setInOpen} />
       <MovementDialog direction="OUT" open={outOpen} onOpenChange={setOutOpen} />
 
-      {/* Close day confirm */}
       <AlertDialog open={closeDayOpen} onOpenChange={setCloseDayOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -396,11 +385,9 @@ function TodayLedgerView({ data }: { data: TodayLedger }) {
   );
 }
 
-// ── History tab ───────────────────────────────────────────────────────────────
-
 function HistoryView() {
   const { t } = useI18n();
-  const { data: history, isLoading } = useGetCashHistory();
+  const { data: history, isLoading } = useGetFarmerCashHistory();
   const [detailBsDate, setDetailBsDate] = useState<string | null>(null);
 
   if (isLoading) {
@@ -460,17 +447,15 @@ function HistoryView() {
           if (!o) setDetailBsDate(null);
         }}
         bsDate={detailBsDate}
-        apiBase="/dealer/cash-in-hand"
+        apiBase="/farmer/cash-in-hand"
       />
     </>
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
-
-export default function CashInHandPage() {
+export default function FarmerCashInHandPage() {
   const { t } = useI18n();
-  const { data, isLoading, error } = useGetCashToday();
+  const { data, isLoading, error } = useGetFarmerCashToday();
 
   if (isLoading) {
     return (
@@ -502,7 +487,6 @@ export default function CashInHandPage() {
 
   return (
     <div className="container max-w-2xl py-6 space-y-6">
-      {/* Header */}
       <div>
         <div className="flex items-center gap-2">
           <Wallet className="h-5 w-5 text-primary" />
@@ -511,13 +495,11 @@ export default function CashInHandPage() {
         <p className="text-sm text-muted-foreground mt-1">{t("cashInHand.subtitle")}</p>
       </div>
 
-      {/* BS date badge */}
       <div className="flex items-center gap-2">
         <span className="text-sm text-muted-foreground">{t("cashInHand.today")}:</span>
         <Badge variant="outline" className="font-mono text-sm">{ledger.todayBs}</Badge>
       </div>
 
-      {/* Tabs: Today / History */}
       <Tabs defaultValue="today">
         <TabsList>
           <TabsTrigger value="today" className="gap-1.5">

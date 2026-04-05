@@ -7,30 +7,19 @@ import {
   closeDay,
   getHistory,
   getClosedDayDetail,
-} from "../controller/dealerCashInHandController";
+} from "../controller/farmerCashInHandController";
 
 const router = express.Router();
 
 router.use((req, res, next) => {
-  authMiddleware(req, res, next, ["DEALER"]);
+  authMiddleware(req, res, next, ["OWNER"]);
 });
 
-// GET  /dealer/cash-in-hand/today
 router.get("/today", getToday);
-
-// POST /dealer/cash-in-hand/setup
 router.post("/setup", setup);
-
-// POST /dealer/cash-in-hand/movements
 router.post("/movements", addMovement);
-
-// POST /dealer/cash-in-hand/close-day
 router.post("/close-day", closeDay);
-
-// GET  /dealer/cash-in-hand/history
 router.get("/history", getHistory);
-
-// GET  /dealer/cash-in-hand/closed-day/:bsDate
 router.get("/closed-day/:bsDate", getClosedDayDetail);
 
 export default router;

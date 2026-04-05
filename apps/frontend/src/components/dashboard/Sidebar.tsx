@@ -51,6 +51,7 @@ export const farmerNavigation: NavigationItem[] = [
   { nameKey: "sidebar.nav.inventory", href: "/farmer/dashboard/inventory", icon: Package },
   { nameKey: "sidebar.nav.listForSale", href: "/farmer/dashboard/list-for-sale", icon: Tag },
   { nameKey: "sidebar.nav.staffManagement", href: "/farmer/dashboard/staff", icon: Users },
+  { nameKey: "sidebar.nav.cashInHand", href: "/farmer/dashboard/cash-in-hand", icon: Wallet },
   {
     nameKey: "sidebar.nav.chatWithDoctor",
     href: "/farmer/dashboard/chat-doctor",

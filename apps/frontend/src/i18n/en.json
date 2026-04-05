@@ -3139,6 +3139,17 @@
       "confirm": "Close Day",
       "cancel": "Cancel"
     },
-    "historyEmpty": "No closed days yet."
+    "historyEmpty": "No closed days yet.",
+    "historyDetail": {
+      "title": "Closed day",
+      "movementsTitle": "Movements",
+      "noMovements": "No movements recorded for this day.",
+      "openBalance": "Opening",
+      "closeBalance": "Closing",
+      "loadError": "Could not load day details.",
+      "tapHint": "Tap a row to view movements",
+      "autoClosed": "Auto-closed",
+      "closedByYou": "Closed by you"
+    }
   }
 }
