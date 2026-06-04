@@ -205,11 +205,6 @@ export default function Pricing() {
                   </Badge>
                 </div>
 
-                <div className="mt-4">
-                  <div className="text-3xl font-extrabold text-gray-900">
-                    {plan.priceLine}
-                  </div>
-                </div>
               </CardHeader>
 
               <CardContent className="relative p-6 pt-0">

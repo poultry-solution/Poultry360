@@ -50,7 +50,6 @@ export interface User {
       | "PAYMENT_REJECTED"
       | "PAYMENT_APPROVED";
     lockedUntilApproved: boolean;
-    trialEndsAt?: string | null;
   } | null;
   language?: "ENGLISH" | "NEPALI";
   calendarType?: "AD" | "BS";
@@ -184,7 +183,6 @@ export const useAuthStore = create<AuthState>()(
                     state: user.onboardingPayment.state,
                     lockedUntilApproved:
                       user.onboardingPayment.lockedUntilApproved,
-                    trialEndsAt: user.onboardingPayment.trialEndsAt ?? null,
                   }
                 : null,
               language: user.language || "ENGLISH",
@@ -240,7 +238,6 @@ export const useAuthStore = create<AuthState>()(
                 ? {
                     state: onboarding.state,
                     lockedUntilApproved: true,
-                    trialEndsAt: null,
                   }
                 : null,
               language: user.language || "ENGLISH",
@@ -352,8 +349,6 @@ export const useAuthStore = create<AuthState>()(
                           | "PAYMENT_APPROVED",
                       lockedUntilApproved:
                         response.user.onboardingPayment.lockedUntilApproved,
-                      trialEndsAt:
-                        response.user.onboardingPayment.trialEndsAt ?? null,
                     }
                   : null,
                 language: response.user.language || "ENGLISH",

@@ -2,7 +2,7 @@ import { UserRole } from "@myapp/shared-types";
 import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
 import prisma from "../utils/prisma";
-import { isOnboardingPaymentGateBlocking } from "../config/onboardingTrial";
+import { isOnboardingApprovalBlocking } from "../config/onboardingGate";
 
 declare global {
   namespace Express {
@@ -55,23 +55,22 @@ export const authMiddleware = async (
     return res.status(403).json({ error: "Access denied for this role" });
   }
 
-  // Payment-gated onboarding (new signups only)
-  // If a user has a UserOnboardingPayment row and it's not approved yet,
-  // allow only auth + onboarding payment endpoints.
+  // Admin-gated onboarding (new signups only).
+  // If a user has a UserOnboardingPayment row that isn't approved yet,
+  // allow only auth + onboarding status endpoints until an admin approves.
   try {
     if (req.userId) {
-      // SUPER_ADMIN and DOCTOR are not payment-gated
+      // SUPER_ADMIN and DOCTOR are not approval-gated
       if (role !== "SUPER_ADMIN" && role !== "DOCTOR") {
         const onboarding = await prisma.userOnboardingPayment.findUnique({
           where: { userId: req.userId },
-          select: { state: true, lockedUntilApproved: true, trialEndsAt: true },
+          select: { state: true, lockedUntilApproved: true },
         });
 
         const isLocked = onboarding
-          ? isOnboardingPaymentGateBlocking({
+          ? isOnboardingApprovalBlocking({
               state: onboarding.state,
               lockedUntilApproved: onboarding.lockedUntilApproved,
-              trialEndsAt: onboarding.trialEndsAt,
             })
           : false;
 
@@ -79,30 +78,20 @@ export const authMiddleware = async (
           const url = req.originalUrl || req.url;
           const path = req.path || "";
 
-          // Important: on prod your server is mounted under `/api/v1`,
-          // so `originalUrl` can look like `/api/v1/onboarding/payment/history`.
-          // Using `includes()` makes the whitelist robust.
+          // Prod mounts the API under `/api/v1`, so `originalUrl` can look like
+          // `/api/v1/onboarding/payment/status`. Using `includes()` keeps the
+          // whitelist robust regardless of mount prefix.
           const isAuthEndpoint =
             path.startsWith("/auth") || url.includes("/auth/");
 
-          const isOnboardingPaymentEndpoint =
+          const isOnboardingEndpoint =
             path.startsWith("/onboarding/payment") ||
             url.includes("/onboarding/payment");
 
-          // Payment receipt upload (Cloudinary direct upload) needs a signed params call.
-          // In prod, the middleware matching can be tricky due to mounts like `/api/v1`,
-          // so we allow all `/upload/*` endpoints for locked onboarding users.
-          const isUploadEndpoint =
-            path.startsWith("/upload") || url.includes("/upload/");
-
-          if (
-            !isAuthEndpoint &&
-            !isOnboardingPaymentEndpoint &&
-            !isUploadEndpoint
-          ) {
+          if (!isAuthEndpoint && !isOnboardingEndpoint) {
             return res.status(403).json({
-              code: "PAYMENT_APPROVAL_REQUIRED",
-              message: "Payment approval required to access this account.",
+              code: "ACCOUNT_APPROVAL_REQUIRED",
+              message: "Your account is pending admin approval.",
             });
           }
         }

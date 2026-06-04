@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -18,8 +18,6 @@ import {
 } from "@/common/components/ui/table";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
-import { Label } from "@/common/components/ui/label";
-import { Textarea } from "@/common/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -27,39 +25,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/common/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/common/components/ui/dialog";
 import { Badge } from "@/common/components/ui/badge";
-import { ImageUpload } from "@/common/components/ui/image-upload";
 import { toast } from "sonner";
 import {
-  useApprovePaymentSubmission,
-  useGetAdminPaymentApprovals,
-  useRejectPaymentSubmission,
-  type AdminPaymentApprovalsFilters,
-  type PaymentSubmissionStatus,
+  useApproveAccount,
+  useGetAdminAccountApprovals,
+  useRejectAccount,
+  type AccountApprovalState,
+  type AdminAccountApprovalsFilters,
 } from "@/fetchers/admin/adminPaymentApprovalsQueries";
-import {
-  useGetAdminOnboardingPaymentSettings,
-  useUpdateAdminOnboardingPaymentSettings,
-} from "@/fetchers/admin/adminOnboardingPaymentSettingsQueries";
 
-const STATUS_OPTIONS: Array<{ value: PaymentSubmissionStatus; label: string }> =
-  [
-    { value: "PENDING_REVIEW", label: "Pending review" },
-    { value: "APPROVED", label: "Approved" },
-    { value: "REJECTED", label: "Rejected" },
-  ];
+const STATUS_OPTIONS: Array<{ value: AccountApprovalState; label: string }> = [
+  { value: "PENDING_PAYMENT", label: "Pending approval" },
+  { value: "PAYMENT_APPROVED", label: "Approved" },
+  { value: "PAYMENT_REJECTED", label: "Rejected" },
+];
 
 const ROLE_OPTIONS: Array<{
-  value: AdminPaymentApprovalsFilters["role"];
+  value: NonNullable<AdminAccountApprovalsFilters["role"]>;
   label: string;
 }> = [
   { value: "OWNER", label: "Owner" },
@@ -70,154 +53,64 @@ const ROLE_OPTIONS: Array<{
   { value: "DOCTOR", label: "Doctor" },
 ];
 
-function statusBadge(status: PaymentSubmissionStatus) {
-  switch (status) {
-    case "PENDING_REVIEW":
-      return <Badge variant="secondary">{status}</Badge>;
-    case "APPROVED":
+function statusBadge(state: AccountApprovalState) {
+  switch (state) {
+    case "PENDING_PAYMENT":
+      return <Badge variant="secondary">Pending</Badge>;
+    case "PAYMENT_APPROVED":
       return (
         <Badge className="bg-emerald-50 text-emerald-800 border border-emerald-200">
-          {status}
+          Approved
         </Badge>
       );
-    case "REJECTED":
+    case "PAYMENT_REJECTED":
       return (
         <Badge className="bg-rose-50 text-rose-800 border border-rose-200">
-          {status}
+          Rejected
         </Badge>
       );
     default:
-      return <Badge variant="outline">{status}</Badge>;
+      return <Badge variant="outline">{state}</Badge>;
   }
 }
 
-export default function PaymentApprovalsPage() {
-  const [filters, setFilters] = useState<AdminPaymentApprovalsFilters>({
+export default function AccountApprovalsPage() {
+  const [filters, setFilters] = useState<AdminAccountApprovalsFilters>({
     page: 1,
     limit: 20,
-    status: "PENDING_REVIEW",
+    status: "PENDING_PAYMENT",
     role: undefined,
     search: "",
   });
 
-  const { data, isLoading, refetch } = useGetAdminPaymentApprovals(filters);
-  const { data: settingsData } = useGetAdminOnboardingPaymentSettings();
-  const approveMutation = useApprovePaymentSubmission();
-  const rejectMutation = useRejectPaymentSubmission();
-  const updateSettingsMutation = useUpdateAdminOnboardingPaymentSettings();
-
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [ownerAmountNpr, setOwnerAmountNpr] = useState("6999");
-  const [managerAmountNpr, setManagerAmountNpr] = useState("6999");
-  const [dealerAmountNpr, setDealerAmountNpr] = useState("7875");
-  const [companyAmountNpr, setCompanyAmountNpr] = useState("30000");
-  const [hatcheryAmountNpr, setHatcheryAmountNpr] = useState("9999");
-  const [qrImageUrl, setQrImageUrl] = useState("");
-  const [qrText, setQrText] = useState("Poultry360 Onboarding Payment");
-  const [phoneDisplay, setPhoneDisplay] = useState("+977 9809781908");
-  const [accountHint, setAccountHint] = useState(
-    "Pay the onboarding fee to activate your account."
-  );
+  const { data, isLoading, refetch } = useGetAdminAccountApprovals(filters);
+  const approveMutation = useApproveAccount();
+  const rejectMutation = useRejectAccount();
 
   const rows = data?.data ?? [];
 
-  const syncSettingsForm = () => {
-    const current = settingsData?.data;
-    if (!current) return;
-    setOwnerAmountNpr(String(current.ownerAmountNpr));
-    setManagerAmountNpr(String(current.managerAmountNpr));
-    setDealerAmountNpr(String(current.dealerAmountNpr));
-    setCompanyAmountNpr(String(current.companyAmountNpr));
-    setHatcheryAmountNpr(String(current.hatcheryAmountNpr ?? 9999));
-    setQrImageUrl(current.qrImageUrl || "");
-    setQrText(current.qrText || "Poultry360 Onboarding Payment");
-    setPhoneDisplay(current.phoneDisplay || "+977 9809781908");
-    setAccountHint(
-      current.accountHint || "Pay the onboarding fee to activate your account."
-    );
-  };
-
-  const canAct = useMemo(() => {
-    return (status: PaymentSubmissionStatus) => status === "PENDING_REVIEW";
-  }, []);
-
-  const onApprove = async (submissionId: string) => {
+  const onApprove = async (userId: string) => {
     try {
-      await approveMutation.mutateAsync(submissionId);
-      toast.success("Approved successfully");
+      await approveMutation.mutateAsync(userId);
+      toast.success("Account approved");
       await refetch();
     } catch (e: any) {
-      toast.error(e?.message || "Failed to approve");
+      toast.error(e?.response?.data?.message || e?.message || "Failed to approve");
     }
   };
 
-  const onReject = async (submissionId: string) => {
+  const onReject = async (userId: string) => {
     const reason = window.prompt("Rejection reason (required)");
     if (!reason || !reason.trim()) {
       toast.error("Rejection reason is required.");
       return;
     }
     try {
-      await rejectMutation.mutateAsync({
-        submissionId,
-        rejectionReason: reason.trim(),
-      });
-      toast.success("Rejected successfully");
+      await rejectMutation.mutateAsync({ userId, rejectionReason: reason.trim() });
+      toast.success("Account rejected");
       await refetch();
     } catch (e: any) {
-      toast.error(e?.message || "Failed to reject");
-    }
-  };
-
-  const onSaveSettings = async () => {
-    const owner = Number(ownerAmountNpr);
-    const manager = Number(managerAmountNpr);
-    const dealer = Number(dealerAmountNpr);
-    const company = Number(companyAmountNpr);
-    const hatchery = Number(hatcheryAmountNpr);
-
-    if (
-      !Number.isFinite(owner) ||
-      !Number.isFinite(manager) ||
-      !Number.isFinite(dealer) ||
-      !Number.isFinite(company) ||
-      !Number.isFinite(hatchery)
-    ) {
-      toast.error("All prices must be valid numbers.");
-      return;
-    }
-
-    if (owner < 0 || manager < 0 || dealer < 0 || company < 0 || hatchery < 0) {
-      toast.error("Prices cannot be negative.");
-      return;
-    }
-
-    if (!qrImageUrl.trim()) {
-      toast.error("Please upload a QR image.");
-      return;
-    }
-
-    if (!phoneDisplay.trim() || !accountHint.trim()) {
-      toast.error("Phone and account hint are required.");
-      return;
-    }
-
-    try {
-      await updateSettingsMutation.mutateAsync({
-        ownerAmountNpr: owner,
-        managerAmountNpr: manager,
-        dealerAmountNpr: dealer,
-        companyAmountNpr: company,
-        hatcheryAmountNpr: hatchery,
-        qrImageUrl: qrImageUrl.trim(),
-        qrText: qrText.trim() || "Poultry360 Onboarding Payment",
-        phoneDisplay: phoneDisplay.trim(),
-        accountHint: accountHint.trim(),
-      });
-      toast.success("Pricing and payment info updated.");
-      setIsSettingsOpen(false);
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to update settings.");
+      toast.error(e?.response?.data?.message || e?.message || "Failed to reject");
     }
   };
 
@@ -225,9 +118,10 @@ export default function PaymentApprovalsPage() {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Payment approval queue</CardTitle>
+          <CardTitle>Account approval queue</CardTitle>
           <CardDescription>
-            Review onboarding payments and approve/reject submissions.
+            Review new signups and approve or reject account access. Pricing is
+            handled offline with each customer.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -237,7 +131,7 @@ export default function PaymentApprovalsPage() {
               <Select
                 value={filters.status}
                 onValueChange={(v) =>
-                  setFilters((prev) => ({ ...prev, status: v as any }))
+                  setFilters((prev) => ({ ...prev, status: v as AccountApprovalState }))
                 }
               >
                 <SelectTrigger>
@@ -270,10 +164,7 @@ export default function PaymentApprovalsPage() {
                 <SelectContent>
                   <SelectItem value="ALL">All roles</SelectItem>
                   {ROLE_OPTIONS.map((opt) => (
-                    <SelectItem
-                      key={String(opt.value)}
-                      value={String(opt.value)}
-                    >
+                    <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
                     </SelectItem>
                   ))}
@@ -286,10 +177,7 @@ export default function PaymentApprovalsPage() {
               <Input
                 value={filters.search ?? ""}
                 onChange={(e) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    search: e.target.value,
-                  }))
+                  setFilters((prev) => ({ ...prev, search: e.target.value }))
                 }
                 placeholder="Name / phone (min 2 chars)"
               />
@@ -297,149 +185,21 @@ export default function PaymentApprovalsPage() {
           </div>
 
           <div className="pt-2">
-            <div className="flex gap-2 flex-wrap">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => refetch()}
-                disabled={isLoading}
-              >
-                Refresh
-              </Button>
-              <Dialog
-                open={isSettingsOpen}
-                onOpenChange={(open) => {
-                  setIsSettingsOpen(open);
-                  if (open) syncSettingsForm();
-                }}
-              >
-                <DialogTrigger asChild>
-                  <Button type="button" variant="default">
-                    Change pricing and info
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>Change pricing and info</DialogTitle>
-                    <DialogDescription>
-                      Update onboarding prices by role and payment QR details.
-                    </DialogDescription>
-                  </DialogHeader>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label>Owner price (NPR)</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={ownerAmountNpr}
-                        onChange={(e) => setOwnerAmountNpr(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Manager price (NPR)</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={managerAmountNpr}
-                        onChange={(e) => setManagerAmountNpr(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Dealer price (NPR)</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={dealerAmountNpr}
-                        onChange={(e) => setDealerAmountNpr(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Company price (NPR)</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={companyAmountNpr}
-                        onChange={(e) => setCompanyAmountNpr(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Hatchery price (NPR)</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={hatcheryAmountNpr}
-                        onChange={(e) => setHatcheryAmountNpr(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label>QR image</Label>
-                    <ImageUpload
-                      value={qrImageUrl}
-                      onChange={setQrImageUrl}
-                      folder="onboarding-payments"
-                      placeholder="Upload onboarding QR image"
-                      disabled={updateSettingsMutation.isPending}
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label>QR text</Label>
-                    <Input
-                      value={qrText}
-                      onChange={(e) => setQrText(e.target.value)}
-                      placeholder="Poultry360 Onboarding Payment"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label>Phone display</Label>
-                    <Input
-                      value={phoneDisplay}
-                      onChange={(e) => setPhoneDisplay(e.target.value)}
-                      placeholder="+977 9809781908"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label>Account hint</Label>
-                    <Textarea
-                      rows={3}
-                      value={accountHint}
-                      onChange={(e) => setAccountHint(e.target.value)}
-                      placeholder="Pay the onboarding fee to activate your account."
-                    />
-                  </div>
-
-                  <DialogFooter>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsSettingsOpen(false)}
-                      disabled={updateSettingsMutation.isPending}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={onSaveSettings}
-                      disabled={updateSettingsMutation.isPending}
-                    >
-                      {updateSettingsMutation.isPending ? "Saving..." : "Save changes"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => refetch()}
+              disabled={isLoading}
+            >
+              Refresh
+            </Button>
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Submissions</CardTitle>
+          <CardTitle className="text-base">Signups</CardTitle>
           <CardDescription>
             {isLoading
               ? "Loading..."
@@ -454,63 +214,49 @@ export default function PaymentApprovalsPage() {
               <TableRow>
                 <TableHead>User</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead>Amount</TableHead>
+                <TableHead>Business</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Receipt</TableHead>
                 <TableHead>Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">
-                    No submissions found.
+                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
+                    No accounts found.
                   </TableCell>
                 </TableRow>
               ) : (
                 rows.map((row) => (
-                  <TableRow key={row.id}>
+                  <TableRow key={row.userId}>
                     <TableCell>
                       <div className="font-medium">{row.userName}</div>
                       <div className="text-xs text-muted-foreground">
                         {row.phone}
                       </div>
-                      {row.rejectionReason && row.status === "REJECTED" && (
+                      {row.rejectionReason && row.state === "PAYMENT_REJECTED" && (
                         <div className="text-xs text-rose-600 mt-1">
                           {row.rejectionReason}
                         </div>
                       )}
                     </TableCell>
-                    <TableCell>{row.roleAtSubmission}</TableCell>
-                    <TableCell>{`NPR ${row.amountNpr.toLocaleString("en-US")}`}</TableCell>
-                    <TableCell>{statusBadge(row.status)}</TableCell>
+                    <TableCell>{row.role}</TableCell>
                     <TableCell>
-                      {row.receiptUrl ? (
-                        <a
-                          href={row.receiptUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-block"
-                        >
-                          <img
-                            src={row.receiptUrl}
-                            alt="Receipt"
-                            className="w-16 h-16 object-cover rounded border"
-                          />
-                        </a>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">
-                          N/A
-                        </span>
+                      {row.companyName || (
+                        <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
+                    <TableCell>{statusBadge(row.state)}</TableCell>
                     <TableCell>
                       <div className="flex gap-2 flex-wrap">
                         <Button
                           type="button"
                           size="sm"
-                          onClick={() => onApprove(row.id)}
-                          disabled={!canAct(row.status) || approveMutation.isPending}
+                          onClick={() => onApprove(row.userId)}
+                          disabled={
+                            row.state === "PAYMENT_APPROVED" ||
+                            approveMutation.isPending
+                          }
                         >
                           Approve
                         </Button>
@@ -518,8 +264,11 @@ export default function PaymentApprovalsPage() {
                           type="button"
                           size="sm"
                           variant="destructive"
-                          onClick={() => onReject(row.id)}
-                          disabled={!canAct(row.status) || rejectMutation.isPending}
+                          onClick={() => onReject(row.userId)}
+                          disabled={
+                            row.state === "PAYMENT_REJECTED" ||
+                            rejectMutation.isPending
+                          }
                         >
                           Reject
                         </Button>
@@ -535,4 +284,3 @@ export default function PaymentApprovalsPage() {
     </div>
   );
 }
-

@@ -339,25 +339,24 @@ model User {
   pushSubscriptions PushSubscription[]
   notifications     Notification[]
 
-  // Payment-gated onboarding (new users only)
+  // Admin-gated onboarding approval (new users only)
   onboarding           UserOnboardingPayment?
-  paymentSubmissions  UserPaymentSubmission[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
+// Account approval gate for new signups. Pricing is handled offline by the admin;
+// the app only tracks the approval lifecycle.
+// PENDING_PAYMENT  -> awaiting admin approval (default for gated roles)
+// PAYMENT_APPROVED -> approved, account unlocked
+// PAYMENT_REJECTED -> rejected, account stays locked (admin can re-approve)
+// (PENDING_REVIEW is retained for enum compatibility but no longer used.)
 enum UserOnboardingPaymentState {
   PENDING_PAYMENT
   PENDING_REVIEW
   PAYMENT_REJECTED
   PAYMENT_APPROVED
-}
-
-enum UserPaymentSubmissionStatus {
-  PENDING_REVIEW
-  APPROVED
-  REJECTED
 }
 
 model UserOnboardingPayment {
@@ -366,10 +365,6 @@ model UserOnboardingPayment {
 
   state              UserOnboardingPaymentState @default(PENDING_PAYMENT)
   lockedUntilApproved Boolean                   @default(true)
-
-  // Optional free-trial end time. When null, user has not started a trial yet.
-  // When set, trial access is active only if trialEndsAt is in the future.
-  trialEndsAt DateTime?
 
   approvedAt DateTime?
   approvedBy String?
@@ -382,51 +377,6 @@ model UserOnboardingPayment {
   updatedAt DateTime @updatedAt
 
   @@index([state])
-}
-
-model UserPaymentSubmission {
-  id String @id @default(cuid())
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  amountNpr Decimal @db.Decimal(10, 2)
-  roleAtSubmission UserRole
-
-  receiptUrl String
-  notes String?
-
-  status UserPaymentSubmissionStatus @default(PENDING_REVIEW)
-
-  reviewedAt DateTime?
-  reviewerId String?
-  reviewRejectionReason String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId, status, createdAt])
-  @@index([status, createdAt])
-}
-
-model OnboardingPaymentSettings {
-  id String @id @default("default")
-
-  ownerAmountNpr    Decimal @db.Decimal(10, 2) @default(6999)
-  managerAmountNpr  Decimal @db.Decimal(10, 2) @default(6999)
-  dealerAmountNpr   Decimal @db.Decimal(10, 2) @default(7875)
-  companyAmountNpr  Decimal @db.Decimal(10, 2) @default(30000)
-  hatcheryAmountNpr Decimal @db.Decimal(10, 2) @default(9999)
-
-  qrImageUrl   String?
-  qrText       String?
-  phoneDisplay String @default("+977 9809781908")
-  accountHint  String @default("Pay the onboarding fee to activate your account.")
-
-  updatedBy String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model Company {
