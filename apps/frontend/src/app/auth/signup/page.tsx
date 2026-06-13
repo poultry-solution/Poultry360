@@ -282,7 +282,7 @@ export default function SignupPage() {
                   disabled={isLoading}
                   className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
                 >
-                  {isLoading ? t("auth.signup.creatingAccount") : t("auth.signup.continue")}
+                  {isLoading ? "Submitting..." : "Submit for Approval"}
                 </Button>
               </form>
 

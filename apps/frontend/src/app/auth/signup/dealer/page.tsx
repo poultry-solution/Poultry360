@@ -307,7 +307,7 @@ export default function DealerSignupPage() {
               disabled={isLoading}
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              {isLoading ? t("auth.dealerSignup.creatingAccount") : t("auth.dealerSignup.createAccount")}
+              {isLoading ? "Submitting..." : "Submit for Approval"}
             </Button>
           </form>
 

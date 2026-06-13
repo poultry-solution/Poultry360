@@ -288,7 +288,7 @@ export default function CompanySignupPage() {
                             disabled={isLoading}
                             className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
                         >
-                            {isLoading ? t("auth.companySignup.creatingAccount") : t("auth.companySignup.createAccount")}
+                            {isLoading ? "Submitting..." : "Submit for Approval"}
                         </Button>
                     </form>
 
