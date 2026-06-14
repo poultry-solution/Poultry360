@@ -2782,7 +2782,6 @@
       "features": "Features",
       "pricing": "Pricing",
       "marketplace": "Marketplace",
-      "tutorials": "Tutorials",
       "reviews": "Reviews",
       "contact": "Contact",
       "getStarted": "Get Started",
@@ -3003,31 +3002,6 @@
       "layers": "Layers",
       "fish": "Fish",
       "other": "Other"
-    }
-  },
-  "tutorials": {
-    "title": "Poultry360 Tutorial Hub",
-    "subtitle": "Learn how to use Poultry360 with step-by-step video guides.",
-    "sections": {
-      "gettingStarted": "Getting Started",
-      "broilerLayerFarmer": "Broiler + Layer Farmer",
-      "feedSupplier": "Feed Supplier"
-    },
-    "videos": {
-      "introductionToPoultry360": "Introduction to Poultry360",
-      "farmerManualEndToEnd": "Farmer app using manual end to end",
-      "farmerWithConnectionToDealer": "Farmer with connection to dealer",
-      "layerFarmerIndepth": "Layer Farmer Indepth",
-      "feedSupplierEndToEnd": "Feed supplier end to end",
-      "feedSupplierWithConnectionToFarmer": "Feed supplier with connection to farmer"
-    },
-    "descriptions": {
-      "introductionToPoultry360": "Get started with Poultry360 and explore the platform.",
-      "farmerManualEndToEnd": "Use the farmer app manually from start to finish.",
-      "farmerWithConnectionToDealer": "Farmer workflow when connected to a dealer.",
-      "layerFarmerIndepth": "In-depth guide for layer farmers.",
-      "feedSupplierEndToEnd": "Feed supplier workflow from start to finish.",
-      "feedSupplierWithConnectionToFarmer": "Feed supplier when connected to farmers."
     }
   },
   "onboardingPaymentTrial": {

@@ -40,9 +40,6 @@ export default function Navbar() {
           <Link href="/marketplace" className="text-muted-foreground hover:text-foreground transition-colors">
             {t("landing.navbar.marketplace")}
           </Link>
-          <Link href="/tutorials" className="text-muted-foreground hover:text-foreground transition-colors">
-            {t("landing.navbar.tutorials")}
-          </Link>
           <Link href="#reviews" className="text-muted-foreground hover:text-foreground transition-colors">
             {t("landing.navbar.reviews")}
           </Link>
@@ -133,13 +130,6 @@ export default function Navbar() {
               className="block py-2 text-muted-foreground hover:text-foreground transition-colors font-medium"
             >
               {t("landing.navbar.marketplace")}
-            </Link>
-            <Link
-              href="/tutorials"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block py-2 text-muted-foreground hover:text-foreground transition-colors font-medium"
-            >
-              {t("landing.navbar.tutorials")}
             </Link>
             <Link
               href="#reviews"
