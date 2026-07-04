@@ -292,29 +292,11 @@ export default function CompanySignupPage() {
                         </Button>
                     </form>
 
-                    <div className="mt-6 space-y-2">
+                    <div className="mt-6">
                         <p className="text-sm text-muted-foreground text-center">
                             {t("auth.companySignup.alreadyHaveAccount")}{" "}
                             <Link href="/auth/login" className="text-primary hover:underline">
                                 {t("auth.companySignup.login")}
-                            </Link>
-                        </p>
-                        <p className="text-sm text-muted-foreground text-center">
-                            {t("auth.companySignup.registerOwner")}{" "}
-                            <Link
-                                href="/auth/signup"
-                                className="text-primary hover:underline"
-                            >
-                                {t("auth.companySignup.signupOwner")}
-                            </Link>
-                        </p>
-                        <p className="text-sm text-muted-foreground text-center">
-                            {t("auth.companySignup.registerDealer")}{" "}
-                            <Link
-                                href="/auth/signup/dealer"
-                                className="text-primary hover:underline"
-                            >
-                                {t("auth.companySignup.signupDealer")}
                             </Link>
                         </p>
                     </div>

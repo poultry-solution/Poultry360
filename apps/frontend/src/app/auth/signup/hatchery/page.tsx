@@ -295,26 +295,11 @@ export default function HatcherySignupPage() {
             </Button>
           </form>
 
-          <div className="mt-6 space-y-2">
+          <div className="mt-6">
             <p className="text-sm text-muted-foreground text-center">
               {t("auth.hatcherySignup.alreadyHaveAccount")}{" "}
               <Link href="/auth/login" className="text-primary hover:underline">
                 {t("auth.hatcherySignup.login")}
-              </Link>
-            </p>
-            <p className="text-sm text-muted-foreground text-center">
-              {t("auth.hatcherySignup.registerOwner")}{" "}
-              <Link href="/auth/signup" className="text-primary hover:underline">
-                {t("auth.hatcherySignup.signupOwner")}
-              </Link>
-            </p>
-            <p className="text-sm text-muted-foreground text-center">
-              {t("auth.hatcherySignup.registerDealer")}{" "}
-              <Link
-                href="/auth/signup/dealer"
-                className="text-primary hover:underline"
-              >
-                {t("auth.hatcherySignup.signupDealer")}
               </Link>
             </p>
           </div>

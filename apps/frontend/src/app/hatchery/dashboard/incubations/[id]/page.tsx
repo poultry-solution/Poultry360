@@ -21,7 +21,6 @@ import {
   useTransferToHatcher,
   useHatchResults,
   useAddHatchResult,
-  useDeleteHatchResult,
   useChickSales,
   useAddChickSale,
   useDeleteChickSale,
@@ -111,9 +110,9 @@ export default function IncubationDetailPage() {
       {/* Tab Content */}
       <div>
         {activeTab === "overview" && <OverviewTab batch={batch} />}
-        {activeTab === "candling" && <CandlingTab batchId={id} />}
+        {activeTab === "candling" && <CandlingTab batch={batch} batchId={id} />}
         {activeTab === "transfer" && <TransferTab batch={batch} batchId={id} />}
-        {activeTab === "hatch-results" && <HatchResultsTab batchId={id} />}
+        {activeTab === "hatch-results" && <HatchResultsTab batch={batch} batchId={id} />}
         {activeTab === "chick-stock" && <ChickStockTab batch={batch} />}
         {activeTab === "chick-sales" && <ChickSalesTab batchId={id} batch={batch} />}
       </div>
@@ -202,7 +201,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 
 // ─── Candling Tab ─────────────────────────────────────────────────────────────
 
-function CandlingTab({ batchId }: { batchId: string }) {
+function CandlingTab({ batch, batchId }: { batch: any; batchId: string }) {
   const { data: losses, isLoading } = useIncubationLosses(batchId);
   const candlingMutation = useRecordCandling(batchId);
 
@@ -218,8 +217,8 @@ function CandlingTab({ batchId }: { batchId: string }) {
     try {
       await candlingMutation.mutateAsync({
         date,
-        infertile: infertile ? parseInt(infertile) : 0,
-        earlyDead: earlyDead ? parseInt(earlyDead) : 0,
+        infertile: infertile ? Number(infertile) : 0,
+        earlyDead: earlyDead ? Number(earlyDead) : 0,
         note: note || undefined,
       });
       setInfertile("");
@@ -240,38 +239,50 @@ function CandlingTab({ batchId }: { batchId: string }) {
   const candlingLosses = (losses ?? []).filter(
     (l) => l.type === "INFERTILE" || l.type === "EARLY_DEAD"
   );
+  const canRecordCandling =
+    !batch.transferredAt && (batch.stage === "SETTER" || batch.stage === "CANDLING");
 
   return (
     <div className="space-y-6">
-      <div className="border rounded-lg p-4 space-y-3">
-        <h3 className="font-semibold">Record Candling</h3>
-        {err && <p className="text-destructive text-sm">{err}</p>}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div>
-            <label className="block text-sm font-medium mb-1">Date</label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+      {canRecordCandling ? (
+        <div className="border rounded-lg p-4 space-y-3">
+          <h3 className="font-semibold">Record Candling</h3>
+          {err && <p className="text-destructive text-sm">{err}</p>}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">Date</label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Infertile</label>
+              <Input type="number" min={0} value={infertile} onChange={(e) => setInfertile(e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Early Dead</label>
+              <Input type="number" min={0} value={earlyDead} onChange={(e) => setEarlyDead(e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Note</label>
+              <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional" />
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Infertile</label>
-            <Input type="number" min={0} value={infertile} onChange={(e) => setInfertile(e.target.value)} placeholder="0" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Early Dead</label>
-            <Input type="number" min={0} value={earlyDead} onChange={(e) => setEarlyDead(e.target.value)} placeholder="0" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Note</label>
-            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional" />
+          <div className="flex justify-end">
+            <Button onClick={handleSubmit} disabled={candlingMutation.isPending}>
+              {candlingMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <Plus className="h-4 w-4 mr-2" />
+              Record Candling
+            </Button>
           </div>
         </div>
-        <div className="flex justify-end">
-          <Button onClick={handleSubmit} disabled={candlingMutation.isPending}>
-            {candlingMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            <Plus className="h-4 w-4 mr-2" />
-            Record Candling
-          </Button>
+      ) : (
+        <div className="flex items-center gap-3 border rounded-lg p-4 bg-muted/40 text-muted-foreground">
+          <CheckCircle className="h-5 w-5 text-primary" />
+          <div>
+            <p className="font-semibold text-foreground">Candling locked</p>
+            <p className="text-sm">Candling is locked after transfer to hatcher.</p>
+          </div>
         </div>
-      </div>
+      )}
 
       <DataTable
         columns={columns}
@@ -291,6 +302,8 @@ function TransferTab({ batch, batchId }: { batch: any; batchId: string }) {
   const [err, setErr] = useState<string | null>(null);
 
   const alreadyTransferred = !!batch.transferredAt;
+  const canTransfer =
+    !alreadyTransferred && (batch.stage === "SETTER" || batch.stage === "CANDLING");
 
   async function handleTransfer() {
     setErr(null);
@@ -307,13 +320,18 @@ function TransferTab({ batch, batchId }: { batch: any; batchId: string }) {
         <div className="flex items-center gap-3 border rounded-lg p-4 bg-green-50 text-green-800">
           <CheckCircle className="h-5 w-5" />
           <div>
-            <p className="font-semibold">Transferred to Hatcher</p>
+            <p className="font-semibold">
+              {batch.stage === "COMPLETED" ? "Transfer completed" : "Transferred to Hatcher"}
+            </p>
             <p className="text-sm">
               Transferred on <DateDisplay date={batch.transferredAt} />
             </p>
+            {batch.stage === "COMPLETED" && (
+              <p className="text-sm">This incubation cycle is completed and locked.</p>
+            )}
           </div>
         </div>
-      ) : (
+      ) : canTransfer ? (
         <div className="border rounded-lg p-4 space-y-3">
           <h3 className="font-semibold">Transfer to Hatcher</h3>
           <p className="text-sm text-muted-foreground">
@@ -331,6 +349,14 @@ function TransferTab({ batch, batchId }: { batch: any; batchId: string }) {
             </Button>
           </div>
         </div>
+      ) : (
+        <div className="flex items-center gap-3 border rounded-lg p-4 bg-muted/40 text-muted-foreground">
+          <CheckCircle className="h-5 w-5 text-primary" />
+          <div>
+            <p className="font-semibold text-foreground">Transfer locked</p>
+            <p className="text-sm">This incubation cycle cannot be transferred in its current stage.</p>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -338,10 +364,9 @@ function TransferTab({ batch, batchId }: { batch: any; batchId: string }) {
 
 // ─── Hatch Results Tab ────────────────────────────────────────────────────────
 
-function HatchResultsTab({ batchId }: { batchId: string }) {
+function HatchResultsTab({ batch, batchId }: { batch: any; batchId: string }) {
   const { data: results, isLoading } = useHatchResults(batchId);
   const addMutation = useAddHatchResult(batchId);
-  const deleteMutation = useDeleteHatchResult(batchId);
 
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [hatchedA, setHatchedA] = useState("");
@@ -351,23 +376,27 @@ function HatchResultsTab({ batchId }: { batchId: string }) {
   const [unhatched, setUnhatched] = useState("");
   const [note, setNote] = useState("");
   const [err, setErr] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const hasHatchResult = (results?.length ?? 0) > 0;
+  const canAddHatchResult =
+    !isLoading && batch.stage === "HATCHER" && !!batch.transferredAt && !hasHatchResult;
+  const isFinalized = batch.stage === "COMPLETED" || hasHatchResult;
 
   async function handleAdd() {
     setErr(null);
     const total = [hatchedA, hatchedB, cull, lateDead, unhatched].reduce(
-      (s, v) => s + (parseInt(v) || 0),
+      (s, v) => s + (Number(v) || 0),
       0
     );
     if (total === 0) return setErr("Enter at least one count");
     try {
       await addMutation.mutateAsync({
         date,
-        hatchedA: parseInt(hatchedA) || 0,
-        hatchedB: parseInt(hatchedB) || 0,
-        cull: parseInt(cull) || 0,
-        lateDead: parseInt(lateDead) || 0,
-        unhatched: parseInt(unhatched) || 0,
+        hatchedA: Number(hatchedA) || 0,
+        hatchedB: Number(hatchedB) || 0,
+        cull: Number(cull) || 0,
+        lateDead: Number(lateDead) || 0,
+        unhatched: Number(unhatched) || 0,
         note: note || undefined,
       });
       setHatchedA("");
@@ -381,17 +410,6 @@ function HatchResultsTab({ batchId }: { batchId: string }) {
     }
   }
 
-  async function handleDelete(id: string) {
-    setDeletingId(id);
-    try {
-      await deleteMutation.mutateAsync(id);
-    } catch (e: any) {
-      setErr(e?.response?.data?.error ?? e.message);
-    } finally {
-      setDeletingId(null);
-    }
-  }
-
   const columns: Column<HatchResult>[] = [
     { key: "date", label: "Date", render: (_, r) => <DateDisplay date={r.date} /> },
     { key: "hatchedA", label: "Grade A", render: (_, r) => <span className="font-semibold text-green-700">{r.hatchedA}</span> },
@@ -400,70 +418,73 @@ function HatchResultsTab({ batchId }: { batchId: string }) {
     { key: "lateDead", label: "Late Dead", render: (_, r) => r.lateDead },
     { key: "unhatched", label: "Unhatched", render: (_, r) => r.unhatched },
     { key: "note", label: "Note", render: (_, r) => r.note ?? "—" },
-    {
-      key: "actions",
-      label: "",
-      render: (_, r) => (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-destructive hover:text-destructive"
-          onClick={() => handleDelete(r.id)}
-          disabled={deletingId === r.id}
-        >
-          {deletingId === r.id ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Trash2 className="h-4 w-4" />
-          )}
-        </Button>
-      ),
-    },
   ];
 
   return (
     <div className="space-y-6">
-      <div className="border rounded-lg p-4 space-y-3">
-        <h3 className="font-semibold">Record Hatch Result</h3>
-        {err && <p className="text-destructive text-sm">{err}</p>}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      {!batch.transferredAt && batch.stage !== "COMPLETED" && (
+        <div className="flex items-center gap-3 border rounded-lg p-4 bg-muted/40 text-muted-foreground">
+          <CheckCircle className="h-5 w-5 text-primary" />
           <div>
-            <label className="block text-sm font-medium mb-1">Date</label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Grade A Chicks</label>
-            <Input type="number" min={0} value={hatchedA} onChange={(e) => setHatchedA(e.target.value)} placeholder="0" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Grade B Chicks</label>
-            <Input type="number" min={0} value={hatchedB} onChange={(e) => setHatchedB(e.target.value)} placeholder="0" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Cull</label>
-            <Input type="number" min={0} value={cull} onChange={(e) => setCull(e.target.value)} placeholder="0" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Late Dead</label>
-            <Input type="number" min={0} value={lateDead} onChange={(e) => setLateDead(e.target.value)} placeholder="0" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Unhatched</label>
-            <Input type="number" min={0} value={unhatched} onChange={(e) => setUnhatched(e.target.value)} placeholder="0" />
+            <p className="font-semibold text-foreground">Hatch result not ready</p>
+            <p className="text-sm">Transfer to hatcher before adding hatch results.</p>
           </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Note</label>
-          <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional" />
+      )}
+
+      {isFinalized && (
+        <div className="flex items-center gap-3 border rounded-lg p-4 bg-green-50 text-green-800">
+          <CheckCircle className="h-5 w-5" />
+          <div>
+            <p className="font-semibold">Hatch result finalized</p>
+            <p className="text-sm">This hatch result is read-only after completion.</p>
+          </div>
         </div>
-        <div className="flex justify-end">
-          <Button onClick={handleAdd} disabled={addMutation.isPending}>
-            {addMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            <Plus className="h-4 w-4 mr-2" />
-            Add Result
-          </Button>
+      )}
+
+      {canAddHatchResult && (
+        <div className="border rounded-lg p-4 space-y-3">
+          <h3 className="font-semibold">Record Hatch Result</h3>
+          {err && <p className="text-destructive text-sm">{err}</p>}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">Date</label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Grade A Chicks</label>
+              <Input type="number" min={0} value={hatchedA} onChange={(e) => setHatchedA(e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Grade B Chicks</label>
+              <Input type="number" min={0} value={hatchedB} onChange={(e) => setHatchedB(e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Cull</label>
+              <Input type="number" min={0} value={cull} onChange={(e) => setCull(e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Late Dead</label>
+              <Input type="number" min={0} value={lateDead} onChange={(e) => setLateDead(e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Unhatched</label>
+              <Input type="number" min={0} value={unhatched} onChange={(e) => setUnhatched(e.target.value)} placeholder="0" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Note</label>
+            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional" />
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={handleAdd} disabled={addMutation.isPending}>
+              {addMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <Plus className="h-4 w-4 mr-2" />
+              Add Result
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       <DataTable
         columns={columns}

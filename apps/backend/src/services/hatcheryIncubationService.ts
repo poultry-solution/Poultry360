@@ -9,6 +9,35 @@ import {
 import prisma from "../utils/prisma";
 
 export class HatcheryIncubationService {
+  private static assertNonNegativeInteger(value: number, label: string) {
+    if (!Number.isInteger(value) || value < 0) {
+      throw new Error(`${label} must be a non-negative integer`);
+    }
+  }
+
+  private static async lockIncubationBatch(
+    tx: Prisma.TransactionClient,
+    incubationBatchId: string,
+    hatcheryOwnerId: string
+  ) {
+    const lockedRows = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM "HatcheryIncubationBatch"
+      WHERE id = ${incubationBatchId}
+        AND "hatcheryOwnerId" = ${hatcheryOwnerId}
+      FOR UPDATE
+    `;
+
+    if (lockedRows.length === 0) throw new Error("Incubation batch not found");
+
+    const incubation = await tx.hatcheryIncubationBatch.findFirst({
+      where: { id: incubationBatchId, hatcheryOwnerId },
+    });
+    if (!incubation) throw new Error("Incubation batch not found");
+
+    return incubation;
+  }
+
   /**
    * Auto-generate incubation batch code scoped to hatchery owner.
    */
@@ -127,10 +156,47 @@ export class HatcheryIncubationService {
   ) {
     const { incubationBatchId, hatcheryOwnerId, date, infertile, earlyDead, note } = data;
 
-    const incubation = await tx.hatcheryIncubationBatch.findFirst({
-      where: { id: incubationBatchId, hatcheryOwnerId },
+    HatcheryIncubationService.assertNonNegativeInteger(infertile, "Infertile count");
+    HatcheryIncubationService.assertNonNegativeInteger(earlyDead, "Early dead count");
+    if (infertile + earlyDead <= 0) {
+      throw new Error("Enter at least one candling count");
+    }
+
+    const incubation = await HatcheryIncubationService.lockIncubationBatch(
+      tx,
+      incubationBatchId,
+      hatcheryOwnerId
+    );
+
+    if (
+      incubation.transferredAt ||
+      incubation.stage === HatcheryIncubationStage.HATCHER ||
+      incubation.stage === HatcheryIncubationStage.COMPLETED
+    ) {
+      throw new Error("Candling is locked after transfer to hatcher");
+    }
+
+    if (
+      incubation.stage !== HatcheryIncubationStage.SETTER &&
+      incubation.stage !== HatcheryIncubationStage.CANDLING
+    ) {
+      throw new Error("Candling can only be recorded before transfer to hatcher");
+    }
+
+    const existingCandlingLoss = await tx.hatcheryIncubationLoss.aggregate({
+      where: {
+        incubationBatchId,
+        type: { in: [HatcheryIncubationLossType.INFERTILE, HatcheryIncubationLossType.EARLY_DEAD] },
+      },
+      _sum: { count: true },
     });
-    if (!incubation) throw new Error("Incubation batch not found");
+    const totalCandlingLoss =
+      (existingCandlingLoss._sum.count ?? 0) + infertile + earlyDead;
+    if (totalCandlingLoss > incubation.eggsSetCount) {
+      throw new Error(
+        `Candling loss cannot exceed eggs set (${incubation.eggsSetCount})`
+      );
+    }
 
     const losses: { type: HatcheryIncubationLossType; count: number }[] = [];
     if (infertile > 0) losses.push({ type: HatcheryIncubationLossType.INFERTILE, count: infertile });
@@ -161,10 +227,24 @@ export class HatcheryIncubationService {
     tx: Prisma.TransactionClient,
     data: { incubationBatchId: string; hatcheryOwnerId: string; date: Date }
   ) {
-    const incubation = await tx.hatcheryIncubationBatch.findFirst({
-      where: { id: data.incubationBatchId, hatcheryOwnerId: data.hatcheryOwnerId },
-    });
-    if (!incubation) throw new Error("Incubation batch not found");
+    const incubation = await HatcheryIncubationService.lockIncubationBatch(
+      tx,
+      data.incubationBatchId,
+      data.hatcheryOwnerId
+    );
+
+    if (incubation.stage === HatcheryIncubationStage.COMPLETED) {
+      throw new Error("Completed incubation batches cannot be transferred");
+    }
+    if (incubation.transferredAt || incubation.stage === HatcheryIncubationStage.HATCHER) {
+      throw new Error("Incubation batch has already been transferred to hatcher");
+    }
+    if (
+      incubation.stage !== HatcheryIncubationStage.SETTER &&
+      incubation.stage !== HatcheryIncubationStage.CANDLING
+    ) {
+      throw new Error("Only setter or candling stage batches can be transferred");
+    }
 
     await tx.hatcheryIncubationBatch.update({
       where: { id: data.incubationBatchId },
@@ -205,10 +285,55 @@ export class HatcheryIncubationService {
       note,
     } = data;
 
-    const incubation = await tx.hatcheryIncubationBatch.findFirst({
-      where: { id: incubationBatchId, hatcheryOwnerId },
+    const counts = [
+      { label: "Grade A chicks", value: hatchedA },
+      { label: "Grade B chicks", value: hatchedB },
+      { label: "Cull count", value: cull },
+      { label: "Late dead count", value: lateDead },
+      { label: "Unhatched count", value: unhatched },
+    ];
+    for (const count of counts) {
+      HatcheryIncubationService.assertNonNegativeInteger(count.value, count.label);
+    }
+
+    const totalOutcome = hatchedA + hatchedB + cull + lateDead + unhatched;
+    if (totalOutcome <= 0) {
+      throw new Error("Enter at least one hatch result count");
+    }
+
+    const incubation = await HatcheryIncubationService.lockIncubationBatch(
+      tx,
+      incubationBatchId,
+      hatcheryOwnerId
+    );
+
+    if (incubation.stage === HatcheryIncubationStage.COMPLETED) {
+      throw new Error("Completed hatch results cannot be changed");
+    }
+    if (incubation.stage !== HatcheryIncubationStage.HATCHER || !incubation.transferredAt) {
+      throw new Error("Transfer to hatcher before adding hatch results");
+    }
+
+    const existingHatchResultCount = await tx.hatcheryHatchResult.count({
+      where: { incubationBatchId },
     });
-    if (!incubation) throw new Error("Incubation batch not found");
+    if (existingHatchResultCount > 0) {
+      throw new Error("Hatch result has already been finalized for this incubation");
+    }
+
+    const candlingLoss = await tx.hatcheryIncubationLoss.aggregate({
+      where: {
+        incubationBatchId,
+        type: { in: [HatcheryIncubationLossType.INFERTILE, HatcheryIncubationLossType.EARLY_DEAD] },
+      },
+      _sum: { count: true },
+    });
+    const fertileEggs = incubation.eggsSetCount - (candlingLoss._sum.count ?? 0);
+    if (totalOutcome > fertileEggs) {
+      throw new Error(
+        `Hatch result total cannot exceed fertile eggs (${fertileEggs})`
+      );
+    }
 
     // Save hatch result record
     const hatchResult = await tx.hatcheryHatchResult.create({
@@ -273,6 +398,9 @@ export class HatcheryIncubationService {
 
     if (result.incubationBatch.hatcheryOwnerId !== hatcheryOwnerId) {
       throw new Error("Not authorized");
+    }
+    if (result.incubationBatch.stage === HatcheryIncubationStage.COMPLETED) {
+      throw new Error("Completed hatch results cannot be changed");
     }
 
     const incubationBatchId = result.incubationBatchId;

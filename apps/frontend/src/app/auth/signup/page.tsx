@@ -286,41 +286,11 @@ export default function SignupPage() {
                 </Button>
               </form>
 
-          <div className="mt-6 space-y-2">
+          <div className="mt-6">
             <p className="text-sm text-muted-foreground text-center">
               {t("auth.signup.alreadyHaveAccount")}{" "}
               <Link href="/auth/login" className="text-primary hover:underline">
                 {t("auth.signup.login")}
-              </Link>
-            </p>
-            <p className="text-sm text-muted-foreground text-center">
-              {t("auth.signup.registerDealer")}{" "}
-              <Link
-                href="/auth/signup/dealer"
-                className="text-primary hover:underline"
-              >
-                {t("auth.signup.signupDealer")}
-              </Link>
-            </p>
-
-          </div>
-          <div className="mt-2 space-y-2">
-            <p className="text-sm text-muted-foreground text-center">
-              {t("auth.signup.registerCompany")}{" "}
-              <Link
-                href="/auth/signup/company"
-                className="text-primary hover:underline"
-              >
-                {t("auth.signup.signupCompany")}
-              </Link>
-            </p>
-            <p className="text-sm text-muted-foreground text-center">
-              {t("auth.signup.registerDoctor")}{" "}
-              <Link
-                href="/auth/signup/doctor"
-                className="text-primary hover:underline"
-              >
-                {t("auth.signup.signupDoctor")}
               </Link>
             </p>
           </div>

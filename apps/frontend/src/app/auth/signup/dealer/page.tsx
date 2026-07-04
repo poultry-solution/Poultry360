@@ -311,29 +311,11 @@ export default function DealerSignupPage() {
             </Button>
           </form>
 
-          <div className="mt-6 space-y-2">
+          <div className="mt-6">
             <p className="text-sm text-muted-foreground text-center">
               {t("auth.dealerSignup.alreadyHaveAccount")}{" "}
               <Link href="/auth/login" className="text-primary hover:underline">
                 {t("auth.dealerSignup.login")}
-              </Link>
-            </p>
-            <p className="text-sm text-muted-foreground text-center">
-              {t("auth.dealerSignup.registerOwner")}{" "}
-              <Link
-                href="/auth/signup"
-                className="text-primary hover:underline"
-              >
-                {t("auth.dealerSignup.signupOwner")}
-              </Link>
-            </p>
-            <p className="text-sm text-muted-foreground text-center">
-              {t("auth.dealerSignup.registerCompany")}{" "}
-              <Link
-                href="/auth/signup/company"
-                className="text-primary hover:underline"
-              >
-                {t("auth.dealerSignup.signupCompany")}
               </Link>
             </p>
           </div>

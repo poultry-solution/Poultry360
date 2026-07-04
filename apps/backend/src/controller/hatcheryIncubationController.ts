@@ -8,6 +8,11 @@ function getOwnerId(req: Request): string {
   return (req as any).userId as string;
 }
 
+function toCount(value: unknown, fallback = 0): number {
+  if (value === undefined || value === null || value === "") return fallback;
+  return Number(value);
+}
+
 // ─── Incubation batch list/create/detail ─────────────────────────────────────
 
 export async function listIncubationBatches(req: Request, res: Response) {
@@ -151,8 +156,8 @@ export async function recordCandling(req: Request, res: Response) {
         incubationBatchId,
         hatcheryOwnerId: ownerId,
         date: new Date(date),
-        infertile: parseInt(infertile),
-        earlyDead: parseInt(earlyDead),
+        infertile: toCount(infertile),
+        earlyDead: toCount(earlyDead),
         note,
       });
     });
@@ -234,11 +239,11 @@ export async function addHatchResult(req: Request, res: Response) {
         incubationBatchId,
         hatcheryOwnerId: ownerId,
         date: new Date(date),
-        hatchedA: parseInt(hatchedA),
-        hatchedB: parseInt(hatchedB),
-        cull: parseInt(cull),
-        lateDead: parseInt(lateDead),
-        unhatched: parseInt(unhatched),
+        hatchedA: toCount(hatchedA),
+        hatchedB: toCount(hatchedB),
+        cull: toCount(cull),
+        lateDead: toCount(lateDead),
+        unhatched: toCount(unhatched),
         note,
       });
     });
