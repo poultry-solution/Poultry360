@@ -11,6 +11,7 @@ import { LoadingProvider } from "@/common/providers/LoadingProvider";
 import { RoleBasedMiddleware } from "@/common/components/auth/RoleBasedMiddleware";
 import { I18nProvider } from "@/i18n/I18nProvider";
 import { PushNotificationInit } from "@/common/components/PushNotificationInit";
+import { NumberInputWheelGuard } from "@/common/components/NumberInputWheelGuard";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -70,6 +71,7 @@ export default function RootLayout({
                     <LoadingProvider>
                       <RoleBasedMiddleware>
                         <AuthGuard>
+                          <NumberInputWheelGuard />
                           <PushNotificationInit />
                           {children}
                         </AuthGuard>

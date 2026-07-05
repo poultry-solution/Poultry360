@@ -480,12 +480,26 @@ model Batch {
   // Per-batch egg inventory (so sales show and deduct from this batch's stock)
   batchEggInventories BatchEggInventory[]
   reminders Reminder[]
+  batchNotes BatchNote[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([farmId, batchNumber])
   @@index([farmId, startDate])
+}
+
+model BatchNote {
+  id          String   @id @default(cuid())
+  batchId     String
+  batch       Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date        DateTime
+  description String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([batchId, date])
 }
 
 // ==================== REMINDERS ====================

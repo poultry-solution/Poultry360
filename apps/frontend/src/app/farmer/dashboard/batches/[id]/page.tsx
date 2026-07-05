@@ -91,6 +91,7 @@ import { SalesBalanceTab } from "@/components/batches/tabs/SalesBalanceTab";
 import { ProfitLossTab } from "@/components/batches/tabs/ProfitLossTab";
 import { GrowthTab } from "@/components/batches/tabs/GrowthTab";
 import { EggProductionTab } from "@/components/batches/tabs/EggProductionTab";
+import { NotesTab } from "@/components/batches/tabs/NotesTab";
 import { createExpenseColumns } from "@/components/batches/configs/expenseColumns";
 import { createSalesColumns } from "@/components/batches/configs/salesColumns";
 import { createMortalityColumns } from "@/components/batches/configs/mortalityColumns";
@@ -142,7 +143,7 @@ const BASE_TABS = [
   "Profit & Loss",
 ] as const;
 // Growth for Broiler, Egg Production for Layers
-type TabName = (typeof BASE_TABS)[number] | "Growth" | "Egg Production";
+type TabName = (typeof BASE_TABS)[number] | "Growth" | "Egg Production" | "Notes";
 
 
 // helper banner
@@ -173,8 +174,8 @@ export default function BatchDetailPage() {
   const analytics = analyticsResponse?.data;
 
   const tabs: TabName[] = batch
-    ? [...BASE_TABS, (batch as any).batchType === "LAYERS" ? "Egg Production" : "Growth"]
-    : [...BASE_TABS, "Growth"];
+    ? [...BASE_TABS, (batch as any).batchType === "LAYERS" ? "Egg Production" : "Growth", "Notes"]
+    : [...BASE_TABS, "Growth", "Notes"];
 
   const [activeTab, setActiveTab] = useState<TabName>("Overview");
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -1648,6 +1649,10 @@ export default function BatchDetailPage() {
           expenseBreakdown={[]}
           salesBreakdown={[]}
         />
+      )}
+
+      {activeTab === "Notes" && batchId && (
+        <NotesTab batchId={batchId} />
       )}
 
       {activeTab === "Growth" && batch && (batch as any).batchType !== "LAYERS" && (
