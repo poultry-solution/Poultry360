@@ -1,12 +1,11 @@
+import "./env";
 import express from "express";
-import dotenv from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import routes from "./router/index";
 import { getSocketService } from "./services/socketService";
 import { startReminderDispatcher } from "./services/reminderDispatcher";
-dotenv.config();
 
 
 const PORT = process.env.PORT || 8081;

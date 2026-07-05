@@ -810,6 +810,10 @@ export default function BatchDetailPage() {
           ? new Date(expenseForm.date).toISOString()
           : new Date().toISOString(),
         amount,
+        description:
+          ec === "Other" && !expenseForm.selectedOtherId
+            ? expenseForm.otherName.trim()
+            : expenseForm.notes || undefined,
         quantity,
         unitPrice,
         farmId: batch?.farmId,

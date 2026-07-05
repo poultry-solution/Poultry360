@@ -734,6 +734,8 @@
         "chicks": "chicks",
         "totalDelivered": "Total delivered:",
         "dateLabel": "Date",
+        "expiryDateLabel": "Expiry date (optional)",
+        "expiryDateShort": "Expiry",
         "noteLabel": "Note (optional)",
         "notePlaceholder": "Additional notes",
         "cancel": "Cancel",

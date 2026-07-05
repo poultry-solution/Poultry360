@@ -784,6 +784,8 @@
         "chicks": "चिक्स",
         "totalDelivered": "कुल वितरण:",
         "dateLabel": "मिति",
+        "expiryDateLabel": "म्याद सकिने मिति (वैकल्पिक)",
+        "expiryDateShort": "म्याद",
         "noteLabel": "नोट (वैकल्पिक)",
         "notePlaceholder": "थप नोटहरू",
         "cancel": "रद्द गर्नुहोस्",

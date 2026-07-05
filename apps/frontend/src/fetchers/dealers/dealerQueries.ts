@@ -192,6 +192,7 @@ export const useAddDealerTransaction = () => {
         itemName?: string;
         purchaseCategory?: string;
         date: string;
+        expiryDate?: string;
         description?: string;
         reference?: string;
         unitPrice?: number;

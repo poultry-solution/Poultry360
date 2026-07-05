@@ -767,6 +767,8 @@ model InventoryItem {
   // Identity: same name + rate + supplier = merge; different rate or supplier = separate line
   unitPrice   Decimal? @db.Decimal(10, 2)
   supplierKey String?  // e.g. "DEALER:id", "HATCHERY:id", "MEDICINE_SUPPLIER:id", "NONE"
+  expiryDate  DateTime?
+  expiryDateKey String @default("NO_EXPIRY")
 
   // Relationships
   userId       String
@@ -785,7 +787,7 @@ model InventoryItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, categoryId, name, unitPrice, supplierKey])
+  @@unique([userId, categoryId, name, unitPrice, supplierKey, expiryDateKey], map: "InventoryItem_identity_with_expiry_key")
 }
 
 model InventoryTransaction {
@@ -797,6 +799,7 @@ model InventoryTransaction {
   date        DateTime
   description String?
   unit        String?
+  expiryDate  DateTime?
 
   // Relationships
   itemId String
@@ -890,6 +893,7 @@ model EntityTransaction {
 
   unit      String?
   unitPrice Decimal? @db.Decimal(10, 2)
+  expiryDate DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

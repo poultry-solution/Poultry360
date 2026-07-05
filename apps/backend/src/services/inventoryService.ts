@@ -27,6 +27,7 @@ export class InventoryService {
     unitPrice: number;
     totalAmount: number;
     date: Date;
+    expiryDate?: Date | null;
     description?: string;
     reference?: string;
 
@@ -53,6 +54,7 @@ export class InventoryService {
       unitPrice,
       totalAmount,
       date,
+      expiryDate,
       description,
       reference,
       purchaseCategory,
@@ -126,18 +128,30 @@ export class InventoryService {
             : medicineSupplierId != null
               ? `MEDICINE_SUPPLIER:${medicineSupplierId}`
               : "NONE";
+      const normalizedExpiryDate =
+        itemType === InventoryItemType.MEDICINE && expiryDate
+          ? expiryDate
+          : null;
+      const expiryDateKey = normalizedExpiryDate
+        ? normalizedExpiryDate.toISOString().split("T")[0]
+        : "NO_EXPIRY";
 
       const inventoryItem = await tx.inventoryItem.upsert({
         where: {
-          userId_categoryId_name_unitPrice_supplierKey: {
+          userId_categoryId_name_unitPrice_supplierKey_expiryDateKey: {
             userId,
             categoryId: category.id,
             name: itemName,
             unitPrice: rateKey,
             supplierKey,
+            expiryDateKey,
           },
         },
-        update: unit ? { unit } : {},
+        update: {
+          ...(unit ? { unit } : {}),
+          expiryDate: normalizedExpiryDate,
+          expiryDateKey,
+        },
         create: {
           name: itemName,
           description: description,
@@ -148,6 +162,8 @@ export class InventoryService {
           categoryId: category.id,
           unitPrice: rateKey,
           supplierKey,
+          expiryDate: normalizedExpiryDate,
+          expiryDateKey,
         },
       });
 
@@ -175,6 +191,7 @@ export class InventoryService {
           date,
           description: `Purchase from supplier`,
           itemId: inventoryItem.id,
+          expiryDate: normalizedExpiryDate,
         },
       });
 
@@ -189,6 +206,7 @@ export class InventoryService {
             date,
             description: `Free units received with purchase`,
             itemId: inventoryItem.id,
+            expiryDate: normalizedExpiryDate,
           },
         });
       }
@@ -229,6 +247,7 @@ export class InventoryService {
           purchaseCategory: resolvedCategory,
           unit: unit || null,
           unitPrice: unitPrice,
+          expiryDate: normalizedExpiryDate,
           entityType: dealerId
             ? "DEALER"
             : hatcheryId

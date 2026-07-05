@@ -124,6 +124,7 @@ export default function SupplierLedgerPage() {
     quantity: "",
     unit: "",
     date: "",
+    expiryDate: "",
     description: "",
   });
   // Free chicks state (only relevant when category is CHICKS)
@@ -225,7 +226,19 @@ export default function SupplierLedgerPage() {
         </Badge>
       ),
     }),
-    createColumn("itemName", t("farmer.supplierLedger.table.item")),
+    createColumn("itemName", t("farmer.supplierLedger.table.item"), {
+      render: (value, row: any) => (
+        <div>
+          <div>{value || "-"}</div>
+          {row.purchaseCategory === "MEDICINE" && row.expiryDate && (
+            <div className="mt-1 text-xs text-muted-foreground">
+              {t("farmer.supplierLedger.addEntry.expiryDateShort")}:{" "}
+              <DateDisplay date={row.expiryDate} format="short" />
+            </div>
+          )}
+        </div>
+      ),
+    }),
     createColumn("quantity", t("farmer.supplierLedger.table.qty"), {
       type: "number",
       align: "right",
@@ -470,6 +483,10 @@ export default function SupplierLedgerPage() {
           itemName: newEntry.item,
           purchaseCategory: newEntry.category,
           date,
+          expiryDate:
+            newEntry.category === "MEDICINE" && newEntry.expiryDate
+              ? newEntry.expiryDate
+              : undefined,
           description:
             newEntry.description || `Purchase of ${newEntry.item}`,
           unitPrice: rate,
@@ -486,6 +503,7 @@ export default function SupplierLedgerPage() {
         quantity: "",
         unit: "",
         date: "",
+        expiryDate: "",
         description: "",
       });
       setFreeMode("count");
@@ -1061,7 +1079,11 @@ export default function SupplierLedgerPage() {
                 <Select
                   value={newEntry.category}
                   onValueChange={(value) => {
-                    setNewEntry({ ...newEntry, category: value });
+                    setNewEntry({
+                      ...newEntry,
+                      category: value,
+                      expiryDate: value === "MEDICINE" ? newEntry.expiryDate : "",
+                    });
                     // Reset free chicks state when switching away from CHICKS
                     if (value !== "CHICKS") {
                       setFreeMode("count");
@@ -1236,6 +1258,19 @@ export default function SupplierLedgerPage() {
                   }
                 />
               </div>
+
+              {newEntry.category === "MEDICINE" && (
+                <div>
+                  <DateInput
+                    label={t("farmer.supplierLedger.addEntry.expiryDateLabel")}
+                    value={newEntry.expiryDate}
+                    onChange={(value) =>
+                      setNewEntry({ ...newEntry, expiryDate: value })
+                    }
+                    preferNativeInput
+                  />
+                </div>
+              )}
 
               {/* Note */}
               <div>

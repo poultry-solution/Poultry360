@@ -756,6 +756,7 @@ export const getInventoryForExpense = async (
         currentStock: true,
         unit: true,
         itemType: true,
+        expiryDate: true,
       },
       orderBy: { name: "asc" },
     });
@@ -783,6 +784,7 @@ export const getInventoryForExpense = async (
       currentStock: Number(item.currentStock),
       unit: item.unit,
       itemType: item.itemType,
+      expiryDate: item.expiryDate,
       rate: rateByItemId.get(item.id) ?? 0,
     }));
 
@@ -909,6 +911,7 @@ export const getInventoryTableData = async (
         status,
         minStock: item.minStock,
         category: item.category.name,
+        expiryDate: item.expiryDate,
         lastPurchaseDate: latest?.date ?? null,
         dealerId: latest?.dealerId ?? null,
         entityType:
