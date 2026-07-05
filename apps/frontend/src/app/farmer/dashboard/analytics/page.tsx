@@ -21,8 +21,10 @@ import {
   Building2,
   CalendarDays,
   CreditCard,
+  Download,
   DollarSign,
   Egg,
+  FileText,
   HeartPulse,
   Layers3,
   Pill,
@@ -73,10 +75,13 @@ import {
   FarmerAnalyticsBatchType,
   FarmerAnalyticsGroupBy,
   FarmerAnalyticsOverviewParams,
+  FarmerReportAnalytics,
+  FarmerReportType,
   useGetFarmerFinanceAnalytics,
   useGetFarmerFlockComparisonAnalytics,
   useGetFarmerOperationsAnalytics,
   useGetFarmerProductionAnalytics,
+  useGetFarmerReportAnalytics,
   useGetFarmerAnalyticsOverview,
 } from "@/fetchers/analytics/farmerAnalyticsQueries";
 
@@ -98,6 +103,17 @@ type FlockSortKey =
   | "profit"
   | "costPerBird"
   | "profitPerBird";
+
+const reportTypeLabels: Record<FarmerReportType, string> = {
+  daily: "Daily report",
+  weekly: "Weekly report",
+  monthly: "Monthly report",
+  batch: "Batch/flock report",
+  expense: "Expense report",
+  sales: "Sales report",
+  mortality: "Mortality report",
+  "egg-production": "Egg production report",
+};
 
 const datePresetLabels: Record<DatePreset, string> = {
   today: "Today",
@@ -252,6 +268,136 @@ function formatPercent(value: number): string {
   return `${Number(value || 0).toFixed(1)}%`;
 }
 
+function formatReportValue(
+  value: string | number | null | undefined,
+  format?: "money" | "percent"
+): string {
+  if (value === null || value === undefined) return "-";
+  if (format === "money") return formatMoney(Number(value));
+  if (format === "percent") return formatPercent(Number(value));
+  if (typeof value === "number") return Number.isInteger(value) ? formatNumber(value) : value.toFixed(2);
+  return value;
+}
+
+function downloadBlob(fileName: string, mimeType: string, content: BlobPart) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function escapeCsv(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+function exportReportCsv(report: FarmerReportAnalytics) {
+  const header = report.columns.map((column) => escapeCsv(column.label)).join(",");
+  const rows = report.rows.map((row) =>
+    report.columns
+      .map((column) =>
+        escapeCsv(formatReportValue(row[column.key], column.format))
+      )
+      .join(",")
+  );
+  downloadBlob(
+    `${report.reportType}-report.csv`,
+    "text/csv;charset=utf-8",
+    [header, ...rows].join("\n")
+  );
+}
+
+function sanitizePdfText(value: string): string {
+  return value
+    .replace(/₹/g, "Rs ")
+    .replace(/[^\x20-\x7E]/g, " ")
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)");
+}
+
+function makePdfContentLines(report: FarmerReportAnalytics): string[] {
+  const lines = [
+    report.title,
+    `Generated: ${new Date(report.generatedAt).toLocaleString()}`,
+    "",
+    ...report.summary.map((item) => `${item.label}: ${formatReportValue(item.value)}`),
+    "",
+    report.columns.map((column) => column.label).join(" | "),
+    "-".repeat(110),
+    ...report.rows.map((row) =>
+      report.columns
+        .map((column) => formatReportValue(row[column.key], column.format))
+        .join(" | ")
+    ),
+  ];
+  return lines.map((line) => line.slice(0, 150));
+}
+
+function createSimplePdf(report: FarmerReportAnalytics): string {
+  const lines = makePdfContentLines(report);
+  const pageLineCount = 34;
+  const pages: string[][] = [];
+  for (let index = 0; index < lines.length; index += pageLineCount) {
+    pages.push(lines.slice(index, index + pageLineCount));
+  }
+
+  const objects: string[] = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  const pageObjectNumbers: number[] = [];
+
+  pages.forEach((pageLines) => {
+    const pageObjectNumber = objects.length + 1;
+    const contentObjectNumber = pageObjectNumber + 1;
+    pageObjectNumbers.push(pageObjectNumber);
+    const content = [
+      "BT",
+      "/F1 10 Tf",
+      "12 TL",
+      "40 555 Td",
+      ...pageLines.map((line) => `(${sanitizePdfText(line)}) Tj T*`),
+      "ET",
+    ].join("\n");
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`
+    );
+    objects.push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+  });
+
+  objects[1] = `<< /Type /Pages /Kids [${pageObjectNumbers
+    .map((number) => `${number} 0 R`)
+    .join(" ")}] /Count ${pageObjectNumbers.length} >>`;
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(pdf.length);
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  return pdf;
+}
+
+function exportReportPdf(report: FarmerReportAnalytics) {
+  downloadBlob(
+    `${report.reportType}-report.pdf`,
+    "application/pdf",
+    createSimplePdf(report)
+  );
+}
+
 function SummaryCard({
   title,
   value,
@@ -336,6 +482,7 @@ export default function FarmerAnalyticsPage() {
   const [flockSortDirection, setFlockSortDirection] = useState<"asc" | "desc">(
     "desc"
   );
+  const [reportType, setReportType] = useState<FarmerReportType>("daily");
 
   const dateRange = useMemo(() => {
     if (datePreset === "custom") {
@@ -383,12 +530,18 @@ export default function FarmerAnalyticsPage() {
     isLoading: productionLoading,
     isError: productionIsError,
   } = useGetFarmerProductionAnalytics(queryParams);
+  const {
+    data: reportData,
+    isLoading: reportLoading,
+    isError: reportIsError,
+  } = useGetFarmerReportAnalytics(queryParams, reportType);
 
   const overview = data?.data;
   const finance = financeData?.data;
   const flockComparison = flockData?.data;
   const operations = operationsData?.data;
   const production = productionData?.data;
+  const report = reportData?.data;
   const batchOptions = overview?.filters.batches || [];
   const summary = overview?.summary;
 
@@ -1983,8 +2136,155 @@ export default function FarmerAnalyticsPage() {
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="reports">
-          <ComingSoonPanel title="Reports" />
+        <TabsContent value="reports" className="space-y-4">
+          {reportIsError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              Failed to load report.
+            </div>
+          )}
+
+          <Card className="rounded-lg py-5">
+            <CardContent>
+              <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                <div className="w-full space-y-2 md:max-w-sm">
+                  <Label>Report Type</Label>
+                  <Select
+                    value={reportType}
+                    onValueChange={(value) => setReportType(value as FarmerReportType)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select report" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(reportTypeLabels) as FarmerReportType[]).map(
+                        (type) => (
+                          <SelectItem key={type} value={type}>
+                            {reportTypeLabels[type]}
+                          </SelectItem>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!report || reportLoading}
+                    onClick={() => report && exportReportCsv(report)}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    CSV
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!report || reportLoading}
+                    onClick={() => report && exportReportPdf(report)}
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    PDF
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-4 md:grid-cols-4">
+            {(report?.summary || []).map((item) => (
+              <Card key={item.label} className="rounded-lg py-5">
+                <CardContent>
+                  <p className="text-sm font-medium text-gray-600">{item.label}</p>
+                  <p className="mt-2 text-2xl font-bold text-gray-950">
+                    {reportLoading
+                      ? "..."
+                      : typeof item.value === "number"
+                        ? formatReportValue(
+                            item.value,
+                            item.label.toLowerCase().includes("revenue") ||
+                              item.label.toLowerCase().includes("expense") ||
+                              item.label.toLowerCase().includes("profit") ||
+                              item.label.toLowerCase().includes("due")
+                              ? "money"
+                              : undefined
+                          )
+                        : item.value}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <Card className="rounded-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <FileText className="h-5 w-5 text-green-700" />
+                {report?.title || reportTypeLabels[reportType]}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {(report?.columns || []).map((column) => (
+                        <TableHead
+                          key={column.key}
+                          className={
+                            column.format === "money" || column.format === "percent"
+                              ? "text-right"
+                              : undefined
+                          }
+                        >
+                          {column.label}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reportLoading ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={report?.columns.length || 1}
+                          className="h-24 text-center"
+                        >
+                          Loading report...
+                        </TableCell>
+                      </TableRow>
+                    ) : !report || report.rows.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={report?.columns.length || 1}
+                          className="h-24 text-center"
+                        >
+                          No rows for this report and filter.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      report.rows.map((row, index) => (
+                        <TableRow key={index}>
+                          {report.columns.map((column) => (
+                            <TableCell
+                              key={column.key}
+                              className={
+                                column.format === "money" ||
+                                column.format === "percent"
+                                  ? "text-right"
+                                  : undefined
+                              }
+                            >
+                              {formatReportValue(row[column.key], column.format)}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

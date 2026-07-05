@@ -4,6 +4,15 @@ import axiosInstance from "@/common/lib/axios";
 export type FarmerAnalyticsBatchType = "BROILER" | "LAYERS";
 export type FarmerAnalyticsBatchStatus = "ACTIVE" | "COMPLETED";
 export type FarmerAnalyticsGroupBy = "daily" | "weekly" | "monthly";
+export type FarmerReportType =
+  | "daily"
+  | "weekly"
+  | "monthly"
+  | "batch"
+  | "expense"
+  | "sales"
+  | "mortality"
+  | "egg-production";
 
 export interface FarmerAnalyticsOverviewParams {
   farmId?: string;
@@ -207,6 +216,22 @@ export interface FarmerProductionAnalytics {
   }>;
 }
 
+export interface FarmerReportAnalytics {
+  reportType: FarmerReportType;
+  title: string;
+  generatedAt: string;
+  summary: Array<{
+    label: string;
+    value: string | number;
+  }>;
+  columns: Array<{
+    key: string;
+    label: string;
+    format?: "money" | "percent";
+  }>;
+  rows: Array<Record<string, string | number | null>>;
+}
+
 export const farmerAnalyticsQueryKeys = {
   all: ["farmer-analytics"] as const,
   overview: (params: FarmerAnalyticsOverviewParams) =>
@@ -219,6 +244,8 @@ export const farmerAnalyticsQueryKeys = {
     [...farmerAnalyticsQueryKeys.all, "operations", params] as const,
   production: (params: FarmerAnalyticsOverviewParams) =>
     [...farmerAnalyticsQueryKeys.all, "production", params] as const,
+  report: (params: FarmerAnalyticsOverviewParams, reportType: FarmerReportType) =>
+    [...farmerAnalyticsQueryKeys.all, "report", params, reportType] as const,
 };
 
 export const useGetFarmerAnalyticsOverview = (
@@ -307,6 +334,28 @@ export const useGetFarmerProductionAnalytics = (
     }> => {
       const response = await axiosInstance.get("/analytics/farmer/production", {
         params,
+      });
+      return response.data;
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+};
+
+export const useGetFarmerReportAnalytics = (
+  params: FarmerAnalyticsOverviewParams,
+  reportType: FarmerReportType
+) => {
+  return useQuery({
+    queryKey: farmerAnalyticsQueryKeys.report(params, reportType),
+    queryFn: async (): Promise<{
+      success: boolean;
+      data: FarmerReportAnalytics;
+    }> => {
+      const response = await axiosInstance.get("/analytics/farmer/reports", {
+        params: {
+          ...params,
+          reportType,
+        },
       });
       return response.data;
     },

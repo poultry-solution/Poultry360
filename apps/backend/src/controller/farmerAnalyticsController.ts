@@ -4,6 +4,15 @@ import prisma from "../utils/prisma";
 import { getMoneyToGiveForUser } from "./dashboardController";
 
 type GroupBy = "daily" | "weekly" | "monthly";
+type FarmerReportType =
+  | "daily"
+  | "weekly"
+  | "monthly"
+  | "batch"
+  | "expense"
+  | "sales"
+  | "mortality"
+  | "egg-production";
 type AnalyticsScope = {
   accessibleFarms: Array<{ id: string; name: string }>;
   batchOptions: Array<{
@@ -47,6 +56,16 @@ type AnalyticsScope = {
 const validBatchTypes: BatchType[] = ["BROILER", "LAYERS"];
 const validStatuses: BatchStatus[] = ["ACTIVE", "COMPLETED"];
 const validGroupBy: GroupBy[] = ["daily", "weekly", "monthly"];
+const validReportTypes: FarmerReportType[] = [
+  "daily",
+  "weekly",
+  "monthly",
+  "batch",
+  "expense",
+  "sales",
+  "mortality",
+  "egg-production",
+];
 
 function one(value: unknown): string | undefined {
   if (Array.isArray(value)) return typeof value[0] === "string" ? value[0] : undefined;
@@ -72,6 +91,13 @@ function normalizeStatus(value: unknown): BatchStatus | undefined {
 function normalizeGroupBy(value: unknown): GroupBy {
   const raw = one(value);
   return validGroupBy.includes(raw as GroupBy) ? (raw as GroupBy) : "daily";
+}
+
+function normalizeReportType(value: unknown): FarmerReportType {
+  const raw = one(value);
+  return validReportTypes.includes(raw as FarmerReportType)
+    ? (raw as FarmerReportType)
+    : "daily";
 }
 
 function parseStartDate(value: unknown): Date | undefined {
@@ -244,6 +270,10 @@ function formatPeriodLabel(date: Date, groupBy: GroupBy): string {
     })}`;
   }
   return start.toLocaleDateString("en", { month: "short", day: "numeric" });
+}
+
+function formatReportDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
 }
 
 export const getFarmerAnalyticsOverview = async (
@@ -1566,6 +1596,430 @@ export const getFarmerProductionAnalytics = async (
     return res.status(500).json({
       success: false,
       message: "Failed to fetch farmer production analytics",
+    });
+  }
+};
+
+export const getFarmerReportAnalytics = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const currentUserId = req.userId;
+    if (!currentUserId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const reportType = normalizeReportType(req.query.reportType);
+    const scope = await buildAnalyticsScope(currentUserId, req.query);
+    if ("error" in scope) {
+      return res.status(scope.error.status).json({
+        success: false,
+        message: scope.error.message,
+      });
+    }
+
+    const dateFilter = buildDateFilter(scope.filters.startDate, scope.filters.endDate);
+    const scopedBatchIds = scope.scopedBatchIds;
+    const layerBatchIds = scope.scopedBatches
+      .filter((batch) => batch.batchType === "LAYERS")
+      .map((batch) => batch.id);
+
+    const baseResponse = {
+      reportType,
+      generatedAt: new Date().toISOString(),
+    };
+
+    if (["daily", "weekly", "monthly"].includes(reportType)) {
+      const groupBy = reportType as GroupBy;
+      const [sales, expenses, mortalities, productions] = await Promise.all([
+        prisma.sale.findMany({
+          where: { ...scope.financeScopeWhere, ...dateFilter },
+          select: { date: true, amount: true },
+        }),
+        prisma.expense.findMany({
+          where: { ...scope.financeScopeWhere, ...dateFilter },
+          select: { date: true, amount: true },
+        }),
+        prisma.mortality.findMany({
+          where: {
+            batchId: { in: scopedBatchIds },
+            saleId: null,
+            reason: { notIn: ["SLAUGHTERED_FOR_SALE", "BATCH_CLOSURE"] },
+            ...dateFilter,
+          },
+          select: { date: true, count: true },
+        }),
+        prisma.eggProduction.findMany({
+          where: {
+            batchId: { in: layerBatchIds },
+            ...dateFilter,
+          },
+          select: {
+            date: true,
+            entries: { select: { count: true } },
+          },
+        }),
+      ]);
+
+      const rowsByPeriod = new Map<
+        string,
+        {
+          period: string;
+          revenue: number;
+          expenses: number;
+          profit: number;
+          naturalDeaths: number;
+          eggsProduced: number;
+        }
+      >();
+      const ensureRow = (date: Date) => {
+        const label = formatPeriodLabel(date, groupBy);
+        const existing = rowsByPeriod.get(label);
+        if (existing) return existing;
+        const row = {
+          period: label,
+          revenue: 0,
+          expenses: 0,
+          profit: 0,
+          naturalDeaths: 0,
+          eggsProduced: 0,
+        };
+        rowsByPeriod.set(label, row);
+        return row;
+      };
+
+      sales.forEach((sale) => {
+        ensureRow(sale.date).revenue += Number(sale.amount || 0);
+      });
+      expenses.forEach((expense) => {
+        ensureRow(expense.date).expenses += Number(expense.amount || 0);
+      });
+      mortalities.forEach((mortality) => {
+        ensureRow(mortality.date).naturalDeaths += mortality.count;
+      });
+      productions.forEach((production) => {
+        const row = ensureRow(production.date);
+        row.eggsProduced += production.entries.reduce(
+          (sum, entry) => sum + entry.count,
+          0
+        );
+      });
+
+      const rows = Array.from(rowsByPeriod.values())
+        .map((row) => ({ ...row, profit: row.revenue - row.expenses }))
+        .sort((a, b) => a.period.localeCompare(b.period));
+
+      return res.json({
+        success: true,
+        data: {
+          ...baseResponse,
+          title: `${reportType[0].toUpperCase()}${reportType.slice(1)} Report`,
+          summary: [
+            { label: "Revenue", value: rows.reduce((s, r) => s + r.revenue, 0) },
+            { label: "Expenses", value: rows.reduce((s, r) => s + r.expenses, 0) },
+            { label: "Profit", value: rows.reduce((s, r) => s + r.profit, 0) },
+            {
+              label: "Natural Deaths",
+              value: rows.reduce((s, r) => s + r.naturalDeaths, 0),
+            },
+            {
+              label: "Eggs Produced",
+              value: rows.reduce((s, r) => s + r.eggsProduced, 0),
+            },
+          ],
+          columns: [
+            { key: "period", label: "Period" },
+            { key: "revenue", label: "Revenue", format: "money" },
+            { key: "expenses", label: "Expenses", format: "money" },
+            { key: "profit", label: "Profit", format: "money" },
+            { key: "naturalDeaths", label: "Natural Deaths" },
+            { key: "eggsProduced", label: "Eggs Produced" },
+          ],
+          rows,
+        },
+      });
+    }
+
+    if (reportType === "expense") {
+      const expenses = await prisma.expense.findMany({
+        where: { ...scope.financeScopeWhere, ...dateFilter },
+        select: {
+          id: true,
+          date: true,
+          amount: true,
+          quantity: true,
+          unitPrice: true,
+          description: true,
+          category: { select: { name: true } },
+          farm: { select: { name: true } },
+          batch: { select: { batchNumber: true } },
+        },
+        orderBy: { date: "desc" },
+      });
+      const rows = expenses.map((expense) => ({
+        date: formatReportDate(expense.date),
+        farm: expense.farm?.name || "-",
+        batch: expense.batch?.batchNumber || "-",
+        category: expense.category.name,
+        description: expense.description || "-",
+        quantity: Number(expense.quantity || 0),
+        unitPrice: Number(expense.unitPrice || 0),
+        amount: Number(expense.amount || 0),
+      }));
+      return res.json({
+        success: true,
+        data: {
+          ...baseResponse,
+          title: "Expense Report",
+          summary: [
+            { label: "Entries", value: rows.length },
+            { label: "Total Expenses", value: rows.reduce((s, r) => s + r.amount, 0) },
+          ],
+          columns: [
+            { key: "date", label: "Date" },
+            { key: "farm", label: "Farm" },
+            { key: "batch", label: "Batch" },
+            { key: "category", label: "Category" },
+            { key: "description", label: "Description" },
+            { key: "quantity", label: "Quantity" },
+            { key: "unitPrice", label: "Unit Price", format: "money" },
+            { key: "amount", label: "Amount", format: "money" },
+          ],
+          rows,
+        },
+      });
+    }
+
+    if (reportType === "sales") {
+      const sales = await prisma.sale.findMany({
+        where: { ...scope.financeScopeWhere, ...dateFilter },
+        select: {
+          date: true,
+          itemType: true,
+          amount: true,
+          quantity: true,
+          unitPrice: true,
+          isCredit: true,
+          dueAmount: true,
+          description: true,
+          farm: { select: { name: true } },
+          batch: { select: { batchNumber: true } },
+          customer: { select: { name: true } },
+        },
+        orderBy: { date: "desc" },
+      });
+      const rows = sales.map((sale) => ({
+        date: formatReportDate(sale.date),
+        farm: sale.farm?.name || "-",
+        batch: sale.batch?.batchNumber || "-",
+        customer: sale.customer?.name || "-",
+        itemType: sale.itemType,
+        description: sale.description || "-",
+        quantity: Number(sale.quantity || 0),
+        unitPrice: Number(sale.unitPrice || 0),
+        amount: Number(sale.amount || 0),
+        dueAmount: Number(sale.dueAmount || 0),
+        paymentType: sale.isCredit ? "Credit" : "Paid",
+      }));
+      return res.json({
+        success: true,
+        data: {
+          ...baseResponse,
+          title: "Sales Report",
+          summary: [
+            { label: "Sales", value: rows.length },
+            { label: "Revenue", value: rows.reduce((s, r) => s + r.amount, 0) },
+            { label: "Due", value: rows.reduce((s, r) => s + r.dueAmount, 0) },
+          ],
+          columns: [
+            { key: "date", label: "Date" },
+            { key: "farm", label: "Farm" },
+            { key: "batch", label: "Batch" },
+            { key: "customer", label: "Customer" },
+            { key: "itemType", label: "Item" },
+            { key: "quantity", label: "Quantity" },
+            { key: "unitPrice", label: "Unit Price", format: "money" },
+            { key: "amount", label: "Amount", format: "money" },
+            { key: "dueAmount", label: "Due", format: "money" },
+            { key: "paymentType", label: "Payment" },
+          ],
+          rows,
+        },
+      });
+    }
+
+    if (reportType === "mortality") {
+      const mortalities = await prisma.mortality.findMany({
+        where: {
+          batchId: { in: scopedBatchIds },
+          saleId: null,
+          reason: { notIn: ["SLAUGHTERED_FOR_SALE", "BATCH_CLOSURE"] },
+          ...dateFilter,
+        },
+        select: {
+          date: true,
+          count: true,
+          reason: true,
+          batch: { select: { batchNumber: true, farm: { select: { name: true } } } },
+        },
+        orderBy: { date: "desc" },
+      });
+      const rows = mortalities.map((mortality) => ({
+        date: formatReportDate(mortality.date),
+        farm: mortality.batch.farm.name,
+        batch: mortality.batch.batchNumber,
+        reason: mortality.reason || "Unknown",
+        count: mortality.count,
+      }));
+      return res.json({
+        success: true,
+        data: {
+          ...baseResponse,
+          title: "Mortality Report",
+          summary: [
+            { label: "Records", value: rows.length },
+            { label: "Natural Deaths", value: rows.reduce((s, r) => s + r.count, 0) },
+          ],
+          columns: [
+            { key: "date", label: "Date" },
+            { key: "farm", label: "Farm" },
+            { key: "batch", label: "Batch" },
+            { key: "reason", label: "Reason" },
+            { key: "count", label: "Count" },
+          ],
+          rows,
+        },
+      });
+    }
+
+    if (reportType === "egg-production") {
+      const productions = await prisma.eggProduction.findMany({
+        where: { batchId: { in: layerBatchIds }, ...dateFilter },
+        select: {
+          date: true,
+          batch: { select: { batchNumber: true, farm: { select: { name: true } } } },
+          entries: {
+            select: {
+              count: true,
+              eggType: { select: { name: true } },
+            },
+          },
+        },
+        orderBy: { date: "desc" },
+      });
+      const rows = productions.flatMap((production) =>
+        production.entries.map((entry) => ({
+          date: formatReportDate(production.date),
+          farm: production.batch.farm.name,
+          batch: production.batch.batchNumber,
+          eggType: entry.eggType.name,
+          count: entry.count,
+        }))
+      );
+      return res.json({
+        success: true,
+        data: {
+          ...baseResponse,
+          title: "Egg Production Report",
+          summary: [
+            { label: "Rows", value: rows.length },
+            { label: "Eggs Produced", value: rows.reduce((s, r) => s + r.count, 0) },
+          ],
+          columns: [
+            { key: "date", label: "Date" },
+            { key: "farm", label: "Farm" },
+            { key: "batch", label: "Batch" },
+            { key: "eggType", label: "Egg Type" },
+            { key: "count", label: "Count" },
+          ],
+          rows,
+        },
+      });
+    }
+
+    const [sales, expenses, mortalities] = await Promise.all([
+      prisma.sale.groupBy({
+        by: ["batchId"],
+        where: { batchId: { in: scopedBatchIds }, ...dateFilter },
+        _sum: { amount: true },
+      }),
+      prisma.expense.groupBy({
+        by: ["batchId"],
+        where: { batchId: { in: scopedBatchIds }, ...dateFilter },
+        _sum: { amount: true },
+      }),
+      prisma.mortality.groupBy({
+        by: ["batchId"],
+        where: {
+          batchId: { in: scopedBatchIds },
+          saleId: null,
+          reason: { notIn: ["SLAUGHTERED_FOR_SALE", "BATCH_CLOSURE"] },
+        },
+        _sum: { count: true },
+      }),
+    ]);
+    const salesByBatch = new Map(
+      sales.filter((s) => s.batchId).map((s) => [s.batchId as string, Number(s._sum.amount || 0)])
+    );
+    const expensesByBatch = new Map(
+      expenses.filter((e) => e.batchId).map((e) => [e.batchId as string, Number(e._sum.amount || 0)])
+    );
+    const mortalityByBatch = new Map(
+      mortalities.map((m) => [m.batchId, Number(m._sum.count || 0)])
+    );
+    const rows = scope.scopedBatches.map((batch) => {
+      const revenue = salesByBatch.get(batch.id) || 0;
+      const expense = expensesByBatch.get(batch.id) || 0;
+      const naturalDeaths = mortalityByBatch.get(batch.id) || 0;
+      return {
+        farm: batch.farm.name,
+        batch: batch.batchNumber,
+        type: batch.batchType,
+        status: batch.status,
+        initialBirds: batch.initialChicks,
+        naturalDeaths,
+        mortalityRate:
+          batch.initialChicks > 0 ? (naturalDeaths / batch.initialChicks) * 100 : 0,
+        revenue,
+        expenses: expense,
+        profit: revenue - expense,
+      };
+    });
+    return res.json({
+      success: true,
+      data: {
+        ...baseResponse,
+        title: "Batch/Flock Report",
+        summary: [
+          { label: "Batches", value: rows.length },
+          { label: "Revenue", value: rows.reduce((s, r) => s + r.revenue, 0) },
+          { label: "Expenses", value: rows.reduce((s, r) => s + r.expenses, 0) },
+          { label: "Profit", value: rows.reduce((s, r) => s + r.profit, 0) },
+        ],
+        columns: [
+          { key: "farm", label: "Farm" },
+          { key: "batch", label: "Batch" },
+          { key: "type", label: "Type" },
+          { key: "status", label: "Status" },
+          { key: "initialBirds", label: "Initial Birds" },
+          { key: "naturalDeaths", label: "Natural Deaths" },
+          { key: "mortalityRate", label: "Mortality %", format: "percent" },
+          { key: "revenue", label: "Revenue", format: "money" },
+          { key: "expenses", label: "Expenses", format: "money" },
+          { key: "profit", label: "Profit", format: "money" },
+        ],
+        rows,
+      },
+    });
+  } catch (error) {
+    console.error("Get farmer report analytics error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch farmer report analytics",
     });
   }
 };

@@ -6,6 +6,7 @@ import {
   getFarmerFlockComparisonAnalytics,
   getFarmerOperationsAnalytics,
   getFarmerProductionAnalytics,
+  getFarmerReportAnalytics,
 } from "../controller/farmerAnalyticsController";
 
 const router = express.Router();
@@ -17,5 +18,6 @@ router.get("/farmer/finance", getFarmerFinanceAnalytics);
 router.get("/farmer/flock-comparison", getFarmerFlockComparisonAnalytics);
 router.get("/farmer/operations", getFarmerOperationsAnalytics);
 router.get("/farmer/production", getFarmerProductionAnalytics);
+router.get("/farmer/reports", getFarmerReportAnalytics);
 
 export default router;
