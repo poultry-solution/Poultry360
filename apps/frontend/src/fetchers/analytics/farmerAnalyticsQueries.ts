@@ -168,6 +168,45 @@ export interface FarmerOperationsAnalytics {
   };
 }
 
+export interface FarmerProductionAnalytics {
+  totals: {
+    totalEggs: number;
+    eggsSold: number;
+    eggSalesRevenue: number;
+    eggStock: number;
+    costPerEgg: number | null;
+    revenuePerEgg: number | null;
+  };
+  productionTrend: Array<{
+    period: string;
+    label: string;
+    eggsProduced: number;
+  }>;
+  productionByType: Array<{
+    eggTypeId: string;
+    eggTypeName: string;
+    produced: number;
+  }>;
+  salesVsProduction: Array<{
+    period: string;
+    label: string;
+    eggsProduced: number;
+    eggsSold: number;
+    salesRevenue: number;
+  }>;
+  flockComparison: Array<{
+    batchId: string;
+    batchNumber: string;
+    farmName: string;
+    totalEggs: number;
+    eggsPerBird: number | null;
+    salesRevenue: number;
+    unsoldStock: number;
+    mortalityRate: number;
+    profit: number;
+  }>;
+}
+
 export const farmerAnalyticsQueryKeys = {
   all: ["farmer-analytics"] as const,
   overview: (params: FarmerAnalyticsOverviewParams) =>
@@ -178,6 +217,8 @@ export const farmerAnalyticsQueryKeys = {
     [...farmerAnalyticsQueryKeys.all, "flock-comparison", params] as const,
   operations: (params: FarmerAnalyticsOverviewParams) =>
     [...farmerAnalyticsQueryKeys.all, "operations", params] as const,
+  production: (params: FarmerAnalyticsOverviewParams) =>
+    [...farmerAnalyticsQueryKeys.all, "production", params] as const,
 };
 
 export const useGetFarmerAnalyticsOverview = (
@@ -247,6 +288,24 @@ export const useGetFarmerOperationsAnalytics = (
       data: FarmerOperationsAnalytics;
     }> => {
       const response = await axiosInstance.get("/analytics/farmer/operations", {
+        params,
+      });
+      return response.data;
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+};
+
+export const useGetFarmerProductionAnalytics = (
+  params: FarmerAnalyticsOverviewParams
+) => {
+  return useQuery({
+    queryKey: farmerAnalyticsQueryKeys.production(params),
+    queryFn: async (): Promise<{
+      success: boolean;
+      data: FarmerProductionAnalytics;
+    }> => {
+      const response = await axiosInstance.get("/analytics/farmer/production", {
         params,
       });
       return response.data;

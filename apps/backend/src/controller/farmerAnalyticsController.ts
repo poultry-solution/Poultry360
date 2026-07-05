@@ -1217,3 +1217,355 @@ export const getFarmerOperationsAnalytics = async (
     });
   }
 };
+
+export const getFarmerProductionAnalytics = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const currentUserId = req.userId;
+    if (!currentUserId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const scope = await buildAnalyticsScope(currentUserId, req.query);
+    if ("error" in scope) {
+      return res.status(scope.error.status).json({
+        success: false,
+        message: scope.error.message,
+      });
+    }
+
+    const layerBatches = scope.scopedBatches.filter(
+      (batch) => batch.batchType === "LAYERS"
+    );
+    const layerBatchIds = layerBatches.map((batch) => batch.id);
+    const dateFilter = buildDateFilter(
+      scope.filters.startDate,
+      scope.filters.endDate
+    );
+
+    if (layerBatchIds.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          totals: {
+            totalEggs: 0,
+            eggsSold: 0,
+            eggSalesRevenue: 0,
+            eggStock: 0,
+            costPerEgg: null,
+            revenuePerEgg: null,
+          },
+          productionTrend: [],
+          productionByType: [],
+          salesVsProduction: [],
+          flockComparison: [],
+        },
+      });
+    }
+
+    const [
+      productions,
+      eggSales,
+      eggInventory,
+      expenses,
+      naturalMortalityGroups,
+    ] = await Promise.all([
+      prisma.eggProduction.findMany({
+        where: {
+          batchId: { in: layerBatchIds },
+          ...dateFilter,
+        },
+        select: {
+          id: true,
+          date: true,
+          batchId: true,
+          entries: {
+            select: {
+              count: true,
+              eggTypeId: true,
+              eggType: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          date: "asc",
+        },
+      }),
+      prisma.sale.findMany({
+        where: {
+          batchId: { in: layerBatchIds },
+          itemType: "EGGS",
+          ...dateFilter,
+        },
+        select: {
+          id: true,
+          date: true,
+          amount: true,
+          quantity: true,
+          batchId: true,
+          eggTypeId: true,
+          eggType: {
+            select: {
+              name: true,
+            },
+          },
+          eggLines: {
+            select: {
+              quantity: true,
+              unitPrice: true,
+              eggTypeId: true,
+              eggType: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          date: "asc",
+        },
+      }),
+      prisma.batchEggInventory.findMany({
+        where: {
+          batchId: { in: layerBatchIds },
+        },
+        select: {
+          batchId: true,
+          quantity: true,
+          eggTypeId: true,
+          eggType: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      }),
+      prisma.expense.groupBy({
+        by: ["batchId"],
+        where: {
+          batchId: { in: layerBatchIds },
+          ...dateFilter,
+        },
+        _sum: {
+          amount: true,
+        },
+      }),
+      prisma.mortality.groupBy({
+        by: ["batchId"],
+        where: {
+          batchId: { in: layerBatchIds },
+          saleId: null,
+          reason: {
+            notIn: ["SLAUGHTERED_FOR_SALE", "BATCH_CLOSURE"],
+          },
+        },
+        _sum: {
+          count: true,
+        },
+      }),
+    ]);
+
+    const productionTrendMap = new Map<
+      string,
+      { period: string; label: string; eggsProduced: number }
+    >();
+    const productionByTypeMap = new Map<
+      string,
+      { eggTypeId: string; eggTypeName: string; produced: number }
+    >();
+    const productionByBatch = new Map<string, number>();
+
+    productions.forEach((production) => {
+      const period = formatPeriodKey(production.date, scope.filters.groupBy);
+      const trendRow =
+        productionTrendMap.get(period) ||
+        {
+          period,
+          label: formatPeriodLabel(production.date, scope.filters.groupBy),
+          eggsProduced: 0,
+        };
+
+      production.entries.forEach((entry) => {
+        trendRow.eggsProduced += entry.count;
+        productionByBatch.set(
+          production.batchId,
+          (productionByBatch.get(production.batchId) || 0) + entry.count
+        );
+        const typeRow = productionByTypeMap.get(entry.eggTypeId) || {
+          eggTypeId: entry.eggTypeId,
+          eggTypeName: entry.eggType.name,
+          produced: 0,
+        };
+        typeRow.produced += entry.count;
+        productionByTypeMap.set(entry.eggTypeId, typeRow);
+      });
+
+      productionTrendMap.set(period, trendRow);
+    });
+
+    const salesTrendMap = new Map<
+      string,
+      { period: string; label: string; eggsSold: number; salesRevenue: number }
+    >();
+    const salesByBatch = new Map<string, { eggsSold: number; revenue: number }>();
+
+    eggSales.forEach((sale) => {
+      const period = formatPeriodKey(sale.date, scope.filters.groupBy);
+      const trendRow =
+        salesTrendMap.get(period) ||
+        {
+          period,
+          label: formatPeriodLabel(sale.date, scope.filters.groupBy),
+          eggsSold: 0,
+          salesRevenue: 0,
+        };
+
+      let saleEggCount = 0;
+      if (sale.eggLines.length > 0) {
+        sale.eggLines.forEach((line) => {
+          saleEggCount += line.quantity;
+        });
+      } else {
+        saleEggCount = Number(sale.quantity || 0);
+      }
+
+      trendRow.eggsSold += saleEggCount;
+      trendRow.salesRevenue += Number(sale.amount || 0);
+      salesTrendMap.set(period, trendRow);
+
+      if (sale.batchId) {
+        const batchSales = salesByBatch.get(sale.batchId) || {
+          eggsSold: 0,
+          revenue: 0,
+        };
+        batchSales.eggsSold += saleEggCount;
+        batchSales.revenue += Number(sale.amount || 0);
+        salesByBatch.set(sale.batchId, batchSales);
+      }
+    });
+
+    const allPeriods = new Set([
+      ...Array.from(productionTrendMap.keys()),
+      ...Array.from(salesTrendMap.keys()),
+    ]);
+
+    const salesVsProduction = Array.from(allPeriods)
+      .map((period) => {
+        const production = productionTrendMap.get(period);
+        const sales = salesTrendMap.get(period);
+        return {
+          period,
+          label: production?.label || sales?.label || period,
+          eggsProduced: production?.eggsProduced || 0,
+          eggsSold: sales?.eggsSold || 0,
+          salesRevenue: sales?.salesRevenue || 0,
+        };
+      })
+      .sort((a, b) => a.period.localeCompare(b.period));
+
+    const eggStock = eggInventory.reduce(
+      (sum, inventory) => sum + inventory.quantity,
+      0
+    );
+    const stockByBatch = new Map<string, number>();
+    eggInventory.forEach((inventory) => {
+      stockByBatch.set(
+        inventory.batchId,
+        (stockByBatch.get(inventory.batchId) || 0) + inventory.quantity
+      );
+    });
+
+    const expenseByBatch = new Map(
+      expenses
+        .filter((expense) => expense.batchId)
+        .map((expense) => [
+          expense.batchId as string,
+          Number(expense._sum.amount || 0),
+        ])
+    );
+    const naturalMortalityByBatch = new Map(
+      naturalMortalityGroups.map((group) => [
+        group.batchId,
+        Number(group._sum.count || 0),
+      ])
+    );
+
+    const totalEggs = Array.from(productionByBatch.values()).reduce(
+      (sum, count) => sum + count,
+      0
+    );
+    const eggsSold = Array.from(salesByBatch.values()).reduce(
+      (sum, sale) => sum + sale.eggsSold,
+      0
+    );
+    const eggSalesRevenue = Array.from(salesByBatch.values()).reduce(
+      (sum, sale) => sum + sale.revenue,
+      0
+    );
+    const totalExpenses = Array.from(expenseByBatch.values()).reduce(
+      (sum, amount) => sum + amount,
+      0
+    );
+
+    const flockComparison = layerBatches.map((batch) => {
+      const produced = productionByBatch.get(batch.id) || 0;
+      const sales = salesByBatch.get(batch.id) || { eggsSold: 0, revenue: 0 };
+      const expense = expenseByBatch.get(batch.id) || 0;
+      const naturalMortality = naturalMortalityByBatch.get(batch.id) || 0;
+      const profit = sales.revenue - expense;
+      return {
+        batchId: batch.id,
+        batchNumber: batch.batchNumber,
+        farmName: batch.farm.name,
+        totalEggs: produced,
+        eggsPerBird:
+          batch.initialChicks > 0 ? produced / batch.initialChicks : null,
+        salesRevenue: sales.revenue,
+        unsoldStock: stockByBatch.get(batch.id) || 0,
+        mortalityRate:
+          batch.initialChicks > 0
+            ? (naturalMortality / batch.initialChicks) * 100
+            : 0,
+        profit,
+      };
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        totals: {
+          totalEggs,
+          eggsSold,
+          eggSalesRevenue,
+          eggStock,
+          costPerEgg: totalEggs > 0 ? totalExpenses / totalEggs : null,
+          revenuePerEgg: eggsSold > 0 ? eggSalesRevenue / eggsSold : null,
+        },
+        productionTrend: Array.from(productionTrendMap.values()).sort((a, b) =>
+          a.period.localeCompare(b.period)
+        ),
+        productionByType: Array.from(productionByTypeMap.values()).sort(
+          (a, b) => b.produced - a.produced
+        ),
+        salesVsProduction,
+        flockComparison,
+      },
+    });
+  } catch (error) {
+    console.error("Get farmer production analytics error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch farmer production analytics",
+    });
+  }
+};

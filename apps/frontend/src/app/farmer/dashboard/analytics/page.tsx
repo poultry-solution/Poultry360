@@ -22,6 +22,7 @@ import {
   CalendarDays,
   CreditCard,
   DollarSign,
+  Egg,
   HeartPulse,
   Layers3,
   Pill,
@@ -75,6 +76,7 @@ import {
   useGetFarmerFinanceAnalytics,
   useGetFarmerFlockComparisonAnalytics,
   useGetFarmerOperationsAnalytics,
+  useGetFarmerProductionAnalytics,
   useGetFarmerAnalyticsOverview,
 } from "@/fetchers/analytics/farmerAnalyticsQueries";
 
@@ -150,6 +152,21 @@ const operationsChartConfig = {
   cost: {
     label: "Cost",
     color: "#7c3aed",
+  },
+} satisfies ChartConfig;
+
+const productionChartConfig = {
+  eggsProduced: {
+    label: "Eggs Produced",
+    color: "#ca8a04",
+  },
+  eggsSold: {
+    label: "Eggs Sold",
+    color: "#2563eb",
+  },
+  salesRevenue: {
+    label: "Sales Revenue",
+    color: "#15803d",
   },
 } satisfies ChartConfig;
 
@@ -361,11 +378,17 @@ export default function FarmerAnalyticsPage() {
     isLoading: operationsLoading,
     isError: operationsIsError,
   } = useGetFarmerOperationsAnalytics(queryParams);
+  const {
+    data: productionData,
+    isLoading: productionLoading,
+    isError: productionIsError,
+  } = useGetFarmerProductionAnalytics(queryParams);
 
   const overview = data?.data;
   const finance = financeData?.data;
   const flockComparison = flockData?.data;
   const operations = operationsData?.data;
+  const production = productionData?.data;
   const batchOptions = overview?.filters.batches || [];
   const summary = overview?.summary;
 
@@ -385,6 +408,10 @@ export default function FarmerAnalyticsPage() {
   const feedTrend = operations?.feed.trend || [];
   const feedByBatch = operations?.feed.byBatch || [];
   const medicineByBatch = operations?.medicine.byBatch || [];
+  const eggProductionTrend = production?.productionTrend || [];
+  const eggProductionByType = production?.productionByType || [];
+  const eggSalesVsProduction = production?.salesVsProduction || [];
+  const layerFlockComparison = production?.flockComparison || [];
   const sortedFlockRows = useMemo(() => {
     const rows = [...(flockComparison?.rows || [])];
     rows.sort((a, b) => {
@@ -1629,8 +1656,332 @@ export default function FarmerAnalyticsPage() {
             </Card>
           </div>
         </TabsContent>
-        <TabsContent value="production">
-          <ComingSoonPanel title="Production" />
+        <TabsContent value="production" className="space-y-4">
+          {productionIsError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              Failed to load production analytics.
+            </div>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+            <SummaryCard
+              title="Total eggs"
+              value={formatNumber(production?.totals.totalEggs || 0)}
+              helper="Produced in selected layer flocks"
+              icon={Egg}
+              tone="warning"
+              isLoading={productionLoading}
+            />
+            <SummaryCard
+              title="Eggs sold"
+              value={formatNumber(production?.totals.eggsSold || 0)}
+              helper="Sold from selected layer flocks"
+              icon={TrendingUp}
+              tone="positive"
+              isLoading={productionLoading}
+            />
+            <SummaryCard
+              title="Egg revenue"
+              value={formatMoney(production?.totals.eggSalesRevenue || 0)}
+              helper="Revenue from egg sales"
+              icon={DollarSign}
+              tone="positive"
+              isLoading={productionLoading}
+            />
+            <SummaryCard
+              title="Egg stock"
+              value={formatNumber(production?.totals.eggStock || 0)}
+              helper="Current unsold batch stock"
+              icon={Layers3}
+              isLoading={productionLoading}
+            />
+            <SummaryCard
+              title="Cost per egg"
+              value={
+                production?.totals.costPerEgg == null
+                  ? "Not enough data"
+                  : formatMoney(production.totals.costPerEgg)
+              }
+              helper="Filtered expenses / eggs produced"
+              icon={Receipt}
+              tone="warning"
+              isLoading={productionLoading}
+            />
+            <SummaryCard
+              title="Revenue per egg"
+              value={
+                production?.totals.revenuePerEgg == null
+                  ? "Not enough data"
+                  : formatMoney(production.totals.revenuePerEgg)
+              }
+              helper="Egg revenue / eggs sold"
+              icon={CreditCard}
+              tone="positive"
+              isLoading={productionLoading}
+            />
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.9fr)]">
+            <Card className="rounded-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Egg className="h-5 w-5 text-amber-700" />
+                  Egg Production Trend
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {productionLoading ? (
+                  <EmptyChartState text="Loading chart..." />
+                ) : eggProductionTrend.length === 0 ? (
+                  <EmptyChartState text="No egg production data for this filter." />
+                ) : (
+                  <ChartContainer
+                    config={productionChartConfig}
+                    className="h-[320px] w-full"
+                  >
+                    <AreaChart
+                      data={eggProductionTrend}
+                      margin={{ left: 8, right: 8 }}
+                    >
+                      <CartesianGrid vertical={false} />
+                      <XAxis
+                        dataKey="label"
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                      />
+                      <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+                      <ChartTooltip
+                        cursor={false}
+                        content={
+                          <ChartTooltipContent
+                            formatter={(value) => formatNumber(Number(value))}
+                          />
+                        }
+                      />
+                      <Area
+                        dataKey="eggsProduced"
+                        type="monotone"
+                        fill="var(--color-eggsProduced)"
+                        fillOpacity={0.16}
+                        stroke="var(--color-eggsProduced)"
+                        strokeWidth={2}
+                      />
+                    </AreaChart>
+                  </ChartContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Egg className="h-5 w-5 text-amber-700" />
+                  Production by Egg Type
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {productionLoading ? (
+                  <EmptyChartState text="Loading chart..." />
+                ) : eggProductionByType.length === 0 ? (
+                  <EmptyChartState text="No egg type data for this filter." />
+                ) : (
+                  <div className="space-y-4">
+                    <ChartContainer
+                      config={{
+                        produced: { label: "Produced", color: "#ca8a04" },
+                      }}
+                      className="mx-auto h-[220px] w-full"
+                    >
+                      <PieChart>
+                        <ChartTooltip
+                          content={
+                            <ChartTooltipContent
+                              hideLabel
+                              formatter={(value, name) => (
+                                <div className="flex min-w-[150px] items-center justify-between gap-3">
+                                  <span className="text-gray-500">
+                                    {String(name)}
+                                  </span>
+                                  <span className="font-medium">
+                                    {formatNumber(Number(value))}
+                                  </span>
+                                </div>
+                              )}
+                            />
+                          }
+                        />
+                        <Pie
+                          data={eggProductionByType}
+                          dataKey="produced"
+                          nameKey="eggTypeName"
+                          innerRadius={52}
+                          outerRadius={82}
+                          paddingAngle={2}
+                        >
+                          {eggProductionByType.map((type, index) => (
+                            <Cell
+                              key={type.eggTypeId}
+                              fill={expenseColors[index % expenseColors.length]}
+                            />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ChartContainer>
+                    <div className="space-y-2">
+                      {eggProductionByType.slice(0, 6).map((type, index) => (
+                        <div
+                          key={type.eggTypeId}
+                          className="flex items-center justify-between gap-3 text-sm"
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span
+                              className="h-2.5 w-2.5 rounded-full"
+                              style={{
+                                backgroundColor:
+                                  expenseColors[index % expenseColors.length],
+                              }}
+                            />
+                            <span className="truncate">{type.eggTypeName}</span>
+                          </div>
+                          <span className="shrink-0 font-medium">
+                            {formatNumber(type.produced)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="rounded-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BarChart3 className="h-5 w-5 text-blue-700" />
+                Egg Sales vs Production
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {productionLoading ? (
+                <EmptyChartState text="Loading chart..." />
+              ) : eggSalesVsProduction.length === 0 ? (
+                <EmptyChartState text="No production or egg sales data for this filter." />
+              ) : (
+                <ChartContainer
+                  config={productionChartConfig}
+                  className="h-[300px] w-full"
+                >
+                  <BarChart
+                    data={eggSalesVsProduction}
+                    margin={{ left: 8, right: 8 }}
+                  >
+                    <CartesianGrid vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                    />
+                    <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+                    <ChartTooltip
+                      cursor={false}
+                      content={
+                        <ChartTooltipContent
+                          formatter={(value) => formatNumber(Number(value))}
+                        />
+                      }
+                    />
+                    <Bar
+                      dataKey="eggsProduced"
+                      fill="var(--color-eggsProduced)"
+                      maxBarSize={42}
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="eggsSold"
+                      fill="var(--color-eggsSold)"
+                      maxBarSize={42}
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ChartContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-lg">
+            <CardHeader>
+              <CardTitle className="text-base">Layer Flock Comparison</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Batch</TableHead>
+                      <TableHead>Farm</TableHead>
+                      <TableHead className="text-right">Total Eggs</TableHead>
+                      <TableHead className="text-right">Eggs/Bird</TableHead>
+                      <TableHead className="text-right">Sales Revenue</TableHead>
+                      <TableHead className="text-right">Unsold Stock</TableHead>
+                      <TableHead className="text-right">Mortality</TableHead>
+                      <TableHead className="text-right">Profit</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {productionLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="h-24 text-center">
+                          Loading layer flock comparison...
+                        </TableCell>
+                      </TableRow>
+                    ) : layerFlockComparison.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="h-24 text-center">
+                          No layer flock data for this filter.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      layerFlockComparison.map((row) => (
+                        <TableRow key={row.batchId}>
+                          <TableCell className="font-medium">
+                            {row.batchNumber}
+                          </TableCell>
+                          <TableCell>{row.farmName}</TableCell>
+                          <TableCell className="text-right">
+                            {formatNumber(row.totalEggs)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {row.eggsPerBird == null
+                              ? "Not enough data"
+                              : row.eggsPerBird.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatMoney(row.salesRevenue)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatNumber(row.unsoldStock)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatPercent(row.mortalityRate)}
+                          </TableCell>
+                          <TableCell
+                            className={`text-right font-semibold ${
+                              row.profit < 0 ? "text-red-600" : "text-green-700"
+                            }`}
+                          >
+                            {formatMoney(row.profit)}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
         <TabsContent value="reports">
           <ComingSoonPanel title="Reports" />
