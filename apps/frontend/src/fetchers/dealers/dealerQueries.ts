@@ -26,6 +26,7 @@ export const useGetAllDealers = (params?: {
   page?: number;
   limit?: number;
   search?: string;
+  all?: boolean;
 }, options?: { enabled?: boolean }) => {
   return useQuery<{
     success: boolean;

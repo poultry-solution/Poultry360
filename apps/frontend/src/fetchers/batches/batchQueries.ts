@@ -26,7 +26,8 @@ export const batchKeys = {
   farmBatches: (farmId: string) => [...batchKeys.all, "farm", farmId] as const,
   analytics: (id: string) => [...batchKeys.detail(id), "analytics"] as const,
   eggProduction: (batchId: string) => [...batchKeys.detail(batchId), "egg-production"] as const,
-  notes: (batchId: string) => [...batchKeys.detail(batchId), "notes"] as const,
+  notes: (batchId: string, params?: { page?: number; limit?: number }) =>
+    [...batchKeys.detail(batchId), "notes", params || {}] as const,
 };
 
 // ==================== QUERY HOOKS ====================
@@ -125,15 +126,22 @@ export const useGetEggProductionByBatch = (
 
 export const useGetBatchNotes = (
   batchId: string,
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean; page?: number; limit?: number }
 ) => {
-  return useQuery<{ success: boolean; data: BatchNote[] }>({
-    queryKey: batchKeys.notes(batchId),
+  const { enabled, ...params } = options || {};
+  return useQuery<{
+    success: boolean;
+    data: BatchNote[];
+    pagination?: { page: number; limit: number; total: number; totalPages: number };
+  }>({
+    queryKey: batchKeys.notes(batchId, params),
     queryFn: async () => {
-      const response = await axiosInstance.get(`/batches/${batchId}/notes`);
+      const response = await axiosInstance.get(`/batches/${batchId}/notes`, {
+        params,
+      });
       return response.data;
     },
-    enabled: (options?.enabled !== false) && !!batchId,
+    enabled: (enabled !== false) && !!batchId,
   });
 };
 
@@ -145,7 +153,7 @@ export const useCreateBatchNote = (batchId: string) => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: batchKeys.notes(batchId) });
+      queryClient.invalidateQueries({ queryKey: [...batchKeys.detail(batchId), "notes"] });
     },
   });
 };
@@ -158,7 +166,7 @@ export const useUpdateBatchNote = (batchId: string) => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: batchKeys.notes(batchId) });
+      queryClient.invalidateQueries({ queryKey: [...batchKeys.detail(batchId), "notes"] });
     },
   });
 };
@@ -171,7 +179,7 @@ export const useDeleteBatchNote = (batchId: string) => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: batchKeys.notes(batchId) });
+      queryClient.invalidateQueries({ queryKey: [...batchKeys.detail(batchId), "notes"] });
     },
   });
 };

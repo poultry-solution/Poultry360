@@ -39,6 +39,7 @@ import {
   useBatchSalesManagement,
   useGetCustomersForSales,
   useGetEggInventory,
+  useGetBatchSalesPage,
 } from "@/fetchers/sale/saleQueries";
 import { useGetEggTypes } from "@/fetchers/eggTypes/eggTypeQueries";
 import {
@@ -135,6 +136,7 @@ type SaleRow = {
 };
 
 const EXPENSES_PAGE_LIMIT = 10;
+const SALES_PAGE_LIMIT = 10;
 
 const BASE_TABS = [
   "Overview",
@@ -183,6 +185,7 @@ export default function BatchDetailPage() {
   const [expensePage, setExpensePage] = useState(1);
   const [expenseCategoryFilter, setExpenseCategoryFilter] =
     useState<ExpenseCategoryFilter>("All");
+  const [salesPage, setSalesPage] = useState(1);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
@@ -256,6 +259,30 @@ export default function BatchDetailPage() {
     isAddingPayment,
     refetch: refetchSales,
   } = useBatchSalesManagement(safeBatchId, { enabled: !!batchId });
+
+  const {
+    data: salesPageResponse,
+    isLoading: salesPageLoading,
+    error: salesPageError,
+    refetch: refetchSalesPage,
+  } = useGetBatchSalesPage(
+    safeBatchId,
+    { page: salesPage, limit: SALES_PAGE_LIMIT },
+    { enabled: !!batchId }
+  );
+
+  const paginatedBatchSales = salesPageResponse?.data || [];
+  const salesPagination = salesPageResponse?.pagination;
+  const salesSummary = salesPageResponse?.summary;
+
+  useEffect(() => {
+    const totalPages = Number(salesPagination?.totalPages || 0);
+    if (totalPages > 0 && salesPage > totalPages) {
+      setSalesPage(totalPages);
+    } else if (totalPages === 0 && salesPage !== 1) {
+      setSalesPage(1);
+    }
+  }, [salesPage, salesPagination?.totalPages]);
 
   // Customer search for sales
   const [customerSearch, setCustomerSearch] = useState("");
@@ -1634,13 +1661,20 @@ export default function BatchDetailPage() {
       {activeTab === "Sales" && (
         <SalesTab
           isBatchClosed={isBatchClosed}
-          batchSales={batchSales}
-          salesLoading={salesLoading}
-          salesError={salesError}
+          batchSales={paginatedBatchSales}
+          salesLoading={salesPageLoading}
+          salesError={salesPageError}
           salesTotal={salesTotal}
+          salesPagination={salesPagination}
+          salesSummary={salesSummary}
+          page={salesPage}
+          onPageChange={setSalesPage}
           salesColumns={salesColumns}
           openNewSale={openNewSale}
-          refetchSales={refetchSales}
+          refetchSales={() => {
+            refetchSales();
+            refetchSalesPage();
+          }}
         />
       )}
 

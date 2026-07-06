@@ -86,15 +86,32 @@ const handleError = (res: Response, error: unknown, fallback: string) => {
 export const getBatchNotes = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
+    const pageNumber = Math.max(1, Number(req.query.page) || 1);
+    const limitNumber = Math.min(100, Math.max(1, Number(req.query.limit) || 10));
+    const skip = (pageNumber - 1) * limitNumber;
 
     await ensureBatchAccess(id, req.userId);
 
-    const notes = await prisma.batchNote.findMany({
-      where: { batchId: id },
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-    });
+    const [notes, total] = await Promise.all([
+      prisma.batchNote.findMany({
+        where: { batchId: id },
+        skip,
+        take: limitNumber,
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      }),
+      prisma.batchNote.count({ where: { batchId: id } }),
+    ]);
 
-    return res.json({ success: true, data: notes });
+    return res.json({
+      success: true,
+      data: notes,
+      pagination: {
+        page: pageNumber,
+        limit: limitNumber,
+        total,
+        totalPages: Math.ceil(total / limitNumber),
+      },
+    });
   } catch (error) {
     return handleError(res, error, "Get batch notes error");
   }

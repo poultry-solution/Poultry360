@@ -150,7 +150,7 @@ export default function SupplierLedgerPage() {
     data: dealersResponse,
     isLoading: dealersLoading,
     error: dealersError,
-  } = useGetAllDealers();
+  } = useGetAllDealers({ all: true });
 
   const { data: statisticsResponse, isLoading: statisticsLoading } =
     useGetDealerStatistics();

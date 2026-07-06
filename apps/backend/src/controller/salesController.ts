@@ -26,7 +26,9 @@ export const getAllSalePayments = async (
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    const skip = (Number(page) - 1) * Number(limit);
+    const pageNumber = Math.max(1, Number(page) || 1);
+    const limitNumber = Math.min(100, Math.max(1, Number(limit) || 10));
+    const skip = (pageNumber - 1) * limitNumber;
 
     // Build where clause
     const where: any = {};
@@ -188,17 +190,30 @@ export const getAllSalePayments = async (
 
     const total = salePaymentsTotal + customerReceiptsTotal;
     const start = skip;
-    const end = skip + Number(limit);
+    const end = skip + limitNumber;
     const payments = normalized.slice(start, end);
+    const totalAmount = normalized.reduce(
+      (sum, payment) => sum + Number(payment.amount || 0),
+      0
+    );
+    const pageAmount = payments.reduce(
+      (sum, payment) => sum + Number(payment.amount || 0),
+      0
+    );
 
     return res.json({
       success: true,
       data: payments,
+      summary: {
+        totalAmount,
+        totalCount: total,
+        pageAmount,
+      },
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page: pageNumber,
+        limit: limitNumber,
         total,
-        totalPages: Math.ceil(total / Number(limit)),
+        totalPages: Math.ceil(total / limitNumber),
       },
     });
   } catch (error) {
@@ -222,13 +237,16 @@ export const getAllSales = async (
       batchId,
       customerId,
       isCredit,
+      itemType,
       startDate,
       endDate,
     } = req.query;
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    const skip = (Number(page) - 1) * Number(limit);
+    const pageNumber = Math.max(1, Number(page) || 1);
+    const limitNumber = Math.min(100, Math.max(1, Number(limit) || 10));
+    const skip = (pageNumber - 1) * limitNumber;
 
     // Build where clause
     const where: any = {};
@@ -267,6 +285,10 @@ export const getAllSales = async (
       where.isCredit = isCredit === "true";
     }
 
+    if (itemType) {
+      where.itemType = itemType as SalesItemType;
+    }
+
     if (startDate || endDate) {
       where.date = {};
       if (startDate) {
@@ -289,11 +311,20 @@ export const getAllSales = async (
       ];
     }
 
-    const [sales, total] = await Promise.all([
+    const [
+      sales,
+      total,
+      totalAmount,
+      creditSales,
+      creditAmount,
+      creditDueAmount,
+      cashSales,
+      cashAmount,
+    ] = await Promise.all([
       prisma.sale.findMany({
         where,
         skip,
-        take: Number(limit),
+        take: limitNumber,
         include: {
           customer: {
             select: {
@@ -354,16 +385,49 @@ export const getAllSales = async (
         orderBy: { date: "desc" },
       }),
       prisma.sale.count({ where }),
+      prisma.sale.aggregate({
+        where,
+        _sum: { amount: true },
+      }),
+      prisma.sale.count({ where: { ...where, isCredit: true } }),
+      prisma.sale.aggregate({
+        where: { ...where, isCredit: true },
+        _sum: { amount: true },
+      }),
+      prisma.sale.aggregate({
+        where: { ...where, isCredit: true },
+        _sum: { dueAmount: true },
+      }),
+      prisma.sale.count({ where: { ...where, isCredit: false } }),
+      prisma.sale.aggregate({
+        where: { ...where, isCredit: false },
+        _sum: { amount: true },
+      }),
     ]);
+
+    const pageAmount = sales.reduce(
+      (sum, sale) => sum + Number(sale.amount || 0),
+      0
+    );
 
     return res.json({
       success: true,
       data: sales,
+      summary: {
+        totalAmount: Number(totalAmount._sum.amount || 0),
+        totalCount: total,
+        pageAmount,
+        creditSales,
+        creditAmount: Number(creditAmount._sum.amount || 0),
+        creditDueAmount: Number(creditDueAmount._sum.dueAmount || 0),
+        cashSales,
+        cashAmount: Number(cashAmount._sum.amount || 0),
+      },
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page: pageNumber,
+        limit: limitNumber,
         total,
-        totalPages: Math.ceil(total / Number(limit)),
+        totalPages: Math.ceil(total / limitNumber),
       },
     });
   } catch (error) {
@@ -481,6 +545,11 @@ export const getBatchSales = async (
     const { batchId } = req.params;
     const currentUserId = req.userId;
     const currentUserRole = req.role;
+    const hasPagination =
+      req.query.page !== undefined || req.query.limit !== undefined;
+    const pageNumber = Math.max(1, Number(req.query.page) || 1);
+    const limitNumber = Math.min(100, Math.max(1, Number(req.query.limit) || 10));
+    const skip = (pageNumber - 1) * limitNumber;
 
     // Check if batch exists and user has access
     const batch = await prisma.batch.findUnique({
@@ -510,47 +579,87 @@ export const getBatchSales = async (
       }
     }
 
-    const sales = await prisma.sale.findMany({
-      where: { batchId },
-      include: {
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            category: true,
-            balance: true,
-          },
-        },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            type: true,
-          },
-        },
-        eggType: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
-        eggLines: {
-          include: {
-            eggType: { select: { id: true, name: true, code: true } },
-          },
-        },
-        payments: {
-          orderBy: { date: "desc" },
+    const include = {
+      customer: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          category: true,
+          balance: true,
         },
       },
-      orderBy: { date: "desc" },
-    });
+      category: {
+        select: {
+          id: true,
+          name: true,
+          type: true,
+        },
+      },
+      eggType: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+        },
+      },
+      eggLines: {
+        include: {
+          eggType: { select: { id: true, name: true, code: true } },
+        },
+      },
+      payments: {
+        orderBy: { date: "desc" as const },
+      },
+    };
+
+    if (!hasPagination) {
+      const sales = await prisma.sale.findMany({
+        where: { batchId },
+        include,
+        orderBy: { date: "desc" },
+      });
+
+      return res.json({
+        success: true,
+        data: sales,
+      });
+    }
+
+    const [sales, total, totalAmount] = await Promise.all([
+      prisma.sale.findMany({
+        where: { batchId },
+        skip,
+        take: limitNumber,
+        include,
+        orderBy: { date: "desc" },
+      }),
+      prisma.sale.count({ where: { batchId } }),
+      prisma.sale.aggregate({
+        where: { batchId },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    const pageAmount = sales.reduce(
+      (sum, sale) => sum + Number(sale.amount || 0),
+      0
+    );
 
     return res.json({
       success: true,
       data: sales,
+      summary: {
+        totalAmount: Number(totalAmount._sum.amount || 0),
+        totalCount: total,
+        pageAmount,
+      },
+      pagination: {
+        page: pageNumber,
+        limit: limitNumber,
+        total,
+        totalPages: Math.ceil(total / limitNumber),
+      },
     });
   } catch (error) {
     console.error("Get batch sales error:", error);
@@ -1856,11 +1965,27 @@ export const getCustomersForSales = async (
 ): Promise<any> => {
   try {
     const currentUserId = req.userId;
-    const { search } = req.query;
+    const { search, page, limit, category, hasBalance } = req.query;
+    const hasPagination = page !== undefined || limit !== undefined;
+    const pageNumber = Math.max(1, Number(page) || 1);
+    const limitNumber = Math.min(100, Math.max(1, Number(limit) || 10));
+    const skip = (pageNumber - 1) * limitNumber;
 
     const where: any = {
       userId: currentUserId,
     };
+
+    if (category) {
+      where.category = category as string;
+    }
+
+    if (hasBalance === "true") {
+      where.balance = { gt: 0 };
+    } else if (hasBalance === "false") {
+      where.balance = { equals: 0 };
+    } else if (hasBalance === "advance") {
+      where.balance = { lt: 0 };
+    }
 
     if (search) {
       where.OR = [
@@ -1869,25 +1994,72 @@ export const getCustomersForSales = async (
       ];
     }
 
-    const customers = await prisma.customer.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        category: true,
-        address: true,
-        balance: true,
-        source: true, // Include source ("MANUAL" | "CONNECTED")
-        farmerId: true, // Include farmerId for connected customers
-      },
-      orderBy: { name: "asc" },
-      take: 50, // Limit results for performance
-    });
+    const customerSelect = {
+      id: true,
+      name: true,
+      phone: true,
+      category: true,
+      address: true,
+      balance: true,
+      source: true, // Include source ("MANUAL" | "CONNECTED")
+      farmerId: true, // Include farmerId for connected customers
+    };
+
+    if (!hasPagination) {
+      const customers = await prisma.customer.findMany({
+        where,
+        select: customerSelect,
+        orderBy: { name: "asc" },
+        take: 50, // Limit results for dropdown performance
+      });
+
+      return res.json({
+        success: true,
+        data: customers,
+      });
+    }
+
+    const [customers, total, totalBalance, partiesWithBalance] = await Promise.all([
+      prisma.customer.findMany({
+        where,
+        select: customerSelect,
+        orderBy: { name: "asc" },
+        skip,
+        take: limitNumber,
+      }),
+      prisma.customer.count({ where }),
+      prisma.customer.aggregate({
+        where,
+        _sum: { balance: true },
+      }),
+      prisma.customer.count({
+        where: {
+          ...where,
+          balance: { gt: 0 },
+        },
+      }),
+    ]);
+
+    const pageBalance = customers.reduce(
+      (sum, customer) => sum + Number(customer.balance || 0),
+      0
+    );
 
     return res.json({
       success: true,
       data: customers,
+      summary: {
+        totalParties: total,
+        totalBalance: Number(totalBalance._sum.balance || 0),
+        partiesWithBalance,
+        pageBalance,
+      },
+      pagination: {
+        page: pageNumber,
+        limit: limitNumber,
+        total,
+        totalPages: Math.ceil(total / limitNumber),
+      },
     });
   } catch (error) {
     console.error("Get customers for sales error:", error);

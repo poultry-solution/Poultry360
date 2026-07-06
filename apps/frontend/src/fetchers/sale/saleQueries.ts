@@ -13,12 +13,16 @@ export const saleQueryKeys = {
   detail: (id: string) => [...saleQueryKeys.details(), id] as const,
   batchSales: (batchId: string) =>
     [...saleQueryKeys.all, "batch", batchId] as const,
+  batchSalesPage: (batchId: string, params: { page?: number; limit?: number }) =>
+    [...saleQueryKeys.batchSales(batchId), "page", params] as const,
   statistics: (params?: any) =>
     [...saleQueryKeys.all, "statistics", params] as const,
   categories: (type?: CategoryType) =>
     [...saleQueryKeys.all, "categories", type] as const,
   eggInventory: (batchId?: string | null) =>
     [...saleQueryKeys.all, "egg-inventory", batchId ?? "user"] as const,
+  customers: () => ["customers", "sales"] as const,
+  customerList: (params: any) => [...saleQueryKeys.customers(), "list", params] as const,
 };
 
 // ==================== QUERY HOOKS ====================
@@ -133,6 +137,24 @@ export const useGetBatchSales = (
   });
 };
 
+export const useGetBatchSalesPage = (
+  batchId: string,
+  params: { page?: number; limit?: number },
+  options?: { enabled?: boolean }
+) => {
+  return useQuery({
+    queryKey: saleQueryKeys.batchSalesPage(batchId, params),
+    queryFn: async () => {
+      const response = await axiosInstance.get(`/sales/batch/${batchId}`, {
+        params,
+      });
+      return response.data;
+    },
+    enabled: options?.enabled !== false && !!batchId,
+    staleTime: 2 * 60 * 1000,
+  });
+};
+
 // Get sales statistics
 export const useGetSalesStatistics = (
   params?: {
@@ -183,6 +205,7 @@ export const useCreateSale = () => {
     onSuccess: (data, variables) => {
       // Invalidate and refetch sales lists
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: saleQueryKeys.customers() });
 
       // Invalidate statistics
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
@@ -234,6 +257,7 @@ export const useUpdateSale = () => {
 
       // Invalidate sales lists
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: saleQueryKeys.customers() });
 
       // Invalidate statistics
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
@@ -270,6 +294,7 @@ export const useDeleteSale = () => {
 
       // Invalidate sales lists
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: saleQueryKeys.customers() });
 
       // Invalidate statistics
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
@@ -313,12 +338,16 @@ export const useAddSalePayment = () => {
 
       // Invalidate sales lists
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: [...saleQueryKeys.all, "payments"] });
 
       // Invalidate statistics
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
 
       // Invalidate customers for sales (to refresh customer balances after payment)
       queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
+      queryClient.invalidateQueries({
+        queryKey: [...saleQueryKeys.all, "batch"],
+      });
 
       // If the sale has a customer, also invalidate that specific customer
       if (data?.data?.customerId) {
@@ -388,10 +417,10 @@ export const useAddCustomerPayment = () => {
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
       queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
+      queryClient.invalidateQueries({ queryKey: [...saleQueryKeys.all, "payments"] });
       queryClient.invalidateQueries({
         queryKey: ["customers", "detail", variables.customerId],
       });
-      queryClient.invalidateQueries({ queryKey: ["sale-payments"] });
     },
   });
 };
@@ -525,6 +554,7 @@ export const useSalesManagement = (params?: {
   return {
     sales: salesQuery.data?.data || [],
     pagination: salesQuery.data?.pagination,
+    summary: salesQuery.data?.summary,
     categories: categoriesQuery.data?.data || [],
     isLoading: salesQuery.isLoading || categoriesQuery.isLoading,
     error: salesQuery.error || categoriesQuery.error,
@@ -615,6 +645,27 @@ export const useGetCustomersForSales = (
     select: (response) => response.data.data,
     staleTime: 2 * 60 * 1000, // 2 minutes
     enabled: options?.enabled === true,
+  });
+};
+
+export const useGetCustomersForSalesPage = (
+  params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    category?: string;
+    hasBalance?: string;
+  },
+  options?: { enabled?: boolean }
+) => {
+  return useQuery({
+    queryKey: saleQueryKeys.customerList(params),
+    queryFn: async () => {
+      const response = await axiosInstance.get("/sales/customers", { params });
+      return response.data;
+    },
+    staleTime: 2 * 60 * 1000,
+    enabled: options?.enabled !== false,
   });
 };
 
