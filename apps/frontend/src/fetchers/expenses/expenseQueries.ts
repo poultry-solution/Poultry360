@@ -47,6 +47,7 @@ export const useGetBatchExpenses = (
     page?: number;
     limit?: number;
     categoryType?: CategoryType;
+    category?: string;
   }
 ) => {
   const { enabled, ...params } = options || {};

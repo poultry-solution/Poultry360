@@ -84,7 +84,7 @@ import { DeleteBatchModal } from "@/components/batches/modals/DeleteBatchModal";
 import { TransactionsModal } from "@/components/batches/modals/TransactionsModal";
 import { CustomerTransactionsModal } from "@/components/batches/modals/CustomerTransactionsModal";
 import { OverviewTab } from "@/components/batches/tabs/OverviewTab";
-import { ExpensesTab } from "@/components/batches/tabs/ExpensesTab";
+import { ExpensesTab, ExpenseCategoryFilter } from "@/components/batches/tabs/ExpensesTab";
 import { SalesTab } from "@/components/batches/tabs/SalesTab";
 import { MortalityTab } from "@/components/batches/tabs/MortalityTab";
 import { SalesBalanceTab } from "@/components/batches/tabs/SalesBalanceTab";
@@ -134,6 +134,8 @@ type SaleRow = {
   categoryId: string;
 };
 
+const EXPENSES_PAGE_LIMIT = 10;
+
 const BASE_TABS = [
   "Overview",
   "Expenses",
@@ -178,6 +180,9 @@ export default function BatchDetailPage() {
     : [...BASE_TABS, "Growth", "Notes"];
 
   const [activeTab, setActiveTab] = useState<TabName>("Overview");
+  const [expensePage, setExpensePage] = useState(1);
+  const [expenseCategoryFilter, setExpenseCategoryFilter] =
+    useState<ExpenseCategoryFilter>("All");
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
@@ -199,9 +204,25 @@ export default function BatchDetailPage() {
     data: expensesResponse,
     isLoading: expensesLoading,
     error: expensesError,
-  } = useGetBatchExpenses(safeBatchId, { enabled: !!batchId });
+  } = useGetBatchExpenses(safeBatchId, {
+    enabled: !!batchId,
+    page: expensePage,
+    limit: EXPENSES_PAGE_LIMIT,
+    category: expenseCategoryFilter,
+  });
 
   const expenses = expensesResponse?.data || [];
+  const expensesPagination = expensesResponse?.pagination;
+  const expensesSummary = expensesResponse?.summary;
+
+  useEffect(() => {
+    const totalPages = Number(expensesPagination?.totalPages || 0);
+    if (totalPages > 0 && expensePage > totalPages) {
+      setExpensePage(totalPages);
+    } else if (totalPages === 0 && expensePage !== 1) {
+      setExpensePage(1);
+    }
+  }, [expensePage, expensesPagination?.totalPages]);
 
   // Fetch expense categories
   const { data: categoriesResponse } = useGetExpenseCategories("EXPENSE");
@@ -1584,7 +1605,7 @@ export default function BatchDetailPage() {
           salesTotal={salesTotal}
           expensesTotal={expensesTotal}
           mortalityStats={mortalityStats}
-          recentExpenses={expenses.slice(0, 3)}
+          recentExpenses={(batch as any).expenses?.slice(0, 3) || []}
           recentSales={batchSales?.slice(0, 3) || []}
           recentMortalities={batchMortalities.slice(0, 3)}
         />
@@ -1596,7 +1617,15 @@ export default function BatchDetailPage() {
           expenses={expenses}
           expensesLoading={expensesLoading}
           expensesError={expensesError}
-          expensesTotal={expensesTotal}
+          expensesPagination={expensesPagination}
+          expensesSummary={expensesSummary}
+          categoryFilter={expenseCategoryFilter}
+          onCategoryFilterChange={(filter) => {
+            setExpenseCategoryFilter(filter);
+            setExpensePage(1);
+          }}
+          page={expensePage}
+          onPageChange={setExpensePage}
           expenseColumns={expenseColumns}
           openNewExpense={openNewExpense}
         />

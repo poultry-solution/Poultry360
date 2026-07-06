@@ -278,11 +278,13 @@ export const getBatchExpenses = async (
 ): Promise<any> => {
   try {
     const { batchId } = req.params;
-    const { page = 1, limit = 10, categoryType } = req.query;
+    const { categoryType, category } = req.query;
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    const skip = (Number(page) - 1) * Number(limit);
+    const pageNumber = Math.max(1, Number(req.query.page) || 1);
+    const limitNumber = Math.min(100, Math.max(1, Number(req.query.limit) || 10));
+    const skip = (pageNumber - 1) * limitNumber;
 
     // Check if batch exists and user has access
     const batch = await prisma.batch.findUnique({
@@ -322,11 +324,24 @@ export const getBatchExpenses = async (
       };
     }
 
-    const [expenses, total] = await Promise.all([
+    const categoryFilter = typeof category === "string" ? category : "";
+    if (categoryFilter && categoryFilter !== "All") {
+      const categoryNameFilter =
+        categoryFilter === "Chicks"
+          ? { in: ["Hatchery", "Chicks"] }
+          : categoryFilter;
+
+      where.category = {
+        ...(where.category || {}),
+        name: categoryNameFilter,
+      };
+    }
+
+    const [expenses, total, totalAmount] = await Promise.all([
       prisma.expense.findMany({
         where,
         skip,
-        take: Number(limit),
+        take: limitNumber,
         include: {
           category: {
             select: {
@@ -350,16 +365,30 @@ export const getBatchExpenses = async (
         orderBy: { date: "desc" },
       }),
       prisma.expense.count({ where }),
+      prisma.expense.aggregate({
+        where,
+        _sum: { amount: true },
+      }),
     ]);
+
+    const pageAmount = expenses.reduce(
+      (sum, expense) => sum + Number(expense.amount || 0),
+      0
+    );
 
     return res.json({
       success: true,
       data: expenses,
+      summary: {
+        totalAmount: Number(totalAmount._sum.amount || 0),
+        totalCount: total,
+        pageAmount,
+      },
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page: pageNumber,
+        limit: limitNumber,
         total,
-        totalPages: Math.ceil(total / Number(limit)),
+        totalPages: Math.ceil(total / limitNumber),
       },
     });
   } catch (error) {

@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
-import { Plus, Loader2, Filter } from "lucide-react";
+import { Plus, Loader2, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { DataTable } from "@/common/components/ui/data-table";
 import {
   Select,
@@ -17,19 +17,26 @@ import { Label } from "@/common/components/ui/label";
 
 export type ExpenseCategoryFilter = "All" | "Feed" | "Chicks" | "Other" | "Medicine";
 
-function matchesCategoryFilter(row: any, filter: ExpenseCategoryFilter): boolean {
-  if (filter === "All") return true;
-  const name = row.category?.name || "Other";
-  if (filter === "Chicks") return name === "Hatchery" || name === "Chicks";
-  return name === filter;
-}
-
 interface ExpensesTabProps {
   isBatchClosed: boolean;
   expensesLoading: boolean;
   expensesError: any;
   expenses: any[];
-  expensesTotal: number;
+  expensesPagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  expensesSummary?: {
+    totalAmount: number;
+    totalCount: number;
+    pageAmount: number;
+  };
+  categoryFilter: ExpenseCategoryFilter;
+  onCategoryFilterChange: (filter: ExpenseCategoryFilter) => void;
+  page: number;
+  onPageChange: (page: number) => void;
   expenseColumns: any[];
   openNewExpense: () => void;
 }
@@ -39,22 +46,24 @@ export function ExpensesTab({
   expensesLoading,
   expensesError,
   expenses,
-  expensesTotal,
+  expensesPagination,
+  expensesSummary,
+  categoryFilter,
+  onCategoryFilterChange,
+  page,
+  onPageChange,
   expenseColumns,
   openNewExpense,
 }: ExpensesTabProps) {
-  const [categoryFilter, setCategoryFilter] = useState<ExpenseCategoryFilter>("All");
-
-  const filteredExpenses = useMemo(() => {
-    return expenses.filter((row) => matchesCategoryFilter(row, categoryFilter));
-  }, [expenses, categoryFilter]);
-
-  const filteredTotal = useMemo(() => {
-    return filteredExpenses.reduce(
-      (sum: number, ex: any) => sum + Number(ex.amount ?? 0),
-      0
-    );
-  }, [filteredExpenses]);
+  const totalAmount = Number(expensesSummary?.totalAmount ?? 0);
+  const totalRows = Number(expensesPagination?.total ?? expensesSummary?.totalCount ?? 0);
+  const pageLimit = Number(expensesPagination?.limit ?? 10);
+  const totalPages = Math.max(1, Number(expensesPagination?.totalPages ?? 1));
+  const currentPage = Math.min(Math.max(1, Number(expensesPagination?.page ?? page)), totalPages);
+  const showingStart = totalRows > 0 ? (currentPage - 1) * pageLimit + 1 : 0;
+  const showingEnd = totalRows > 0 ? Math.min(currentPage * pageLimit, totalRows) : 0;
+  const canGoPrevious = currentPage > 1 && !expensesLoading;
+  const canGoNext = currentPage < totalPages && !expensesLoading;
 
   return (
     <Card>
@@ -73,7 +82,7 @@ export function ExpensesTab({
             </Label>
             <Select
               value={categoryFilter}
-              onValueChange={(v) => setCategoryFilter(v as ExpenseCategoryFilter)}
+              onValueChange={(v) => onCategoryFilterChange(v as ExpenseCategoryFilter)}
             >
               <SelectTrigger id="expense-category-filter" className="w-full sm:w-[140px] h-9 bg-background min-w-0">
                 <SelectValue />
@@ -115,22 +124,54 @@ export function ExpensesTab({
             </p>
           </div>
         ) : (
-          <DataTable
-            data={filteredExpenses}
-            columns={expenseColumns}
-            showFooter={true}
-            footerContent={
-              <div className="flex justify-between items-center">
-                <span className="font-semibold text-gray-900">
-                  {categoryFilter === "All" ? "Total Expenses" : `Total (${categoryFilter})`}
-                </span>
-                <span className="font-bold text-lg text-gray-900">
-                  ₹{filteredTotal.toLocaleString()}
-                </span>
+          <div className="space-y-3">
+            <DataTable
+              data={expenses}
+              columns={expenseColumns}
+              showFooter={true}
+              footerContent={
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-gray-900">
+                    {categoryFilter === "All" ? "Total Expenses" : `Total (${categoryFilter})`}
+                  </span>
+                  <span className="font-bold text-lg text-gray-900">
+                    ₹{totalAmount.toLocaleString()}
+                  </span>
+                </div>
+              }
+              emptyMessage={categoryFilter === "All" ? "No expenses recorded yet" : `No ${categoryFilter} expenses`}
+            />
+            <div className="flex flex-col gap-3 px-4 pb-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm text-muted-foreground">
+                Showing {showingStart}-{showingEnd} of {totalRows}
               </div>
-            }
-            emptyMessage={categoryFilter === "All" ? "No expenses recorded yet" : `No ${categoryFilter} expenses`}
-          />
+              <div className="flex items-center justify-between gap-3 sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onPageChange(currentPage - 1)}
+                  disabled={!canGoPrevious}
+                >
+                  <ChevronLeft className="mr-1 h-4 w-4" />
+                  Previous
+                </Button>
+                <span className="text-sm font-medium">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onPageChange(currentPage + 1)}
+                  disabled={!canGoNext}
+                >
+                  Next
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>
