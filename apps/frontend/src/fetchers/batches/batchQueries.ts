@@ -26,9 +26,25 @@ export const batchKeys = {
   farmBatches: (farmId: string) => [...batchKeys.all, "farm", farmId] as const,
   analytics: (id: string) => [...batchKeys.detail(id), "analytics"] as const,
   eggProduction: (batchId: string) => [...batchKeys.detail(batchId), "egg-production"] as const,
+  notes: (batchId: string, params?: { page?: number; limit?: number }) =>
+    [...batchKeys.detail(batchId), "notes", params || {}] as const,
 };
 
 // ==================== QUERY HOOKS ====================
+
+export interface BatchNote {
+  id: string;
+  batchId: string;
+  date: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BatchNoteInput {
+  date: string;
+  description: string;
+}
 
 // Get all batches
 export const useGetAllBatches = (params?: {
@@ -105,6 +121,66 @@ export const useGetEggProductionByBatch = (
       return response.data;
     },
     enabled: (options?.enabled !== false) && !!batchId,
+  });
+};
+
+export const useGetBatchNotes = (
+  batchId: string,
+  options?: { enabled?: boolean; page?: number; limit?: number }
+) => {
+  const { enabled, ...params } = options || {};
+  return useQuery<{
+    success: boolean;
+    data: BatchNote[];
+    pagination?: { page: number; limit: number; total: number; totalPages: number };
+  }>({
+    queryKey: batchKeys.notes(batchId, params),
+    queryFn: async () => {
+      const response = await axiosInstance.get(`/batches/${batchId}/notes`, {
+        params,
+      });
+      return response.data;
+    },
+    enabled: (enabled !== false) && !!batchId,
+  });
+};
+
+export const useCreateBatchNote = (batchId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: BatchNoteInput) => {
+      const response = await axiosInstance.post(`/batches/${batchId}/notes`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...batchKeys.detail(batchId), "notes"] });
+    },
+  });
+};
+
+export const useUpdateBatchNote = (batchId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ noteId, data }: { noteId: string; data: BatchNoteInput }) => {
+      const response = await axiosInstance.put(`/batches/${batchId}/notes/${noteId}`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...batchKeys.detail(batchId), "notes"] });
+    },
+  });
+};
+
+export const useDeleteBatchNote = (batchId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (noteId: string) => {
+      const response = await axiosInstance.delete(`/batches/${batchId}/notes/${noteId}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...batchKeys.detail(batchId), "notes"] });
+    },
   });
 };
 

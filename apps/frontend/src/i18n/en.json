@@ -74,6 +74,10 @@
      
         "subtitle": "Farm Management",
         "userTitle": "Owner"
+      },
+      "hatchery": {
+        "subtitle": "Hatchery Management",
+        "userTitle": "Hatchery"
       }
     },
     "nav": {
@@ -101,6 +105,7 @@
       "users": "Users",
       "passwordResets": "Password Resets",
       "paymentApprovals": "Payment Approvals",
+      "enquiries": "Enquiries",
       "financial": "Financial",
       "suppliers": "Suppliers",
       "performance": "Performance",
@@ -109,7 +114,17 @@
       "purchases": "Purchases",
       "production": "Production",
       "purchaseRequests": "Purchase Requests",
-      "saleRequests": "Sale Requests"
+      "saleRequests": "Sale Requests",
+      "cashInHand": "Cash In Hand",
+      "hatcheryOverview": "Overview",
+      "hatcherySupplierLedger": "Supplier Ledger",
+      "hatcheryInventory": "Inventory",
+      "hatcheryBatches": "Batches",
+      "hatcheryEggInventory": "Egg Inventory",
+      "hatcheryProducedChicks": "Produced Chicks",
+      "hatcheryEggTypes": "Egg Types",
+      "hatcheryIncubations": "Incubations",
+      "hatcheryParties": "Parties"
     }
   },
   "settings": {
@@ -284,6 +299,36 @@
       "errors": {
         "nameRequired": "Name is required!",
         "phoneInvalid": "Phone number must be exactly 10 digits!",
+        "passwordTooShort": "Password must be at least 6 characters long!",
+        "passwordMismatch": "Passwords do not match!",
+        "registrationFailed": "Registration failed. Please try again."
+      }
+    },
+    "hatcherySignup": {
+      "title": "Hatchery Registration",
+      "subtitle": "Create your hatchery account to manage end-to-end operations",
+      "ownerNameLabel": "Owner Name *",
+      "phoneLabel": "Phone Number *",
+      "phonePlaceholder": "98XXXXXXXX",
+      "phoneHelp": "This number will be used for both owner and hatchery contact.",
+      "hatcheryNameLabel": "Hatchery Name *",
+      "hatcheryNameHelp": "Your hatchery business name",
+      "hatcheryAddressLabel": "Hatchery Address",
+      "hatcheryAddressPlaceholder": "Optional business address",
+      "passwordLabel": "Password *",
+      "confirmPasswordLabel": "Confirm Password *",
+      "createAccount": "Create Hatchery Account",
+      "creatingAccount": "Creating account...",
+      "alreadyHaveAccount": "Already have an account?",
+      "login": "Log in",
+      "registerOwner": "Want to register as a farm owner?",
+      "signupOwner": "Sign up as Farm Owner",
+      "registerDealer": "Want to register as a dealer?",
+      "signupDealer": "Sign up as Dealer",
+      "errors": {
+        "ownerNameRequired": "Owner name is required!",
+        "phoneInvalid": "Phone number must be exactly 10 digits!",
+        "hatcheryNameRequired": "Hatchery name is required!",
         "passwordTooShort": "Password must be at least 6 characters long!",
         "passwordMismatch": "Passwords do not match!",
         "registrationFailed": "Registration failed. Please try again."
@@ -689,6 +734,8 @@
         "chicks": "chicks",
         "totalDelivered": "Total delivered:",
         "dateLabel": "Date",
+        "expiryDateLabel": "Expiry date (optional)",
+        "expiryDateShort": "Expiry",
         "noteLabel": "Note (optional)",
         "notePlaceholder": "Additional notes",
         "cancel": "Cancel",
@@ -2527,6 +2574,8 @@
         "deleteConfirm": "Are you sure you want to delete \"{name}\"?",
         "createSuccess": "Customer created successfully",
         "createFailed": "Failed to create customer",
+        "updateSuccess": "Customer updated successfully",
+        "updateFailed": "Failed to update customer",
         "deleteSuccess": "Customer deleted successfully",
         "deleteFailed": "Failed to delete customer"
       },
@@ -2733,24 +2782,27 @@
   "landing": {
     "navbar": {
       "features": "Features",
+      "pricing": "Pricing",
       "marketplace": "Marketplace",
-      "tutorials": "Tutorials",
       "reviews": "Reviews",
       "contact": "Contact",
       "getStarted": "Get Started",
       "signUpAs": "Sign Up As",
       "signUpDescription": "Choose your account type to get started with Poultry360",
-      "farmer": "Farmer",
-      "dealer": "Dealer",
-      "company": "Company",
+      "farmer": "Layer/Broiler Farmer",
+      "dealer": "Feed Dealer",
+      "company": "Feed mill company",
+      "hatchery": "Hatchery",
+      "veterinary": "Veterinary Doctor",
       "alreadyHaveAccount": "Already have an account?",
       "login": "Log in"
     },
     "hero": {
       "headingMain": "Manage Your Poultry Business",
       "headingHighlight": " Anytime, Anywhere",
-      "description": "Poultry360 makes your poultry business simple, smart, and stress-free. Easily track sales, manage expenses, maintain ledgers, control inventory & more so you can focus on growing your poultry business.",
+      "description": "One platform for Nepal's poultry chain—from layer and broiler farms to feed dealers, feed mills, hatcheries, and vets.",
       "useWeb": "Use Web Version",
+      "bookDemo": "Book a demo",
       "download": "Download Poultry360",
       "notifications": "Notifications",
       "paymentDue": "Payment Due",
@@ -2769,16 +2821,26 @@
         "iphoneStep1": "Tap the Share button (□ with arrow) at the bottom of Safari.",
         "iphoneStep2": "Scroll down and tap \"Add to Home Screen\".",
         "iphoneStep3": "Tap \"Add\" in the top right."
+      },
+      "bookDemoModal": {
+        "title": "Book a demo",
+        "companyName": "Company Name",
+        "companyNamePlaceholder": "Enter company name",
+        "phoneNumber": "Phone Number",
+        "phonePlaceholder": "98XXXXXXXX",
+        "phoneHelp": "Enter your Nepal number (without +977).",
+        "message": "Message (optional)",
+        "messagePlaceholder": "Write a short message",
+        "submitBtn": "Submit request",
+        "submitting": "Submitting...",
+        "submitSuccess": "Demo request submitted successfully",
+        "submitError": "Failed to submit demo request"
       }
     },
     "features": {
       "badge": "Key Features",
       "title": "All in One Poultry Management App",
-      "subtitle": "Poultry360 brings broiler and layer farmers, feed suppliers, feed mill companies, and veterinary doctors together—manage operations, inventory, and health in one platform.",
-      "learnMore": "Learn More",
-      "modal": {
-        "comingSoon": "Coming soon"
-      },
+      "subtitle": "Poultry360 brings broiler and layer farmers, feed suppliers, feed mill companies, hatcheries, and veterinary doctors together—manage operations, inventory, and health in one platform.",
       "cards": {
         "layer": {
           "title": "Layer Management",
@@ -2796,31 +2858,15 @@
           "title": "Feed Mill Company",
           "description": "Produce quality feed with accurate mixing and easy inventory management."
         },
+        "hatchery": {
+          "title": "Hatchery",
+          "description": "Run parent flocks, egg production, incubation, hatch results, chick grades, sales, and supplier and party ledgers in one place."
+        },
         "veterinary": {
           "title": "Veterinary Doctor",
           "description": "Track farm visits, prescriptions, and bird health across your client base."
         }
-      },
-      "recordTransactions": "Record Transactions",
-      "recordTransactionsDesc": "Add sales, purchases & expenses",
-      "manageBirds": "Manage Birds",
-      "manageBirdsDesc": "Track bird health & production",
-      "manageInventory": "Manage Inventory",
-      "manageInventoryDesc": "Keep track of feed & supplies",
-      "farmInsights": "Farm Insights",
-      "farmInsightsDesc": "View farm performance reports",
-      "vaccinationSchedule": "Vaccination Schedule",
-      "vaccinationScheduleDesc": "Track & manage vaccination programs",
-      "feedCalculator": "Feed Calculator",
-      "feedCalculatorDesc": "Calculate optimal feed requirements",
-      "mortalityTracking": "Mortality Tracking",
-      "mortalityTrackingDesc": "Monitor & analyze bird losses",
-      "mortalityRate": "Mortality Rate: 2.3%",
-      "productionPlanning": "Production Planning",
-      "productionPlanningDesc": "Plan & schedule production cycles",
-      "add": "Add",
-      "feed": "Feed",
-      "remove": "Remove"
+      }
     },
     "reviews": {
       "badge": "Trusted by Farmers",
@@ -2961,29 +3007,135 @@
       "other": "Other"
     }
   },
-  "tutorials": {
-    "title": "Poultry360 Tutorial Hub",
-    "subtitle": "Learn how to use Poultry360 with step-by-step video guides.",
-    "sections": {
-      "gettingStarted": "Getting Started",
-      "broilerLayerFarmer": "Broiler + Layer Farmer",
-      "feedSupplier": "Feed Supplier"
+  "onboardingPaymentTrial": {
+    "trialActive": "Your free trial is active.",
+    "trialEndsAt": "Trial ends: {date}",
+    "startTrialCta": "Start free trial ({days} days)",
+    "trialStartedSuccess": "Trial started successfully. You can use the app during the trial."
+  },
+  "onboardingPaymentFlow": {
+    "title": "Activate your account",
+    "subtitle": "Choose how you want to get started.",
+    "roleLabel": "You are activating:",
+    "amountPerYear": "{amount} / year",
+    "trialUnavailable": "Your free trial has already been used. Complete payment below to continue.",
+    "choicePayTitle": "Pay annual subscription",
+    "choicePayDescription": "Pay the onboarding fee and submit your receipt for admin approval.",
+    "choicePayButton": "Pay with QR",
+    "choiceTrialTitle": "Start free trial",
+    "choiceTrialDescription": "Try the app free for {days} days. No payment required to start.",
+    "stepIndicator": "Step {current} of {total}",
+    "stepPayTitle": "Scan and pay",
+    "stepUploadTitle": "Upload your receipt",
+    "payInstructionsIntro": "Use the QR code or payment details below to pay the amount for your plan.",
+    "payBullet1": "Complete the payment for the annual amount shown.",
+    "payBullet2": "Save or screenshot your receipt — you will upload it in the next step.",
+    "paymentDetailsLabel": "QR / payment details",
+    "continue": "Continue",
+    "back": "Back",
+    "backToOptions": "Back to options",
+    "supportPhone": "Need help? Call {phone}",
+    "qrAlt": "Payment QR code",
+    "qrMissing": "QR image is not configured yet. Please contact support.",
+    "uploadReceipt": "Upload payment receipt",
+    "uploadPlaceholder": "Upload receipt image",
+    "notesOptional": "Notes (optional)",
+    "notesPlaceholder": "e.g. transaction id / bank reference",
+    "submitForApproval": "Submit for approval",
+    "submitting": "Submitting…",
+    "trialLoading": "Starting…",
+    "toastReceiptRequired": "Please upload your payment receipt.",
+    "toastSubmitSuccess": "Submitted successfully. Please wait for approval.",
+    "toastSubmitError": "Failed to submit payment. Please try again.",
+    "toastTrialError": "Failed to start trial. Please try again.",
+    "pendingReviewBody": "Your account is submitted for approval. This usually takes a few hours.",
+    "pendingReviewCall": "For faster onboarding, call:",
+    "refreshStatus": "Refresh status",
+    "rejectedTitle": "Payment not approved",
+    "rejectedBody": "Your payment could not be verified.",
+    "rejectedReasonLabel": "Reason:",
+    "approvedBody": "Your payment is approved. Your account is ready to use.",
+    "continueToApp": "Continue to app",
+    "loadErrorTitle": "Payment onboarding",
+    "loadErrorDescription": "We could not load your payment information.",
+    "goToLogin": "Go to login",
+    "roles": {
+      "OWNER": "Layer / Broiler farmer",
+      "MANAGER": "Farm manager",
+      "DEALER": "Feed dealer",
+      "COMPANY": "Company",
+      "HATCHERY": "Hatchery",
+      "DOCTOR": "Doctor",
+      "SUPER_ADMIN": "Administrator"
+    }
+  },
+  "admin": {
+    "demoEnquiries": {
+      "title": "Book a demo enquiries",
+      "subtitle": "Requests submitted from the landing page.",
+      "empty": "No enquiries found.",
+      "company": "Company",
+      "phone": "Phone",
+      "message": "Message",
+      "createdAt": "Submitted At"
+    }
+  },
+  "cashInHand": {
+    "title": "Cash In Hand",
+    "subtitle": "Track physical cash movements for your business",
+    "setup": {
+      "title": "Set Up Cash Book",
+      "description": "Enter your opening cash balance to start tracking cash in hand.",
+      "label": "Opening Balance (NPR)",
+      "placeholder": "0.00",
+      "button": "Set Up"
     },
-    "videos": {
-      "introductionToPoultry360": "Introduction to Poultry360",
-      "farmerManualEndToEnd": "Farmer app using manual end to end",
-      "farmerWithConnectionToDealer": "Farmer with connection to dealer",
-      "layerFarmerIndepth": "Layer Farmer Indepth",
-      "feedSupplierEndToEnd": "Feed supplier end to end",
-      "feedSupplierWithConnectionToFarmer": "Feed supplier with connection to farmer"
+    "today": "Today",
+    "opening": "Opening",
+    "closing": "Closing (so far)",
+    "closingFinal": "Closing",
+    "addIn": "Add Cash In",
+    "addOut": "Add Cash Out",
+    "closeDay": "Close Day",
+    "closed": "Day Closed",
+    "history": "History",
+    "noMovements": "No cash movements recorded today.",
+    "deleteMovement": "Delete",
+    "deleteMovementConfirm": {
+      "title": "Delete this movement?",
+      "description": "This removes the line from today. Opening balance for the day stays the same; closing balance will update.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
     },
-    "descriptions": {
-      "introductionToPoultry360": "Get started with Poultry360 and explore the platform.",
-      "farmerManualEndToEnd": "Use the farmer app manually from start to finish.",
-      "farmerWithConnectionToDealer": "Farmer workflow when connected to a dealer.",
-      "layerFarmerIndepth": "In-depth guide for layer farmers.",
-      "feedSupplierEndToEnd": "Feed supplier workflow from start to finish.",
-      "feedSupplierWithConnectionToFarmer": "Feed supplier when connected to farmers."
+    "deleteMovementSuccess": "Movement deleted",
+    "deleteMovementError": "Failed to delete movement",
+    "movement": {
+      "in": "IN",
+      "out": "OUT",
+      "party": "Party Name",
+      "partyPlaceholder": "Who paid / who received",
+      "notes": "Notes (optional)",
+      "notesPlaceholder": "Reference or description",
+      "amount": "Amount (NPR)",
+      "submit": "Record"
+    },
+    "closeDayConfirm": {
+      "title": "Close Today?",
+      "description": "This will lock today's cash entries. No further movements can be added until tomorrow.",
+      "confirm": "Close Day",
+      "cancel": "Cancel"
+    },
+    "historyEmpty": "No closed days yet.",
+    "historyDetail": {
+      "title": "Closed day",
+      "movementsTitle": "Movements",
+      "noMovements": "No movements recorded for this day.",
+      "openBalance": "Opening",
+      "closeBalance": "Closing",
+      "loadError": "Could not load day details.",
+      "tapHint": "Tap a row to view movements",
+      "autoClosed": "Auto-closed",
+      "closedByYou": "Closed by you"
     }
   }
 }

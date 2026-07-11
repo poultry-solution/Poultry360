@@ -39,6 +39,7 @@ export interface RecordPurchaseInput {
     notes?: string;
     reference?: string;
     date?: string;
+    tradeDiscountAmount?: number;
 }
 
 export interface RecordManualPaymentInput {

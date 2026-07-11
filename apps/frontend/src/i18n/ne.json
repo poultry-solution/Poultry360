@@ -74,6 +74,10 @@
   
         "subtitle": "फार्म व्यवस्थापन",
         "userTitle": "मालिक"
+      },
+      "hatchery": {
+        "subtitle": "ह्याचरी व्यवस्थापन",
+        "userTitle": "ह्याचरी"
       }
     },
     "nav": {
@@ -101,6 +105,7 @@
       "users": "युजरहरू",
       "passwordResets": "पासवर्ड रिसेट",
       "paymentApprovals": "भुक्तानी स्वीकृति",
+      "enquiries": "अनुरोधहरू",
       "financial": "वित्तीय",
       "suppliers": "आपूर्तिकर्ता",
       "performance": "कार्यसम्पादन",
@@ -108,7 +113,17 @@
       "purchases": "खरिद",
       "production": "उत्पादन",
       "purchaseRequests": "खरिद अनुरोध",
-      "saleRequests": "बिक्री अनुरोध"
+      "saleRequests": "बिक्री अनुरोध",
+      "cashInHand": "नगद हातमा",
+      "hatcheryOverview": "अवलोकन",
+      "hatcherySupplierLedger": "सप्लायर लेजर",
+      "hatcheryInventory": "भण्डार",
+      "hatcheryBatches": "ब्याच",
+      "hatcheryEggInventory": "अण्डा भण्डार",
+      "hatcheryProducedChicks": "उत्पादित चल्ला",
+      "hatcheryEggTypes": "अण्डा प्रकार",
+      "hatcheryIncubations": "ईनक्युबेसन",
+      "hatcheryParties": "पार्टीहरू"
     }
   },
   "settings": {
@@ -283,6 +298,36 @@
       "errors": {
         "nameRequired": "नाम आवश्यक छ!",
         "phoneInvalid": "फोन नम्बर ठीक १० अंकको हुनुपर्छ!",
+        "passwordTooShort": "पासवर्ड कम्तिमा 6 अक्षरको हुनुपर्छ!",
+        "passwordMismatch": "पासवर्ड मिलेन!",
+        "registrationFailed": "दर्ता असफल भयो। कृपया पुन: प्रयास गर्नुहोस्।"
+      }
+    },
+    "hatcherySignup": {
+      "title": "ह्याचरी दर्ता",
+      "subtitle": "अन्त-देखि-अन्त सञ्चालन व्यवस्थापन गर्न ह्याचरी खाता बनाउनुहोस्",
+      "ownerNameLabel": "मालिकको नाम *",
+      "phoneLabel": "फोन नम्बर *",
+      "phonePlaceholder": "98XXXXXXXX",
+      "phoneHelp": "यो नम्बर मालिक र ह्याचरी सम्पर्कको लागि प्रयोग गरिनेछ।",
+      "hatcheryNameLabel": "ह्याचरीको नाम *",
+      "hatcheryNameHelp": "तपाईंको ह्याचरी व्यापारको नाम",
+      "hatcheryAddressLabel": "ह्याचरीको ठेगाना",
+      "hatcheryAddressPlaceholder": "वैकल्पिक व्यापार ठेगाना",
+      "passwordLabel": "पासवर्ड *",
+      "confirmPasswordLabel": "पासवर्ड पुष्टि गर्नुहोस् *",
+      "createAccount": "ह्याचरी खाता बनाउनुहोस्",
+      "creatingAccount": "खाता बनाउँदैछ...",
+      "alreadyHaveAccount": "पहिले नै खाता छ?",
+      "login": "लगइन",
+      "registerOwner": "फार्म मालिकको रूपमा दर्ता गर्न चाहनुहुन्छ?",
+      "signupOwner": "फार्म मालिकको रूपमा साइन अप गर्नुहोस्",
+      "registerDealer": "डिलरको रूपमा दर्ता गर्न चाहनुहुन्छ?",
+      "signupDealer": "डिलरको रूपमा साइन अप गर्नुहोस्",
+      "errors": {
+        "ownerNameRequired": "मालिकको नाम आवश्यक छ!",
+        "phoneInvalid": "फोन नम्बर ठीक १० अंकको हुनुपर्छ!",
+        "hatcheryNameRequired": "ह्याचरीको नाम आवश्यक छ!",
         "passwordTooShort": "पासवर्ड कम्तिमा 6 अक्षरको हुनुपर्छ!",
         "passwordMismatch": "पासवर्ड मिलेन!",
         "registrationFailed": "दर्ता असफल भयो। कृपया पुन: प्रयास गर्नुहोस्।"
@@ -739,6 +784,8 @@
         "chicks": "चिक्स",
         "totalDelivered": "कुल वितरण:",
         "dateLabel": "मिति",
+        "expiryDateLabel": "म्याद सकिने मिति (वैकल्पिक)",
+        "expiryDateShort": "म्याद",
         "noteLabel": "नोट (वैकल्पिक)",
         "notePlaceholder": "थप नोटहरू",
         "cancel": "रद्द गर्नुहोस्",
@@ -2526,6 +2573,8 @@
         "deleteConfirm": "के तपाईं निश्चित रूपमा \"{name}\" मेटाउन चाहनुहुन्छ?",
         "createSuccess": "ग्राहक सफलतापुर्वक सिर्जना गरियो",
         "createFailed": "ग्राहक सिर्जना गर्न असफल भयो",
+        "updateSuccess": "ग्राहक सफलतापुर्वक अपडेट गरियो",
+        "updateFailed": "ग्राहक अपडेट गर्न असफल भयो",
         "deleteSuccess": "ग्राहक सफलतापुर्वक मेटाइयो",
         "deleteFailed": "ग्राहक मेटाउन असफल भयो"
       },
@@ -2732,24 +2781,27 @@
   "landing": {
     "navbar": {
       "features": "विशेषताहरू",
+      "pricing": "मूल्य निर्धारण",
       "marketplace": "बजार",
-      "tutorials": "ट्यूटोरियल",
       "reviews": "समीक्षाहरू",
       "contact": "सम्पर्क",
       "getStarted": "सुरु गर्नुहोस्",
       "signUpAs": "यसको रूपमा दर्ता गर्नुहोस्",
       "signUpDescription": "Poultry360 मा सुरु गर्न आफ्नो खाताको प्रकार छान्नुहोस्",
-      "farmer": "किसान",
-      "dealer": "डिलर",
-      "company": "कम्पनी",
+      "farmer": "लेयर/ब्रोइलर किसान",
+      "dealer": "फिड डिलर",
+      "company": "फिड मिल कम्पनी",
+      "hatchery": "ह्याचरी",
+      "veterinary": "पशु चिकित्सक",
       "alreadyHaveAccount": "पहिले नै खाता छ?",
       "login": "लग इन"
     },
     "hero": {
       "headingMain": "आफ्नो कुखुरापालन व्यवसाय व्यवस्थापन गर्नुहोस्",
       "headingHighlight": " जुनसुकै समय, जहाँबाट पनि",
-      "description": "Poultry360 ले तपाईंको कुखुरापालन व्यवसायलाई सरल, स्मार्ट र तनावमुक्त बनाउँछ। सजिलैसँग बिक्री ट्र्याक गर्नुहोस्, खर्च व्यवस्थापन गर्नुहोस्, खाता राख्नुहोस्, इन्भेन्टरी नियन्त्रण गर्नुहोस् र थप — ताकि तपाईं आफ्नो व्यवसाय बढाउनमा ध्यान दिन सक्नुहोस्।",
+      "description": "नेपालको कुखुरापालन श्रृङखलाको लागि एकै प्लेटफर्म—लेयर र ब्रोइलर फार्मदेखि दाना डिलर, दाना मिल, ह्याचरी र पशु चिकित्सकसम्म।",
       "useWeb": "वेब संस्करण प्रयोग गर्नुहोस्",
+      "bookDemo": "डेमो बुक गर्नुहोस्",
       "download": "Poultry360 डाउनलोड गर्नुहोस्",
       "notifications": "सूचनाहरू",
       "paymentDue": "भुक्तानी बाँकी",
@@ -2768,16 +2820,26 @@
         "iphoneStep1": "Safari को तलको Share बटन (□ मा एरो) ट्याप गर्नुहोस्।",
         "iphoneStep2": "तल स्क्रल गरी \"Add to Home Screen\" ट्याप गर्नुहोस्।",
         "iphoneStep3": "माथि दायाँ \"Add\" ट्याप गर्नुहोस्।"
+      },
+      "bookDemoModal": {
+        "title": "डेमो बुक गर्नुहोस्",
+        "companyName": "कम्पनी नाम",
+        "companyNamePlaceholder": "कम्पनी नाम लेख्नुहोस्",
+        "phoneNumber": "फोन नम्बर",
+        "phonePlaceholder": "98XXXXXXXX",
+        "phoneHelp": "+977 बिना आफ्नो नेपाल नम्बर लेख्नुहोस्।",
+        "message": "सन्देश (वैकल्पिक)",
+        "messagePlaceholder": "छोटो सन्देश लेख्नुहोस्",
+        "submitBtn": "अनुरोध पठाउनुहोस्",
+        "submitting": "पठाउँदैछ...",
+        "submitSuccess": "डेमो अनुरोध सफलतापूर्वक पठाइयो",
+        "submitError": "डेमो अनुरोध पठाउन असफल भयो"
       }
     },
     "features": {
       "badge": "मुख्य विशेषताहरू",
       "title": "एकमा सबै कुखुरापालन व्यवस्थापन एप",
-      "subtitle": "Poultry360 ले ब्रोइलर र लेयर किसान, दाना आपूर्तिकर्ता, दाना मिल कम्पनी र पशु चिकित्सकलाई एकै प्लेटफर्ममा जोड्छ — सञ्चालन, इन्भेन्टरी र स्वास्थ्य एकै ठाउँमा व्यवस्थापन गर्नुहोस्।",
-      "learnMore": "थप जान्नुहोस्",
-      "modal": {
-        "comingSoon": "चाँडै आउँदैछ"
-      },
+      "subtitle": "Poultry360 ले ब्रोइलर र लेयर किसान, दाना आपूर्तिकर्ता, दाना मिल कम्पनी, ह्याचरी र पशु चिकित्सकलाई एकै प्लेटफर्ममा जोड्छ — सञ्चालन, इन्भेन्टरी र स्वास्थ्य एकै ठाउँमा व्यवस्थापन गर्नुहोस्।",
       "cards": {
         "layer": {
           "title": "लेयर व्यवस्थापन",
@@ -2795,31 +2857,15 @@
           "title": "दाना मिल कम्पनी",
           "description": "सही मिश्रण र सजिलो इन्भेन्टरी व्यवस्थापन सँग गुणस्तरीय दाना उत्पादन गर्नुहोस्।"
         },
+        "hatchery": {
+          "title": "ह्याचरी",
+          "description": "प्यारेन्ट फ्लक, अण्डा उत्पादन, इन्क्युबेसन, ह्याच नतिजा, चिक ग्रेड, बिक्री तथा आपूर्तिकर्ता र पार्टी लेजर एकै ठाउँमा।"
+        },
         "veterinary": {
           "title": "पशु चिकित्सक",
           "description": "तपाईंको ग्राहक आधारमा फार्म भ्रमण, निर्धारण र चरा स्वास्थ्य ट्र्याक गर्नुहोस्।"
         }
-      },
-      "recordTransactions": "कारोबार रेकर्ड गर्नुहोस्",
-      "recordTransactionsDesc": "बिक्री, खरिद र खर्चहरू थप्नुहोस्",
-      "manageBirds": "चराहरू व्यवस्थापन गर्नुहोस्",
-      "manageBirdsDesc": "चराको स्वास्थ्य र उत्पादन ट्र्याक गर्नुहोस्",
-      "manageInventory": "इन्भेन्टरी व्यवस्थापन",
-      "manageInventoryDesc": "दाना र आपूर्तिको ट्र्याक राख्नुहोस्",
-      "farmInsights": "फार्म अन्तरदृष्टि",
-      "farmInsightsDesc": "फार्म कार्यसम्पादन रिपोर्टहरू हेर्नुहोस्",
-      "vaccinationSchedule": "खोप तालिका",
-      "vaccinationScheduleDesc": "खोप कार्यक्रमहरू ट्र्याक र व्यवस्थापन गर्नुहोस्",
-      "feedCalculator": "दाना क्यालकुलेटर",
-      "feedCalculatorDesc": "उचित दाना आवश्यकता गणना गर्नुहोस्",
-      "mortalityTracking": "मृत्युदर ट्र्याकिङ",
-      "mortalityTrackingDesc": "चरा हानिको निगरानी र विश्लेषण गर्नुहोस्",
-      "mortalityRate": "मृत्युदर: २.३%",
-      "productionPlanning": "उत्पादन योजना",
-      "productionPlanningDesc": "उत्पादन चक्र योजना र तालिका बनाउनुहोस्",
-      "add": "थप्नुहोस्",
-      "feed": "दाना",
-      "remove": "हटाउनुहोस्"
+      }
     },
     "reviews": {
       "badge": "किसानहरूद्वारा विश्वसनीय",
@@ -2960,29 +3006,135 @@
       "other": "अन्य"
     }
   },
-  "tutorials": {
-    "title": "Poultry360 ट्यूटोरियल हब",
-    "subtitle": "चरणबद्ध भिडियो मार्गदर्शनहरूसँग Poultry360 कसरी प्रयोग गर्ने सिक्नुहोस्।",
-    "sections": {
-      "gettingStarted": "सुरु गर्दै",
-      "broilerLayerFarmer": "ब्रोइलर + लेयर किसान",
-      "feedSupplier": "फिड सप्लायर"
+  "onboardingPaymentTrial": {
+    "trialActive": "तपाईंको निःशुल्क ट्रायल सक्रिय छ।",
+    "trialEndsAt": "ट्रायल समाप्त हुन्छ: {date}",
+    "startTrialCta": "निःशुल्क ट्रायल सुरु गर्नुहोस् ({days} दिन)",
+    "trialStartedSuccess": "ट्रायल सफलतापूर्वक सुरु भयो। ट्रायल अवधिभर तपाईंले एप प्रयोग गर्न सक्नुहुन्छ।"
+  },
+  "onboardingPaymentFlow": {
+    "title": "आफ्नो खाता सक्रिय गर्नुहोस्",
+    "subtitle": "कसरी सुरु गर्ने छान्नुहोस्।",
+    "roleLabel": "तपाईं सक्रिय गर्दै हुनुहुन्छ:",
+    "amountPerYear": "{amount} / वर्ष",
+    "trialUnavailable": "निःशुल्क ट्रायल पहिले नै प्रयोग भइसकेको छ। जारी राख्न तल भुक्तानी पूरा गर्नुहोस्।",
+    "choicePayTitle": "वार्षिक सदस्यता भुक्तानी",
+    "choicePayDescription": "अनबोर्डिङ शुल्क तिर्नुहोस् र प्रशासक स्वीकृतिका लागि रसिद पेश गर्नुहोस्।",
+    "choicePayButton": "QR मार्फत तिर्नुहोस्",
+    "choiceTrialTitle": "निःशुल्क ट्रायल सुरु गर्नुहोस्",
+    "choiceTrialDescription": "{days} दिनका लागि निःशुल्क प्रयोग गर्नुहोस्। सुरु गर्न भुक्तानी आवश्यक छैन।",
+    "stepIndicator": "चरण {current} / {total}",
+    "stepPayTitle": "स्क्यान गरी तिर्नुहोस्",
+    "stepUploadTitle": "आफ्नो रसिद अपलोड गर्नुहोस्",
+    "payInstructionsIntro": "तलको QR वा भुक्तानी विवरण प्रयोग गरी आफ्नो योजनाको रकम तिर्नुहोस्।",
+    "payBullet1": "देखाइएको वार्षिक रकम भुक्तानी गर्नुहोस्।",
+    "payBullet2": "आफ्नो रसिद सुरक्षित राख्नुहोस् वा स्क्रिनसट लिनुहोस् — अर्को चरणमा अपलोड गर्नुपर्छ।",
+    "paymentDetailsLabel": "QR / भुक्तानी विवरण",
+    "continue": "अगाडि बढ्नुहोस्",
+    "back": "पछाडि",
+    "backToOptions": "विकल्पहरूमा फर्कनुहोस्",
+    "supportPhone": "मद्दत चाहिन्छ? कल गर्नुहोस्: {phone}",
+    "qrAlt": "भुक्तानी QR कोड",
+    "qrMissing": "QR छवि अझै कन्फिगर भएको छैन। कृपया सहयोग सम्पर्क गर्नुहोस्।",
+    "uploadReceipt": "भुक्तानी रसिद अपलोड गर्नुहोस्",
+    "uploadPlaceholder": "रसिदको छवि अपलोड गर्नुहोस्",
+    "notesOptional": "टिप्पणी (वैकल्पिक)",
+    "notesPlaceholder": "उदा. लेनदेन आईडी / बैंक सन्दर्भ",
+    "submitForApproval": "स्वीकृतिका लागि पेश गर्नुहोस्",
+    "submitting": "पेश गर्दै…",
+    "trialLoading": "सुरु गर्दै…",
+    "toastReceiptRequired": "कृपया आफ्नो भुक्तानी रसिद अपलोड गर्नुहोस्।",
+    "toastSubmitSuccess": "पेश भयो। कृपया स्वीकृतिको प्रतीक्षा गर्नुहोस्।",
+    "toastSubmitError": "भुक्तानी पेश गर्न सकिएन। पुनः प्रयास गर्नुहोस्।",
+    "toastTrialError": "ट्रायल सुरु गर्न सकिएन। पुनः प्रयास गर्नुहोस्।",
+    "pendingReviewBody": "तपाईंको खाता स्वीकृतिका लागि पेश भयो। सामान्यतया केही घण्टा लाग्छ।",
+    "pendingReviewCall": "छिटो अनबोर्डिङका लागि कल गर्नुहोस्:",
+    "refreshStatus": "स्थिति रिफ्रेश गर्नुहोस्",
+    "rejectedTitle": "भुक्तानी स्वीकृत भएन",
+    "rejectedBody": "तपाईंको भुक्तानी प्रमाणित गर्न सकिएन।",
+    "rejectedReasonLabel": "कारण:",
+    "approvedBody": "तपाईंको भुक्तानी स्वीकृत भयो। खाता प्रयोग गर्न तयार छ।",
+    "continueToApp": "एपमा जानुहोस्",
+    "loadErrorTitle": "भुक्तानी अनबोर्डिङ",
+    "loadErrorDescription": "भुक्तानी जानकारी लोड गर्न सकिएन।",
+    "goToLogin": "लगइनमा जानुहोस्",
+    "roles": {
+      "OWNER": "लेयर / ब्रोइलर किसान",
+      "MANAGER": "फर्म प्रबन्धक",
+      "DEALER": "फिड डिलर",
+      "COMPANY": "कम्पनी",
+      "HATCHERY": "ह्याचरी",
+      "DOCTOR": "डाक्टर",
+      "SUPER_ADMIN": "प्रशासक"
+    }
+  },
+  "admin": {
+    "demoEnquiries": {
+      "title": "डेमो अनुरोधहरू",
+      "subtitle": "ल्यान्डिङ पेजबाट आएका अनुरोधहरू।",
+      "empty": "कुनै अनुरोध फेला परेन।",
+      "company": "कम्पनी",
+      "phone": "फोन",
+      "message": "सन्देश",
+      "createdAt": "पठाइएको मिति"
+    }
+  },
+  "cashInHand": {
+    "title": "नगद हातमा",
+    "subtitle": "व्यवसायको नगद आवागमन ट्र्याक गर्नुहोस्",
+    "setup": {
+      "title": "नगद किताब सेटअप गर्नुहोस्",
+      "description": "नगद ट्र्याक सुरु गर्न प्रारम्भिक मौज्दात प्रविष्ट गर्नुहोस्।",
+      "label": "प्रारम्भिक मौज्दात (रू)",
+      "placeholder": "०.००",
+      "button": "सेटअप गर्नुहोस्"
     },
-    "videos": {
-      "introductionToPoultry360": "Poultry360 को परिचय",
-      "farmerManualEndToEnd": "किसान एप म्यानुअल अन्तसम्म प्रयोग",
-      "farmerWithConnectionToDealer": "डिलरसँग जोडिएको किसान",
-      "layerFarmerIndepth": "लेयर किसान गहन मार्गदर्शन",
-      "feedSupplierEndToEnd": "फिड सप्लायर अन्तसम्म",
-      "feedSupplierWithConnectionToFarmer": "किसानसँग जोडिएको फिड सप्लायर"
+    "today": "आज",
+    "opening": "खुल्ने",
+    "closing": "बन्द (अहिलेसम्म)",
+    "closingFinal": "बन्द",
+    "addIn": "नगद भित्र्याउनुहोस्",
+    "addOut": "नगद बाहिर पठाउनुहोस्",
+    "closeDay": "दिन बन्द गर्नुहोस्",
+    "closed": "दिन बन्द भयो",
+    "history": "इतिहास",
+    "noMovements": "आज कुनै नगद आवागमन छैन।",
+    "deleteMovement": "मेटाउनुहोस्",
+    "deleteMovementConfirm": {
+      "title": "यो आवागमन मेटाउने?",
+      "description": "यसले आजको लाइन हटाउँछ। दिनको खुल्ने मौज्दात उही रहन्छ; बन्द मौज्दात अपडेट हुन्छ।",
+      "confirm": "मेटाउनुहोस्",
+      "cancel": "रद्द गर्नुहोस्"
     },
-    "descriptions": {
-      "introductionToPoultry360": "Poultry360 सँग सुरु गर्नुहोस् र प्लेटफर्म अन्वेषण गर्नुहोस्।",
-      "farmerManualEndToEnd": "सुरुदेखि अन्त्यसम्म किसान एप म्यानुअल प्रयोग गर्नुहोस्।",
-      "farmerWithConnectionToDealer": "डिलरसँग जोडिएको किसान वर्कफ्लो।",
-      "layerFarmerIndepth": "लेयर किसानहरूको लागि गहन मार्गदर्शन।",
-      "feedSupplierEndToEnd": "सुरुदेखि अन्त्यसम्म फिड सप्लायर वर्कफ्लो।",
-      "feedSupplierWithConnectionToFarmer": "किसानहरूसँग जोडिएको फिड सप्लायर।"
+    "deleteMovementSuccess": "आवागमन मेटाइयो",
+    "deleteMovementError": "आवागमन मेटाउन सकिएन",
+    "movement": {
+      "in": "भित्र",
+      "out": "बाहिर",
+      "party": "पार्टीको नाम",
+      "partyPlaceholder": "कसले दियो / कसलाई दियो",
+      "notes": "टिप्पणी (ऐच्छिक)",
+      "notesPlaceholder": "सन्दर्भ वा विवरण",
+      "amount": "रकम (रू)",
+      "submit": "दर्ता गर्नुहोस्"
+    },
+    "closeDayConfirm": {
+      "title": "आज बन्द गर्ने?",
+      "description": "यसले आजको नगद प्रविष्टिहरू लक गर्नेछ। भोलिसम्म थप आवागमन थप्न सकिँदैन।",
+      "confirm": "दिन बन्द गर्नुहोस्",
+      "cancel": "रद्द गर्नुहोस्"
+    },
+    "historyEmpty": "अहिलेसम्म कुनै बन्द दिन छैन।",
+    "historyDetail": {
+      "title": "बन्द दिन",
+      "movementsTitle": "आवागमन",
+      "noMovements": "यस दिन कुनै आवागमन दर्ता छैन।",
+      "openBalance": "खुल्ने",
+      "closeBalance": "बन्द",
+      "loadError": "दिनको विवरण लोड गर्न सकिएन।",
+      "tapHint": "आवागमन हेर्न पङ्क्ति छुनुहोस्",
+      "autoClosed": "स्वतः बन्द",
+      "closedByYou": "तपाईंले बन्द गर्नुभयो"
     }
   }
 }

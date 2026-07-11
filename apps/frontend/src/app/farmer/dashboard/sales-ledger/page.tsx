@@ -49,11 +49,14 @@ import {
   UserPlus,
   Receipt,
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
   X,
 } from "lucide-react";
 import {
   useSalesManagement,
   useGetCustomersForSales,
+  useGetCustomersForSalesPage,
   useGetEggInventory,
   useCreateCustomer,
   useUpdateCustomer,
@@ -99,6 +102,7 @@ interface PaymentFilters {
 }
 
 const OPEN_MODAL_PARAM = "openModal";
+const LEDGER_PAGE_LIMIT = 10;
 
 export default function SalesLedgerPage() {
   const { t } = useI18n();
@@ -114,6 +118,9 @@ export default function SalesLedgerPage() {
   const [editingPartyId, setEditingPartyId] = useState<string | null>(null);
   const [partyToDelete, setPartyToDelete] = useState<string | null>(null);
   const [selectedParty, setSelectedParty] = useState<any>(null);
+  const [salesPage, setSalesPage] = useState(1);
+  const [partyPage, setPartyPage] = useState(1);
+  const [paymentsPage, setPaymentsPage] = useState(1);
 
   // Payment delete mode
   const [showDeletedPayments, setShowDeletedPayments] = useState(false);
@@ -235,6 +242,7 @@ export default function SalesLedgerPage() {
   const {
     sales,
     pagination,
+    summary: salesSummary,
     categories,
     isLoading,
     error,
@@ -251,14 +259,29 @@ export default function SalesLedgerPage() {
     isCredit: salesFilters.isCredit
       ? salesFilters.isCredit === "true"
       : undefined,
-    page: 1,
-    limit: 50,
+    page: salesPage,
+    limit: LEDGER_PAGE_LIMIT,
   });
 
-  const { data: customers, isLoading: customersLoading } =
-    useGetCustomersForSales(partyFilters.search, {
+  const { data: customers } =
+    useGetCustomersForSales(customerSearch, {
       enabled: true,
     });
+
+  const { data: partyResponse, isLoading: partiesLoading } =
+    useGetCustomersForSalesPage({
+      page: partyPage,
+      limit: LEDGER_PAGE_LIMIT,
+      search: partyFilters.search || undefined,
+      category: partyFilters.category || undefined,
+      hasBalance: partyFilters.hasBalance || undefined,
+    }, {
+      enabled: true,
+    });
+
+  const parties = partyResponse?.data || [];
+  const partyPagination = partyResponse?.pagination;
+  const partySummary = partyResponse?.summary;
 
   const { data: eggTypesData } = useGetEggTypes({ enabled: true });
   const eggTypes = eggTypesData?.data ?? [];
@@ -290,8 +313,8 @@ export default function SalesLedgerPage() {
 
   // Fetch payments
   const { data: paymentsResponse, isLoading: paymentsLoading } = useGetSalePayments({
-    page: 1,
-    limit: 50,
+    page: paymentsPage,
+    limit: LEDGER_PAGE_LIMIT,
     search: paymentFilters.search,
     startDate: paymentFilters.startDate,
     endDate: paymentFilters.endDate,
@@ -300,55 +323,98 @@ export default function SalesLedgerPage() {
   });
   const payments = paymentsResponse?.data || [];
   const paymentsPagination = paymentsResponse?.pagination;
+  const paymentsSummary = paymentsResponse?.summary;
+
+  const salesTotalRows = Number(pagination?.total ?? 0);
+  const salesTotalPages = Math.max(1, Number(pagination?.totalPages ?? 1));
+  const salesCurrentPage = Math.min(Math.max(1, Number(pagination?.page ?? salesPage)), salesTotalPages);
+  const salesShowingStart = salesTotalRows > 0 ? (salesCurrentPage - 1) * LEDGER_PAGE_LIMIT + 1 : 0;
+  const salesShowingEnd = salesTotalRows > 0 ? Math.min(salesCurrentPage * LEDGER_PAGE_LIMIT, salesTotalRows) : 0;
+
+  const partyTotalRows = Number(partyPagination?.total ?? 0);
+  const partyTotalPages = Math.max(1, Number(partyPagination?.totalPages ?? 1));
+  const partyCurrentPage = Math.min(Math.max(1, Number(partyPagination?.page ?? partyPage)), partyTotalPages);
+  const partyShowingStart = partyTotalRows > 0 ? (partyCurrentPage - 1) * LEDGER_PAGE_LIMIT + 1 : 0;
+  const partyShowingEnd = partyTotalRows > 0 ? Math.min(partyCurrentPage * LEDGER_PAGE_LIMIT, partyTotalRows) : 0;
+
+  const paymentsTotalRows = Number(paymentsPagination?.total ?? 0);
+  const paymentsTotalPages = Math.max(1, Number(paymentsPagination?.totalPages ?? 1));
+  const paymentsCurrentPage = Math.min(Math.max(1, Number(paymentsPagination?.page ?? paymentsPage)), paymentsTotalPages);
+  const paymentsShowingStart = paymentsTotalRows > 0 ? (paymentsCurrentPage - 1) * LEDGER_PAGE_LIMIT + 1 : 0;
+  const paymentsShowingEnd = paymentsTotalRows > 0 ? Math.min(paymentsCurrentPage * LEDGER_PAGE_LIMIT, paymentsTotalRows) : 0;
+
+  useEffect(() => {
+    if (salesPage > salesTotalPages) {
+      setSalesPage(salesTotalPages);
+    }
+  }, [salesPage, salesTotalPages]);
+
+  useEffect(() => {
+    if (partyPage > partyTotalPages) {
+      setPartyPage(partyTotalPages);
+    }
+  }, [partyPage, partyTotalPages]);
+
+  useEffect(() => {
+    if (paymentsPage > paymentsTotalPages) {
+      setPaymentsPage(paymentsTotalPages);
+    }
+  }, [paymentsPage, paymentsTotalPages]);
 
   // Computed values
   const salesStats = useMemo(() => {
-    const totalSales = sales.length;
-    const totalAmount = sales.reduce(
-      (sum: number, sale: any) => sum + Number(sale.amount),
-      0
+    const totalSales = Number(salesSummary?.totalCount ?? sales.length);
+    const totalAmount = Number(
+      salesSummary?.totalAmount ??
+        sales.reduce((sum: number, sale: any) => sum + Number(sale.amount), 0)
     );
-    const creditSales = sales.filter((sale: any) => sale.isCredit).length;
-    const creditAmount = sales
-      .filter((sale: any) => sale.isCredit)
-      .reduce((sum: number, sale: any) => sum + Number(sale.amount), 0);
+    const creditSales = Number(
+      salesSummary?.creditSales ?? sales.filter((sale: any) => sale.isCredit).length
+    );
+    const creditAmount = Number(
+      salesSummary?.creditAmount ??
+        sales
+          .filter((sale: any) => sale.isCredit)
+          .reduce((sum: number, sale: any) => sum + Number(sale.amount), 0)
+    );
 
     return {
       totalSales,
       totalAmount,
       creditSales,
       creditAmount,
-      cashSales: totalSales - creditSales,
-      cashAmount: totalAmount - creditAmount,
+      cashSales: Number(salesSummary?.cashSales ?? totalSales - creditSales),
+      cashAmount: Number(salesSummary?.cashAmount ?? totalAmount - creditAmount),
     };
-  }, [sales]);
+  }, [sales, salesSummary]);
 
   const partyStats = useMemo(() => {
-    if (!customers)
-      return { totalParties: 0, totalBalance: 0, partiesWithBalance: 0 };
-
-    const totalParties = customers.length;
-    const totalBalance = customers.reduce(
-      (sum: number, customer: any) => sum + Number(customer.balance || 0),
-      0
+    const totalParties = Number(partySummary?.totalParties ?? parties.length);
+    const totalBalance = Number(
+      partySummary?.totalBalance ??
+        parties.reduce((sum: number, party: any) => sum + Number(party.balance || 0), 0)
     );
-    const partiesWithBalance = customers.filter(
-      (customer: any) => Number(customer.balance || 0) > 0
-    ).length;
+    const partiesWithBalance = Number(
+      partySummary?.partiesWithBalance ??
+        parties.filter((party: any) => Number(party.balance || 0) > 0).length
+    );
 
     return { totalParties, totalBalance, partiesWithBalance };
-  }, [customers]);
+  }, [parties, partySummary]);
 
   // Event handlers
   const handleSalesFilterChange = (key: keyof SalesFilters, value: string) => {
+    setSalesPage(1);
     setSalesFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   const handlePartyFilterChange = (key: keyof PartyFilters, value: string) => {
+    setPartyPage(1);
     setPartyFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   const handlePaymentFilterChange = (key: keyof PaymentFilters, value: string) => {
+    setPaymentsPage(1);
     setPaymentFilters((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -1227,6 +1293,36 @@ export default function SalesLedgerPage() {
                   }
                 />
               </div>
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-xs md:text-sm text-muted-foreground">
+                  Showing {salesShowingStart}-{salesShowingEnd} of {salesTotalRows}
+                </div>
+                <div className="flex items-center justify-between gap-3 sm:justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSalesPage(salesCurrentPage - 1)}
+                    disabled={salesCurrentPage <= 1 || isLoading}
+                  >
+                    <ChevronLeft className="mr-1 h-4 w-4" />
+                    Previous
+                  </Button>
+                  <span className="text-sm font-medium">
+                    Page {salesCurrentPage} of {salesTotalPages}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSalesPage(salesCurrentPage + 1)}
+                    disabled={salesCurrentPage >= salesTotalPages || isLoading}
+                  >
+                    Next
+                    <ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -1244,26 +1340,58 @@ export default function SalesLedgerPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-3 md:p-6 pt-0">
-              {customersLoading ? (
+              {partiesLoading ? (
                 <div className="flex items-center justify-center py-6">
                   <Loader2 className="h-5 w-5 animate-spin" />
                   <span className="ml-2 text-sm">{t("common.loading")}</span>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <DataTable
-                    data={customers || []}
-                    columns={partyColumns}
-                    showFooter={true}
-                    footerContent={
-                      <div className="flex items-center justify-between text-xs md:text-sm text-muted-foreground">
-                        <span>{t("farmer.salesLedger.table.total")}: {partyStats.totalParties}</span>
-                        <span>
-                          {t("farmer.salesLedger.table.due")}: रू{partyStats.totalBalance.toLocaleString()}
-                        </span>
-                      </div>
-                    }
-                  />
+                <div className="space-y-3">
+                  <div className="overflow-x-auto">
+                    <DataTable
+                      data={parties}
+                      columns={partyColumns}
+                      showFooter={true}
+                      footerContent={
+                        <div className="flex items-center justify-between text-xs md:text-sm text-muted-foreground">
+                          <span>{t("farmer.salesLedger.table.total")}: {partyStats.totalParties}</span>
+                          <span>
+                            {t("farmer.salesLedger.table.due")}: रू{partyStats.totalBalance.toLocaleString()}
+                          </span>
+                        </div>
+                      }
+                    />
+                  </div>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-xs md:text-sm text-muted-foreground">
+                      Showing {partyShowingStart}-{partyShowingEnd} of {partyTotalRows}
+                    </div>
+                    <div className="flex items-center justify-between gap-3 sm:justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPartyPage(partyCurrentPage - 1)}
+                        disabled={partyCurrentPage <= 1 || partiesLoading}
+                      >
+                        <ChevronLeft className="mr-1 h-4 w-4" />
+                        Previous
+                      </Button>
+                      <span className="text-sm font-medium">
+                        Page {partyCurrentPage} of {partyTotalPages}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPartyPage(partyCurrentPage + 1)}
+                        disabled={partyCurrentPage >= partyTotalPages || partiesLoading}
+                      >
+                        Next
+                        <ChevronRight className="ml-1 h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -1402,10 +1530,43 @@ export default function SalesLedgerPage() {
                     showFooter={true}
                     footerContent={
                       <div className="flex items-center justify-between text-xs md:text-sm text-muted-foreground w-full">
-                        <span>{t("farmer.salesLedger.totalRecords")}: {paymentsPagination?.total || 0}</span>
+                        <span>{t("farmer.salesLedger.totalRecords")}: {paymentsTotalRows}</span>
+                        <span>Total: रू{Number(paymentsSummary?.totalAmount ?? 0).toLocaleString()}</span>
                       </div>
                     }
                   />
+                </div>
+              )}
+              {!paymentsLoading && (
+                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-xs md:text-sm text-muted-foreground">
+                    Showing {paymentsShowingStart}-{paymentsShowingEnd} of {paymentsTotalRows}
+                  </div>
+                  <div className="flex items-center justify-between gap-3 sm:justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPaymentsPage(paymentsCurrentPage - 1)}
+                      disabled={paymentsCurrentPage <= 1 || paymentsLoading}
+                    >
+                      <ChevronLeft className="mr-1 h-4 w-4" />
+                      Previous
+                    </Button>
+                    <span className="text-sm font-medium">
+                      Page {paymentsCurrentPage} of {paymentsTotalPages}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPaymentsPage(paymentsCurrentPage + 1)}
+                      disabled={paymentsCurrentPage >= paymentsTotalPages || paymentsLoading}
+                    >
+                      Next
+                      <ChevronRight className="ml-1 h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>

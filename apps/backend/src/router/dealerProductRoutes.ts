@@ -5,6 +5,8 @@ import {
   getDealerProductById,
   updateDealerProduct,
   deleteDealerProduct,
+  hideDealerProduct,
+  unhideDealerProduct,
   getInventorySummary,
   adjustProductStock,
 } from "../controller/dealerProductController";
@@ -35,6 +37,10 @@ router.put("/:id", updateDealerProduct);
 
 // Delete dealer product
 router.delete("/:id", deleteDealerProduct);
+
+// Hide / Unhide dealer product (for out-of-stock rows)
+router.post("/:id/hide", hideDealerProduct);
+router.post("/:id/unhide", unhideDealerProduct);
 
 // Adjust product stock
 router.post("/:id/adjust-stock", adjustProductStock);

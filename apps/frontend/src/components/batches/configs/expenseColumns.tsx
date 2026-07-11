@@ -50,6 +50,9 @@ export function createExpenseColumns({
     createColumn("details", "Details", {
       render: (_, row) => {
         const details = [];
+        if (row.category?.name === "Other" && row.description) {
+          details.push(row.description);
+        }
         if (row.quantity) details.push(`Qty: ${row.quantity}`);
         if (row.unitPrice)
           details.push(`Rate: ₹${Number(row.unitPrice).toLocaleString()}`);

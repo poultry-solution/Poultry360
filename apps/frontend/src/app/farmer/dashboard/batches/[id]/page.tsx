@@ -39,6 +39,7 @@ import {
   useBatchSalesManagement,
   useGetCustomersForSales,
   useGetEggInventory,
+  useGetBatchSalesPage,
 } from "@/fetchers/sale/saleQueries";
 import { useGetEggTypes } from "@/fetchers/eggTypes/eggTypeQueries";
 import {
@@ -84,13 +85,14 @@ import { DeleteBatchModal } from "@/components/batches/modals/DeleteBatchModal";
 import { TransactionsModal } from "@/components/batches/modals/TransactionsModal";
 import { CustomerTransactionsModal } from "@/components/batches/modals/CustomerTransactionsModal";
 import { OverviewTab } from "@/components/batches/tabs/OverviewTab";
-import { ExpensesTab } from "@/components/batches/tabs/ExpensesTab";
+import { ExpensesTab, ExpenseCategoryFilter } from "@/components/batches/tabs/ExpensesTab";
 import { SalesTab } from "@/components/batches/tabs/SalesTab";
 import { MortalityTab } from "@/components/batches/tabs/MortalityTab";
 import { SalesBalanceTab } from "@/components/batches/tabs/SalesBalanceTab";
 import { ProfitLossTab } from "@/components/batches/tabs/ProfitLossTab";
 import { GrowthTab } from "@/components/batches/tabs/GrowthTab";
 import { EggProductionTab } from "@/components/batches/tabs/EggProductionTab";
+import { NotesTab } from "@/components/batches/tabs/NotesTab";
 import { createExpenseColumns } from "@/components/batches/configs/expenseColumns";
 import { createSalesColumns } from "@/components/batches/configs/salesColumns";
 import { createMortalityColumns } from "@/components/batches/configs/mortalityColumns";
@@ -133,6 +135,9 @@ type SaleRow = {
   categoryId: string;
 };
 
+const EXPENSES_PAGE_LIMIT = 10;
+const SALES_PAGE_LIMIT = 10;
+
 const BASE_TABS = [
   "Overview",
   "Expenses",
@@ -142,7 +147,7 @@ const BASE_TABS = [
   "Profit & Loss",
 ] as const;
 // Growth for Broiler, Egg Production for Layers
-type TabName = (typeof BASE_TABS)[number] | "Growth" | "Egg Production";
+type TabName = (typeof BASE_TABS)[number] | "Growth" | "Egg Production" | "Notes";
 
 
 // helper banner
@@ -173,10 +178,14 @@ export default function BatchDetailPage() {
   const analytics = analyticsResponse?.data;
 
   const tabs: TabName[] = batch
-    ? [...BASE_TABS, (batch as any).batchType === "LAYERS" ? "Egg Production" : "Growth"]
-    : [...BASE_TABS, "Growth"];
+    ? [...BASE_TABS, (batch as any).batchType === "LAYERS" ? "Egg Production" : "Growth", "Notes"]
+    : [...BASE_TABS, "Growth", "Notes"];
 
   const [activeTab, setActiveTab] = useState<TabName>("Overview");
+  const [expensePage, setExpensePage] = useState(1);
+  const [expenseCategoryFilter, setExpenseCategoryFilter] =
+    useState<ExpenseCategoryFilter>("All");
+  const [salesPage, setSalesPage] = useState(1);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
@@ -198,9 +207,25 @@ export default function BatchDetailPage() {
     data: expensesResponse,
     isLoading: expensesLoading,
     error: expensesError,
-  } = useGetBatchExpenses(safeBatchId, { enabled: !!batchId });
+  } = useGetBatchExpenses(safeBatchId, {
+    enabled: !!batchId,
+    page: expensePage,
+    limit: EXPENSES_PAGE_LIMIT,
+    category: expenseCategoryFilter,
+  });
 
   const expenses = expensesResponse?.data || [];
+  const expensesPagination = expensesResponse?.pagination;
+  const expensesSummary = expensesResponse?.summary;
+
+  useEffect(() => {
+    const totalPages = Number(expensesPagination?.totalPages || 0);
+    if (totalPages > 0 && expensePage > totalPages) {
+      setExpensePage(totalPages);
+    } else if (totalPages === 0 && expensePage !== 1) {
+      setExpensePage(1);
+    }
+  }, [expensePage, expensesPagination?.totalPages]);
 
   // Fetch expense categories
   const { data: categoriesResponse } = useGetExpenseCategories("EXPENSE");
@@ -234,6 +259,30 @@ export default function BatchDetailPage() {
     isAddingPayment,
     refetch: refetchSales,
   } = useBatchSalesManagement(safeBatchId, { enabled: !!batchId });
+
+  const {
+    data: salesPageResponse,
+    isLoading: salesPageLoading,
+    error: salesPageError,
+    refetch: refetchSalesPage,
+  } = useGetBatchSalesPage(
+    safeBatchId,
+    { page: salesPage, limit: SALES_PAGE_LIMIT },
+    { enabled: !!batchId }
+  );
+
+  const paginatedBatchSales = salesPageResponse?.data || [];
+  const salesPagination = salesPageResponse?.pagination;
+  const salesSummary = salesPageResponse?.summary;
+
+  useEffect(() => {
+    const totalPages = Number(salesPagination?.totalPages || 0);
+    if (totalPages > 0 && salesPage > totalPages) {
+      setSalesPage(totalPages);
+    } else if (totalPages === 0 && salesPage !== 1) {
+      setSalesPage(1);
+    }
+  }, [salesPage, salesPagination?.totalPages]);
 
   // Customer search for sales
   const [customerSearch, setCustomerSearch] = useState("");
@@ -810,6 +859,10 @@ export default function BatchDetailPage() {
           ? new Date(expenseForm.date).toISOString()
           : new Date().toISOString(),
         amount,
+        description:
+          ec === "Other" && !expenseForm.selectedOtherId
+            ? expenseForm.otherName.trim()
+            : expenseForm.notes || undefined,
         quantity,
         unitPrice,
         farmId: batch?.farmId,
@@ -1579,7 +1632,7 @@ export default function BatchDetailPage() {
           salesTotal={salesTotal}
           expensesTotal={expensesTotal}
           mortalityStats={mortalityStats}
-          recentExpenses={expenses.slice(0, 3)}
+          recentExpenses={(batch as any).expenses?.slice(0, 3) || []}
           recentSales={batchSales?.slice(0, 3) || []}
           recentMortalities={batchMortalities.slice(0, 3)}
         />
@@ -1591,7 +1644,15 @@ export default function BatchDetailPage() {
           expenses={expenses}
           expensesLoading={expensesLoading}
           expensesError={expensesError}
-          expensesTotal={expensesTotal}
+          expensesPagination={expensesPagination}
+          expensesSummary={expensesSummary}
+          categoryFilter={expenseCategoryFilter}
+          onCategoryFilterChange={(filter) => {
+            setExpenseCategoryFilter(filter);
+            setExpensePage(1);
+          }}
+          page={expensePage}
+          onPageChange={setExpensePage}
           expenseColumns={expenseColumns}
           openNewExpense={openNewExpense}
         />
@@ -1600,13 +1661,20 @@ export default function BatchDetailPage() {
       {activeTab === "Sales" && (
         <SalesTab
           isBatchClosed={isBatchClosed}
-          batchSales={batchSales}
-          salesLoading={salesLoading}
-          salesError={salesError}
+          batchSales={paginatedBatchSales}
+          salesLoading={salesPageLoading}
+          salesError={salesPageError}
           salesTotal={salesTotal}
+          salesPagination={salesPagination}
+          salesSummary={salesSummary}
+          page={salesPage}
+          onPageChange={setSalesPage}
           salesColumns={salesColumns}
           openNewSale={openNewSale}
-          refetchSales={refetchSales}
+          refetchSales={() => {
+            refetchSales();
+            refetchSalesPage();
+          }}
         />
       )}
 
@@ -1644,6 +1712,10 @@ export default function BatchDetailPage() {
           expenseBreakdown={[]}
           salesBreakdown={[]}
         />
+      )}
+
+      {activeTab === "Notes" && batchId && (
+        <NotesTab batchId={batchId} />
       )}
 
       {activeTab === "Growth" && batch && (batch as any).batchType !== "LAYERS" && (

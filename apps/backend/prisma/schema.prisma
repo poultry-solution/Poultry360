@@ -18,6 +18,7 @@ enum UserRole {
   DOCTOR
   DEALER
   COMPANY
+  HATCHERY
   SUPER_ADMIN
 }
 
@@ -246,6 +247,19 @@ model User {
   company Company? @relation("CompanyOwner")
 
   managedCompanies Company[] @relation("CompanyManagedBy")
+
+  hatcheryBusiness HatcheryBusiness?
+
+  // Hatchery supplier ledger + inventory
+  hatcherySuppliers   HatcherySupplier[]       @relation("HatcheryOwnerSuppliers")
+  hatcheryInventory   HatcheryInventoryItem[]  @relation("HatcheryOwnerInventory")
+
+  // Hatchery batches + egg types
+  hatcheryBatches     HatcheryBatch[]          @relation("HatcheryBatches")
+  hatcheryEggTypes    HatcheryEggType[]        @relation("HatcheryEggTypes")
+  hatcheryIncubations HatcheryIncubationBatch[] @relation("HatcheryIncubationBatches")
+  hatcheryParties     HatcheryParty[]          @relation("HatcheryParties")
+
   suppliedProducts Product[] @relation("ProductSupplier")
 
   // Inventory
@@ -303,6 +317,13 @@ model User {
   farmerAccounts                  DealerFarmerAccount[]          @relation("FarmerAccounts")
   farmerPaymentsRecorded          DealerFarmerPayment[]          @relation("DealerFarmerPaymentRecorder")
   dealerFarmerBalanceLimitsSet    DealerFarmerAccount[]          @relation("DealerFarmerBalanceLimitSetter")
+  dealerCashMovementsRecorded     DealerCashMovement[]           @relation("DealerCashMovementRecorder")
+
+  // Farmer cash in hand (per user account)
+  farmerCashSettings              FarmerCashSettings?
+  farmerCashBookMovements         FarmerCashMovement[]           @relation("FarmerCashBook")
+  farmerCashDayCloses             FarmerCashDayClose[]           @relation("FarmerCashDayCloseOwner")
+  farmerCashMovementsRecorded     FarmerCashMovement[]           @relation("FarmerCashMovementRecorder")
 
   // Farmer purchase request relationships
   farmerCarts              FarmerCart[]              @relation("FarmerCarts")
@@ -318,25 +339,24 @@ model User {
   pushSubscriptions PushSubscription[]
   notifications     Notification[]
 
-  // Payment-gated onboarding (new users only)
+  // Admin-gated onboarding approval (new users only)
   onboarding           UserOnboardingPayment?
-  paymentSubmissions  UserPaymentSubmission[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
+// Account approval gate for new signups. Pricing is handled offline by the admin;
+// the app only tracks the approval lifecycle.
+// PENDING_PAYMENT  -> awaiting admin approval (default for gated roles)
+// PAYMENT_APPROVED -> approved, account unlocked
+// PAYMENT_REJECTED -> rejected, account stays locked (admin can re-approve)
+// (PENDING_REVIEW is retained for enum compatibility but no longer used.)
 enum UserOnboardingPaymentState {
   PENDING_PAYMENT
   PENDING_REVIEW
   PAYMENT_REJECTED
   PAYMENT_APPROVED
-}
-
-enum UserPaymentSubmissionStatus {
-  PENDING_REVIEW
-  APPROVED
-  REJECTED
 }
 
 model UserOnboardingPayment {
@@ -357,50 +377,6 @@ model UserOnboardingPayment {
   updatedAt DateTime @updatedAt
 
   @@index([state])
-}
-
-model UserPaymentSubmission {
-  id String @id @default(cuid())
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  amountNpr Decimal @db.Decimal(10, 2)
-  roleAtSubmission UserRole
-
-  receiptUrl String
-  notes String?
-
-  status UserPaymentSubmissionStatus @default(PENDING_REVIEW)
-
-  reviewedAt DateTime?
-  reviewerId String?
-  reviewRejectionReason String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId, status, createdAt])
-  @@index([status, createdAt])
-}
-
-model OnboardingPaymentSettings {
-  id String @id @default("default")
-
-  ownerAmountNpr   Decimal @db.Decimal(10, 2) @default(6999)
-  managerAmountNpr Decimal @db.Decimal(10, 2) @default(6999)
-  dealerAmountNpr  Decimal @db.Decimal(10, 2) @default(7875)
-  companyAmountNpr Decimal @db.Decimal(10, 2) @default(30000)
-
-  qrImageUrl   String?
-  qrText       String?
-  phoneDisplay String @default("+977 9809781908")
-  accountHint  String @default("Pay the onboarding fee to activate your account.")
-
-  updatedBy String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model Company {
@@ -504,12 +480,26 @@ model Batch {
   // Per-batch egg inventory (so sales show and deduct from this batch's stock)
   batchEggInventories BatchEggInventory[]
   reminders Reminder[]
+  batchNotes BatchNote[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([farmId, batchNumber])
   @@index([farmId, startDate])
+}
+
+model BatchNote {
+  id          String   @id @default(cuid())
+  batchId     String
+  batch       Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date        DateTime
+  description String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([batchId, date])
 }
 
 // ==================== REMINDERS ====================
@@ -791,6 +781,8 @@ model InventoryItem {
   // Identity: same name + rate + supplier = merge; different rate or supplier = separate line
   unitPrice   Decimal? @db.Decimal(10, 2)
   supplierKey String?  // e.g. "DEALER:id", "HATCHERY:id", "MEDICINE_SUPPLIER:id", "NONE"
+  expiryDate  DateTime?
+  expiryDateKey String @default("NO_EXPIRY")
 
   // Relationships
   userId       String
@@ -809,7 +801,7 @@ model InventoryItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, categoryId, name, unitPrice, supplierKey])
+  @@unique([userId, categoryId, name, unitPrice, supplierKey, expiryDateKey], map: "InventoryItem_identity_with_expiry_key")
 }
 
 model InventoryTransaction {
@@ -821,6 +813,7 @@ model InventoryTransaction {
   date        DateTime
   description String?
   unit        String?
+  expiryDate  DateTime?
 
   // Relationships
   itemId String
@@ -914,6 +907,7 @@ model EntityTransaction {
 
   unit      String?
   unitPrice Decimal? @db.Decimal(10, 2)
+  expiryDate DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -984,6 +978,9 @@ model Dealer {
   manualCompanies      DealerManualCompany[]
   farmerCarts          FarmerCart[]              @relation("DealerFarmerCarts")
   farmerPurchaseRequests FarmerPurchaseRequest[] @relation("DealerPurchaseRequests")
+  cashSettings         DealerCashSettings?
+  cashMovements        DealerCashMovement[]
+  cashDayCloses        DealerCashDayClose[]
 
   @@unique([userId, name])
   @@index([ownerId])
@@ -1041,6 +1038,20 @@ model Hatchery {
   updatedAt DateTime @updatedAt
 
   @@unique([userId, name])
+}
+
+// Authenticated Hatchery business entity (role=HATCHERY login)
+model HatcheryBusiness {
+  id      String  @id @default(cuid())
+  name    String
+  contact String
+  address String?
+
+  ownerId String @unique
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model MedicineSupplier {
@@ -1598,6 +1609,7 @@ model DealerProduct {
   costPrice    Decimal           @db.Decimal(10, 2)
   sellingPrice Decimal           @db.Decimal(10, 2)
   currentStock Decimal           @default(0) @db.Decimal(10, 2)
+  hiddenAt     DateTime?
   minStock     Decimal?          @db.Decimal(10, 2)
   sku          String?
 
@@ -2488,6 +2500,7 @@ model DealerManualPurchase {
   id          String   @id @default(cuid())
   date        DateTime @default(now())
   totalAmount Decimal  @db.Decimal(10, 2)
+  tradeDiscountAmount Decimal? @db.Decimal(10, 2)
   notes       String?
   reference   String?
 
@@ -2551,6 +2564,104 @@ model DealerManualCompanyPayment {
   createdAt DateTime @default(now())
 
   @@index([manualCompanyId, paymentDate])
+}
+
+// ==================== DEALER CASH IN HAND ====================
+
+enum CashMovementDirection {
+  IN
+  OUT
+}
+
+enum CashDayCloseSource {
+  USER
+  SYSTEM
+}
+
+model DealerCashSettings {
+  id             String  @id @default(cuid())
+  dealerId       String  @unique
+  dealer         Dealer  @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  initialOpening Decimal @db.Decimal(10, 2)
+  startBsDate    String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DealerCashMovement {
+  id          String                 @id @default(cuid())
+  dealerId    String
+  dealer      Dealer                 @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  bsDate      String
+  direction   CashMovementDirection
+  amount      Decimal                @db.Decimal(10, 2)
+  partyName   String
+  notes       String?
+  recordedById String?
+  recordedBy   User?                 @relation("DealerCashMovementRecorder", fields: [recordedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([dealerId, bsDate])
+}
+
+model DealerCashDayClose {
+  id               String             @id @default(cuid())
+  dealerId         String
+  dealer           Dealer             @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  bsDate           String
+  openingSnapshot  Decimal            @db.Decimal(10, 2)
+  closingSnapshot  Decimal            @db.Decimal(10, 2)
+  source           CashDayCloseSource
+  closedAt         DateTime
+
+  @@unique([dealerId, bsDate])
+  @@index([dealerId, bsDate])
+}
+
+// ==================== FARMER CASH IN HAND ====================
+
+model FarmerCashSettings {
+  id             String  @id @default(cuid())
+  userId         String  @unique
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  initialOpening Decimal @db.Decimal(10, 2)
+  startBsDate    String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FarmerCashMovement {
+  id           String                  @id @default(cuid())
+  userId       String
+  user         User                    @relation("FarmerCashBook", fields: [userId], references: [id], onDelete: Cascade)
+  bsDate       String
+  direction    CashMovementDirection
+  amount       Decimal                 @db.Decimal(10, 2)
+  partyName    String
+  notes        String?
+  recordedById String?
+  recordedBy   User?                   @relation("FarmerCashMovementRecorder", fields: [recordedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, bsDate])
+}
+
+model FarmerCashDayClose {
+  id               String             @id @default(cuid())
+  userId           String
+  user             User               @relation("FarmerCashDayCloseOwner", fields: [userId], references: [id], onDelete: Cascade)
+  bsDate           String
+  openingSnapshot  Decimal            @db.Decimal(10, 2)
+  closingSnapshot  Decimal            @db.Decimal(10, 2)
+  source           CashDayCloseSource
+  closedAt         DateTime
+
+  @@unique([userId, bsDate])
+  @@index([userId, bsDate])
 }
 
 // ==================== FARMER CART & PURCHASE REQUEST ====================
@@ -2713,6 +2824,21 @@ model LandingContact {
   @@index([createdAt])
 }
 
+// ==================== BOOK A DEMO ENQUIRIES (PUBLIC) ====================
+// Landing page "Book a demo" modal submissions (no auth required).
+model DemoEnquiry {
+  id           String   @id @default(cuid())
+  companyName String
+  // Stored in normalized format including country code (e.g. +977XXXXXXXXXX)
+  phoneNumber String
+  message     String?  @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
 // ==================== LIST FOR SALE (FARMER MARKETPLACE) ====================
 enum ListForSaleCategory {
   CHICKEN
@@ -2842,6 +2968,621 @@ model StaffPayment {
 
   @@index([staffId])
   @@index([paidAt])
+}
+
+// ==================== HATCHERY SUPPLIER LEDGER + INVENTORY ====================
+
+enum HatcherySupplierTxnType {
+  PURCHASE
+  PAYMENT
+  ADJUSTMENT
+  OPENING_BALANCE
+}
+
+enum HatcheryPurchaseCategory {
+  FEED
+  MEDICINE
+  CHICKS
+  OTHER
+}
+
+enum HatcheryInventoryItemType {
+  FEED
+  MEDICINE
+  CHICKS
+  OTHER
+}
+
+enum HatcheryInventoryTxnType {
+  PURCHASE
+  USAGE
+  ADJUSTMENT
+}
+
+// Hatchery-owned supplier master (separate from farmer dealer/medicine supplier)
+model HatcherySupplier {
+  id               String  @id @default(cuid())
+  hatcheryOwnerId  String
+  hatcheryOwner    User    @relation("HatcheryOwnerSuppliers", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+
+  name             String
+  contact          String?
+  address          String?
+  openingBalance   Decimal @db.Decimal(12, 2) @default(0)
+  balance          Decimal @db.Decimal(12, 2) @default(0)
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  transactions     HatcherySupplierTxn[]
+
+  @@index([hatcheryOwnerId])
+  @@unique([hatcheryOwnerId, name])
+}
+
+// Hatchery supplier ledger transaction (purchase / payment / adjustment / opening balance)
+model HatcherySupplierTxn {
+  id               String                   @id @default(cuid())
+  supplierId       String
+  supplier         HatcherySupplier         @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  type             HatcherySupplierTxnType
+  amount           Decimal                  @db.Decimal(12, 2)
+  balanceAfter     Decimal                  @db.Decimal(12, 2)
+  date             DateTime
+  note             String?
+
+  purchaseCategory HatcheryPurchaseCategory?
+  receiptImageUrl  String?
+  reference        String?
+
+  items            HatcherySupplierPurchaseItem[]
+  inventoryTxns    HatcheryInventoryTxn[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([supplierId])
+  @@index([date])
+}
+
+// Line items for a hatchery supplier PURCHASE transaction
+model HatcherySupplierPurchaseItem {
+  id            String              @id @default(cuid())
+  txnId         String
+  txn           HatcherySupplierTxn @relation(fields: [txnId], references: [id], onDelete: Cascade)
+
+  itemName      String
+  quantity      Decimal             @db.Decimal(12, 4)
+  freeQuantity  Decimal             @db.Decimal(12, 4) @default(0)
+  unit          String              @default("kg")
+  unitPrice     Decimal             @db.Decimal(12, 4)
+  totalAmount   Decimal             @db.Decimal(12, 2)
+
+  @@index([txnId])
+}
+
+// Hatchery inventory item (feed / medicine / chicks / other – no expiry)
+model HatcheryInventoryItem {
+  id               String                    @id @default(cuid())
+  hatcheryOwnerId  String
+  hatcheryOwner    User                      @relation("HatcheryOwnerInventory", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+
+  itemType         HatcheryInventoryItemType
+  name             String
+  unit             String                    @default("kg")
+  unitPrice           Decimal                   @db.Decimal(12, 4)
+  effectiveUnitCost   Decimal?                  @db.Decimal(12, 4)  // weighted-avg cost per unit (paid÷(paid+free))
+  supplierKey         String                    @default("NONE")
+  currentStock        Decimal                   @db.Decimal(12, 4) @default(0)
+  minStock            Decimal?                  @db.Decimal(12, 4)
+  deletedAt        DateTime?
+
+  transactions     HatcheryInventoryTxn[]
+  batchPlacements  HatcheryBatchPlacement[]
+  batchExpenses    HatcheryBatchExpense[]
+  chickSales       HatcheryChickSale[]      @relation("ChickSaleInventory")
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([hatcheryOwnerId, itemType, name, unitPrice, supplierKey])
+  @@index([hatcheryOwnerId])
+  @@index([itemType])
+}
+
+// Hatchery inventory transaction (PURCHASE / USAGE / ADJUSTMENT)
+model HatcheryInventoryTxn {
+  id                   String                    @id @default(cuid())
+  itemId               String
+  item                 HatcheryInventoryItem     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  type                 HatcheryInventoryTxnType
+  quantity             Decimal                   @db.Decimal(12, 4)
+  unitPrice            Decimal?                  @db.Decimal(12, 4)
+  amount               Decimal?                  @db.Decimal(12, 2)
+  date                 DateTime
+  note                 String?
+
+  sourceSupplierTxnId  String?
+  sourceSupplierTxn    HatcherySupplierTxn?      @relation(fields: [sourceSupplierTxnId], references: [id], onDelete: SetNull)
+
+  createdAt            DateTime @default(now())
+
+  @@index([itemId])
+  @@index([sourceSupplierTxnId])
+}
+
+// ==================== HATCHERY BATCH + EGG PRODUCTION ====================
+
+enum HatcheryBatchType {
+  PARENT_FLOCK
+  INCUBATION
+}
+
+enum HatcheryBatchStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum HatcheryEggTxnType {
+  PRODUCTION
+  SALE
+  ADJUSTMENT
+}
+
+enum HatcheryBatchExpenseType {
+  INVENTORY
+  MANUAL
+}
+
+// Parent flock batch (or incubation batch skeleton for later)
+model HatcheryBatch {
+  id               String              @id @default(cuid())
+  hatcheryOwnerId  String
+  hatcheryOwner    User                @relation("HatcheryBatches", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+
+  type             HatcheryBatchType   @default(PARENT_FLOCK)
+  status           HatcheryBatchStatus @default(ACTIVE)
+  code             String              // auto-generated e.g. "PF-001"
+  name             String?             // optional user override
+  startDate        DateTime
+  endDate          DateTime?
+  notes            String?
+
+  // Parent flock only fields (null for INCUBATION type)
+  initialParents   Int?
+  currentParents   Int?
+  placedAt         DateTime?
+
+  placements       HatcheryBatchPlacement[]
+  mortalities      HatcheryBatchMortality[]
+  expenses         HatcheryBatchExpense[]
+  eggProductions   HatcheryEggProduction[]
+  eggStockRows     HatcheryEggStock[]
+  eggTxns          HatcheryEggTxn[]
+  eggSales         HatcheryEggSale[]
+  parentSales      HatcheryParentSale[]
+  incubations      HatcheryIncubationBatch[] @relation("ParentFlockIncubations")
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([hatcheryOwnerId, code])
+  @@index([hatcheryOwnerId])
+  @@index([status])
+  @@index([type])
+}
+
+// Records each inventory row+quantity used at batch creation (multi-row placement)
+model HatcheryBatchPlacement {
+  id              String                @id @default(cuid())
+  batchId         String
+  batch           HatcheryBatch         @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  inventoryItemId String
+  inventoryItem   HatcheryInventoryItem @relation(fields: [inventoryItemId], references: [id])
+  quantity        Int
+
+  createdAt       DateTime @default(now())
+
+  @@index([batchId])
+}
+
+// Mortality record per day
+model HatcheryBatchMortality {
+  id        String        @id @default(cuid())
+  batchId   String
+  batch     HatcheryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date      DateTime
+  count     Int
+  note      String?
+  createdAt DateTime      @default(now())
+
+  @@index([batchId])
+  @@index([date])
+}
+
+// Expense (inventory-backed or manual utility/labor)
+model HatcheryBatchExpense {
+  id              String                   @id @default(cuid())
+  batchId         String
+  batch           HatcheryBatch            @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date            DateTime
+  type            HatcheryBatchExpenseType @default(MANUAL)
+  category        String                   // "feed", "medicine", "utilities", "labor", or custom
+  itemName        String
+  quantity        Decimal?                 @db.Decimal(12, 4)
+  unit            String?
+  unitPrice       Decimal?                 @db.Decimal(12, 4)
+  amount          Decimal                  @db.Decimal(12, 2)
+  note            String?
+
+  // Only set when type=INVENTORY
+  inventoryItemId    String?
+  inventoryItem      HatcheryInventoryItem? @relation(fields: [inventoryItemId], references: [id])
+  inventoryTxnId     String?               // ID of the HatcheryInventoryTxn created for this expense
+
+  createdAt       DateTime @default(now())
+
+  @@index([batchId])
+  @@index([date])
+}
+
+// Global egg type per hatchery (HATCHABLE is required/system; user adds others)
+model HatcheryEggType {
+  id              String   @id @default(cuid())
+  hatcheryOwnerId String
+  hatcheryOwner   User     @relation("HatcheryEggTypes", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+  name            String
+  isHatchable     Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  productionLines HatcheryEggProductionLine[]
+  eggStockRows    HatcheryEggStock[]
+  eggTxns         HatcheryEggTxn[]
+  eggSales        HatcheryEggSale[]
+  incubationBatches HatcheryIncubationBatch[] @relation("HatchableEggTypeIncubations")
+  eggMoves        HatcheryEggMove[]           @relation("EggMoveType")
+
+  @@unique([hatcheryOwnerId, name])
+  @@index([hatcheryOwnerId])
+}
+
+// One production record per date/batch entry
+model HatcheryEggProduction {
+  id        String                    @id @default(cuid())
+  batchId   String
+  batch     HatcheryBatch             @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date      DateTime
+  note      String?
+  lines     HatcheryEggProductionLine[]
+  createdAt DateTime                  @default(now())
+
+  @@index([batchId])
+  @@index([date])
+}
+
+// One line per egg type in a production entry
+model HatcheryEggProductionLine {
+  id           String                @id @default(cuid())
+  productionId String
+  production   HatcheryEggProduction @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  eggTypeId    String
+  eggType      HatcheryEggType       @relation(fields: [eggTypeId], references: [id])
+  count        Int
+
+  @@index([productionId])
+  @@index([eggTypeId])
+}
+
+// Running stock per batch+type (upserted on each production/sale)
+model HatcheryEggStock {
+  id           String          @id @default(cuid())
+  batchId      String
+  batch        HatcheryBatch   @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  eggTypeId    String
+  eggType      HatcheryEggType @relation(fields: [eggTypeId], references: [id])
+  currentStock Int             @default(0)
+
+  updatedAt    DateTime @updatedAt
+
+  @@unique([batchId, eggTypeId])
+  @@index([batchId])
+}
+
+// Immutable movement log for egg stock (used for reversals + auditing)
+model HatcheryEggTxn {
+  id        String             @id @default(cuid())
+  batchId   String
+  batch     HatcheryBatch      @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  eggTypeId String
+  eggType   HatcheryEggType    @relation(fields: [eggTypeId], references: [id])
+  type      HatcheryEggTxnType
+  count     Int
+  date      DateTime
+  sourceId  String?            // productionId or saleId for traceability
+  note      String?
+  createdAt DateTime           @default(now())
+
+  @@index([batchId])
+  @@index([eggTypeId])
+  @@index([sourceId])
+}
+
+// Egg sale record (reduces egg stock for the batch)
+model HatcheryEggSale {
+  id          String           @id @default(cuid())
+  batchId     String
+  batch       HatcheryBatch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  eggTypeId   String
+  eggType     HatcheryEggType  @relation(fields: [eggTypeId], references: [id])
+  date        DateTime
+  count       Int
+  unitPrice   Decimal          @db.Decimal(12, 4)
+  amount      Decimal          @db.Decimal(12, 2)
+  partyId     String?
+  party       HatcheryParty?   @relation("EggSaleParty", fields: [partyId], references: [id], onDelete: SetNull)
+  note        String?
+  createdAt   DateTime         @default(now())
+
+  @@index([batchId])
+  @@index([date])
+  @@index([partyId])
+}
+
+// Parent bird sale record (reduces currentParents)
+model HatcheryParentSale {
+  id            String         @id @default(cuid())
+  batchId       String
+  batch         HatcheryBatch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date          DateTime
+  count         Int
+  totalWeightKg Decimal        @db.Decimal(12, 3)
+  avgWeightKg   Decimal        @db.Decimal(12, 3)
+  ratePerKg     Decimal        @db.Decimal(12, 4)
+  amount        Decimal        @db.Decimal(12, 2)
+  partyId       String?
+  party         HatcheryParty? @relation("ParentSaleParty", fields: [partyId], references: [id], onDelete: SetNull)
+  note          String?
+  createdAt     DateTime       @default(now())
+
+  @@index([batchId])
+  @@index([date])
+  @@index([partyId])
+}
+
+// ==================== HATCHERY INCUBATION + CHICK OUTPUT ====================
+
+enum HatcheryIncubationStage {
+  SETTER
+  CANDLING
+  HATCHER
+  COMPLETED
+}
+
+enum HatcheryIncubationLossType {
+  INFERTILE
+  EARLY_DEAD
+  LATE_DEAD
+  UNHATCHED
+  WEAK_CULL
+}
+
+enum HatcheryChickGrade {
+  A
+  B
+  CULL
+}
+
+enum HatcheryChickTxnType {
+  PRODUCTION
+  SALE
+  ADJUSTMENT
+}
+
+// An incubation run: linked to a parent flock batch, consumes HATCHABLE eggs
+model HatcheryIncubationBatch {
+  id                  String                    @id @default(cuid())
+  hatcheryOwnerId     String
+  hatcheryOwner       User                      @relation("HatcheryIncubationBatches", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+  parentBatchId       String
+  parentBatch         HatcheryBatch             @relation("ParentFlockIncubations", fields: [parentBatchId], references: [id])
+  hatchableEggTypeId  String
+  hatchableEggType    HatcheryEggType           @relation("HatchableEggTypeIncubations", fields: [hatchableEggTypeId], references: [id])
+
+  stage               HatcheryIncubationStage   @default(SETTER)
+  code                String                    // auto-generated e.g. "IN-001"
+  name                String?
+  startDate           DateTime
+  eggsSetCount        Int
+
+  // Stage timestamps
+  setterAt            DateTime?
+  candledAt           DateTime?
+  transferredAt       DateTime?
+  hatchedAt           DateTime?
+
+  notes               String?
+
+  eggMoves            HatcheryEggMove[]
+  losses              HatcheryIncubationLoss[]
+  hatchResults        HatcheryHatchResult[]
+  chickStocks         HatcheryChickStock[]
+  chickTxns           HatcheryChickTxn[]
+  chickSales          HatcheryChickSale[]
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([hatcheryOwnerId, code])
+  @@index([hatcheryOwnerId])
+  @@index([parentBatchId])
+  @@index([stage])
+}
+
+// Audit log of eggs consumed from a parent batch for this incubation
+model HatcheryEggMove {
+  id                  String                   @id @default(cuid())
+  incubationBatchId   String
+  incubationBatch     HatcheryIncubationBatch  @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+  parentBatchId       String
+  eggTypeId           String
+  eggType             HatcheryEggType          @relation("EggMoveType", fields: [eggTypeId], references: [id])
+  count               Int
+  date                DateTime
+  createdAt           DateTime @default(now())
+
+  @@index([incubationBatchId])
+  @@index([parentBatchId])
+}
+
+// Losses during candling or in hatcher
+model HatcheryIncubationLoss {
+  id                  String                    @id @default(cuid())
+  incubationBatchId   String
+  incubationBatch     HatcheryIncubationBatch   @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+  type                HatcheryIncubationLossType
+  date                DateTime
+  count               Int
+  note                String?
+  createdAt           DateTime @default(now())
+
+  @@index([incubationBatchId])
+}
+
+// Final hatch outcome: grade breakdown + losses
+model HatcheryHatchResult {
+  id                  String                   @id @default(cuid())
+  incubationBatchId   String
+  incubationBatch     HatcheryIncubationBatch  @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+  date                DateTime
+  hatchedA            Int      @default(0)
+  hatchedB            Int      @default(0)
+  cull                Int      @default(0)
+  lateDead            Int      @default(0)
+  unhatched           Int      @default(0)
+  note                String?
+  createdAt           DateTime @default(now())
+
+  @@index([incubationBatchId])
+}
+
+// Running chick stock per incubation batch + grade
+model HatcheryChickStock {
+  id                  String                   @id @default(cuid())
+  incubationBatchId   String
+  incubationBatch     HatcheryIncubationBatch  @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+  grade               HatcheryChickGrade
+  currentStock        Int                      @default(0)
+  updatedAt           DateTime @updatedAt
+
+  @@unique([incubationBatchId, grade])
+  @@index([incubationBatchId])
+}
+
+// Immutable chick movement log
+model HatcheryChickTxn {
+  id                  String                   @id @default(cuid())
+  incubationBatchId   String
+  incubationBatch     HatcheryIncubationBatch  @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+  grade               HatcheryChickGrade
+  type                HatcheryChickTxnType
+  count               Int
+  date                DateTime
+  sourceId            String?
+  note                String?
+  createdAt           DateTime @default(now())
+
+  @@index([incubationBatchId])
+  @@index([sourceId])
+}
+
+// Chick sale record
+model HatcheryChickSale {
+  id                  String                   @id @default(cuid())
+  incubationBatchId   String
+  incubationBatch     HatcheryIncubationBatch  @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+  grade               HatcheryChickGrade
+  date                DateTime
+  count               Int
+  unitPrice           Decimal                  @db.Decimal(12, 4)
+  amount              Decimal                  @db.Decimal(12, 2)
+  partyId             String?
+  party               HatcheryParty?           @relation("ChickSaleParty", fields: [partyId], references: [id], onDelete: SetNull)
+  note                String?
+  inventoryItemId     String?
+  inventoryItem       HatcheryInventoryItem?   @relation("ChickSaleInventory", fields: [inventoryItemId], references: [id])
+  createdAt           DateTime @default(now())
+
+  @@index([incubationBatchId])
+  @@index([date])
+  @@index([partyId])
+}
+
+// ==================== HATCHERY PARTIES (CUSTOMER LEDGER) ====================
+
+enum HatcheryPartyTxnType {
+  SALE
+  PAYMENT
+  ADJUSTMENT
+  OPENING_BALANCE
+}
+
+model HatcheryParty {
+  id              String   @id @default(cuid())
+  hatcheryOwnerId String
+  hatcheryOwner   User     @relation("HatcheryParties", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+
+  name            String
+  phone           String
+  address         String?
+  openingBalance  Decimal  @db.Decimal(12, 2) @default(0)
+  balance         Decimal  @db.Decimal(12, 2) @default(0)
+
+  transactions    HatcheryPartyTxn[]
+  payments        HatcheryPartyPayment[]
+  eggSales        HatcheryEggSale[]    @relation("EggSaleParty")
+  chickSales      HatcheryChickSale[]  @relation("ChickSaleParty")
+  parentSales     HatcheryParentSale[] @relation("ParentSaleParty")
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([hatcheryOwnerId, phone])
+  @@index([hatcheryOwnerId])
+}
+
+model HatcheryPartyTxn {
+  id          String               @id @default(cuid())
+  partyId     String
+  party       HatcheryParty        @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  type        HatcheryPartyTxnType
+  date        DateTime
+  amount      Decimal              @db.Decimal(12, 2)
+  balanceAfter Decimal             @db.Decimal(12, 2)
+  sourceType  String?
+  sourceId    String?
+  note        String?
+  createdAt   DateTime @default(now())
+
+  @@index([partyId])
+  @@index([date])
+  @@index([sourceId])
+}
+
+model HatcheryPartyPayment {
+  id        String        @id @default(cuid())
+  partyId   String
+  party     HatcheryParty @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  date      DateTime
+  amount    Decimal       @db.Decimal(12, 2)
+  method    String?
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([partyId])
+  @@index([date])
 }
 
 // ==================== PASSWORD RESET OTP ====================

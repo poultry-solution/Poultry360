@@ -545,7 +545,7 @@ export class DealerService {
         const qty = item.baseQuantity ?? item.quantity;
         await tx.dealerProduct.update({
           where: { id: item.productId },
-          data: { currentStock: { increment: qty } },
+          data: { currentStock: { increment: qty }, hiddenAt: null },
         });
       }
 

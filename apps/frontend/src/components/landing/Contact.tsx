@@ -196,7 +196,7 @@ export default function Contact() {
                 </div>
                 <div>
                   <h4 className="font-semibold text-gray-900">{t("landing.contact.phoneLabel")}</h4>
-                  <p className="text-gray-600">+977 9809781908</p>
+                  <p className="text-gray-600">+977 9705428337</p>
                   <p className="text-gray-600">+977 9857831027</p>
                 </div>
               </div>

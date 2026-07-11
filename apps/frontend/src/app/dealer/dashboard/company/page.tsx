@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Calendar from "@sbmdkl/nepali-datepicker-reactjs";
+import "@sbmdkl/nepali-datepicker-reactjs/dist/index.css";
 import {
     Plus,
     Search,
@@ -64,6 +66,8 @@ import { useGetAllCompanyAccounts } from "@/fetchers/dealer/dealerCompanyAccount
 import { PublicCompanySearchSelect } from "@/common/components/forms/PublicCompanySearchSelect";
 import { useI18n } from "@/i18n/useI18n";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { getTodayLocalDate } from "@/common/lib/utils";
+import { convertADtoBS } from "@/common/lib/nepali-date";
 import {
     useGetManualCompanies,
     useCreateManualCompany,
@@ -101,9 +105,12 @@ export default function DealerCompanyPage() {
         openingBalanceDirection: "OWED" as "OWED" | "ADVANCE",
     });
     const [purchaseCompany, setPurchaseCompany] = useState<ManualCompany | null>(null);
+    const [purchaseDateAd, setPurchaseDateAd] = useState(getTodayLocalDate());
+    const [purchaseTradeDiscount, setPurchaseTradeDiscount] = useState<number>(0);
     const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([{ productName: "", type: "FEED", unit: "kg", quantity: 0, costPrice: 0, sellingPrice: 0 }]);
     const [purchaseNotes, setPurchaseNotes] = useState("");
     const [paymentCompany, setPaymentCompany] = useState<ManualCompany | null>(null);
+    const [paymentDateAd, setPaymentDateAd] = useState(getTodayLocalDate());
     const [paymentAmount, setPaymentAmount] = useState("");
     const [paymentMethod, setPaymentMethod] = useState("CASH");
     const [paymentNotes, setPaymentNotes] = useState("");
@@ -371,20 +378,39 @@ export default function DealerCompanyPage() {
             toast.error("Add at least one valid item");
             return;
         }
+        const grossTotal = purchaseItems.reduce((sum, i) => sum + i.quantity * i.costPrice, 0);
+        if (purchaseTradeDiscount < 0 || Number.isNaN(purchaseTradeDiscount)) {
+            toast.error("Trade discount must be a valid non-negative number");
+            return;
+        }
+        if (purchaseTradeDiscount > grossTotal) {
+            toast.error(`Trade discount cannot exceed gross total (रू ${grossTotal.toFixed(2)})`);
+            return;
+        }
         try {
             await recordPurchaseMutation.mutateAsync({
                 companyId: purchaseCompany.id,
                 items: validItems,
                 notes: purchaseNotes || undefined,
+                date: new Date((purchaseDateAd || getTodayLocalDate()) + "T12:00:00").toISOString(),
+                tradeDiscountAmount: purchaseTradeDiscount || 0,
             });
             toast.success("Purchase recorded! Items added to inventory.");
             setPurchaseCompany(null);
             setPurchaseItems([{ productName: "", type: "FEED", unit: "kg", quantity: 0, costPrice: 0, sellingPrice: 0 }]);
             setPurchaseNotes("");
+            setPurchaseTradeDiscount(0);
         } catch (error: any) {
             toast.error(error.response?.data?.message || "Failed to record purchase");
         }
     };
+
+    /**
+     * Nepali datepicker validates defaultDate with string.split — it must be BS YYYY-MM-DD.
+     * Typings incorrectly say Date; use `as any`.
+     */
+    const defaultBsDateForPicker = (draftAd: string): string =>
+        convertADtoBS(draftAd || getTodayLocalDate());
 
     const handleRecordPayment = async () => {
         if (!paymentCompany || !paymentAmount || Number(paymentAmount) <= 0) {
@@ -397,9 +423,13 @@ export default function DealerCompanyPage() {
                 amount: Number(paymentAmount),
                 paymentMethod: paymentMethod,
                 notes: paymentNotes || undefined,
+                paymentDate: new Date(
+                    (paymentDateAd || getTodayLocalDate()) + "T12:00:00"
+                ).toISOString(),
             });
             toast.success("Payment recorded successfully");
             setPaymentCompany(null);
+            setPaymentDateAd(getTodayLocalDate());
             setPaymentAmount("");
             setPaymentMethod("CASH");
             setPaymentNotes("");
@@ -619,6 +649,7 @@ export default function DealerCompanyPage() {
                                                         className="flex-1"
                                                         onClick={() => {
                                                             setPaymentCompany(company);
+                                                            setPaymentDateAd(getTodayLocalDate());
                                                             setPaymentAmount("");
                                                             setPaymentNotes("");
                                                         }}
@@ -1227,6 +1258,24 @@ export default function DealerCompanyPage() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <label className="text-xs text-muted-foreground">Date</label>
+                            <Calendar
+                                onChange={({
+                                    adDate,
+                                }: {
+                                    bsDate: string;
+                                    adDate: string;
+                                }) => {
+                                    const ymd = adDate.includes("T") ? adDate.split("T")[0] : adDate;
+                                    setPurchaseDateAd(ymd);
+                                }}
+                                defaultDate={defaultBsDateForPicker(purchaseDateAd) as any}
+                                className="w-full rounded-md border border-input"
+                                theme="dark"
+                                language="en"
+                            />
+                        </div>
                         {purchaseItems.map((item, index) => (
                             <div key={index} className="border rounded-lg p-3 space-y-3">
                                 <div className="flex items-center justify-between">
@@ -1349,12 +1398,39 @@ export default function DealerCompanyPage() {
                                 placeholder="Any notes about this purchase"
                             />
                         </div>
-                        <div className="bg-gray-50 rounded-lg p-3 flex justify-between items-center">
-                            <span className="font-medium">Grand Total</span>
-                            <span className="text-lg font-bold">
-                                रू {purchaseItems.reduce((sum, i) => sum + i.quantity * i.costPrice, 0).toFixed(2)}
-                            </span>
+                        <div className="space-y-2">
+                            <label className="text-xs text-muted-foreground">Trade discount (NPR)</label>
+                            <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={purchaseTradeDiscount || ""}
+                                onChange={(e) => setPurchaseTradeDiscount(Number(e.target.value) || 0)}
+                                placeholder="0"
+                            />
                         </div>
+
+                        {(() => {
+                            const grossTotal = purchaseItems.reduce((sum, i) => sum + i.quantity * i.costPrice, 0);
+                            const discount = Math.min(Math.max(purchaseTradeDiscount || 0, 0), grossTotal);
+                            const netTotal = grossTotal - discount;
+                            return (
+                                <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-muted-foreground">Basic total</span>
+                                        <span className="font-medium">रू {grossTotal.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-muted-foreground">Trade discount</span>
+                                        <span className="font-medium text-green-700">- रू {discount.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-1 border-t">
+                                        <span className="font-medium">Net total</span>
+                                        <span className="text-lg font-bold">रू {netTotal.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setPurchaseCompany(null)}>
@@ -1381,6 +1457,24 @@ export default function DealerCompanyPage() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <label className="text-xs text-muted-foreground">Date</label>
+                            <Calendar
+                                onChange={({
+                                    adDate,
+                                }: {
+                                    bsDate: string;
+                                    adDate: string;
+                                }) => {
+                                    const ymd = adDate.includes("T") ? adDate.split("T")[0] : adDate;
+                                    setPaymentDateAd(ymd);
+                                }}
+                                defaultDate={defaultBsDateForPicker(paymentDateAd) as any}
+                                className="w-full rounded-md border border-input"
+                                theme="dark"
+                                language="en"
+                            />
+                        </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Amount *</label>
                             <Input

@@ -25,13 +25,23 @@ export interface CompanyBusiness {
   ownerId: string;
 }
 
+export interface HatcheryBusiness {
+  id: string;
+  name: string;
+  contact: string;
+  address?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  ownerId: string;
+}
+
 export interface User {
   id: string;
   name: string;
   phone: string;
   companyName?: string;
   companyFarmLocation?: string;
-  role: "OWNER" | "MANAGER" | "DOCTOR" | "DEALER" | "COMPANY" | "SUPER_ADMIN";
+  role: "OWNER" | "MANAGER" | "DOCTOR" | "DEALER" | "COMPANY" | "HATCHERY" | "SUPER_ADMIN";
   status: "ACTIVE" | "INACTIVE" | "PENDING_VERIFICATION";
   onboardingPayment?: {
     state:
@@ -47,6 +57,7 @@ export interface User {
   ownedFarms?: string[]; // Array of farm IDs for owners
   dealer?: DealerBusiness | null; // Dealer business info if user owns a dealer
   company?: CompanyBusiness | null; // Company business info if user owns a company
+  hatchery?: HatcheryBusiness | null; // Hatchery business info if user owns a hatchery
 }
 
 export interface LoginCredentials {
@@ -58,7 +69,7 @@ export interface RegisterData {
   name: string;
   password: string;
   phone: string;
-  role: "OWNER" | "MANAGER" | "DOCTOR" | "DEALER" | "COMPANY" | "SUPER_ADMIN";
+  role: "OWNER" | "MANAGER" | "DOCTOR" | "DEALER" | "COMPANY" | "HATCHERY" | "SUPER_ADMIN";
   companyName?: string;
   companyFarmLocation?: string;
   language?: "ENGLISH" | "NEPALI";
@@ -180,6 +191,7 @@ export const useAuthStore = create<AuthState>()(
               ownedFarms: user.ownedFarms || [],
               dealer: user.dealer || null,
               company: user.company || null,
+              hatchery: user.hatchery || null,
             };
 
             set({
@@ -234,6 +246,7 @@ export const useAuthStore = create<AuthState>()(
               ownedFarms: user.ownedFarms || [],
               dealer: user.dealer || null,
               company: user.company || null,
+              hatchery: user.hatchery || null,
             };
 
             set({
@@ -344,6 +357,7 @@ export const useAuthStore = create<AuthState>()(
                 ownedFarms: response.user.ownedFarms || [],
                 dealer: response.user.dealer || null,
                 company: response.user.company || null,
+                hatchery: response.user.hatchery || null,
               };
 
               set({
@@ -388,6 +402,7 @@ export const useAuthStore = create<AuthState>()(
               ownedFarms: userData.ownedFarms || [],
               dealer: userData.dealer || null,
               company: userData.company || null,
+              hatchery: userData.hatchery || null,
             };
 
             set({

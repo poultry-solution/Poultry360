@@ -15,10 +15,8 @@ import {
 import { useI18n } from "@/i18n/useI18n";
 
 export default function Navbar() {
-  const { t, language, setLanguage } = useI18n();
+  const { t } = useI18n();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const langLabel = language === "en" ? "Switch to Nepali" : "Switch to English";
 
   return (
     <nav className="bg-white border-b sticky top-0 z-50">
@@ -36,11 +34,11 @@ export default function Navbar() {
           <Link href="#features" className="text-muted-foreground hover:text-foreground transition-colors">
             {t("landing.navbar.features")}
           </Link>
+          <Link href="#modules" className="text-muted-foreground hover:text-foreground transition-colors">
+            Modules
+          </Link>
           <Link href="/marketplace" className="text-muted-foreground hover:text-foreground transition-colors">
             {t("landing.navbar.marketplace")}
-          </Link>
-          <Link href="/tutorials" className="text-muted-foreground hover:text-foreground transition-colors">
-            {t("landing.navbar.tutorials")}
           </Link>
           <Link href="#reviews" className="text-muted-foreground hover:text-foreground transition-colors">
             {t("landing.navbar.reviews")}
@@ -52,13 +50,6 @@ export default function Navbar() {
 
         {/* Desktop: Language Toggle + Get Started */}
         <div className="hidden md:flex items-center gap-3">
-          <button
-            onClick={() => setLanguage(language === "en" ? "ne" : "en")}
-            className="px-3 py-1.5 rounded-md border border-gray-200 hover:border-primary/40 hover:bg-primary/5 transition-colors text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
-            {langLabel}
-          </button>
-
           <Dialog>
             <DialogTrigger asChild>
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6">
@@ -86,6 +77,16 @@ export default function Navbar() {
                 <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
                   <Link href="/auth/signup/company">
                     <span className="w-8 text-xl">🏢</span> {t("landing.navbar.company")}
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
+                  <Link href="/auth/signup/hatchery">
+                    <span className="w-8 text-xl">🥚</span> {t("landing.navbar.hatchery")}
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
+                  <Link href="/auth/signup/doctor">
+                    <span className="w-8 text-xl">🩺</span> {t("landing.navbar.veterinary")}
                   </Link>
                 </Button>
               </div>
@@ -122,18 +123,18 @@ export default function Navbar() {
               {t("landing.navbar.features")}
             </Link>
             <Link
+              href="#modules"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-2 text-muted-foreground hover:text-foreground transition-colors font-medium"
+            >
+              Modules
+            </Link>
+            <Link
               href="/marketplace"
               onClick={() => setMobileMenuOpen(false)}
               className="block py-2 text-muted-foreground hover:text-foreground transition-colors font-medium"
             >
               {t("landing.navbar.marketplace")}
-            </Link>
-            <Link
-              href="/tutorials"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block py-2 text-muted-foreground hover:text-foreground transition-colors font-medium"
-            >
-              {t("landing.navbar.tutorials")}
             </Link>
             <Link
               href="#reviews"
@@ -151,16 +152,6 @@ export default function Navbar() {
             </Link>
 
             <div className="border-t pt-3 space-y-3">
-              {/* Language Toggle */}
-              <button
-                onClick={() => {
-                  setLanguage(language === "en" ? "ne" : "en");
-                }}
-                className="w-full text-left py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                🌐 {langLabel}
-              </button>
-
               {/* Get Started */}
               <Dialog>
                 <DialogTrigger asChild>
@@ -189,6 +180,16 @@ export default function Navbar() {
                     <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
                       <Link href="/auth/signup/company">
                         <span className="w-8 text-xl">🏢</span> {t("landing.navbar.company")}
+                      </Link>
+                    </Button>
+                    <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
+                      <Link href="/auth/signup/hatchery">
+                        <span className="w-8 text-xl">🥚</span> {t("landing.navbar.hatchery")}
+                      </Link>
+                    </Button>
+                    <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
+                      <Link href="/auth/signup/doctor">
+                        <span className="w-8 text-xl">🩺</span> {t("landing.navbar.veterinary")}
                       </Link>
                     </Button>
                   </div>

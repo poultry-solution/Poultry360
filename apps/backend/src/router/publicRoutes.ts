@@ -7,6 +7,7 @@ import {
   getLandingContacts,
   createLandingContact,
 } from "../controller/publicController";
+import { createDemoEnquiry } from "../controller/demoEnquiryController";
 import { getPublicListForSale } from "../controller/listForSaleController";
 
 const router = Router();
@@ -26,6 +27,9 @@ router.post("/reviews", createLandingReview);
 // Landing page contact form (list + submit)
 router.get("/contacts", getLandingContacts);
 router.post("/contacts", createLandingContact);
+
+// Landing hero "Book a demo" form (no auth required)
+router.post("/demo-enquiries", createDemoEnquiry);
 
 // List for sale (public marketplace - no auth)
 router.get("/list-for-sale", getPublicListForSale);

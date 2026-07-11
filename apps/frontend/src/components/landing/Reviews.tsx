@@ -23,7 +23,7 @@ export default function Reviews() {
   const reviews = data?.data ?? [];
 
   return (
-    <section className="py-16 lg:py-24 bg-gradient-to-br from-gray-50 to-white">
+    <section id="reviews" className="py-16 lg:py-24 bg-gradient-to-br from-gray-50 to-white">
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="text-center mb-16">
           <Badge className="bg-primary text-primary-foreground px-4 py-2 rounded-full mb-4">

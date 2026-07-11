@@ -168,6 +168,39 @@ export default function DealerCustomersPage() {
     },
   });
 
+  // Update manual customers (connected customers are intentionally not editable)
+  const updateMutation = useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: {
+        name: string;
+        phone: string;
+        category?: string;
+        address?: string;
+      };
+    }) => {
+      const { data: resData } = await axiosInstance.put(
+        `/sales/customers/${id}`,
+        data
+      );
+      return resData;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
+      queryClient.invalidateQueries({ queryKey: ["dealer-ledger-parties"] });
+      toast.success(t("dealer.customers.messages.updateSuccess"));
+      handleCloseDialog();
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || t("dealer.customers.messages.updateFailed")
+      );
+    },
+  });
+
   // Delete / Archive / Unarchive dealer customers
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -219,6 +252,10 @@ export default function DealerCustomersPage() {
 
   const handleOpenDialog = (customer?: Customer) => {
     if (customer) {
+      const isConnected =
+        customer.farmerId != null || customer.source === "CONNECTED";
+      if (isConnected) return; // Connected customers are not editable
+
       setEditingCustomer(customer);
       setFormData({
         name: customer.name,
@@ -258,14 +295,32 @@ export default function DealerCustomersPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name || !formData.phone) {
+    const name = formData.name.trim();
+    const phone = formData.phone.trim();
+
+    if (!name || !phone) {
       toast.error(t("dealer.customers.messages.required"));
       return;
     }
 
     if (editingCustomer) {
-      // Update customer (if endpoint exists)
-      toast.info(t("dealer.customers.messages.updateSoon"));
+      const isConnected =
+        editingCustomer.farmerId != null ||
+        editingCustomer.source === "CONNECTED";
+      if (isConnected) return;
+
+      const categoryTrimmed = formData.category.trim();
+      const addressTrimmed = formData.address.trim();
+
+      updateMutation.mutate({
+        id: editingCustomer.id,
+        data: {
+          name,
+          phone,
+          ...(categoryTrimmed ? { category: categoryTrimmed } : {}),
+          ...(addressTrimmed ? { address: addressTrimmed } : {}),
+        },
+      });
     } else {
       const amtRaw = Number(formData.openingBalanceAmount || 0);
       if (Number.isNaN(amtRaw) || amtRaw < 0) {
@@ -279,8 +334,8 @@ export default function DealerCustomersPage() {
             ? -amtRaw
             : amtRaw;
       createMutation.mutate({
-        name: formData.name,
-        phone: formData.phone,
+        name,
+        phone,
         address: formData.address,
         category: formData.category,
         openingBalance,
@@ -489,7 +544,14 @@ export default function DealerCustomersPage() {
                       variant="ghost"
                       size="sm"
                       className="h-7 w-7 p-0"
+                      disabled={row.farmerId != null || row.source === "CONNECTED"}
                       onClick={() => handleOpenDialog(row)}
+                      title={
+                        row.farmerId != null || row.source === "CONNECTED"
+                          ? "Connected customers cannot be edited"
+                          : undefined
+                      }
+                      type="button"
                     >
                       <Edit className="h-3.5 w-3.5" />
                     </Button>
@@ -670,9 +732,9 @@ export default function DealerCustomersPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={createMutation.isPending}
+                disabled={createMutation.isPending || updateMutation.isPending}
               >
-                {createMutation.isPending
+                {createMutation.isPending || updateMutation.isPending
                   ? t("dealer.customers.dialog.saving")
                   : editingCustomer
                     ? t("dealer.customers.dialog.update")

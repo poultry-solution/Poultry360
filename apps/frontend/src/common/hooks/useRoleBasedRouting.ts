@@ -59,6 +59,13 @@ const ROLE_ROUTES: RoleRouteConfig = {
     isCrossPort: false,
     allowedPaths: ["/company", "/auth", "/payment"],
   },
+  HATCHERY: {
+    basePath: "/hatchery",
+    defaultRoute: "/hatchery/dashboard/home",
+    port: 3000,
+    isCrossPort: false,
+    allowedPaths: ["/hatchery", "/auth", "/payment"],
+  },
 };
 
 
@@ -117,11 +124,13 @@ export const useRoleBasedRouting = () => {
       return;
     }
 
-    // Payment-gated onboarding: force non-approved users onto `/payment`.
-    if (
+    // Approval-gated onboarding: force non-approved users onto `/payment`
+    // (the "account under review" screen) until an admin approves.
+    const isApprovalGateBlocking =
       user.onboardingPayment?.lockedUntilApproved &&
-      user.onboardingPayment.state !== "PAYMENT_APPROVED"
-    ) {
+      user.onboardingPayment?.state !== "PAYMENT_APPROVED";
+
+    if (isApprovalGateBlocking) {
       if (!pathname.startsWith("/payment")) {
         router.push("/payment");
         return;

@@ -1,9 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 
 export const onboardingPaymentKeys = {
-  context: () => ["onboarding-payment", "context"] as const,
-  history: () => ["onboarding-payment", "history"] as const,
+  status: () => ["onboarding", "status"] as const,
 };
 
 export type OnboardingPaymentState =
@@ -12,80 +11,19 @@ export type OnboardingPaymentState =
   | "PAYMENT_REJECTED"
   | "PAYMENT_APPROVED";
 
-export interface OnboardingPaymentContext {
+export interface OnboardingStatus {
   userRole: string;
   state: OnboardingPaymentState;
   lockedUntilApproved: boolean;
-  amountNpr: number;
-  qr: {
-    qrImageUrl: string | null;
-    qrText: string;
-    phoneDisplay: string;
-    accountHint: string;
-  };
   rejectionReason: string | null;
 }
 
-export interface OnboardingPaymentSubmission {
-  id: string;
-  amountNpr: number;
-  receiptUrl: string;
-  notes?: string | null;
-  status: string;
-  createdAt: string;
-  reviewedAt?: string | null;
-  reviewerId?: string | null;
-  rejectionReason?: string | null;
-}
-
-export const useGetOnboardingPaymentContext = () => {
+export const useGetOnboardingStatus = () => {
   return useQuery({
-    queryKey: onboardingPaymentKeys.context(),
+    queryKey: onboardingPaymentKeys.status(),
     queryFn: async () => {
-      const { data } = await axiosInstance.get(
-        "/onboarding/payment/context"
-      );
-      return data.data as OnboardingPaymentContext;
+      const { data } = await axiosInstance.get("/onboarding/payment/status");
+      return data.data as OnboardingStatus;
     },
   });
 };
-
-export const useGetOnboardingPaymentHistory = () => {
-  return useQuery({
-    queryKey: onboardingPaymentKeys.history(),
-    queryFn: async () => {
-      const { data } = await axiosInstance.get(
-        "/onboarding/payment/history"
-      );
-      return data.data as { submissions: OnboardingPaymentSubmission[] };
-    },
-  });
-};
-
-export const useSubmitOnboardingPayment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (payload: {
-      receiptUrl: string;
-      notes?: string;
-    }) => {
-      const { data } = await axiosInstance.post(
-        "/onboarding/payment/submit",
-        payload
-      );
-      return data;
-    },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: onboardingPaymentKeys.context(),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: onboardingPaymentKeys.history(),
-        }),
-      ]);
-    },
-  });
-};
-

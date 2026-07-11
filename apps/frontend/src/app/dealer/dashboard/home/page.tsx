@@ -13,7 +13,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/common/components/ui/alert";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
-import { Package, Users, Receipt, Loader2, X, CheckCircle, Clock, XCircle, AlertCircle, Plus, Truck, ClipboardList } from "lucide-react";
+import { Package, Users, Receipt, Loader2, X, CheckCircle, Clock, XCircle, AlertCircle, Plus, Truck, ClipboardList, Wallet } from "lucide-react";
 import {
   useGetDealerVerificationRequests,
   useAcknowledgeVerificationRequest,
@@ -153,6 +153,18 @@ export default function DealerHomePage() {
     totalSales: salesStats?.totalSales || 0,
   };
 
+  // Net balances (can be negative due to advances)
+  const netCustomerBalance = ledgerSummary?.netCustomerBalance ?? 0;
+  const netCompanyBalance = ledgerSummary?.netCompanyBalance ?? 0;
+
+  const fromCustomerDirection = netCustomerBalance >= 0 ? "receive" : "give";
+  const toCompanyDirection = netCompanyBalance >= 0 ? "give" : "receive";
+
+  // We reuse existing i18n keys from the farmer dashboard to avoid touching blocked dealer i18n JSON.
+  const moneyToReceiveLabel = t("farmer.dashboard.moneyToReceive");
+  const moneyToPayLabel = t("farmer.dashboard.moneyToPay");
+  const moneyToGiveLabel = moneyToPayLabel; // "Money to give" ~= "Money to pay" in this context
+
   return (
     <div className="space-y-6">
       {/* Status Banner */}
@@ -257,6 +269,54 @@ export default function DealerHomePage() {
               <div className="text-xl md:text-2xl font-bold">{stats.totalSales}</div>
             )}
             <p className="text-[10px] md:text-xs text-muted-foreground">{t("dealer.dashboard.stats.thisMonth")}</p>
+          </CardContent>
+        </Card>
+
+        {/* Money position - From Customer (net) */}
+        <Card className="p-0">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">
+              {fromCustomerDirection === "receive"
+                ? moneyToReceiveLabel
+                : moneyToGiveLabel}
+            </CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="p-3 md:p-4 pt-0">
+            {ledgerLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <div className="text-xl md:text-2xl font-bold text-green-600">
+                {formatCurrency(netCustomerBalance)}
+              </div>
+            )}
+            <p className="text-[10px] md:text-xs text-muted-foreground">
+              From Customer
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Money position - To Company (net) */}
+        <Card className="p-0">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">
+              {toCompanyDirection === "give"
+                ? moneyToGiveLabel
+                : moneyToReceiveLabel}
+            </CardTitle>
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="p-3 md:p-4 pt-0">
+            {ledgerLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <div className="text-xl md:text-2xl font-bold text-red-600">
+                {formatCurrency(netCompanyBalance)}
+              </div>
+            )}
+            <p className="text-[10px] md:text-xs text-muted-foreground">
+              To Company
+            </p>
           </CardContent>
         </Card>
       </div>

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Calendar from "@sbmdkl/nepali-datepicker-reactjs";
+import "@sbmdkl/nepali-datepicker-reactjs/dist/index.css";
 import {
   ArrowLeft,
   Package,
@@ -45,6 +47,7 @@ import {
 } from "@/fetchers/dealer/dealerSaleQueries";
 import { useI18n } from "@/i18n/useI18n";
 import { getTodayLocalDate } from "@/common/lib/utils";
+import { convertADtoBS } from "@/common/lib/nepali-date";
 
 interface UnitConversion {
   unitName: string;
@@ -64,6 +67,7 @@ export default function NewSalePage() {
   const { t } = useI18n();
 
   // Form state
+  const [saleDateAd, setSaleDateAd] = useState(getTodayLocalDate());
   const [customerId, setCustomerId] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [items, setItems] = useState<SaleItem[]>([]);
@@ -89,6 +93,13 @@ export default function NewSalePage() {
 
   const createSaleMutation = useCreateDealerSale();
   const createCustomerMutation = useCreateCustomer();
+
+  /**
+   * Nepali datepicker validates defaultDate with string.split — it must be BS YYYY-MM-DD.
+   * Typings incorrectly say Date; use `as any` (same as dealer sales list).
+   */
+  const defaultBsDateForPicker = (draftAd: string): string =>
+    convertADtoBS(draftAd || getTodayLocalDate());
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -218,7 +229,7 @@ export default function NewSalePage() {
         paidAmount,
         paymentMethod,
         notes: notes || undefined,
-        date: new Date(getTodayLocalDate() + "T12:00:00"),
+        date: new Date((saleDateAd || getTodayLocalDate()) + "T12:00:00"),
         discount:
           discountValue > 0
             ? { type: discountType, value: discountValue }
@@ -276,6 +287,24 @@ export default function NewSalePage() {
               <CardDescription>{t("dealer.newSale.customer.description")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Calendar
+                  onChange={({
+                    adDate,
+                  }: {
+                    bsDate: string;
+                    adDate: string;
+                  }) => {
+                    const ymd = adDate.includes("T") ? adDate.split("T")[0] : adDate;
+                    setSaleDateAd(ymd);
+                  }}
+                  defaultDate={defaultBsDateForPicker(saleDateAd) as any}
+                  className="w-full rounded-md border border-input"
+                  theme="dark"
+                  language="en"
+                />
+              </div>
               <div>
                 <Label>{t("dealer.newSale.customer.label")}</Label>
                 <SearchableSelect

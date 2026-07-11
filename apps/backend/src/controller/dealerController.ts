@@ -15,11 +15,14 @@ export const getAllDealers = async (
   res: Response
 ): Promise<any> => {
   try {
-    const { page = 1, limit = 10, search } = req.query;
+    const { page = 1, limit = 10, search, all } = req.query;
     const currentUserId = req.userId;
     const currentUserRole = req.role;
+    const shouldReturnAll = all === "true";
+    const pageNumber = Math.max(1, Number(page) || 1);
+    const limitNumber = Math.min(500, Math.max(1, Number(limit) || 10));
 
-    const skip = (Number(page) - 1) * Number(limit);
+    const skip = (pageNumber - 1) * limitNumber;
 
     // Get company for company users (needed for both query and balance calculation)
     let company: { id: string } | null = null;
@@ -34,8 +37,8 @@ export const getAllDealers = async (
           success: true,
           data: [],
           pagination: {
-            page: Number(page),
-            limit: Number(limit),
+            page: pageNumber,
+            limit: shouldReturnAll ? 0 : limitNumber,
             total: 0,
             totalPages: 0,
           },
@@ -140,8 +143,7 @@ export const getAllDealers = async (
     const [dealers, total] = await Promise.all([
       prisma.dealer.findMany({
         where,
-        skip,
-        take: Number(limit),
+        ...(shouldReturnAll ? {} : { skip, take: limitNumber }),
         orderBy: { createdAt: "desc" },
       }),
       prisma.dealer.count({ where }),
@@ -325,10 +327,10 @@ export const getAllDealers = async (
       success: true,
       data: dealersWithBalance,
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page: shouldReturnAll ? 1 : pageNumber,
+        limit: shouldReturnAll ? total : limitNumber,
         total,
-        totalPages: Math.ceil(total / Number(limit)),
+        totalPages: shouldReturnAll ? 1 : Math.ceil(total / limitNumber),
       },
     });
   } catch (error) {
@@ -430,6 +432,7 @@ export const getDealerById = async (
           discountType: sale.discount?.type || null,
           discountValue: sale.discount?.value ? Number(sale.discount.value) : null,
           date: sale.date,
+          expiryDate: null,
           description: sale.notes,
           reference: sale.invoiceNumber,
         };
@@ -580,6 +583,7 @@ export const getDealerById = async (
         unitPrice: t.unitPrice ? Number(t.unitPrice) : null,
         unit: t.unit || null,
         date: t.date,
+        expiryDate: t.expiryDate,
         description: t.description,
         reference: t.reference,
       }));
@@ -968,6 +972,7 @@ export const addDealerTransaction = async (
       itemName,
       purchaseCategory,
       date,
+      expiryDate,
       description,
       reference,
       unitPrice,
@@ -1041,6 +1046,13 @@ export const addDealerTransaction = async (
       if (numericPaymentAmount !== null && (!Number.isFinite(numericPaymentAmount) || numericPaymentAmount <= 0)) {
         return res.status(400).json({ message: "Initial payment must be a positive number" });
       }
+      let parsedExpiryDate: Date | null = null;
+      if (expiryDate !== undefined && expiryDate !== null && expiryDate !== "") {
+        parsedExpiryDate = new Date(expiryDate);
+        if (Number.isNaN(parsedExpiryDate.getTime())) {
+          return res.status(400).json({ message: "Expiry date must be a valid date" });
+        }
+      }
 
       // Use inventory service for purchases
       const numericFreeQuantity = freeQuantity !== undefined && freeQuantity !== null ? Number(freeQuantity) : 0;
@@ -1052,6 +1064,7 @@ export const addDealerTransaction = async (
         unitPrice: Number(unitPrice || numericAmount / Number(numericQuantity)),
         totalAmount: Number(numericAmount),
         date: new Date(date),
+        expiryDate: purchaseCategory === "MEDICINE" ? parsedExpiryDate : null,
         description,
         reference,
         purchaseCategory: purchaseCategory || undefined,

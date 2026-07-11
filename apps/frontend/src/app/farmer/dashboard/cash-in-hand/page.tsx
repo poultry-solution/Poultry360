@@ -1,0 +1,573 @@
+"use client";
+
+import { useState } from "react";
+import { Wallet, ArrowDownLeft, ArrowUpRight, Lock, History, Plus, Trash2 } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/common/components/ui/card";
+import { Button } from "@/common/components/ui/button";
+import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
+import { Badge } from "@/common/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/common/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/common/components/ui/alert-dialog";
+import { Textarea } from "@/common/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
+import {
+  useGetFarmerCashToday,
+  useGetFarmerCashHistory,
+  useSetupFarmerCashBook,
+  useAddFarmerCashMovement,
+  useCloseFarmerCashDay,
+  useDeleteFarmerCashMovement,
+  type TodayLedger,
+} from "@/fetchers/farmer/farmerCashInHandQueries";
+import { useI18n } from "@/i18n/useI18n";
+import { toast } from "sonner";
+import { HistoryDayDetailDialog } from "@/components/cash-in-hand/HistoryDayDetailDialog";
+
+function formatNPR(value: number) {
+  return new Intl.NumberFormat("en-NP", {
+    style: "currency",
+    currency: "NPR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function SetupScreen() {
+  const { t } = useI18n();
+  const [opening, setOpening] = useState("");
+  const setupMutation = useSetupFarmerCashBook();
+
+  const handleSetup = async () => {
+    const amt = Number(opening);
+    if (opening.trim() === "" || isNaN(amt) || amt < 0) {
+      toast.error("Enter a valid opening balance (0 or more)");
+      return;
+    }
+    try {
+      await setupMutation.mutateAsync(amt);
+      toast.success("Cash book set up successfully");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to set up cash book");
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Wallet className="h-5 w-5 text-primary" />
+            <CardTitle>{t("cashInHand.setup.title")}</CardTitle>
+          </div>
+          <CardDescription>{t("cashInHand.setup.description")}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="opening">{t("cashInHand.setup.label")}</Label>
+            <Input
+              id="opening"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder={t("cashInHand.setup.placeholder")}
+              value={opening}
+              onChange={(e) => setOpening(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSetup()}
+            />
+          </div>
+          <Button
+            className="w-full"
+            onClick={handleSetup}
+            disabled={setupMutation.isPending}
+          >
+            {setupMutation.isPending ? "Setting up…" : t("cashInHand.setup.button")}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+interface MovementDialogProps {
+  direction: "IN" | "OUT";
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}
+
+function MovementDialog({ direction, open, onOpenChange }: MovementDialogProps) {
+  const { t } = useI18n();
+  const [amount, setAmount] = useState("");
+  const [partyName, setPartyName] = useState("");
+  const [notes, setNotes] = useState("");
+  const addMutation = useAddFarmerCashMovement();
+
+  const handleClose = () => {
+    setAmount("");
+    setPartyName("");
+    setNotes("");
+    onOpenChange(false);
+  };
+
+  const handleSubmit = async () => {
+    const amt = Number(amount);
+    if (!amount || isNaN(amt) || amt <= 0) {
+      toast.error("Amount must be greater than 0");
+      return;
+    }
+    if (!partyName.trim()) {
+      toast.error("Party name is required");
+      return;
+    }
+    try {
+      await addMutation.mutateAsync({ direction, amount: amt, partyName, notes: notes || undefined });
+      toast.success(`Cash ${direction === "IN" ? "in" : "out"} recorded`);
+      handleClose();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to record movement");
+    }
+  };
+
+  const isIn = direction === "IN";
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {isIn ? (
+              <ArrowDownLeft className="h-5 w-5 text-green-600" />
+            ) : (
+              <ArrowUpRight className="h-5 w-5 text-red-600" />
+            )}
+            {isIn ? t("cashInHand.addIn") : t("cashInHand.addOut")}
+          </DialogTitle>
+          <DialogDescription>
+            {isIn ? "Record cash received" : "Record cash paid out"}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label>{t("cashInHand.movement.amount")}</Label>
+            <Input
+              type="number"
+              min="0.01"
+              step="0.01"
+              placeholder="0.00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t("cashInHand.movement.party")}</Label>
+            <Input
+              placeholder={t("cashInHand.movement.partyPlaceholder")}
+              value={partyName}
+              onChange={(e) => setPartyName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t("cashInHand.movement.notes")}</Label>
+            <Textarea
+              placeholder={t("cashInHand.movement.notesPlaceholder")}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose}>Cancel</Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={addMutation.isPending}
+            className={isIn ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
+          >
+            {addMutation.isPending ? "Saving…" : t("cashInHand.movement.submit")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function TodayLedgerView({ data }: { data: TodayLedger }) {
+  const { t } = useI18n();
+  const [inOpen, setInOpen] = useState(false);
+  const [outOpen, setOutOpen] = useState(false);
+  const [closeDayOpen, setCloseDayOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const closeMutation = useCloseFarmerCashDay();
+  const deleteMutation = useDeleteFarmerCashMovement();
+
+  const handleCloseDay = async () => {
+    try {
+      const result = await closeMutation.mutateAsync();
+      if (result.alreadyClosed) {
+        toast.info("Day was already closed");
+      } else {
+        toast.success(`Day closed. Closing balance: ${formatNPR(result.closing)}`);
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to close day");
+    } finally {
+      setCloseDayOpen(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDeleteId) return;
+    try {
+      await deleteMutation.mutateAsync(pendingDeleteId);
+      toast.success(t("cashInHand.deleteMovementSuccess"));
+      setPendingDeleteId(null);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || t("cashInHand.deleteMovementError"));
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>{t("cashInHand.opening")}</CardDescription>
+            <CardTitle className="text-2xl">{formatNPR(data.opening)}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>
+              {data.isClosed ? t("cashInHand.closingFinal") : t("cashInHand.closing")}
+            </CardDescription>
+            <CardTitle
+              className={`text-2xl ${data.closing < 0 ? "text-red-600" : "text-green-700"}`}
+            >
+              {formatNPR(data.closing)}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Status</CardDescription>
+            <div className="pt-1">
+              {data.isClosed ? (
+                <Badge variant="secondary" className="gap-1">
+                  <Lock className="h-3 w-3" /> {t("cashInHand.closed")}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="gap-1 text-green-700 border-green-600">
+                  Open
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+        </Card>
+      </div>
+
+      {!data.isClosed && (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            className="gap-1.5 bg-green-600 hover:bg-green-700"
+            onClick={() => setInOpen(true)}
+          >
+            <ArrowDownLeft className="h-4 w-4" />
+            {t("cashInHand.addIn")}
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            className="gap-1.5"
+            onClick={() => setOutOpen(true)}
+          >
+            <ArrowUpRight className="h-4 w-4" />
+            {t("cashInHand.addOut")}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 ml-auto"
+            onClick={() => setCloseDayOpen(true)}
+          >
+            <Lock className="h-4 w-4" />
+            {t("cashInHand.closeDay")}
+          </Button>
+        </div>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Today&apos;s Movements</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {data.movements.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              {t("cashInHand.noMovements")}
+            </p>
+          ) : (
+            <div className="divide-y">
+              {data.movements.map((m) => (
+                <div key={m.id} className="flex items-center justify-between gap-2 py-3">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    {m.direction === "IN" ? (
+                      <div className="rounded-full bg-green-100 p-1.5 shrink-0">
+                        <ArrowDownLeft className="h-4 w-4 text-green-700" />
+                      </div>
+                    ) : (
+                      <div className="rounded-full bg-red-100 p-1.5 shrink-0">
+                        <ArrowUpRight className="h-4 w-4 text-red-700" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{m.partyName}</p>
+                      {m.notes && (
+                        <p className="text-xs text-muted-foreground">{m.notes}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <div className="text-right">
+                      <p
+                        className={`text-sm font-semibold ${
+                          m.direction === "IN" ? "text-green-700" : "text-red-600"
+                        }`}
+                      >
+                        {m.direction === "IN" ? "+" : "-"}
+                        {formatNPR(m.amount)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(m.createdAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                    {!data.isClosed && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        aria-label={t("cashInHand.deleteMovement")}
+                        onClick={() => setPendingDeleteId(m.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <MovementDialog direction="IN" open={inOpen} onOpenChange={setInOpen} />
+      <MovementDialog direction="OUT" open={outOpen} onOpenChange={setOutOpen} />
+
+      <AlertDialog open={closeDayOpen} onOpenChange={setCloseDayOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("cashInHand.closeDayConfirm.title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("cashInHand.closeDayConfirm.description")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("cashInHand.closeDayConfirm.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCloseDay}
+              disabled={closeMutation.isPending}
+            >
+              {t("cashInHand.closeDayConfirm.confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!pendingDeleteId} onOpenChange={(o) => !o && setPendingDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("cashInHand.deleteMovementConfirm.title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("cashInHand.deleteMovementConfirm.description")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              {t("cashInHand.deleteMovementConfirm.cancel")}
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={handleConfirmDelete}
+            >
+              {deleteMutation.isPending ? "…" : t("cashInHand.deleteMovementConfirm.confirm")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function HistoryView() {
+  const { t } = useI18n();
+  const { data: history, isLoading } = useGetFarmerCashHistory();
+  const [detailBsDate, setDetailBsDate] = useState<string | null>(null);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!history || history.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground text-center py-12">
+        {t("cashInHand.historyEmpty")}
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <p className="text-xs text-muted-foreground mb-2">{t("cashInHand.historyDetail.tapHint")}</p>
+      <div className="divide-y rounded-lg border">
+        {history.map((day) => (
+          <button
+            key={day.bsDate}
+            type="button"
+            className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => setDetailBsDate(day.bsDate)}
+          >
+            <div>
+              <p className="text-sm font-medium">{day.bsDate}</p>
+              <p className="text-xs text-muted-foreground">
+                {day.movementsCount} movement{day.movementsCount !== 1 ? "s" : ""} ·{" "}
+                {day.source === "SYSTEM"
+                  ? t("cashInHand.historyDetail.autoClosed")
+                  : t("cashInHand.historyDetail.closedByYou")}
+              </p>
+            </div>
+            <div className="text-right space-y-0.5">
+              <p className="text-xs text-muted-foreground">
+                Open: {formatNPR(day.openingSnapshot)}
+              </p>
+              <p
+                className={`text-sm font-semibold ${
+                  day.closingSnapshot < 0 ? "text-red-600" : "text-green-700"
+                }`}
+              >
+                Close: {formatNPR(day.closingSnapshot)}
+              </p>
+            </div>
+          </button>
+        ))}
+      </div>
+      <HistoryDayDetailDialog
+        open={!!detailBsDate}
+        onOpenChange={(o) => {
+          if (!o) setDetailBsDate(null);
+        }}
+        bsDate={detailBsDate}
+        apiBase="/farmer/cash-in-hand"
+      />
+    </>
+  );
+}
+
+export default function FarmerCashInHandPage() {
+  const { t } = useI18n();
+  const { data, isLoading, error } = useGetFarmerCashToday();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <p className="text-sm text-destructive">Failed to load cash data. Please refresh.</p>
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  if (data.needsSetup) {
+    return (
+      <div className="container max-w-2xl py-6">
+        <SetupScreen />
+      </div>
+    );
+  }
+
+  const ledger = data as TodayLedger;
+
+  return (
+    <div className="container max-w-2xl py-6 space-y-6">
+      <div>
+        <div className="flex items-center gap-2">
+          <Wallet className="h-5 w-5 text-primary" />
+          <h1 className="text-2xl font-bold">{t("cashInHand.title")}</h1>
+        </div>
+        <p className="text-sm text-muted-foreground mt-1">{t("cashInHand.subtitle")}</p>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-muted-foreground">{t("cashInHand.today")}:</span>
+        <Badge variant="outline" className="font-mono text-sm">{ledger.todayBs}</Badge>
+      </div>
+
+      <Tabs defaultValue="today">
+        <TabsList>
+          <TabsTrigger value="today" className="gap-1.5">
+            <Plus className="h-3.5 w-3.5" /> Today
+          </TabsTrigger>
+          <TabsTrigger value="history" className="gap-1.5">
+            <History className="h-3.5 w-3.5" /> {t("cashInHand.history")}
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="today" className="mt-4">
+          <TodayLedgerView data={ledger} />
+        </TabsContent>
+        <TabsContent value="history" className="mt-4">
+          <HistoryView />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

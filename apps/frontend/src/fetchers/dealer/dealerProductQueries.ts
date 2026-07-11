@@ -26,9 +26,14 @@ export interface DealerProduct {
   costPrice: number;
   sellingPrice: number;
   currentStock: number;
+  hiddenAt?: string | null;
   minStock?: number;
   sku?: string;
   dealerId: string;
+  manualCompanyId?: string | null;
+  manualCompany?: { id: string; name: string; archivedAt?: string | null } | null;
+  supplierCompanyId?: string | null;
+  supplierCompany?: { id: string; name: string } | null;
   companyProductId?: string;
   companyProduct?: any;
   unitConversions?: UnitConversion[];
@@ -83,6 +88,7 @@ export const useGetDealerProducts = (params?: {
   search?: string;
   type?: string;
   lowStock?: boolean;
+  includeHidden?: boolean;
 }) => {
   const queryString = new URLSearchParams(
     Object.entries(params || {})
@@ -169,6 +175,35 @@ export const useDeleteDealerProduct = () => {
   return useMutation({
     mutationFn: async (id: string) => {
       const { data } = await axiosInstance.delete(`/dealer/products/${id}`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealerProductKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: dealerProductKeys.inventory() });
+    },
+  });
+};
+
+// Hide dealer product (only intended for zero-stock rows)
+export const useHideDealerProduct = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await axiosInstance.post(`/dealer/products/${id}/hide`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealerProductKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: dealerProductKeys.inventory() });
+    },
+  });
+};
+
+export const useUnhideDealerProduct = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await axiosInstance.post(`/dealer/products/${id}/unhide`);
       return data;
     },
     onSuccess: () => {

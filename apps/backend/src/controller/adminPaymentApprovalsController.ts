@@ -1,14 +1,16 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
-import {
-  UserOnboardingPaymentState,
-  UserPaymentSubmissionStatus,
-} from "@prisma/client";
+import { Prisma, UserOnboardingPaymentState } from "@prisma/client";
 
-export const getPaymentApprovals = async (req: Request, res: Response) => {
+/**
+ * List account-approval requests. Backed by UserOnboardingPayment rows so the
+ * admin sees every gated signup and its current state. Pricing is handled
+ * offline; this queue is purely approve/reject.
+ */
+export const getAccountApprovals = async (req: Request, res: Response) => {
   try {
     const {
-      status = "PENDING_REVIEW",
+      status = "PENDING_PAYMENT",
       role,
       search,
       page = "1",
@@ -17,38 +19,38 @@ export const getPaymentApprovals = async (req: Request, res: Response) => {
 
     const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
     const limitNum = Math.max(1, parseInt(limit as string, 10) || 20);
-    const searchStr =
-      typeof search === "string" ? search.trim() : undefined;
+    const searchStr = typeof search === "string" ? search.trim() : undefined;
 
-    const submissionStatus = status as UserPaymentSubmissionStatus;
-
-    const where: any = {
-      status: submissionStatus,
+    const where: Prisma.UserOnboardingPaymentWhereInput = {
+      state: status as UserOnboardingPaymentState,
     };
 
+    const userFilter: Prisma.UserWhereInput = {};
     if (role && typeof role === "string") {
-      where.user = { role: role };
+      userFilter.role = role as any;
     }
-
     if (searchStr && searchStr.length >= 2) {
-      where.AND = [
-        ...(where.AND ? where.AND : []),
-        {
-          OR: [
-            { user: { phone: { contains: searchStr, mode: "insensitive" } } },
-            { user: { name: { contains: searchStr, mode: "insensitive" } } },
-          ],
-        },
+      userFilter.OR = [
+        { phone: { contains: searchStr, mode: "insensitive" } },
+        { name: { contains: searchStr, mode: "insensitive" } },
       ];
     }
+    if (Object.keys(userFilter).length > 0) {
+      where.user = userFilter;
+    }
 
-    const total = await prisma.userPaymentSubmission.count({ where });
-    const submissions = await prisma.userPaymentSubmission.findMany({
+    const total = await prisma.userOnboardingPayment.count({ where });
+    const records = await prisma.userOnboardingPayment.findMany({
       where,
       include: {
         user: {
-          include: {
-            onboarding: true,
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            role: true,
+            companyName: true,
+            createdAt: true,
           },
         },
       },
@@ -59,24 +61,17 @@ export const getPaymentApprovals = async (req: Request, res: Response) => {
 
     return res.json({
       success: true,
-      data: submissions.map((s) => ({
-        id: s.id,
-        userId: s.userId,
-        userName: s.user.name,
-        phone: s.user.phone,
-        roleAtSubmission: s.roleAtSubmission,
-        amountNpr: Number(s.amountNpr),
-        receiptUrl: s.receiptUrl,
-        notes: s.notes,
-        status: s.status,
-        createdAt: s.createdAt,
-        reviewedAt: s.reviewedAt,
-        reviewerId: s.reviewerId,
-        rejectionReason:
-          s.reviewRejectionReason ||
-          s.user.onboarding?.rejectionReason ||
-          null,
-        onboardingState: s.user.onboarding?.state || null,
+      data: records.map((r) => ({
+        userId: r.userId,
+        userName: r.user.name,
+        phone: r.user.phone,
+        role: r.user.role,
+        companyName: r.user.companyName,
+        state: r.state,
+        rejectionReason: r.rejectionReason || null,
+        approvedAt: r.approvedAt,
+        rejectedAt: r.rejectedAt,
+        requestedAt: r.user.createdAt,
       })),
       pagination: {
         page: pageNum,
@@ -86,54 +81,31 @@ export const getPaymentApprovals = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error("getPaymentApprovals error:", error);
+    console.error("getAccountApprovals error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
 
-export const approvePaymentSubmission = async (
-  req: Request,
-  res: Response
-) => {
+export const approveAccount = async (req: Request, res: Response) => {
   try {
-    const { submissionId } = req.params;
+    const { userId } = req.params;
     const reviewerId = req.userId;
 
-    if (!submissionId) {
-      return res.status(400).json({ message: "submissionId is required" });
-    }
-    if (!reviewerId) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
+    if (!userId) return res.status(400).json({ message: "userId is required" });
+    if (!reviewerId) return res.status(401).json({ message: "Unauthorized" });
 
-    const submission = await prisma.userPaymentSubmission.findUnique({
-      where: { id: submissionId },
-      include: { user: { include: { onboarding: true } } },
+    const onboarding = await prisma.userOnboardingPayment.findUnique({
+      where: { userId },
     });
-
-    if (!submission) return res.status(404).json({ message: "Not found" });
-    if (submission.status !== UserPaymentSubmissionStatus.PENDING_REVIEW) {
-      return res.status(400).json({
-        message: "Only pending submissions can be approved.",
-      });
+    if (!onboarding) return res.status(404).json({ message: "Not found" });
+    if (onboarding.state === UserOnboardingPaymentState.PAYMENT_APPROVED) {
+      return res.status(400).json({ message: "Account is already approved." });
     }
 
     const now = new Date();
-
     await prisma.$transaction(async (tx) => {
-      await tx.userPaymentSubmission.update({
-        where: { id: submissionId },
-        data: {
-          status: UserPaymentSubmissionStatus.APPROVED,
-          reviewedAt: now,
-          reviewerId,
-          reviewRejectionReason: null,
-        },
-      });
-
-      // Activate onboarding + unlock account
       await tx.userOnboardingPayment.update({
-        where: { userId: submission.userId },
+        where: { userId },
         data: {
           state: UserOnboardingPaymentState.PAYMENT_APPROVED,
           lockedUntilApproved: false,
@@ -144,88 +116,53 @@ export const approvePaymentSubmission = async (
           rejectionReason: null,
         },
       });
-
-      // Ensure account is active (keep existing behavior safe)
       await tx.user.update({
-        where: { id: submission.userId },
+        where: { id: userId },
         data: { status: "ACTIVE" },
       });
     });
 
-    return res.json({ success: true, message: "Payment approved" });
+    return res.json({ success: true, message: "Account approved" });
   } catch (error) {
-    console.error("approvePaymentSubmission error:", error);
+    console.error("approveAccount error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
 
-export const rejectPaymentSubmission = async (
-  req: Request,
-  res: Response
-) => {
+export const rejectAccount = async (req: Request, res: Response) => {
   try {
-    const { submissionId } = req.params;
+    const { userId } = req.params;
     const reviewerId = req.userId;
     const { rejectionReason } = req.body as { rejectionReason?: string };
 
-    if (!submissionId) {
-      return res.status(400).json({ message: "submissionId is required" });
-    }
-    if (!reviewerId) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
+    if (!userId) return res.status(400).json({ message: "userId is required" });
+    if (!reviewerId) return res.status(401).json({ message: "Unauthorized" });
     if (!rejectionReason || typeof rejectionReason !== "string") {
       return res.status(400).json({ message: "rejectionReason is required" });
     }
 
-    const submission = await prisma.userPaymentSubmission.findUnique({
-      where: { id: submissionId },
-      include: { user: { include: { onboarding: true } } },
+    const onboarding = await prisma.userOnboardingPayment.findUnique({
+      where: { userId },
     });
-
-    if (!submission) return res.status(404).json({ message: "Not found" });
-    if (submission.status !== UserPaymentSubmissionStatus.PENDING_REVIEW) {
-      return res.status(400).json({
-        message: "Only pending submissions can be rejected.",
-      });
-    }
+    if (!onboarding) return res.status(404).json({ message: "Not found" });
 
     const now = new Date();
-
-    await prisma.$transaction(async (tx) => {
-      await tx.userPaymentSubmission.update({
-        where: { id: submissionId },
-        data: {
-          status: UserPaymentSubmissionStatus.REJECTED,
-          reviewedAt: now,
-          reviewerId,
-          reviewRejectionReason: rejectionReason,
-        },
-      });
-
-      await tx.userOnboardingPayment.update({
-        where: { userId: submission.userId },
-        data: {
-          state: UserOnboardingPaymentState.PAYMENT_REJECTED,
-          lockedUntilApproved: true,
-          rejectedAt: now,
-          rejectedBy: reviewerId,
-          rejectionReason,
-          approvedAt: null,
-          approvedBy: null,
-        },
-      });
-
-      await tx.user.update({
-        where: { id: submission.userId },
-        data: { status: "ACTIVE" },
-      });
+    await prisma.userOnboardingPayment.update({
+      where: { userId },
+      data: {
+        state: UserOnboardingPaymentState.PAYMENT_REJECTED,
+        lockedUntilApproved: true,
+        rejectedAt: now,
+        rejectedBy: reviewerId,
+        rejectionReason,
+        approvedAt: null,
+        approvedBy: null,
+      },
     });
 
-    return res.json({ success: true, message: "Payment rejected" });
+    return res.json({ success: true, message: "Account rejected" });
   } catch (error) {
-    console.error("rejectPaymentSubmission error:", error);
+    console.error("rejectAccount error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-

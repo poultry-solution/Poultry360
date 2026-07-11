@@ -101,7 +101,13 @@ export const getDealerProducts = async (
 ): Promise<any> => {
   try {
     const dealerId = req.userId;
-    const { page = 1, limit = 10, search, type, lowStock } = req.query;
+    const { page = 1, limit = 10, search, type, lowStock, includeHidden } = req.query;
+    const includeHiddenBool =
+      typeof includeHidden === "string"
+        ? includeHidden === "true"
+        : Array.isArray(includeHidden)
+          ? includeHidden.includes("true")
+          : false;
 
     // Get the dealer record
     const dealer = await prisma.dealer.findUnique({
@@ -118,6 +124,10 @@ export const getDealerProducts = async (
     const where: any = {
       dealerId: dealer.id,
     };
+    // Default behavior: hide hidden rows from the main inventory table.
+    if (!includeHiddenBool) {
+      where.hiddenAt = null;
+    }
 
     if (search) {
       where.OR = [
@@ -405,6 +415,67 @@ export const deleteDealerProduct = async (
   }
 };
 
+// ==================== HIDE / UNHIDE DEALER PRODUCT ====================
+export const hideDealerProduct = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const dealerId = req.userId;
+    const { id } = req.params;
+
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: dealerId },
+    });
+    if (!dealer) return res.status(404).json({ message: "Dealer not found" });
+
+    const product = await prisma.dealerProduct.findFirst({
+      where: { id, dealerId: dealer.id },
+    });
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    // Only allow hide when stock is already 0, so user doesn't hide active items.
+    const stock = Number(product.currentStock || 0);
+    if (stock !== 0) {
+      return res.status(400).json({ message: "Cannot hide product unless stock is 0" });
+    }
+
+    const updated = await prisma.dealerProduct.update({
+      where: { id },
+      data: { hiddenAt: new Date() },
+    });
+
+    return res.status(200).json({ success: true, data: updated });
+  } catch (error: any) {
+    console.error("Hide dealer product error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const unhideDealerProduct = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const dealerId = req.userId;
+    const { id } = req.params;
+
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: dealerId },
+    });
+    if (!dealer) return res.status(404).json({ message: "Dealer not found" });
+
+    const product = await prisma.dealerProduct.findFirst({
+      where: { id, dealerId: dealer.id },
+    });
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    const updated = await prisma.dealerProduct.update({
+      where: { id },
+      data: { hiddenAt: null },
+    });
+
+    return res.status(200).json({ success: true, data: updated });
+  } catch (error: any) {
+    console.error("Unhide dealer product error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 // ==================== GET INVENTORY SUMMARY ====================
 export const getInventorySummary = async (
   req: Request,
@@ -535,6 +606,8 @@ export const adjustProductStock = async (
           currentStock: {
             increment: new Prisma.Decimal(quantity),
           },
+          // If stock is being increased/restocked, make the row visible again.
+          hiddenAt: null,
         },
       });
 

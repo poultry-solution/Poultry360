@@ -2,45 +2,41 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 
 export const adminPaymentApprovalsKeys = {
-  all: ["admin-payment-approvals"] as const,
+  all: ["admin-account-approvals"] as const,
   lists: () => [...adminPaymentApprovalsKeys.all, "list"] as const,
   list: (filters: string) =>
     [...adminPaymentApprovalsKeys.lists(), { filters }] as const,
 };
 
-export type PaymentSubmissionStatus =
-  | "PENDING_REVIEW"
-  | "APPROVED"
-  | "REJECTED";
+export type AccountApprovalState =
+  | "PENDING_PAYMENT"
+  | "PAYMENT_APPROVED"
+  | "PAYMENT_REJECTED";
 
-export interface AdminPaymentApproval {
-  id: string;
+export interface AdminAccountApproval {
   userId: string;
   userName: string;
   phone: string;
-  roleAtSubmission: string;
-  amountNpr: number;
-  receiptUrl: string;
-  notes?: string | null;
-  status: PaymentSubmissionStatus;
-  createdAt: string;
-  reviewedAt?: string | null;
-  reviewerId?: string | null;
+  role: string;
+  companyName: string | null;
+  state: AccountApprovalState;
   rejectionReason: string | null;
-  onboardingState: string | null;
+  approvedAt: string | null;
+  rejectedAt: string | null;
+  requestedAt: string;
 }
 
-export interface AdminPaymentApprovalsFilters {
+export interface AdminAccountApprovalsFilters {
   page?: number;
   limit?: number;
-  status?: PaymentSubmissionStatus;
-  role?: "OWNER" | "MANAGER" | "DOCTOR" | "DEALER" | "COMPANY";
+  status?: AccountApprovalState;
+  role?: "OWNER" | "MANAGER" | "DOCTOR" | "DEALER" | "COMPANY" | "HATCHERY";
   search?: string;
 }
 
-export interface AdminPaymentApprovalsResponse {
+export interface AdminAccountApprovalsResponse {
   success: boolean;
-  data: AdminPaymentApproval[];
+  data: AdminAccountApproval[];
   pagination: {
     page: number;
     limit: number;
@@ -49,8 +45,8 @@ export interface AdminPaymentApprovalsResponse {
   };
 }
 
-export const useGetAdminPaymentApprovals = (
-  filters: AdminPaymentApprovalsFilters = {},
+export const useGetAdminAccountApprovals = (
+  filters: AdminAccountApprovalsFilters = {},
   options?: { enabled?: boolean }
 ) => {
   const queryString = new URLSearchParams(
@@ -63,10 +59,10 @@ export const useGetAdminPaymentApprovals = (
     (options?.enabled ?? true) &&
     (!filters.search || filters.search.length >= 2);
 
-  return useQuery<AdminPaymentApprovalsResponse>({
+  return useQuery<AdminAccountApprovalsResponse>({
     queryKey: adminPaymentApprovalsKeys.list(queryString),
     queryFn: async () => {
-      const { data } = await axiosInstance.get<AdminPaymentApprovalsResponse>(
+      const { data } = await axiosInstance.get<AdminAccountApprovalsResponse>(
         `/admin/payment-approvals?${queryString}`
       );
       return data;
@@ -77,13 +73,13 @@ export const useGetAdminPaymentApprovals = (
   });
 };
 
-export const useApprovePaymentSubmission = () => {
+export const useApproveAccount = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (submissionId: string) => {
+    mutationFn: async (userId: string) => {
       const { data } = await axiosInstance.post(
-        `/admin/payment-approvals/${submissionId}/approve`
+        `/admin/payment-approvals/${userId}/approve`
       );
       return data;
     },
@@ -95,16 +91,16 @@ export const useApprovePaymentSubmission = () => {
   });
 };
 
-export const useRejectPaymentSubmission = () => {
+export const useRejectAccount = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (payload: {
-      submissionId: string;
+      userId: string;
       rejectionReason: string;
     }) => {
       const { data } = await axiosInstance.post(
-        `/admin/payment-approvals/${payload.submissionId}/reject`,
+        `/admin/payment-approvals/${payload.userId}/reject`,
         { rejectionReason: payload.rejectionReason }
       );
       return data;
@@ -116,4 +112,3 @@ export const useRejectPaymentSubmission = () => {
     },
   });
 };
-

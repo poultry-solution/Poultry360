@@ -26,6 +26,7 @@ export const useGetAllDealers = (params?: {
   page?: number;
   limit?: number;
   search?: string;
+  all?: boolean;
 }, options?: { enabled?: boolean }) => {
   return useQuery<{
     success: boolean;
@@ -192,6 +193,7 @@ export const useAddDealerTransaction = () => {
         itemName?: string;
         purchaseCategory?: string;
         date: string;
+        expiryDate?: string;
         description?: string;
         reference?: string;
         unitPrice?: number;

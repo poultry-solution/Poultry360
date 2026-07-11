@@ -3,7 +3,7 @@ import prisma from "../utils/prisma";
 import { UserRole } from "@prisma/client";
 
 // Helper: compute total outstanding to dealers (manual + connected). Must match getDealerStatistics.
-async function getMoneyToGiveForUser(userId: string): Promise<number> {
+export async function getMoneyToGiveForUser(userId: string): Promise<number> {
   const dealerFarmers = await prisma.dealerFarmer.findMany({
     where: {
       farmerId: userId,

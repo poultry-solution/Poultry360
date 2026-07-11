@@ -3,7 +3,7 @@ import { z } from "zod";
 
 // ==================== ENUMS ====================
 
-export const UserRoleSchema = z.enum(["OWNER", "MANAGER", "DEALER", "COMPANY", "SUPER_ADMIN"]);
+export const UserRoleSchema = z.enum(["OWNER", "MANAGER", "DEALER", "COMPANY", "HATCHERY", "SUPER_ADMIN"]);
 export type UserRole = z.infer<typeof UserRoleSchema>;
 
 export const BatchStatusSchema = z.enum(["ACTIVE", "COMPLETED"]);

@@ -1,32 +1,25 @@
 import { Router } from "express";
 import { authMiddleware } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
-import {
-  getOnboardingPaymentContext,
-  getOnboardingPaymentHistory,
-  submitOnboardingPayment,
-} from "../controller/onboardingPaymentController";
+import { getOnboardingStatus } from "../controller/onboardingPaymentController";
 
 const router = Router();
 
-// Apply authentication middleware to all onboarding payment routes
-// (allowedRoles non-empty so onboarding-gating middleware logic is enforced).
+// All onboarding-status routes require auth. allowedRoles is non-empty so the
+// approval-gating logic in the middleware runs (locked users are still allowed
+// to read their own status).
 router.use((req, res, next) => {
   authMiddleware(req, res, next, [
     UserRole.OWNER,
     UserRole.MANAGER,
     UserRole.DEALER,
     UserRole.COMPANY,
-    // shared-types UserRole union might not include DOCTOR at compile-time;
-    // runtime role checks still work because the JWT stores the string value.
+    UserRole.HATCHERY,
     "DOCTOR",
     UserRole.SUPER_ADMIN,
   ] as any);
 });
 
-router.get("/context", getOnboardingPaymentContext);
-router.post("/submit", submitOnboardingPayment);
-router.get("/history", getOnboardingPaymentHistory);
+router.get("/status", getOnboardingStatus);
 
 export default router;
-

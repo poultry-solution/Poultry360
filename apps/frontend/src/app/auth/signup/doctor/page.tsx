@@ -279,9 +279,7 @@ export default function DoctorSignupPage() {
               disabled={isLoading}
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              {isLoading
-                ? t("auth.doctorSignup.creatingAccount")
-                : t("auth.doctorSignup.createAccount")}
+              {isLoading ? "Submitting..." : "Submit for Approval"}
             </Button>
           </form>
 

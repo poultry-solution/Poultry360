@@ -51,6 +51,10 @@ export function DateInput({
 
   const handleADChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
+    if (!raw) {
+      onChange("");
+      return;
+    }
 
     // Only update if it's a valid date
     if (raw && raw.length === 10) { // YYYY-MM-DD format

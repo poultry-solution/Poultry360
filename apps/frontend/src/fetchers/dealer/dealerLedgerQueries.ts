@@ -46,6 +46,8 @@ export interface LedgerSummaryResponse {
     totalPaidAmount: number;
     totalDueAmount: number;
     totalAdvances: number;
+    netCustomerBalance: number;
+    netCompanyBalance: number;
     totalPurchases: number;
     totalPaymentsReceived: number;
     totalPaymentsMade: number;

@@ -4,10 +4,6 @@ import bcrypt from "bcrypt";
 import prisma from "../utils/prisma";
 import { UserOnboardingPaymentState, UserRole, UserStatus } from "@prisma/client";
 import { LoginSchema, SignupSchema } from "@myapp/shared-types";
-import {
-  getOnboardingAmountForRole,
-  getOnboardingPaymentSettings,
-} from "../config/onboardingPayment";
 
 const generateTokens = (userId: string, role: UserRole) => {
   const accessToken = jwt.sign(
@@ -29,12 +25,13 @@ const generateTokens = (userId: string, role: UserRole) => {
   return { accessToken, refreshToken };
 };
 
-const isPaymentGateRequiredForRole = (role: UserRole): boolean => {
+const requiresAdminApproval = (role: UserRole): boolean => {
   return (
     role === UserRole.OWNER ||
     role === UserRole.MANAGER ||
     role === UserRole.DEALER ||
-    role === UserRole.COMPANY
+    role === UserRole.COMPANY ||
+    role === UserRole.HATCHERY
   );
 };
 
@@ -212,16 +209,16 @@ export const register = async (req: Request, res: Response): Promise<any> => {
         },
       });
 
-      const requiresPaymentGate = isPaymentGateRequiredForRole(user.role);
+      const approvalRequired = requiresAdminApproval(user.role);
 
       // Create onboarding row for new signups
       await tx.userOnboardingPayment.create({
         data: {
           userId: user.id,
-          state: requiresPaymentGate
+          state: approvalRequired
             ? UserOnboardingPaymentState.PENDING_PAYMENT
             : UserOnboardingPaymentState.PAYMENT_APPROVED,
-          lockedUntilApproved: requiresPaymentGate,
+          lockedUntilApproved: approvalRequired,
         },
       });
 
@@ -241,11 +238,6 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     });
 
     const user = result;
-    const settings = await getOnboardingPaymentSettings();
-    if (!settings) {
-      console.error("Onboarding payment settings row not found");
-      return res.status(500).json({ message: "Onboarding payment settings not configured" });
-    }
 
     // Generate tokens
     const tokens = generateTokens(user.id, user.role);
@@ -260,7 +252,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     });
 
     // Return access token and user data
-    const requiresPaymentGate = isPaymentGateRequiredForRole(user.role);
+    const approvalRequired = requiresAdminApproval(user.role);
     return res.status(201).json({
       accessToken: tokens.accessToken,
       user: {
@@ -276,12 +268,12 @@ export const register = async (req: Request, res: Response): Promise<any> => {
         managedFarms: user.managedFarms,
         ownedFarms: user.ownedFarms,
       },
-      requiresPayment: requiresPaymentGate,
+      requiresApproval: approvalRequired,
       onboarding: {
-        state: requiresPaymentGate
+        state: approvalRequired
           ? UserOnboardingPaymentState.PENDING_PAYMENT
           : UserOnboardingPaymentState.PAYMENT_APPROVED,
-        amountNpr: getOnboardingAmountForRole(user.role, settings.rolePricing),
+        lockedUntilApproved: approvalRequired,
       },
     });
   } catch (error) {
@@ -706,10 +698,10 @@ export const registerEntity = async (
       });
     }
 
-    if (!entityType || !["DEALER", "COMPANY", "DOCTOR"].includes(entityType)) {
+    if (!entityType || !["DEALER", "COMPANY", "DOCTOR", "HATCHERY"].includes(entityType)) {
       return res.status(400).json({
         success: false,
-        message: "Entity type must be DEALER, COMPANY, or DOCTOR",
+        message: "Entity type must be DEALER, COMPANY, DOCTOR, or HATCHERY",
       });
     }
 
@@ -720,11 +712,11 @@ export const registerEntity = async (
       });
     }
 
-    // Contact is required only for Dealers
-    if (entityType === "DEALER" && !entityContact) {
+    // Contact is required for Dealers and Hatcheries
+    if ((entityType === "DEALER" || entityType === "HATCHERY") && !entityContact) {
       return res.status(400).json({
         success: false,
-        message: "Dealer contact is required",
+        message: `${entityType === "DEALER" ? "Dealer" : "Hatchery"} contact is required`,
       });
     }
 
@@ -770,7 +762,9 @@ export const registerEntity = async (
         ? UserRole.DEALER
         : entityType === "COMPANY"
           ? UserRole.COMPANY
-          : UserRole.DOCTOR;
+          : entityType === "HATCHERY"
+            ? UserRole.HATCHERY
+            : UserRole.DOCTOR;
 
     // Create user and entity in a transaction
     const result = await prisma.$transaction(async (tx) => {
@@ -855,6 +849,25 @@ export const registerEntity = async (
         }
 
         return { user, entity: dealer, entityType: "DEALER" };
+      } else if (entityType === "HATCHERY") {
+        const existingHatchery = await tx.hatcheryBusiness.findUnique({
+          where: { ownerId: user.id },
+        });
+
+        if (existingHatchery) {
+          throw new Error("User already owns a hatchery account");
+        }
+
+        const hatchery = await tx.hatcheryBusiness.create({
+          data: {
+            name: entityName,
+            contact: entityContact,
+            address: entityAddress || null,
+            ownerId: user.id,
+          },
+        });
+
+        return { user, entity: hatchery, entityType: "HATCHERY" };
       } else {
         // COMPANY
         // Check if owner already has a company
@@ -880,11 +893,6 @@ export const registerEntity = async (
 
     // Generate tokens
     const tokens = generateTokens(result.user.id, result.user.role);
-    const settings = await getOnboardingPaymentSettings();
-    if (!settings) {
-      console.error("Onboarding payment settings row not found");
-      return res.status(500).json({ message: "Onboarding payment settings not configured" });
-    }
 
     res.cookie("refreshToken", tokens.refreshToken, {
       httpOnly: true,
@@ -895,7 +903,7 @@ export const registerEntity = async (
     });
 
     // Return access token and user data
-    const requiresPaymentGate = isPaymentGateRequiredForRole(result.user.role);
+    const approvalRequired = requiresAdminApproval(result.user.role);
 
     const responsePayload: any = {
       success: true,
@@ -908,15 +916,12 @@ export const registerEntity = async (
         status: result.user.status,
       },
       message: `${result.entityType} account created successfully`,
-      requiresPayment: requiresPaymentGate,
+      requiresApproval: approvalRequired,
       onboarding: {
-        state: requiresPaymentGate
+        state: approvalRequired
           ? UserOnboardingPaymentState.PENDING_PAYMENT
           : UserOnboardingPaymentState.PAYMENT_APPROVED,
-        amountNpr: getOnboardingAmountForRole(
-          result.user.role,
-          settings.rolePricing
-        ),
+        lockedUntilApproved: approvalRequired,
       },
     };
 
