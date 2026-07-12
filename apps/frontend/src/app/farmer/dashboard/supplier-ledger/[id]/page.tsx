@@ -11,7 +11,6 @@ import {
   Receipt,
   Loader2,
   Store,
-  ShoppingCart,
   Edit,
 } from "lucide-react";
 import {
@@ -97,7 +96,7 @@ export default function SupplierDetailPage() {
     });
   };
 
-  // Use account-level totals when available (connected dealers), otherwise compute from transactions
+  // Prefer summary totals when available; fall back to transaction totals.
   const totalPurchased = supplier?.summary?.totalPurchasedAmount
     ?? purchases.reduce((sum, p) => sum + Number(p.amount), 0);
   const totalPaid = supplier?.summary?.totalPaidAmount
@@ -107,7 +106,7 @@ export default function SupplierDetailPage() {
     ? Math.round((totalPaid / totalPurchased) * 100)
     : 0;
 
-  const isManual = supplier?.connectionType !== "CONNECTED";
+  const canEditOpeningBalance = supplier?.connectionType !== "CONNECTED";
 
   function openEditOpening() {
     const current = openingBalance?.amount != null ? Number(openingBalance.amount) : 0;
@@ -187,22 +186,7 @@ export default function SupplierDetailPage() {
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
               {supplier.name}
             </h1>
-            {supplier.connectionType === "CONNECTED" && (
-              <Badge className="bg-blue-100 text-blue-800">Connected</Badge>
-            )}
           </div>
-          {supplier.connectionType === "CONNECTED" && (
-            <Button
-              onClick={() =>
-                router.push(
-                  `/farmer/dashboard/supplier-ledger/${supplierId}/catalog`
-                )
-              }
-            >
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              Order Products
-            </Button>
-          )}
         </div>
         <p className="text-muted-foreground">
           {supplier.contact}
@@ -283,7 +267,7 @@ export default function SupplierDetailPage() {
         </Card>
       </div>
 
-      {isManual && (
+      {canEditOpeningBalance && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
@@ -330,14 +314,14 @@ export default function SupplierDetailPage() {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className={`grid w-full ${isManual ? "grid-cols-3" : "grid-cols-2"}`}>
+            <TabsList className={`grid w-full ${canEditOpeningBalance ? "grid-cols-3" : "grid-cols-2"}`}>
               <TabsTrigger value="purchases">
                 Purchases ({purchases.length})
               </TabsTrigger>
               <TabsTrigger value="payments">
                 Payments ({payments.length})
               </TabsTrigger>
-              {isManual && (
+              {canEditOpeningBalance && (
                 <TabsTrigger value="opening">
                   Opening balance ({openingHistory.length})
                 </TabsTrigger>
@@ -492,7 +476,7 @@ export default function SupplierDetailPage() {
               )}
             </TabsContent>
 
-            {isManual && (
+            {canEditOpeningBalance && (
               <TabsContent value="opening" className="mt-4">
                 {openingHistory.length === 0 ? (
                   <div className="text-center py-8">

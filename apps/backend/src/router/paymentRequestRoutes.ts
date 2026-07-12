@@ -14,7 +14,7 @@ import { authMiddleware } from "../middelware/middelware";
 
 const router = express.Router();
 
-// ==================== COMPANY PAYMENT REQUEST ROUTES ====================
+// ==================== Need to Delete this but also fiing the sideeffects  ====================
 const companyRouter = express.Router();
 companyRouter.use((req, res, next) => {
   authMiddleware(req, res, next, ["COMPANY"]);

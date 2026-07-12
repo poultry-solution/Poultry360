@@ -1,29 +1,17 @@
-import { Router } from "express";
-import {
-  createFarmerVerificationRequest,
-  getFarmerVerificationRequests,
-  getDealerFarmerRequests,
-  approveFarmerRequest,
-  rejectFarmerRequest,
-  acknowledgeFarmerRequest,
-  getFarmerDealers,
-  getDealerFarmers,
-  getDealerDetailsForFarmer,
-  cancelFarmerVerificationRequest,
-  archiveFarmerDealerConnection,
-  unarchiveFarmerDealerConnection,
-  archiveDealerFarmerConnection,
-  unarchiveDealerFarmerConnection,
-  setConnectedOpeningBalanceByDealer,
-  acknowledgeConnectedOpeningBalance,
-  disputeConnectedOpeningBalance,
-  getArchivedFarmerDealers,
-  getArchivedDealerFarmers,
-} from "../controller/farmerVerificationController";
+import { Request, Response, Router } from "express";
 import { authMiddleware } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
 
 const router = Router();
+
+const removedFarmerDealerConnectionRoute = (req: Request, res: Response) => {
+  return res.status(410).json({
+    success: false,
+    message:
+      "Farmer-dealer connection workflows have been removed. Use the manual supplier/customer flow instead.",
+    route: req.originalUrl,
+  });
+};
 
 // ==================== FARMER ROUTES (AUTHENTICATED FARMERS/OWNERS) ====================
 
@@ -33,7 +21,7 @@ router.post(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.OWNER]);
   },
-  createFarmerVerificationRequest
+  removedFarmerDealerConnectionRoute
 );
 
 // Get farmer's own verification requests
@@ -42,7 +30,7 @@ router.get(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.OWNER]);
   },
-  getFarmerVerificationRequests
+  removedFarmerDealerConnectionRoute
 );
 
 // Get farmer's connected dealers
@@ -51,7 +39,7 @@ router.get(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.OWNER]);
   },
-  getFarmerDealers
+  removedFarmerDealerConnectionRoute
 );
 
 // Get archived dealers (MUST be before /:dealerId to avoid route collision)
@@ -60,7 +48,7 @@ router.get(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.OWNER]);
   },
-  getArchivedFarmerDealers
+  removedFarmerDealerConnectionRoute
 );
 
 // Get dealer details (if farmer is connected)
@@ -69,7 +57,7 @@ router.get(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.OWNER]);
   },
-  getDealerDetailsForFarmer
+  removedFarmerDealerConnectionRoute
 );
 
 // Farmer acknowledges connected opening balance
@@ -78,7 +66,7 @@ router.post(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.OWNER]);
   },
-  acknowledgeConnectedOpeningBalance
+  removedFarmerDealerConnectionRoute
 );
 
 // Farmer disputes connected opening balance
@@ -87,7 +75,7 @@ router.post(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.OWNER]);
   },
-  disputeConnectedOpeningBalance
+  removedFarmerDealerConnectionRoute
 );
 
 // Acknowledge verification request (mark message as seen)
@@ -96,7 +84,7 @@ router.post(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.OWNER]);
   },
-  acknowledgeFarmerRequest
+  removedFarmerDealerConnectionRoute
 );
 
 // Cancel farmer verification request
@@ -105,7 +93,7 @@ router.delete(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.OWNER]);
   },
-  cancelFarmerVerificationRequest
+  removedFarmerDealerConnectionRoute
 );
 
 // Archive farmer-dealer connection
@@ -114,7 +102,7 @@ router.post(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.OWNER]);
   },
-  archiveFarmerDealerConnection
+  removedFarmerDealerConnectionRoute
 );
 
 // Unarchive farmer-dealer connection
@@ -123,7 +111,7 @@ router.post(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.OWNER]);
   },
-  unarchiveFarmerDealerConnection
+  removedFarmerDealerConnectionRoute
 );
 
 // ==================== DEALER ROUTES (AUTHENTICATED DEALERS) ====================
@@ -134,7 +122,7 @@ router.get(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.DEALER]);
   },
-  getDealerFarmerRequests
+  removedFarmerDealerConnectionRoute
 );
 
 // Approve farmer verification request
@@ -143,7 +131,7 @@ router.post(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.DEALER]);
   },
-  approveFarmerRequest
+  removedFarmerDealerConnectionRoute
 );
 
 // Reject farmer verification request
@@ -152,7 +140,7 @@ router.post(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.DEALER]);
   },
-  rejectFarmerRequest
+  removedFarmerDealerConnectionRoute
 );
 
 // Get dealer's connected farmers
@@ -161,7 +149,7 @@ router.get(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.DEALER]);
   },
-  getDealerFarmers
+  removedFarmerDealerConnectionRoute
 );
 
 // Dealer sets/edits connected opening balance
@@ -170,7 +158,7 @@ router.post(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.DEALER]);
   },
-  setConnectedOpeningBalanceByDealer
+  removedFarmerDealerConnectionRoute
 );
 
 // Get archived farmers (MUST be before /:connectionId to avoid route collision)
@@ -179,7 +167,7 @@ router.get(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.DEALER]);
   },
-  getArchivedDealerFarmers
+  removedFarmerDealerConnectionRoute
 );
 
 // Archive dealer-farmer connection
@@ -188,7 +176,7 @@ router.post(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.DEALER]);
   },
-  archiveDealerFarmerConnection
+  removedFarmerDealerConnectionRoute
 );
 
 // Unarchive dealer-farmer connection
@@ -197,7 +185,7 @@ router.post(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.DEALER]);
   },
-  unarchiveDealerFarmerConnection
+  removedFarmerDealerConnectionRoute
 );
 
 export default router;

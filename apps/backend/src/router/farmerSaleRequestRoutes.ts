@@ -1,14 +1,20 @@
 import express from "express";
-import {
-  getFarmerSaleRequests,
-  getFarmerSaleRequestById,
-  approveSaleRequest,
-  rejectSaleRequest,
-  getFarmerSaleRequestStatistics,
-} from "../controller/dealerSaleRequestController";
+
 import { authMiddleware } from "../middelware/middelware";
+import { Request, Response } from "express";
 
 const router = express.Router();
+
+
+
+const removedFarmerDealerConnectionRoute = (req: Request, res: Response) => {
+  return res.status(410).json({
+    success: false,
+    message:
+      "Farmer-dealer saleRequest workflows have been removed. Use the manual supplier/customer flow instead.",
+    route: req.originalUrl,
+  });
+};
 
 // Apply authentication middleware to all routes
 router.use((req, res, next) => {
@@ -17,18 +23,18 @@ router.use((req, res, next) => {
 
 // ==================== FARMER SALE REQUEST ROUTES ====================
 // Get sale request statistics for farmer
-router.get("/statistics", getFarmerSaleRequestStatistics);
+router.get("/statistics", removedFarmerDealerConnectionRoute);
 
 // Get all sale requests for the farmer
-router.get("/", getFarmerSaleRequests);
+router.get("/", removedFarmerDealerConnectionRoute);
 
 // Get sale request by ID
-router.get("/:id", getFarmerSaleRequestById);
+router.get("/:id", removedFarmerDealerConnectionRoute);
 
 // Approve sale request
-router.post("/:id/approve", approveSaleRequest);
+router.post("/:id/approve", removedFarmerDealerConnectionRoute);
 
 // Reject sale request
-router.post("/:id/reject", rejectSaleRequest);
+router.post("/:id/reject", removedFarmerDealerConnectionRoute);
 
 export default router;

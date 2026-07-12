@@ -1,16 +1,16 @@
-import { Router } from "express";
-import {
-  getFarmerCart,
-  addItemToFarmerCart,
-  updateFarmerCartItem,
-  removeFarmerCartItem,
-  clearFarmerCart,
-  checkoutFarmerCart,
-  getDealerCatalogProducts,
-} from "../controller/farmerPurchaseRequestController";
+import { Request, Response, Router } from "express";
 import { authMiddleware } from "../middelware/middelware";
 
 const router = Router();
+
+const removedFarmerCartRoute = (req: Request, res: Response) => {
+  return res.status(410).json({
+    success: false,
+    message:
+      "Farmer cart and dealer catalog workflows have been removed. Use the manual supplier purchase flow instead.",
+    route: req.originalUrl,
+  });
+};
 
 // All routes require farmer (OWNER) authentication
 router.use((req, res, next) => {
@@ -18,14 +18,14 @@ router.use((req, res, next) => {
 });
 
 // Dealer catalog for farmers
-router.get("/catalog/:dealerId/products", getDealerCatalogProducts);
+router.get("/catalog/:dealerId/products", removedFarmerCartRoute);
 
 // Cart operations
-router.get("/:dealerId", getFarmerCart);
-router.post("/items", addItemToFarmerCart);
-router.put("/items/:itemId", updateFarmerCartItem);
-router.delete("/items/:itemId", removeFarmerCartItem);
-router.delete("/:dealerId", clearFarmerCart);
-router.post("/:dealerId/checkout", checkoutFarmerCart);
+router.get("/:dealerId", removedFarmerCartRoute);
+router.post("/items", removedFarmerCartRoute);
+router.put("/items/:itemId", removedFarmerCartRoute);
+router.delete("/items/:itemId", removedFarmerCartRoute);
+router.delete("/:dealerId", removedFarmerCartRoute);
+router.post("/:dealerId/checkout", removedFarmerCartRoute);
 
 export default router;

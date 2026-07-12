@@ -4,10 +4,8 @@ import { UserRole, TransactionType } from "@prisma/client";
 import {
   CreateDealerSchema,
   UpdateDealerSchema,
-  DealerSchema,
 } from "@myapp/shared-types";
 import { InventoryService } from "../services/inventoryService";
-import { DealerFarmerAccountService } from "../services/dealerFarmerAccountService";
 
 // ==================== GET ALL DEALERS ====================
 export const getAllDealers = async (
@@ -48,7 +46,6 @@ export const getAllDealers = async (
 
     // Build where clause
     let where: any;
-    let dealerFarmerConnections: Map<string, { connectionId: string; connectionType: string }> = new Map();
     let dealerCompanyConnections: Map<string, { connectionId: string; connectionType: string }> = new Map();
 
     // For company users, get dealers linked via DealerCompany relationship OR manually created
@@ -85,41 +82,11 @@ export const getAllDealers = async (
         ],
       };
     } else {
-      // For farmers (OWNER role), fetch both manual and connected dealers
-      const dealerFarmers = await prisma.dealerFarmer.findMany({
-        where: {
-          farmerId: currentUserId,
-          archivedByFarmer: false,
-        },
-        include: {
-          dealer: true,
-        },
-      });
-
-      const connectedDealerIds = dealerFarmers.map((df) => df.dealerId);
-
-      // Store connection metadata for later use
-      dealerFarmers.forEach((df) => {
-        dealerFarmerConnections.set(df.dealerId, {
-          connectionId: df.id,
-          connectionType: "CONNECTED",
-        });
-      });
-
-      // Include dealers where:
-      // 1. Manually created by farmer (userId = farmerId)
-      // 2. OR connected via DealerFarmer (archivedByFarmer = false)
+      // For farmers (OWNER role), supplier ledger is manual-only.
       where = {
-        OR: [
-          { userId: currentUserId },
-        ],
+        userId: currentUserId,
       };
-
-      // Only add connected dealers condition if there are any
-      if (connectedDealerIds.length > 0) {
-        where.OR.push({ id: { in: connectedDealerIds } });
-      }
-    }
+     }
 
     // Add search filter
     if (search) {
@@ -149,33 +116,6 @@ export const getAllDealers = async (
       prisma.dealer.count({ where }),
     ]);
 
-    // Pre-fetch DealerFarmerAccount balances for connected dealers (farmer users only)
-    let farmerAccountBalances: Map<string, { balance: number; totalSales: number; totalPayments: number }> = new Map();
-    if (currentUserRole !== UserRole.COMPANY) {
-      const connectedDealerIds = Array.from(dealerFarmerConnections.keys());
-      if (connectedDealerIds.length > 0) {
-        const accounts = await prisma.dealerFarmerAccount.findMany({
-          where: {
-            farmerId: currentUserId,
-            dealerId: { in: connectedDealerIds },
-          },
-          select: {
-            dealerId: true,
-            balance: true,
-            totalSales: true,
-            totalPayments: true,
-          },
-        });
-        accounts.forEach((a) => {
-          farmerAccountBalances.set(a.dealerId, {
-            balance: Number(a.balance),
-            totalSales: Number(a.totalSales),
-            totalPayments: Number(a.totalPayments),
-          });
-        });
-      }
-    }
-
     // Calculate balance for each dealer
     const dealersWithBalance = await Promise.all(
       dealers.map(async (dealer) => {
@@ -188,8 +128,6 @@ export const getAllDealers = async (
         let connectionInfo;
         if (currentUserRole === UserRole.COMPANY) {
           connectionInfo = dealerCompanyConnections.get(dealer.id);
-        } else {
-          connectionInfo = dealerFarmerConnections.get(dealer.id);
         }
         const connectionType = connectionInfo ? "CONNECTED" : "MANUAL";
         const isOwnedDealer = !!dealer.ownerId;
@@ -244,39 +182,6 @@ export const getAllDealers = async (
 
           totalTransactions = totalSalesCount;
           recentTransactions = sales;
-        } else if (connectionType === "CONNECTED") {
-          // For connected dealers: use DealerFarmerAccount balance
-          const accountData = farmerAccountBalances.get(dealer.id);
-          balance = accountData?.balance ?? 0;
-
-          // Get recent transactions from EntityTransaction for display
-          const currentMonth = new Date();
-          currentMonth.setDate(1);
-          currentMonth.setHours(0, 0, 0, 0);
-
-          const transactions = await prisma.entityTransaction.findMany({
-            where: { dealerId: dealer.id },
-            orderBy: { date: "desc" },
-            take: 5,
-          });
-
-          const thisMonthTxns = await prisma.entityTransaction.findMany({
-            where: {
-              dealerId: dealer.id,
-              type: "PURCHASE",
-              date: { gte: currentMonth },
-            },
-            select: { amount: true },
-          });
-
-          thisMonthAmount = thisMonthTxns.reduce(
-            (sum, t) => sum + Number(t.amount), 0
-          );
-
-          totalTransactions = await prisma.entityTransaction.count({
-            where: { dealerId: dealer.id },
-          });
-          recentTransactions = transactions;
         } else {
           // For manual dealers: use dealer.balance stored field
           balance = Number(dealer.balance);
@@ -348,7 +253,6 @@ export const getDealerById = async (
     const { id } = req.params;
     const currentUserId = req.userId;
 
-    // Check if dealer is manually created OR connected via DealerFarmer
     const dealer = await prisma.dealer.findUnique({
       where: { id },
     });
@@ -357,134 +261,13 @@ export const getDealerById = async (
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    // Verify access: either manually created or connected
     const isManualDealer = dealer.userId === currentUserId;
-    const dealerFarmerConnection = await prisma.dealerFarmer.findFirst({
-      where: {
-        dealerId: id,
-        farmerId: currentUserId,
-        archivedByFarmer: false,
-      },
-    });
-
-    if (!isManualDealer && !dealerFarmerConnection) {
+    if (!isManualDealer) {
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    // Determine connection type
-    const connectionType = dealerFarmerConnection ? "CONNECTED" : "MANUAL";
+    const connectionType = "MANUAL";
     const isOwnedDealer = !!dealer.ownerId;
-
-    // ── Connected dealers: use DealerFarmerAccount + DealerSale/DealerFarmerPayment ──
-    if (connectionType === "CONNECTED") {
-      const account = await prisma.dealerFarmerAccount.findFirst({
-        where: { dealerId: id, farmerId: currentUserId },
-        select: {
-          id: true,
-          balance: true,
-          totalSales: true,
-          totalPayments: true,
-        },
-      });
-
-      const balance = account ? Number(account.balance) : 0;
-      const totalSales = account ? Number(account.totalSales) : 0;
-      const totalPaymentsAmt = account ? Number(account.totalPayments) : 0;
-
-      // Get sales (purchases from farmer's perspective) from DealerSale
-      const sales = account
-        ? await prisma.dealerSale.findMany({
-            where: { accountId: account.id },
-            orderBy: { date: "desc" },
-            include: {
-              items: { include: { product: { select: { name: true } } } },
-              discount: true,
-            },
-          })
-        : [];
-
-      // Get payments from DealerFarmerPayment
-      const farmerPayments = account
-        ? await prisma.dealerFarmerPayment.findMany({
-            where: { accountId: account.id },
-            orderBy: { paymentDate: "desc" },
-          })
-        : [];
-
-      // Map sales to purchases format for the frontend
-      const purchases = sales.map((sale) => {
-        const quantities = sale.items.map((i: any) => Number(i.quantity));
-        const unitPrices = sale.items.map((i: any) => Number(i.unitPrice));
-        const units = sale.items.map((i: any) => i.unit || "unit");
-        return {
-          id: sale.id,
-          itemName:
-            sale.items.map((i: any) => i.product?.name || "Item").join(", ") ||
-            "Sale",
-          purchaseCategory: null,
-          quantity: quantities.reduce((sum, q) => sum + q, 0),
-          quantities: quantities.length > 0 ? quantities : undefined,
-          unitPrices: unitPrices.length > 0 ? unitPrices : undefined,
-          units: units.length > 0 ? units : undefined,
-          freeQuantity: 0,
-          amount: Number(sale.totalAmount),
-          subtotalAmount: sale.subtotalAmount ? Number(sale.subtotalAmount) : null,
-          discountType: sale.discount?.type || null,
-          discountValue: sale.discount?.value ? Number(sale.discount.value) : null,
-          date: sale.date,
-          expiryDate: null,
-          description: sale.notes,
-          reference: sale.invoiceNumber,
-        };
-      });
-
-      // Map DealerFarmerPayment to payments format
-      const paymentsList = farmerPayments.map((p) => ({
-        id: p.id,
-        amount: Number(p.amount),
-        date: p.paymentDate,
-        description: p.notes,
-        reference: p.reference,
-        paymentMethod: p.paymentMethod,
-        balanceAfter: Number(p.balanceAfter),
-      }));
-
-      const currentMonth = new Date();
-      currentMonth.setDate(1);
-      currentMonth.setHours(0, 0, 0, 0);
-
-      const thisMonthPurchases = sales.filter(
-        (s) => new Date(s.date) >= currentMonth
-      );
-      const thisMonthAmount = thisMonthPurchases.reduce(
-        (sum, s) => sum + Number(s.totalAmount),
-        0
-      );
-
-      return res.json({
-        success: true,
-        data: {
-          ...dealer,
-          balance,
-          thisMonthAmount,
-          totalTransactions: sales.length + farmerPayments.length,
-          transactionTable: [],
-          purchases,
-          payments: paymentsList,
-          connectionType,
-          connectionId: dealerFarmerConnection?.id,
-          isOwnedDealer,
-          summary: {
-            totalPurchases: purchases.length,
-            totalPayments: paymentsList.length,
-            outstandingAmount: balance,
-            totalPurchasedAmount: totalSales,
-            totalPaidAmount: totalPaymentsAmt,
-            thisMonthPurchases: thisMonthPurchases.length,
-          },
-        },
-      });
-    }
 
     // ── Manual dealers: use dealer.balance + EntityTransaction ──
     const balance = Number(dealer.balance);
@@ -620,7 +403,6 @@ export const getDealerById = async (
         purchases,
         payments: paymentsList,
         connectionType,
-        connectionId: dealerFarmerConnection?.id,
         isOwnedDealer,
         summary: {
           totalPurchases: purchases.length,
@@ -664,27 +446,6 @@ export const createDealer = async (
       return res
         .status(400)
         .json({ message: "Dealer with this name already exists" });
-    }
-
-    // Check if a connected dealer with the same name exists
-    const connectedDealers = await prisma.dealerFarmer.findMany({
-      where: {
-        farmerId: currentUserId,
-        archivedByFarmer: false,
-      },
-      include: {
-        dealer: true,
-      },
-    });
-
-    const connectedDealerWithSameName = connectedDealers.find(
-      (df) => df.dealer.name.toLowerCase() === data.name.toLowerCase()
-    );
-
-    if (connectedDealerWithSameName) {
-      return res.status(400).json({
-        message: "A connected dealer with this name already exists. You cannot create a duplicate dealer.",
-      });
     }
 
     // Create dealer
@@ -889,33 +650,10 @@ export const deleteDealer = async (
       });
     }
 
-    // Handle farmer users (existing logic)
+    // Handle farmer users (manual suppliers only)
     const isManualDealer = existingDealer.userId === currentUserId;
-    const dealerFarmerConnection = await prisma.dealerFarmer.findFirst({
-      where: {
-        dealerId: id,
-        farmerId: currentUserId,
-        archivedByFarmer: false,
-      },
-    });
-
-    // Verify access
-    if (!isManualDealer && !dealerFarmerConnection) {
-      return res.status(404).json({ message: "Dealer not found" });
-    }
-
-    // Prevent deletion of connected dealers
-    if (dealerFarmerConnection && !isManualDealer) {
-      return res.status(400).json({
-        message: "Cannot delete connected dealers. Please archive the connection instead from your Connected Dealers page.",
-      });
-    }
-
-    // Only allow deletion of manually created dealers
     if (!isManualDealer) {
-      return res.status(403).json({
-        message: "You can only delete dealers you created manually.",
-      });
+      return res.status(404).json({ message: "Dealer not found" });
     }
 
     // Check if dealer has transactions by directly querying entityTransaction table
@@ -1021,17 +759,8 @@ export const addDealerTransaction = async (
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    // Verify access: either manually created or connected
     const isManualDealer = dealer.userId === currentUserId;
-    const dealerFarmerConnection = await prisma.dealerFarmer.findFirst({
-      where: {
-        dealerId: id,
-        farmerId: currentUserId,
-        archivedByFarmer: false,
-      },
-    });
-
-    if (!isManualDealer && !dealerFarmerConnection) {
+    if (!isManualDealer) {
       return res.status(404).json({ message: "Dealer not found" });
     }
 
@@ -1120,41 +849,6 @@ export const addDealerTransaction = async (
             return res.status(400).json({ message: `Payment exceeds remaining due. Remaining: ${remainingDue}` });
           }
 
-        // Check if this is a connected dealer - create payment request instead
-        if (dealerFarmerConnection && purchaseTxn.reference) {
-          // Find the DealerSale that corresponds to this purchase (by invoice number)
-          const dealerSale = await prisma.dealerSale.findFirst({
-            where: {
-              dealerId: id,
-              invoiceNumber: purchaseTxn.reference,
-            },
-            include: {
-              customer: true,
-            },
-          });
-
-          if (dealerSale && dealerSale.customer?.farmerId === currentUserId) {
-            // This is a linked sale - create payment request instead of direct payment
-            const { DealerSalePaymentRequestService } = await import("../services/dealerSalePaymentRequestService");
-
-            const paymentRequest = await DealerSalePaymentRequestService.createPaymentRequest({
-              dealerSaleId: dealerSale.id,
-              farmerId: currentUserId,
-              amount: numericAmount,
-              paymentDate: new Date(date),
-              paymentReference: reference || undefined,
-              paymentMethod: undefined,
-              description: description || undefined,
-            });
-
-            return res.status(201).json({
-              success: true,
-              data: paymentRequest,
-              message: "Payment request created and sent to dealer for approval",
-              isPaymentRequest: true,
-            });
-          }
-        }
         } // end if (paymentToPurchaseId)
       }
 
@@ -1177,8 +871,8 @@ export const addDealerTransaction = async (
       transactions.push(transaction);
     }
 
-    // Update stored balance on dealer for manual dealers
-    if (isManualDealer && !dealerFarmerConnection) {
+    // Update stored balance on dealer for manual suppliers.
+    if (isManualDealer) {
       let balanceIncrement = 0;
       let purchaseIncrement = 0;
       let paymentIncrement = 0;
@@ -1239,18 +933,8 @@ export const setDealerOpeningBalance = async (req: Request, res: Response): Prom
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    // Manual only: must be created by the farmer and NOT connected
     const isManualDealer = dealer.userId === currentUserId;
-    const dealerFarmerConnection = await prisma.dealerFarmer.findFirst({
-      where: {
-        dealerId: id,
-        farmerId: currentUserId,
-        archivedByFarmer: false,
-      },
-      select: { id: true },
-    });
-
-    if (!isManualDealer || dealerFarmerConnection) {
+    if (!isManualDealer) {
       return res.status(400).json({ message: "Opening balance can only be set for manual suppliers" });
     }
 
@@ -1345,17 +1029,8 @@ export const deleteDealerTransaction = async (
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    // Verify access: either manually created or connected
     const isManualDealer = dealer.userId === currentUserId;
-    const dealerFarmerConnection = await prisma.dealerFarmer.findFirst({
-      where: {
-        dealerId: id,
-        farmerId: currentUserId,
-        archivedByFarmer: false,
-      },
-    });
-
-    if (!isManualDealer && !dealerFarmerConnection) {
+    if (!isManualDealer) {
       return res.status(404).json({ message: "Dealer not found" });
     }
 
@@ -1508,8 +1183,8 @@ export const deleteDealerTransaction = async (
       console.log("✅ Transaction successfully deleted and verified");
     }
 
-    // Update stored balance on dealer for manual dealers
-    if (isManualDealer && !dealerFarmerConnection) {
+    // Update stored balance on dealer for manual suppliers.
+    if (isManualDealer) {
       const txnAmount = Number(txn.amount);
       let balanceDecrement = 0;
       let purchaseDecrement = 0;
@@ -1591,47 +1266,9 @@ export const getDealerStatistics = async (
   try {
     const currentUserId = req.userId;
 
-    // Get connected dealers via DealerFarmer
-    const dealerFarmers = await prisma.dealerFarmer.findMany({
-      where: {
-        farmerId: currentUserId,
-        archivedByFarmer: false,
-      },
-    });
-
-    const connectedDealerIds = dealerFarmers.map((df) => df.dealerId);
-
-    // Get all dealers for the user (manual + connected)
-    const dealerWhere: any = {
-      OR: [
-        { userId: currentUserId },
-      ],
-    };
-
-    // Only add connected dealers condition if there are any
-    if (connectedDealerIds.length > 0) {
-      dealerWhere.OR.push({ id: { in: connectedDealerIds } });
-    }
-
     const dealers = await prisma.dealer.findMany({
-      where: dealerWhere,
+      where: { userId: currentUserId },
     });
-
-    // Pre-fetch DealerFarmerAccount balances for connected dealers
-    const connectedDealerIdSet = new Set(connectedDealerIds);
-    let farmerAccountBalances: Map<string, number> = new Map();
-    if (connectedDealerIds.length > 0) {
-      const accounts = await prisma.dealerFarmerAccount.findMany({
-        where: {
-          farmerId: currentUserId,
-          dealerId: { in: connectedDealerIds },
-        },
-        select: { dealerId: true, balance: true },
-      });
-      accounts.forEach((a) => {
-        farmerAccountBalances.set(a.dealerId, Number(a.balance));
-      });
-    }
 
     // Calculate statistics
     let totalDealers = dealers.length;
@@ -1644,13 +1281,7 @@ export const getDealerStatistics = async (
     currentMonth.setHours(0, 0, 0, 0);
 
     for (const dealer of dealers) {
-      // Get balance from correct source
-      let balance = 0;
-      if (connectedDealerIdSet.has(dealer.id)) {
-        balance = farmerAccountBalances.get(dealer.id) ?? 0;
-      } else {
-        balance = Number(dealer.balance);
-      }
+      const balance = Number(dealer.balance);
 
       if (balance > 0) {
         activeDealers++;

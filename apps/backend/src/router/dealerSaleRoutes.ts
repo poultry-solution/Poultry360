@@ -1,4 +1,4 @@
-import express from "express";
+import express, {Request,Response} from "express";
 import {
   createDealerSale,
   getDealerSales,
@@ -14,11 +14,7 @@ import {
   deleteDealerCustomer,
   deleteDealerSale,
 } from "../controller/dealerSaleController";
-import {
-  getSaleRequests,
-  getSaleRequestById,
-  getSaleRequestStatistics,
-} from "../controller/dealerSaleRequestController";
+
 import { authMiddleware } from "../middelware/middelware";
 
 const router = express.Router();
@@ -55,16 +51,26 @@ router.post("/customers/:id/archive", archiveDealerCustomer);
 router.post("/customers/:id/unarchive", unarchiveDealerCustomer);
 router.delete("/customers/:id", deleteDealerCustomer);
 
+//create mock info controler 
+
+const saleRequestRemoved = (req:Request, res:Response)=>{
+
+  res.status(401).json({
+    "message":"Dealer sake routes Removed "
+  })
+
+}
+
 // ==================== SALE REQUEST ROUTES ====================
 // IMPORTANT: These must come BEFORE /:id route to avoid conflicts
 // Get sale request statistics
-router.get("/requests/statistics", getSaleRequestStatistics);
+router.get("/requests/statistics", saleRequestRemoved);
 
 // Get all sale requests
-router.get("/requests", getSaleRequests);
+router.get("/requests", saleRequestRemoved);
 
 // Get sale request by ID
-router.get("/requests/:id", getSaleRequestById);
+router.get("/requests/:id", saleRequestRemoved);
 
 // ==================== SALE ID ROUTES ====================
 // IMPORTANT: This must come AFTER specific routes like /requests, /statistics, etc.

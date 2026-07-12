@@ -14,14 +14,11 @@ import {
   Loader2,
   Trash2,
   X,
-  Link2,
   DollarSign,
-  ShoppingCart,
   Eye,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { getNowLocalDateTime } from "@/common/lib/utils";
@@ -53,7 +50,6 @@ import { TransactionType } from "@myapp/shared-types";
 import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { ImageUpload } from "@/common/components/ui/image-upload";
-import { useCreateFarmerPaymentRequest } from "@/fetchers/farmer/farmerPaymentRequestQueries";
 import {
   Select,
   SelectContent,
@@ -100,7 +96,6 @@ export default function SupplierLedgerPage() {
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
   const [isAddEntryOpen, setIsAddEntryOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [isPaymentRequestOpen, setIsPaymentRequestOpen] = useState(false);
   const [isDeleteMode, setIsDeleteMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
@@ -136,14 +131,6 @@ export default function SupplierLedgerPage() {
     note: "",
     receiptImageUrl: "",
   });
-  const [paymentRequestForm, setPaymentRequestForm] = useState({
-    amount: "",
-    paymentMethod: "",
-    paymentReference: "",
-    paymentDate: "",
-    description: "",
-    receiptImageUrl: "",
-  });
 
   // API Queries
   const {
@@ -168,7 +155,6 @@ export default function SupplierLedgerPage() {
   const addTransactionMutation = useAddDealerTransaction();
   const deleteTxn = useDeleteDealerTransaction();
   const deleteDealerMutation = useDeleteDealer();
-  const createPaymentRequestMutation = useCreateFarmerPaymentRequest();
   const queryClient = useQueryClient();
 
   // Extract data
@@ -202,15 +188,6 @@ export default function SupplierLedgerPage() {
       setPaymentForm((prev) => ({ ...prev, date: getNowLocalDateTime() }));
     }
   }, [isPaymentModalOpen]);
-
-  useEffect(() => {
-    if (isPaymentRequestOpen) {
-      setPaymentRequestForm((prev) => ({
-        ...prev,
-        paymentDate: getNowLocalDateTime(),
-      }));
-    }
-  }, [isPaymentRequestOpen]);
 
   const getCategoryLabel = (category: string | null | undefined) =>
     category && PURCHASE_CATEGORY_VALUES.includes(category as any)
@@ -404,7 +381,7 @@ export default function SupplierLedgerPage() {
           message: firstErrorMessage || t("farmer.supplierLedger.toast.failedDeleteEntries", { count: failed }),
         });
       }
-    } catch (error) {
+    } catch {
       toast.error(t("farmer.supplierLedger.toast.passwordFailed"));
       setIsPasswordModalOpen(false);
       setPasswordForm({ password: "" });
@@ -540,46 +517,7 @@ export default function SupplierLedgerPage() {
     }
   }
 
-  async function handleCreatePaymentRequest(e: React.FormEvent) {
-    e.preventDefault();
-    if (!paymentRequestForm.amount || !activeSupplierId) return;
-
-    try {
-      await createPaymentRequestMutation.mutateAsync({
-        dealerId: activeSupplierId,
-        amount: Number(paymentRequestForm.amount),
-        paymentMethod: paymentRequestForm.paymentMethod || undefined,
-        paymentReference: paymentRequestForm.paymentReference || undefined,
-        paymentDate: paymentRequestForm.paymentDate || undefined,
-        description: paymentRequestForm.description || undefined,
-        receiptImageUrl: paymentRequestForm.receiptImageUrl || undefined,
-      });
-
-      toast.success(t("farmer.supplierLedger.toast.paymentRequestSent"));
-      setIsPaymentRequestOpen(false);
-      setPaymentRequestForm({
-        amount: "",
-        paymentMethod: "",
-        paymentReference: "",
-        paymentDate: "",
-        description: "",
-        receiptImageUrl: "",
-      });
-    } catch (error) {
-      console.error("Failed to create payment request:", error);
-    }
-  }
-
-  // Determine if active supplier is connected (payment request flow) or manual (direct payment)
-  const isConnectedSupplier = activeSupplier?.connectionType === "CONNECTED";
-
-  function handlePayClick() {
-    if (isConnectedSupplier) {
-      setIsPaymentRequestOpen(true);
-    } else {
-      setIsPaymentModalOpen(true);
-    }
-  }
+  const canDeleteSupplier = activeSupplier?.connectionType !== "CONNECTED";
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -596,37 +534,12 @@ export default function SupplierLedgerPage() {
 
         <div className="flex flex-wrap gap-2 items-center">
           <Button
-            asChild
-            variant="outline"
             size="sm"
-            className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm h-9"
+            className="text-xs md:text-sm h-9"
+            onClick={() => setIsAddSupplierOpen(true)}
           >
-            <Link href="/farmer/dashboard/dealers">
-              <Users className="mr-2 h-4 w-4" />
-              {t("farmer.dealers.stats.connected")}
-            </Link>
-          </Button>
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm h-9"
-          >
-            <Link href="/farmer/dashboard/order-requests">
-              <ShoppingCart className="mr-2 h-4 w-4" />
-              {t("farmer.supplierLedger.orderRequests")}
-            </Link>
-          </Button>
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="hover:bg-green-50 hover:text-green-700 border-green-200 text-xs md:text-sm h-9"
-          >
-            <Link href="/farmer/dashboard/payment-requests">
-              <DollarSign className="mr-2 h-4 w-4" />
-              {t("farmer.supplierLedger.paymentRequests")}
-            </Link>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("farmer.supplierLedger.addSupplierButton")}
           </Button>
         </div>
       </div>
@@ -762,31 +675,18 @@ export default function SupplierLedgerPage() {
       >
         <ModalContent>
           <div className="space-y-4">
-            {activeSupplier?.connectionType === "CONNECTED" ? (
-              <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                <p className="text-sm text-yellow-800">
-                  <strong>{t("farmer.supplierLedger.deleteSupplier.connectedWarning")}</strong>
+            <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+              <p className="text-sm text-red-800">
+                <strong>
+                  {t("farmer.supplierLedger.deleteSupplier.confirmMessage", { name: activeSupplier?.name ?? "" })}
+                </strong>
+              </p>
+              {(activeSupplier?.totalTransactions || 0) > 0 && (
+                <p className="text-sm text-red-700 mt-2">
+                  {t("farmer.supplierLedger.deleteSupplier.hasTransactions", { count: activeSupplier?.totalTransactions ?? 0 })}
                 </p>
-                <p className="text-sm text-yellow-700 mt-2">
-                  {t("farmer.supplierLedger.deleteSupplier.goToDealers")}
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-                  <p className="text-sm text-red-800">
-                    <strong>
-                      {t("farmer.supplierLedger.deleteSupplier.confirmMessage", { name: activeSupplier?.name ?? "" })}
-                    </strong>
-                  </p>
-                  {(activeSupplier?.totalTransactions || 0) > 0 && (
-                    <p className="text-sm text-red-700 mt-2">
-                      {t("farmer.supplierLedger.deleteSupplier.hasTransactions", { count: activeSupplier?.totalTransactions ?? 0 })}
-                    </p>
-                  )}
-                </div>
-              </>
-            )}
+              )}
+            </div>
           </div>
         </ModalContent>
         <ModalFooter>
@@ -794,46 +694,42 @@ export default function SupplierLedgerPage() {
             variant="outline"
             onClick={() => setIsDeleteSupplierOpen(false)}
           >
-            {activeSupplier?.connectionType === "CONNECTED"
-              ? t("farmer.supplierLedger.deleteSupplier.close")
-              : t("farmer.supplierLedger.deleteSupplier.cancel")}
+            {t("farmer.supplierLedger.deleteSupplier.cancel")}
           </Button>
-          {activeSupplier?.connectionType !== "CONNECTED" && (
-            <Button
-              className="bg-red-600 hover:bg-red-700 text-white"
-              onClick={async () => {
-                if (!activeSupplierId) return;
-                const idToDelete = activeSupplierId;
-                try {
-                  setActiveSupplierId("");
-                  await deleteDealerMutation.mutateAsync(idToDelete);
-                  queryClient.removeQueries({
-                    queryKey: ["dealers", "detail", idToDelete],
-                  });
-                  queryClient.invalidateQueries({
-                    queryKey: ["dealers", "list"],
-                  });
-                  toast.success(t("farmer.supplierLedger.toast.supplierDeleted"));
-                  setIsDeleteSupplierOpen(false);
-                } catch (e) {
-                  setActiveSupplierId(idToDelete);
-                }
-              }}
-              disabled={
-                !activeSupplierId ||
-                deleteDealerMutation.isPending ||
-                (activeSupplier?.totalTransactions || 0) > 0
+          <Button
+            className="bg-red-600 hover:bg-red-700 text-white"
+            onClick={async () => {
+              if (!activeSupplierId) return;
+              const idToDelete = activeSupplierId;
+              try {
+                setActiveSupplierId("");
+                await deleteDealerMutation.mutateAsync(idToDelete);
+                queryClient.removeQueries({
+                  queryKey: ["dealers", "detail", idToDelete],
+                });
+                queryClient.invalidateQueries({
+                  queryKey: ["dealers", "list"],
+                });
+                toast.success(t("farmer.supplierLedger.toast.supplierDeleted"));
+                setIsDeleteSupplierOpen(false);
+              } catch {
+                setActiveSupplierId(idToDelete);
               }
-            >
-              {deleteDealerMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("farmer.supplierLedger.deleteSupplier.deleting")}
-                </>
-              ) : (
-                t("farmer.supplierLedger.deleteSupplier.delete")
-              )}
-            </Button>
-          )}
+            }}
+            disabled={
+              !activeSupplierId ||
+              deleteDealerMutation.isPending ||
+              (activeSupplier?.totalTransactions || 0) > 0
+            }
+          >
+            {deleteDealerMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("farmer.supplierLedger.deleteSupplier.deleting")}
+              </>
+            ) : (
+              t("farmer.supplierLedger.deleteSupplier.delete")
+            )}
+          </Button>
         </ModalFooter>
       </Modal>
 
@@ -1410,150 +1306,6 @@ export default function SupplierLedgerPage() {
         </form>
       </Modal>
 
-      {/* Payment Request Modal (for connected dealers) */}
-      <Modal
-        isOpen={isPaymentRequestOpen}
-        onClose={() => setIsPaymentRequestOpen(false)}
-        title={t("farmer.supplierLedger.sendPaymentRequest.title")}
-      >
-        <form onSubmit={handleCreatePaymentRequest}>
-          <ModalContent>
-            <div className="space-y-4">
-              {activeSupplier && (
-                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-sm text-blue-800">
-                    <strong>{t("farmer.supplierLedger.sendPaymentRequest.supplier")}</strong> {activeSupplier.name}
-                  </p>
-                  <p className="text-sm text-blue-800">
-                    <strong>{t("farmer.supplierLedger.sendPaymentRequest.balanceDue")}</strong> ₹
-                    {(activeSupplier.balance || 0).toLocaleString()}
-                  </p>
-                  <p className="text-xs text-blue-600 mt-1">
-                    {t("farmer.supplierLedger.sendPaymentRequest.requestSentHint")}
-                  </p>
-                </div>
-              )}
-              <div>
-                <Label htmlFor="prAmount">{t("farmer.supplierLedger.sendPaymentRequest.amountLabel")}</Label>
-                <Input
-                  id="prAmount"
-                  type="number"
-                  value={paymentRequestForm.amount}
-                  onChange={(e) =>
-                    setPaymentRequestForm({
-                      ...paymentRequestForm,
-                      amount: e.target.value,
-                    })
-                  }
-                  placeholder={t("farmer.supplierLedger.sendPaymentRequest.amountPlaceholder")}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="prMethod">{t("farmer.supplierLedger.sendPaymentRequest.methodLabel")}</Label>
-                <Select
-                  value={paymentRequestForm.paymentMethod}
-                  onValueChange={(value) =>
-                    setPaymentRequestForm({
-                      ...paymentRequestForm,
-                      paymentMethod: value,
-                    })
-                  }
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder={t("farmer.supplierLedger.sendPaymentRequest.methodPlaceholder")} />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white">
-                    <SelectItem value="CASH">{t("farmer.supplierLedger.methods.cash")}</SelectItem>
-                    <SelectItem value="BANK_TRANSFER">{t("farmer.supplierLedger.methods.bankTransfer")}</SelectItem>
-                    <SelectItem value="CHEQUE">{t("farmer.supplierLedger.methods.cheque")}</SelectItem>
-                    <SelectItem value="UPI">{t("farmer.supplierLedger.methods.upi")}</SelectItem>
-                    <SelectItem value="OTHER">{t("farmer.supplierLedger.methods.other")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="prReference">{t("farmer.supplierLedger.sendPaymentRequest.referenceLabel")}</Label>
-                <Input
-                  id="prReference"
-                  value={paymentRequestForm.paymentReference}
-                  onChange={(e) =>
-                    setPaymentRequestForm({
-                      ...paymentRequestForm,
-                      paymentReference: e.target.value,
-                    })
-                  }
-                  placeholder={t("farmer.supplierLedger.sendPaymentRequest.referencePlaceholder")}
-                />
-              </div>
-              <div>
-                <DateInput
-                  label={t("farmer.supplierLedger.sendPaymentRequest.paymentDateLabel")}
-                  value={paymentRequestForm.paymentDate}
-                  onChange={(value) =>
-                    setPaymentRequestForm({
-                      ...paymentRequestForm,
-                      paymentDate: value,
-                    })
-                  }
-                />
-              </div>
-              <div>
-                <Label htmlFor="prDescription">{t("farmer.supplierLedger.sendPaymentRequest.descriptionLabel")}</Label>
-                <Input
-                  id="prDescription"
-                  value={paymentRequestForm.description}
-                  onChange={(e) =>
-                    setPaymentRequestForm({
-                      ...paymentRequestForm,
-                      description: e.target.value,
-                    })
-                  }
-                  placeholder={t("farmer.supplierLedger.sendPaymentRequest.descriptionPlaceholder")}
-                />
-              </div>
-              <div>
-                <Label>{t("farmer.supplierLedger.sendPaymentRequest.receiptLabel")}</Label>
-                <ImageUpload
-                  value={paymentRequestForm.receiptImageUrl}
-                  onChange={(url) =>
-                    setPaymentRequestForm({
-                      ...paymentRequestForm,
-                      receiptImageUrl: url ?? "",
-                    })
-                  }
-                  folder="payment-receipts"
-                  placeholder={t("farmer.supplierLedger.sendPaymentRequest.receiptPlaceholder")}
-                />
-              </div>
-            </div>
-          </ModalContent>
-          <ModalFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsPaymentRequestOpen(false)}
-            >
-              {t("farmer.supplierLedger.sendPaymentRequest.cancel")}
-            </Button>
-            <Button
-              type="submit"
-              className="bg-green-600 hover:bg-green-700"
-              disabled={createPaymentRequestMutation.isPending}
-            >
-              {createPaymentRequestMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t("farmer.supplierLedger.sendPaymentRequest.sending")}
-                </>
-              ) : (
-                t("farmer.supplierLedger.sendPaymentRequest.send")
-              )}
-            </Button>
-          </ModalFooter>
-        </form>
-      </Modal>
-
       {/* Loading State */}
       {dealersLoading && (
         <div className="flex items-center justify-center py-8">
@@ -1593,18 +1345,7 @@ export default function SupplierLedgerPage() {
                     exitDeleteMode();
                   }}
                 >
-                  <span className="flex items-center gap-1">
-                    {supplier.name}
-                    {supplier.connectionType === "CONNECTED" && (
-                      <Badge
-                        variant="secondary"
-                        className="ml-1 bg-blue-100 text-blue-800 hover:bg-blue-100 text-[9px] md:text-xs px-1"
-                      >
-                        <Link2 className="h-2.5 w-2.5 mr-0.5" />
-                        <span className="hidden sm:inline">{t("farmer.supplierLedger.connectedBadge")}</span>
-                      </Badge>
-                    )}
-                  </span>
+                  <span>{supplier.name}</span>
                 </Button>
               ))}
               <Button
@@ -1669,7 +1410,7 @@ export default function SupplierLedgerPage() {
                     )}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {activeSupplierId && !isDeleteMode && !isConnectedSupplier && (
+                    {activeSupplierId && !isDeleteMode && canDeleteSupplier && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -1722,7 +1463,7 @@ export default function SupplierLedgerPage() {
                             {t("farmer.supplierLedger.details")}
                           </span>
                         </Button>
-                        {!isConnectedSupplier && (
+                        {canDeleteSupplier && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -1740,39 +1481,22 @@ export default function SupplierLedgerPage() {
                           variant="outline"
                           size="sm"
                           className="h-7 text-xs border-green-200 text-green-700 hover:bg-green-50"
-                          onClick={handlePayClick}
+                          onClick={() => setIsPaymentModalOpen(true)}
                           disabled={!activeSupplierId}
                         >
                           <DollarSign className="h-3 w-3 mr-1" />
                           <span className="hidden sm:inline">{t("farmer.supplierLedger.pay")}</span>
                         </Button>
-                        {isConnectedSupplier ? (
-                          <Button
-                            className="bg-primary hover:bg-primary/90 h-7 text-xs"
-                            size="sm"
-                            onClick={() =>
-                              router.push(
-                                `/farmer/dashboard/supplier-ledger/${activeSupplierId}/catalog`
-                              )
-                            }
-                            disabled={!activeSupplierId}
-                          >
-                            <ShoppingCart className="h-3 w-3 mr-1" />
-                            <span className="hidden sm:inline">{t("farmer.supplierLedger.order")}</span>
-                            <span className="sm:hidden">{t("farmer.supplierLedger.order")}</span>
-                          </Button>
-                        ) : (
-                          <Button
-                            className="bg-primary hover:bg-primary/90 h-7 text-xs"
-                            size="sm"
-                            onClick={() => setIsAddEntryOpen(true)}
-                            disabled={!activeSupplierId}
-                          >
-                            <Plus className="h-3 w-3 mr-1" />
-                            <span className="hidden sm:inline">{t("farmer.supplierLedger.addEntryButton")}</span>
-                            <span className="sm:hidden">{t("farmer.supplierLedger.addShort")}</span>
-                          </Button>
-                        )}
+                        <Button
+                          className="bg-primary hover:bg-primary/90 h-7 text-xs"
+                          size="sm"
+                          onClick={() => setIsAddEntryOpen(true)}
+                          disabled={!activeSupplierId}
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          <span className="hidden sm:inline">{t("farmer.supplierLedger.addEntryButton")}</span>
+                          <span className="sm:hidden">{t("farmer.supplierLedger.addShort")}</span>
+                        </Button>
                       </>
                     )}
                   </div>
