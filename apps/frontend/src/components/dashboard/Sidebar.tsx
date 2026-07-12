@@ -178,12 +178,6 @@ export const companyNavigation: NavigationItem[] = [
     href: "/company/dashboard/sales",
     icon: Receipt,
   },
-
-  {
-    nameKey: "sidebar.nav.consignments",
-    href: "/company/dashboard/consignments",
-    icon: Truck,
-  },
   {
     nameKey: "sidebar.nav.payments",
     href: "/company/dashboard/payments",

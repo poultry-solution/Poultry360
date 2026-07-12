@@ -17,9 +17,9 @@ This document is a high-level roadmap only. Detailed implementation plans should
 
 | Phase | Area | Status | Notes |
 |------|------|--------|-------|
-| Phase 1 | Farmer -> Dealer connection cleanup | ALMOST DONE | Main frontend and backend access paths have been removed or disabled |
-| Phase 2 | Dealer -> Farmer flow cleanup | STARTING | Dealer-side request UI cleanup has started in the repo |
-| Phase 3 | Dealer -> Company flow cleanup | TODO | Depends on connection-removal direction being stable |
+| Phase 1 | Farmer -> Dealer connection cleanup | DONE | Main frontend and backend access paths have been removed or disabled |
+| Phase 2 | Dealer -> Farmer flow cleanup | DONE | Dealer customer, sales, payment-request, and farmer-account cleanup has mostly been completed |
+| Phase 3 | Dealer -> Company flow cleanup | STARTING | Dealer company dashboard cleanup has started and connection-era company UI is being removed |
 | Phase 4 | Company -> Dealer flow cleanup | TODO | Final cleanup and regression pass |
 
 ## Phase 1: Farmer -> Dealer Connection Cleanup
@@ -44,7 +44,12 @@ This document is a high-level roadmap only. Detailed implementation plans should
 - Remove dealer-side workflows that assume a connected farmer relationship.
 - Remove request-based dealer-to-farmer sales or payment approval behavior.
 - Replace dealer actions with direct manual entry and confirmation where needed.
-- Dealer-side UI cleanup has already started in the repo and should be aligned with backend removal work.
+- Dealer customer list and customer account pages have been simplified toward manual-only customer handling.
+- Dealer home page has been cleaned of old verification/request status UI.
+- Dealer sales list and sale detail pages have been cleaned of connected farmer / farmer-account UI branches.
+- Dealer-side farmer payment-request and farmer-account route surfaces have been disabled and left as explicit placeholders where useful for frontend cleanup tracking.
+- Dealer sales backend now creates and lists only manual customer sales on the main route surface and no longer creates dealer-to-farmer sale requests from those routes.
+- Historical connected/account-based sale behavior is being isolated rather than reused by the manual sales flow.
 - Verify sales, ledger, and inventory behavior still work after request-flow removal.
 - Verify dealer customer management still works for manual farmer/customer records.
 - Identify backend validation rules that still assume a connected farmer.
@@ -56,6 +61,10 @@ This document is a high-level roadmap only. Detailed implementation plans should
 - Remove dealer-to-company connection and verification behavior.
 - Remove dealer-initiated request flows tied to connected company relationships.
 - Replace company sourcing or ordering actions with direct manual workflows.
+- Dealer company account page has started moving away from request-based payment submission and toward direct payment recording.
+- Dealer company dashboard has started shifting into a manual-company hub instead of a mixed manual + connected + verification-request screen.
+- Connected company cards, verification request UI, and related dashboard entry points are being removed from the main dealer company page.
+- Some dealer-side connected company frontend files and fetchers have already been deleted in the repo and should be treated as part of this cleanup wave.
 - Verify dealer pages still support manual company handling without dead actions.
 - Verify account, ledger, and purchase/supply behavior still work after flow simplification.
 - Identify backend rules that still require a connected company before action is allowed.
@@ -99,3 +108,4 @@ This document is a high-level roadmap only. Detailed implementation plans should
 - Should payment requests be removed entirely and replaced with direct payment entry only?
 - Are there any role-specific reports or analytics that still depend on old connection-based states?
 - When moving into dealer -> farmer cleanup, should remaining placeholder routes stay as `410` markers until frontend removal is complete, or should they be fully removed in the same phase?
+- Use this document as the restart point for the next conversation; it should remain the compact status source for phase progress and major cleanup decisions.

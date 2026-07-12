@@ -16,23 +16,23 @@ services:
       timeout: 3s
       retries: 10
 
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: poultry360-backend-local
-    ports:
-      - "8081:8081"
-    env_file:
-      - apps/backend/.env
-    environment:
-      # Override DATABASE_URL to point to the Docker PostgreSQL, not the .env value
-      DATABASE_URL: postgresql://poultry360:poultry360_local@postgres:5432/poultry360
-      NODE_ENV: production
-      SEED_DATABASE: ${SEED_DATABASE:-false}
-    depends_on:
-      postgres:
-        condition: service_healthy
+  # backend:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: poultry360-backend-local
+  #   ports:
+  #     - "8081:8081"
+  #   env_file:
+  #     - apps/backend/.env
+  #   environment:
+  #     # Override DATABASE_URL to point to the Docker PostgreSQL, not the .env value
+  #     DATABASE_URL: postgresql://poultry360:poultry360_local@postgres:5432/poultry360
+  #     NODE_ENV: production
+  #     SEED_DATABASE: ${SEED_DATABASE:-false}
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
 
 volumes:
   pgdata_local:

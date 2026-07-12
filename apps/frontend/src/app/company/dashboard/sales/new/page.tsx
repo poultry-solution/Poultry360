@@ -6,8 +6,6 @@ import {
   ArrowLeft,
   Package,
   XCircle,
-  Truck,
-  Receipt,
   AlertCircle,
 } from "lucide-react";
 import {
@@ -26,7 +24,6 @@ import { toast } from "sonner";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { useSearchableDealerSelect } from "@/hooks/useSearchableDealerSelect";
 import { useSearchableProductSelect } from "@/hooks/useSearchableProductSelect";
-import { useCreateCompanyConsignment } from "@/fetchers/company/consignmentQueries";
 import { useCreateCompanySale } from "@/fetchers/company/companySaleQueries";
 import { useCheckDealerBalanceLimit } from "@/fetchers/company/companyDealerAccountQueries";
 import {
@@ -70,7 +67,6 @@ export default function NewCompanySalePage() {
   const dealerSelect = useSearchableDealerSelect();
   const productSelect = useSearchableProductSelect();
 
-  const createConsignmentMutation = useCreateCompanyConsignment();
   const createSaleMutation = useCreateCompanySale();
   const checkBalanceLimitMutation = useCheckDealerBalanceLimit();
 
@@ -125,11 +121,6 @@ export default function NewCompanySalePage() {
     setItems(updated);
   };
 
-  // Determine sale type based on dealer
-  const isSelfCreatedDealer =
-    selectedDealer?.connectionType === "MANUAL" && selectedDealer?.isOwnedDealer;
-  const isConnectedDealer = selectedDealer?.connectionType === "CONNECTED";
-
   const handleSubmit = async () => {
     if (!dealerId || items.length === 0) {
       toast.error("Please select dealer and add items");
@@ -144,8 +135,13 @@ export default function NewCompanySalePage() {
       }
     }
 
-    // Run balance limit check before submitting for both direct sales and consignments (unless user already confirmed override)
-    if ((isSelfCreatedDealer || isConnectedDealer) && !overrideConfirmed) {
+    if (!selectedDealer) {
+      toast.error("Please select a valid dealer");
+      return;
+    }
+
+    // Run balance limit check before submitting unless user already confirmed override.
+    if (!overrideConfirmed) {
       try {
         const result = await checkBalanceLimitMutation.mutateAsync({
           dealerId,
@@ -156,65 +152,38 @@ export default function NewCompanySalePage() {
           setShowOverrideDialog(true);
           return; // Block submission until user confirms override or cancels
         }
-      } catch (err) {
+      } catch {
         toast.error("Failed to check balance limit");
         return;
       }
     }
 
     try {
-      if (isSelfCreatedDealer) {
-        // Direct sale flow for self-created dealers (no approval needed)
-        await createSaleMutation.mutateAsync({
-          dealerId,
-          items: items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-          })),
-          paymentMethod: "CREDIT",
-          notes: notes || undefined,
-          date: new Date(),
-          overrideBalanceLimit: overrideConfirmed,
-          discount:
-            discountValue > 0
-              ? { type: discountType, value: discountValue }
-              : undefined,
-        });
+      await createSaleMutation.mutateAsync({
+        dealerId,
+        items: items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+        })),
+        paymentMethod: "CREDIT",
+        notes: notes || undefined,
+        date: new Date(),
+        overrideBalanceLimit: overrideConfirmed,
+        discount:
+          discountValue > 0
+            ? { type: discountType, value: discountValue }
+            : undefined,
+      });
 
-        toast.success("Sale created successfully!");
-        router.push("/company/dashboard/sales");
-      } else if (isConnectedDealer) {
-        // Consignment flow for connected dealers (requires approval)
-        await createConsignmentMutation.mutateAsync({
-          dealerId,
-          items: items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-          })),
-          notes: notes || undefined,
-          overrideBalanceLimit: overrideConfirmed,
-          discount:
-            discountValue > 0
-              ? { type: discountType, value: discountValue }
-              : undefined,
-        });
-
-        toast.success("Consignment request created successfully!");
-        router.push("/company/dashboard/consignments");
-      } else {
-        toast.error("Please select a valid dealer");
-      }
+      toast.success("Sale created successfully!");
+      router.push("/company/dashboard/sales");
     } catch (error: any) {
-      const errorMessage = isSelfCreatedDealer
-        ? error.response?.data?.message || "Failed to create sale"
-        : error.response?.data?.message || "Failed to create consignment request";
-      toast.error(errorMessage);
+      toast.error(error.response?.data?.message || "Failed to create sale");
     }
   };
 
-  const isSubmitting = createConsignmentMutation.isPending || createSaleMutation.isPending;
+  const isSubmitting = createSaleMutation.isPending;
 
   return (
     <div className="space-y-6">
@@ -232,7 +201,7 @@ export default function NewCompanySalePage() {
             Create New Sale
           </h1>
           <p className="text-muted-foreground">
-            Create a sale or consignment request to a dealer
+            Create a direct sale to a manual dealer
           </p>
         </div>
       </div>
@@ -269,37 +238,17 @@ export default function NewCompanySalePage() {
                     <p className="font-medium">{selectedDealer.name}</p>
                     <p className="text-sm text-muted-foreground">{selectedDealer.contact}</p>
                   </div>
-                  {isConnectedDealer ? (
-                    <Badge variant="default" className="bg-blue-600">
-                      <Truck className="h-3 w-3 mr-1" />
-                      Connected Dealer
-                    </Badge>
-                  ) : isSelfCreatedDealer ? (
-                    <Badge variant="secondary">
-                      <Receipt className="h-3 w-3 mr-1" />
-                      Manual Dealer
-                    </Badge>
-                  ) : null}
+                  <Badge variant="secondary">
+                    Manual Dealer
+                  </Badge>
                 </div>
               )}
 
               {/* Sale Type Info */}
               {selectedDealer && (
-                <div className={`p-3 rounded-lg text-sm ${isConnectedDealer
-                  ? "bg-blue-50 border border-blue-200 text-blue-800"
-                  : "bg-green-50 border border-green-200 text-green-800"
-                  }`}>
-                  {isConnectedDealer ? (
-                    <>
-                      <strong>Consignment Flow:</strong> This will create a consignment request.
-                      The dealer will need to accept it before you can dispatch the products.
-                    </>
-                  ) : isSelfCreatedDealer ? (
-                    <>
-                      <strong>Direct Sale:</strong> This will create an instant sale.
-                      Inventory will be updated immediately and balance will be added to the dealer's account.
-                    </>
-                  ) : null}
+                <div className="p-3 rounded-lg text-sm bg-green-50 border border-green-200 text-green-800">
+                  <strong>Direct Sale:</strong> This will create an instant sale.
+                  Inventory will be updated immediately and the amount will be added to the dealer&apos;s account.
                 </div>
               )}
             </CardContent>
@@ -433,15 +382,13 @@ export default function NewCompanySalePage() {
             </CardContent>
           </Card>
 
-          {/* Discount Section - applies when creating a direct sale (self-created dealer) */}
+          {/* Discount Section */}
           {items.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle>Discount (Optional)</CardTitle>
                 <CardDescription>
-                  {isSelfCreatedDealer
-                    ? "Apply a global discount to this sale"
-                    : "Discount applies only to direct sales. For consignment requests, discount is not applied."}
+                  Apply a global discount to this sale
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -509,9 +456,7 @@ export default function NewCompanySalePage() {
                   {selectedDealer && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Sale Type</span>
-                      <span className="font-medium">
-                        {isConnectedDealer ? "Consignment" : "Direct Sale"}
-                      </span>
+                      <span className="font-medium">Direct Sale</span>
                     </div>
                   )}
                 </div>
@@ -560,13 +505,7 @@ export default function NewCompanySalePage() {
                     disabled={isSubmitting || !dealerId || items.length === 0}
                     className="w-full"
                   >
-                    {isSubmitting
-                      ? isConnectedDealer
-                        ? "Creating Consignment..."
-                        : "Creating Sale..."
-                      : isConnectedDealer
-                        ? "Create Consignment Request"
-                        : "Create Sale"}
+                    {isSubmitting ? "Creating Sale..." : "Create Sale"}
                   </Button>
                   <Button
                     variant="outline"

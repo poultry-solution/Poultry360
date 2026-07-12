@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Users, Edit, Trash2, Archive, ArchiveRestore, Phone, MapPin, CheckCircle2, DollarSign, Image } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Phone, MapPin, DollarSign } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -44,15 +44,7 @@ import { ImageUpload } from "@/common/components/ui/image-upload";
 import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  useArchiveCompanyDealer,
-  useUnarchiveCompanyDealer,
-  useGetArchivedCompanyDealers,
-} from "@/fetchers/company/companyDealerQueries";
 import { useRecordDealerPayment } from "@/fetchers/company/companyDealerAccountQueries";
-import { useGetCompanyVerificationRequests } from "@/fetchers/company/companyVerificationQueries";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
-import { Badge } from "@/common/components/ui/badge";
 import { DateInput } from "@/common/components/ui/date-input";
 import { getNowLocalDateTime } from "@/common/lib/utils";
 
@@ -70,14 +62,13 @@ interface Dealer {
 
 export default function CompanyDealersPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("active");
   const [search, setSearch] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDealer, setEditingDealer] = useState<Dealer | null>(null);
 
   // Confirmation Dialog State
   const [confirmationAction, setConfirmationAction] = useState<{
-    type: "DELETE" | "ARCHIVE" | "UNARCHIVE";
+    type: "DELETE";
     id: string;
     name: string;
   } | null>(null);
@@ -149,12 +140,6 @@ export default function CompanyDealersPage() {
     },
   });
 
-  // Archive dealer connection mutation
-  const archiveMutation = useArchiveCompanyDealer();
-
-  // Unarchive dealer connection mutation
-  const unarchiveMutation = useUnarchiveCompanyDealer();
-
   // Record payment mutation
   const recordPaymentMutation = useRecordDealerPayment();
 
@@ -210,13 +195,6 @@ export default function CompanyDealersPage() {
     }
   };
 
-  // Get archived dealers
-  const { data: archivedDealersData, isLoading: archivedLoading } = useGetArchivedCompanyDealers();
-
-  // Get pending verification requests count
-  const { data: verificationData } = useGetCompanyVerificationRequests({ status: "PENDING", limit: 1 });
-  const pendingVerificationCount = verificationData?.pagination?.total || 0;
-
   const handleOpenDialog = (dealer?: Dealer) => {
     if (dealer) {
       setEditingDealer(dealer);
@@ -265,37 +243,21 @@ export default function CompanyDealersPage() {
     setConfirmationAction({ type: "DELETE", id, name });
   };
 
-  const handleArchive = (connectionId: string, name: string) => {
-    setConfirmationAction({ type: "ARCHIVE", id: connectionId, name });
-  };
-
-  const handleUnarchive = (connectionId: string, name: string) => {
-    setConfirmationAction({ type: "UNARCHIVE", id: connectionId, name });
-  };
-
   const executeConfirmationAction = async () => {
     if (!confirmationAction) return;
 
     try {
-      if (confirmationAction.type === "DELETE") {
-        deleteMutation.mutate(confirmationAction.id);
-      } else if (confirmationAction.type === "ARCHIVE") {
-        await archiveMutation.mutateAsync(confirmationAction.id);
-        toast.success("Dealer connection archived successfully");
-      } else if (confirmationAction.type === "UNARCHIVE") {
-        await unarchiveMutation.mutateAsync(confirmationAction.id);
-        toast.success("Dealer connection unarchived successfully");
-      }
+      deleteMutation.mutate(confirmationAction.id);
     } catch (error: any) {
-      const action = confirmationAction.type.toLowerCase();
-      toast.error(error.response?.data?.message || `Failed to ${action} dealer connection`);
+      toast.error(error.response?.data?.message || "Failed to delete dealer");
     } finally {
       setConfirmationAction(null);
     }
   };
 
-  const dealers: Dealer[] = dealersData?.data || [];
-  const archivedDealers: Dealer[] = archivedDealersData?.data || [];
+  const dealers: Dealer[] = (dealersData?.data || []).filter(
+    (dealer: Dealer) => dealer.connectionType !== "CONNECTED"
+  );
 
   return (
     <div className="space-y-6">
@@ -304,23 +266,10 @@ export default function CompanyDealersPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dealer Management</h1>
           <p className="text-muted-foreground">
-            Manage dealers you supply products to
+            Manage dealers you supply manually
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={() => router.push("/company/dashboard/verification")}
-            className="relative"
-          >
-            <CheckCircle2 className="mr-2 h-4 w-4" />
-            Verification Requests
-            {pendingVerificationCount > 0 && (
-              <Badge className="ml-2 bg-yellow-500 text-white text-xs px-1.5 py-0.5 min-w-[20px] h-5">
-                {pendingVerificationCount}
-              </Badge>
-            )}
-          </Button>
           <Button onClick={() => handleOpenDialog()} className="bg-primary">
             <Plus className="mr-2 h-4 w-4" />
             Add Dealer
@@ -343,14 +292,14 @@ export default function CompanyDealersPage() {
         </CardContent>
       </Card>
 
-      {/* Dealers Table with Tabs */}
+      {/* Dealers Table */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Dealers</CardTitle>
               <CardDescription>
-                Manage your active and archived dealer connections
+                Manage manual dealer accounts and payments
               </CardDescription>
             </div>
             <Button onClick={() => setIsPaymentDialogOpen(true)} variant="secondary" size="sm">
@@ -360,22 +309,10 @@ export default function CompanyDealersPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="active">
-                Active ({dealers.length})
-              </TabsTrigger>
-              <TabsTrigger value="archived">
-                Archived ({archivedDealers.length})
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Active Dealers Tab */}
-            <TabsContent value="active" className="mt-4">
               <DataTable
                 data={dealers}
                 loading={isLoading}
-                emptyMessage="No dealers found. Add your first dealer."
+                emptyMessage="No manual dealers found. Add your first dealer."
                 columns={[
                   {
                     key: 'name',
@@ -420,7 +357,7 @@ export default function CompanyDealersPage() {
                     key: 'actions',
                     label: 'Actions',
                     align: 'right',
-                    width: '180px',
+                    width: '150px',
                     render: (_, dealer) => (
                       <div className="flex justify-end gap-2">
                         <Button
@@ -433,109 +370,19 @@ export default function CompanyDealersPage() {
                         <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(dealer)}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        {dealer.connectionType === "CONNECTED" && dealer.connectionId ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleArchive(dealer.connectionId!, dealer.name)}
-                            disabled={archiveMutation.isPending}
-                          >
-                            <Archive className="h-4 w-4 text-orange-600" />
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(dealer.id, dealer.name)}
-                            disabled={deleteMutation.isPending}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-600" />
-                          </Button>
-                        )}
-                      </div>
-                    )
-                  }
-                ] as Column[]}
-              />
-            </TabsContent>
-
-            {/* Archived Dealers Tab */}
-            <TabsContent value="archived" className="mt-4">
-              <DataTable
-                data={archivedDealers}
-                loading={archivedLoading}
-                emptyMessage="No archived dealers. Archived connections will appear here."
-                columns={[
-                  {
-                    key: 'name',
-                    label: 'Name',
-                    width: '120px',
-                    render: (val) => <span className="font-medium">{val}</span>
-                  },
-                  {
-                    key: 'contact',
-                    label: 'Contact',
-                    width: '120px',
-                    render: (val) => (
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        {val}
-                      </div>
-                    )
-                  },
-                  {
-                    key: 'address',
-                    label: 'Address',
-                    width: '150px',
-                    render: (val) => val ? (
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <span className="truncate max-w-[150px]">{val}</span>
-                      </div>
-                    ) : <span className="text-muted-foreground">-</span>
-                  },
-                  {
-                    key: 'balance',
-                    label: 'Account Balance',
-                    align: 'right',
-                    width: '120px',
-                    render: (val) => (
-                      <span className={val > 0 ? "text-red-600 font-semibold" : val < 0 ? "text-green-600 font-semibold" : ""}>
-                        {val > 0 ? `रू ${Math.abs(val).toFixed(2)} (Due)` : val < 0 ? `रू ${Math.abs(val).toFixed(2)} (Advance)` : "रू 0.00"}
-                      </span>
-                    )
-                  },
-                  {
-                    key: 'actions',
-                    label: 'Actions',
-                    align: 'right',
-                    width: '150px',
-                    render: (_, dealer) => (
-                      <div className="flex justify-end gap-2">
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          onClick={() => router.push(`/company/dashboard/dealers/${dealer.id}/account`)}
+                          onClick={() => handleDelete(dealer.id, dealer.name)}
+                          disabled={deleteMutation.isPending}
                         >
-                          View Account
+                          <Trash2 className="h-4 w-4 text-red-600" />
                         </Button>
-                        {dealer.connectionId && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleUnarchive(dealer.connectionId!, dealer.name)}
-                            disabled={unarchiveMutation.isPending}
-                          >
-                            <ArchiveRestore className="h-4 w-4 text-green-600" />
-                          </Button>
-                        )}
                       </div>
                     )
                   }
                 ] as Column[]}
               />
-            </TabsContent>
-          </Tabs>
         </CardContent>
       </Card>
 
@@ -626,13 +473,9 @@ export default function CompanyDealersPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>
               {confirmationAction?.type === "DELETE" && "Delete Dealer"}
-              {confirmationAction?.type === "ARCHIVE" && "Archive Connection"}
-              {confirmationAction?.type === "UNARCHIVE" && "Unarchive Connection"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmationAction?.type === "DELETE" && `Are you sure you want to delete "${confirmationAction.name}"? This action cannot be undone.`}
-              {confirmationAction?.type === "ARCHIVE" && `Are you sure you want to archive the connection with "${confirmationAction.name}"?`}
-              {confirmationAction?.type === "UNARCHIVE" && `Are you sure you want to unarchive the connection with "${confirmationAction.name}"?`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -642,8 +485,6 @@ export default function CompanyDealersPage() {
               className={confirmationAction?.type === "DELETE" ? "bg-red-600 hover:bg-red-700 focus:ring-red-600" : ""}
             >
               {confirmationAction?.type === "DELETE" && "Delete"}
-              {confirmationAction?.type === "ARCHIVE" && "Archive"}
-              {confirmationAction?.type === "UNARCHIVE" && "Unarchive"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

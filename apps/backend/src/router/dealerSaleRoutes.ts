@@ -53,26 +53,8 @@ router.delete("/customers/:id", deleteDealerCustomer);
 
 // Removed sale-request workflow placeholder
 
-const saleRequestRemoved = (req:Request, res:Response)=>{
 
-  res.status(410).json({
-    success: false,
-    message: "Dealer sale request workflows have been removed. Use the normal customer sales flow instead.",
-    route: req.originalUrl,
-  })
 
-}
-
-// ==================== SALE REQUEST ROUTES ====================
-// IMPORTANT: These must come BEFORE /:id route to avoid conflicts
-// Get sale request statistics
-router.get("/requests/statistics", saleRequestRemoved);
-
-// Get all sale requests
-router.get("/requests", saleRequestRemoved);
-
-// Get sale request by ID
-router.get("/requests/:id", saleRequestRemoved);
 
 // ==================== SALE ID ROUTES ====================
 // IMPORTANT: This must come AFTER specific routes like /requests, /statistics, etc.

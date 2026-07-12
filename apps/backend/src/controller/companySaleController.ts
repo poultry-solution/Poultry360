@@ -1,7 +1,5 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
-import { Decimal } from "@prisma/client/runtime/library";
-import { TransactionType } from "@prisma/client";
 import { CompanyService } from "../services/companyService";
 
 // ==================== SEARCH DEALERS FOR COMPANY ====================
@@ -13,7 +11,6 @@ export const searchDealersForCompany = async (
     const userId = req.userId;
     const { search, page = 1, limit = 50 } = req.query;
 
-    // Get company
     const company = await prisma.company.findUnique({
       where: { ownerId: userId },
       select: { id: true },
@@ -25,46 +22,20 @@ export const searchDealersForCompany = async (
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    // First, get dealer IDs that are connected to this company via DealerCompany
-    const dealerCompanies = await (prisma as any).dealerCompany.findMany({
-      where: {
-        companyId: company.id,
-      },
-      select: {
-        dealerId: true,
-      },
-    });
-
-    const connectedDealerIds = dealerCompanies.map((dc: any) => dc.dealerId);
-
-    // Build where clause to include ONLY:
-    // 1. Dealers manually created by this company (userId = currentUserId)
-    // 2. Dealers connected to this company via DealerCompany relationship
     const where: any = {
-      OR: [
-        { userId: userId }, // Static dealers created by company
-        { id: { in: connectedDealerIds.length > 0 ? connectedDealerIds : [] } }, // Connected dealers only
-      ],
+      userId,
     };
 
-    // Add search filter
     if (search) {
-      const searchFilter = {
-        OR: [
-          { name: { contains: search as string, mode: "insensitive" } },
-          { contact: { contains: search as string, mode: "insensitive" } },
-          { address: { contains: search as string, mode: "insensitive" } },
-        ],
-      };
-
-      // Combine with existing OR using AND
       where.AND = [
         {
-          OR: where.OR,
+          OR: [
+            { name: { contains: search as string, mode: "insensitive" } },
+            { contact: { contains: search as string, mode: "insensitive" } },
+            { address: { contains: search as string, mode: "insensitive" } },
+          ],
         },
-        searchFilter,
       ];
-      delete where.OR;
     }
 
     const [dealers, total] = await Promise.all([
@@ -77,19 +48,8 @@ export const searchDealersForCompany = async (
       prisma.dealer.count({ where }),
     ]);
 
-    // Calculate balance and add connection metadata for each dealer
     const dealersWithBalance = await Promise.all(
       dealers.map(async (dealer) => {
-        // Check if dealer is connected via DealerCompany relationship
-        const dealerCompany = await (prisma as any).dealerCompany.findUnique({
-          where: {
-            dealerId_companyId: {
-              dealerId: dealer.id,
-              companyId: company.id,
-            },
-          },
-        });
-
         const account = await prisma.companyDealerAccount.findUnique({
           where: {
             companyId_dealerId: {
@@ -105,13 +65,11 @@ export const searchDealersForCompany = async (
         return {
           ...dealer,
           balance: account ? Number(account.balance) : 0,
-          connectionType: dealerCompany ? "CONNECTED" : "MANUAL",
-          isOwnedDealer: dealer.userId === userId, // Company-created dealer
+          connectionType: "MANUAL",
+          isOwnedDealer: true,
         };
       })
     );
-
-    console.log("dealersWithBalance", dealersWithBalance);
 
     return res.status(200).json({
       success: true,
@@ -162,6 +120,19 @@ export const createCompanySale = async (
 
     if (!company) {
       return res.status(404).json({ message: "Company not found" });
+    }
+
+
+    const dealer = await prisma.dealer.findFirst({
+      where: {
+        id: dealerId,
+        userId: userId as string,
+      },
+      select: { id: true },
+    });
+
+    if (!dealer) {
+      return res.status(404).json({ message: "Manual dealer not found" });
     }
 
     // Create sale using service (account-based system)
@@ -223,6 +194,9 @@ export const getCompanySales = async (
 
     const where: any = {
       companyId: company.id,
+      dealer: {
+        userId: userId as string,
+      },
     };
 
     if (search) {
@@ -307,6 +281,9 @@ export const getCompanySaleById = async (
       where: {
         id,
         companyId: company.id,
+        dealer: {
+          userId: userId as string,
+        },
       },
       include: {
         dealer: true,
@@ -368,7 +345,13 @@ export const addCompanySalePayment = async (
 
     // Get sale to find dealerId
     const sale = await prisma.companySale.findFirst({
-      where: { id, companyId: company.id },
+      where: {
+        id,
+        companyId: company.id,
+        dealer: {
+          userId: userId as string,
+        },
+      },
       select: { dealerId: true },
     });
 
@@ -420,6 +403,9 @@ export const getCompanySalesStatistics = async (
 
     const where: any = {
       companyId: company.id,
+      dealer: {
+        userId: userId as string,
+      },
     };
 
     if (startDate || endDate) {

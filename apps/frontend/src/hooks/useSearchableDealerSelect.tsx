@@ -12,13 +12,10 @@ export function useSearchableDealerSelect() {
 
   const dealers = data?.data || [];
 
-  // Backend already filters to show only:
-  // 1. Connected dealers (via DealerCompany relationship)
-  // 2. Company-owned dealers (manually created by company)
   const options: SearchableSelectOption[] = dealers.map((dealer: any) => ({
     value: dealer.id,
     label: dealer.name,
-    subtitle: `${dealer.contact}${dealer.connectionType === "CONNECTED" ? " • Connected" : ""}`,
+    subtitle: dealer.contact,
     data: dealer,
   }));
 

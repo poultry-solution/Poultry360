@@ -1,8 +1,8 @@
+
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { CompanyService } from "../services/companyService";
 import { CompanyDealerAccountService } from "../services/companyDealerAccountService";
-import { Prisma } from "@prisma/client";
 
 // ==================== GET COMPANY LEDGER ENTRIES ====================
 export const getCompanyLedgerEntries = async (
