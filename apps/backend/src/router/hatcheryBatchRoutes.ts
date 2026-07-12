@@ -25,10 +25,6 @@ import {
   listParentSales,
   addParentSale,
   deleteParentSale,
-  listEggTypes,
-  createEggType,
-  updateEggType,
-  deleteEggType,
 } from "../controller/hatcheryBatchController";
 
 const router = express.Router();
