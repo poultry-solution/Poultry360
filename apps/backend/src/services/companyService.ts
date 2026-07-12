@@ -7,7 +7,6 @@ import {
   PaymentRequestDirection,
   LedgerEntryType,
 } from "@prisma/client";
-import { CompanyDealerAccountService } from "./companyDealerAccountService";
 import {
   computeDiscountAmount,
   distributeDiscountToItems,

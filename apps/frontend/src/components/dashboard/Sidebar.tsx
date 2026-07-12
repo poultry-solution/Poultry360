@@ -16,7 +16,6 @@ import {
   BarChart3,
   DollarSign,
   Truck,
-  TrendingUp,
   FileText,
   CreditCard,
   Lightbulb,

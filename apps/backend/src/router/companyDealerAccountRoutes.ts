@@ -5,11 +5,7 @@ import {
   recordDealerPayment,
   setDealerBalanceLimit,
   checkDealerBalanceLimit,
-  getCompanyAccount,
-  getCompanyAccountStatement,
-  recordCompanyPayment,
   getAllDealerAccounts,
-  getAllCompanyAccounts,
   getAllDealerPayments,
 } from "../controller/companyDealerAccountController";
 import { authMiddleware } from "../middelware/middelware";
@@ -69,34 +65,6 @@ router.get(
   getAllDealerPayments
 );
 
-// ==================== DEALER SIDE ROUTES ====================
-// Get all company accounts for dealer
-router.get(
-  "/dealer/companies/accounts",
-  (req, res, next) => authMiddleware(req, res, next, ["DEALER"]),
-  getAllCompanyAccounts
-);
-
-// Get specific company account
-router.get(
-  "/dealer/companies/:companyId/account",
-  (req, res, next) => authMiddleware(req, res, next, ["DEALER"]),
-  getCompanyAccount
-);
-
-// Get company account statement
-router.get(
-  "/dealer/companies/:companyId/statement",
-  (req, res, next) => authMiddleware(req, res, next, ["DEALER"]),
-  getCompanyAccountStatement
-);
-
-// Record payment to company
-router.post(
-  "/dealer/companies/:companyId/payments",
-  (req, res, next) => authMiddleware(req, res, next, ["DEALER"]),
-  recordCompanyPayment
-);
 
 
 export default router;
