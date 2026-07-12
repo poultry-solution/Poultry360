@@ -17,8 +17,8 @@ This document is a high-level roadmap only. Detailed implementation plans should
 
 | Phase | Area | Status | Notes |
 |------|------|--------|-------|
-| Phase 1 | Farmer -> Dealer connection cleanup | IN PROGRESS | First active phase |
-| Phase 2 | Dealer -> Farmer flow cleanup | TODO | Follow after Phase 1 |
+| Phase 1 | Farmer -> Dealer connection cleanup | ALMOST DONE | Main frontend and backend access paths have been removed or disabled |
+| Phase 2 | Dealer -> Farmer flow cleanup | STARTING | Dealer-side request UI cleanup has started in the repo |
 | Phase 3 | Dealer -> Company flow cleanup | TODO | Depends on connection-removal direction being stable |
 | Phase 4 | Company -> Dealer flow cleanup | TODO | Final cleanup and regression pass |
 
@@ -27,6 +27,12 @@ This document is a high-level roadmap only. Detailed implementation plans should
 - Remove farmer-to-dealer connection and verification behavior.
 - Remove connection-based farmer request flows tied to dealer approval.
 - Replace these flows with direct manual handling where the farmer does not depend on connection approval.
+- Farmer supplier-ledger UI has been simplified toward manual-only usage.
+- Farmer-side supplier actions now prefer direct purchase/payment handling instead of connection-driven request flows.
+- Farmer/dealer verification routes have been disabled at the backend and left in place as explicit placeholders for frontend cleanup tracking.
+- Farmer purchase-request, farmer cart, and farmer/dealer payment-request routes have been disabled at the backend and left in place as explicit placeholders.
+- Dealer routes used by the farmer supplier-ledger now return only manual supplier data and no longer serve farmer-dealer connection behavior.
+- Shared connection/request controllers for removed farmer-side flows have been deleted where they were no longer needed.
 - Verify farmer and dealer dashboards still load without broken cards, counts, or action buttons.
 - Verify manual farmer/dealer interaction paths still work end to end.
 - Identify related backend rules that can be simplified once the replacement flow is confirmed.
@@ -38,6 +44,7 @@ This document is a high-level roadmap only. Detailed implementation plans should
 - Remove dealer-side workflows that assume a connected farmer relationship.
 - Remove request-based dealer-to-farmer sales or payment approval behavior.
 - Replace dealer actions with direct manual entry and confirmation where needed.
+- Dealer-side UI cleanup has already started in the repo and should be aligned with backend removal work.
 - Verify sales, ledger, and inventory behavior still work after request-flow removal.
 - Verify dealer customer management still works for manual farmer/customer records.
 - Identify backend validation rules that still assume a connected farmer.
@@ -91,4 +98,4 @@ This document is a high-level roadmap only. Detailed implementation plans should
 - Should consignment logic be fully removed or retained in a smaller manual/internal form?
 - Should payment requests be removed entirely and replaced with direct payment entry only?
 - Are there any role-specific reports or analytics that still depend on old connection-based states?
-
+- When moving into dealer -> farmer cleanup, should remaining placeholder routes stay as `410` markers until frontend removal is complete, or should they be fully removed in the same phase?

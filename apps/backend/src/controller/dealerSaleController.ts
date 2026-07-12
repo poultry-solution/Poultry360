@@ -2,8 +2,6 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { parseDealerSaleDateRange } from "../utils/dealerSaleDateRange";
 import { DealerService } from "../services/dealerService";
-import { DealerSaleRequestService } from "../services/dealerSaleRequestService";
-import { DealerFarmerAccountService } from "../services/dealerFarmerAccountService";
 import bcrypt from "bcrypt";
 
 // ==================== CREATE DEALER SALE ====================
@@ -53,42 +51,20 @@ export const createDealerSale = async (
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    // Check if customer is a connected farmer
-    const customer = await prisma.customer.findUnique({
-      where: { id: customerId },
-      select: { id: true, farmerId: true, name: true },
+    // Restrict dealer sales to manual customers only.
+    const customer = await prisma.customer.findFirst({
+      where: {
+        id: customerId,
+        userId: userId as string,
+        farmerId: null,
+      },
+      select: { id: true },
     });
 
     if (!customer) {
       return res.status(404).json({ message: "Customer not found" });
     }
 
-    // If customer has farmerId (connected farmer), create sale request instead
-    if (customer.farmerId) {
-      const request = await DealerSaleRequestService.createSaleRequest({
-        dealerId: dealer.id,
-        customerId,
-        farmerId: customer.farmerId,
-        items,
-        paidAmount: Number(paidAmount),
-        paymentMethod,
-        notes,
-        date: date ? new Date(date) : new Date(),
-        discount:
-          discount && discount.value > 0
-            ? { type: discount.type as "PERCENT" | "FLAT", value: Number(discount.value) }
-            : undefined,
-      });
-
-      return res.status(201).json({
-        success: true,
-        data: request,
-        message: `Sale request created successfully and sent to ${customer.name}. Waiting for farmer approval.`,
-        isRequest: true,
-      });
-    }
-
-    // Otherwise, create direct sale (manual customer)
     const sale = await DealerService.createDealerSale({
       dealerId: dealer.id,
       customerId,
@@ -108,7 +84,6 @@ export const createDealerSale = async (
       success: true,
       data: sale,
       message: "Sale created successfully",
-      isRequest: false,
     });
   } catch (error: any) {
     console.error("Create dealer sale error:", error);
@@ -147,6 +122,8 @@ export const getDealerSales = async (
     // Build where clause
     const where: any = {
       dealerId: dealer.id,
+      farmerId: null,
+      accountId: null,
     };
 
     if (search) {
@@ -237,6 +214,8 @@ export const getDealerSaleById = async (
       where: {
         id,
         dealerId: dealer.id,
+        farmerId: null,
+        accountId: null,
       },
       include: {
         customer: true,
@@ -295,40 +274,24 @@ export const addSalePayment = async (
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    // Check if sale belongs to dealer
+    // Sale-level payments are no longer part of the manual flow.
     const sale = await prisma.dealerSale.findFirst({
       where: {
         id,
         dealerId: dealer.id,
       },
-      select: { id: true, accountId: true },
+      select: { id: true },
     });
 
     if (!sale) {
       return res.status(404).json({ message: "Sale not found" });
     }
 
-    // Payments for connected farmers are managed at account level
-    if (sale.accountId) {
-      return res.status(400).json({
-        message:
-          "Payments for connected farmers are managed at account level. Use the farmer's account page to record payments.",
-      });
-    }
-
-    // Add payment using service
-    const updatedSale = await DealerService.addSalePayment({
-      saleId: id,
-      amount: Number(amount),
-      date: date ? new Date(date) : new Date(),
-      description,
-      paymentMethod,
-    });
-
-    return res.status(200).json({
-      success: true,
-      data: updatedSale,
-      message: "Payment added successfully",
+    return res.status(410).json({
+      success: false,
+      message:
+        "Bill-wise sale payments have been removed. Use the normal customer ledger payment flow instead.",
+      route: req.originalUrl,
     });
   } catch (error: any) {
     console.error("Add sale payment error:", error);
@@ -398,10 +361,11 @@ export const searchCustomers = async (
       });
     }
 
-    // Search customers only (includes both manual and connected customers)
+    // Search manual customers only.
     const customers = await prisma.customer.findMany({
       where: {
         userId,
+        farmerId: null,
         OR: [
           { name: { contains: search as string, mode: "insensitive" } },
           { phone: { contains: search as string, mode: "insensitive" } },
@@ -414,8 +378,6 @@ export const searchCustomers = async (
         category: true,
         address: true,
         balance: true,
-        source: true, // Include source to distinguish manual vs connected
-        farmerId: true, // Include farmerId for connected customers
       },
       take: 10,
     });
@@ -443,6 +405,7 @@ export const getDealerCustomers = async (
 
     const where: any = {
       userId: userId as string,
+      farmerId: null,
     };
 
     if (search) {
@@ -453,7 +416,6 @@ export const getDealerCustomers = async (
       ];
     }
 
-    // Dealer customers soft-archive (non-connected only for archived tab)
     const archivedStr =
       typeof archived === "string"
         ? archived
@@ -465,8 +427,6 @@ export const getDealerCustomers = async (
     // Default behavior: Active tab
     if (archivedBool) {
       where.archivedAt = { not: null };
-      // Only show archived non-connected customers
-      where.farmerId = null;
     } else {
       where.archivedAt = null;
     }
@@ -484,8 +444,6 @@ export const getDealerCustomers = async (
           address: true,
           category: true,
           balance: true,
-          source: true,
-          farmerId: true,
           archivedAt: true,
           createdAt: true,
         },
@@ -493,32 +451,15 @@ export const getDealerCustomers = async (
       prisma.customer.count({ where }),
     ]);
 
-    // For connected customers (farmerId set), use dealer-farmer account balance so "due" matches account page
     const dealer = await prisma.dealer.findUnique({
       where: { ownerId: userId as string },
       select: { id: true },
     });
-    if (dealer) {
-      const farmerIds = customers.map((c) => c.farmerId).filter(Boolean) as string[];
-      if (farmerIds.length > 0) {
-        const accounts = await DealerFarmerAccountService.getDealerAccounts(dealer.id);
-        const balanceByFarmerId = new Map(accounts.map((a) => [a.farmerId, a.balance]));
-        for (const c of customers) {
-          if (c.farmerId != null && balanceByFarmerId.has(c.farmerId)) {
-            (c as any).balance = balanceByFarmerId.get(c.farmerId);
-          }
-        }
-      }
-    }
-
-    // Compute "usage" flags to decide Delete vs Archive for non-connected customers.
     const dealerId = dealer?.id;
     const customerIds = customers.map((c) => c.id);
 
     let dealerSalesByCustomerId = new Map<string, number>();
-    let saleRequestsByCustomerId = new Map<string, number>();
     let paymentReceivedByCustomerId = new Map<string, number>();
-    let salePaymentRequestsByCustomerId = new Map<string, number>();
 
     if (dealerId && customerIds.length > 0) {
       const dealerSalesGrouped = await prisma.dealerSale.groupBy({
@@ -532,19 +473,6 @@ export const getDealerCustomers = async (
 
       dealerSalesGrouped.forEach((r: any) => {
         if (r.customerId) dealerSalesByCustomerId.set(r.customerId, r._count._all);
-      });
-
-      const saleRequestsGrouped = await prisma.dealerSaleRequest.groupBy({
-        by: ["customerId"],
-        where: {
-          dealerId,
-          customerId: { in: customerIds },
-        },
-        _count: { _all: true },
-      });
-
-      saleRequestsGrouped.forEach((r: any) => {
-        if (r.customerId) saleRequestsByCustomerId.set(r.customerId, r._count._all);
       });
 
       const paymentsGrouped = await prisma.dealerLedgerEntry.groupBy({
@@ -561,36 +489,15 @@ export const getDealerCustomers = async (
       paymentsGrouped.forEach((r: any) => {
         if (r.partyId) paymentReceivedByCustomerId.set(r.partyId, r._count._all);
       });
-
-      // Pending/approved bill-wise payments requests (if any)
-      const paymentRequestsGrouped = await prisma.dealerSalePaymentRequest.groupBy({
-        by: ["customerId"],
-        where: {
-          dealerId,
-          customerId: { in: customerIds },
-        },
-        _count: { _all: true },
-      });
-
-      paymentRequestsGrouped.forEach((r: any) => {
-        if (r.customerId) salePaymentRequestsByCustomerId.set(r.customerId, r._count._all);
-      });
     }
 
     const enrichedCustomers = customers.map((c: any) => {
       const hasDealerSales = (dealerSalesByCustomerId.get(c.id) || 0) > 0;
-      const hasDealerSaleRequests = (saleRequestsByCustomerId.get(c.id) || 0) > 0;
-
-      const ledgerPayments = paymentReceivedByCustomerId.get(c.id) || 0;
-      const billWisePaymentRequests = salePaymentRequestsByCustomerId.get(c.id) || 0;
-
-      // For now: ledger payments + bill-wise payment requests
-      const hasPayments = ledgerPayments + billWisePaymentRequests > 0;
+      const hasPayments = (paymentReceivedByCustomerId.get(c.id) || 0) > 0;
 
       return {
         ...c,
         hasDealerSales,
-        hasDealerSaleRequests,
         hasPayments,
       };
     });
@@ -627,21 +534,12 @@ export const archiveDealerCustomer = async (
     if (!dealer) return res.status(404).json({ message: "Dealer not found" });
 
     const customer = await prisma.customer.findFirst({
-      where: { id, userId },
-      select: { id: true, balance: true, farmerId: true, source: true },
+      where: { id, userId, farmerId: null },
+      select: { id: true, balance: true },
     });
     if (!customer) return res.status(404).json({ message: "Customer not found" });
 
-    // Only non-connected customers can be archived (connected handled later)
-    if (customer.farmerId != null || customer.source === "CONNECTED") {
-      return res.status(400).json({ message: "Cannot archive connected customers" });
-    }
-
-    // Usage flags
     const hasDealerSales = await prisma.dealerSale.count({
-      where: { dealerId: dealer.id, customerId: id },
-    });
-    const hasDealerSaleRequests = await prisma.dealerSaleRequest.count({
       where: { dealerId: dealer.id, customerId: id },
     });
 
@@ -654,16 +552,11 @@ export const archiveDealerCustomer = async (
       },
     });
 
-    const salePaymentRequests = await prisma.dealerSalePaymentRequest.count({
-      where: { dealerId: dealer.id, customerId: id },
-    });
-
-    const hasPayments = ledgerPayments + salePaymentRequests > 0;
+    const hasPayments = ledgerPayments > 0;
 
     const deletable =
       Number(customer.balance) === 0 &&
       hasDealerSales === 0 &&
-      hasDealerSaleRequests === 0 &&
       !hasPayments;
 
     if (deletable) {
@@ -700,15 +593,10 @@ export const unarchiveDealerCustomer = async (
     const { id } = req.params;
 
     const customer = await prisma.customer.findFirst({
-      where: { id, userId },
-      select: { id: true, farmerId: true, source: true, archivedAt: true },
+      where: { id, userId, farmerId: null },
+      select: { id: true, archivedAt: true },
     });
     if (!customer) return res.status(404).json({ message: "Customer not found" });
-
-    // Only non-connected customers can be unarchived for now
-    if (customer.farmerId != null || customer.source === "CONNECTED") {
-      return res.status(400).json({ message: "Cannot unarchive connected customers" });
-    }
 
     if (!customer.archivedAt) {
       return res.status(400).json({ message: "Customer is not archived" });
@@ -749,19 +637,12 @@ export const deleteDealerCustomer = async (
     if (!dealer) return res.status(404).json({ message: "Dealer not found" });
 
     const customer = await prisma.customer.findFirst({
-      where: { id, userId },
-      select: { id: true, balance: true, farmerId: true, source: true },
+      where: { id, userId, farmerId: null },
+      select: { id: true, balance: true },
     });
     if (!customer) return res.status(404).json({ message: "Customer not found" });
 
-    if (customer.farmerId != null || customer.source === "CONNECTED") {
-      return res.status(400).json({ message: "Cannot delete connected customers" });
-    }
-
     const hasDealerSales = await prisma.dealerSale.count({
-      where: { dealerId: dealer.id, customerId: id },
-    });
-    const hasDealerSaleRequests = await prisma.dealerSaleRequest.count({
       where: { dealerId: dealer.id, customerId: id },
     });
 
@@ -774,16 +655,11 @@ export const deleteDealerCustomer = async (
       },
     });
 
-    const salePaymentRequests = await prisma.dealerSalePaymentRequest.count({
-      where: { dealerId: dealer.id, customerId: id },
-    });
-
-    const hasPayments = ledgerPayments + salePaymentRequests > 0;
+    const hasPayments = ledgerPayments > 0;
 
     const deletable =
       Number(customer.balance) === 0 &&
       hasDealerSales === 0 &&
-      hasDealerSaleRequests === 0 &&
       !hasPayments;
 
     if (!deletable) {
@@ -900,6 +776,8 @@ export const getSalesStatistics = async (
 
     const where: any = {
       dealerId: dealer.id,
+      farmerId: null,
+      accountId: null,
     };
 
     const statsRange = parseDealerSaleDateRange(startDate, endDate);
@@ -1012,18 +890,17 @@ export const deleteDealerSale = async (
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    // Verify sale belongs to dealer and is for manual customer
+    // Verify sale belongs to dealer.
     const sale = await prisma.dealerSale.findFirst({
-      where: { id, dealerId: dealer.id },
-      include: { customer: { select: { farmerId: true } } },
+      where: {
+        id,
+        dealerId: dealer.id,
+        farmerId: null,
+        accountId: null,
+      },
     });
     if (!sale) {
       return res.status(404).json({ message: "Sale not found" });
-    }
-    if (sale.customer?.farmerId) {
-      return res.status(400).json({
-        message: "Cannot delete connected farmer sales",
-      });
     }
 
     await DealerService.deleteDealerSale({
@@ -1043,4 +920,3 @@ export const deleteDealerSale = async (
     });
   }
 };
-

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 
-import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -10,15 +9,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/common/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/common/components/ui/alert";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
-import { Package, Users, Receipt, Loader2, X, CheckCircle, Clock, XCircle, AlertCircle, Plus, Truck, ClipboardList, Wallet } from "lucide-react";
-import {
-  useGetDealerVerificationRequests,
-  useAcknowledgeVerificationRequest,
-} from "@/fetchers/dealer/dealerVerificationQueries";
-import { type DealerVerificationRequest } from "@/fetchers/dealer/dealerVerificationQueries";
+import { Package, Users, Receipt, Loader2, Clock, AlertCircle, Plus, Truck, Wallet } from "lucide-react";
+
 import { useGetInventorySummary } from "@/fetchers/dealer/dealerProductQueries";
 import { useGetSalesStatistics, useGetDealerSales } from "@/fetchers/dealer/dealerSaleQueries";
 import { useGetDealerProducts } from "@/fetchers/dealer/dealerProductQueries";
@@ -28,89 +22,8 @@ import { DateDisplay } from "@/common/components/ui/date-display";
 
 export default function DealerHomePage() {
   const { t } = useI18n();
-  const [dismissedBanners, setDismissedBanners] = useState<Set<string>>(new Set());
 
   const formatCurrency = (amount: number) => `रू ${Number(amount || 0).toFixed(2)}`;
-
-  // Get verification requests to check for unacknowledged messages
-  const { data: requestsData } = useGetDealerVerificationRequests();
-  const acknowledgeMutation = useAcknowledgeVerificationRequest();
-
-  const requests = requestsData?.data || [];
-
-  // Find unacknowledged requests with status changes
-  const unacknowledgedRequests = requests.filter(
-    (request: DealerVerificationRequest) =>
-      !request.acknowledgedAt &&
-      !dismissedBanners.has(request.id) &&
-      request.status !== "PENDING" // Only show approved/rejected status changes
-  );
-
-  // Get the most recent unacknowledged request
-  const latestRequest = unacknowledgedRequests.length > 0
-    ? unacknowledgedRequests.sort(
-      (a, b) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    )[0]
-    : null;
-
-  const handleDismiss = async (requestId: string) => {
-    // Add to dismissed set immediately for UI responsiveness
-    setDismissedBanners((prev) => new Set(prev).add(requestId));
-
-    try {
-      // Acknowledge on backend
-      await acknowledgeMutation.mutateAsync(requestId);
-    } catch (error) {
-      // If acknowledgment fails, remove from dismissed set
-      setDismissedBanners((prev) => {
-        const next = new Set(prev);
-        next.delete(requestId);
-        return next;
-      });
-    }
-  };
-
-  const getStatusBanner = (request: DealerVerificationRequest) => {
-    const companyName = request.company?.name || "Company";
-
-    switch (request.status) {
-      case "APPROVED":
-        return {
-          variant: "default" as const,
-          title: t("dealer.dashboard.banner.approved.title"),
-          description: t("dealer.dashboard.banner.approved.description", { companyName }),
-          icon: CheckCircle,
-          className: "bg-green-50 border-green-200 text-green-900",
-          iconClassName: "text-green-600",
-        };
-      case "REJECTED":
-        return {
-          variant: "destructive" as const,
-          title: t("dealer.dashboard.banner.rejected.title"),
-          description: `${t("dealer.dashboard.banner.rejected.description", { companyName })} ${request.rejectedCount >= 3
-            ? t("dealer.dashboard.banner.rejected.limitReached")
-            : request.rejectedCount === 2
-              ? t("dealer.dashboard.banner.rejected.secondRejection")
-              : t("dealer.dashboard.banner.rejected.retry")
-            }`,
-          icon: XCircle,
-          className: "bg-red-50 border-red-200 text-red-900",
-          iconClassName: "text-red-600",
-        };
-      case "PENDING":
-        return {
-          variant: "default" as const,
-          title: t("dealer.dashboard.banner.pending.title"),
-          description: t("dealer.dashboard.banner.pending.description", { companyName }),
-          icon: Clock,
-          className: "bg-yellow-50 border-yellow-200 text-yellow-900",
-          iconClassName: "text-yellow-600",
-        };
-      default:
-        return null;
-    }
-  };
 
   // Calculate current month date range (local dates to avoid UTC shift)
   const currentDate = new Date();
@@ -167,33 +80,6 @@ export default function DealerHomePage() {
 
   return (
     <div className="space-y-6">
-      {/* Status Banner */}
-      {latestRequest && (() => {
-        const bannerConfig = getStatusBanner(latestRequest);
-        if (!bannerConfig) return null;
-
-        const Icon = bannerConfig.icon;
-
-        return (
-          <Alert className={bannerConfig.className}>
-            <Icon className={`h-4 w-4 ${bannerConfig.iconClassName}`} />
-            <AlertTitle>{bannerConfig.title}</AlertTitle>
-            <AlertDescription className="flex items-start justify-between">
-              <span className="flex-1">{bannerConfig.description}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="ml-4 h-auto p-1 hover:bg-transparent"
-                onClick={() => handleDismiss(latestRequest.id)}
-                disabled={acknowledgeMutation.isPending}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </AlertDescription>
-          </Alert>
-        );
-      })()}
-
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
@@ -210,12 +96,7 @@ export default function DealerHomePage() {
               <span className="hidden sm:inline">{t("dealer.dashboard.buttons.addSale").split(" ")[0]}</span> {t("dealer.dashboard.buttons.addSale").split(" ").slice(1).join(" ")}
             </Button>
           </Link>
-          <Link href="/dealer/dashboard/sale-requests" className="flex-1 md:flex-none">
-            <Button variant="outline" className="w-full md:w-auto gap-2 hover:bg-green-50 hover:text-green-700 border-green-200">
-              <ClipboardList className="h-4 w-4" />
-              {t("dealer.dashboard.buttons.saleRequests")}
-            </Button>
-          </Link>
+ 
           <Link href="/dealer/dashboard/consignments" className="flex-1 md:flex-none">
             <Button variant="outline" className="w-full md:w-auto gap-2 hover:bg-green-50 hover:text-green-700 border-green-200">
               <Truck className="h-4 w-4" />
@@ -434,4 +315,3 @@ export default function DealerHomePage() {
     </div>
   );
 }
-

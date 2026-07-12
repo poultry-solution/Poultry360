@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Users, Edit, Trash2, Archive, ArchiveRestore, Phone, MapPin, Link2, CheckCircle2, DollarSign } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Archive, ArchiveRestore, Phone, MapPin, DollarSign } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -23,11 +22,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/common/components/ui/label";
-import { Badge } from "@/common/components/ui/badge";
 import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useGetDealerFarmerRequests, useGetConnectedFarmers } from "@/fetchers/dealer/dealerFarmerQueries";
 import { DealerAddPaymentDialog } from "@/components/dealer/DealerAddPaymentDialog";
 import { useI18n } from "@/i18n/useI18n";
 import { Tabs, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
@@ -46,10 +43,8 @@ interface Customer {
   address?: string;
   category?: string;
   balance: number;
-  source?: string; // "MANUAL" | "CONNECTED"
-  farmerId?: string; // Link to farmer for connected customers
+  source?: string;
   createdAt: Date;
-  partyType?: "CUSTOMER" | "FARMER"; // For farmers from ledger parties
   archivedAt?: string | null;
   hasDealerSales?: boolean;
   hasDealerSaleRequests?: boolean;
@@ -90,63 +85,9 @@ export default function DealerCustomersPage() {
       return data;
     },
   });
+  const isLoading = customersLoading;
 
-  // Get connected farmers (to show farmers who might not have Customer records yet)
-  const { data: connectedFarmersData, isLoading: farmersLoading } = useGetConnectedFarmers();
-
-  // Get ledger parties (includes both customers and farmers with transactions)
-  const { data: ledgerPartiesData, isLoading: ledgerLoading } = useQuery({
-    queryKey: ["dealer-ledger-parties", search],
-    queryFn: async () => {
-      const { data } = await axiosInstance.get("/dealer/ledger/parties", {
-        params: search ? { search } : {},
-      });
-      return data;
-    },
-  });
-
-  // Get pending verification requests count
-  const { data: verificationData } = useGetDealerFarmerRequests({
-    status: "PENDING",
-    limit: 1,
-  });
-  const pendingVerificationCount = verificationData?.pagination?.total || 0;
-
-  const isLoading = customersLoading || farmersLoading || ledgerLoading;
-
-  // Combine customers and farmers
-  const manualCustomers: Customer[] = customersData?.data || [];
-  const ledgerParties: any[] =
-    customerTab === "active" ? ledgerPartiesData?.data || [] : [];
-  const connectedFarmers = connectedFarmersData?.data || [];
-
-  // Create a map of existing customers by ID
-  const customerMap = new Map<string, Customer>();
-  manualCustomers.forEach((c) => customerMap.set(c.id, c));
-
-  // Add farmers from ledger parties who aren't already customers
-  ledgerParties.forEach((party) => {
-    if (party.partyType === "FARMER" && !customerMap.has(party.id)) {
-      // Check if this farmer is connected
-      const isConnected = connectedFarmers.some((f) => f.id === party.id);
-      if (isConnected) {
-        customerMap.set(party.id, {
-          id: party.id,
-          name: party.name,
-          phone: party.contact || "",
-          address: party.address,
-          balance: party.balance || 0,
-          source: "CONNECTED",
-          farmerId: party.id,
-          partyType: "FARMER",
-          createdAt: new Date(),
-        });
-      }
-    }
-  });
-
-  // Convert map to array and sort
-  const allCustomers = Array.from(customerMap.values()).sort((a, b) => {
+  const customers: Customer[] = (customersData?.data || []).sort((a: Customer, b: Customer) => {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
@@ -168,7 +109,7 @@ export default function DealerCustomersPage() {
     },
   });
 
-  // Update manual customers (connected customers are intentionally not editable)
+  // Update customers
   const updateMutation = useMutation({
     mutationFn: async ({
       id,
@@ -190,7 +131,6 @@ export default function DealerCustomersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
-      queryClient.invalidateQueries({ queryKey: ["dealer-ledger-parties"] });
       toast.success(t("dealer.customers.messages.updateSuccess"));
       handleCloseDialog();
     },
@@ -252,10 +192,6 @@ export default function DealerCustomersPage() {
 
   const handleOpenDialog = (customer?: Customer) => {
     if (customer) {
-      const isConnected =
-        customer.farmerId != null || customer.source === "CONNECTED";
-      if (isConnected) return; // Connected customers are not editable
-
       setEditingCustomer(customer);
       setFormData({
         name: customer.name,
@@ -304,11 +240,6 @@ export default function DealerCustomersPage() {
     }
 
     if (editingCustomer) {
-      const isConnected =
-        editingCustomer.farmerId != null ||
-        editingCustomer.source === "CONNECTED";
-      if (isConnected) return;
-
       const categoryTrimmed = formData.category.trim();
       const addressTrimmed = formData.address.trim();
 
@@ -357,9 +288,6 @@ export default function DealerCustomersPage() {
     if (!confirm(`Unarchive customer "${name}"?`)) return;
     unarchiveMutation.mutate(id);
   };
-
-  const customers = allCustomers;
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -372,31 +300,12 @@ export default function DealerCustomersPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button
-            asChild
             variant="outline"
+            onClick={() => setIsAddPaymentOpen(true)}
             className="flex-1 sm:flex-none hover:bg-green-50 hover:text-green-700 border-green-200"
           >
-            <Link href="/dealer/dashboard/payment-requests">
-              <DollarSign className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">{t("dealer.customers.buttons.paymentRequest")}</span>
-              <span className="sm:hidden">{t("dealer.customers.buttons.paymentRequestMobile")}</span>
-            </Link>
-          </Button>
-          <Button
-            asChild
-            variant="outline"
-            className="flex-1 sm:flex-none relative hover:bg-green-50 hover:text-green-700 border-green-200"
-          >
-            <Link href="/dealer/dashboard/customers/verification">
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">{t("dealer.customers.buttons.verification")}</span>
-              <span className="sm:hidden">{t("dealer.customers.buttons.verificationMobile")}</span>
-              {pendingVerificationCount > 0 && (
-                <Badge className="ml-2 bg-yellow-500 text-white text-xs px-1.5 py-0.5 min-w-[20px] h-5">
-                  {pendingVerificationCount}
-                </Badge>
-              )}
-            </Link>
+            <DollarSign className="mr-2 h-4 w-4" />
+            {t("dealer.customers.addPayment")}
           </Button>
           <Button
             variant="outline"
@@ -469,20 +378,7 @@ export default function DealerCustomersPage() {
                 key: 'name',
                 label: t("dealer.customers.table.name"),
                 width: '160px',
-                render: (val, row) => (
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{val}</span>
-                    {(row.source === "CONNECTED" || row.partyType === "FARMER") && (
-                      <Badge
-                        variant="secondary"
-                        className="bg-blue-100 text-blue-800 hover:bg-blue-100 text-[10px] px-1"
-                      >
-                        <Link2 className="h-2.5 w-2.5 mr-0.5" />
-                        <span className="hidden sm:inline">{t("dealer.customers.table.connected")}</span>
-                      </Badge>
-                    )}
-                  </div>
-                )
+                render: (val) => <span className="font-medium">{val}</span>
               },
               {
                 key: 'phone',
@@ -544,23 +440,13 @@ export default function DealerCustomersPage() {
                       variant="ghost"
                       size="sm"
                       className="h-7 w-7 p-0"
-                      disabled={row.farmerId != null || row.source === "CONNECTED"}
                       onClick={() => handleOpenDialog(row)}
-                      title={
-                        row.farmerId != null || row.source === "CONNECTED"
-                          ? "Connected customers cannot be edited"
-                          : undefined
-                      }
                       type="button"
                     >
                       <Edit className="h-3.5 w-3.5" />
                     </Button>
 
                     {(() => {
-                      const isConnected =
-                        row.farmerId != null || row.source === "CONNECTED";
-                      if (isConnected) return null;
-
                       const isDeletable =
                         Number(row.balance) === 0 &&
                         !row.hasDealerSales &&
@@ -749,14 +635,12 @@ export default function DealerCustomersPage() {
         open={isAddPaymentOpen}
         onOpenChange={setIsAddPaymentOpen}
         mode="select"
-        customers={customers
-          .filter(c => c.source !== "CONNECTED")
-          .map((c) => ({
-            id: c.id,
-            name: c.name,
-            phone: c.phone,
-            balance: c.balance,
-          }))}
+        customers={customers.map((c) => ({
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          balance: c.balance,
+        }))}
         onSuccess={async () => {
           await queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
           await queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] }); // Catches dealer-ledger-parties and others

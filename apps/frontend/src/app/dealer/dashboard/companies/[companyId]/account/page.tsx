@@ -43,11 +43,9 @@ import { toast } from "sonner";
 import {
   useGetCompanyAccount,
   useGetCompanyAccountStatement,
-  useAcknowledgeCompanyOpeningBalance,
-  useDisputeCompanyOpeningBalance,
+  useRecordCompanyPayment,
 } from "@/fetchers/dealer/dealerCompanyAccountQueries";
 import { DateDisplay } from "@/common/components/ui/date-display";
-import { useCreateDealerPaymentRequest } from "@/fetchers/dealer/paymentRequestQueries";
 
 export default function CompanyAccountPage() {
   const params = useParams();
@@ -55,13 +53,11 @@ export default function CompanyAccountPage() {
   const companyId = params.companyId as string;
 
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-  const [isDisputeOpen, setIsDisputeOpen] = useState(false);
-  const [disputeNote, setDisputeNote] = useState("");
-  const [paymentRequestData, setPaymentRequestData] = useState({
+  const [paymentData, setPaymentData] = useState({
     amount: 0,
     paymentMethod: "CASH",
-    paymentReference: "",
-    description: "",
+    reference: "",
+    notes: "",
   });
 
   // Queries
@@ -71,36 +67,34 @@ export default function CompanyAccountPage() {
     useGetCompanyAccountStatement(companyId);
 
   // Mutations
-  const createPaymentRequestMutation = useCreateDealerPaymentRequest();
-  const ackOpeningMutation = useAcknowledgeCompanyOpeningBalance();
-  const disputeOpeningMutation = useDisputeCompanyOpeningBalance();
+  const recordPaymentMutation = useRecordCompanyPayment();
 
-  const handleSendPaymentRequest = async (e: React.FormEvent) => {
+  const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (paymentRequestData.amount <= 0) {
+    if (paymentData.amount <= 0) {
       toast.error("Amount must be greater than 0");
       return;
     }
 
     try {
-      await createPaymentRequestMutation.mutateAsync({
+      await recordPaymentMutation.mutateAsync({
         companyId,
-        amount: paymentRequestData.amount,
-        paymentMethod: paymentRequestData.paymentMethod,
-        paymentReference: paymentRequestData.paymentReference || undefined,
-        description: paymentRequestData.description || undefined,
+        amount: paymentData.amount,
+        paymentMethod: paymentData.paymentMethod,
+        reference: paymentData.reference || undefined,
+        notes: paymentData.notes || undefined,
       });
-      toast.success("Payment submitted successfully. Waiting for company verification.");
+      toast.success("Payment recorded successfully");
       setIsPaymentDialogOpen(false);
-      setPaymentRequestData({
+      setPaymentData({
         amount: 0,
         paymentMethod: "CASH",
-        paymentReference: "",
-        description: "",
+        reference: "",
+        notes: "",
       });
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to submit payment");
+      toast.error(error.response?.data?.message || "Failed to record payment");
     }
   };
 
@@ -109,15 +103,6 @@ export default function CompanyAccountPage() {
   };
 
   const openingCurrent = Number((account as any)?.openingBalanceCurrent ?? 0);
-  const openingProposed =
-    (account as any)?.openingBalanceProposed != null
-      ? Number((account as any).openingBalanceProposed)
-      : null;
-  const openingStatus = (account as any)?.openingBalanceStatus ?? null;
-  const openingHistory = Array.isArray((account as any)?.openingBalanceHistory)
-    ? (account as any).openingBalanceHistory
-    : [];
-
 
   if (accountLoading || statementLoading) {
     return (
@@ -128,7 +113,7 @@ export default function CompanyAccountPage() {
   }
 
   const balanceAfterPayment = account
-    ? account.balance - paymentRequestData.amount
+    ? account.balance - paymentData.amount
     : 0;
 
   return (
@@ -155,7 +140,7 @@ export default function CompanyAccountPage() {
         </div>
         <Button onClick={() => setIsPaymentDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Submit Payment
+          Record Payment
         </Button>
       </div>
 
@@ -250,116 +235,23 @@ export default function CompanyAccountPage() {
         </Card>
       </div>
 
-      {/* Opening balance proposal */}
+      {/* Opening balance */}
       <Card>
-        <CardHeader className="flex flex-row items-start justify-between space-y-0">
-          <div className="space-y-1">
-            <CardTitle>Opening balance</CardTitle>
-            <CardDescription>
-              Company proposes; dealer must accept/reject. Only accepted opening balance changes your total balance.
-            </CardDescription>
-          </div>
-          {openingStatus && (
-            <Badge variant="secondary">
-              {openingStatus === "PENDING_ACK"
-                ? "Pending your approval"
-                : openingStatus === "ACKNOWLEDGED"
-                  ? "Approved"
-                  : openingStatus === "DISPUTED"
-                    ? "Rejected"
-                    : openingStatus}
-            </Badge>
-          )}
+        <CardHeader>
+          <CardTitle>Opening balance</CardTitle>
+          <CardDescription>
+            Current starting balance applied to this company account.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div>
-              <p className="text-xs text-muted-foreground">Current (acknowledged)</p>
-              <p className="text-2xl font-bold">{formatCurrency(Math.abs(openingCurrent))}</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {openingCurrent > 0
-                  ? "You owe company"
-                  : openingCurrent < 0
-                    ? "Company owes you (advance/credit)"
-                    : "Not set"}
-              </p>
-            </div>
-
-            {openingStatus === "PENDING_ACK" && openingProposed != null && (
-              <div className="border rounded-md p-3 bg-muted/20 min-w-[240px]">
-                <p className="text-xs text-muted-foreground">Proposed</p>
-                <p className="text-lg font-semibold">
-                  {formatCurrency(Math.abs(openingProposed))}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {openingProposed > 0
-                    ? "You owe company"
-                    : "Company owes you (advance/credit)"}
-                </p>
-                <div className="mt-3 flex gap-2">
-                  <Button
-                    onClick={async () => {
-                      try {
-                        await ackOpeningMutation.mutateAsync({ companyId });
-                        toast.success("Opening balance approved");
-                      } catch (e: any) {
-                        toast.error(
-                          e?.response?.data?.message || "Failed to approve opening balance"
-                        );
-                      }
-                    }}
-                    disabled={ackOpeningMutation.isPending}
-                  >
-                    {ackOpeningMutation.isPending ? "Saving..." : "Accept"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setDisputeNote("");
-                      setIsDisputeOpen(true);
-                    }}
-                    disabled={disputeOpeningMutation.isPending}
-                  >
-                    Reject
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {openingHistory.length > 0 && (
-            <div className="pt-2 border-t">
-              <p className="text-sm font-medium mb-2">History</p>
-              <div className="space-y-2">
-                {openingHistory.slice(0, 8).map((h: any) => (
-                  <div
-                    key={h.id}
-                    className="flex items-start justify-between gap-3 border rounded-md p-2 text-sm"
-                  >
-                    <div className="text-xs text-muted-foreground">
-                      <div>
-                        <DateDisplay date={h.createdAt} />
-                      </div>
-                      {h.notes ? <div className="mt-0.5">{h.notes}</div> : null}
-                      {h.dealerResponseNote ? (
-                        <div className="mt-0.5">Dealer: {h.dealerResponseNote}</div>
-                      ) : null}
-                    </div>
-                    <div
-                      className={
-                        Number(h.amount) >= 0
-                          ? "text-red-600 font-medium"
-                          : "text-green-600 font-medium"
-                      }
-                    >
-                      {Number(h.amount) >= 0 ? "+" : "-"}
-                      {formatCurrency(Math.abs(Number(h.amount)))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        <CardContent>
+          <p className="text-2xl font-bold">{formatCurrency(Math.abs(openingCurrent))}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {openingCurrent > 0
+              ? "You owe company"
+              : openingCurrent < 0
+                ? "Company owes you (advance/credit)"
+                : "Not set"}
+          </p>
         </CardContent>
       </Card>
 
@@ -472,57 +364,14 @@ export default function CompanyAccountPage() {
         </CardContent>
       </Card>
 
-      {/* Reject Opening Balance Dialog */}
-      <Dialog open={isDisputeOpen} onOpenChange={setIsDisputeOpen}>
-        <DialogContent className="bg-white max-w-md">
-          <DialogHeader>
-            <DialogTitle>Reject opening balance</DialogTitle>
-            <DialogDescription>
-              Add an optional note. Company can propose again.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label>Note (optional)</Label>
-            <Textarea
-              value={disputeNote}
-              onChange={(e) => setDisputeNote(e.target.value)}
-              placeholder="Reason"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDisputeOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                try {
-                  await disputeOpeningMutation.mutateAsync({
-                    companyId,
-                    note: disputeNote.trim() ? disputeNote.trim() : undefined,
-                  });
-                  toast.success("Opening balance rejected");
-                  setIsDisputeOpen(false);
-                } catch (e: any) {
-                  toast.error(e?.response?.data?.message || "Failed to reject opening balance");
-                }
-              }}
-              disabled={disputeOpeningMutation.isPending}
-            >
-              {disputeOpeningMutation.isPending ? "Saving..." : "Reject"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Submit Payment Dialog */}
+      {/* Record Payment Dialog */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent className="max-w-md">
-          <form onSubmit={handleSendPaymentRequest}>
+          <form onSubmit={handleRecordPayment}>
             <DialogHeader>
-              <DialogTitle>Submit Payment</DialogTitle>
+              <DialogTitle>Record Payment</DialogTitle>
               <DialogDescription>
-                Submit a payment to {account?.company.name}. The company will verify and approve it.
+                Record a direct payment to {account?.company.name}.
               </DialogDescription>
             </DialogHeader>
 
@@ -538,11 +387,11 @@ export default function CompanyAccountPage() {
                     {formatCurrency(account?.balance || 0)}
                   </span>
                 </div>
-                {paymentRequestData.amount > 0 && (
+                {paymentData.amount > 0 && (
                   <>
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">
-                        After Verification
+                        After Payment
                       </span>
                       <span
                         className={`font-bold ${balanceAfterPayment > 0
@@ -565,18 +414,6 @@ export default function CompanyAccountPage() {
                 )}
               </div>
 
-              {/* Info Banner */}
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  <strong>How it works:</strong>
-                </p>
-                <ol className="text-xs text-blue-700 mt-1 list-decimal list-inside space-y-1">
-                  <li>You submit payment details</li>
-                  <li>Company reviews and verifies the payment</li>
-                  <li>Balance updates on both your and company&apos;s account</li>
-                </ol>
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="amount">Amount *</Label>
                 <Input
@@ -584,10 +421,10 @@ export default function CompanyAccountPage() {
                   type="number"
                   step="0.01"
                   min="0.01"
-                  value={paymentRequestData.amount || ""}
+                  value={paymentData.amount || ""}
                   onChange={(e) =>
-                    setPaymentRequestData({
-                      ...paymentRequestData,
+                    setPaymentData({
+                      ...paymentData,
                       amount: parseFloat(e.target.value) || 0,
                     })
                   }
@@ -600,9 +437,9 @@ export default function CompanyAccountPage() {
               <div className="space-y-2">
                 <Label htmlFor="paymentMethod">Payment Method *</Label>
                 <Select
-                  value={paymentRequestData.paymentMethod}
+                  value={paymentData.paymentMethod}
                   onValueChange={(value) =>
-                    setPaymentRequestData({ ...paymentRequestData, paymentMethod: value })
+                    setPaymentData({ ...paymentData, paymentMethod: value })
                   }
                 >
                   <SelectTrigger>
@@ -622,21 +459,21 @@ export default function CompanyAccountPage() {
                 <Label htmlFor="paymentReference">Reference Number (optional)</Label>
                 <Input
                   id="paymentReference"
-                  value={paymentRequestData.paymentReference}
+                  value={paymentData.reference}
                   onChange={(e) =>
-                    setPaymentRequestData({ ...paymentRequestData, paymentReference: e.target.value })
+                    setPaymentData({ ...paymentData, reference: e.target.value })
                   }
                   placeholder="Transaction ID, Receipt #, etc."
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description (optional)</Label>
+                <Label htmlFor="description">Notes (optional)</Label>
                 <Textarea
                   id="description"
-                  value={paymentRequestData.description}
+                  value={paymentData.notes}
                   onChange={(e) =>
-                    setPaymentRequestData({ ...paymentRequestData, description: e.target.value })
+                    setPaymentData({ ...paymentData, notes: e.target.value })
                   }
                   placeholder="Payment for purchases, advance payment, etc."
                   rows={2}
@@ -649,14 +486,14 @@ export default function CompanyAccountPage() {
                 type="button"
                 variant="outline"
                 onClick={() => setIsPaymentDialogOpen(false)}
-                disabled={createPaymentRequestMutation.isPending}
+                disabled={recordPaymentMutation.isPending}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={createPaymentRequestMutation.isPending}>
-                {createPaymentRequestMutation.isPending
-                  ? "Submitting..."
-                  : "Submit Payment"}
+              <Button type="submit" disabled={recordPaymentMutation.isPending}>
+                {recordPaymentMutation.isPending
+                  ? "Saving..."
+                  : "Record Payment"}
               </Button>
             </DialogFooter>
           </form>

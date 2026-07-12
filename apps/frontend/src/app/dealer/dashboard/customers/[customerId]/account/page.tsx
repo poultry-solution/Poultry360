@@ -29,12 +29,6 @@ import {
   useGetPartyLedger,
   useDeleteDealerManualGeneralPayment,
 } from "@/fetchers/dealer/dealerLedgerQueries";
-import {
-  useGetFarmerAccount,
-  useGetFarmerAccountStatement,
-  useGetConnectedFarmers,
-  useSetConnectedOpeningBalance,
-} from "@/fetchers/dealer/dealerFarmerQueries";
 import axiosInstance from "@/common/lib/axios";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DealerAddPaymentDialog } from "@/components/dealer/DealerAddPaymentDialog";
@@ -69,10 +63,6 @@ export default function CustomerAccountPage() {
   const [openingAmount, setOpeningAmount] = useState<string>("");
   const [openingDirection, setOpeningDirection] = useState<"OWED" | "ADVANCE">("OWED");
   const [openingNotes, setOpeningNotes] = useState<string>("");
-  const [isEditConnectedOpeningOpen, setIsEditConnectedOpeningOpen] = useState(false);
-  const [connectedOpeningAmount, setConnectedOpeningAmount] = useState<string>("");
-  const [connectedOpeningDirection, setConnectedOpeningDirection] = useState<"OWED" | "ADVANCE">("OWED");
-  const [connectedOpeningNotes, setConnectedOpeningNotes] = useState<string>("");
   const [deletePaymentTarget, setDeletePaymentTarget] = useState<{
     id: string;
     amount: number;
@@ -82,61 +72,26 @@ export default function CustomerAccountPage() {
 
   const deleteManualPaymentMutation = useDeleteDealerManualGeneralPayment(customerId);
 
-  // Get customer details (prefer direct customer lookup, then fall back to ledger parties)
+  // Dealer-side customer accounts are now manual-only.
   const { data: customerData, isLoading: customerLoading } = useQuery({
     queryKey: ["dealer-customer", customerId],
     queryFn: async () => {
-      try {
-        const { data: customerRes } = await axiosInstance.get(`/sales/customers/${customerId}`);
-        return customerRes;
-      } catch (error) {
-        // If direct customer lookup fails, fall back to ledger parties
-        const { data } = await axiosInstance.get("/dealer/ledger/parties");
-        const party = data?.data?.find((p: any) => p.id === customerId);
-
-        if (party) {
-          return {
-            success: true,
-            data: {
-              id: party.id,
-              name: party.name,
-              phone: party.contact || "",
-              address: party.address,
-              balance: party.balance || 0,
-              source: party.partyType === "FARMER" ? "CONNECTED" : "MANUAL",
-              farmerId: party.partyType === "FARMER" ? party.id : undefined,
-            },
-          };
-        }
-
-        throw new Error("Customer not found");
-      }
+      const { data } = await axiosInstance.get(`/sales/customers/${customerId}`);
+      return data;
     },
     enabled: !!customerId,
   });
 
-  // Determine if this is a connected farmer (use account API) or manual customer (use ledger)
   const customer = customerData?.data;
-  const isFarmer = customer?.source === "CONNECTED" && customer?.farmerId;
-  const farmerId = customer?.farmerId;
   const partyId = customerId;
 
-  // Farmer: use account API
-  const { data: accountData, isLoading: accountLoading } = useGetFarmerAccount(
-    farmerId ?? ""
-  );
-  const { data: statementData, isLoading: statementLoading } =
-    useGetFarmerAccountStatement(farmerId ?? "", { limit: 100 });
-  const { data: connectedFarmersData } = useGetConnectedFarmers();
-  const setConnectedOpeningMutation = useSetConnectedOpeningBalance();
-
-  // Sales (for both: list by customerId)
+  // Sales
   const { data: salesData, isLoading: salesLoading } = useGetDealerSales({
     customerId,
     limit: 100,
   });
 
-  // Ledger (manual customers only)
+  // Ledger
   const { data: ledgerData, isLoading: ledgerLoading } = useGetPartyLedger(
     partyId,
     { limit: 100 }
@@ -146,30 +101,12 @@ export default function CustomerAccountPage() {
   const ledgerEntries = Array.isArray(ledgerData?.data)
     ? ledgerData.data
     : ledgerData?.data?.entries ?? [];
-  const account = accountData;
-  const statement = statementData;
-  const transactions = statement?.transactions ?? [];
-  const connectedFarmers = connectedFarmersData?.data || [];
-  const connectionId = isFarmer
-    ? connectedFarmers.find((f: any) => f.id === farmerId)?.dealerFarmerId
-    : undefined;
-
-  // Totals: from account for farmer, from customer model for manual
-  const totalSales = isFarmer && account
-    ? Number(account.totalSales)
-    : Number(customer?.totalSales ?? 0);
-  const totalPaid = isFarmer && account
-    ? Number(account.totalPayments)
-    : Number(customer?.totalPayments ?? 0);
-  const currentBalance = isFarmer && account
-    ? Number(account.balance)
-    : Number(customer?.balance ?? 0);
-
-  const payments = isFarmer
-    ? transactions.filter((t: any) => t.type === "PAYMENT")
-    : ledgerEntries.filter((entry: any) =>
-      entry.type === "PAYMENT_RECEIVED" || entry.type === "PAYMENT"
-    );
+  const totalSales = Number(customer?.totalSales ?? 0);
+  const totalPaid = Number(customer?.totalPayments ?? 0);
+  const currentBalance = Number(customer?.balance ?? 0);
+  const payments = ledgerEntries.filter((entry: any) =>
+    entry.type === "PAYMENT_RECEIVED" || entry.type === "PAYMENT"
+  );
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -205,52 +142,6 @@ export default function CustomerAccountPage() {
     }
   };
 
-  const connectedOpening = isFarmer
-    ? {
-        amount: Number((account as any)?.openingBalanceCurrent ?? 0),
-        status: (account as any)?.openingBalanceStatus ?? null,
-      }
-    : null;
-
-  const openEditConnectedOpening = () => {
-    const amt = Number((account as any)?.openingBalanceCurrent ?? 0);
-    setConnectedOpeningDirection(amt < 0 ? "ADVANCE" : "OWED");
-    setConnectedOpeningAmount(String(Math.abs(amt || 0)));
-    setConnectedOpeningNotes("");
-    setIsEditConnectedOpeningOpen(true);
-  };
-
-  const saveConnectedOpening = async () => {
-    if (!connectionId) {
-      toast.error("Connection not found");
-      return;
-    }
-    const amt = Number(connectedOpeningAmount || 0);
-    if (Number.isNaN(amt) || amt < 0) {
-      toast.error("Opening balance must be a non-negative number");
-      return;
-    }
-    const signed = amt === 0 ? 0 : connectedOpeningDirection === "ADVANCE" ? -amt : amt;
-    try {
-      await setConnectedOpeningMutation.mutateAsync({
-        connectionId,
-        openingBalance: signed,
-        notes: connectedOpeningNotes.trim() || undefined,
-      });
-      toast.success("Connected opening balance set. Farmer acknowledgement required.");
-      setIsEditConnectedOpeningOpen(false);
-      if (farmerId) {
-        queryClient.invalidateQueries({ queryKey: ["dealer-farmer-accounts", "detail", farmerId] });
-        queryClient.invalidateQueries({
-          queryKey: ["dealer-farmer-accounts", "statement", farmerId],
-        });
-      }
-      queryClient.invalidateQueries({ queryKey: ["dealer-farmers", "farmers"] });
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message ?? "Failed to set connected opening balance");
-    }
-  };
-
   const confirmDeleteManualPayment = async () => {
     if (!deletePaymentTarget) return;
     if (!deletePassword.trim()) {
@@ -270,9 +161,7 @@ export default function CustomerAccountPage() {
     }
   };
 
-  const dataLoading = isFarmer
-    ? accountLoading || statementLoading || salesLoading
-    : salesLoading || ledgerLoading;
+  const dataLoading = salesLoading || ledgerLoading;
   if (customerLoading || dataLoading) {
     return (
       <div className="space-y-6">
@@ -324,70 +213,14 @@ export default function CustomerAccountPage() {
             {customer.phone} {customer.address && `• ${customer.address}`}
           </p>
         </div>
-        {/* For connected farmers, only account-level payment (no bill-level) */}
-        {!isFarmer && (
-          <Button onClick={() => setIsPaymentDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Record Payment
-          </Button>
-        )}
+        <Button onClick={() => setIsPaymentDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Record Payment
+        </Button>
       </div>
 
-      {/* Opening balance (manual customers only) */}
-      {/* Opening balance now shown as a small summary card inside the grid (manual customers only) */}
-
-      {/* Connected opening balance (connected farmers only) */}
-      {isFarmer && (
-        <Card>
-          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-            <div>
-              <CardTitle className="text-sm font-medium">Connected opening balance</CardTitle>
-              <CardDescription>
-                Farmer must acknowledge every change to this opening balance.
-              </CardDescription>
-            </div>
-            <Button variant="outline" size="sm" onClick={openEditConnectedOpening}>
-              Edit
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`text-2xl font-bold ${
-                Number(connectedOpening?.amount ?? 0) > 0
-                  ? "text-red-600"
-                  : Number(connectedOpening?.amount ?? 0) < 0
-                    ? "text-green-600"
-                    : ""
-              }`}
-            >
-              {formatCurrency(Math.abs(Number(connectedOpening?.amount ?? 0)))}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {Number(connectedOpening?.amount ?? 0) > 0
-                ? "Farmer owes me"
-                : Number(connectedOpening?.amount ?? 0) < 0
-                  ? "I owe farmer (advance/credit)"
-                  : "No opening balance"}
-            </p>
-            {connectedOpening?.status && (
-              <div className="mt-2">
-                <Badge variant="secondary" className="text-xs">
-                  {connectedOpening.status === "PENDING_ACK"
-                    ? "Pending farmer acknowledgement"
-                    : connectedOpening.status === "ACKNOWLEDGED"
-                      ? "Acknowledged"
-                      : connectedOpening.status === "DISPUTED"
-                        ? "Disputed"
-                        : connectedOpening.status}
-                </Badge>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
       {/* Account Summary Cards */}
-      <div className={`grid gap-4 ${isFarmer ? "md:grid-cols-3" : "md:grid-cols-4"}`}>
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
@@ -452,38 +285,36 @@ export default function CustomerAccountPage() {
           </CardContent>
         </Card>
 
-        {!isFarmer && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Opening balance</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div
-                className={`text-2xl font-bold ${Number(openingBalance?.amount ?? 0) > 0
-                  ? "text-red-600"
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Opening balance</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div
+              className={`text-2xl font-bold ${Number(openingBalance?.amount ?? 0) > 0
+                ? "text-red-600"
+                : Number(openingBalance?.amount ?? 0) < 0
+                  ? "text-green-600"
+                  : ""
+                }`}
+            >
+              {formatCurrency(Math.abs(Number(openingBalance?.amount ?? 0)))}
+            </div>
+            <div className="flex items-center justify-between gap-2 mt-1">
+              <p className="text-xs text-muted-foreground">
+                {Number(openingBalance?.amount ?? 0) > 0
+                  ? "Customer owes me"
                   : Number(openingBalance?.amount ?? 0) < 0
-                    ? "text-green-600"
-                    : ""
-                  }`}
-              >
-                {formatCurrency(Math.abs(Number(openingBalance?.amount ?? 0)))}
-              </div>
-              <div className="flex items-center justify-between gap-2 mt-1">
-                <p className="text-xs text-muted-foreground">
-                  {Number(openingBalance?.amount ?? 0) > 0
-                    ? "Customer owes me"
-                    : Number(openingBalance?.amount ?? 0) < 0
-                      ? "I owe customer (advance/credit)"
-                      : "No opening balance"}
-                </p>
-                <Button variant="outline" size="sm" onClick={openEditOpening}>
-                  Edit
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                    ? "I owe customer (advance/credit)"
+                    : "No opening balance"}
+              </p>
+              <Button variant="outline" size="sm" onClick={openEditOpening}>
+                Edit
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Account Statement with Tabs */}
@@ -491,9 +322,7 @@ export default function CustomerAccountPage() {
         <CardHeader>
           <CardTitle>Account Statement</CardTitle>
           <CardDescription>
-            {isFarmer
-              ? "Sales and payment history. Payments are recorded at account level only (no bill-level payment)."
-              : "Sales and payment transaction history"}
+            Sales and payment transaction history
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -649,8 +478,7 @@ export default function CustomerAccountPage() {
                             Balance: {formatCurrency(Number(payment.balanceAfter ?? payment.balance))}
                           </p>
                         )}
-                        {!isFarmer &&
-                          payment.type === "PAYMENT_RECEIVED" &&
+                        {payment.type === "PAYMENT_RECEIVED" &&
                           !payment.saleId && (
                             <Button
                               type="button"
@@ -817,72 +645,6 @@ export default function CustomerAccountPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Connected Opening Balance Dialog (connected farmers only) */}
-      <Dialog
-        open={isEditConnectedOpeningOpen}
-        onOpenChange={setIsEditConnectedOpeningOpen}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit connected opening balance</DialogTitle>
-            <DialogDescription>
-              This will require the farmer to acknowledge again.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="sm:col-span-2 space-y-2">
-                <Label>Amount</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={connectedOpeningAmount}
-                  onChange={(e) => setConnectedOpeningAmount(e.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Direction</Label>
-                <Select
-                  value={connectedOpeningDirection}
-                  onValueChange={(v) => setConnectedOpeningDirection(v as any)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="OWED">Farmer owes me</SelectItem>
-                    <SelectItem value="ADVANCE">I owe farmer (advance/credit)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Notes (optional)</Label>
-              <Input
-                value={connectedOpeningNotes}
-                onChange={(e) => setConnectedOpeningNotes(e.target.value)}
-                placeholder="Reason / context"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsEditConnectedOpeningOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={saveConnectedOpening}
-              disabled={setConnectedOpeningMutation.isPending}
-            >
-              {setConnectedOpeningMutation.isPending ? "Saving..." : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -1,14 +1,16 @@
 import { Router } from "express";
-import {
-  getDealerFarmerAccounts,
-  getDealerFarmerAccount,
-  getDealerFarmerAccountStatement,
-  setFarmerBalanceLimit,
-  checkFarmerBalanceLimit,
-} from "../controller/dealerFarmerAccountController";
 import { authMiddleware } from "../middelware/middelware";
 
 const router = Router();
+
+const removedRouteHandler = (req: any, res: any) => {
+  return res.status(410).json({
+    success: false,
+    message:
+      "Dealer farmer account workflows have been removed. Use the normal customer ledger routes and manual customer flow instead.",
+    route: req.originalUrl,
+  });
+};
 
 // All routes require dealer authentication
 router.use((req, res, next) => {
@@ -16,18 +18,18 @@ router.use((req, res, next) => {
 });
 
 // List all farmer accounts for the authenticated dealer
-router.get("/", getDealerFarmerAccounts);
+router.get("/", removedRouteHandler);
 
 // Get a specific farmer account
-router.get("/:farmerId", getDealerFarmerAccount);
+router.get("/:farmerId", removedRouteHandler);
 
 // Set farmer balance limit
-router.put("/:farmerId/balance-limit", setFarmerBalanceLimit);
+router.put("/:farmerId/balance-limit", removedRouteHandler);
 
 // Check farmer balance limit (e.g. before creating sale)
-router.post("/:farmerId/check-balance-limit", checkFarmerBalanceLimit);
+router.post("/:farmerId/check-balance-limit", removedRouteHandler);
 
 // Get account statement for a farmer
-router.get("/:farmerId/statement", getDealerFarmerAccountStatement);
+router.get("/:farmerId/statement", removedRouteHandler);
 
 export default router;

@@ -46,17 +46,19 @@ router.get("/companies/search", searchCompanies);
 // Create customer on-the-fly
 router.post("/customers", createCustomer);
 
-// Archive / Unarchive / Delete dealer customers (non-connected only)
+// Archive / Unarchive / Delete dealer customers
 router.post("/customers/:id/archive", archiveDealerCustomer);
 router.post("/customers/:id/unarchive", unarchiveDealerCustomer);
 router.delete("/customers/:id", deleteDealerCustomer);
 
-//create mock info controler 
+// Removed sale-request workflow placeholder
 
 const saleRequestRemoved = (req:Request, res:Response)=>{
 
-  res.status(401).json({
-    "message":"Dealer sake routes Removed "
+  res.status(410).json({
+    success: false,
+    message: "Dealer sale request workflows have been removed. Use the normal customer sales flow instead.",
+    route: req.originalUrl,
   })
 
 }
@@ -77,11 +79,10 @@ router.get("/requests/:id", saleRequestRemoved);
 // Get dealer sale by ID
 router.get("/:id", getDealerSaleById);
 
-// Delete dealer sale (manual customer only, password required)
+// Delete dealer sale (password required)
 router.delete("/:id", deleteDealerSale);
 
-// Add payment to sale
+// Sale-level payment route kept only as an explicit removed-flow marker
 router.post("/:id/payments", addSalePayment);
 
 export default router;
-
