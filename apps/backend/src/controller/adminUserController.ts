@@ -463,6 +463,12 @@ async function hardDeleteUserData(userId: string) {
       ).map((product) => product.id);
 
       if (dealerProductIds.length > 0) {
+        await tx.dealerSaleItem.deleteMany({
+          where: {
+            productId: { in: dealerProductIds },
+          },
+        });
+
         await tx.dealerProductTransaction.deleteMany({
           where: {
             productId: { in: dealerProductIds },
