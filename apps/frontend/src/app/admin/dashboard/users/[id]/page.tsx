@@ -35,6 +35,14 @@ import {
   useGetAdminUserById,
   type AdminUserDetail,
 } from "@/fetchers/admin/userQueries";
+import {
+  useGetAdminDealerById,
+  type AdminDealerDetail,
+} from "@/fetchers/admin/dealerQueries";
+import {
+  useGetAdminCompanyById,
+  type AdminCompanyDetail,
+} from "@/fetchers/admin/companyQueries";
 
 const ROLE_COLORS: Record<string, string> = {
   OWNER: "bg-blue-100 text-blue-800",
@@ -145,7 +153,6 @@ function DealerConnectionsSection({ connections }: {
               <TableHead>Name</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Address</TableHead>
-              <TableHead>Connected Via</TableHead>
               <TableHead>Connected At</TableHead>
             </TableRow>
           </TableHeader>
@@ -155,11 +162,6 @@ function DealerConnectionsSection({ connections }: {
                 <TableCell className="font-medium">{conn.dealer.name}</TableCell>
                 <TableCell className="text-muted-foreground">{conn.dealer.contact}</TableCell>
                 <TableCell className="text-muted-foreground">{conn.dealer.address || "--"}</TableCell>
-                <TableCell>
-                  <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-                    {conn.connectedVia || "Unknown"}
-                  </span>
-                </TableCell>
                 <TableCell className="text-muted-foreground">
                   {new Date(conn.connectedAt).toLocaleDateString()}
                 </TableCell>
@@ -172,7 +174,7 @@ function DealerConnectionsSection({ connections }: {
   );
 }
 
-function DealerEntitySection({ dealer }: { dealer: NonNullable<AdminUserDetail["dealer"]> }) {
+function DealerEntitySection({ dealer }: { dealer: AdminDealerDetail }) {
   return (
     <>
       {/* Dealer's companies */}
@@ -193,7 +195,6 @@ function DealerEntitySection({ dealer }: { dealer: NonNullable<AdminUserDetail["
                 <TableRow>
                   <TableHead>Company Name</TableHead>
                   <TableHead>Address</TableHead>
-                  <TableHead>Connected Via</TableHead>
                   <TableHead>Connected At</TableHead>
                 </TableRow>
               </TableHeader>
@@ -202,11 +203,6 @@ function DealerEntitySection({ dealer }: { dealer: NonNullable<AdminUserDetail["
                   <TableRow key={conn.company.id}>
                     <TableCell className="font-medium">{conn.company.name}</TableCell>
                     <TableCell className="text-muted-foreground">{conn.company.address || "--"}</TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-                        {conn.connectedVia || "Unknown"}
-                      </span>
-                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {new Date(conn.connectedAt).toLocaleDateString()}
                     </TableCell>
@@ -237,7 +233,6 @@ function DealerEntitySection({ dealer }: { dealer: NonNullable<AdminUserDetail["
                   <TableHead>Name</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead>Location</TableHead>
-                  <TableHead>Connected Via</TableHead>
                   <TableHead>Connected At</TableHead>
                 </TableRow>
               </TableHeader>
@@ -247,11 +242,6 @@ function DealerEntitySection({ dealer }: { dealer: NonNullable<AdminUserDetail["
                     <TableCell className="font-medium">{conn.farmer.name}</TableCell>
                     <TableCell className="text-muted-foreground">{conn.farmer.phone}</TableCell>
                     <TableCell className="text-muted-foreground">{conn.farmer.CompanyFarmLocation || "--"}</TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-                        {conn.connectedVia || "Unknown"}
-                      </span>
-                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {new Date(conn.connectedAt).toLocaleDateString()}
                     </TableCell>
@@ -266,7 +256,7 @@ function DealerEntitySection({ dealer }: { dealer: NonNullable<AdminUserDetail["
   );
 }
 
-function CompanyEntitySection({ company }: { company: NonNullable<AdminUserDetail["company"]> }) {
+function CompanyEntitySection({ company }: { company: AdminCompanyDetail }) {
   if (company.dealerCompanies.length === 0) return null;
   return (
     <Card>
@@ -286,7 +276,6 @@ function CompanyEntitySection({ company }: { company: NonNullable<AdminUserDetai
               <TableHead>Dealer Name</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Address</TableHead>
-              <TableHead>Connected Via</TableHead>
               <TableHead>Connected At</TableHead>
             </TableRow>
           </TableHeader>
@@ -296,11 +285,6 @@ function CompanyEntitySection({ company }: { company: NonNullable<AdminUserDetai
                 <TableCell className="font-medium">{conn.dealer.name}</TableCell>
                 <TableCell className="text-muted-foreground">{conn.dealer.contact}</TableCell>
                 <TableCell className="text-muted-foreground">{conn.dealer.address || "--"}</TableCell>
-                <TableCell>
-                  <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-                    {conn.connectedVia || "Unknown"}
-                  </span>
-                </TableCell>
                 <TableCell className="text-muted-foreground">
                   {new Date(conn.connectedAt).toLocaleDateString()}
                 </TableCell>
@@ -374,6 +358,12 @@ export default function AdminUserDetailPage({
   const { id } = use(params);
   const { data, isLoading, isError, refetch } = useGetAdminUserById(id);
   const user = data?.data;
+  const dealerEntityId = user?.dealer?.id ?? "";
+  const companyEntityId = user?.company?.id ?? "";
+  const { data: dealerDetailData } = useGetAdminDealerById(dealerEntityId);
+  const { data: companyDetailData } = useGetAdminCompanyById(companyEntityId);
+  const dealerEntity = dealerDetailData?.data;
+  const companyEntity = companyDetailData?.data;
 
   if (isLoading) {
     return (
@@ -625,14 +615,14 @@ export default function AdminUserDetailPage({
           <>
             <StatCard
               icon={Building2}
-              value={user.dealer.companies.length}
-              label={user.dealer.companies.length !== 1 ? "Companies" : "Company"}
+              value={dealerEntity?.companies.length ?? 0}
+              label={(dealerEntity?.companies.length ?? 0) !== 1 ? "Companies" : "Company"}
               color="bg-indigo-100 text-indigo-700"
             />
             <StatCard
               icon={Tractor}
-              value={user.dealer.farmerConnections.length}
-              label={user.dealer.farmerConnections.length !== 1 ? "Farmers" : "Farmer"}
+              value={dealerEntity?.farmerConnections.length ?? 0}
+              label={(dealerEntity?.farmerConnections.length ?? 0) !== 1 ? "Farmers" : "Farmer"}
               color="bg-emerald-100 text-emerald-700"
             />
           </>
@@ -640,8 +630,8 @@ export default function AdminUserDetailPage({
         {user.company && (
           <StatCard
             icon={Users}
-            value={user.company.dealerCompanies.length}
-            label={user.company.dealerCompanies.length !== 1 ? "Dealers" : "Dealer"}
+            value={companyEntity?.dealerCompanies.length ?? 0}
+            label={(companyEntity?.dealerCompanies.length ?? 0) !== 1 ? "Dealers" : "Dealer"}
             color="bg-orange-100 text-orange-700"
           />
         )}
@@ -659,8 +649,8 @@ export default function AdminUserDetailPage({
       <FarmsSection title="Owned Farms" farms={user.ownedFarms} />
       <FarmsSection title="Managed Farms" farms={user.managedFarms} />
       <DealerConnectionsSection connections={user.dealerConnections} />
-      {user.dealer && <DealerEntitySection dealer={user.dealer} />}
-      {user.company && <CompanyEntitySection company={user.company} />}
+      {dealerEntity && <DealerEntitySection dealer={dealerEntity} />}
+      {companyEntity && <CompanyEntitySection company={companyEntity} />}
       <DoctorConversationsSection conversations={user.doctorConversations} />
     </div>
   );

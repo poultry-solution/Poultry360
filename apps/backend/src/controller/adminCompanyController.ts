@@ -109,6 +109,7 @@ export const getCompanyById = async (
         },
         _count: {
           select: {
+            dealerAccounts: true,
             companySales: true,
             ledgerEntries: true,
           },
@@ -121,6 +122,19 @@ export const getCompanyById = async (
             status: true,
           },
         },
+        dealerAccounts: {
+          select: {
+            createdAt: true,
+            dealer: {
+              select: {
+                id: true,
+                name: true,
+                contact: true,
+                address: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -130,7 +144,13 @@ export const getCompanyById = async (
 
     return res.json({
       success: true,
-      data: company,
+      data: {
+        ...company,
+        dealerCompanies: company.dealerAccounts.map((account: any) => ({
+          connectedAt: account.createdAt,
+          dealer: account.dealer,
+        })),
+      },
     });
   } catch (error) {
     console.error("Get company by ID error:", error);

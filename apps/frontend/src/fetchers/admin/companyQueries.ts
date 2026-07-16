@@ -40,6 +40,42 @@ export interface AdminCompany {
   }>;
 }
 
+export interface AdminCompanyDetail {
+  id: string;
+  name: string;
+  address: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  owner: {
+    id: string;
+    name: string;
+    phone: string;
+    status: string;
+    createdAt: Date;
+    updatedAt?: Date;
+  };
+  _count: {
+    dealerAccounts: number;
+    companySales: number;
+    ledgerEntries: number;
+  };
+  managedBy: {
+    id: string;
+    name: string;
+    phone: string;
+    status: string;
+  } | null;
+  dealerCompanies: Array<{
+    connectedAt: string;
+    dealer: {
+      id: string;
+      name: string;
+      contact: string;
+      address: string | null;
+    };
+  }>;
+}
+
 export interface CreateCompanyInput {
   ownerName: string;
   ownerPhone: string;
@@ -71,7 +107,7 @@ export interface CompaniesResponse {
 
 export interface CompanyResponse {
   success: boolean;
-  data: AdminCompany;
+  data: AdminCompanyDetail;
 }
 
 export interface AdminCompanyFilters {

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { UserRole, UserStatus } from "@prisma/client";
+import bcrypt from "bcrypt";
 
 // ==================== GET ALL USERS ====================
 export const getAllUsers = async (
@@ -60,61 +61,8 @@ export const getAllUsers = async (
             select: {
               ownedFarms: true,
               managedFarms: true,
-              farmerAccounts: true,
               doctorConversations: true,
             },
-          },
-          // For DEALER users: their dealer entity
-          dealer: {
-            select: {
-              id: true,
-              name: true,
-              _count: {
-                select: {
-                  companyAccounts: true,
-                  farmerAccounts: true,
-                },
-              },
-              companyAccounts: {
-                select: {
-                  company: { select: { id: true, name: true } },
-                },
-                take: 5,
-              },
-              farmerAccounts: {
-                select: {
-                  farmer: { select: { id: true, name: true } },
-                },
-                take: 5,
-              },
-            },
-          },
-          // For COMPANY users: their company entity
-          company: {
-            select: {
-              id: true,
-              name: true,
-              _count: {
-                select: {
-                  dealerAccounts: true,
-                },
-              },
-              dealerAccounts: {
-                select: {
-                  dealer: { select: { id: true, name: true } },
-                },
-                take: 5,
-              },
-            },
-          },
-          // For OWNER/MANAGER: connected dealers (preview)
-          farmerAccounts: {
-            select: {
-              dealer: {
-                select: { id: true, name: true },
-              },
-            },
-            take: 3,
           },
           // Owned farms (preview)
           ownedFarms: {
@@ -136,38 +84,8 @@ export const getAllUsers = async (
       _count: {
         ownedFarms: user._count.ownedFarms,
         managedFarms: user._count.managedFarms,
-        dealerConnections: user._count.farmerAccounts,
         doctorConversations: user._count.doctorConversations,
       },
-      dealer: user.dealer
-        ? {
-            ...user.dealer,
-            _count: {
-              companies: user.dealer._count.companyAccounts,
-              farmerConnections: user.dealer._count.farmerAccounts,
-            },
-            companies: user.dealer.companyAccounts.map((account: any) => ({
-              company: account.company,
-            })),
-            farmerConnections: user.dealer.farmerAccounts.map((account: any) => ({
-              farmer: account.farmer,
-            })),
-          }
-        : null,
-      company: user.company
-        ? {
-            ...user.company,
-            _count: {
-              dealerCompanies: user.company._count.dealerAccounts,
-            },
-            dealerCompanies: user.company.dealerAccounts.map((account: any) => ({
-              dealer: account.dealer,
-            })),
-          }
-        : null,
-      dealerConnections: user.farmerAccounts.map((account: any) => ({
-        dealer: account.dealer,
-      })),
     }));
 
     return res.json({
@@ -255,34 +173,6 @@ export const getUserById = async (
             name: true,
             contact: true,
             address: true,
-            balance: true,
-            totalPurchases: true,
-            totalPayments: true,
-            companyAccounts: {
-              select: {
-                createdAt: true,
-                company: {
-                  select: {
-                    id: true,
-                    name: true,
-                    address: true,
-                  },
-                },
-              },
-            },
-            farmerAccounts: {
-              select: {
-                createdAt: true,
-                farmer: {
-                  select: {
-                    id: true,
-                    name: true,
-                    phone: true,
-                    CompanyFarmLocation: true,
-                  },
-                },
-              },
-            },
           },
         },
         // Company entity (for company users)
@@ -291,19 +181,6 @@ export const getUserById = async (
             id: true,
             name: true,
             address: true,
-            dealerAccounts: {
-              select: {
-                createdAt: true,
-                dealer: {
-                  select: {
-                    id: true,
-                    name: true,
-                    contact: true,
-                    address: true,
-                  },
-                },
-              },
-            },
           },
         },
         // Doctor conversations
@@ -336,34 +213,8 @@ export const getUserById = async (
       ...user,
       dealerConnections: user.farmerAccounts.map((account: any) => ({
         connectedAt: account.createdAt,
-        connectedVia: null,
         dealer: account.dealer,
       })),
-      dealer: user.dealer
-        ? {
-            ...user.dealer,
-            companies: user.dealer.companyAccounts.map((account: any) => ({
-              connectedAt: account.createdAt,
-              connectedVia: null,
-              company: account.company,
-            })),
-            farmerConnections: user.dealer.farmerAccounts.map((account: any) => ({
-              connectedAt: account.createdAt,
-              connectedVia: null,
-              farmer: account.farmer,
-            })),
-          }
-        : null,
-      company: user.company
-        ? {
-            ...user.company,
-            dealerCompanies: user.company.dealerAccounts.map((account: any) => ({
-              connectedAt: account.createdAt,
-              connectedVia: null,
-              dealer: account.dealer,
-            })),
-          }
-        : null,
     };
 
     return res.json({
@@ -375,6 +226,361 @@ export const getUserById = async (
     return res.status(500).json({
       success: false,
       message: "Failed to fetch user",
+    });
+  }
+};
+
+async function hardDeleteUserData(userId: string) {
+  await prisma.$transaction(async (tx) => {
+    const conversations = await tx.conversation.findMany({
+      where: {
+        OR: [{ farmerId: userId }, { doctorId: userId }],
+      },
+      select: { id: true },
+    });
+    const conversationIds = conversations.map((conversation) => conversation.id);
+
+    const batchShares = await tx.batchShare.findMany({
+      where: {
+        OR: [
+          { farmerId: userId },
+          { sharedWithId: userId },
+          ...(conversationIds.length > 0
+            ? [{ conversationId: { in: conversationIds } }]
+            : []),
+        ],
+      },
+      select: { id: true },
+    });
+    const batchShareIds = batchShares.map((share) => share.id);
+
+    if (batchShareIds.length > 0) {
+      await tx.message.updateMany({
+        where: {
+          batchShareId: { in: batchShareIds },
+        },
+        data: {
+          batchShareId: null,
+        },
+      });
+
+      await tx.batchShare.deleteMany({
+        where: {
+          id: { in: batchShareIds },
+        },
+      });
+    }
+
+    await tx.batchShareView.deleteMany({
+      where: {
+        viewerId: userId,
+      },
+    });
+
+    if (conversationIds.length > 0) {
+      await tx.conversation.deleteMany({
+        where: {
+          id: { in: conversationIds },
+        },
+      });
+    }
+
+    await tx.message.deleteMany({
+      where: {
+        senderId: userId,
+      },
+    });
+
+    await tx.auditLog.deleteMany({
+      where: {
+        userId,
+      },
+    });
+
+    await tx.companyDealerPayment.deleteMany({
+      where: {
+        recordedById: userId,
+      },
+    });
+
+    await tx.dealerFarmerPayment.deleteMany({
+      where: {
+        recordedById: userId,
+      },
+    });
+
+    await tx.companyDealerAccount.updateMany({
+      where: {
+        balanceLimitSetBy: userId,
+      },
+      data: {
+        balanceLimitSetBy: null,
+      },
+    });
+
+    await tx.dealerFarmerAccount.updateMany({
+      where: {
+        balanceLimitSetBy: userId,
+      },
+      data: {
+        balanceLimitSetBy: null,
+      },
+    });
+
+    await tx.dealerCashMovement.updateMany({
+      where: {
+        recordedById: userId,
+      },
+      data: {
+        recordedById: null,
+      },
+    });
+
+    await tx.farmerCashMovement.updateMany({
+      where: {
+        recordedById: userId,
+      },
+      data: {
+        recordedById: null,
+      },
+    });
+
+    const categoryIds = (
+      await tx.category.findMany({
+        where: { userId },
+        select: { id: true },
+      })
+    ).map((category) => category.id);
+
+    const inventoryItemIds = (
+      await tx.inventoryItem.findMany({
+        where: { userId },
+        select: { id: true },
+      })
+    ).map((item) => item.id);
+
+    if (categoryIds.length > 0) {
+      await tx.sale.deleteMany({
+        where: {
+          categoryId: { in: categoryIds },
+        },
+      });
+
+      await tx.expense.deleteMany({
+        where: {
+          categoryId: { in: categoryIds },
+        },
+      });
+    }
+
+    if (inventoryItemIds.length > 0) {
+      await tx.inventoryUsage.deleteMany({
+        where: {
+          itemId: { in: inventoryItemIds },
+        },
+      });
+
+      await tx.inventoryTransaction.deleteMany({
+        where: {
+          itemId: { in: inventoryItemIds },
+        },
+      });
+
+      await tx.inventoryItem.deleteMany({
+        where: {
+          id: { in: inventoryItemIds },
+        },
+      });
+    }
+
+    if (categoryIds.length > 0) {
+      await tx.category.deleteMany({
+        where: {
+          id: { in: categoryIds },
+        },
+      });
+    }
+
+    await tx.hatcheryIncubationBatch.deleteMany({
+      where: {
+        hatcheryOwnerId: userId,
+      },
+    });
+
+    await tx.hatcheryBatch.deleteMany({
+      where: {
+        hatcheryOwnerId: userId,
+      },
+    });
+
+    await tx.hatcheryInventoryItem.deleteMany({
+      where: {
+        hatcheryOwnerId: userId,
+      },
+    });
+
+    await tx.hatcheryEggType.deleteMany({
+      where: {
+        hatcheryOwnerId: userId,
+      },
+    });
+
+    await tx.hatcheryParty.deleteMany({
+      where: {
+        hatcheryOwnerId: userId,
+      },
+    });
+
+    await tx.hatcherySupplier.deleteMany({
+      where: {
+        hatcheryOwnerId: userId,
+      },
+    });
+
+    const dealerIds = (
+      await tx.dealer.findMany({
+        where: {
+          OR: [{ userId }, { ownerId: userId }],
+        },
+        select: { id: true },
+      })
+    ).map((dealer) => dealer.id);
+
+    if (dealerIds.length > 0) {
+      await tx.dealerSale.deleteMany({
+        where: {
+          dealerId: { in: dealerIds },
+        },
+      });
+
+      const dealerProductIds = (
+        await tx.dealerProduct.findMany({
+          where: {
+            dealerId: { in: dealerIds },
+          },
+          select: { id: true },
+        })
+      ).map((product) => product.id);
+
+      if (dealerProductIds.length > 0) {
+        await tx.dealerProductTransaction.deleteMany({
+          where: {
+            productId: { in: dealerProductIds },
+          },
+        });
+
+        await tx.dealerProduct.deleteMany({
+          where: {
+            id: { in: dealerProductIds },
+          },
+        });
+      }
+
+      await tx.dealer.deleteMany({
+        where: {
+          id: { in: dealerIds },
+        },
+      });
+    }
+
+    await tx.user.delete({
+      where: {
+        id: userId,
+      },
+    });
+  });
+}
+
+// ==================== HARD DELETE USER (SUPER ADMIN) ====================
+export const hardDeleteUser = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+    const adminUserId = req.userId;
+
+    if (!adminUserId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    if (!password || typeof password !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Admin password is required",
+      });
+    }
+
+    if (adminUserId === id) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot delete your own super admin account",
+      });
+    }
+
+    const [adminUser, targetUser] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: adminUserId },
+        select: {
+          id: true,
+          password: true,
+          role: true,
+        },
+      }),
+      prisma.user.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          name: true,
+          role: true,
+        },
+      }),
+    ]);
+
+    if (!adminUser || adminUser.role !== UserRole.SUPER_ADMIN) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (targetUser.role === UserRole.SUPER_ADMIN) {
+      return res.status(403).json({
+        success: false,
+        message: "Super admin accounts cannot be deleted from this screen",
+      });
+    }
+
+    const passwordMatches = await bcrypt.compare(password, adminUser.password);
+    if (!passwordMatches) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid admin password",
+      });
+    }
+
+    await hardDeleteUserData(id);
+
+    return res.json({
+      success: true,
+      message: `User ${targetUser.name} and related data were permanently deleted`,
+    });
+  } catch (error: any) {
+    console.error("Hard delete user error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to hard delete user",
     });
   }
 };

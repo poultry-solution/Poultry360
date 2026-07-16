@@ -140,6 +140,8 @@ export const getDealerById = async (
             sales: true,
             ledgerEntries: true,
             companySales: true,
+            companyAccounts: true,
+            farmerAccounts: true,
           },
         },
         managers: {
@@ -148,6 +150,31 @@ export const getDealerById = async (
             name: true,
             phone: true,
             status: true,
+          },
+        },
+        companyAccounts: {
+          select: {
+            createdAt: true,
+            company: {
+              select: {
+                id: true,
+                name: true,
+                address: true,
+              },
+            },
+          },
+        },
+        farmerAccounts: {
+          select: {
+            createdAt: true,
+            farmer: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                CompanyFarmLocation: true,
+              },
+            },
           },
         },
       },
@@ -164,18 +191,14 @@ export const getDealerById = async (
 
     const dealerWithCompanies = {
       ...dealer,
-      companies: await prisma.companyDealerAccount.findMany({
-        where: { dealerId: dealer.id },
-        select: {
-          company: {
-            select: {
-              id: true,
-              name: true,
-              address: true,
-            },
-          },
-        },
-      }),
+      companies: dealer.companyAccounts.map((account: any) => ({
+        connectedAt: account.createdAt,
+        company: account.company,
+      })),
+      farmerConnections: dealer.farmerAccounts.map((account: any) => ({
+        connectedAt: account.createdAt,
+        farmer: account.farmer,
+      })),
     };
 
     return res.json({
@@ -292,14 +315,22 @@ export const createDealer = async (
         },
       });
 
-      // Create DealerCompany link if companyId provided
+      // Create a company-dealer account link if companyId is provided
       if (companyId) {
-        await (tx as any).dealerCompany.create({
-          data: {
+        await tx.companyDealerAccount.upsert({
+          where: {
+            companyId_dealerId: {
+              companyId,
+              dealerId: dealer.id,
+            },
+          },
+          update: {},
+          create: {
+            companyId,
             dealerId: dealer.id,
-            companyId: companyId,
-            connectedVia: "MANUAL",
-            connectedAt: new Date(),
+            balance: 0,
+            totalSales: 0,
+            totalPayments: 0,
           },
         });
       }
@@ -436,7 +467,7 @@ export const updateDealer = async (
       if (dealerContact) dealerUpdateData.contact = dealerContact;
       if (dealerAddress !== undefined)
         dealerUpdateData.address = dealerAddress || null;
-      // Don't update companyId - use DealerCompany relationship instead
+      // Don't update companyId directly - use the account relationship instead
 
       if (Object.keys(dealerUpdateData).length > 0) {
         await tx.dealer.update({
@@ -445,31 +476,27 @@ export const updateDealer = async (
         });
       }
 
-      // Handle company link via DealerCompany relationship
+      // Handle company link via company-dealer account relationship
       if (companyId !== undefined) {
         if (companyId) {
-          // Create or update DealerCompany link
-          const existingLink = await (tx as any).dealerCompany.findUnique({
+          await tx.companyDealerAccount.upsert({
             where: {
-              dealerId_companyId: {
+              companyId_dealerId: {
+                companyId,
                 dealerId: id,
-                companyId: companyId,
               },
             },
+            update: {},
+            create: {
+              companyId,
+              dealerId: id,
+              balance: 0,
+              totalSales: 0,
+              totalPayments: 0,
+            },
           });
-
-          if (!existingLink) {
-            await (tx as any).dealerCompany.create({
-              data: {
-                dealerId: id,
-                companyId: companyId,
-                connectedVia: "MANUAL",
-                connectedAt: new Date(),
-              },
-            });
-          }
         }
-        // If companyId is null, we leave existing links intact (admin can manually manage)
+        // If companyId is null, we leave existing links intact.
       }
 
       // Fetch updated dealer with owner

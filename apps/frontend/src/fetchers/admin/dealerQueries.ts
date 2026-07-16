@@ -49,6 +49,55 @@ export interface AdminDealer {
   }>;
 }
 
+export interface AdminDealerDetail {
+  id: string;
+  name: string;
+  contact: string;
+  address: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  ownerId: string;
+  owner: {
+    id: string;
+    name: string;
+    phone: string;
+    status: string;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+  _count: {
+    products: number;
+    sales: number;
+    ledgerEntries: number;
+    companySales: number;
+    companyAccounts: number;
+    farmerAccounts: number;
+  };
+  managers: Array<{
+    id: string;
+    name: string;
+    phone: string;
+    status: string;
+  }>;
+  companies: Array<{
+    connectedAt: string;
+    company: {
+      id: string;
+      name: string;
+      address: string | null;
+    };
+  }>;
+  farmerConnections: Array<{
+    connectedAt: string;
+    farmer: {
+      id: string;
+      name: string;
+      phone: string;
+      CompanyFarmLocation: string | null;
+    };
+  }>;
+}
+
 export interface CreateDealerInput {
   ownerName: string;
   ownerPhone: string;
@@ -84,7 +133,7 @@ export interface DealersResponse {
 
 export interface DealerResponse {
   success: boolean;
-  data: AdminDealer;
+  data: AdminDealerDetail;
 }
 
 export interface AdminDealerFilters {

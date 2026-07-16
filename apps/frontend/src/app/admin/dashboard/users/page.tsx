@@ -18,6 +18,7 @@ import {
 } from "@/common/components/ui/table";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -31,16 +32,24 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  Building2,
-  Tractor,
-  MessageCircle,
   Eye,
+  Trash2,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/common/components/ui/dialog";
 import {
   useGetAdminUsers,
   type AdminUser,
   type AdminUserFilters,
+  useHardDeleteAdminUser,
 } from "@/fetchers/admin/userQueries";
+import { toast } from "sonner";
 
 const ROLE_OPTIONS = [
   { value: "OWNER", label: "Owner" },
@@ -70,146 +79,14 @@ const STATUS_COLORS: Record<string, string> = {
   PENDING_VERIFICATION: "bg-yellow-100 text-yellow-800",
 };
 
-function ConnectionChip({
-  icon: Icon,
-  count,
-  label,
-  color,
-  names,
-}: {
-  icon: typeof Users;
-  count: number;
-  label: string;
-  color: string;
-  names?: string[];
-}) {
-  const maxShow = 3;
-  const tooltipText =
-    names && names.length > 0
-      ? count > maxShow
-        ? `${names.slice(0, maxShow).join(", ")} +${count - maxShow} more`
-        : names.slice(0, maxShow).join(", ")
-      : undefined;
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium cursor-default ${color} ${tooltipText ? "relative group" : ""}`}
-    >
-      <Icon className="size-3.5" />
-      {count} {label}
-      {tooltipText && (
-        <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900 px-3 py-1.5 text-xs font-normal text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-          {tooltipText}
-          <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-        </span>
-      )}
-    </span>
-  );
-}
-
-function ConnectionsBadges({ user }: { user: AdminUser }) {
-  const chips: React.ReactNode[] = [];
-
-  switch (user.role) {
-    case "OWNER":
-    case "MANAGER": {
-      if (user._count.dealerConnections > 0) {
-        chips.push(
-          <ConnectionChip
-            key="dealers"
-            icon={Users}
-            count={user._count.dealerConnections}
-            label={user._count.dealerConnections !== 1 ? "Dealers" : "Dealer"}
-            color="bg-orange-50 text-orange-700 border border-orange-200"
-            names={user.dealerConnections.map((c) => c.dealer.name)}
-          />
-        );
-      }
-      break;
-    }
-    case "DEALER": {
-      if (user.dealer) {
-        const companyCount = user.dealer._count.companies;
-        const farmerCount = user.dealer._count.farmerConnections;
-        if (companyCount > 0) {
-          chips.push(
-            <ConnectionChip
-              key="companies"
-              icon={Building2}
-              count={companyCount}
-              label={companyCount !== 1 ? "Companies" : "Company"}
-              color="bg-indigo-50 text-indigo-700 border border-indigo-200"
-              names={user.dealer.companies.map((c) => c.company.name)}
-            />
-          );
-        }
-        if (farmerCount > 0) {
-          chips.push(
-            <ConnectionChip
-              key="farmers"
-              icon={Tractor}
-              count={farmerCount}
-              label={farmerCount !== 1 ? "Farmers" : "Farmer"}
-              color="bg-emerald-50 text-emerald-700 border border-emerald-200"
-              names={user.dealer.farmerConnections.map((c) => c.farmer.name)}
-            />
-          );
-        }
-      }
-      break;
-    }
-    case "COMPANY": {
-      if (user.company) {
-        const dealerCount = user.company._count.dealerCompanies;
-        if (dealerCount > 0) {
-          chips.push(
-            <ConnectionChip
-              key="dealers"
-              icon={Users}
-              count={dealerCount}
-              label={dealerCount !== 1 ? "Dealers" : "Dealer"}
-              color="bg-orange-50 text-orange-700 border border-orange-200"
-              names={user.company.dealerCompanies.map((c) => c.dealer.name)}
-            />
-          );
-        }
-      }
-      break;
-    }
-    case "DOCTOR": {
-      const convCount = user._count.doctorConversations;
-      if (convCount > 0) {
-        chips.push(
-          <ConnectionChip
-            key="conversations"
-            icon={MessageCircle}
-            count={convCount}
-            label={convCount !== 1 ? "Patients" : "Patient"}
-            color="bg-sky-50 text-sky-700 border border-sky-200"
-          />
-        );
-      }
-      break;
-    }
-  }
-
-  if (chips.length === 0) {
-    return (
-      <span className="text-xs italic text-muted-foreground">
-        No connections
-      </span>
-    );
-  }
-
-  return <div className="flex flex-wrap gap-1.5">{chips}</div>;
-}
-
 export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string | undefined>();
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
   const [page, setPage] = useState(1);
+  const [deleteUser, setDeleteUser] = useState<AdminUser | null>(null);
+  const [adminPassword, setAdminPassword] = useState("");
 
   // Debounce search
   useEffect(() => {
@@ -236,6 +113,7 @@ export default function AdminUsersPage() {
   };
 
   const { data, isLoading, isError, refetch } = useGetAdminUsers(filters);
+  const hardDeleteUser = useHardDeleteAdminUser();
 
   const users = data?.data ?? [];
   const pagination = data?.pagination;
@@ -249,13 +127,41 @@ export default function AdminUsersPage() {
     setPage(1);
   };
 
+  const closeDeleteDialog = () => {
+    if (hardDeleteUser.isPending) return;
+    setDeleteUser(null);
+    setAdminPassword("");
+  };
+
+  const handleHardDelete = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!deleteUser) return;
+
+    if (!adminPassword.trim()) {
+      toast.error("Admin password is required");
+      return;
+    }
+
+    try {
+      const response = await hardDeleteUser.mutateAsync({
+        id: deleteUser.id,
+        password: adminPassword,
+      });
+      toast.success(response.message || "User deleted successfully");
+      closeDeleteDialog();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to delete user");
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">User Management</h1>
         <p className="text-muted-foreground">
-          View all registered users and their connections
+          View all registered users
         </p>
       </div>
 
@@ -379,7 +285,6 @@ export default function AdminUsersPage() {
                   <TableHead>Phone</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Connections</TableHead>
                   <TableHead>Joined</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -416,9 +321,6 @@ export default function AdminUsersPage() {
                           : user.status}
                       </span>
                     </TableCell>
-                    <TableCell>
-                      <ConnectionsBadges user={user} />
-                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {new Date(user.createdAt).toLocaleDateString()}
                     </TableCell>
@@ -429,6 +331,16 @@ export default function AdminUsersPage() {
                           View
                         </Button>
                       </Link>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700"
+                        onClick={() => setDeleteUser(user)}
+                        disabled={hardDeleteUser.isPending}
+                      >
+                        <Trash2 className="mr-1 size-4" />
+                        Delete
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -466,6 +378,57 @@ export default function AdminUsersPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!deleteUser} onOpenChange={(open) => !open && closeDeleteDialog()}>
+        <DialogContent>
+          <form onSubmit={handleHardDelete}>
+            <DialogHeader>
+              <DialogTitle>Hard Delete User</DialogTitle>
+              <DialogDescription>
+                This permanently deletes <span className="font-medium text-foreground">{deleteUser?.name}</span> and all related data.
+                This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                Hard delete will remove the user record and dependent data from the database.
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="admin-password">Confirm Super Admin Password</Label>
+                <Input
+                  id="admin-password"
+                  type="password"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  disabled={hardDeleteUser.isPending}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDeleteDialog}
+                disabled={hardDeleteUser.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="destructive"
+                disabled={!adminPassword.trim() || hardDeleteUser.isPending}
+              >
+                {hardDeleteUser.isPending ? "Deleting..." : "Delete Permanently"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

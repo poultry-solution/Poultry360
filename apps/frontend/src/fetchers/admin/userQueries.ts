@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 
 // ==================== QUERY KEYS ====================
@@ -26,30 +26,8 @@ export interface AdminUser {
   _count: {
     ownedFarms: number;
     managedFarms: number;
-    dealerConnections: number;
     doctorConversations: number;
   };
-  dealer: {
-    id: string;
-    name: string;
-    _count: {
-      companies: number;
-      farmerConnections: number;
-    };
-    companies: Array<{ company: { id: string; name: string } }>;
-    farmerConnections: Array<{ farmer: { id: string; name: string } }>;
-  } | null;
-  company: {
-    id: string;
-    name: string;
-    _count: {
-      dealerCompanies: number;
-    };
-    dealerCompanies: Array<{ dealer: { id: string; name: string } }>;
-  } | null;
-  dealerConnections: Array<{
-    dealer: { id: string; name: string };
-  }>;
   ownedFarms: Array<{ id: string; name: string }>;
   managedFarms: Array<{ id: string; name: string }>;
 }
@@ -137,7 +115,6 @@ export interface AdminUserDetail {
   }>;
   dealerConnections: Array<{
     connectedAt: string;
-    connectedVia: string | null;
     dealer: {
       id: string;
       name: string;
@@ -150,39 +127,11 @@ export interface AdminUserDetail {
     name: string;
     contact: string;
     address: string | null;
-    balance: string;
-    totalPurchases: string;
-    totalPayments: string;
-    companies: Array<{
-      connectedAt: string;
-      connectedVia: string | null;
-      company: { id: string; name: string; address: string | null };
-    }>;
-    farmerConnections: Array<{
-      connectedAt: string;
-      connectedVia: string | null;
-      farmer: {
-        id: string;
-        name: string;
-        phone: string;
-        CompanyFarmLocation: string | null;
-      };
-    }>;
   } | null;
   company: {
     id: string;
     name: string;
     address: string | null;
-    dealerCompanies: Array<{
-      connectedAt: string;
-      connectedVia: string | null;
-      dealer: {
-        id: string;
-        name: string;
-        contact: string;
-        address: string | null;
-      };
-    }>;
   } | null;
   doctorConversations: Array<{
     id: string;
@@ -198,6 +147,11 @@ export interface AdminUserDetailResponse {
   data: AdminUserDetail;
 }
 
+export interface HardDeleteAdminUserInput {
+  id: string;
+  password: string;
+}
+
 // Get user by ID
 export const useGetAdminUserById = (id: string) => {
   return useQuery<AdminUserDetailResponse>({
@@ -209,5 +163,22 @@ export const useGetAdminUserById = (id: string) => {
       return data;
     },
     enabled: !!id,
+  });
+};
+
+export const useHardDeleteAdminUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, password }: HardDeleteAdminUserInput) => {
+      const { data } = await axiosInstance.delete(`/admin/users/${id}`, {
+        data: { password },
+      });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: adminUserKeys.lists() });
+      queryClient.removeQueries({ queryKey: adminUserKeys.detail(variables.id) });
+    },
   });
 };

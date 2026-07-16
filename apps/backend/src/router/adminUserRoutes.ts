@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAllUsers, getUserById } from "../controller/adminUserController";
+import { getAllUsers, getUserById, hardDeleteUser } from "../controller/adminUserController";
 import { getPendingOtps } from "../controller/passwordResetController";
 import { authMiddleware } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
@@ -21,5 +21,8 @@ router.get("/password-reset/otps", getPendingOtps);
 
 // Get user by ID with full details
 router.get("/:id", getUserById);
+
+// Hard delete user with super admin password confirmation
+router.delete("/:id", hardDeleteUser);
 
 export default router;
