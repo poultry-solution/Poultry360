@@ -11,9 +11,6 @@
     "seed": "ts-node src/scripts/seedStandardVaccinationSchedule.ts",
     "build": "tsc"
   },
-  "prisma": {
-    "seed": "ts-node prisma/seed.ts"
-  },
   "keywords": [],
   "author": "",
   "license": "ISC",

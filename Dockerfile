@@ -37,9 +37,6 @@ RUN cd apps/backend && npx prisma generate
 # Build backend TypeScript
 RUN pnpm --filter backend run build
 
-# Compile seed.ts separately for production use
-RUN cd apps/backend && npx tsc prisma/seed.ts --outDir prisma/dist --esModuleInterop --skipLibCheck --module commonjs --target es2016
-
 # ============================================================
 # Stage 3: Deploy — isolated prod-only node_modules via pnpm deploy
 # ============================================================
@@ -62,10 +59,9 @@ COPY --from=deploy /app/deployed/node_modules ./node_modules
 # Copy compiled backend
 COPY --from=build /app/apps/backend/dist ./dist
 
-# Copy Prisma schema, migrations, and compiled seed
+# Copy Prisma schema and migrations
 COPY --from=build /app/apps/backend/prisma/schema.prisma ./prisma/schema.prisma
 COPY --from=build /app/apps/backend/prisma/migrations ./prisma/migrations
-COPY --from=build /app/apps/backend/prisma/dist ./prisma/dist
 
 # Copy shared-types dist into node_modules (needed at runtime via workspace: link)
 COPY --from=build /app/packages/shared-types/dist ./node_modules/@myapp/shared-types/dist
