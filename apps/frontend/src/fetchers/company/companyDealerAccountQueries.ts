@@ -19,6 +19,8 @@ export interface DealerAccountInfo {
   dealerName: string;
   dealerContact: string;
   dealerAddress?: string;
+  connectionType?: "CONNECTED" | "MANUAL";
+  isManualDealer?: boolean;
   balance: number;
   totalSales: number;
   totalPayments: number;

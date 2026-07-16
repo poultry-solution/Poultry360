@@ -276,17 +276,6 @@ export const deleteCompanyProduct = async (
       });
     }
 
-    // Check if product is in consignments
-    const consignmentItemCount = await prisma.consignmentItem.count({
-      where: { companyProductId: id },
-    });
-
-    if (consignmentItemCount > 0) {
-      return res.status(400).json({
-        message: "Cannot delete product that is in consignments",
-      });
-    }
-
     // Delete product
     await prisma.product.delete({
       where: { id },
@@ -341,27 +330,26 @@ export const getCompanyProductSummary = async (
       return sum + Number(product.totalPrice);
     }, 0);
 
-    // Get connected dealers count from DealerCompany relationship
-    // Also count manually created dealers (those with userId = current user)
+    // Count unique dealers reachable from the surviving company account relation
+    // plus manually created company-side dealers.
     let dealersCount = 0;
 
     if (company) {
-      // Count connected dealers (active, not archived by company)
-      const connectedDealers = await (prisma as any).dealerCompany.count({
-        where: {
-          companyId: company.id,
-          archivedByCompany: false,
-        },
-      });
+      const [accountDealers, manualDealers] = await Promise.all([
+        prisma.companyDealerAccount.findMany({
+          where: { companyId: company.id },
+          select: { dealerId: true },
+        }),
+        prisma.dealer.findMany({
+          where: { userId: userId },
+          select: { id: true },
+        }),
+      ]);
 
-      // Count manually created dealers
-      const manualDealers = await prisma.dealer.count({
-        where: {
-          userId: userId,
-        },
-      });
-
-      dealersCount = connectedDealers + manualDealers;
+      const uniqueDealerIds = new Set<string>();
+      accountDealers.forEach((account) => uniqueDealerIds.add(account.dealerId));
+      manualDealers.forEach((dealer) => uniqueDealerIds.add(dealer.id));
+      dealersCount = uniqueDealerIds.size;
     }
 
     return res.status(200).json({
@@ -438,4 +426,3 @@ export const adjustCompanyProductStock = async (
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-

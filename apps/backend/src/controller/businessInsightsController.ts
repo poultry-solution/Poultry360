@@ -21,7 +21,7 @@ export const getDealerInsights = async (
         const company = await prisma.company.findUnique({
             where: { ownerId: currentUserId },
             include: {
-                dealerCompanies: {
+                dealerAccounts: {
                     include: {
                         dealer: {
                             include: {
@@ -39,11 +39,6 @@ export const getDealerInsights = async (
                                         balance: true
                                     }
                                 },
-                                farmerConnections: {
-                                    select: {
-                                        id: true
-                                    }
-                                }
                             },
                         },
                     },
@@ -57,8 +52,8 @@ export const getDealerInsights = async (
 
         // Aggregate data for each dealer
         const dealerInsights = await Promise.all(
-            company.dealerCompanies.map(async (dc: any) => {
-                const dealer = dc.dealer;
+            company.dealerAccounts.map(async (accountLink: any) => {
+                const dealer = accountLink.dealer;
                 const dealerId = dealer.id;
 
                 // 1. Sales Volume (company -> dealer)
@@ -116,9 +111,9 @@ export const getDealerInsights = async (
                 });
 
                 // 4. Connected Farmers
-                const connectedFarmersCount = await prisma.dealerFarmer.count({
+                const connectedFarmersCount = await prisma.dealerFarmerAccount.count({
                     where: {
-                        dealerId: dealerId
+                        dealerId: dealerId,
                     }
                 });
 
@@ -166,7 +161,7 @@ export const getDealerInsights = async (
                     dealerMonthlySales: dealerThisMonthSales._sum.totalAmount || 0, // Sales by Dealer to Farmers (This Month)
 
                     // Status (simple logic for now)
-                    isActive: !dc.archivedByCompany,
+                    isActive: true,
                 };
             })
         );

@@ -1,5 +1,5 @@
 import prisma from "../utils/prisma";
-import { ConsignmentStatus, DiscountType as PrismaDiscountType, Prisma } from "@prisma/client";
+import { DiscountType as PrismaDiscountType, Prisma } from "@prisma/client";
 import {
   computeDiscountAmount,
   distributeDiscountToItems,
@@ -681,7 +681,6 @@ export class DealerService {
               farmer: true,
             },
           },
-          consignment: true,
         },
       }),
       prisma.dealerLedgerEntry.count({ where }),
@@ -696,4 +695,3 @@ export class DealerService {
     };
   }
 }
-

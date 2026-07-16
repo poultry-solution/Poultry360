@@ -27,7 +27,7 @@ export interface CreateCompanyDealerInput {
   address?: string;
 }
 
-export interface UpdateCompanyDealerInput extends Partial<CreateCompanyDealerInput> {}
+export type UpdateCompanyDealerInput = Partial<CreateCompanyDealerInput>;
 
 // Get company dealers
 export const useGetCompanyDealers = (params?: {
@@ -37,7 +37,7 @@ export const useGetCompanyDealers = (params?: {
 }) => {
   const queryString = new URLSearchParams(
     Object.entries(params || {})
-      .filter(([_, v]) => v !== undefined)
+      .filter(([, v]) => v !== undefined)
       .map(([k, v]) => [k, String(v)])
   ).toString();
 
@@ -121,53 +121,3 @@ export const useDeleteCompanyDealer = () => {
     },
   });
 };
-
-// Archive company-dealer connection
-export const useArchiveCompanyDealer = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (connectionId: string) => {
-      const { data } = await axiosInstance.post(
-        `/verification/companies/dealers/${connectionId}/archive`
-      );
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: companyDealerKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: ["company-dealers"] });
-      queryClient.invalidateQueries({ queryKey: ["company-dealers-archived"] });
-    },
-  });
-};
-
-// Unarchive company-dealer connection
-export const useUnarchiveCompanyDealer = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (connectionId: string) => {
-      const { data } = await axiosInstance.post(
-        `/verification/companies/dealers/${connectionId}/unarchive`
-      );
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: companyDealerKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: ["company-dealers"] });
-      queryClient.invalidateQueries({ queryKey: ["company-dealers-archived"] });
-    },
-  });
-};
-
-// Get archived dealers for company
-export const useGetArchivedCompanyDealers = () => {
-  return useQuery({
-    queryKey: ["company-dealers-archived"],
-    queryFn: async () => {
-      const { data } = await axiosInstance.get("/verification/companies/dealers/archived");
-      return data;
-    },
-  });
-};
-

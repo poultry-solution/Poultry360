@@ -48,13 +48,11 @@ export const getAllDealers = async (
     let where: any;
     let dealerCompanyConnections: Map<string, { connectionId: string; connectionType: string }> = new Map();
 
-    // For company users, get dealers linked via DealerCompany relationship OR manually created
+    // For company users, get dealers linked via surviving company-dealer accounts OR manually created
     if (currentUserRole === UserRole.COMPANY && company) {
-      // Get dealer IDs linked to this company via DealerCompany table (exclude archived)
-      const dealerCompanies = await (prisma as any).dealerCompany.findMany({
+      const dealerAccounts = await prisma.companyDealerAccount.findMany({
         where: {
           companyId: company.id,
-          archivedByCompany: false, // Filter out archived connections
         },
         select: {
           id: true,
@@ -62,12 +60,12 @@ export const getAllDealers = async (
         },
       });
 
-      const linkedDealerIds = dealerCompanies.map((dc: any) => dc.dealerId);
+      const linkedDealerIds = dealerAccounts.map((account) => account.dealerId);
 
       // Store connection metadata for later use
-      dealerCompanies.forEach((dc: any) => {
-        dealerCompanyConnections.set(dc.dealerId, {
-          connectionId: dc.id,
+      dealerAccounts.forEach((account) => {
+        dealerCompanyConnections.set(account.dealerId, {
+          connectionId: account.id,
           connectionType: "CONNECTED",
         });
       });
@@ -427,6 +425,7 @@ export const createDealer = async (
 ): Promise<any> => {
   try {
     const currentUserId = req.userId;
+    const currentUserRole = req.role;
 
     // Validate request body
     const { success, data, error } = CreateDealerSchema.safeParse(req.body);
@@ -448,14 +447,50 @@ export const createDealer = async (
         .json({ message: "Dealer with this name already exists" });
     }
 
-    // Create dealer
-    const dealer = await prisma.dealer.create({
-      data: {
-        name: data.name,
-        contact: data.contact,
-        address: data.address,
-        userId: currentUserId as string,
-      },
+    let companyId: string | null = null;
+    if (currentUserRole === UserRole.COMPANY) {
+      const company = await prisma.company.findUnique({
+        where: { ownerId: currentUserId },
+        select: { id: true },
+      });
+
+      if (!company) {
+        return res.status(404).json({ message: "Company not found" });
+      }
+
+      companyId = company.id;
+    }
+
+    const dealer = await prisma.$transaction(async (tx) => {
+      const createdDealer = await tx.dealer.create({
+        data: {
+          name: data.name,
+          contact: data.contact,
+          address: data.address,
+          userId: currentUserId as string,
+        },
+      });
+
+      if (companyId) {
+        await tx.companyDealerAccount.upsert({
+          where: {
+            companyId_dealerId: {
+              companyId,
+              dealerId: createdDealer.id,
+            },
+          },
+          update: {},
+          create: {
+            companyId,
+            dealerId: createdDealer.id,
+            balance: 0,
+            totalSales: 0,
+            totalPayments: 0,
+          },
+        });
+      }
+
+      return createdDealer;
     });
 
     return res.status(201).json({
@@ -561,12 +596,12 @@ export const deleteDealer = async (
         return res.status(404).json({ message: "Company not found" });
       }
 
-      // Check if dealer is connected via DealerCompany
-      const dealerCompanyConnection = await (prisma as any).dealerCompany.findUnique({
+      // Check if dealer already has a company-dealer account entry
+      const dealerCompanyConnection = await prisma.companyDealerAccount.findUnique({
         where: {
-          dealerId_companyId: {
-            dealerId: id,
+          companyId_dealerId: {
             companyId: company.id,
+            dealerId: id,
           },
         },
       });
@@ -579,22 +614,10 @@ export const deleteDealer = async (
         return res.status(404).json({ message: "Dealer not found" });
       }
 
-      // For connected dealers, archive the connection instead of deleting
+      // For account-linked dealers, do not allow deletion from this endpoint.
       if (dealerCompanyConnection && !isManualDealer) {
-        // Archive the connection
-        await (prisma as any).dealerCompany.update({
-          where: {
-            dealerId_companyId: {
-              dealerId: id,
-              companyId: company.id,
-            },
-          },
-          data: { archivedByCompany: true },
-        });
-
-        return res.json({
-          success: true,
-          message: "Dealer connection archived successfully",
+        return res.status(403).json({
+          message: "You can only delete dealers you created manually.",
         });
       }
 
@@ -1407,14 +1430,13 @@ export const getCompanyProducts = async (
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    // Verify dealer has connection to company
-    const connection = await (prisma as any).dealerCompany.findUnique({
+    // Verify dealer has a company-dealer account relationship
+    const connection = await prisma.companyDealerAccount.findUnique({
       where: {
-        dealerId_companyId: {
+        companyId_dealerId: {
+          companyId: String(companyId),
           dealerId: dealer.id,
-          companyId: companyId,
         },
-        archivedByDealer: false,
       },
     });
 

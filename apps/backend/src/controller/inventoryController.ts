@@ -869,11 +869,10 @@ export const getInventoryTableData = async (
     )];
     const connections =
       dealerIds.length > 0
-        ? await prisma.dealerFarmer.findMany({
+        ? await prisma.dealerFarmerAccount.findMany({
             where: {
               dealerId: { in: dealerIds },
               farmerId: currentUserId,
-              archivedByFarmer: false,
             },
             select: { dealerId: true },
           })

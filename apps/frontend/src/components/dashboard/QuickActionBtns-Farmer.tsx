@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/common/components/ui/button";
-import { Plus, ClipboardList, Wallet, Skull, Egg, Loader2 } from "lucide-react";
+import { Plus, Wallet, Skull, Egg, Loader2 } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
 import { getTodayLocalDate } from "@/common/lib/utils";
 import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
@@ -597,17 +597,6 @@ export function QuickActionBtnsFarmer() {
             {t("farmer.dashboard.quickActions.addEggProduction")}
           </Button>
         )}
-        <Link href="/farmer/dashboard/order-requests" className="inline-flex">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-2 hover:bg-green-50 hover:text-green-700 border-green-200"
-          >
-            <ClipboardList className="h-4 w-4" />
-            {t("farmer.dashboard.quickActions.orderRequests")}
-          </Button>
-        </Link>
       </div>
 
       {banner && (

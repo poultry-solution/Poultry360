@@ -43,20 +43,24 @@ import {
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRecordDealerPayment } from "@/fetchers/company/companyDealerAccountQueries";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  companyDealerAccountKeys,
+  useGetAllDealerAccounts,
+  useRecordDealerPayment,
+} from "@/fetchers/company/companyDealerAccountQueries";
 import { DateInput } from "@/common/components/ui/date-input";
 import { getNowLocalDateTime } from "@/common/lib/utils";
 
 interface Dealer {
   id: string;
+  dealerId: string;
   name: string;
   contact: string;
   address: string;
   balance: number;
-  createdAt: Date;
+  createdAt?: Date;
   connectionType?: "CONNECTED" | "MANUAL";
-  connectionId?: string;
   isOwnedDealer?: boolean;
 }
 
@@ -80,16 +84,7 @@ export default function CompanyDealersPage() {
     address: "",
   });
 
-  // Get dealers
-  const { data: dealersData, isLoading } = useQuery({
-    queryKey: ["company-dealers", search],
-    queryFn: async () => {
-      const { data } = await axiosInstance.get("/dealers", {
-        params: search ? { search } : {},
-      });
-      return data;
-    },
-  });
+  const { data: accountDealers = [], isLoading } = useGetAllDealerAccounts();
 
   const queryClient = useQueryClient();
 
@@ -100,7 +95,7 @@ export default function CompanyDealersPage() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["company-dealers"] });
+      queryClient.invalidateQueries({ queryKey: companyDealerAccountKeys.lists() });
       toast.success("Dealer created successfully");
       handleCloseDialog();
     },
@@ -116,7 +111,7 @@ export default function CompanyDealersPage() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["company-dealers"] });
+      queryClient.invalidateQueries({ queryKey: companyDealerAccountKeys.lists() });
       toast.success("Dealer updated successfully");
       handleCloseDialog();
     },
@@ -132,7 +127,7 @@ export default function CompanyDealersPage() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["company-dealers"] });
+      queryClient.invalidateQueries({ queryKey: companyDealerAccountKeys.lists() });
       toast.success("Dealer deleted successfully");
     },
     onError: (error: any) => {
@@ -233,7 +228,7 @@ export default function CompanyDealersPage() {
     }
 
     if (editingDealer) {
-      updateMutation.mutate({ ...formData, id: editingDealer.id });
+      updateMutation.mutate({ ...formData, id: editingDealer.dealerId });
     } else {
       createMutation.mutate(formData);
     }
@@ -255,9 +250,28 @@ export default function CompanyDealersPage() {
     }
   };
 
-  const dealers: Dealer[] = (dealersData?.data || []).filter(
-    (dealer: Dealer) => dealer.connectionType !== "CONNECTED"
-  );
+  const dealers: Dealer[] = accountDealers
+    .filter((dealer) => dealer.isManualDealer || dealer.connectionType === "MANUAL")
+    .map((dealer) => ({
+      id: dealer.id,
+      dealerId: dealer.dealerId,
+      name: dealer.dealerName,
+      contact: dealer.dealerContact,
+      address: dealer.dealerAddress || "",
+      balance: dealer.balance,
+      createdAt: undefined,
+      connectionType: dealer.connectionType,
+      isOwnedDealer: dealer.isManualDealer,
+    }))
+    .filter((dealer) => {
+      if (!search.trim()) return true;
+      const query = search.toLowerCase();
+      return (
+        dealer.name.toLowerCase().includes(query) ||
+        dealer.contact.toLowerCase().includes(query) ||
+        dealer.address.toLowerCase().includes(query)
+      );
+    });
 
   return (
     <div className="space-y-6">
@@ -363,7 +377,7 @@ export default function CompanyDealersPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => router.push(`/company/dashboard/dealers/${dealer.id}/account`)}
+                          onClick={() => router.push(`/company/dashboard/dealers/${dealer.dealerId}/account`)}
                         >
                           View Account
                         </Button>
@@ -373,7 +387,7 @@ export default function CompanyDealersPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDelete(dealer.id, dealer.name)}
+                          onClick={() => handleDelete(dealer.dealerId, dealer.name)}
                           disabled={deleteMutation.isPending}
                         >
                           <Trash2 className="h-4 w-4 text-red-600" />
@@ -515,7 +529,7 @@ export default function CompanyDealersPage() {
                   </SelectTrigger>
                   <SelectContent className="bg-white">
                     {dealers.map((dealer) => (
-                      <SelectItem key={dealer.id} value={dealer.id}>
+                      <SelectItem key={dealer.dealerId} value={dealer.dealerId}>
                         {dealer.name}
                       </SelectItem>
                     ))}

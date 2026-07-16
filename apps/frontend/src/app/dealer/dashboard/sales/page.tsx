@@ -261,7 +261,7 @@ export default function DealerSalesPage() {
                 key: 'invoiceNumber',
                 label: t("dealer.sales.table.invoice"),
                 width: '100px',
-                render: (val) => (
+                render: (val, row) => (
                   <span className="font-medium">
                     {val || `#${row.id.slice(0, 8)}`}
                   </span>

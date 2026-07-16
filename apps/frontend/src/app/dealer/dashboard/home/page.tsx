@@ -11,7 +11,7 @@ import {
 } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
-import { Package, Users, Receipt, Loader2, Clock, AlertCircle, Plus, Truck, Wallet } from "lucide-react";
+import { Package, Users, Receipt, Loader2, Clock, AlertCircle, Plus, Building2, Wallet } from "lucide-react";
 
 import { useGetInventorySummary } from "@/fetchers/dealer/dealerProductQueries";
 import { useGetSalesStatistics, useGetDealerSales } from "@/fetchers/dealer/dealerSaleQueries";
@@ -97,10 +97,10 @@ export default function DealerHomePage() {
             </Button>
           </Link>
  
-          <Link href="/dealer/dashboard/consignments" className="flex-1 md:flex-none">
+          <Link href="/dealer/dashboard/company" className="flex-1 md:flex-none">
             <Button variant="outline" className="w-full md:w-auto gap-2 hover:bg-green-50 hover:text-green-700 border-green-200">
-              <Truck className="h-4 w-4" />
-              {t("dealer.dashboard.buttons.consignments")}
+              <Building2 className="h-4 w-4" />
+              Companies
             </Button>
           </Link>
         </div>

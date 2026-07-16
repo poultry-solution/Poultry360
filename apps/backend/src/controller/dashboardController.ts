@@ -4,13 +4,13 @@ import { UserRole } from "@prisma/client";
 
 // Helper: compute total outstanding to dealers (manual + connected). Must match getDealerStatistics.
 export async function getMoneyToGiveForUser(userId: string): Promise<number> {
-  const dealerFarmers = await prisma.dealerFarmer.findMany({
+  const farmerAccounts = await prisma.dealerFarmerAccount.findMany({
     where: {
       farmerId: userId,
-      archivedByFarmer: false,
     },
+    select: { dealerId: true, balance: true },
   });
-  const connectedDealerIds = dealerFarmers.map((df) => df.dealerId);
+  const connectedDealerIds = farmerAccounts.map((account) => account.dealerId);
   const dealerWhere: any = {
     OR: [{ userId: userId }],
   };
@@ -23,14 +23,7 @@ export async function getMoneyToGiveForUser(userId: string): Promise<number> {
   const connectedSet = new Set(connectedDealerIds);
   let farmerAccountBalances: Map<string, number> = new Map();
   if (connectedDealerIds.length > 0) {
-    const accounts = await prisma.dealerFarmerAccount.findMany({
-      where: {
-        farmerId: userId,
-        dealerId: { in: connectedDealerIds },
-      },
-      select: { dealerId: true, balance: true },
-    });
-    accounts.forEach((a) => {
+    farmerAccounts.forEach((a) => {
       farmerAccountBalances.set(a.dealerId, Number(a.balance));
     });
   }

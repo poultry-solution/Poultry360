@@ -1,10 +1,7 @@
 import prisma from "../utils/prisma";
 import {
-  ConsignmentStatus,
   DiscountType as PrismaDiscountType,
   Prisma,
-  PaymentRequestStatus,
-  PaymentRequestDirection,
   LedgerEntryType,
 } from "@prisma/client";
 import {
@@ -350,26 +347,19 @@ export class CompanyService {
       if (endDate) where.date.lte = endDate;
     }
 
-    const [sales, totalRevenue, activeConsignments] = await Promise.all([
+    const [sales, totalRevenue] = await Promise.all([
       prisma.companySale.count({ where }),
       prisma.companySale.aggregate({
         where,
         _sum: { totalAmount: true },
-      }),
-      prisma.consignmentRequest.count({
-        where: {
-          fromCompanyId: companyId,
-          status: { in: [ConsignmentStatus.CREATED, ConsignmentStatus.ACCEPTED_PENDING_DISPATCH, ConsignmentStatus.DISPATCHED] },
-        },
       }),
     ]);
 
     return {
       totalSales: sales,
       totalRevenue: Number(totalRevenue._sum.totalAmount || 0),
-      activeConsignments,
+      activeConsignments: 0,
     };
   }
 
 }
-

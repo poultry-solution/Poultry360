@@ -13,14 +13,20 @@ This document is a high-level roadmap only. Detailed implementation plans should
 - Replace them with manual flows handled directly by users.
 - Keep this document high level and use it as the main progress tracker for future conversations.
 
+
+
 ## Progress Tracker
 
-| Phase | Area | Status | Notes |
-|------|------|--------|-------|
-| Phase 1 | Farmer -> Dealer connection cleanup | DONE | Main frontend and backend access paths have been removed or disabled |
-| Phase 2 | Dealer -> Farmer flow cleanup | DONE | Dealer customer, sales, payment-request, and farmer-account cleanup has mostly been completed |
-| Phase 3 | Dealer -> Company flow cleanup | STARTING | Dealer company dashboard cleanup has started and connection-era company UI is being removed |
-| Phase 4 | Company -> Dealer flow cleanup | TODO | Final cleanup and regression pass |
+
+| Phase   | Area                                | Status   | Notes                                                                                         |
+| ------- | ----------------------------------- | -------- | --------------------------------------------------------------------------------------------- |
+| Phase 1 | Farmer -> Dealer connection cleanup | DONE     | Main frontend and backend access paths have been removed or disabled                          |
+| Phase 2 | Dealer -> Farmer flow cleanup       | DONE     | Dealer customer, sales, payment-request, and farmer-account cleanup has mostly been completed |
+| Phase 3 | Dealer -> Company flow cleanup      | STARTING | Dealer company dashboard cleanup has started and connection-era company UI is being removed   |
+| Phase 4 | Company -> Dealer flow cleanup      | TODO     | Final cleanup and regression pass                                                             |
+
+
+
 
 ## Phase 1: Farmer -> Dealer Connection Cleanup
 
@@ -39,6 +45,8 @@ This document is a high-level roadmap only. Detailed implementation plans should
 - Track data/model cleanup for later if records must be preserved temporarily.
 - Update or remove tests that depend on farmer/dealer connection or approval flows.
 
+
+
 ## Phase 2: Dealer -> Farmer Flow Cleanup
 
 - Remove dealer-side workflows that assume a connected farmer relationship.
@@ -56,6 +64,8 @@ This document is a high-level roadmap only. Detailed implementation plans should
 - Track schema/model cleanup for later after behavior is stabilized.
 - Update or remove tests tied to dealer-to-farmer request flows.
 
+
+
 ## Phase 3: Dealer -> Company Flow Cleanup
 
 - Remove dealer-to-company connection and verification behavior.
@@ -71,6 +81,8 @@ This document is a high-level roadmap only. Detailed implementation plans should
 - Track model and history cleanup for later if temporary compatibility is needed.
 - Update or remove tests tied to dealer-to-company connection/request flows.
 
+
+
 ## Phase 4: Company -> Dealer Flow Cleanup
 
 - Remove company-side workflows that depend on connected dealers.
@@ -82,6 +94,8 @@ This document is a high-level roadmap only. Detailed implementation plans should
 - Track final schema/data cleanup once all replacement flows are active.
 - Update or remove tests tied to company-to-dealer connection and request flows.
 
+
+
 ## Do Not Break
 
 - Authentication and role-based routing must continue to work.
@@ -92,6 +106,8 @@ This document is a high-level roadmap only. Detailed implementation plans should
 - Navigation, buttons, labels, and translations must not reference removed connection flows.
 - Any remaining side effects linked to old request workflows must be checked before removal.
 
+
+
 ## Validation Approach
 
 - Each phase must confirm the affected role dashboards still load correctly.
@@ -99,6 +115,8 @@ This document is a high-level roadmap only. Detailed implementation plans should
 - Each phase must confirm removed request and connection actions are no longer reachable.
 - Backend tests tied to obsolete request flows should be removed or rewritten.
 - Regression checks should focus on manual sales, payments, ledger, inventory, and dashboard usability.
+
+
 
 ## Open Questions For Future Phases
 
@@ -109,3 +127,92 @@ This document is a high-level roadmap only. Detailed implementation plans should
 - Are there any role-specific reports or analytics that still depend on old connection-based states?
 - When moving into dealer -> farmer cleanup, should remaining placeholder routes stay as `410` markers until frontend removal is complete, or should they be fully removed in the same phase?
 - Use this document as the restart point for the next conversation; it should remain the compact status source for phase progress and major cleanup decisions.
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Report
+
+  The company-side dealer payment flow is still active and still depends on CompanyDealerAccount. It was not replaced by the removed connection/payment-request workflow.
+
+  What is currently used for company -> dealer payments:
+
+  - Backend route: apps/backend/src/router/companyDealerAccountRoutes.ts:45
+
+    POST /company/dealers/:dealerId/payments
+
+  - Backend controller: apps/backend/src/controller/companyDealerAccountController.ts:117
+
+    recordDealerPayment(...)
+
+  - Backend service: apps/backend/src/services/companyDealerAccountService.ts:93
+
+    recordPayment(...)
+
+    This upserts companyDealerAccount, decrements balance, increments totalPayments, and creates a companyDealerPayment row.
+
+  What fetcher/UI is using it right now:
+
+  - Fetcher: apps/frontend/src/fetchers/company/companyDealerAccountQueries.ts:228
+
+    useRecordDealerPayment() posts to /company/dealers/${dealerId}/payments
+
+  - Company payments page: apps/frontend/src/app/company/dashboard/payments/page.tsx:47
+
+    Uses useRecordDealerPayment() and shows a “Record Payment” flow
+
+  - Company dealers page: apps/frontend/src/app/company/dashboard/dealers/page.tsx:143
+
+    Also uses useRecordDealerPayment()
+
+  - Company dealer account page: apps/frontend/src/app/company/dashboard/dealers/[dealerId]/account/page.tsx:80
+
+    Also uses useRecordDealerPayment()
+
+  Important conclusion:
+
+  - The company-side manual/self-made dealer payment flow is not using the deleted connection verification/payment-request fetchers.
+
+  - It is using the account-based flow built on:
+
+      - CompanyDealerAccount
+
+      - CompanyDealerPayment
+
+      - CompanyDealerAccountService
+
+      - companyDealerAccountQueries.ts
+
+  Real problem I found:
+
+  - apps/backend/src/controller/companyLedgerController.ts:162 still calls prisma.paymentRequest.count(...)
+
+  - That is now stale against your schema cleanup and will break once Prisma client is regenerated, because PaymentRequest was removed from schema.prisma.
+
+  - The same controller also reports pendingRequests and activeConsignments, which are connection-era concepts and need review.
+
+  Secondary observation:
+
+  - apps/backend/src/controller/companyLedgerController.ts:213 has addCompanyPayment(...) which also calls CompanyDealerAccountService.recordPayment(...)
+
+  - So there are effectively two company-side payment entry surfaces in backend:
+
+      - companyDealerAccountController.recordDealerPayment
+
+      - companyLedgerController.addCompanyPayment
+
+  - If you continue cleanup, these should be reconciled rather than removed blindly.
+
+  Bottom line:
+
+  - You should not remove CompanyDealerAccount / CompanyDealerPayment flow if manual company <-> dealer transactions are still required.
+
+  - The active company-side payment UI is alive and wired through companyDealerAccountQueries.ts.
+
+  - The actual leftover cleanup risk is the stale paymentRequest usage inside companyLedgerController, not the company dealer account flow itself.
+
+
+

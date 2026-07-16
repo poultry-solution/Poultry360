@@ -67,7 +67,7 @@ export const getAllDealers = async (
               createdAt: true,
             },
           },
-          companies: {
+          companyAccounts: {
             select: {
               company: {
                 select: {
@@ -81,10 +81,7 @@ export const getAllDealers = async (
             select: {
               products: true,
               sales: true,
-              consignmentsFrom: true,
-              consignmentsTo: true,
               ledgerEntries: true,
-              paymentRequests: true,
             },
           },
         },
@@ -93,9 +90,16 @@ export const getAllDealers = async (
     ]);
     
 
+    const dealersWithCompanies = dealers.map((dealer: any) => ({
+      ...dealer,
+      companies: dealer.companyAccounts.map((account: any) => ({
+        company: account.company,
+      })),
+    }));
+
     return res.json({
       success: true,
-      data: dealers,
+      data: dealersWithCompanies,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -134,10 +138,7 @@ export const getDealerById = async (
           select: {
             products: true,
             sales: true,
-            consignmentsFrom: true,
-            consignmentsTo: true,
             ledgerEntries: true,
-            paymentRequests: true,
             companySales: true,
           },
         },
@@ -161,24 +162,20 @@ export const getDealerById = async (
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    // Get companies linked to this dealer via DealerCompany
-    const dealerCompanies = await (prisma as any).dealerCompany.findMany({
-      where: { dealerId: dealer.id },
-      include: {
-        company: {
-          select: {
-            id: true,
-            name: true,
-            address: true,
-          },
-        },
-      },
-    });
-
-    // Add companies array to dealer response
     const dealerWithCompanies = {
       ...dealer,
-      companies: dealerCompanies.map((dc: any) => dc.company),
+      companies: await prisma.companyDealerAccount.findMany({
+        where: { dealerId: dealer.id },
+        select: {
+          company: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+            },
+          },
+        },
+      }),
     };
 
     return res.json({
@@ -533,11 +530,10 @@ export const deleteDealer = async (
           select: {
             products: true,
             sales: true,
-            consignmentsFrom: true,
-            consignmentsTo: true,
             ledgerEntries: true,
-            paymentRequests: true,
             companySales: true,
+            companyAccounts: true,
+            farmerAccounts: true,
           },
         },
       },
@@ -557,26 +553,16 @@ export const deleteDealer = async (
       });
     }
 
-    // Check for active consignments
-    const hasActiveConsignments = await prisma.consignmentRequest.count({
-      where: {
-        OR: [{ fromDealerId: id }, { toDealerId: id }],
-        status: {
-          notIn: ["SETTLED", "CANCELLED", "REJECTED"],
-        },
-      },
-    });
+
 
     if (
       dealer._count.products > 0 ||
-      dealer._count.sales > 0 ||
-      hasActiveConsignments > 0 ||
-      dealer._count.paymentRequests > 0
+      dealer._count.sales > 0 
     ) {
       return res.status(400).json({
         success: false,
         message:
-          "Cannot delete dealer with associated products, sales, active consignments, or payment requests. Please remove all related data first.",
+          "Cannot delete dealer with associated products, sales, or account history. Please remove all related data first.",
       });
     }
 

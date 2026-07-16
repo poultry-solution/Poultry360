@@ -102,35 +102,18 @@ router.post('/setup-users', async (req, res) => {
 
     await prisma.$transaction([
       // ==================== DEALER TABLES ====================
-      prisma.dealerSalePaymentRequest.deleteMany({}),
       prisma.dealerSalePayment.deleteMany({}),
-      prisma.dealerSaleRequestItem.deleteMany({}),
-      prisma.dealerSaleRequest.deleteMany({}),
       prisma.dealerSaleItem.deleteMany({}),
       prisma.dealerSale.deleteMany({}),
       prisma.dealerLedgerEntry.deleteMany({}),
       prisma.dealerProductTransaction.deleteMany({}),
       prisma.dealerProduct.deleteMany({}),
-      prisma.dealerVerificationRequest.deleteMany({}),
-      prisma.dealerFarmer.deleteMany({}),
 
       // ==================== FARMER TABLES ====================
-      prisma.farmerVerificationRequest.deleteMany({}),
-
-      // ==================== COMPANY TABLES ====================
       prisma.companyDealerPayment.deleteMany({}),
       prisma.companySaleItem.deleteMany({}),
       prisma.companySale.deleteMany({}),
       prisma.companyLedgerEntry.deleteMany({}),
-      prisma.dealerCompany.deleteMany({}),
-
-      // ==================== CONSIGNMENT TABLES ====================
-      prisma.consignmentAuditLog.deleteMany({}),
-      prisma.consignmentItem.deleteMany({}),
-      prisma.consignmentRequest.deleteMany({}),
-
-      // ==================== PAYMENT REQUESTS ====================
-      prisma.paymentRequest.deleteMany({}),
 
       // ==================== AUDIT LOGS ====================
       prisma.auditLog.deleteMany({}),

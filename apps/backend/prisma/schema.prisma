@@ -121,34 +121,6 @@ enum CalendarType {
   BS
 }
 
-enum ConsignmentStatus {
-  CREATED // S0 - Request/offer formed
-  ACCEPTED_PENDING_DISPATCH // S1 - Waiting for dispatch
-  DISPATCHED // S2 - Goods shipped
-  RECEIVED // S3 - Inventory transferred, sale created
-  SETTLED // S4 - Fully paid
-  REJECTED // Rejected before dispatch
-  CANCELLED // Cancelled before dispatch
-}
-
-enum ConsignmentDirection {
-  COMPANY_TO_DEALER
-  DEALER_TO_COMPANY
-  DEALER_TO_FARMER
-}
-
-enum DealerSaleRequestStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-enum DealerSalePaymentRequestStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
 enum DiscountType {
   PERCENT
   FLAT
@@ -170,26 +142,6 @@ enum LedgerEntryType {
   ADVANCE_RECEIVED // Prepayment from dealer
   CONSIGNMENT_INVOICE // When S3 creates sale
   CONSIGNMENT_SETTLED // When fully paid
-}
-
-enum PaymentRequestStatus {
-  PENDING // Company sent request, waiting for dealer acceptance
-  ACCEPTED // Dealer accepted the request (acknowledged they need to pay)
-  PAYMENT_SUBMITTED // Dealer submitted payment proof (receipt/transaction ID)
-  VERIFIED // Company verified and approved the payment
-  REJECTED // Company rejected the payment proof
-  CANCELLED // Request cancelled by either party
-}
-
-enum PaymentRequestDirection {
-  COMPANY_TO_DEALER // Company requests payment from dealer
-  DEALER_TO_COMPANY // Dealer submits payment for company verification
-}
-
-enum DealerVerificationStatus {
-  PENDING
-  APPROVED
-  REJECTED
 }
 
 enum PurchaseCategory {
@@ -287,18 +239,6 @@ model User {
   // Company sales relationships
   companySalesMade CompanySale[]
 
-  // Consignment relationships
-  consignmentsReceived   ConsignmentRequest[]  @relation("FarmerConsignments")
-  dispatchedConsignments ConsignmentRequest[]  @relation("DispatchedConsignments")
-  receivedConsignments   ConsignmentRequest[]  @relation("ReceivedConsignments")
-  consignmentAuditLogs   ConsignmentAuditLog[] @relation("ConsignmentAuditLogs")
-
-  // Payment Request relationships
-  paymentRequestsCreated   PaymentRequest[] @relation("PaymentRequestCreatedBy")
-  paymentRequestsAccepted  PaymentRequest[] @relation("PaymentRequestAcceptedBy")
-  paymentRequestsSubmitted PaymentRequest[] @relation("PaymentRequestSubmittedBy")
-  paymentRequestsReviewed  PaymentRequest[] @relation("PaymentRequestReviewedBy")
-
   // Company-Dealer account payments
   companyDealerPaymentsRecorded CompanyDealerPayment[] @relation("CompanyDealerPaymentRecorder")
   companyPurchasesCreated        CompanyPurchase[]     @relation("CompanyPurchaseCreatedBy")
@@ -306,12 +246,6 @@ model User {
   productionRunsCreated         ProductionRun[]      @relation("ProductionRunCreatedBy")
 
   balanceLimitsSet CompanyDealerAccount[] @relation("BalanceLimitSetter")
-
-  // Dealer-Farmer relationships
-  dealerConnections           DealerFarmer[]                 @relation("FarmerDealers")
-  dealerVerificationRequests  FarmerVerificationRequest[]    @relation("FarmerVerificationRequests")
-  saleRequestsReceived        DealerSaleRequest[]            @relation("FarmerSaleRequests")
-  salePaymentRequestsAsFarmer DealerSalePaymentRequest[]     @relation("FarmerPaymentRequests")
 
   // Dealer-Farmer account relationships
   farmerAccounts                  DealerFarmerAccount[]          @relation("FarmerAccounts")
@@ -324,10 +258,6 @@ model User {
   farmerCashBookMovements         FarmerCashMovement[]           @relation("FarmerCashBook")
   farmerCashDayCloses             FarmerCashDayClose[]           @relation("FarmerCashDayCloseOwner")
   farmerCashMovementsRecorded     FarmerCashMovement[]           @relation("FarmerCashMovementRecorder")
-
-  // Farmer purchase request relationships
-  farmerCarts              FarmerCart[]              @relation("FarmerCarts")
-  farmerPurchaseRequests   FarmerPurchaseRequest[]   @relation("FarmerPurchaseRequests")
 
   // List for sale (farmer marketplace listings)
   listForSaleListings ListForSale[] @relation("ListForSaleOwner")
@@ -390,12 +320,8 @@ model Company {
   owner   User   @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
 
   managedBy            User[]                      @relation("CompanyManagedBy")
-  dealerCompanies      DealerCompany[]
-  consignments         ConsignmentRequest[]        @relation("CompanyConsignments")
   companySales         CompanySale[]
   ledgerEntries        CompanyLedgerEntry[]
-  paymentRequests      PaymentRequest[]
-  verificationRequests DealerVerificationRequest[]
   dealerCarts          DealerCart[]
   dealerAccounts       CompanyDealerAccount[]
 
@@ -405,7 +331,7 @@ model Company {
   companyPurchases     CompanyPurchase[]
   supplierPayments      CompanySupplierPayment[]
 
-  // Dealer inventory rows that were created from this connected company
+  // Dealer inventory rows that originated from this company
   suppliedDealerProducts DealerProduct[] @relation("DealerProductSupplierCompany")
 
   // Production (raw materials used → produced items log)
@@ -624,11 +550,10 @@ model Product {
   supplierId   String?
   supplier     User?             @relation("ProductSupplier", fields: [supplierId], references: [id], onDelete: Cascade)
 
-  dealerProducts   DealerProduct[]
-  consignmentItems ConsignmentItem[]
-  companySaleItems CompanySaleItem[]
-  cartItems        DealerCartItem[]
-  unitConversions  ProductUnitConversion[]
+  dealerProducts    DealerProduct[]
+  companySaleItems  CompanySaleItem[]
+  cartItems         DealerCartItem[]
+  unitConversions   ProductUnitConversion[]
   productionOutputs ProductionOutput[]
 
   createdAt DateTime @default(now())
@@ -931,7 +856,7 @@ model Dealer {
   address String?
 
   // Classification: how this dealer was created
-  // "SELF_CREATED" = farmer created locally, "CONNECTED" = connected via verification
+  // Legacy source classification retained for existing records
   classification String @default("SELF_CREATED")
 
   // Running balance for self-created (manual) dealers
@@ -954,30 +879,15 @@ model Dealer {
   // NEW: Managers of this dealer (many-to-many)
   managers User[] @relation("DealerManagers")
 
-  // Many-to-many relationship with companies
-  companies DealerCompany[]
-
-  // Many-to-many relationship with farmers
-  farmerConnections DealerFarmer[]
-  farmerRequests    FarmerVerificationRequest[] @relation("DealerFarmerRequests")
-
   transactions         EntityTransaction[]
   products             DealerProduct[]
   sales                DealerSale[]
-  saleRequests         DealerSaleRequest[]
-  salePaymentRequests  DealerSalePaymentRequest[]
-  consignmentsFrom     ConsignmentRequest[]        @relation("DealerConsignmentsFrom")
-  consignmentsTo       ConsignmentRequest[]        @relation("DealerConsignmentsTo")
   ledgerEntries        DealerLedgerEntry[]
   companySales         CompanySale[]
-  paymentRequests      PaymentRequest[]
-  verificationRequests DealerVerificationRequest[]
   carts                DealerCart[]
   companyAccounts      CompanyDealerAccount[]
   farmerAccounts       DealerFarmerAccount[]
   manualCompanies      DealerManualCompany[]
-  farmerCarts          FarmerCart[]              @relation("DealerFarmerCarts")
-  farmerPurchaseRequests FarmerPurchaseRequest[] @relation("DealerPurchaseRequests")
   cashSettings         DealerCashSettings?
   cashMovements        DealerCashMovement[]
   cashDayCloses        DealerCashDayClose[]
@@ -1084,8 +994,8 @@ model Customer {
   totalPayments Decimal @default(0) @db.Decimal(10, 2) // Cumulative payments total
 
   // Customer source tracking
-  source   String  @default("MANUAL") // "MANUAL" | "CONNECTED"
-  farmerId String? // Link to connected farmer (null for manual customers)
+  source   String  @default("MANUAL") // Legacy values may include "CONNECTED"
+  farmerId String? // Optional historical link to a farmer user
 
   // Relationships
   userId           String
@@ -1098,10 +1008,7 @@ model Customer {
   entityTransactions EntityTransaction[]
 
   // Dealer sales relationships
-  dealerSales         DealerSale[]
-  saleRequests        DealerSaleRequest[]
-  salePaymentRequests DealerSalePaymentRequest[]
-  farmerPurchaseRequests FarmerPurchaseRequest[]
+  dealerSales DealerSale[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1255,62 +1162,6 @@ enum WeightSource {
   SYSTEM // System calculated
 }
 
-// ==================== DEALER-COMPANY RELATIONSHIP (MANY-TO-MANY) ====================
-
-model DealerCompany {
-  id        String  @id @default(cuid())
-  dealerId  String
-  dealer    Dealer  @relation(fields: [dealerId], references: [id], onDelete: Cascade)
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Metadata
-  connectedAt  DateTime @default(now()) // When relationship was established
-  connectedVia String? // "VERIFICATION" | "MANUAL" | "MIGRATION"
-  
-  // Archive flags (independent per party)
-  archivedByDealer  Boolean @default(false) // Dealer archived this connection
-  archivedByCompany Boolean @default(false) // Company archived this connection
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([dealerId, companyId]) // One relationship per dealer-company pair
-  @@index([dealerId])
-  @@index([companyId])
-  @@index([companyId, dealerId])
-  @@index([dealerId, archivedByDealer]) // For filtering dealer's archived/active
-  @@index([companyId, archivedByCompany]) // For filtering company's archived/active
-}
-
-// ==================== DEALER-FARMER RELATIONSHIP ====================
-
-model DealerFarmer {
-  id       String @id @default(cuid())
-  dealerId String
-  dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
-  farmerId String
-  farmer   User   @relation("FarmerDealers", fields: [farmerId], references: [id], onDelete: Cascade)
-
-  // Metadata
-  connectedAt  DateTime @default(now()) // When relationship was established
-  connectedVia String? // "VERIFICATION" | "MANUAL" | "MIGRATION"
-  
-  // Archive flags (independent per party)
-  archivedByDealer Boolean @default(false) // Dealer archived this connection
-  archivedByFarmer Boolean @default(false) // Farmer archived this connection
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([dealerId, farmerId]) // One relationship per dealer-farmer pair
-  @@index([dealerId])
-  @@index([farmerId])
-  @@index([farmerId, dealerId])
-  @@index([dealerId, archivedByDealer]) // For filtering dealer's archived/active
-  @@index([farmerId, archivedByFarmer]) // For filtering farmer's archived/active
-}
-
 // ==================== DEALER-FARMER ACCOUNT SYSTEM ====================
 
 model DealerFarmerAccount {
@@ -1323,7 +1174,7 @@ model DealerFarmerAccount {
   // Running balance (positive = farmer owes dealer, negative = advance/credit)
   balance         Decimal @default(0) @db.Decimal(10, 2)
 
-  // Latest proposed/confirmed opening balance snapshot for this connected account
+  // Latest proposed/confirmed opening balance snapshot for this account
   openingBalanceCurrent Decimal? @db.Decimal(10, 2)
   openingBalanceStatus  DealerFarmerAccountAdjustmentStatus?
 
@@ -1401,52 +1252,6 @@ model DealerFarmerAccountAdjustment {
 
   @@index([accountId, createdAt])
   @@index([accountId, status])
-}
-
-// ==================== DEALER VERIFICATION REQUESTS ====================
-
-model DealerVerificationRequest {
-  id        String  @id @default(cuid())
-  dealerId  String
-  dealer    Dealer  @relation(fields: [dealerId], references: [id], onDelete: Cascade)
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  status         DealerVerificationStatus @default(PENDING)
-  rejectedCount  Int                      @default(0) // Track rejection count per company
-  lastRejectedAt DateTime? // For 1-hour cooldown
-  acknowledgedAt DateTime? // Track if dealer saw message
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([dealerId, companyId, status]) // One pending request per dealer-company
-  @@index([dealerId])
-  @@index([companyId])
-  @@index([companyId, status]) // For company filtering pending requests
-}
-
-// ==================== FARMER VERIFICATION REQUESTS ====================
-
-model FarmerVerificationRequest {
-  id       String @id @default(cuid())
-  farmerId String
-  farmer   User   @relation("FarmerVerificationRequests", fields: [farmerId], references: [id], onDelete: Cascade)
-  dealerId String
-  dealer   Dealer @relation("DealerFarmerRequests", fields: [dealerId], references: [id], onDelete: Cascade)
-
-  status         DealerVerificationStatus @default(PENDING)
-  rejectedCount  Int                      @default(0) // Track rejection count per dealer
-  lastRejectedAt DateTime? // For 1-hour cooldown
-  acknowledgedAt DateTime? // Track if farmer saw message
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([farmerId, dealerId, status]) // One pending request per farmer-dealer
-  @@index([farmerId])
-  @@index([dealerId])
-  @@index([dealerId, status]) // For dealer filtering pending requests
 }
 
 // ==================== AUDIT TRAIL ====================
@@ -1628,11 +1433,7 @@ model DealerProduct {
 
   transactions         DealerProductTransaction[]
   saleItems            DealerSaleItem[]
-  consignmentItems     ConsignmentItem[]
-  saleRequestItems     DealerSaleRequestItem[]
   manualPurchaseItems  DealerManualPurchaseItem[]
-  farmerCartItems             FarmerCartItem[]              @relation("FarmerCartProducts")
-  farmerPurchaseRequestItems  FarmerPurchaseRequestItem[]   @relation("FarmerPurchaseRequestProducts")
   unitConversions             DealerProductUnitConversion[]
 
   createdAt DateTime @default(now())
@@ -1697,10 +1498,7 @@ model DealerSale {
   items           DealerSaleItem[]
   transactions    DealerProductTransaction[]
   payments        DealerSalePayment[]
-  paymentRequests DealerSalePaymentRequest[]
   ledgerEntries   DealerLedgerEntry[]
-  saleRequest     DealerSaleRequest?
-  purchaseRequest FarmerPurchaseRequest?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1752,231 +1550,6 @@ model DealerSalePayment {
   @@index([linkedLedgerEntryId])
 }
 
-// ==================== DEALER SALE PAYMENT REQUEST MODELS ====================
-
-model DealerSalePaymentRequest {
-  id            String                          @id @default(cuid())
-  requestNumber String                          @unique
-  status        DealerSalePaymentRequestStatus @default(PENDING)
-  amount        Decimal                         @db.Decimal(10, 2)
-  description   String?
-
-  // Payment proof details (for future S3 integration)
-  paymentMethod     String?
-  paymentReference  String? // Bill ID / Transaction ID
-  proofOfPaymentUrl String? // Future: S3 file key or URL
-  paymentDate       DateTime?
-
-  // Linked sale (optional for ledger-level payments)
-  dealerSaleId String?
-  dealerSale   DealerSale? @relation(fields: [dealerSaleId], references: [id], onDelete: Cascade)
-
-  // Payment type flag
-  isLedgerLevel Boolean @default(false) // true = general payment, false = bill-wise
-
-  // Relationships
-  dealerId String
-  dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
-
-  farmerId String
-  farmer   User @relation("FarmerPaymentRequests", fields: [farmerId], references: [id], onDelete: Cascade)
-
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-
-  // Approval tracking
-  reviewedAt      DateTime?
-  rejectionReason String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([dealerSaleId, status])
-  @@index([dealerId, status])
-  @@index([farmerId, status])
-}
-
-// ==================== DEALER SALE REQUEST MODELS ====================
-
-model DealerSaleRequest {
-  id            String                   @id @default(cuid())
-  requestNumber String                   @unique
-  status        DealerSaleRequestStatus @default(PENDING)
-  
-  // Amounts
-  totalAmount    Decimal  @db.Decimal(10, 2)
-  subtotalAmount Decimal? @db.Decimal(10, 2) // Original before discount; null when no discount
-  discountType   String?  // "PERCENT" | "FLAT" when dealer applied discount
-  discountValue  Decimal? @db.Decimal(10, 2)
-  paidAmount     Decimal  @default(0) @db.Decimal(10, 2)
-  
-  // Payment details
-  paymentMethod String?
-  notes         String?
-  date          DateTime @default(now())
-  
-  // Approval/Rejection
-  reviewedAt      DateTime?
-  rejectionReason String?
-  
-  // Relationships
-  dealerId      String
-  dealer        Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
-  
-  farmerId      String   // Connected farmer who must approve
-  farmer        User @relation("FarmerSaleRequests", fields: [farmerId], references: [id], onDelete: Cascade)
-  
-  customerId    String   // The customer record (connected farmer as customer)
-  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  
-  // Linked records (created on approval)
-  dealerSaleId  String?  @unique
-  dealerSale    DealerSale? @relation(fields: [dealerSaleId], references: [id])
-  
-  items         DealerSaleRequestItem[]
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  @@index([dealerId, status])
-  @@index([farmerId, status])
-  @@index([customerId])
-}
-
-model DealerSaleRequestItem {
-  id           String   @id @default(cuid())
-  quantity     Decimal  @db.Decimal(10, 2)
-  unitPrice    Decimal  @db.Decimal(10, 2)
-  totalAmount  Decimal  @db.Decimal(10, 2)
-  unit         String?
-  baseQuantity Decimal? @db.Decimal(10, 2)
-
-  requestId   String
-  request     DealerSaleRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-
-  productId   String
-  product     DealerProduct @relation(fields: [productId], references: [id])
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([requestId])
-  @@index([productId])
-}
-
-model ConsignmentRequest {
-  id            String               @id @default(cuid())
-  requestNumber String               @unique
-  direction     ConsignmentDirection
-  status        ConsignmentStatus    @default(CREATED)
-  totalAmount   Decimal              @db.Decimal(10, 2)
-  subtotalAmount Decimal?            @db.Decimal(10, 2) // Before discount; null when no discount
-  discountType   String?             // "PERCENT" | "FLAT" when discount applied
-  discountValue  Decimal?            @db.Decimal(10, 2)
-  notes         String?
-
-  // Quantity tracking (prepare for partial receipt)
-  requestedQuantity  Decimal? @db.Decimal(10, 2)
-  approvedQuantity   Decimal? @db.Decimal(10, 2)
-  dispatchedQuantity Decimal? @db.Decimal(10, 2)
-  receivedQuantity   Decimal? @db.Decimal(10, 2)
-
-  // Dispatch & Receipt documentation
-  dispatchRef    String?
-  trackingInfo   String?
-  grnRef         String? // Goods Received Note
-  dispatchedAt   DateTime?
-  receivedAt     DateTime?
-  dispatchedById String?
-  dispatchedBy   User?     @relation("DispatchedConsignments", fields: [dispatchedById], references: [id])
-  receivedById   String?
-  receivedBy     User?     @relation("ReceivedConsignments", fields: [receivedById], references: [id])
-
-  // Link to created sale (S3)
-  companySaleId String?      @unique
-  companySale   CompanySale? @relation(fields: [companySaleId], references: [id])
-
-  // Balance limit override (company allowed consignment despite limit)
-  overrideBalanceLimit Boolean? @default(false)
-
-  fromCompanyId String?
-  fromCompany   Company? @relation("CompanyConsignments", fields: [fromCompanyId], references: [id], onDelete: Cascade)
-
-  fromDealerId String?
-  fromDealer   Dealer? @relation("DealerConsignmentsFrom", fields: [fromDealerId], references: [id], onDelete: Cascade)
-
-  toDealerId String?
-  toDealer   Dealer? @relation("DealerConsignmentsTo", fields: [toDealerId], references: [id], onDelete: Cascade)
-
-  toFarmerId String?
-  toFarmer   User?   @relation("FarmerConsignments", fields: [toFarmerId], references: [id], onDelete: Cascade)
-
-  items         ConsignmentItem[]
-  ledgerEntries DealerLedgerEntry[]
-  auditLogs     ConsignmentAuditLog[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([fromCompanyId, status])
-  @@index([fromDealerId, status])
-  @@index([toDealerId, status])
-  @@index([toFarmerId, status])
-  @@index([requestNumber])
-  @@index([dispatchedById])
-  @@index([receivedById])
-  @@index([companySaleId])
-}
-
-model ConsignmentItem {
-  id               String   @id @default(cuid())
-  quantity         Decimal  @db.Decimal(10, 2)
-  acceptedQuantity Decimal? @db.Decimal(10, 2)
-  receivedQuantity Decimal? @db.Decimal(10, 2)
-  unitPrice        Decimal  @db.Decimal(10, 2)
-  totalAmount      Decimal  @db.Decimal(10, 2)
-  isAccepted       Boolean  @default(false)
-  rejectionReason  String?
-  unit             String?
-  baseQuantity     Decimal? @db.Decimal(10, 2)
-
-  consignmentId String
-  consignment   ConsignmentRequest @relation(fields: [consignmentId], references: [id], onDelete: Cascade)
-
-  companyProductId String?
-  companyProduct   Product? @relation(fields: [companyProductId], references: [id], onDelete: SetNull)
-
-  dealerProductId String?
-  dealerProduct   DealerProduct? @relation(fields: [dealerProductId], references: [id], onDelete: SetNull)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([consignmentId])
-}
-
-model ConsignmentAuditLog {
-  id            String             @id @default(cuid())
-  consignmentId String
-  consignment   ConsignmentRequest @relation(fields: [consignmentId], references: [id], onDelete: Cascade)
-
-  action     String // CREATED, ACCEPTED, DISPATCHED, RECEIVED, etc.
-  statusFrom ConsignmentStatus?
-  statusTo   ConsignmentStatus
-
-  actorId String
-  actor   User   @relation("ConsignmentAuditLogs", fields: [actorId], references: [id])
-
-  quantityChange Decimal? @db.Decimal(10, 2)
-  documentRef    String? // dispatch_ref, grn_ref, etc.
-  notes          String?
-
-  createdAt DateTime @default(now())
-
-  @@index([consignmentId])
-  @@index([actorId])
-}
-
 model DealerLedgerEntry {
   id          String          @id @default(cuid())
   type        LedgerEntryType
@@ -1993,9 +1566,6 @@ model DealerLedgerEntry {
   saleId String?
   sale   DealerSale? @relation(fields: [saleId], references: [id], onDelete: SetNull)
 
-  consignmentId String?
-  consignment   ConsignmentRequest? @relation(fields: [consignmentId], references: [id], onDelete: SetNull)
-
   partyId   String?
   partyType String?
 
@@ -2007,7 +1577,6 @@ model DealerLedgerEntry {
   @@index([dealerId, date])
   @@index([partyId, partyType])
   @@index([saleId])
-  @@index([consignmentId])
 }
 
 // ==================== COMPANY SALES ====================
@@ -2030,10 +1599,6 @@ model CompanySale {
   soldById String
   soldBy   User   @relation(fields: [soldById], references: [id], onDelete: Cascade)
 
-  // Link to consignment (if created from consignment receipt)
-  consignmentId String?             @unique
-  consignment   ConsignmentRequest?
-
   // Account-based system - link to dealer account
   accountId String?
   account   CompanyDealerAccount? @relation(fields: [accountId], references: [id])
@@ -2041,10 +1606,9 @@ model CompanySale {
   // Optional invoice image (for future use)
   invoiceImageUrl String?
 
-  discount        SaleDiscount?
-  items           CompanySaleItem[]
-  ledgerEntries   CompanyLedgerEntry[]
-  paymentRequests PaymentRequest[]
+  discount      SaleDiscount?
+  items         CompanySaleItem[]
+  ledgerEntries CompanyLedgerEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2053,7 +1617,6 @@ model CompanySale {
   @@index([dealerId, date])
   @@index([soldById])
   @@index([invoiceNumber])
-  @@index([consignmentId])
   @@index([accountId])
 }
 
@@ -2110,7 +1673,7 @@ model CompanyDealerAccount {
   // Running balance (positive = dealer owes company, negative = advance/credit)
   balance         Decimal @default(0) @db.Decimal(10, 2)
 
-  // Opening balance proposal/ack workflow (connected dealer↔company)
+  // Opening balance proposal/ack workflow for this dealer/company account
   openingBalanceCurrent  Decimal? @db.Decimal(10, 2) // latest ACKNOWLEDGED snapshot
   openingBalanceProposed Decimal? @db.Decimal(10, 2) // latest PENDING_ACK proposal
   openingBalanceStatus   CompanyDealerAccountAdjustmentStatus?
@@ -2379,66 +1942,6 @@ model ProductionOutput {
   @@index([productId])
 }
 
-// ==================== PAYMENT REQUEST MODEL ====================
-
-model PaymentRequest {
-  id            String                  @id @default(cuid())
-  requestNumber String                  @unique
-  direction     PaymentRequestDirection
-  status        PaymentRequestStatus    @default(PENDING)
-  amount        Decimal                 @db.Decimal(10, 2)
-  description   String?
-
-  // Payment proof details (for dealer-initiated or company-initiated after dealer accepts)
-  paymentMethod     String?
-  paymentReference  String?
-  paymentReceiptUrl String?
-  paymentDate       DateTime?
-
-  // Company initiating or receiving the request
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Dealer initiating or receiving the request
-  dealerId String
-  dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
-
-  // Optional link to a specific CompanySale if the request is for an outstanding balance
-  companySaleId String?
-  companySale   CompanySale? @relation(fields: [companySaleId], references: [id], onDelete: SetNull)
-
-  // User who created the request
-  requestedById String
-  requestedBy   User   @relation("PaymentRequestCreatedBy", fields: [requestedById], references: [id])
-
-  // User who accepted the request (dealer side)
-  acceptedById String?
-  acceptedBy   User?     @relation("PaymentRequestAcceptedBy", fields: [acceptedById], references: [id])
-  acceptedAt   DateTime?
-
-  // User who submitted payment proof (dealer side)
-  submittedById String?
-  submittedBy   User?     @relation("PaymentRequestSubmittedBy", fields: [submittedById], references: [id])
-  submittedAt   DateTime?
-
-  // User who reviewed/verified the payment (company side)
-  reviewedById String?
-  reviewedBy   User?     @relation("PaymentRequestReviewedBy", fields: [reviewedById], references: [id])
-  reviewedAt   DateTime?
-  reviewNotes  String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([companyId, status])
-  @@index([dealerId, status])
-  @@index([companySaleId])
-  @@index([requestedById])
-  @@index([acceptedById])
-  @@index([submittedById])
-  @@index([reviewedById])
-}
-
 // ==================== DEALER MANUAL COMPANY MODELS ====================
 
 model DealerManualCompany {
@@ -2662,104 +2165,6 @@ model FarmerCashDayClose {
 
   @@unique([userId, bsDate])
   @@index([userId, bsDate])
-}
-
-// ==================== FARMER CART & PURCHASE REQUEST ====================
-
-enum FarmerPurchaseRequestStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-model FarmerCart {
-  id       String          @id @default(cuid())
-  farmerId String
-  farmer   User            @relation("FarmerCarts", fields: [farmerId], references: [id], onDelete: Cascade)
-  dealerId String
-  dealer   Dealer          @relation("DealerFarmerCarts", fields: [dealerId], references: [id], onDelete: Cascade)
-  items    FarmerCartItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([farmerId, dealerId])
-  @@index([farmerId])
-  @@index([dealerId])
-}
-
-model FarmerCartItem {
-  id        String        @id @default(cuid())
-  cartId    String
-  cart      FarmerCart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  productId String
-  product   DealerProduct @relation("FarmerCartProducts", fields: [productId], references: [id], onDelete: Cascade)
-  quantity  Decimal       @db.Decimal(10, 2)
-  unitPrice Decimal       @db.Decimal(10, 2)
-  unit      String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([cartId, productId])
-  @@index([cartId])
-  @@index([productId])
-}
-
-model FarmerPurchaseRequest {
-  id              String                       @id @default(cuid())
-  requestNumber   String                       @unique
-  status          FarmerPurchaseRequestStatus   @default(PENDING)
-
-  totalAmount     Decimal  @db.Decimal(10, 2)
-  subtotalAmount  Decimal? @db.Decimal(10, 2)
-  discountType    String?
-  discountValue   Decimal? @db.Decimal(10, 2)
-
-  notes           String?
-  date            DateTime @default(now())
-
-  reviewedAt      DateTime?
-  rejectionReason String?
-
-  farmerId   String
-  farmer     User     @relation("FarmerPurchaseRequests", fields: [farmerId], references: [id], onDelete: Cascade)
-  dealerId   String
-  dealer     Dealer   @relation("DealerPurchaseRequests", fields: [dealerId], references: [id], onDelete: Cascade)
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-
-  dealerSaleId String?     @unique
-  dealerSale   DealerSale? @relation(fields: [dealerSaleId], references: [id])
-
-  items FarmerPurchaseRequestItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([farmerId, status])
-  @@index([dealerId, status])
-  @@index([customerId])
-}
-
-model FarmerPurchaseRequestItem {
-  id           String   @id @default(cuid())
-  quantity     Decimal  @db.Decimal(10, 2)
-  unitPrice    Decimal  @db.Decimal(10, 2)
-  totalAmount  Decimal  @db.Decimal(10, 2)
-  unit         String?
-  baseQuantity Decimal? @db.Decimal(10, 2)
-
-  requestId String
-  request   FarmerPurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  productId String
-  product   DealerProduct         @relation("FarmerPurchaseRequestProducts", fields: [productId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([requestId])
-  @@index([productId])
 }
 
 // ==================== UNIT CONVERSION MODELS ====================

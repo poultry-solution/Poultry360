@@ -159,13 +159,8 @@ export const getCompanyLedgerSummary = async (
       endDate ? new Date(endDate as string) : undefined
     );
 
-    // Get pending payment requests
-    const pendingRequests = await prisma.paymentRequest.count({
-      where: {
-        companyId: company.id,
-        status: { in: ["PENDING", "ACCEPTED", "PAYMENT_SUBMITTED"] },
-      },
-    });
+    // Connection-era payment requests were removed from the schema.
+    const pendingRequests = 0;
 
     // Get total outstanding from all dealer accounts
     const accountsBalance = await prisma.companyDealerAccount.aggregate({
@@ -258,4 +253,3 @@ export const addCompanyPayment = async (
       .json({ message: error.message || "Internal server error" });
   }
 };
-

@@ -145,16 +145,12 @@ export const getCompanyAnalytics = async (
       })
     );
 
-    // Consignment analytics
-    const consignmentStats = await prisma.consignmentRequest.groupBy({
-      by: ["status"],
-      where: {
-        fromCompanyId: company.id,
-        createdAt: { gte: startDate },
-      },
-      _count: true,
-      _sum: { totalAmount: true },
-    });
+    // Consignment workflow removed; keep response shape stable for callers.
+    const consignmentStats: Array<{
+      status: string;
+      _count: number;
+      _sum: { totalAmount: number | null };
+    }> = [];
 
     // Payment/Collection analytics
     const paymentStats = await prisma.companyDealerPayment.groupBy({

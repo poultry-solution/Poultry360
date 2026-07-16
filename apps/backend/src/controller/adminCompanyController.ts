@@ -59,9 +59,7 @@ export const getAllCompanies = async (
       },
       _count: {
         select: {
-          dealerCompanies: true,
           companySales: true,
-          consignments: true,
           ledgerEntries: true,
         },
       },
@@ -112,9 +110,7 @@ export const getCompanyById = async (
         _count: {
           select: {
             companySales: true,
-            consignments: true,
             ledgerEntries: true,
-            paymentRequests: true,
           },
         },
         managedBy: {
@@ -384,18 +380,11 @@ export const deleteCompany = async (
       where: { id },
       include: {
         owner: true,
-        dealerCompanies: {
-          select: {
-            id: true,
-          },
-        },
         _count: {
           select: {
             companySales: true,
-            dealerCompanies: true,
-            consignments: true,
             ledgerEntries: true,
-            paymentRequests: true,
+            dealerAccounts: true,
           },
         },
       },
@@ -413,30 +402,15 @@ export const deleteCompany = async (
       where: { supplierId: company.ownerId },
     });
 
-    // Check for active consignments
-    const dealerIds = (company as any).dealers?.map((d: { id: string }) => d.id) || [];
-    const hasActiveConsignments = await prisma.consignmentRequest.count({
-      where: {
-        OR: [
-          { fromCompanyId: id },
-          ...(dealerIds.length > 0 ? [{ toDealerId: { in: dealerIds } }] : []),
-        ],
-        status: {
-          notIn: ["SETTLED", "CANCELLED", "REJECTED"],
-        },
-      },
-    });
-
     if (
       hasProducts > 0 ||
       company._count.companySales > 0 ||
-      hasActiveConsignments > 0 ||
-      company._count.dealerCompanies > 0
+      company._count.dealerAccounts > 0
     ) {
       return res.status(400).json({
         success: false,
         message:
-          "Cannot delete company with associated products, sales, active consignments, or dealers. Please remove all related data first.",
+          "Cannot delete company with associated products, sales, ledger/account history, or dealers. Please remove all related data first.",
       });
     }
 

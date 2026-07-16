@@ -60,7 +60,7 @@ export const getAllUsers = async (
             select: {
               ownedFarms: true,
               managedFarms: true,
-              dealerConnections: true,
+              farmerAccounts: true,
               doctorConversations: true,
             },
           },
@@ -71,17 +71,17 @@ export const getAllUsers = async (
               name: true,
               _count: {
                 select: {
-                  companies: true,
-                  farmerConnections: true,
+                  companyAccounts: true,
+                  farmerAccounts: true,
                 },
               },
-              companies: {
+              companyAccounts: {
                 select: {
                   company: { select: { id: true, name: true } },
                 },
                 take: 5,
               },
-              farmerConnections: {
+              farmerAccounts: {
                 select: {
                   farmer: { select: { id: true, name: true } },
                 },
@@ -96,10 +96,10 @@ export const getAllUsers = async (
               name: true,
               _count: {
                 select: {
-                  dealerCompanies: true,
+                  dealerAccounts: true,
                 },
               },
-              dealerCompanies: {
+              dealerAccounts: {
                 select: {
                   dealer: { select: { id: true, name: true } },
                 },
@@ -108,7 +108,7 @@ export const getAllUsers = async (
             },
           },
           // For OWNER/MANAGER: connected dealers (preview)
-          dealerConnections: {
+          farmerAccounts: {
             select: {
               dealer: {
                 select: { id: true, name: true },
@@ -131,9 +131,48 @@ export const getAllUsers = async (
       prisma.user.count({ where }),
     ]);
 
+    const normalizedUsers = users.map((user: any) => ({
+      ...user,
+      _count: {
+        ownedFarms: user._count.ownedFarms,
+        managedFarms: user._count.managedFarms,
+        dealerConnections: user._count.farmerAccounts,
+        doctorConversations: user._count.doctorConversations,
+      },
+      dealer: user.dealer
+        ? {
+            ...user.dealer,
+            _count: {
+              companies: user.dealer._count.companyAccounts,
+              farmerConnections: user.dealer._count.farmerAccounts,
+            },
+            companies: user.dealer.companyAccounts.map((account: any) => ({
+              company: account.company,
+            })),
+            farmerConnections: user.dealer.farmerAccounts.map((account: any) => ({
+              farmer: account.farmer,
+            })),
+          }
+        : null,
+      company: user.company
+        ? {
+            ...user.company,
+            _count: {
+              dealerCompanies: user.company._count.dealerAccounts,
+            },
+            dealerCompanies: user.company.dealerAccounts.map((account: any) => ({
+              dealer: account.dealer,
+            })),
+          }
+        : null,
+      dealerConnections: user.farmerAccounts.map((account: any) => ({
+        dealer: account.dealer,
+      })),
+    }));
+
     return res.json({
       success: true,
-      data: users,
+      data: normalizedUsers,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -195,11 +234,10 @@ export const getUserById = async (
             _count: { select: { batches: true } },
           },
         },
-        // Dealer connections (for farmers)
-        dealerConnections: {
+        // Dealer account links (for farmers)
+        farmerAccounts: {
           select: {
-            connectedAt: true,
-            connectedVia: true,
+            createdAt: true,
             dealer: {
               select: {
                 id: true,
@@ -220,10 +258,9 @@ export const getUserById = async (
             balance: true,
             totalPurchases: true,
             totalPayments: true,
-            companies: {
+            companyAccounts: {
               select: {
-                connectedAt: true,
-                connectedVia: true,
+                createdAt: true,
                 company: {
                   select: {
                     id: true,
@@ -233,10 +270,9 @@ export const getUserById = async (
                 },
               },
             },
-            farmerConnections: {
+            farmerAccounts: {
               select: {
-                connectedAt: true,
-                connectedVia: true,
+                createdAt: true,
                 farmer: {
                   select: {
                     id: true,
@@ -255,10 +291,9 @@ export const getUserById = async (
             id: true,
             name: true,
             address: true,
-            dealerCompanies: {
+            dealerAccounts: {
               select: {
-                connectedAt: true,
-                connectedVia: true,
+                createdAt: true,
                 dealer: {
                   select: {
                     id: true,
@@ -297,9 +332,43 @@ export const getUserById = async (
       });
     }
 
+    const normalizedUser = {
+      ...user,
+      dealerConnections: user.farmerAccounts.map((account: any) => ({
+        connectedAt: account.createdAt,
+        connectedVia: null,
+        dealer: account.dealer,
+      })),
+      dealer: user.dealer
+        ? {
+            ...user.dealer,
+            companies: user.dealer.companyAccounts.map((account: any) => ({
+              connectedAt: account.createdAt,
+              connectedVia: null,
+              company: account.company,
+            })),
+            farmerConnections: user.dealer.farmerAccounts.map((account: any) => ({
+              connectedAt: account.createdAt,
+              connectedVia: null,
+              farmer: account.farmer,
+            })),
+          }
+        : null,
+      company: user.company
+        ? {
+            ...user.company,
+            dealerCompanies: user.company.dealerAccounts.map((account: any) => ({
+              connectedAt: account.createdAt,
+              connectedVia: null,
+              dealer: account.dealer,
+            })),
+          }
+        : null,
+    };
+
     return res.json({
       success: true,
-      data: user,
+      data: normalizedUser,
     });
   } catch (error) {
     console.error("Error fetching user:", error);
