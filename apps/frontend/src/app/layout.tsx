@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono, Caveat } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/common/providers/QueryProvider";
 import { AuthGuard } from "@/common/components/auth/AuthGuard";
@@ -11,6 +12,22 @@ import { RoleBasedMiddleware } from "@/common/components/auth/RoleBasedMiddlewar
 import { I18nProvider } from "@/i18n/I18nProvider";
 import { PushNotificationInit } from "@/common/components/PushNotificationInit";
 import { NumberInputWheelGuard } from "@/common/components/NumberInputWheelGuard";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+const caveat = Caveat({
+  variable: "--font-caveat",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
 
 export const metadata: Metadata = {
   title: "Poultry360 - Smart Poultry Management System",
@@ -43,7 +60,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} antialiased`}
+      >
         <I18nProvider>
           <AuthProvider>
             <QueryProvider>

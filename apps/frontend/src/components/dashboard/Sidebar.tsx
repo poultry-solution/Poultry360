@@ -18,7 +18,6 @@ import {
   Truck,
   FileText,
   CreditCard,
-  Lightbulb,
   Tag,
   KeyRound,
   ShoppingCart,
@@ -186,11 +185,6 @@ export const companyNavigation: NavigationItem[] = [
     nameKey: "sidebar.nav.analytics",
     href: "/company/dashboard/analytics",
     icon: BarChart3,
-  },
-  {
-    nameKey: "sidebar.nav.businessInsights",
-    href: "/company/dashboard/business-insights",
-    icon: Lightbulb,
   },
 ];
 
