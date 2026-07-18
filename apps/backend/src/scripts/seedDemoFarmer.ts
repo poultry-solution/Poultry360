@@ -4,6 +4,7 @@ import {
   BatchType,
   CategoryType,
   InventoryItemType,
+  PurchaseCategory,
   Prisma,
   SalesItemType,
   TransactionType,
@@ -29,6 +30,355 @@ const FARM_NAMES = [
   "Harvest Nest Farm",
   "Lakeside Broilers",
   "Prairie Pulse Farm",
+];
+
+const SUPPLIER_LEDGER_SEEDS = [
+  {
+    name: "Alpha Feed Depot",
+    contact: "+9779801000001",
+    address: "Kalanki, Kathmandu",
+    openingBalance: 18000,
+    purchases: [
+      {
+        itemName: "Starter Feed",
+        purchaseCategory: PurchaseCategory.FEED,
+        quantity: 24,
+        freeQuantity: 2,
+        unit: "Bag",
+        unitPrice: 3200,
+        amount: 76800,
+        date: 34,
+        description: "Starter feed purchase for broiler cycle",
+        reference: "FD-1001",
+      },
+      {
+        itemName: "Grower Feed",
+        purchaseCategory: PurchaseCategory.FEED,
+        quantity: 20,
+        freeQuantity: 0,
+        unit: "Bag",
+        unitPrice: 3350,
+        amount: 67000,
+        date: 27,
+        description: "Grower feed top-up",
+        reference: "FD-1008",
+      },
+      {
+        itemName: "Broiler Finisher",
+        purchaseCategory: PurchaseCategory.FEED,
+        quantity: 18,
+        freeQuantity: 1,
+        unit: "Bag",
+        unitPrice: 3525,
+        amount: 63450,
+        date: 20,
+        description: "Broiler finisher stock",
+        reference: "FD-1016",
+      },
+      {
+        itemName: "Mineral Mix",
+        purchaseCategory: PurchaseCategory.OTHER,
+        quantity: 12,
+        freeQuantity: 0,
+        unit: "Packet",
+        unitPrice: 850,
+        amount: 10200,
+        date: 14,
+        description: "Mineral supplement for feed",
+        reference: "FD-1021",
+      },
+      {
+        itemName: "Layer Feed",
+        purchaseCategory: PurchaseCategory.FEED,
+        quantity: 16,
+        freeQuantity: 0,
+        unit: "Bag",
+        unitPrice: 3380,
+        amount: 54080,
+        date: 9,
+        description: "Layer feed replenishment",
+        reference: "FD-1029",
+      },
+      {
+        itemName: "Starter Feed",
+        purchaseCategory: PurchaseCategory.FEED,
+        quantity: 14,
+        freeQuantity: 0,
+        unit: "Bag",
+        unitPrice: 3240,
+        amount: 45360,
+        date: 4,
+        description: "Emergency starter feed refill",
+        reference: "FD-1036",
+      },
+    ],
+    payments: [
+      { amount: 60000, date: 22, description: "Partial settlement", reference: "RCPT-FD-201", purchaseIndex: 0 },
+      { amount: 25000, date: 12, description: "Mid-cycle payment", reference: "RCPT-FD-202", purchaseIndex: 2 },
+      { amount: 18000, date: 2, description: "Cash payment", reference: "RCPT-FD-203" },
+    ],
+  },
+  {
+    name: "Prime Medicine Supplies",
+    contact: "+9779801000002",
+    address: "Baneshwor, Kathmandu",
+    openingBalance: 12000,
+    purchases: [
+      {
+        itemName: "Vaccination Kit",
+        purchaseCategory: PurchaseCategory.MEDICINE,
+        quantity: 6,
+        freeQuantity: 0,
+        unit: "Bottle",
+        unitPrice: 850,
+        amount: 5100,
+        date: 33,
+        description: "Vaccination kit supply",
+        reference: "MD-2001",
+        expiryDate: 180,
+      },
+      {
+        itemName: "Antibiotic Pack",
+        purchaseCategory: PurchaseCategory.MEDICINE,
+        quantity: 10,
+        freeQuantity: 1,
+        unit: "Strip",
+        unitPrice: 420,
+        amount: 4200,
+        date: 25,
+        description: "Antibiotic strips with free unit",
+        reference: "MD-2007",
+        expiryDate: 140,
+      },
+      {
+        itemName: "Electrolyte Mix",
+        purchaseCategory: PurchaseCategory.MEDICINE,
+        quantity: 14,
+        freeQuantity: 0,
+        unit: "Packet",
+        unitPrice: 260,
+        amount: 3640,
+        date: 18,
+        description: "Heat-stress support",
+        reference: "MD-2015",
+        expiryDate: 120,
+      },
+      {
+        itemName: "Vitamin Pack",
+        purchaseCategory: PurchaseCategory.MEDICINE,
+        quantity: 12,
+        freeQuantity: 0,
+        unit: "Bottle",
+        unitPrice: 390,
+        amount: 4680,
+        date: 13,
+        description: "Vitamin support purchase",
+        reference: "MD-2020",
+        expiryDate: 90,
+      },
+      {
+        itemName: "Disinfectant",
+        purchaseCategory: PurchaseCategory.MEDICINE,
+        quantity: 8,
+        freeQuantity: 0,
+        unit: "Bottle",
+        unitPrice: 620,
+        amount: 4960,
+        date: 8,
+        description: "Farm sanitation stock",
+        reference: "MD-2028",
+        expiryDate: 210,
+      },
+      {
+        itemName: "Vaccine Booster",
+        purchaseCategory: PurchaseCategory.MEDICINE,
+        quantity: 7,
+        freeQuantity: 0,
+        unit: "Bottle",
+        unitPrice: 910,
+        amount: 6370,
+        date: 3,
+        description: "Booster round",
+        reference: "MD-2034",
+        expiryDate: 170,
+      },
+    ],
+    payments: [
+      { amount: 7000, date: 21, description: "Cheque payment", reference: "PMT-MD-301", purchaseIndex: 0 },
+      { amount: 8500, date: 10, description: "Online transfer", reference: "PMT-MD-302", purchaseIndex: 3 },
+      { amount: 5000, date: 1, description: "Final settlement", reference: "PMT-MD-303" },
+    ],
+  },
+  {
+    name: "ChickLink Hatchery Supplier",
+    contact: "+9779801000003",
+    address: "Tokha, Kathmandu",
+    openingBalance: 15000,
+    purchases: [
+      {
+        itemName: "Broiler Chicks",
+        purchaseCategory: PurchaseCategory.CHICKS,
+        quantity: 1200,
+        freeQuantity: 50,
+        unit: "Birds",
+        unitPrice: 95,
+        amount: 114000,
+        date: 31,
+        description: "Broiler chicks lot 1",
+        reference: "CH-3001",
+      },
+      {
+        itemName: "Broiler Chicks",
+        purchaseCategory: PurchaseCategory.CHICKS,
+        quantity: 1000,
+        freeQuantity: 25,
+        unit: "Birds",
+        unitPrice: 97,
+        amount: 97000,
+        date: 23,
+        description: "Broiler chicks lot 2",
+        reference: "CH-3008",
+      },
+      {
+        itemName: "Layer Chicks",
+        purchaseCategory: PurchaseCategory.CHICKS,
+        quantity: 800,
+        freeQuantity: 40,
+        unit: "Birds",
+        unitPrice: 110,
+        amount: 88000,
+        date: 16,
+        description: "Layer chicks lot 1",
+        reference: "CH-3015",
+      },
+      {
+        itemName: "Layer Chicks",
+        purchaseCategory: PurchaseCategory.CHICKS,
+        quantity: 650,
+        freeQuantity: 20,
+        unit: "Birds",
+        unitPrice: 112,
+        amount: 72800,
+        date: 11,
+        description: "Layer chicks lot 2",
+        reference: "CH-3020",
+      },
+      {
+        itemName: "Broiler Chicks",
+        purchaseCategory: PurchaseCategory.CHICKS,
+        quantity: 900,
+        freeQuantity: 30,
+        unit: "Birds",
+        unitPrice: 98,
+        amount: 88200,
+        date: 6,
+        description: "Broiler chicks lot 3",
+        reference: "CH-3028",
+      },
+      {
+        itemName: "Vaccination Boost Pack",
+        purchaseCategory: PurchaseCategory.MEDICINE,
+        quantity: 18,
+        freeQuantity: 2,
+        unit: "Bottle",
+        unitPrice: 450,
+        amount: 8100,
+        date: 2,
+        description: "Support medicine for new batches",
+        reference: "CH-3034",
+        expiryDate: 160,
+      },
+    ],
+    payments: [
+      { amount: 90000, date: 20, description: "Advance payment", reference: "HATCH-401", purchaseIndex: 0 },
+      { amount: 50000, date: 9, description: "Bulk transfer", reference: "HATCH-402", purchaseIndex: 2 },
+      { amount: 30000, date: 1, description: "Closing payment", reference: "HATCH-403" },
+    ],
+  },
+  {
+    name: "FarmCare General Supplies",
+    contact: "+9779801000004",
+    address: "Lalitpur, Bagmati",
+    openingBalance: 8000,
+    purchases: [
+      {
+        itemName: "Brooding Lamps",
+        purchaseCategory: PurchaseCategory.OTHER,
+        quantity: 18,
+        freeQuantity: 0,
+        unit: "PCS",
+        unitPrice: 1200,
+        amount: 21600,
+        date: 29,
+        description: "Brooding equipment purchase",
+        reference: "OT-4001",
+      },
+      {
+        itemName: "Water Nipples",
+        purchaseCategory: PurchaseCategory.OTHER,
+        quantity: 200,
+        freeQuantity: 10,
+        unit: "PCS",
+        unitPrice: 55,
+        amount: 11000,
+        date: 22,
+        description: "Drink line accessories",
+        reference: "OT-4007",
+      },
+      {
+        itemName: "Plastic Crates",
+        purchaseCategory: PurchaseCategory.OTHER,
+        quantity: 45,
+        freeQuantity: 0,
+        unit: "PCS",
+        unitPrice: 380,
+        amount: 17100,
+        date: 17,
+        description: "Transport crates",
+        reference: "OT-4013",
+      },
+      {
+        itemName: "Feed Scoops",
+        purchaseCategory: PurchaseCategory.OTHER,
+        quantity: 60,
+        freeQuantity: 0,
+        unit: "PCS",
+        unitPrice: 140,
+        amount: 8400,
+        date: 11,
+        description: "Daily feeding tools",
+        reference: "OT-4019",
+      },
+      {
+        itemName: "Thermometer Set",
+        purchaseCategory: PurchaseCategory.OTHER,
+        quantity: 12,
+        freeQuantity: 0,
+        unit: "Set",
+        unitPrice: 950,
+        amount: 11400,
+        date: 6,
+        description: "Temperature monitoring",
+        reference: "OT-4026",
+      },
+      {
+        itemName: "Disinfection Mats",
+        purchaseCategory: PurchaseCategory.OTHER,
+        quantity: 20,
+        freeQuantity: 0,
+        unit: "PCS",
+        unitPrice: 260,
+        amount: 5200,
+        date: 2,
+        description: "Entry biosecurity",
+        reference: "OT-4031",
+      },
+    ],
+    payments: [
+      { amount: 12000, date: 18, description: "Partial payment", reference: "PAY-OT-501", purchaseIndex: 1 },
+      { amount: 15000, date: 5, description: "Bulk cash settlement", reference: "PAY-OT-502", purchaseIndex: 4 },
+    ],
+  },
 ];
 
 const dec = (value: number) => new Prisma.Decimal(value.toFixed(2));
@@ -112,6 +462,9 @@ async function main() {
         where: { itemId: { in: itemIds } },
       });
       await tx.inventoryItem.deleteMany({
+        where: { userId: existingDemoUser.id },
+      });
+      await tx.dealer.deleteMany({
         where: { userId: existingDemoUser.id },
       });
       await tx.reminder.deleteMany({
@@ -288,6 +641,121 @@ async function main() {
         itemId: purchase.item.id,
       },
     });
+  }
+
+  let totalSupplierPurchases = 0;
+  let totalSupplierPayments = 0;
+  let totalSupplierBalance = 0;
+  let totalSuppliers = 0;
+
+  for (const supplierSeed of SUPPLIER_LEDGER_SEEDS) {
+    const dealer = await prisma.dealer.create({
+      data: {
+        userId: owner.id,
+        name: supplierSeed.name,
+        contact: supplierSeed.contact,
+        address: supplierSeed.address,
+      },
+    });
+
+    const purchaseTxns: Array<{ id: string; amount: number }> = [];
+
+    const openingBalanceTxn = await prisma.entityTransaction.create({
+      data: {
+        type: TransactionType.OPENING_BALANCE,
+        amount: dec(supplierSeed.openingBalance),
+        quantity: null,
+        freeQuantity: null,
+        itemName: null,
+        date: daysAgo(45),
+        description: "Opening balance",
+        reference: `${dealer.name.slice(0, 4).toUpperCase()}-OPEN-001`,
+        imageUrl: null,
+        dealerId: dealer.id,
+        entityType: "DEALER",
+        entityId: dealer.id,
+        paymentToPurchaseId: null,
+      },
+    });
+
+    let supplierBalance = Number(openingBalanceTxn.amount);
+    let supplierPurchases = 0;
+    let supplierPayments = 0;
+
+    for (const purchase of supplierSeed.purchases) {
+      const txn = await prisma.entityTransaction.create({
+        data: {
+          type: TransactionType.PURCHASE,
+          amount: dec(purchase.amount),
+          quantity: purchase.quantity,
+          freeQuantity: purchase.freeQuantity,
+          itemName: purchase.itemName,
+          date: daysAgo(purchase.date),
+          description: purchase.description,
+          reference: purchase.reference,
+          imageUrl: null,
+          dealerId: dealer.id,
+          entityType: "DEALER",
+          entityId: dealer.id,
+          purchaseCategory: purchase.purchaseCategory,
+          unit: purchase.unit,
+          unitPrice: dec(purchase.unitPrice),
+          expiryDate:
+            purchase.purchaseCategory === PurchaseCategory.MEDICINE && purchase.expiryDate
+              ? daysFromNow(purchase.expiryDate)
+              : null,
+          paymentToPurchaseId: null,
+        },
+      });
+
+      purchaseTxns.push({ id: txn.id, amount: purchase.amount });
+      supplierPurchases += purchase.amount;
+      supplierBalance += purchase.amount;
+    }
+
+    for (const payment of supplierSeed.payments) {
+      const targetPurchase = payment.purchaseIndex !== undefined
+        ? purchaseTxns[payment.purchaseIndex]
+        : null;
+
+      const txn = await prisma.entityTransaction.create({
+        data: {
+          type: TransactionType.PAYMENT,
+          amount: dec(payment.amount),
+          quantity: null,
+          freeQuantity: null,
+          itemName: null,
+          date: daysAgo(payment.date),
+          description: payment.description,
+          reference: payment.reference,
+          imageUrl: null,
+          dealerId: dealer.id,
+          entityType: "DEALER",
+          entityId: dealer.id,
+          paymentToPurchaseId: targetPurchase?.id || null,
+        },
+      });
+
+      supplierPayments += payment.amount;
+      supplierBalance -= payment.amount;
+
+      // Keep the transaction object reachable in case future seed expansion needs it.
+      void txn;
+    }
+
+    await prisma.dealer.update({
+      where: { id: dealer.id },
+      data: {
+        balance: dec(supplierBalance),
+        totalPurchases: dec(supplierPurchases),
+        totalPayments: dec(supplierPayments),
+      },
+    });
+
+    totalSupplierPurchases += supplierPurchases;
+    totalSupplierPayments += supplierPayments;
+    totalSupplierBalance += supplierBalance;
+    totalSuppliers += 1;
   }
 
   let totalSales = 0;
@@ -598,9 +1066,13 @@ async function main() {
     ownerPassword: DEMO_OWNER_PASSWORD,
     farms: FARM_NAMES.length,
     batches: totalBatches,
+    suppliers: totalSuppliers,
     expenses: totalExpenses,
     sales: totalSales,
     dueBalance: totalDue,
+    supplierPurchases: totalSupplierPurchases,
+    supplierPayments: totalSupplierPayments,
+    supplierBalance: totalSupplierBalance,
     reminders: totalReminders,
   });
 }

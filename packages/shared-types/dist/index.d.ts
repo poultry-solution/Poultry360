@@ -1010,7 +1010,24 @@ export declare const DealerDetailResponseSchema: z.ZodObject<{
     balance: z.ZodNumber;
     thisMonthAmount: z.ZodNumber;
     totalTransactions: z.ZodNumber;
-    purchases: z.ZodArray<z.ZodObject<{
+    openingBalance: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+        id: z.ZodString;
+        amount: z.ZodNumber;
+        date: z.ZodDate;
+        notes: z.ZodNullable<z.ZodString>;
+    }, z.core.$strip>>>;
+    openingBalanceHistory: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        id: z.ZodString;
+        amount: z.ZodNumber;
+        date: z.ZodDate;
+        notes: z.ZodNullable<z.ZodString>;
+    }, z.core.$strip>>>;
+    connectionType: z.ZodDefault<z.ZodEnum<{
+        MANUAL: "MANUAL";
+        CONNECTED: "CONNECTED";
+    }>>;
+    isOwnedDealer: z.ZodOptional<z.ZodBoolean>;
+    purchases: z.ZodOptional<z.ZodArray<z.ZodObject<{
         id: z.ZodString;
         itemName: z.ZodNullable<z.ZodString>;
         purchaseCategory: z.ZodOptional<z.ZodNullable<z.ZodEnum<{
@@ -1028,15 +1045,15 @@ export declare const DealerDetailResponseSchema: z.ZodObject<{
         description: z.ZodNullable<z.ZodString>;
         reference: z.ZodNullable<z.ZodString>;
         imageUrl: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-    }, z.core.$strip>>;
-    payments: z.ZodArray<z.ZodObject<{
+    }, z.core.$strip>>>;
+    payments: z.ZodOptional<z.ZodArray<z.ZodObject<{
         id: z.ZodString;
         amount: z.ZodNumber;
         date: z.ZodDate;
         description: z.ZodNullable<z.ZodString>;
         reference: z.ZodNullable<z.ZodString>;
         imageUrl: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-    }, z.core.$strip>>;
+    }, z.core.$strip>>>;
     transactionTable: z.ZodOptional<z.ZodArray<z.ZodObject<{
         itemName: z.ZodString;
         rate: z.ZodNumber;
@@ -1055,8 +1072,11 @@ export declare const DealerDetailResponseSchema: z.ZodObject<{
     summary: z.ZodObject<{
         totalPurchases: z.ZodNumber;
         totalPayments: z.ZodNumber;
+        totalPurchasedAmount: z.ZodNumber;
+        totalPaidAmount: z.ZodNumber;
         outstandingAmount: z.ZodNumber;
         thisMonthPurchases: z.ZodNumber;
+        thisMonthAmount: z.ZodNumber;
     }, z.core.$strip>;
 }, z.core.$strip>;
 export type DealerDetailResponse = z.infer<typeof DealerDetailResponseSchema>;
@@ -3002,7 +3022,24 @@ export declare const schemas: {
         balance: z.ZodNumber;
         thisMonthAmount: z.ZodNumber;
         totalTransactions: z.ZodNumber;
-        purchases: z.ZodArray<z.ZodObject<{
+        openingBalance: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+            id: z.ZodString;
+            amount: z.ZodNumber;
+            date: z.ZodDate;
+            notes: z.ZodNullable<z.ZodString>;
+        }, z.core.$strip>>>;
+        openingBalanceHistory: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            amount: z.ZodNumber;
+            date: z.ZodDate;
+            notes: z.ZodNullable<z.ZodString>;
+        }, z.core.$strip>>>;
+        connectionType: z.ZodDefault<z.ZodEnum<{
+            MANUAL: "MANUAL";
+            CONNECTED: "CONNECTED";
+        }>>;
+        isOwnedDealer: z.ZodOptional<z.ZodBoolean>;
+        purchases: z.ZodOptional<z.ZodArray<z.ZodObject<{
             id: z.ZodString;
             itemName: z.ZodNullable<z.ZodString>;
             purchaseCategory: z.ZodOptional<z.ZodNullable<z.ZodEnum<{
@@ -3020,15 +3057,15 @@ export declare const schemas: {
             description: z.ZodNullable<z.ZodString>;
             reference: z.ZodNullable<z.ZodString>;
             imageUrl: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-        }, z.core.$strip>>;
-        payments: z.ZodArray<z.ZodObject<{
+        }, z.core.$strip>>>;
+        payments: z.ZodOptional<z.ZodArray<z.ZodObject<{
             id: z.ZodString;
             amount: z.ZodNumber;
             date: z.ZodDate;
             description: z.ZodNullable<z.ZodString>;
             reference: z.ZodNullable<z.ZodString>;
             imageUrl: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-        }, z.core.$strip>>;
+        }, z.core.$strip>>>;
         transactionTable: z.ZodOptional<z.ZodArray<z.ZodObject<{
             itemName: z.ZodString;
             rate: z.ZodNumber;
@@ -3047,8 +3084,11 @@ export declare const schemas: {
         summary: z.ZodObject<{
             totalPurchases: z.ZodNumber;
             totalPayments: z.ZodNumber;
+            totalPurchasedAmount: z.ZodNumber;
+            totalPaidAmount: z.ZodNumber;
             outstandingAmount: z.ZodNumber;
             thisMonthPurchases: z.ZodNumber;
+            thisMonthAmount: z.ZodNumber;
         }, z.core.$strip>;
     }, z.core.$strip>;
     readonly Hatchery: z.ZodObject<{

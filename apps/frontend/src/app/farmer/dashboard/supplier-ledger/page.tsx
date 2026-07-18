@@ -34,11 +34,13 @@ import {
   Column,
   createColumn,
 } from "@/common/components/ui/data-table";
+import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
 import { toast } from "sonner";
 import {
   useGetAllDealers,
   useGetDealerStatistics,
   useGetDealerById,
+  useGetDealerTransactions,
   useCreateDealer,
   useAddDealerTransaction,
   useDeleteDealerTransaction,
@@ -73,6 +75,8 @@ const CATEGORY_I18N_KEYS: Record<(typeof PURCHASE_CATEGORY_VALUES)[number], stri
   OTHER: "farmer.supplierLedger.categories.other",
 };
 
+const LEDGER_PAGE_LIMIT = 10;
+
 function getCategoryBadgeColor(category: string | null | undefined) {
   switch (category) {
     case "FEED":
@@ -104,6 +108,8 @@ export default function SupplierLedgerPage() {
   const [isDeleteSupplierOpen, setIsDeleteSupplierOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<{ message: string } | null>(null);
   const [activeTab, setActiveTab] = useState<"purchases" | "payments">("purchases");
+  const [purchasePage, setPurchasePage] = useState(1);
+  const [paymentPage, setPaymentPage] = useState(1);
 
   const [newSupplier, setNewSupplier] = useState({
     name: "",
@@ -149,6 +155,36 @@ export default function SupplierLedgerPage() {
     enabled: !!activeSupplierId && activeSupplierId.trim() !== "",
   });
 
+  const {
+    data: activePurchasesResponse,
+    isLoading: activePurchasesLoading,
+  } = useGetDealerTransactions(
+    activeSupplierId,
+    {
+      page: purchasePage,
+      limit: LEDGER_PAGE_LIMIT,
+      type: "PURCHASE",
+    },
+    {
+      enabled: !!activeSupplierId && activeTab === "purchases",
+    }
+  );
+
+  const {
+    data: activePaymentsResponse,
+    isLoading: activePaymentsLoading,
+  } = useGetDealerTransactions(
+    activeSupplierId,
+    {
+      page: paymentPage,
+      limit: LEDGER_PAGE_LIMIT,
+      type: "PAYMENT",
+    },
+    {
+      enabled: !!activeSupplierId && activeTab === "payments",
+    }
+  );
+
   // Mutations
   const createDealerMutation = useCreateDealer();
   const setOpeningBalanceMutation = useSetDealerOpeningBalance();
@@ -161,6 +197,13 @@ export default function SupplierLedgerPage() {
   const suppliers = dealersResponse?.data || [];
   const statistics = statisticsResponse?.data || {};
   const activeSupplier = activeSupplierResponse?.data;
+  const activePurchases = activePurchasesResponse?.data || [];
+  const activePurchasesPagination = activePurchasesResponse?.pagination;
+  const activePayments = activePaymentsResponse?.data || [];
+  const activePaymentsPagination = activePaymentsResponse?.pagination;
+  const activeSummary = activeSupplier?.summary || {};
+  const currentLedgerRows =
+    activeTab === "purchases" ? activePurchases : activePayments;
 
   // Set first supplier as active when suppliers load
   useEffect(() => {
@@ -175,6 +218,32 @@ export default function SupplierLedgerPage() {
       setActiveSupplierId("");
     }
   }, [suppliers, activeSupplierId]);
+
+  useEffect(() => {
+    setPurchasePage(1);
+    setPaymentPage(1);
+    exitDeleteMode();
+  }, [activeSupplierId]);
+
+  useEffect(() => {
+    exitDeleteMode();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (purchasePage > Number(activePurchasesPagination?.totalPages || 1)) {
+      setPurchasePage(Math.max(1, Number(activePurchasesPagination?.totalPages || 1)));
+    }
+  }, [purchasePage, activePurchasesPagination?.totalPages]);
+
+  useEffect(() => {
+    if (paymentPage > Number(activePaymentsPagination?.totalPages || 1)) {
+      setPaymentPage(Math.max(1, Number(activePaymentsPagination?.totalPages || 1)));
+    }
+  }, [paymentPage, activePaymentsPagination?.totalPages]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [purchasePage, paymentPage, activeTab, activeSupplierId]);
 
   // Default Add Entry date to now when modal opens
   useEffect(() => {
@@ -315,15 +384,11 @@ export default function SupplierLedgerPage() {
   ];
 
   function toggleAll() {
-    const data =
-      activeTab === "purchases"
-        ? activeSupplier?.purchases
-        : activeSupplier?.payments;
-    if (!data) return;
-    if (selectedIds.size === data.length) {
+    if (currentLedgerRows.length === 0) return;
+    if (selectedIds.size === currentLedgerRows.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(data.map((r: any) => r.id)));
+      setSelectedIds(new Set(currentLedgerRows.map((r: any) => r.id)));
     }
   }
 
@@ -545,43 +610,43 @@ export default function SupplierLedgerPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-2 md:gap-4 grid-cols-3">
+      <div className="grid gap-2 md:gap-3 grid-cols-3">
         <Card
           onClick={() => setIsSummaryOpen(true)}
           className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white"
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-2.5 py-1.5 md:px-4 md:py-2">
+            <CardTitle className="text-[9px] md:text-xs font-medium">
               {t("farmer.supplierLedger.stats.suppliers")}
             </CardTitle>
-            <Users className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
+            <Users className="h-3 w-3 md:h-3.5 md:w-3.5 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+          <CardContent className="px-2.5 pb-2 pt-0 md:px-4 md:pb-3 md:pt-0">
             {statisticsLoading ? (
-              <Loader2 className="h-4 w-4 md:h-6 md:w-6 animate-spin" />
+              <Loader2 className="h-4 w-4 md:h-5 md:w-5 animate-spin" />
             ) : (
-              <div className="text-base md:text-2xl font-bold">
+              <div className="text-sm md:text-xl font-bold leading-none">
                 {statistics.totalDealers || 0}
               </div>
             )}
-            <p className="text-[9px] md:text-xs text-muted-foreground hidden sm:block">
+            <p className="text-[8px] md:text-[10px] text-muted-foreground hidden sm:block mt-0.5">
               {t("farmer.supplierLedger.stats.activeSuppliers")}
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-2.5 py-1.5 md:px-4 md:py-2">
+            <CardTitle className="text-[9px] md:text-xs font-medium">
               {t("farmer.supplierLedger.stats.outstanding")}
             </CardTitle>
-            <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
+            <TrendingUp className="h-3 w-3 md:h-3.5 md:w-3.5 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+          <CardContent className="px-2.5 pb-2 pt-0 md:px-4 md:pb-3 md:pt-0">
             {statisticsLoading ? (
-              <Loader2 className="h-4 w-4 md:h-6 md:w-6 animate-spin" />
+              <Loader2 className="h-4 w-4 md:h-5 md:w-5 animate-spin" />
             ) : (
-              <div className="text-base md:text-2xl font-bold">
+              <div className="text-sm md:text-xl font-bold leading-none">
                 <span className="hidden md:inline">
                   ₹{(statistics.outstandingAmount || 0).toLocaleString()}
                 </span>
@@ -590,24 +655,24 @@ export default function SupplierLedgerPage() {
                 </span>
               </div>
             )}
-            <p className="text-[9px] md:text-xs text-muted-foreground hidden sm:block">
+            <p className="text-[8px] md:text-[10px] text-muted-foreground hidden sm:block mt-0.5">
               {t("farmer.supplierLedger.stats.amountDue")}
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-2.5 py-1.5 md:px-4 md:py-2">
+            <CardTitle className="text-[9px] md:text-xs font-medium">
               {t("farmer.supplierLedger.stats.thisMonth")}
             </CardTitle>
-            <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
+            <TrendingUp className="h-3 w-3 md:h-3.5 md:w-3.5 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+          <CardContent className="px-2.5 pb-2 pt-0 md:px-4 md:pb-3 md:pt-0">
             {statisticsLoading ? (
-              <Loader2 className="h-4 w-4 md:h-6 md:w-6 animate-spin" />
+              <Loader2 className="h-4 w-4 md:h-5 md:w-5 animate-spin" />
             ) : (
-              <div className="text-base md:text-2xl font-bold">
+              <div className="text-sm md:text-xl font-bold leading-none">
                 <span className="hidden md:inline">
                   ₹{(statistics.thisMonthAmount || 0).toLocaleString()}
                 </span>
@@ -616,7 +681,7 @@ export default function SupplierLedgerPage() {
                 </span>
               </div>
             )}
-            <p className="text-[9px] md:text-xs text-muted-foreground hidden sm:block">
+            <p className="text-[8px] md:text-[10px] text-muted-foreground hidden sm:block mt-0.5">
               {t("farmer.supplierLedger.stats.purchases")}
             </p>
           </CardContent>
@@ -1388,26 +1453,16 @@ export default function SupplierLedgerPage() {
                     <CardTitle className="text-base md:text-lg">
                       {activeSupplier?.name || t("farmer.supplierLedger.selectSupplier")}
                     </CardTitle>
-                    {activeSupplier && (
-                      <CardDescription className="text-[10px] md:text-sm mt-1">
-                        {t("farmer.supplierLedger.balance")} ₹
-                        {(activeSupplier.balance || 0).toLocaleString()} |{" "}
-                        {t("farmer.supplierLedger.purchased")} ₹
-                        {(
-                          activeSupplier.purchases?.reduce(
-                            (sum: number, p: any) => sum + p.amount,
-                            0
-                          ) || 0
-                        ).toLocaleString()}{" "}
-                        | {t("farmer.supplierLedger.paid")} ₹
-                        {(
-                          activeSupplier.payments?.reduce(
-                            (sum: number, p: any) => sum + p.amount,
-                            0
-                          ) || 0
-                        ).toLocaleString()}
-                      </CardDescription>
-                    )}
+                      {activeSupplier && (
+                        <CardDescription className="text-[10px] md:text-sm mt-1">
+                          {t("farmer.supplierLedger.balance")} ₹
+                          {(activeSupplier.balance || 0).toLocaleString()} |{" "}
+                          {t("farmer.supplierLedger.purchased")} ₹
+                          {Number(activeSummary.totalPurchasedAmount || 0).toLocaleString()}{" "}
+                          | {t("farmer.supplierLedger.paid")} ₹
+                          {Number(activeSummary.totalPaidAmount || 0).toLocaleString()}
+                        </CardDescription>
+                      )}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {activeSupplierId && !isDeleteMode && canDeleteSupplier && (
@@ -1515,89 +1570,93 @@ export default function SupplierLedgerPage() {
                       setActiveTab(v as "purchases" | "payments");
                       exitDeleteMode();
                     }}
-                  >
-                    <div className="px-3 md:px-6">
-                      <TabsList>
-                        <TabsTrigger value="purchases">
-                          {t("farmer.supplierLedger.stats.purchases")} ({activeSupplier?.purchases?.length || 0})
-                        </TabsTrigger>
-                        <TabsTrigger value="payments">
-                          {t("farmer.supplierLedger.paymentsTab")} ({activeSupplier?.payments?.length || 0})
-                        </TabsTrigger>
-                      </TabsList>
-                    </div>
+                    >
+                      <div className="px-3 md:px-6">
+                        <TabsList>
+                          <TabsTrigger value="purchases">
+                          {t("farmer.supplierLedger.stats.purchases")} ({Number(activeSummary.totalPurchases || 0)})
+                          </TabsTrigger>
+                          <TabsTrigger value="payments">
+                          {t("farmer.supplierLedger.paymentsTab")} ({Number(activeSummary.totalPayments || 0)})
+                          </TabsTrigger>
+                        </TabsList>
+                      </div>
 
-                    <TabsContent value="purchases" className="overflow-x-auto">
-                      <DataTable
-                        data={activeSupplier?.purchases || []}
+                      <TabsContent value="purchases" className="overflow-x-auto">
+                        <DataTable
+                        data={activePurchases}
                         columns={purchaseColumns}
                         selectable={isDeleteMode}
                         isAllSelected={
-                          !!activeSupplier?.purchases &&
+                          currentLedgerRows.length > 0 &&
                           selectedIds.size > 0 &&
-                          selectedIds.size ===
-                          activeSupplier.purchases.length
+                          selectedIds.size === currentLedgerRows.length
                         }
                         onToggleAll={toggleAll}
                         isRowSelected={(row: any) => selectedIds.has(row.id)}
                         onToggleRow={toggleOne}
                         getRowKey={(row: any) => row.id}
                         showFooter={
-                          (activeSupplier?.purchases?.length || 0) > 0
+                          (activePurchases.length || 0) > 0
                         }
                         footerContent={
                           <div className="flex justify-between text-sm px-2">
                             <span className="font-semibold">{t("farmer.supplierLedger.total")}</span>
                             <span className="font-semibold">
                               ₹
-                              {(
-                                activeSupplier?.purchases?.reduce(
-                                  (sum: number, r: any) => sum + r.amount,
-                                  0
-                                ) || 0
-                              ).toLocaleString()}
+                              {Number(activeSummary.totalPurchasedAmount || 0).toLocaleString()}
                             </span>
                           </div>
                         }
                         emptyMessage={t("farmer.supplierLedger.noPurchases")}
                       />
-                    </TabsContent>
+                      <LedgerPagination
+                        page={purchasePage}
+                        totalPages={Number(activePurchasesPagination?.totalPages || 1)}
+                        totalRows={Number(activePurchasesPagination?.total || 0)}
+                        pageLimit={LEDGER_PAGE_LIMIT}
+                        onPageChange={setPurchasePage}
+                        loading={activePurchasesLoading}
+                      />
+                      </TabsContent>
 
-                    <TabsContent value="payments" className="overflow-x-auto">
-                      <DataTable
-                        data={activeSupplier?.payments || []}
+                      <TabsContent value="payments" className="overflow-x-auto">
+                        <DataTable
+                        data={activePayments}
                         columns={paymentColumns}
                         selectable={isDeleteMode}
                         isAllSelected={
-                          !!activeSupplier?.payments &&
+                          currentLedgerRows.length > 0 &&
                           selectedIds.size > 0 &&
-                          selectedIds.size ===
-                          activeSupplier.payments.length
+                          selectedIds.size === currentLedgerRows.length
                         }
                         onToggleAll={toggleAll}
                         isRowSelected={(row: any) => selectedIds.has(row.id)}
                         onToggleRow={toggleOne}
                         getRowKey={(row: any) => row.id}
                         showFooter={
-                          (activeSupplier?.payments?.length || 0) > 0
+                          (activePayments.length || 0) > 0
                         }
                         footerContent={
                           <div className="flex justify-between text-sm px-2">
                             <span className="font-semibold">{t("farmer.supplierLedger.totalPaid")}</span>
                             <span className="font-semibold text-green-600">
                               ₹
-                              {(
-                                activeSupplier?.payments?.reduce(
-                                  (sum: number, r: any) => sum + r.amount,
-                                  0
-                                ) || 0
-                              ).toLocaleString()}
+                              {Number(activeSummary.totalPaidAmount || 0).toLocaleString()}
                             </span>
                           </div>
                         }
                         emptyMessage={t("farmer.supplierLedger.noPayments")}
                       />
-                    </TabsContent>
+                      <LedgerPagination
+                        page={paymentPage}
+                        totalPages={Number(activePaymentsPagination?.totalPages || 1)}
+                        totalRows={Number(activePaymentsPagination?.total || 0)}
+                        pageLimit={LEDGER_PAGE_LIMIT}
+                        onPageChange={setPaymentPage}
+                        loading={activePaymentsLoading}
+                      />
+                      </TabsContent>
                   </Tabs>
                 )}
               </CardContent>

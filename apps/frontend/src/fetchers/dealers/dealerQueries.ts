@@ -94,7 +94,8 @@ export const useGetDealerTransactions = (
     type?: TransactionType;
     startDate?: string;
     endDate?: string;
-  }
+  },
+  options?: { enabled?: boolean }
 ) => {
   return useQuery<{
     success: boolean;
@@ -113,7 +114,7 @@ export const useGetDealerTransactions = (
       });
       return response.data;
     },
-    enabled: !!id,
+    enabled: !!id && (options?.enabled !== false),
   });
 };
 

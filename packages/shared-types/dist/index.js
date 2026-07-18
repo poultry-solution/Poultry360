@@ -649,8 +649,28 @@ exports.DealerDetailResponseSchema = exports.BaseSchema.extend({
     balance: zod_1.z.number(),
     thisMonthAmount: zod_1.z.number().nonnegative(),
     totalTransactions: zod_1.z.number().int().nonnegative(),
+    openingBalance: zod_1.z
+        .object({
+        id: zod_1.z.string(),
+        amount: zod_1.z.number(),
+        date: zod_1.z.date(),
+        notes: zod_1.z.string().nullable(),
+    })
+        .nullable()
+        .optional(),
+    openingBalanceHistory: zod_1.z
+        .array(zod_1.z.object({
+        id: zod_1.z.string(),
+        amount: zod_1.z.number(),
+        date: zod_1.z.date(),
+        notes: zod_1.z.string().nullable(),
+    }))
+        .optional(),
+    connectionType: zod_1.z.enum(["MANUAL", "CONNECTED"]).default("MANUAL"),
+    isOwnedDealer: zod_1.z.boolean().optional(),
     // Purchase entries (EntityTransaction where type=PURCHASE)
-    purchases: zod_1.z.array(zod_1.z.object({
+    purchases: zod_1.z
+        .array(zod_1.z.object({
         id: zod_1.z.string(),
         itemName: zod_1.z.string().nullable(),
         purchaseCategory: exports.PurchaseCategorySchema.nullable().optional(),
@@ -662,16 +682,19 @@ exports.DealerDetailResponseSchema = exports.BaseSchema.extend({
         description: zod_1.z.string().nullable(),
         reference: zod_1.z.string().nullable(),
         imageUrl: zod_1.z.string().nullable().optional(),
-    })),
+    }))
+        .optional(),
     // Payment entries (EntityTransaction where type=PAYMENT)
-    payments: zod_1.z.array(zod_1.z.object({
+    payments: zod_1.z
+        .array(zod_1.z.object({
         id: zod_1.z.string(),
         amount: zod_1.z.number(),
         date: zod_1.z.date(),
         description: zod_1.z.string().nullable(),
         reference: zod_1.z.string().nullable(),
         imageUrl: zod_1.z.string().nullable().optional(),
-    })),
+    }))
+        .optional(),
     // Keep legacy transactionTable for backward compatibility (old dealer-ledger page)
     transactionTable: zod_1.z.array(zod_1.z.object({
         itemName: zod_1.z.string(),
@@ -691,8 +714,11 @@ exports.DealerDetailResponseSchema = exports.BaseSchema.extend({
     summary: zod_1.z.object({
         totalPurchases: zod_1.z.number().int().nonnegative(),
         totalPayments: zod_1.z.number().int().nonnegative(),
+        totalPurchasedAmount: zod_1.z.number().nonnegative(),
+        totalPaidAmount: zod_1.z.number().nonnegative(),
         outstandingAmount: zod_1.z.number().nonnegative(),
         thisMonthPurchases: zod_1.z.number().int().nonnegative(),
+        thisMonthAmount: zod_1.z.number().nonnegative(),
     }),
 });
 exports.HatcherySchema = exports.BaseSchema.extend({
