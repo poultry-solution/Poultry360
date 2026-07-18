@@ -1002,6 +1002,12 @@ exports.AuthResponseSchema = zod_1.z.object({
 exports.FarmListResponseSchema = zod_1.z.object({
     success: zod_1.z.boolean(),
     data: zod_1.z.array(exports.FarmResponseSchema),
+    pagination: zod_1.z.object({
+        page: zod_1.z.number().int().positive(),
+        limit: zod_1.z.number().int().positive(),
+        total: zod_1.z.number().int().nonnegative(),
+        totalPages: zod_1.z.number().int().nonnegative(),
+    }).optional(),
     message: zod_1.z.string().optional(),
 });
 exports.FarmDetailResponseSchema = zod_1.z.object({

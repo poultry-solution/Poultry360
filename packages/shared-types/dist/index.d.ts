@@ -1653,6 +1653,12 @@ export declare const FarmListResponseSchema: z.ZodObject<{
             sales: z.ZodNumber;
         }, z.core.$strip>;
     }, z.core.$strip>>;
+    pagination: z.ZodOptional<z.ZodObject<{
+        page: z.ZodNumber;
+        limit: z.ZodNumber;
+        total: z.ZodNumber;
+        totalPages: z.ZodNumber;
+    }, z.core.$strip>>;
     message: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type FarmListResponse = z.infer<typeof FarmListResponseSchema>;

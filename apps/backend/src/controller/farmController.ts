@@ -4,134 +4,7 @@ import { UserRole } from "@prisma/client";
 import {
   CreateFarmSchema,
   UpdateFarmSchema,
-  FarmSchema,
 } from "@myapp/shared-types";
-
-// ==================== GET ALL FARMS ====================
-export const getAllFarms = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
-  try {
-    const { page = 1, limit = 10, search, ownerId, managerId } = req.query;
-    const currentUserId = req.userId;
-    const currentUserRole = req.role;
-
-    const skip = (Number(page) - 1) * Number(limit);
-
-    // Build where clause
-    const where: any = {};
-
-    // Role-based filtering
-    if (currentUserRole === UserRole.MANAGER) {
-      // Managers can only see farms they manage or own
-      where.OR = [
-        { ownerId: currentUserId },
-        { managers: { some: { id: currentUserId } } },
-      ];
-    } else if (currentUserRole === UserRole.OWNER) {
-      // Owners can see all farms, but can filter by specific owner
-      if (ownerId) {
-        where.ownerId = ownerId as string;
-      }
-    }
-
-    if (managerId) {
-      where.managers = { some: { id: managerId as string } };
-    }
-
-    if (search) {
-      where.OR = [
-        { name: { contains: search as string, mode: "insensitive" } },
-        { location: { contains: search as string, mode: "insensitive" } },
-        { description: { contains: search as string, mode: "insensitive" } },
-      ];
-    }
-
-    const [farms, total] = await Promise.all([
-      prisma.farm.findMany({
-        where,
-        skip,
-        take: Number(limit),
-        include: {
-          owner: {
-            select: {
-              id: true,
-              name: true,
-              phone: true,
-              role: true,
-            },
-          },
-          managers: {
-            select: {
-              id: true,
-              name: true,
-              phone: true,
-              role: true,
-            },
-          },
-          _count: {
-            select: {
-              batches: true,
-              expenses: true,
-              sales: true,
-              inventoryUsages: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.farm.count({ where }),
-    ]);
-
-    const batches = await prisma.batch.groupBy({
-      where: {
-        farmId: { in: farms.map((farm) => farm.id) },
-      },
-      by: ["farmId", "status"],
-      _count: {
-        status: true,
-      },
-    });
-
-    const farmsWithBatches = farms.map((farm) => {
-      const activeBatches = batches
-        .filter((b) => b.farmId === farm.id && b.status === "ACTIVE")
-        .reduce((acc, b) => acc + b._count.status, 0);
-
-      const closedBatches = batches
-        .filter((b) => b.farmId === farm.id && b.status === "COMPLETED")
-        .reduce((acc, b) => acc + b._count.status, 0);
-
-      return {
-        ...farm,
-        _count: {
-          ...farm._count,
-          activeBatches,
-          closedBatches,
-        },
-      };
-    });
-
-    console.log(farmsWithBatches);
-
-
-
-    return res.json({
-      success: true,
-      data: farmsWithBatches,
-      pagination: {
-        page: Number(page),
-        limit: Number(limit),
-        total,
-        totalPages: Math.ceil(total / Number(limit)),
-      },
-    });
-  } catch (error) {
-    console.error("Get all farms error:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
 
 // ==================== GET FARM BY ID ====================
 export const getFarmById = async (
@@ -255,7 +128,17 @@ export const getUserFarms = async (
 ): Promise<any> => {
   try {
     const currentUserId = req.userId;
-    const { type = "all" } = req.query; // "owned", "managed", "all"
+    const { type = "all", page: pageParam, limit: limitParam } = req.query; // "owned", "managed", "all"
+    const hasPagination = pageParam !== undefined || limitParam !== undefined;
+    const parsedPage = Number(pageParam);
+    const parsedLimit = Number(limitParam);
+    const page =
+      Number.isFinite(parsedPage) && parsedPage > 0 ? Math.floor(parsedPage) : 1;
+    const limit =
+      Number.isFinite(parsedLimit) && parsedLimit > 0
+        ? Math.floor(parsedLimit)
+        : 10;
+    const skip = (page - 1) * limit;
 
     const where: any = {};
 
@@ -271,43 +154,82 @@ export const getUserFarms = async (
       ];
     }
 
-    const farms = await prisma.farm.findMany({
-      where,
-      include: {
-        owner: {
-          select: {
-            id: true,
-            name: true,
-            role: true,
-          },
-        },
-        managers: {
-          select: {
-            id: true,
-            name: true,
-            role: true,
-          },
-        },
-        _count: {
-          select: {
-            batches: true,
-            expenses: true,
-            sales: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const [farms, total] = hasPagination
+      ? await Promise.all([
+          prisma.farm.findMany({
+            where,
+            skip,
+            take: limit,
+            include: {
+              owner: {
+                select: {
+                  id: true,
+                  name: true,
+                  role: true,
+                },
+              },
+              managers: {
+                select: {
+                  id: true,
+                  name: true,
+                  role: true,
+                },
+              },
+              _count: {
+                select: {
+                  batches: true,
+                  expenses: true,
+                  sales: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+          }),
+          prisma.farm.count({ where }),
+        ])
+      : [
+          await prisma.farm.findMany({
+            where,
+            include: {
+              owner: {
+                select: {
+                  id: true,
+                  name: true,
+                  role: true,
+                },
+              },
+              managers: {
+                select: {
+                  id: true,
+                  name: true,
+                  role: true,
+                },
+              },
+              _count: {
+                select: {
+                  batches: true,
+                  expenses: true,
+                  sales: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+          }),
+          0,
+        ];
 
-    const batches = await prisma.batch.groupBy({
-      where: {
-        farmId: { in: farms.map((farm) => farm.id) },
-      },
-      by: ["farmId", "status"],
-      _count: {
-        status: true,
-      },
-    });
+    const batches =
+      farms.length > 0
+        ? await prisma.batch.groupBy({
+            where: {
+              farmId: { in: farms.map((farm) => farm.id) },
+            },
+            by: ["farmId", "status"],
+            _count: {
+              status: true,
+            },
+          })
+        : [];
 
     const farmsWithBatches = farms.map((farm) => {
       const activeBatches = batches
@@ -328,12 +250,30 @@ export const getUserFarms = async (
       };
     });
 
-    console.log(farmsWithBatches);
-
-    return res.json({
+    const response: {
+      success: true;
+      data: typeof farmsWithBatches;
+      pagination?: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+    } = {
       success: true,
       data: farmsWithBatches,
-    });
+    };
+
+    if (hasPagination) {
+      response.pagination = {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      };
+    }
+
+    return res.json(response);
   } catch (error) {
     console.error("Get user farms error:", error);
     return res.status(500).json({ message: "Internal server error" });

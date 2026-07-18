@@ -1,19 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/common/components/ui/card";
-import { Building2, Plus, Loader2, ArrowRight } from "lucide-react";
+  Building2,
+  Plus,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+} from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
+import { Badge } from "@/common/components/ui/badge";
+import { DataTable, type Column } from "@/common/components/ui/data-table";
 import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
 import { useGetUserFarms, useCreateFarm } from "@/fetchers/farms/farmQueries";
 import { useGetFarmBatches } from "@/fetchers/batches/batchQueries";
@@ -22,11 +24,14 @@ import { useAuth } from "@/common/store/store";
 import { FarmResponse, BatchResponse } from "@myapp/shared-types";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { useI18n } from "@/i18n/useI18n";
+import { useRouter } from "next/navigation";
 
 export default function FarmsPage() {
   const router = useRouter();
   const { t } = useI18n();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const limit = 10;
   const [formData, setFormData] = useState({
     name: "",
     capacity: "",
@@ -38,8 +43,9 @@ export default function FarmsPage() {
     data: farmsResponse,
     isLoading: farmsLoading,
     error: farmsError,
-  } = useGetUserFarms("all");
+  } = useGetUserFarms("all", { page, limit });
   const farms = farmsResponse?.data || [];
+  const pagination = farmsResponse?.pagination;
 
   // Create farm mutation
   const createFarmMutation = useCreateFarm();
@@ -104,6 +110,7 @@ export default function FarmsPage() {
       });
 
       toast.success(t("farmer.farms.toasts.created"));
+      setPage(1);
 
       // Reset form and close modal
       setIsModalOpen(false);
@@ -118,6 +125,81 @@ export default function FarmsPage() {
     setIsModalOpen(false);
     setFormData({ name: "", capacity: "", description: "" });
   };
+
+  const openFarm = (farmId: string) => {
+    router.push(`/farmer/dashboard/farms/${farmId}`);
+  };
+
+  const farmColumns: Column<FarmResponse>[] = [
+    {
+      key: "name",
+      label: "Farm",
+      width: "280px",
+      render: (_value, farm) => (
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-primary shrink-0" />
+            <div className="min-w-0">
+              <p className="font-medium leading-tight truncate">{farm.name}</p>
+              {farm.description && (
+                <p className="text-xs text-muted-foreground line-clamp-2">
+                  {farm.description}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "capacity",
+      label: "Capacity",
+      width: "140px",
+      render: (value) => (
+        <div className="font-medium">
+          {Number(value).toLocaleString()} {t("farmer.farms.birds")}
+        </div>
+      ),
+    },
+    {
+      key: "batches",
+      label: "Batches",
+      width: "220px",
+      render: (_value, farm) => (
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary" className="rounded-md px-2 py-0.5">
+            {farm._count.batches || 0} total
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 px-2 text-xs"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              openBatchesModal(farm.id, farm.name, "active");
+            }}
+          >
+            {t("farmer.farms.activeBatches", { count: farm._count.activeBatches || 0 })}
+          </Button>
+        </div>
+      ),
+    },
+    {
+      key: "createdAt",
+      label: "Created",
+      width: "160px",
+      type: "date",
+    },
+  ];
+
+  const farmActions = [
+    {
+      label: "View farm",
+      icon: <Eye className="h-4 w-4" />,
+      onClick: (farm: FarmResponse) => openFarm(farm.id),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -158,9 +240,16 @@ export default function FarmsPage() {
 
       {/* Farms List */}
       {!farmsLoading && !farmsError && (
-        <div className="grid gap-4">
+        <div className="space-y-3">
+          <div className="flex flex-col gap-1 px-1">
+            <h2 className="text-base md:text-lg font-semibold">Farms</h2>
+            <p className="text-xs md:text-sm text-muted-foreground">
+              {pagination?.total || 0} farms total
+              {pagination ? ` • Showing ${((pagination.page - 1) * pagination.limit) + 1}-${Math.min(pagination.page * pagination.limit, pagination.total)}` : ""}
+            </p>
+          </div>
           {farms.length === 0 ? (
-            <div className="text-center py-8">
+            <div className="text-center py-12">
               <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">{t("farmer.farms.emptyTitle")}</h3>
               <p className="text-muted-foreground mb-4">{t("farmer.farms.emptyHelp")}</p>
@@ -170,70 +259,50 @@ export default function FarmsPage() {
               </Button>
             </div>
           ) : (
-            farms.map((farm: FarmResponse) => (
-              <Link
-                key={farm.id}
-                href={`/farmer/dashboard/farms/${farm.id}`}
-                className="block"
-              >
-                <Card className="hover:border-primary cursor-pointer transition-colors">
-                  <CardHeader className="p-3 md:p-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                      <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                        <Building2 className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-                        {farm.name}
-                      </CardTitle>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 md:h-8 text-xs md:text-sm px-2 md:px-3 transition-colors hover:bg-primary hover:text-primary-foreground"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            openBatchesModal(farm.id, farm.name, "active");
-                          }}
-                        >
-                          {/* batches can be active or closed */}
-                          {t("farmer.farms.activeBatches", { count: farm._count.activeBatches || 0 })}
-                        </Button>
-                        <ArrowRight className="h-4 w-4 text-muted-foreground hidden sm:block" />
-                      </div>
-                    </div>
-                    {farm.description && (
-                      <CardDescription className="mt-1 text-xs md:text-sm">
-                        {farm.description}
-                      </CardDescription>
-                    )}
-                  </CardHeader>
-                  <CardContent className="p-3 md:p-6 pt-0">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 text-xs md:text-sm">
-                      <div>
-                        <span className="text-muted-foreground">{t("farmer.farms.capacity")}</span>
-                        <p className="font-medium">
-                          {farm.capacity.toLocaleString()} {t("farmer.farms.birds")}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">{t("farmer.farms.owner")}</span>
-                        <p className="font-medium">{farm.owner.name}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">{t("farmer.farms.totalBatches")}</span>
-                        <p className="font-medium">{farm._count.batches || 0}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">{t("farmer.farms.created")}</span>
-                        <p className="font-medium">
-                          <DateDisplay date={farm.createdAt} format="short" />
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))
+            <DataTable
+              data={farms}
+              columns={farmColumns}
+              actions={farmActions}
+              onRowClick={(farm) => openFarm(farm.id)}
+              showFooter={false}
+              emptyMessage={t("farmer.farms.emptyHelp")}
+            />
           )}
+        </div>
+      )}
+
+      {!farmsLoading && !farmsError && farms.length > 0 && pagination && (
+        <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            {pagination.total} farms total
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={page <= 1}
+            >
+              <ChevronLeft className="mr-2 h-4 w-4" />
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {pagination.page} of {pagination.totalPages || 1}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setPage((current) =>
+                  Math.min(pagination.totalPages || current, current + 1)
+                )
+              }
+              disabled={page >= (pagination.totalPages || 1)}
+            >
+              Next
+              <ChevronRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
         </div>
       )}
 

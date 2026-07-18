@@ -8,7 +8,8 @@
     "test:watch": "cross-env NODE_ENV=test jest --watch --runInBand",
     "test:coverage": "cross-env NODE_ENV=test jest --coverage --runInBand",
     "dev": "nodemon src/index.ts",
-    "seed": "ts-node src/scripts/seedStandardVaccinationSchedule.ts",
+    "seed": "ts-node src/scripts/seedDemoFarmer.ts",
+    "seed:demo": "ts-node src/scripts/seedDemoFarmer.ts",
     "build": "tsc"
   },
   "keywords": [],

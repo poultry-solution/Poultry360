@@ -1352,6 +1352,12 @@ export type AuthResponse = z.infer<typeof AuthResponseSchema>;
 export const FarmListResponseSchema = z.object({
   success: z.boolean(),
   data: z.array(FarmResponseSchema),
+  pagination: z.object({
+    page: z.number().int().positive(),
+    limit: z.number().int().positive(),
+    total: z.number().int().nonnegative(),
+    totalPages: z.number().int().nonnegative(),
+  }).optional(),
   message: z.string().optional(),
 });
 

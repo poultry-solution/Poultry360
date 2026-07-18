@@ -1,6 +1,5 @@
 import { Router } from "express";
 import {
-  getAllFarms,
   getFarmById,
   getUserFarms,
   createFarm,
@@ -21,9 +20,6 @@ farmRouter.use((req, res, next) => {
 });
 
 // ==================== FARM ROUTES ====================
-
-// Get all farms (with role-based filtering)
-farmRouter.get("/", getAllFarms);
 
 // Get current user's farms
 farmRouter.get("/my-farms", getUserFarms);
