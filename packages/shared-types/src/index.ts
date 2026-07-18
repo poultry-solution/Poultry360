@@ -1373,6 +1373,16 @@ export type FarmDetailResponse = z.infer<typeof FarmDetailResponseSchema>;
 
 // ==================== BATCH API RESPONSE SCHEMAS ====================
 
+export const BatchListSummarySchema = z.object({
+  totalBatches: z.number().int().nonnegative(),
+  activeBatches: z.number().int().nonnegative(),
+  closedBatches: z.number().int().nonnegative(),
+  totalInitialChicks: z.number().int().nonnegative(),
+  totalCurrentChicks: z.number().int().nonnegative(),
+});
+
+export type BatchListSummary = z.infer<typeof BatchListSummarySchema>;
+
 export const BatchListResponseSchema = z.object({
   success: z.boolean(),
   data: z.array(BatchResponseSchema),
@@ -1382,6 +1392,7 @@ export const BatchListResponseSchema = z.object({
     total: z.number().int().nonnegative(),
     totalPages: z.number().int().nonnegative(),
   }),
+  summary: BatchListSummarySchema.optional(),
   message: z.string().optional(),
 });
 
