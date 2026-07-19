@@ -1,17 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Search, Eye, Calendar as CalendarIcon, User, Phone, Package, FileText, Trash2 } from "lucide-react";
-import Calendar from "@sbmdkl/nepali-datepicker-reactjs";
-import "@sbmdkl/nepali-datepicker-reactjs/dist/index.css";
-import { Label } from "@/common/components/ui/label";
-import {
-  convertADtoBS,
-  nepalInclusiveRangeToIsoParams,
-  parseDateStringLocal,
-} from "@/common/lib/nepali-date";
-import { getTodayLocalDate } from "@/common/lib/utils";
 import { toast } from "sonner";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import {
@@ -45,89 +36,28 @@ export default function DealerSalesPage() {
   const { t } = useI18n();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [draftStartAd, setDraftStartAd] = useState("");
-  const [draftEndAd, setDraftEndAd] = useState("");
-  const [appliedRange, setAppliedRange] = useState<{
-    start: string;
-    end: string;
-  } | null>(null);
-  const [calendarResetKey, setCalendarResetKey] = useState(0);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [deleteSaleId, setDeleteSaleId] = useState<string | null>(null);
   const [deletePassword, setDeletePassword] = useState("");
   const deleteSaleMutation = useDeleteDealerSale();
 
-  const appliedIso = useMemo(() => {
-    if (!appliedRange) return null;
-    try {
-      return nepalInclusiveRangeToIsoParams(appliedRange.start, appliedRange.end);
-    } catch {
-      return null;
-    }
-  }, [appliedRange]);
-
-  const salesQueryEnabled = Boolean(appliedRange && appliedIso);
-
-  // Get sales (only after user applies a date range via Find)
+  // Get sales
   const { data: salesData, isLoading } = useGetDealerSales(
     {
       page,
       limit: 10,
       search,
-      ...(appliedIso && {
-        startDate: appliedIso.startDate,
-        endDate: appliedIso.endDate,
-      }),
     },
-    { enabled: salesQueryEnabled }
+    { enabled: true }
   );
 
   // Get selected sale details
   const { data: saleDetailData, isLoading: detailLoading } = useGetDealerSaleById(selectedSaleId || "");
 
-  const sales: DealerSale[] = salesQueryEnabled
-    ? salesData?.data || []
-    : [];
-  const pagination = salesQueryEnabled ? salesData?.pagination : undefined;
+  const sales: DealerSale[] = salesData?.data || [];
+  const pagination = salesData?.pagination;
   const sale = saleDetailData?.data;
-
-  const handleFind = () => {
-    if (!draftStartAd || !draftEndAd) {
-      toast.error(t("dealer.sales.filters.bothDatesRequired"));
-      return;
-    }
-    const start = parseDateStringLocal(draftStartAd);
-    const end = parseDateStringLocal(draftEndAd);
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      toast.error(t("dealer.sales.filters.bothDatesRequired"));
-      return;
-    }
-    if (start > end) {
-      toast.error(t("dealer.sales.filters.invalidRange"));
-      return;
-    }
-    setPage(1);
-    setAppliedRange({ start: draftStartAd, end: draftEndAd });
-  };
-
-  const handleClear = () => {
-    setDraftStartAd("");
-    setDraftEndAd("");
-    setAppliedRange(null);
-    setPage(1);
-    setCalendarResetKey((k) => k + 1);
-  };
-
-  /**
-   * Nepali datepicker validates defaultDate with string.split — it must be BS YYYY-MM-DD.
-   * Typings incorrectly say Date; use `as any` (same as DateInput).
-   */
-  const defaultBsDateForPicker = (draftAd: string): string =>
-    convertADtoBS(draftAd || getTodayLocalDate());
-
-  const emptyTableMessage = !appliedRange
-    ? t("dealer.sales.table.emptyBeforeFilter")
-    : t("dealer.sales.table.emptyInRange");
+  const emptyTableMessage = t("dealer.sales.table.empty");
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -167,74 +97,20 @@ export default function DealerSalesPage() {
         </div>
       </div>
 
-      {/* Search + date range (Nepal / BS) */}
+      {/* Search */}
       <Card>
-        <CardContent className="pt-4 pb-4 space-y-4">
+        <CardContent className="pt-4 pb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder={t("dealer.sales.filters.searchPlaceholder")}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
               className="pl-10"
             />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-sm">{t("dealer.sales.filters.startDateLabel")}</Label>
-              <Calendar
-                key={`start-${calendarResetKey}-${draftStartAd || "x"}`}
-                onChange={({
-                  adDate,
-                }: {
-                  bsDate: string;
-                  adDate: string;
-                }) => {
-                  const ymd = adDate.includes("T")
-                    ? adDate.split("T")[0]
-                    : adDate;
-                  setDraftStartAd(ymd);
-                }}
-                defaultDate={defaultBsDateForPicker(draftStartAd) as any}
-                className="w-full rounded-md border border-input"
-                theme="dark"
-                language="en"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm">{t("dealer.sales.filters.endDateLabel")}</Label>
-              <Calendar
-                key={`end-${calendarResetKey}-${draftEndAd || "x"}`}
-                onChange={({
-                  adDate,
-                }: {
-                  bsDate: string;
-                  adDate: string;
-                }) => {
-                  const ymd = adDate.includes("T")
-                    ? adDate.split("T")[0]
-                    : adDate;
-                  setDraftEndAd(ymd);
-                }}
-                defaultDate={defaultBsDateForPicker(draftEndAd) as any}
-                className="w-full rounded-md border border-input"
-                theme="dark"
-                language="en"
-              />
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={handleFind} size="sm">
-              {t("dealer.sales.filters.find")}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleClear}
-            >
-              {t("dealer.sales.filters.clear")}
-            </Button>
           </div>
         </CardContent>
       </Card>
@@ -244,17 +120,15 @@ export default function DealerSalesPage() {
         <CardHeader className="p-3 md:p-6">
           <CardTitle className="text-base md:text-lg">{t("dealer.sales.table.title")}</CardTitle>
           <CardDescription className="text-xs md:text-sm">
-            {appliedRange
-              ? t("dealer.sales.table.description", {
-                  count: pagination?.total ?? 0,
-                })
-              : t("dealer.sales.table.descriptionHint")}
+            {t("dealer.sales.table.description", {
+              count: pagination?.total ?? 0,
+            })}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <DataTable
             data={sales}
-            loading={salesQueryEnabled && isLoading}
+            loading={isLoading}
             emptyMessage={emptyTableMessage}
             columns={[
               {
