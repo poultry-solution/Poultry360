@@ -395,6 +395,149 @@ const daysFromNow = (days: number) => {
   return date;
 };
 
+type LedgerSupplierProfile = {
+  itemPrefix: string;
+  purchaseCategory: PurchaseCategory;
+  unit: string;
+  baseUnitPrice: number;
+  unitPriceStep: number;
+  baseQuantity: number;
+  quantityStep: number;
+  paymentRatio: number;
+  expiryBaseDays?: number;
+};
+
+function getLedgerSupplierProfile(name: string): LedgerSupplierProfile {
+  if (name.includes("Feed")) {
+    return {
+      itemPrefix: "Feed Batch",
+      purchaseCategory: PurchaseCategory.FEED,
+      unit: "Bag",
+      baseUnitPrice: 3150,
+      unitPriceStep: 35,
+      baseQuantity: 10,
+      quantityStep: 1,
+      paymentRatio: 0.42,
+    };
+  }
+
+  if (name.includes("Medicine")) {
+    return {
+      itemPrefix: "Medicine Lot",
+      purchaseCategory: PurchaseCategory.MEDICINE,
+      unit: "Bottle",
+      baseUnitPrice: 280,
+      unitPriceStep: 18,
+      baseQuantity: 8,
+      quantityStep: 1,
+      paymentRatio: 0.5,
+      expiryBaseDays: 120,
+    };
+  }
+
+  if (name.includes("Hatchery")) {
+    return {
+      itemPrefix: "Chick Lot",
+      purchaseCategory: PurchaseCategory.CHICKS,
+      unit: "Birds",
+      baseUnitPrice: 92,
+      unitPriceStep: 2,
+      baseQuantity: 520,
+      quantityStep: 25,
+      paymentRatio: 0.48,
+    };
+  }
+
+  return {
+    itemPrefix: "Supply Lot",
+    purchaseCategory: PurchaseCategory.OTHER,
+    unit: "PCS",
+    baseUnitPrice: 140,
+    unitPriceStep: 22,
+    baseQuantity: 16,
+    quantityStep: 2,
+    paymentRatio: 0.44,
+  };
+}
+
+function buildSupplementalPurchases(
+  supplierName: string
+): Array<{
+  itemName: string;
+  purchaseCategory: PurchaseCategory;
+  quantity: number;
+  freeQuantity: number;
+  unit: string;
+  unitPrice: number;
+  amount: number;
+  date: number;
+  description: string;
+  reference: string;
+  expiryDate?: number;
+}> {
+  const profile = getLedgerSupplierProfile(supplierName);
+
+  return Array.from({ length: 10 }, (_, index) => {
+    const sequence = index + 1;
+    const quantity = profile.baseQuantity + index * profile.quantityStep;
+    const unitPrice = profile.baseUnitPrice + index * profile.unitPriceStep;
+    const freeQuantity =
+      profile.purchaseCategory === PurchaseCategory.CHICKS
+        ? index % 2 === 0
+          ? 20 + index * 2
+          : 0
+        : index % 3 === 0
+          ? 1
+          : 0;
+    const amount = quantity * unitPrice;
+
+    return {
+      itemName: `${profile.itemPrefix} ${sequence}`,
+      purchaseCategory: profile.purchaseCategory,
+      quantity,
+      freeQuantity,
+      unit: profile.unit,
+      unitPrice,
+      amount,
+      date: Math.max(1, 12 - index),
+      description: `${supplierName} supplemental purchase ${sequence}`,
+      reference: `${supplierName.slice(0, 3).toUpperCase()}-EX-${String(sequence).padStart(2, "0")}`,
+      ...(profile.expiryBaseDays
+        ? { expiryDate: profile.expiryBaseDays - index * 3 }
+        : {}),
+    };
+  });
+}
+
+function buildSupplementalPayments(
+  supplierName: string,
+  purchases: Array<{ id: string; amount: number }>
+): Array<{
+  amount: number;
+  date: number;
+  description: string;
+  reference: string;
+  purchaseIndex?: number;
+}> {
+  const profile = getLedgerSupplierProfile(supplierName);
+
+  return Array.from({ length: 10 }, (_, index) => {
+    const linkedPurchase = purchases[index % purchases.length];
+    const rawAmount = linkedPurchase
+      ? Math.round(Number(linkedPurchase.amount) * profile.paymentRatio)
+      : 5000 + index * 650;
+    const amount = Math.max(1000, Math.round(rawAmount / 100) * 100);
+
+    return {
+      amount,
+      date: Math.max(1, 11 - index),
+      description: `${supplierName} payment ${index + 1}`,
+      reference: `${supplierName.slice(0, 3).toUpperCase()}-PAY-${String(index + 1).padStart(2, "0")}`,
+      purchaseIndex: purchases.length > 0 ? index % purchases.length : undefined,
+    };
+  });
+}
+
 async function main() {
   console.log("Seeding demo farmer data...");
 
@@ -659,6 +802,7 @@ async function main() {
     });
 
     const purchaseTxns: Array<{ id: string; amount: number }> = [];
+    const supplementalPurchases = buildSupplementalPurchases(supplierSeed.name);
 
     const openingBalanceTxn = await prisma.entityTransaction.create({
       data: {
@@ -713,7 +857,43 @@ async function main() {
       supplierBalance += purchase.amount;
     }
 
-    for (const payment of supplierSeed.payments) {
+    for (const purchase of supplementalPurchases) {
+      const txn = await prisma.entityTransaction.create({
+        data: {
+          type: TransactionType.PURCHASE,
+          amount: dec(purchase.amount),
+          quantity: purchase.quantity,
+          freeQuantity: purchase.freeQuantity,
+          itemName: purchase.itemName,
+          date: daysAgo(purchase.date),
+          description: purchase.description,
+          reference: purchase.reference,
+          imageUrl: null,
+          dealerId: dealer.id,
+          entityType: "DEALER",
+          entityId: dealer.id,
+          purchaseCategory: purchase.purchaseCategory,
+          unit: purchase.unit,
+          unitPrice: dec(purchase.unitPrice),
+          expiryDate:
+            purchase.purchaseCategory === PurchaseCategory.MEDICINE && purchase.expiryDate
+              ? daysFromNow(purchase.expiryDate)
+              : null,
+          paymentToPurchaseId: null,
+        },
+      });
+
+      purchaseTxns.push({ id: txn.id, amount: purchase.amount });
+      supplierPurchases += purchase.amount;
+      supplierBalance += purchase.amount;
+    }
+
+    const supplementalPayments = buildSupplementalPayments(
+      supplierSeed.name,
+      purchaseTxns
+    );
+
+    for (const payment of [...supplierSeed.payments, ...supplementalPayments]) {
       const targetPurchase = payment.purchaseIndex !== undefined
         ? purchaseTxns[payment.purchaseIndex]
         : null;

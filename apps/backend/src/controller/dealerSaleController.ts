@@ -399,7 +399,7 @@ export const getDealerCustomers = async (
 ): Promise<any> => {
   try {
     const userId = req.userId;
-    const { search, page = 1, limit = 50, archived } = req.query;
+    const { search, page = 1, limit = 10, archived } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
 
