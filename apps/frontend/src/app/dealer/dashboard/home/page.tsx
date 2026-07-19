@@ -14,7 +14,7 @@ import { Badge } from "@/common/components/ui/badge";
 import { Package, Users, Receipt, Loader2, Clock, AlertCircle, Plus, Building2, Wallet } from "lucide-react";
 
 import { useGetInventorySummary } from "@/fetchers/dealer/dealerProductQueries";
-import { useGetSalesStatistics, useGetDealerSales } from "@/fetchers/dealer/dealerSaleQueries";
+import { useGetSalesStatistics, useGetDealerSales, useGetDealerCustomers } from "@/fetchers/dealer/dealerSaleQueries";
 import { useGetDealerProducts } from "@/fetchers/dealer/dealerProductQueries";
 import { useGetLedgerSummary } from "@/fetchers/dealer/dealerLedgerQueries";
 import { useI18n } from "@/i18n/useI18n";
@@ -42,6 +42,11 @@ export default function DealerHomePage() {
   const { data: recentSalesData, isLoading: recentSalesLoading } = useGetDealerSales({
     limit: 5,
   });
+  const { data: dealerCustomersData, isLoading: dealerCustomersLoading } = useGetDealerCustomers({
+    page: 1,
+    limit: 1,
+    archived: false,
+  });
   const { data: lowStockData, isLoading: lowStockLoading } = useGetDealerProducts({
     lowStock: true,
     limit: 10,
@@ -49,7 +54,13 @@ export default function DealerHomePage() {
   const { data: ledgerSummaryData, isLoading: ledgerLoading } = useGetLedgerSummary();
 
   // Combine loading states
-  const isLoading = inventoryLoading || salesStatsLoading || recentSalesLoading || lowStockLoading || ledgerLoading;
+  const isLoading =
+    inventoryLoading ||
+    salesStatsLoading ||
+    recentSalesLoading ||
+    lowStockLoading ||
+    ledgerLoading ||
+    dealerCustomersLoading;
 
   // Extract data
   const inventory = inventoryData?.data;
@@ -57,12 +68,13 @@ export default function DealerHomePage() {
   const recentSales = recentSalesData?.data || [];
   const lowStockProducts = lowStockData?.data || [];
   const ledgerSummary = ledgerSummaryData?.data;
+  const totalCustomers = dealerCustomersData?.pagination?.total || 0;
 
   // Helper functions
   // Calculate stats
   const stats = {
     totalInventory: inventory?.totalProducts || 0,
-    totalCustomers: ledgerSummary?.outstandingBalances || 0,
+    totalCustomers,
     totalSales: salesStats?.totalSales || 0,
   };
 

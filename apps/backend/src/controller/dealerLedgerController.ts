@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { Prisma } from "@prisma/client";
 import { DealerService } from "../services/dealerService";
-import { DealerFarmerAccountService } from "../services/dealerFarmerAccountService";
 
 // ==================== GET LEDGER ENTRIES ====================
 export const getLedgerEntries = async (
@@ -233,19 +232,11 @@ export const getLedgerSummary = async (
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    const where: any = {
-      dealerId: dealer.id,
-    };
-
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) where.date.gte = new Date(startDate as string);
-      if (endDate) where.date.lte = new Date(endDate as string);
-    }
-
     // Calculate from actual sales data
     const salesWhere: any = {
       dealerId: dealer.id,
+      farmerId: null,
+      accountId: null,
     };
 
     if (startDate || endDate) {
@@ -265,10 +256,11 @@ export const getLedgerSummary = async (
     const totalSalesAmount = Number(salesSummary._sum.totalAmount || 0);
     const totalPaidAmount = Number(salesSummary._sum.paidAmount || 0);
 
-    // Calculate total due from Customer.balance field (consistent with party balances)
+    // Manual customers only. Connection-based dealer/farmer and dealer/company
+    // account flows were removed from the dealer module.
     const customers = await prisma.customer.findMany({
-      where: { userId },
-      select: { balance: true },
+      where: { userId, farmerId: null, archivedAt: null },
+      select: { balance: true, totalPayments: true },
     });
 
     // Sum only positive balances (customers who owe dealer)
@@ -286,75 +278,30 @@ export const getLedgerSummary = async (
 
     // Net position (can be negative when advances outweigh due)
     // Customer side: positive = money to receive; negative = money to give (advance)
-    const manualCustomerAgg = await prisma.customer.aggregate({
-      where: { userId },
-      _sum: { balance: true },
-    });
-    const manualCustomerNetBalance = Number(manualCustomerAgg._sum.balance || 0);
-
-    const connectedFarmerAgg = await prisma.dealerFarmerAccount.aggregate({
-      where: { dealerId: dealer.id },
-      _sum: { balance: true },
-    });
-    const connectedFarmerNetBalance = Number(
-      connectedFarmerAgg._sum.balance || 0
-    );
-
-    const netCustomerBalance =
-      manualCustomerNetBalance + connectedFarmerNetBalance;
-
-    // Company side: dealer owes company when balance > 0; dealer has paid advance when balance < 0
-    const connectedCompanyAgg = await prisma.companyDealerAccount.aggregate({
-      where: { dealerId: dealer.id },
-      _sum: { balance: true },
-    });
-    const connectedCompanyNetBalance = Number(
-      connectedCompanyAgg._sum.balance || 0
-    );
-
     const manualCompanyAgg = await prisma.dealerManualCompany.aggregate({
       where: { dealerId: dealer.id, archivedAt: null },
-      _sum: { balance: true },
+      _sum: {
+        balance: true,
+        totalPurchases: true,
+        totalPayments: true,
+      },
     });
     const manualCompanyNetBalance = Number(
       manualCompanyAgg._sum.balance || 0
     );
 
-    const netCompanyBalance =
-      connectedCompanyNetBalance + manualCompanyNetBalance;
+    const manualCustomerNetBalance = customers.reduce((sum, customer) => {
+      return sum + Number(customer.balance || 0);
+    }, 0);
 
-    // Get entries grouped by type for other stats
-    const entriesByType = await prisma.dealerLedgerEntry.groupBy({
-      by: ["type"],
-      where,
-      _sum: {
-        amount: true,
-      },
-      _count: true,
-    });
-
-    // Get current balance
-    const currentBalance = await DealerService.calculateBalance(dealer.id);
-
-    // Calculate totals from ledger entries
-    const totalPurchases = entriesByType
-      .filter((e) => e.type === "PURCHASE")
-      .reduce((sum, e) => sum + Number(e._sum.amount || 0), 0);
-
-    const totalPaymentsReceived = entriesByType
-      .filter((e) => e.type === "PAYMENT_RECEIVED")
-      .reduce((sum, e) => sum + Number(e._sum.amount || 0), 0);
-
-    const totalPaymentsMade = entriesByType
-      .filter((e) => e.type === "PAYMENT_MADE")
-      .reduce((sum, e) => sum + Number(e._sum.amount || 0), 0);
-
-    // Get unique parties with transactions
-    const uniqueParties = await prisma.dealerSale.findMany({
-      where: { dealerId: dealer.id },
-      select: { customerId: true, farmerId: true },
-      distinct: ["customerId", "farmerId"],
-    });
+    const netCustomerBalance = manualCustomerNetBalance;
+    const netCompanyBalance = manualCompanyNetBalance;
+    const totalPaymentsReceived = customers.reduce((sum, customer) => {
+      return sum + Number(customer.totalPayments || 0);
+    }, 0);
+    const totalPurchases = Number(manualCompanyAgg._sum.totalPurchases || 0);
+    const totalPaymentsMade = Number(manualCompanyAgg._sum.totalPayments || 0);
+    const currentBalance = netCustomerBalance - netCompanyBalance;
 
     return res.status(200).json({
       success: true,
@@ -369,12 +316,7 @@ export const getLedgerSummary = async (
         totalPurchases,
         totalPaymentsReceived,
         totalPaymentsMade,
-        entriesByType: entriesByType.map((e) => ({
-          type: e.type,
-          count: e._count,
-          total: e._sum.amount,
-        })),
-        outstandingBalances: uniqueParties.length,
+        activeCustomerCount: customers.length,
       },
     });
   } catch (error: any) {
@@ -485,95 +427,22 @@ export const getDealerLedgerParties = async (
       },
     });
 
-    // Exclude farmers who already appear as a connected Customer to avoid duplicates
-    const connectedFarmerIds = staticCustomers
-      .map((c) => c.farmerId)
-      .filter((id): id is string => id != null);
+    const activeParties = staticCustomers.map((customer) => {
+      const balance = Number(customer.balance || 0);
+      const lastSale = customer.dealerSales
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
 
-    // Get all farmers (users) who have sales with this dealer
-    const farmersWithSales = await prisma.user.findMany({
-      where: {
-        dealerSalesReceived: {
-          some: { dealerId: dealer.id },
-        },
-        ...(connectedFarmerIds.length > 0
-          ? { id: { notIn: connectedFarmerIds } }
-          : {}),
-        ...(search
-          ? {
-            OR: [
-              { name: { contains: search as string, mode: "insensitive" } },
-              { phone: { contains: search as string, mode: "insensitive" } },
-            ],
-          }
-          : {}),
-      },
-      include: {
-        dealerSalesReceived: {
-          where: { dealerId: dealer.id },
-          select: {
-            id: true,
-            totalAmount: true,
-            paidAmount: true,
-            dueAmount: true,
-            date: true,
-          },
-        },
-      },
+      return {
+        id: customer.id,
+        name: customer.name,
+        contact: customer.phone,
+        address: customer.address,
+        balance,
+        lastTransactionDate: lastSale?.date || null,
+        totalSales: customer.dealerSales.length,
+        partyType: "CUSTOMER",
+      };
     });
-
-    // Account-based: farmer balance comes from DealerFarmerAccount, not sum of sale dueAmounts
-    const farmerAccounts = await DealerFarmerAccountService.getDealerAccounts(dealer.id);
-    const farmerBalanceByUserId = new Map(
-      farmerAccounts.map((acc) => [acc.farmerId, acc.balance])
-    );
-
-    // Combine and calculate balances
-    const partiesWithBalance = [
-      ...staticCustomers.map((customer) => {
-        // Use the Customer.balance field directly (includes advances)
-        // Positive = customer owes dealer, Negative = dealer owes customer (advance)
-        const balance = Number(customer.balance || 0);
-
-        const lastSale = customer.dealerSales
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-
-        return {
-          id: customer.id,
-          name: customer.name,
-          contact: customer.phone,
-          address: customer.address,
-          balance: balance, // Show actual balance (can be negative for advances)
-          lastTransactionDate: lastSale?.date || null,
-          totalSales: customer.dealerSales.length,
-          partyType: "CUSTOMER",
-        };
-      }),
-      ...farmersWithSales.map((farmer) => {
-        // Use dealer-farmer account balance (account-based); same source as customer account page
-        const balance = farmerBalanceByUserId.get(farmer.id) ?? 0;
-
-        const lastSale = farmer.dealerSalesReceived
-          .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-
-        return {
-          id: farmer.id,
-          name: farmer.name,
-          contact: farmer.phone,
-          address: farmer.CompanyFarmLocation || null,
-          balance: Number(balance), // Can be negative (advance)
-          lastTransactionDate: lastSale?.date || null,
-          totalSales: farmer.dealerSalesReceived.length,
-          partyType: "FARMER",
-        };
-      }),
-    ];
-
-    // Filter out parties with no balance and no sales
-    // Keep parties with balance != 0 (positive or negative) or those with sales history
-    const activeParties = partiesWithBalance.filter(
-      (p) => p.balance !== 0 || p.totalSales > 0
-    );
 
     return res.status(200).json({
       success: true,
@@ -876,4 +745,3 @@ function convertToCSV(entries: any[]): string {
 
   return csvContent;
 }
-

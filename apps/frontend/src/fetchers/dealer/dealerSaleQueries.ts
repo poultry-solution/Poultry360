@@ -8,7 +8,8 @@ export const dealerSaleKeys = {
   list: (filters: string) => [...dealerSaleKeys.lists(), { filters }] as const,
   details: () => [...dealerSaleKeys.all, "detail"] as const,
   detail: (id: string) => [...dealerSaleKeys.details(), id] as const,
-  statistics: () => [...dealerSaleKeys.all, "statistics"] as const,
+  statistics: (filters?: string) =>
+    filters ? [...dealerSaleKeys.all, "statistics", { filters }] as const : [...dealerSaleKeys.all, "statistics"] as const,
 };
 
 // Types
@@ -85,6 +86,19 @@ export interface CreateCustomerInput {
   category?: string;
 }
 
+export interface DealerCustomer {
+  id: string;
+  name: string;
+  phone: string;
+  address?: string;
+  category?: string;
+  balance: number;
+  archivedAt?: string | null;
+  createdAt: string;
+  hasDealerSales?: boolean;
+  hasPayments?: boolean;
+}
+
 // Get dealer sales with filters
 export const useGetDealerSales = (
   params?: {
@@ -139,7 +153,7 @@ export const useGetSalesStatistics = (params?: {
   ).toString();
 
   return useQuery({
-    queryKey: dealerSaleKeys.statistics(),
+    queryKey: dealerSaleKeys.statistics(queryString),
     queryFn: async () => {
       const { data } = await axiosInstance.get(
         `/dealer/sales/statistics?${queryString}`
@@ -240,6 +254,36 @@ export const useCreateCustomer = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-customer-search"] });
+    },
+  });
+};
+
+export const useGetDealerCustomers = (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  archived?: boolean;
+}) => {
+  const queryString = new URLSearchParams(
+    Object.entries(params || {})
+      .filter(([_, v]) => v !== undefined)
+      .map(([k, v]) => [k, String(v)])
+  ).toString();
+
+  return useQuery({
+    queryKey: ["dealer-customers", queryString] as const,
+    queryFn: async () => {
+      const { data } = await axiosInstance.get<{
+        success: boolean;
+        data: DealerCustomer[];
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+        };
+      }>(`/dealer/sales/customers?${queryString}`);
+      return data;
     },
   });
 };

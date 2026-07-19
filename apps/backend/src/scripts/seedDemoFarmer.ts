@@ -12,10 +12,15 @@ import {
   UserStatus,
 } from "@prisma/client";
 import prisma from "../utils/prisma";
+import { DealerService } from "../services/dealerService";
 
 const DEMO_OWNER_PHONE = "+9779800000001";
 const DEMO_OWNER_PHONE_LEGACY = "9800000001";
 const DEMO_OWNER_PASSWORD = "demo12345";
+const DEMO_DEALER_PHONE = "+9779800000005";
+const DEMO_DEALER_PHONE_LEGACY = "9800000005";
+const DEMO_DEALER_PASSWORD = "dealer12345";
+const DEMO_DEALER_NAME = "Demo Dealer Supplies";
 
 const FARM_NAMES = [
   "Sunrise Poultry Farm",
@@ -535,6 +540,596 @@ function buildSupplementalPayments(
       reference: `${supplierName.slice(0, 3).toUpperCase()}-PAY-${String(index + 1).padStart(2, "0")}`,
       purchaseIndex: purchases.length > 0 ? index % purchases.length : undefined,
     };
+  });
+}
+
+type DealerCompanyPurchaseSeed = {
+  itemName: string;
+  type: InventoryItemType;
+  unit: string;
+  quantity: number;
+  costPrice: number;
+  sellingPrice: number;
+  description: string;
+  reference: string;
+  daysAgo: number;
+};
+
+type DealerCompanySeed = {
+  name: string;
+  contact: string;
+  address: string;
+  openingBalance: number;
+  archived?: boolean;
+  purchasePrefix: string;
+  type: InventoryItemType;
+  unit: string;
+  baseQuantity: number;
+  quantityStep: number;
+  baseCostPrice: number;
+  costPriceStep: number;
+  baseSellingPrice: number;
+  sellingPriceStep: number;
+  purchaseDaysStart: number;
+  paymentRatios: number[];
+  paymentMethods: string[];
+};
+
+function buildDealerCompanyPurchases(config: DealerCompanySeed): DealerCompanyPurchaseSeed[] {
+  return Array.from({ length: 8 }, (_, index) => {
+    const sequence = index + 1;
+    return {
+      itemName: `${config.purchasePrefix} ${sequence}`,
+      type: config.type,
+      unit: config.unit,
+      quantity: config.baseQuantity + index * config.quantityStep,
+      costPrice: config.baseCostPrice + index * config.costPriceStep,
+      sellingPrice: config.baseSellingPrice + index * config.sellingPriceStep,
+      description: `${config.name} stock batch ${sequence}`,
+      reference: `${config.purchasePrefix.slice(0, 3).toUpperCase()}-${String(sequence).padStart(2, "0")}`,
+      daysAgo: config.purchaseDaysStart - index * 2,
+    };
+  });
+}
+
+function buildDealerCompanyPayments(
+  config: DealerCompanySeed,
+  purchases: DealerCompanyPurchaseSeed[]
+): Array<{
+  amount: number;
+  date: number;
+  paymentMethod: string;
+  notes: string;
+  reference: string;
+}> {
+  const grossTotal = purchases.reduce((sum, purchase) => sum + purchase.quantity * purchase.costPrice, 0);
+  const paymentTargets = config.paymentRatios.map((ratio) => Math.max(1000, Math.round(grossTotal * ratio / 100) * 100));
+
+  return paymentTargets.map((amount, index) => ({
+    amount,
+    date: Math.max(1, 26 - index * 5),
+    paymentMethod: config.paymentMethods[index % config.paymentMethods.length],
+    notes: `${config.name} payment ${index + 1}`,
+    reference: `${config.purchasePrefix.slice(0, 3).toUpperCase()}-PAY-${String(index + 1).padStart(2, "0")}`,
+  }));
+}
+
+async function cleanupDealerDemoData(existingDemoUser: { id: string }) {
+  const dealer = await prisma.dealer.findFirst({
+    where: { ownerId: existingDemoUser.id },
+    select: { id: true },
+  });
+
+  if (dealer) {
+    await prisma.dealer.delete({ where: { id: dealer.id } });
+  }
+
+  await prisma.customer.deleteMany({
+    where: { userId: existingDemoUser.id },
+  });
+
+  await prisma.user.delete({
+    where: { id: existingDemoUser.id },
+  });
+}
+
+async function seedDealerDemoData() {
+  console.log("Seeding demo dealer data...");
+
+  const existingDemoUser = await prisma.user.findFirst({
+    where: {
+      phone: {
+        in: [DEMO_DEALER_PHONE, DEMO_DEALER_PHONE_LEGACY],
+      },
+    },
+    select: { id: true },
+  });
+
+  if (existingDemoUser) {
+    await cleanupDealerDemoData(existingDemoUser);
+  }
+
+  const passwordHash = await bcrypt.hash(DEMO_DEALER_PASSWORD, 12);
+
+  const owner = await prisma.user.create({
+    data: {
+      phone: DEMO_DEALER_PHONE,
+      name: "Demo Dealer Owner",
+      password: passwordHash,
+      role: UserRole.DEALER,
+      status: UserStatus.ACTIVE,
+    },
+  });
+
+  const dealer = await prisma.dealer.create({
+    data: {
+      name: DEMO_DEALER_NAME,
+      contact: DEMO_DEALER_PHONE,
+      address: "Kathmandu, Bagmati",
+      userId: owner.id,
+      ownerId: owner.id,
+      classification: "SELF_CREATED",
+    },
+  });
+
+  const companySeeds: DealerCompanySeed[] = [
+    {
+      name: "Apex Feed Traders",
+      contact: "+9779802000001",
+      address: "Kalanki, Kathmandu",
+      openingBalance: 22000,
+      purchasePrefix: "Feed Blend",
+      type: InventoryItemType.FEED,
+      unit: "Bag",
+      baseQuantity: 24,
+      quantityStep: 3,
+      baseCostPrice: 3080,
+      costPriceStep: 65,
+      baseSellingPrice: 3350,
+      sellingPriceStep: 72,
+      purchaseDaysStart: 36,
+      paymentRatios: [0.22, 0.18, 0.14, 0.1],
+      paymentMethods: ["CASH", "BANK_TRANSFER"],
+    },
+    {
+      name: "Prime Vet Medicine",
+      contact: "+9779802000002",
+      address: "Baneshwor, Kathmandu",
+      openingBalance: 14500,
+      purchasePrefix: "Medicine Lot",
+      type: InventoryItemType.MEDICINE,
+      unit: "Bottle",
+      baseQuantity: 16,
+      quantityStep: 2,
+      baseCostPrice: 280,
+      costPriceStep: 16,
+      baseSellingPrice: 360,
+      sellingPriceStep: 18,
+      purchaseDaysStart: 34,
+      paymentRatios: [0.26, 0.16, 0.1, 0.08],
+      paymentMethods: ["CASH", "CHEQUE", "BANK_TRANSFER"],
+    },
+    {
+      name: "ChickLink Hatchery",
+      contact: "+9779802000003",
+      address: "Tokha, Kathmandu",
+      openingBalance: 17000,
+      purchasePrefix: "Chick Lot",
+      type: InventoryItemType.CHICKS,
+      unit: "Birds",
+      baseQuantity: 520,
+      quantityStep: 45,
+      baseCostPrice: 92,
+      costPriceStep: 3,
+      baseSellingPrice: 112,
+      sellingPriceStep: 4,
+      purchaseDaysStart: 32,
+      paymentRatios: [0.28, 0.2, 0.12, 0.1],
+      paymentMethods: ["CASH", "MOBILE_BANKING"],
+    },
+    {
+      name: "FarmCare General Supplies",
+      contact: "+9779802000004",
+      address: "Lalitpur, Bagmati",
+      openingBalance: -5000,
+      purchasePrefix: "Supply Lot",
+      type: InventoryItemType.OTHER,
+      unit: "PCS",
+      baseQuantity: 18,
+      quantityStep: 3,
+      baseCostPrice: 140,
+      costPriceStep: 18,
+      baseSellingPrice: 215,
+      sellingPriceStep: 20,
+      purchaseDaysStart: 30,
+      paymentRatios: [0.24, 0.18, 0.12, 0.08],
+      paymentMethods: ["CASH", "BANK_TRANSFER"],
+      archived: true,
+    },
+  ];
+
+  const dealerProducts: Array<{
+    id: string;
+    name: string;
+    currentStock: number;
+    unit: string;
+    costPrice: number;
+    sellingPrice: number;
+    type: InventoryItemType;
+    manualCompanyId: string;
+  }> = [];
+  const dealerProductsById = new Map<string, (typeof dealerProducts)[number]>();
+
+  let totalDealerPurchases = 0;
+  let totalDealerPayments = 0;
+  let totalDealerSales = 0;
+  let totalDealerLedgerEntries = 0;
+  let totalDealerCustomers = 0;
+
+  for (const [companyIndex, companySeed] of companySeeds.entries()) {
+    const purchases = buildDealerCompanyPurchases(companySeed);
+    const company = await prisma.dealerManualCompany.create({
+      data: {
+        dealerId: dealer.id,
+        name: companySeed.name,
+        phone: companySeed.contact,
+        address: companySeed.address,
+        balance: dec(companySeed.openingBalance),
+        totalPurchases: dec(0),
+        totalPayments: dec(0),
+      },
+    });
+
+    if (companySeed.openingBalance !== 0) {
+      await prisma.dealerManualCompanyAdjustment.create({
+        data: {
+          manualCompanyId: company.id,
+          type: "OPENING_BALANCE",
+          amount: dec(companySeed.openingBalance),
+          balanceAfter: dec(companySeed.openingBalance),
+          notes: "Demo opening balance",
+        },
+      });
+    }
+
+    let companyBalance = companySeed.openingBalance;
+    let companyPurchasesTotal = 0;
+    let companyPaymentsTotal = 0;
+
+    for (const [purchaseIndex, purchaseSeed] of purchases.entries()) {
+      const discount = purchaseIndex % 3 === 0 ? Math.round((purchaseSeed.quantity * purchaseSeed.costPrice) * 0.05) : 0;
+      const grossAmount = purchaseSeed.quantity * purchaseSeed.costPrice;
+      const netAmount = grossAmount - discount;
+      const minStock = Math.max(4, Math.floor(purchaseSeed.quantity / 4));
+
+      const product = await prisma.dealerProduct.create({
+        data: {
+          dealerId: dealer.id,
+          manualCompanyId: company.id,
+          name: purchaseSeed.itemName,
+          description: `${purchaseSeed.description} for inventory testing.`,
+          type: purchaseSeed.type,
+          unit: purchaseSeed.unit,
+          costPrice: dec(purchaseSeed.costPrice),
+          sellingPrice: dec(purchaseSeed.sellingPrice),
+          currentStock: dec(purchaseSeed.quantity),
+          minStock: dec(minStock),
+          sku: `DEMO-${companyIndex + 1}-${String(purchaseIndex + 1).padStart(2, "0")}`,
+        },
+      });
+
+      await prisma.dealerProductTransaction.create({
+        data: {
+          type: TransactionType.PURCHASE,
+          quantity: dec(purchaseSeed.quantity),
+          unitPrice: dec(purchaseSeed.costPrice),
+          totalAmount: dec(grossAmount),
+          date: daysAgo(purchaseSeed.daysAgo),
+          description: `Purchase from ${company.name}`,
+          reference: purchaseSeed.reference,
+          unit: purchaseSeed.unit,
+          productId: product.id,
+        },
+      });
+
+      await prisma.dealerManualPurchase.create({
+        data: {
+          manualCompanyId: company.id,
+          date: daysAgo(purchaseSeed.daysAgo),
+          totalAmount: dec(netAmount),
+          tradeDiscountAmount: discount > 0 ? dec(discount) : null,
+          notes: purchaseSeed.description,
+          reference: purchaseSeed.reference,
+          items: {
+            create: [
+              {
+                productName: purchaseSeed.itemName,
+                type: purchaseSeed.type,
+                unit: purchaseSeed.unit,
+                quantity: dec(purchaseSeed.quantity),
+                costPrice: dec(purchaseSeed.costPrice),
+                sellingPrice: dec(purchaseSeed.sellingPrice),
+                totalAmount: dec(grossAmount),
+                dealerProductId: product.id,
+              },
+            ],
+          },
+        },
+      });
+
+      await prisma.dealerManualCompany.update({
+        where: { id: company.id },
+        data: {
+          balance: { increment: dec(netAmount) },
+          totalPurchases: { increment: dec(netAmount) },
+        },
+      });
+
+      companyBalance += netAmount;
+      companyPurchasesTotal += netAmount;
+      dealerProducts.push({
+        id: product.id,
+        name: product.name,
+        currentStock: purchaseSeed.quantity,
+        unit: product.unit,
+        costPrice: purchaseSeed.costPrice,
+        sellingPrice: purchaseSeed.sellingPrice,
+        type: purchaseSeed.type,
+        manualCompanyId: company.id,
+      });
+      dealerProductsById.set(product.id, dealerProducts[dealerProducts.length - 1]);
+    }
+
+    const paymentSeeds = buildDealerCompanyPayments(companySeed, purchases);
+    for (const paymentSeed of paymentSeeds) {
+      await prisma.dealerManualCompanyPayment.create({
+        data: {
+          manualCompanyId: company.id,
+          amount: dec(paymentSeed.amount),
+          paymentMethod: paymentSeed.paymentMethod,
+          paymentDate: daysAgo(paymentSeed.date),
+          notes: paymentSeed.notes,
+          reference: paymentSeed.reference,
+          balanceAfter: dec(companyBalance - paymentSeed.amount),
+        },
+      });
+
+      await prisma.dealerManualCompany.update({
+        where: { id: company.id },
+        data: {
+          balance: { decrement: dec(paymentSeed.amount) },
+          totalPayments: { increment: dec(paymentSeed.amount) },
+        },
+      });
+
+      companyBalance -= paymentSeed.amount;
+      companyPaymentsTotal += paymentSeed.amount;
+    }
+
+    if (companySeed.archived) {
+      await prisma.dealerManualCompany.update({
+        where: { id: company.id },
+        data: {
+          archivedAt: daysAgo(2),
+          archivedById: owner.id,
+        },
+      });
+    }
+
+    totalDealerPurchases += companyPurchasesTotal;
+    totalDealerPayments += companyPaymentsTotal;
+
+    void companyIndex;
+  }
+
+  const customerSeeds = [
+    { name: "Metro Poultry Mart", phone: "+9779811000001", address: "Pokhara-8, Kaski", category: "Retail", openingBalance: 12000, archived: false },
+    { name: "Lakeside Eggs House", phone: "+9779811000002", address: "Pokhara-6, Kaski", category: "Wholesale", openingBalance: 0, archived: false },
+    { name: "Himalayan Layers", phone: "+9779811000003", address: "Butwal-10, Rupandehi", category: "Retail", openingBalance: 3200, archived: false },
+    { name: "Golden Broiler Store", phone: "+9779811000004", address: "Chitwan", category: "Retail", openingBalance: 0, archived: false },
+    { name: "Valley Farm Outlet", phone: "+9779811000005", address: "Bhaktapur", category: "Retail", openingBalance: 6500, archived: false },
+    { name: "Green Coop Desk", phone: "+9779811000006", address: "Lalitpur", category: "Co-op", openingBalance: 0, archived: false },
+    { name: "Sunrise Feed Corner", phone: "+9779811000007", address: "Nuwakot", category: "Retail", openingBalance: 1500, archived: false },
+    { name: "Riverbend Retail", phone: "+9779811000008", address: "Dharan", category: "Retail", openingBalance: 0, archived: false },
+    { name: "Silver Nest Traders", phone: "+9779811000009", address: "Hetauda", category: "Wholesale", openingBalance: 9000, archived: true },
+    { name: "Evergreen Sales Point", phone: "+9779811000010", address: "Biratnagar", category: "Retail", openingBalance: 0, archived: false },
+    { name: "Mountain Ridge Outlet", phone: "+9779811000011", address: "Nepalgunj", category: "Retail", openingBalance: 2800, archived: true },
+    { name: "Blue Valley Supplies", phone: "+9779811000012", address: "Janakpur", category: "Retail", openingBalance: 0, archived: false },
+  ];
+
+  const customers: Array<{
+    id: string;
+    name: string;
+    openingBalance: number;
+    archived: boolean;
+  }> = [];
+
+  for (const [index, customerSeed] of customerSeeds.entries()) {
+    const customer = await prisma.customer.create({
+      data: {
+        userId: owner.id,
+        name: customerSeed.name,
+        phone: customerSeed.phone,
+        address: customerSeed.address,
+        category: customerSeed.category,
+        source: "MANUAL",
+        balance: dec(customerSeed.openingBalance),
+      },
+    });
+
+    if (customerSeed.openingBalance !== 0) {
+      await prisma.customerTransaction.create({
+        data: {
+          customerId: customer.id,
+          type: "OPENING_BALANCE",
+          amount: dec(customerSeed.openingBalance),
+          date: daysAgo(28 - index),
+          description: "Demo opening balance",
+        },
+      });
+    }
+
+    customers.push({
+      id: customer.id,
+      name: customer.name,
+      openingBalance: customerSeed.openingBalance,
+      archived: customerSeed.archived,
+    });
+  }
+
+  const primaryCustomer = customers[0];
+  const secondaryCustomer = customers[1];
+  const tertiaryCustomer = customers[2];
+  const quaternaryCustomer = customers[3];
+
+  const salePlan: Array<{
+    customerId: string;
+    saleIndex: number;
+    itemCount: number;
+    paidRatio: number;
+    discountType?: "PERCENT" | "FLAT";
+    discountValue?: number;
+  }> = [
+    ...Array.from({ length: 8 }, (_, index) => ({
+      customerId: primaryCustomer.id,
+      saleIndex: index,
+      itemCount: 2,
+      paidRatio: index % 3 === 0 ? 1 : 0.7,
+      ...(index % 4 === 0 ? { discountType: "PERCENT" as const, discountValue: 5 } : {}),
+    })),
+    { customerId: secondaryCustomer.id, saleIndex: 8, itemCount: 1, paidRatio: 1 },
+    { customerId: tertiaryCustomer.id, saleIndex: 9, itemCount: 2, paidRatio: 0.6 },
+    { customerId: quaternaryCustomer.id, saleIndex: 10, itemCount: 2, paidRatio: 0.8 },
+    { customerId: customers[4].id, saleIndex: 11, itemCount: 1, paidRatio: 1 },
+    { customerId: customers[5].id, saleIndex: 12, itemCount: 2, paidRatio: 0.5 },
+    { customerId: customers[6].id, saleIndex: 13, itemCount: 1, paidRatio: 1 },
+    { customerId: customers[7].id, saleIndex: 14, itemCount: 2, paidRatio: 0.65 },
+  ];
+
+  const primarySaleDates = [1, 2, 3, 4, 5, 6, 7, 8];
+
+  for (const plan of salePlan) {
+    const saleProducts = dealerProducts
+      .filter((product) => product.currentStock > 6)
+      .slice((plan.saleIndex * 2) % Math.max(1, dealerProducts.length - 2), (plan.saleIndex * 2) % Math.max(1, dealerProducts.length - 2) + plan.itemCount + 1);
+
+    const items = saleProducts.slice(0, plan.itemCount).map((product, itemIndex) => {
+      const quantity = Math.max(1, Math.min(4, Math.floor(product.currentStock / 8) || 1)) + (itemIndex % 2);
+      const unitPrice = product.sellingPrice;
+      return {
+        productId: product.id,
+        quantity,
+        unitPrice,
+        unit: product.unit,
+      };
+    });
+
+    const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    const discount =
+      plan.discountType && plan.discountValue
+        ? plan.discountType === "PERCENT"
+          ? Math.round((subtotal * plan.discountValue) / 100)
+          : Math.min(plan.discountValue, subtotal)
+        : 0;
+    const totalAmount = Math.max(0, subtotal - discount);
+    const paidAmount = Math.max(0, Math.round(totalAmount * plan.paidRatio));
+
+    const saleDate = plan.customerId === primaryCustomer.id
+      ? daysAgo(primarySaleDates[plan.saleIndex])
+      : daysAgo(10 + plan.saleIndex);
+
+    const sale = await DealerService.createDealerSale({
+      dealerId: dealer.id,
+      customerId: plan.customerId,
+      items,
+      paidAmount,
+      paymentMethod: plan.paidRatio >= 1 ? "CASH" : "BANK_TRANSFER",
+      notes: `Demo dealer sale ${plan.saleIndex + 1}`,
+      date: saleDate,
+      discount:
+        discount > 0 && plan.discountType && plan.discountValue
+          ? { type: plan.discountType, value: plan.discountValue }
+          : undefined,
+      invoiceNumber: `DEMO-INV-${String(plan.saleIndex + 1).padStart(4, "0")}`,
+    });
+
+    totalDealerSales += Number(sale?.totalAmount ?? 0);
+    totalDealerLedgerEntries += plan.paidRatio >= 0 ? 2 : 1;
+
+    for (const item of items) {
+      const trackedProduct = dealerProductsById.get(item.productId);
+      if (trackedProduct) {
+        trackedProduct.currentStock = Math.max(0, trackedProduct.currentStock - item.quantity);
+      }
+    }
+
+    if (plan.customerId === primaryCustomer.id) {
+      const extraPayment = Math.max(1000, Math.round(totalAmount * 0.08));
+      await DealerService.addAccountPayment({
+        customerId: plan.customerId,
+        dealerId: dealer.id,
+        amount: extraPayment,
+        date: daysAgo(18 + plan.saleIndex),
+        description: `Account payment ${plan.saleIndex + 1}`,
+        paymentMethod: plan.saleIndex % 2 === 0 ? "CASH" : "MOBILE_BANKING",
+        reference: `PAY-ACC-${String(plan.saleIndex + 1).padStart(2, "0")}`,
+      });
+      totalDealerLedgerEntries += 1;
+    }
+  }
+
+  for (let i = 0; i < 4; i += 1) {
+    const customer = customers[i];
+    const paymentAmount = Math.max(800, Math.round((customer.openingBalance + 2500 + i * 900) / 2));
+    await DealerService.addAccountPayment({
+      customerId: customer.id,
+      dealerId: dealer.id,
+      amount: paymentAmount,
+      date: daysAgo(14 + i),
+      description: `Top-up payment for ${customer.name}`,
+      paymentMethod: i % 2 === 0 ? "CASH" : "BANK_TRANSFER",
+      reference: `PAY-TOP-${String(i + 1).padStart(2, "0")}`,
+    });
+    totalDealerLedgerEntries += 1;
+  }
+
+  for (const archivedCustomer of customers.filter((customer) => customer.archived)) {
+    await prisma.customer.update({
+      where: { id: archivedCustomer.id },
+      data: {
+        archivedAt: daysAgo(3),
+        archivedById: owner.id,
+      },
+    });
+  }
+
+  totalDealerCustomers = customers.length;
+
+  const dealerSummary = await prisma.dealer.findUnique({
+    where: { id: dealer.id },
+    select: {
+      _count: {
+        select: {
+          products: true,
+          sales: true,
+          ledgerEntries: true,
+          manualCompanies: true,
+        },
+      },
+    },
+  });
+
+  console.log("Demo dealer seed complete.");
+  console.log({
+    dealerPhone: DEMO_DEALER_PHONE,
+    dealerPassword: DEMO_DEALER_PASSWORD,
+    manualCompanies: dealerSummary?._count.manualCompanies ?? 0,
+    dealerProducts: dealerSummary?._count.products ?? dealerProducts.length,
+    dealerSales: dealerSummary?._count.sales ?? totalDealerSales,
+    dealerLedgerEntries: dealerSummary?._count.ledgerEntries ?? totalDealerLedgerEntries,
+    dealerCustomers: totalDealerCustomers,
+    totalDealerPurchases,
+    totalDealerPayments,
   });
 }
 
@@ -1255,6 +1850,8 @@ async function main() {
     supplierBalance: totalSupplierBalance,
     reminders: totalReminders,
   });
+
+  await seedDealerDemoData();
 }
 
 main()

@@ -132,6 +132,11 @@ export const dealerNavigation: NavigationItem[] = [
     icon: Receipt,
   },
   {
+    nameKey: "sidebar.nav.analytics",
+    href: "/dealer/dashboard/analytics",
+    icon: BarChart3,
+  },
+  {
     nameKey: "sidebar.nav.staffManagement",
     href: "/dealer/dashboard/staff",
     icon: Users,
