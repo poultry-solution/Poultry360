@@ -36,11 +36,12 @@ import {
 import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { ImageUpload } from "@/common/components/ui/image-upload";
+import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
 import { getNowLocalDateTime } from "@/common/lib/utils";
 import {
   useGetHatcherySuppliers,
   useGetHatcherySupplierStatistics,
-  useGetHatcherySupplierById,
+  useGetHatcherySupplierTransactions,
   useCreateHatcherySupplier,
   useUpdateHatcherySupplier,
   useDeleteHatcherySupplier,
@@ -102,10 +103,16 @@ const emptyLineItem = (category: HatcheryPurchaseCategory): AddPurchaseItem & {
 // ==================== PAGE ====================
 
 export default function HatcherySupplierLedgerPage() {
+  const SUPPLIER_PAGE_LIMIT = 5;
+  const TRANSACTION_PAGE_LIMIT = 10;
+
   const [activeSupplierId, setActiveSupplierId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"purchases" | "payments">(
     "purchases"
   );
+  const [supplierPage, setSupplierPage] = useState(1);
+  const [purchasePage, setPurchasePage] = useState(1);
+  const [paymentPage, setPaymentPage] = useState(1);
 
   // Modals
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
@@ -154,10 +161,26 @@ export default function HatcherySupplierLedgerPage() {
 
   // Queries
   const { data: suppliersRes, isLoading: suppliersLoading } =
-    useGetHatcherySuppliers();
+    useGetHatcherySuppliers({ page: supplierPage, limit: SUPPLIER_PAGE_LIMIT });
   const { data: statsRes } = useGetHatcherySupplierStatistics();
-  const { data: supplierDetailRes, isLoading: detailLoading } =
-    useGetHatcherySupplierById(activeSupplierId || null);
+  const { data: purchaseTxnRes, isLoading: purchaseLoading } =
+    useGetHatcherySupplierTransactions(
+      activeTab === "purchases" && activeSupplierId ? activeSupplierId : null,
+      {
+        page: purchasePage,
+        limit: TRANSACTION_PAGE_LIMIT,
+        types: ["PURCHASE", "OPENING_BALANCE", "ADJUSTMENT"],
+      }
+    );
+  const { data: paymentTxnRes, isLoading: paymentLoading } =
+    useGetHatcherySupplierTransactions(
+      activeTab === "payments" && activeSupplierId ? activeSupplierId : null,
+      {
+        page: paymentPage,
+        limit: TRANSACTION_PAGE_LIMIT,
+        type: "PAYMENT",
+      }
+    );
 
   // Mutations
   const createSupplier = useCreateHatcherySupplier();
@@ -168,16 +191,70 @@ export default function HatcherySupplierLedgerPage() {
   const deleteTxn = useDeleteHatcherySupplierTransaction();
 
   const suppliers = suppliersRes?.data || [];
+  const suppliersPagination = suppliersRes?.pagination;
   const stats = statsRes?.data || {};
-  const activeSupplier = supplierDetailRes?.data;
-  const transactions = activeSupplier?.transactions || [];
+  const activeSupplier =
+    suppliers.find((sup: any) => sup.id === activeSupplierId) || null;
+  const supplierTotalPages = Math.max(
+    1,
+    Math.ceil(
+      Number(suppliersPagination?.total ?? suppliers.length) /
+        Number(suppliersPagination?.limit ?? SUPPLIER_PAGE_LIMIT)
+    )
+  );
+  const purchaseTxns = purchaseTxnRes?.data || [];
+  const purchasePagination = purchaseTxnRes?.pagination;
+  const purchaseTotalPages = Math.max(
+    1,
+    Math.ceil(
+      Number(purchasePagination?.total ?? 0) /
+        Number(purchasePagination?.limit ?? TRANSACTION_PAGE_LIMIT)
+    )
+  );
+  const paymentTxns = paymentTxnRes?.data || [];
+  const paymentPagination = paymentTxnRes?.pagination;
+  const paymentTotalPages = Math.max(
+    1,
+    Math.ceil(
+      Number(paymentPagination?.total ?? 0) /
+        Number(paymentPagination?.limit ?? TRANSACTION_PAGE_LIMIT)
+    )
+  );
 
   // Auto-select first supplier
   useEffect(() => {
-    if (suppliers.length > 0 && !activeSupplierId) {
+    if (
+      suppliers.length > 0 &&
+      (!activeSupplierId || !suppliers.some((sup: any) => sup.id === activeSupplierId))
+    ) {
       setActiveSupplierId(suppliers[0].id);
+    } else if (suppliers.length === 0) {
+      setActiveSupplierId("");
     }
   }, [suppliers, activeSupplierId]);
+
+  useEffect(() => {
+    setPurchasePage(1);
+    setPaymentPage(1);
+  }, [activeSupplierId]);
+
+  useEffect(() => {
+    if (supplierPage > supplierTotalPages) {
+      setSupplierPage(supplierTotalPages);
+    }
+  }, [supplierPage, supplierTotalPages]);
+
+  useEffect(() => {
+    if (purchasePage > purchaseTotalPages) {
+      setPurchasePage(purchaseTotalPages);
+    }
+  }, [purchasePage, purchaseTotalPages]);
+
+  useEffect(() => {
+    if (paymentPage > paymentTotalPages) {
+      setPaymentPage(paymentTotalPages);
+    }
+  }, [paymentPage, paymentTotalPages]);
 
   // Reset default dates on modal open
   useEffect(() => {
@@ -395,9 +472,6 @@ export default function HatcherySupplierLedgerPage() {
 
   // ==================== RENDER ====================
 
-  const purchaseTxns = transactions.filter((t: any) => t.type === "PURCHASE" || t.type === "OPENING_BALANCE" || t.type === "ADJUSTMENT");
-  const paymentTxns = transactions.filter((t: any) => t.type === "PAYMENT");
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -520,6 +594,15 @@ export default function HatcherySupplierLedgerPage() {
               </div>
             )}
           </CardContent>
+          <LedgerPagination
+            page={supplierPage}
+            totalPages={supplierTotalPages}
+            totalRows={Number(suppliersPagination?.total ?? suppliers.length)}
+            pageLimit={SUPPLIER_PAGE_LIMIT}
+            onPageChange={setSupplierPage}
+            loading={suppliersLoading}
+            className="pb-2"
+          />
         </Card>
 
         {/* Supplier detail */}
@@ -527,10 +610,6 @@ export default function HatcherySupplierLedgerPage() {
           {!activeSupplierId ? (
             <CardContent className="pt-8 text-center text-muted-foreground">
               Select a supplier to view details
-            </CardContent>
-          ) : detailLoading ? (
-            <CardContent className="pt-8 text-center text-muted-foreground">
-              Loading...
             </CardContent>
           ) : (
             <>
@@ -620,7 +699,11 @@ export default function HatcherySupplierLedgerPage() {
 
                 {activeTab === "purchases" && (
                   <div className="space-y-2">
-                    {purchaseTxns.length === 0 ? (
+                    {purchaseLoading ? (
+                      <p className="text-center text-muted-foreground text-sm py-4">
+                        Loading purchases...
+                      </p>
+                    ) : purchaseTxns.length === 0 ? (
                       <p className="text-center text-muted-foreground text-sm py-4">
                         No purchase entries yet
                       </p>
@@ -633,15 +716,28 @@ export default function HatcherySupplierLedgerPage() {
                             setTxnToDelete(id);
                             setIsDeleteTxnOpen(true);
                           }}
-                        />
+                          />
                       ))
                     )}
+                    <LedgerPagination
+                      page={purchasePage}
+                      totalPages={purchaseTotalPages}
+                      totalRows={Number(purchasePagination?.total ?? 0)}
+                      pageLimit={TRANSACTION_PAGE_LIMIT}
+                      onPageChange={setPurchasePage}
+                      loading={purchaseLoading}
+                      className="pt-2"
+                    />
                   </div>
                 )}
 
                 {activeTab === "payments" && (
                   <div className="space-y-2">
-                    {paymentTxns.length === 0 ? (
+                    {paymentLoading ? (
+                      <p className="text-center text-muted-foreground text-sm py-4">
+                        Loading payments...
+                      </p>
+                    ) : paymentTxns.length === 0 ? (
                       <p className="text-center text-muted-foreground text-sm py-4">
                         No payment entries yet
                       </p>
@@ -654,9 +750,18 @@ export default function HatcherySupplierLedgerPage() {
                             setTxnToDelete(id);
                             setIsDeleteTxnOpen(true);
                           }}
-                        />
+                          />
                       ))
                     )}
+                    <LedgerPagination
+                      page={paymentPage}
+                      totalPages={paymentTotalPages}
+                      totalRows={Number(paymentPagination?.total ?? 0)}
+                      pageLimit={TRANSACTION_PAGE_LIMIT}
+                      onPageChange={setPaymentPage}
+                      loading={paymentLoading}
+                      className="pt-2"
+                    />
                   </div>
                 )}
               </CardContent>

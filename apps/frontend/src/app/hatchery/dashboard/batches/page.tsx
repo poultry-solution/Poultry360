@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -21,6 +21,7 @@ import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Badge } from "@/common/components/ui/badge";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
 import {
   useHatcheryBatches,
   useCreateHatcheryBatch,
@@ -41,13 +42,29 @@ export default function HatcheryBatchesPage() {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   const { data, isLoading } = useHatcheryBatches({
     status: statusFilter || undefined,
     search: search || undefined,
-    limit: 50,
+    page,
+    limit: 10,
   });
   const batches = data?.batches ?? [];
+  const paginationTotal = Number(data?.total ?? 0);
+  const paginationLimit = Number(data?.limit ?? 10);
+  const paginationPage = Math.max(1, Number(data?.page ?? page));
+  const totalPages = Math.max(1, Math.ceil(paginationTotal / paginationLimit));
+
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, search]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   // Create modal state
   const [showCreate, setShowCreate] = useState(false);
@@ -238,6 +255,15 @@ export default function HatcheryBatchesPage() {
           loading={isLoading}
           emptyMessage="No batches found. Create your first batch."
           getRowKey={(row) => row.id}
+        />
+        <LedgerPagination
+          page={paginationPage}
+          totalPages={totalPages}
+          totalRows={paginationTotal}
+          pageLimit={paginationLimit}
+          onPageChange={setPage}
+          loading={isLoading}
+          className="px-4"
         />
       </div>
 

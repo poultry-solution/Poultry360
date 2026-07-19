@@ -443,7 +443,7 @@ export const listHatcherySupplierTransactions = async (
   try {
     const userId = req.userId!;
     const { id } = req.params;
-    const { page = 1, limit = 50, type, startDate, endDate } = req.query;
+    const { page = 1, limit = 50, type, types, startDate, endDate } = req.query;
 
     const supplier = await prisma.hatcherySupplier.findFirst({
       where: { id, hatcheryOwnerId: userId },
@@ -452,7 +452,17 @@ export const listHatcherySupplierTransactions = async (
       return res.status(404).json({ message: "Supplier not found" });
 
     const where: any = { supplierId: id };
-    if (type) where.type = type;
+    if (types) {
+      const parsedTypes = String(types)
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+      if (parsedTypes.length > 0) {
+        where.type = { in: parsedTypes };
+      }
+    } else if (type) {
+      where.type = type;
+    }
     if (startDate || endDate) {
       where.date = {};
       if (startDate) where.date.gte = new Date(startDate as string);

@@ -875,7 +875,7 @@ export async function deleteEggProduction(req: Request, res: Response) {
 export async function getEggInventory(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
-    const { batchId, typeId } = req.query as Record<string, string>;
+    const { batchId, typeId, page = "1", limit = "10" } = req.query as Record<string, string>;
 
     const where: any = {
       batch: { hatcheryOwnerId: ownerId },
@@ -883,16 +883,39 @@ export async function getEggInventory(req: Request, res: Response) {
     if (batchId) where.batchId = batchId;
     if (typeId) where.eggTypeId = typeId;
 
-    const stockRows = await prisma.hatcheryEggStock.findMany({
-      where,
-      include: {
-        batch: { select: { id: true, code: true, name: true, status: true } },
-        eggType: { select: { id: true, name: true, isHatchable: true } },
-      },
-      orderBy: [{ batch: { startDate: "desc" } }, { eggType: { isHatchable: "desc" } }],
-    });
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    return res.json(stockRows);
+    const [stockRows, totalRows, stockSummary] = await Promise.all([
+      prisma.hatcheryEggStock.findMany({
+        where,
+        include: {
+          batch: { select: { id: true, code: true, name: true, status: true } },
+          eggType: { select: { id: true, name: true, isHatchable: true } },
+        },
+        orderBy: [{ batch: { startDate: "desc" } }, { eggType: { isHatchable: "desc" } }],
+        skip,
+        take: parseInt(limit),
+      }),
+      prisma.hatcheryEggStock.count({ where }),
+      prisma.hatcheryEggStock.aggregate({
+        where,
+        _sum: { currentStock: true },
+      }),
+    ]);
+
+    return res.json({
+      data: stockRows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: totalRows,
+        totalPages: Math.max(1, Math.ceil(totalRows / parseInt(limit))),
+      },
+      summary: {
+        totalStock: Number(stockSummary._sum.currentStock ?? 0),
+        totalRows,
+      },
+    });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }

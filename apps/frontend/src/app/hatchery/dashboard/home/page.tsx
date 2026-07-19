@@ -70,7 +70,7 @@ export default function HatcheryHomePage() {
     limit: 200,
   });
   const { data: incubationData, isLoading: isIncubationLoading } = useIncubationBatches({ limit: 200 });
-  const { data: eggStockRows = [], isLoading: isEggStockLoading } = useHatcheryEggInventory();
+  const { data: eggInventoryRes, isLoading: isEggStockLoading } = useHatcheryEggInventory();
   const { data: producedChickRows = [], isLoading: isProducedChickLoading } = useProducedChickStock();
   const { data: partiesData, isLoading: isPartiesLoading } = useHatcheryParties();
   const { data: statsRes, isLoading: isInventoryStatsLoading } = useGetHatcheryInventoryStatistics();
@@ -125,7 +125,7 @@ export default function HatcheryHomePage() {
   const activeIncubations = (incubationData?.batches ?? []).filter(
     (b) => b.stage === "SETTER" || b.stage === "CANDLING" || b.stage === "HATCHER"
   ).length;
-  const totalEggStock = eggStockRows.reduce((sum, row) => sum + Number(row.currentStock ?? 0), 0);
+  const totalEggStock = Number(eggInventoryRes?.summary?.totalStock ?? 0);
   const totalProducedChicks = producedChickRows.reduce(
     (sum, row) => sum + Number(row.currentStock ?? 0),
     0

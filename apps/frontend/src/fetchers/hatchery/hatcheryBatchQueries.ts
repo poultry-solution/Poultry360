@@ -562,15 +562,27 @@ export function useDeleteHatcheryParentSale(batchId: string) {
 }
 
 // Egg inventory (global batch-wise)
-export function useHatcheryEggInventory(filters: { batchId?: string; typeId?: string } = {}) {
+export function useHatcheryEggInventory(filters: {
+  batchId?: string;
+  typeId?: string;
+  page?: number;
+  limit?: number;
+} = {}) {
   return useQuery({
     queryKey: hatcheryBatchKeys.eggInventory(filters),
+    placeholderData: (previousData) => previousData,
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters.batchId) params.set("batchId", filters.batchId);
       if (filters.typeId) params.set("typeId", filters.typeId);
+      if (filters.page) params.set("page", String(filters.page));
+      if (filters.limit) params.set("limit", String(filters.limit));
       const { data } = await axiosInstance.get(`/hatchery/batches/egg-inventory?${params}`);
-      return data as HatcheryEggStockRow[];
+      return data as {
+        data: HatcheryEggStockRow[];
+        pagination: { page: number; limit: number; total: number; totalPages: number };
+        summary: { totalStock: number; totalRows: number };
+      };
     },
   });
 }
