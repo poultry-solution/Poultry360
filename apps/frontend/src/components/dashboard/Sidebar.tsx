@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/common/lib/utils";
 import {
@@ -234,6 +233,11 @@ export const hatcheryNavigation: NavigationItem[] = [
     nameKey: "sidebar.nav.hatcheryParties",
     href: "/hatchery/dashboard/parties",
     icon: Users,
+  },
+  {
+    nameKey: "sidebar.nav.analytics",
+    href: "/hatchery/dashboard/analytics",
+    icon: BarChart3,
   },
 ];
 

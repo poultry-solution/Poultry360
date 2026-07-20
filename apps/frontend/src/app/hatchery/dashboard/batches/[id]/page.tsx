@@ -48,6 +48,7 @@ import {
 import {
   useGetHatcheryInventory,
   type HatcheryInventoryItemType,
+  type HatcheryInventoryItem,
 } from "@/fetchers/hatchery/hatcheryInventoryQueries";
 import { useHatcheryParties } from "@/fetchers/hatchery/hatcheryPartyQueries";
 
@@ -649,13 +650,16 @@ function ExpensesTab({ batchId }: { batchId: string }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const filteredInventoryItems = useMemo(
-    () => (inventoryRes?.data ?? []).filter((i) => i.itemType === inventoryCategory),
+  const filteredInventoryItems = useMemo<HatcheryInventoryItem[]>(
+    () =>
+      ((inventoryRes?.data ?? []) as HatcheryInventoryItem[]).filter(
+        (item: HatcheryInventoryItem) => item.itemType === inventoryCategory
+      ),
     [inventoryRes?.data, inventoryCategory]
   );
 
   // Auto-fill amount when picking inventory item + qty
-  const selectedItem = filteredInventoryItems.find((i) => i.id === inventoryItemId);
+  const selectedItem = filteredInventoryItems.find((item: HatcheryInventoryItem) => item.id === inventoryItemId);
   const computedAmount =
     expenseType === "INVENTORY" && selectedItem && quantity
       ? Math.round(Number(selectedItem.unitPrice) * Number(quantity) * 100) / 100
@@ -837,7 +841,7 @@ function ExpensesTab({ batchId }: { batchId: string }) {
                 onChange={(e) => setInventoryItemId(e.target.value)}
               >
                 <option value="">Select item</option>
-                {filteredInventoryItems.map((item) => (
+                {filteredInventoryItems.map((item: HatcheryInventoryItem) => (
                   <option key={item.id} value={item.id}>
                     {item.name} ({item.unit}) — {Number(item.currentStock)} in stock @ NPR {Number(item.unitPrice)}
                   </option>
