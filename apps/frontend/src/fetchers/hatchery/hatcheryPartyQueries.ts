@@ -46,15 +46,26 @@ export interface HatcheryPartyPayment {
 
 // ─── List / Create Parties ────────────────────────────────────────────────────
 
-export function useHatcheryParties(search?: string) {
+export function useHatcheryParties(
+  search?: string,
+  page?: number,
+  limit: number = 100
+) {
   return useQuery({
-    queryKey: ["hatchery-parties", search],
+    queryKey: ["hatchery-parties", search, page, limit],
+    placeholderData: (previousData) => previousData,
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
-      params.set("limit", "100");
+      if (page) params.set("page", String(page));
+      params.set("limit", String(limit));
       const { data } = await axiosInstance.get(`/hatchery/parties?${params}`);
-      return data as { parties: HatcheryParty[]; total: number };
+      return data as {
+        parties: HatcheryParty[];
+        total: number;
+        page: number;
+        limit: number;
+      };
     },
   });
 }

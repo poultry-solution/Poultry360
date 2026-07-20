@@ -100,6 +100,17 @@ export interface HatcheryBatchMortality {
   createdAt: string;
 }
 
+export interface HatcheryBatchMortalityListResponse {
+  mortalities: HatcheryBatchMortality[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  summary: {
+    totalMortality: number;
+  };
+}
+
 export interface HatcheryBatchExpense {
   id: string;
   batchId: string;
@@ -116,6 +127,17 @@ export interface HatcheryBatchExpense {
   inventoryTxnId: string | null;
   inventoryItem?: { id: string; name: string; unit: string } | null;
   createdAt: string;
+}
+
+export interface HatcheryBatchExpenseListResponse {
+  expenses: HatcheryBatchExpense[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  summary: {
+    totalExpenses: number;
+  };
 }
 
 export interface HatcheryEggType {
@@ -148,6 +170,18 @@ export interface HatcheryEggProduction {
   createdAt: string;
 }
 
+export interface HatcheryEggProductionListResponse {
+  productions: HatcheryEggProduction[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  summary: {
+    typeTotals: Record<string, number>;
+    grandTotal: number;
+  };
+}
+
 export interface HatcheryEggStockRow {
   id: string;
   batchId: string;
@@ -173,6 +207,18 @@ export interface HatcheryEggSale {
   eggType: { id: string; name: string; isHatchable: boolean };
 }
 
+export interface HatcheryEggSaleListResponse {
+  data: HatcheryEggSale[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  summary: {
+    totalRevenue: number;
+    totalSales: number;
+  };
+}
+
 export interface HatcheryParentSale {
   id: string;
   batchId: string;
@@ -186,6 +232,18 @@ export interface HatcheryParentSale {
   party?: { id: string; name: string; phone: string } | null;
   note: string | null;
   createdAt: string;
+}
+
+export interface HatcheryParentSaleListResponse {
+  data: HatcheryParentSale[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  summary: {
+    totalRevenue: number;
+    totalSales: number;
+  };
 }
 
 // ==================== QUERY KEYS ====================
@@ -330,12 +388,19 @@ export function useDeleteHatcheryBatch(id: string) {
 }
 
 // Mortality
-export function useHatcheryMortalities(batchId: string) {
+export function useHatcheryMortalities(
+  batchId: string,
+  params: { page?: number; limit?: number } = {}
+) {
   return useQuery({
-    queryKey: hatcheryBatchKeys.mortalities(batchId),
+    queryKey: [...hatcheryBatchKeys.mortalities(batchId), params] as const,
+    placeholderData: (previousData) => previousData,
     queryFn: async () => {
-      const { data } = await axiosInstance.get(`/hatchery/batches/${batchId}/mortalities`);
-      return data as HatcheryBatchMortality[];
+      const searchParams = new URLSearchParams();
+      if (params.page) searchParams.set("page", String(params.page));
+      if (params.limit) searchParams.set("limit", String(params.limit));
+      const { data } = await axiosInstance.get(`/hatchery/batches/${batchId}/mortalities?${searchParams}`);
+      return data as HatcheryBatchMortalityListResponse;
     },
     enabled: !!batchId,
   });
@@ -369,12 +434,16 @@ export function useDeleteHatcheryMortality(batchId: string) {
 }
 
 // Expenses
-export function useHatcheryExpenses(batchId: string) {
+export function useHatcheryExpenses(batchId: string, params: { page?: number; limit?: number } = {}) {
   return useQuery({
-    queryKey: hatcheryBatchKeys.expenses(batchId),
+    queryKey: [...hatcheryBatchKeys.expenses(batchId), params] as const,
+    placeholderData: (previousData) => previousData,
     queryFn: async () => {
-      const { data } = await axiosInstance.get(`/hatchery/batches/${batchId}/expenses`);
-      return data as HatcheryBatchExpense[];
+      const searchParams = new URLSearchParams();
+      if (params.page) searchParams.set("page", String(params.page));
+      if (params.limit) searchParams.set("limit", String(params.limit));
+      const { data } = await axiosInstance.get(`/hatchery/batches/${batchId}/expenses?${searchParams}`);
+      return data as HatcheryBatchExpenseListResponse;
     },
     enabled: !!batchId,
   });
@@ -419,12 +488,21 @@ export function useDeleteHatcheryExpense(batchId: string) {
 }
 
 // Egg productions
-export function useHatcheryEggProductions(batchId: string) {
+export function useHatcheryEggProductions(
+  batchId: string,
+  params: { page?: number; limit?: number } = {}
+) {
   return useQuery({
-    queryKey: hatcheryBatchKeys.eggProductions(batchId),
+    queryKey: [...hatcheryBatchKeys.eggProductions(batchId), params] as const,
+    placeholderData: (previousData) => previousData,
     queryFn: async () => {
-      const { data } = await axiosInstance.get(`/hatchery/batches/${batchId}/egg-productions`);
-      return data as HatcheryEggProduction[];
+      const searchParams = new URLSearchParams();
+      if (params.page) searchParams.set("page", String(params.page));
+      if (params.limit) searchParams.set("limit", String(params.limit));
+      const { data } = await axiosInstance.get(
+        `/hatchery/batches/${batchId}/egg-productions?${searchParams}`
+      );
+      return data as HatcheryEggProductionListResponse;
     },
     enabled: !!batchId,
   });
@@ -464,12 +542,16 @@ export function useDeleteHatcheryEggProduction(batchId: string) {
 }
 
 // Egg sales
-export function useHatcheryEggSales(batchId: string) {
+export function useHatcheryEggSales(batchId: string, params: { page?: number; limit?: number } = {}) {
   return useQuery({
-    queryKey: hatcheryBatchKeys.eggSales(batchId),
+    queryKey: [...hatcheryBatchKeys.eggSales(batchId), params] as const,
+    placeholderData: (previousData) => previousData,
     queryFn: async () => {
-      const { data } = await axiosInstance.get(`/hatchery/batches/${batchId}/egg-sales`);
-      return data as HatcheryEggSale[];
+      const searchParams = new URLSearchParams();
+      if (params.page) searchParams.set("page", String(params.page));
+      if (params.limit) searchParams.set("limit", String(params.limit));
+      const { data } = await axiosInstance.get(`/hatchery/batches/${batchId}/egg-sales?${searchParams}`);
+      return data as HatcheryEggSaleListResponse;
     },
     enabled: !!batchId,
   });
@@ -514,12 +596,16 @@ export function useDeleteHatcheryEggSale(batchId: string) {
 }
 
 // Parent sales
-export function useHatcheryParentSales(batchId: string) {
+export function useHatcheryParentSales(batchId: string, params: { page?: number; limit?: number } = {}) {
   return useQuery({
-    queryKey: hatcheryBatchKeys.parentSales(batchId),
+    queryKey: [...hatcheryBatchKeys.parentSales(batchId), params] as const,
+    placeholderData: (previousData) => previousData,
     queryFn: async () => {
-      const { data } = await axiosInstance.get(`/hatchery/batches/${batchId}/parent-sales`);
-      return data as HatcheryParentSale[];
+      const searchParams = new URLSearchParams();
+      if (params.page) searchParams.set("page", String(params.page));
+      if (params.limit) searchParams.set("limit", String(params.limit));
+      const { data } = await axiosInstance.get(`/hatchery/batches/${batchId}/parent-sales?${searchParams}`);
+      return data as HatcheryParentSaleListResponse;
     },
     enabled: !!batchId,
   });

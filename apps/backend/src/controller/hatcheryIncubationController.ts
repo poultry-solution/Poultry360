@@ -368,7 +368,7 @@ export async function deleteChickSale(req: Request, res: Response) {
 export async function listProducedChickStock(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
-    const { parentBatchId, incubationBatchId } = req.query as Record<string, string>;
+    const { parentBatchId, incubationBatchId, page = "1", limit = "10" } = req.query as Record<string, string>;
 
     const where: any = {
       incubationBatch: {
@@ -383,34 +383,72 @@ export async function listProducedChickStock(req: Request, res: Response) {
       where.incubationBatchId = incubationBatchId;
     }
 
-    const rows = await prisma.hatcheryChickStock.findMany({
-      where,
-      include: {
-        incubationBatch: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            stage: true,
-            parentBatchId: true,
-            parentBatch: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-                status: true,
+    const currentPage = Math.max(1, parseInt(page, 10) || 1);
+    const pageSize = Math.max(1, parseInt(limit, 10) || 10);
+    const skip = (currentPage - 1) * pageSize;
+
+    const [rows, totalRows, summaryRows] = await Promise.all([
+      prisma.hatcheryChickStock.findMany({
+        where,
+        include: {
+          incubationBatch: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              stage: true,
+              parentBatchId: true,
+              parentBatch: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  status: true,
+                },
               },
             },
           },
         },
-      },
-      orderBy: [
-        { incubationBatch: { startDate: "desc" } },
-        { grade: "asc" },
-      ],
-    });
+        orderBy: [
+          { incubationBatch: { startDate: "desc" } },
+          { grade: "asc" },
+        ],
+        skip,
+        take: pageSize,
+      }),
+      prisma.hatcheryChickStock.count({ where }),
+      prisma.hatcheryChickStock.groupBy({
+        by: ["grade"],
+        where,
+        _sum: { currentStock: true },
+      }),
+    ]);
 
-    return res.json(rows);
+    const summaryByGrade = {
+      A: 0,
+      B: 0,
+      CULL: 0,
+    };
+    for (const row of summaryRows as Array<{ grade: string; _sum: { currentStock: number | null } }>) {
+      summaryByGrade[row.grade as keyof typeof summaryByGrade] = Number(row._sum.currentStock ?? 0);
+    }
+
+    const totalStock = Object.values(summaryByGrade).reduce((sum, value) => sum + Number(value ?? 0), 0);
+
+    return res.json({
+      data: rows,
+      pagination: {
+        page: currentPage,
+        limit: pageSize,
+        total: totalRows,
+        totalPages: Math.max(1, Math.ceil(totalRows / pageSize)),
+      },
+      summary: {
+        totalStock,
+        totalRows,
+        grades: summaryByGrade,
+      },
+    });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }

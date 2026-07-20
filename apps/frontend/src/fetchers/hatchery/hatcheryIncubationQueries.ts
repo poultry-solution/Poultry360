@@ -127,6 +127,16 @@ export interface ProducedChickStockRow {
   };
 }
 
+export interface ProducedChickStockResponse {
+  data: ProducedChickStockRow[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+  summary: {
+    totalStock: number;
+    totalRows: number;
+    grades: Record<ChickGrade, number>;
+  };
+}
+
 // ==================== KEYS ====================
 
 export const incubationKeys = {
@@ -207,15 +217,20 @@ export function useCreateIncubationBatch() {
 export function useProducedChickStock(filters: {
   parentBatchId?: string;
   incubationBatchId?: string;
+  page?: number;
+  limit?: number;
 } = {}) {
   return useQuery({
     queryKey: incubationKeys.producedChickStock(filters),
+    placeholderData: (previousData) => previousData,
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters.parentBatchId) params.set("parentBatchId", filters.parentBatchId);
       if (filters.incubationBatchId) params.set("incubationBatchId", filters.incubationBatchId);
+      if (filters.page) params.set("page", String(filters.page));
+      if (filters.limit) params.set("limit", String(filters.limit));
       const { data } = await axiosInstance.get(`/hatchery/produced-chicks/stock?${params}`);
-      return data as ProducedChickStockRow[];
+      return data as ProducedChickStockResponse;
     },
   });
 }
