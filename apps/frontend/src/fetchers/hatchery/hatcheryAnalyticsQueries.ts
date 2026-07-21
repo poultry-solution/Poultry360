@@ -5,16 +5,12 @@ import type { HatcheryBatchType } from "./hatcheryBatchQueries";
 export interface HatcheryAnalyticsOverviewParams {
   startDate?: string;
   endDate?: string;
-  batchType?: HatcheryBatchType;
-  search?: string;
 }
 
 export interface HatcheryAnalyticsOverview {
   applied: {
     startDate: string;
     endDate: string;
-    batchType: HatcheryBatchType | null;
-    search: string | null;
   };
   overview: {
     totalRevenue: number;
@@ -156,7 +152,6 @@ export interface HatcheryAnalyticsIncubationsResponse {
   applied: {
     startDate: string;
     endDate: string;
-    search: string | null;
     parentBatchId: string | null;
     stage: "SETTER" | "CANDLING" | "HATCHER" | "COMPLETED" | null;
   };
@@ -218,8 +213,6 @@ export interface HatcheryAnalyticsProductionResponse {
   applied: {
     startDate: string;
     endDate: string;
-    search: string | null;
-    batchType: HatcheryBatchType | null;
   };
   summary: {
     totalRecords: number;
@@ -281,8 +274,6 @@ export interface HatcheryAnalyticsSalesResponse {
   applied: {
     startDate: string;
     endDate: string;
-    search: string | null;
-    batchType: HatcheryBatchType | null;
     saleType: "ALL" | "EGG" | "PARENT" | "CHICK";
   };
   summary: {
@@ -360,8 +351,6 @@ export function useGetHatcheryAnalyticsOverview(params: HatcheryAnalyticsOvervie
       const searchParams = new URLSearchParams();
       if (params.startDate) searchParams.set("startDate", params.startDate);
       if (params.endDate) searchParams.set("endDate", params.endDate);
-      if (params.batchType) searchParams.set("batchType", params.batchType);
-      if (params.search) searchParams.set("search", params.search);
       const suffix = searchParams.toString() ? `?${searchParams.toString()}` : "";
       const { data } = await axiosInstance.get<{ success: boolean; data: HatcheryAnalyticsOverview }>(
         `/hatchery/analytics/overview${suffix}`
@@ -382,8 +371,6 @@ export function useGetHatcheryAnalyticsBatches(
       const searchParams = new URLSearchParams();
       if (params.startDate) searchParams.set("startDate", params.startDate);
       if (params.endDate) searchParams.set("endDate", params.endDate);
-      if (params.batchType) searchParams.set("batchType", params.batchType);
-      if (params.search) searchParams.set("search", params.search);
       searchParams.set("page", String(params.page));
       searchParams.set("limit", String(params.limit));
       const suffix = searchParams.toString() ? `?${searchParams.toString()}` : "";
@@ -411,8 +398,6 @@ export function useGetHatcheryAnalyticsIncubations(
       const searchParams = new URLSearchParams();
       if (params.startDate) searchParams.set("startDate", params.startDate);
       if (params.endDate) searchParams.set("endDate", params.endDate);
-      if (params.batchType) searchParams.set("batchType", params.batchType);
-      if (params.search) searchParams.set("search", params.search);
       if (params.stage) searchParams.set("stage", params.stage);
       if (params.parentBatchId) searchParams.set("parentBatchId", params.parentBatchId);
       searchParams.set("page", String(params.page));
@@ -437,8 +422,6 @@ export function useGetHatcheryAnalyticsProduction(
       const searchParams = new URLSearchParams();
       if (params.startDate) searchParams.set("startDate", params.startDate);
       if (params.endDate) searchParams.set("endDate", params.endDate);
-      if (params.batchType) searchParams.set("batchType", params.batchType);
-      if (params.search) searchParams.set("search", params.search);
       searchParams.set("page", String(params.page));
       searchParams.set("limit", String(params.limit));
       const suffix = searchParams.toString() ? `?${searchParams.toString()}` : "";
@@ -465,8 +448,6 @@ export function useGetHatcheryAnalyticsSales(
       const searchParams = new URLSearchParams();
       if (params.startDate) searchParams.set("startDate", params.startDate);
       if (params.endDate) searchParams.set("endDate", params.endDate);
-      if (params.batchType) searchParams.set("batchType", params.batchType);
-      if (params.search) searchParams.set("search", params.search);
       if (params.saleType) searchParams.set("saleType", params.saleType);
       searchParams.set("page", String(params.page));
       searchParams.set("limit", String(params.limit));

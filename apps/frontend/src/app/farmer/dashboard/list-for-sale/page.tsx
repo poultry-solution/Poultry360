@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -10,7 +10,7 @@ import {
 } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
-import { Tag, Plus, Pencil, Trash2, Archive, ArchiveRestore, Loader2 } from "lucide-react";
+import { Tag, Plus, Pencil, Trash2, Archive, ArchiveRestore, Loader2, MapPin, LocateFixed, X } from "lucide-react";
 import {
   Modal,
   ModalContent,
@@ -42,6 +42,7 @@ import {
   type TypeVariant,
 } from "@/fetchers/listForSale/listForSaleQueries";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { usePublicLocationSearch, reversePublicLocation } from "@/fetchers/public/locationQueries";
 
 const CATEGORIES: ListForSaleCategory[] = ["CHICKEN", "EGGS", "LAYERS", "FISH"];
 
@@ -55,7 +56,7 @@ const NEPAL_PROVINCES: string[] = [
   "Sudurpashchim Province",
 ];
 
-const defaultForm = (companyName: string): CreateListForSaleBody => ({
+const defaultForm = (): CreateListForSaleBody => ({
   category: "CHICKEN",
   phone: "",
   rate: null,
@@ -63,6 +64,10 @@ const defaultForm = (companyName: string): CreateListForSaleBody => ({
   unit: "kg",
   availabilityFrom: new Date().toISOString().split("T")[0] + "T00:00:00.000Z",
   availabilityTo: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] + "T23:59:59.999Z",
+  address: "",
+  province: null,
+  latitude: null,
+  longitude: null,
   avgWeightKg: undefined,
   eggVariants: null,
   typeVariants: null,
@@ -100,15 +105,32 @@ export default function ListForSalePage() {
 
   const listings: ListForSaleItem[] = data?.data ?? [];
 
-  const [form, setForm] = useState<CreateListForSaleBody>(() => defaultForm(companyName));
+  const [form, setForm] = useState<CreateListForSaleBody>(() => defaultForm());
   const [eggRows, setEggRows] = useState<EggVariant[]>([{ size: "", quantity: 0, rate: 0 }]);
   const [typeRows, setTypeRows] = useState<TypeVariant[]>([{ type: "", quantity: 0, rate: 0 }]);
+  const [locationSearch, setLocationSearch] = useState("");
+  const [debouncedLocationSearch, setDebouncedLocationSearch] = useState("");
+  const [locationNotice, setLocationNotice] = useState<string | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const locationQuery = usePublicLocationSearch(debouncedLocationSearch);
+
+  const locationSuggestions = locationQuery.data ?? [];
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedLocationSearch(locationSearch.trim());
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [locationSearch]);
 
   const openAdd = () => {
     setEditingId(null);
-    setForm(defaultForm(companyName));
+    setForm(defaultForm());
     setEggRows([{ size: "", quantity: 0, rate: 0 }]);
     setTypeRows([{ type: "", quantity: 0, rate: 0 }]);
+    setLocationSearch("");
+    setLocationNotice(null);
     setModalOpen(true);
   };
 
@@ -124,6 +146,8 @@ export default function ListForSalePage() {
       availabilityTo: item.availabilityTo,
       province: item.province ?? null,
       address: item.address ?? null,
+      latitude: item.latitude ?? null,
+      longitude: item.longitude ?? null,
       avgWeightKg: item.avgWeightKg != null ? Number(item.avgWeightKg) : undefined,
       eggVariants: item.eggVariants,
       typeVariants: item.typeVariants,
@@ -138,12 +162,89 @@ export default function ListForSalePage() {
         ? item.typeVariants.map((e) => ({ type: e.type, quantity: e.quantity, rate: e.rate }))
         : [{ type: "", quantity: 0, rate: 0 }]
     );
+    setLocationSearch(
+      item.address ?? (item.latitude != null && item.longitude != null ? `${item.latitude.toFixed(6)}, ${item.longitude.toFixed(6)}` : "")
+    );
+    setLocationNotice(null);
     setModalOpen(true);
   };
 
   const closeModal = () => {
     setModalOpen(false);
     setEditingId(null);
+    setLocationNotice(null);
+  };
+
+  const applyLocationSuggestion = (location: {
+    label: string;
+    address: string | null;
+    province: string | null;
+    latitude: number;
+    longitude: number;
+  }) => {
+    setForm((current) => ({
+      ...current,
+      address: location.address ?? location.label,
+      province: current.province ?? location.province,
+      latitude: location.latitude,
+      longitude: location.longitude,
+    }));
+    setLocationSearch(location.address ?? location.label);
+    setLocationNotice("Location selected");
+  };
+
+  const clearLocation = () => {
+    setForm((current) => ({
+      ...current,
+      address: "",
+      latitude: null,
+      longitude: null,
+    }));
+    setLocationSearch("");
+    setLocationNotice("Location cleared");
+  };
+
+  const useCurrentLocation = () => {
+    setLocationNotice(null);
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setLocationNotice("Location permission is not available in this browser.");
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        try {
+          const resolved = await reversePublicLocation(latitude, longitude);
+          setForm((current) => ({
+            ...current,
+            address: resolved.address ?? resolved.label,
+            province: current.province ?? resolved.province,
+            latitude,
+            longitude,
+          }));
+          setLocationSearch(resolved.address ?? resolved.label);
+          setLocationNotice("Current location captured");
+        } catch {
+          setForm((current) => ({
+            ...current,
+            latitude,
+            longitude,
+          }));
+          setLocationSearch(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+          setLocationNotice("Current location captured");
+        } finally {
+          setIsLocating(false);
+        }
+      },
+      () => {
+        setIsLocating(false);
+        setLocationNotice("Location permission was denied or unavailable.");
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 300000 }
+    );
   };
 
   const handleSubmit = async () => {
@@ -385,20 +486,95 @@ export default function ListForSalePage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>{t("farmerListForSale.address")}</Label>
+            </div>
+
+            <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <Label className="text-sm font-semibold text-slate-900">Exact location</Label>
+                  <p className="text-xs text-slate-500">
+                    Search an address, use your current location, or type the exact business address.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={useCurrentLocation} disabled={isLocating}>
+                    <LocateFixed className="h-4 w-4" />
+                    {isLocating ? "Locating..." : "Use my location"}
+                  </Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={clearLocation}>
+                    <X className="h-4 w-4" />
+                    Clear
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
                 <Input
-                  value={form.address ?? ""}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      address: e.target.value,
-                    }))
-                  }
-                  placeholder={t("farmerListForSale.addressPlaceholder")}
+                  value={locationSearch}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setLocationSearch(next);
+                    setForm((current) => ({
+                      ...current,
+                      address: next,
+                    }));
+                  }}
+                  placeholder="Type an address, business name, or landmark"
                 />
+
+                {locationQuery.isFetching && (
+                  <p className="text-xs text-slate-500">Searching locations...</p>
+                )}
+
+                {locationNotice && <p className="text-xs text-emerald-700">{locationNotice}</p>}
+
+                {debouncedLocationSearch.length >= 2 && locationSuggestions.length > 0 && (
+                  <div className="max-h-56 overflow-y-auto rounded-xl border bg-white shadow-sm">
+                    {locationSuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion.id}
+                        type="button"
+                        className="flex w-full items-start gap-3 border-b px-3 py-2 text-left last:border-b-0 hover:bg-slate-50"
+                        onClick={() => applyLocationSuggestion(suggestion)}
+                      >
+                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-slate-900">{suggestion.label}</p>
+                          <p className="truncate text-xs text-slate-500">{suggestion.subtitle}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="rounded-xl border border-dashed border-slate-300 bg-white p-3 text-xs text-slate-600">
+                  <p className="font-medium text-slate-700">Saved location</p>
+                  <p className="mt-1 break-words">
+                    {form.address || "No address selected yet"}
+                  </p>
+                  <p className="mt-1">
+                    {form.latitude != null && form.longitude != null
+                      ? `Coordinates: ${form.latitude.toFixed(6)}, ${form.longitude.toFixed(6)}`
+                      : "Coordinates will be saved when you use your current location or choose a suggestion."}
+                  </p>
+                </div>
+
+                {form.latitude != null && form.longitude != null && (
+                  <div className="overflow-hidden rounded-xl border bg-white">
+                    <iframe
+                      title="Location preview"
+                      src={`https://www.openstreetmap.org/export/embed.html?marker=${form.latitude},${form.longitude}&layer=mapnik`}
+                      className="h-56 w-full border-0"
+                      loading="lazy"
+                    />
+                    <div className="border-t px-3 py-2 text-xs text-slate-500">
+                      Free OpenStreetMap preview. Public users will still navigate via Google Maps links.
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
+
             {(form.category === "CHICKEN" || form.category === "LAYERS") && (
               <>
                 <div>

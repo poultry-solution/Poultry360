@@ -2272,6 +2272,8 @@ model ListForSale {
   availabilityTo   DateTime
   province     String?
   address      String?
+  latitude     Float?
+  longitude    Float?
   avgWeightKg  Decimal? @db.Decimal(6, 2)
   eggVariants  Json?
   typeVariants Json?

@@ -8,7 +8,11 @@ import {
   createLandingContact,
 } from "../controller/publicController";
 import { createDemoEnquiry } from "../controller/demoEnquiryController";
-import { getPublicListForSale } from "../controller/listForSaleController";
+import {
+  getPublicListForSale,
+  searchPublicLocations,
+  reversePublicLocation,
+} from "../controller/listForSaleController";
 
 const router = Router();
 
@@ -33,5 +37,9 @@ router.post("/demo-enquiries", createDemoEnquiry);
 
 // List for sale (public marketplace - no auth)
 router.get("/list-for-sale", getPublicListForSale);
+
+// Free location lookup for listing forms
+router.get("/locations/search", searchPublicLocations);
+router.get("/locations/reverse", reversePublicLocation);
 
 export default router;

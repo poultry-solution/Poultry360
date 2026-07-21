@@ -18,7 +18,6 @@ import {
   ANALYTICS_TABS,
   getRangeBounds,
   QUICK_RANGES,
-  type AnalyticsBatchTypeFilter,
   type AnalyticsRangePreset,
   type AnalyticsTab,
   type IncubationStageFilter,
@@ -64,8 +63,6 @@ function QueryErrorCard({
 
 export default function HatcheryAnalyticsPage() {
   const [rangePreset, setRangePreset] = useState<AnalyticsRangePreset>("30d");
-  const [batchSearch, setBatchSearch] = useState("");
-  const [batchType, setBatchType] = useState<AnalyticsBatchTypeFilter>("all");
   const [activeTab, setActiveTab] = useState<AnalyticsTab>("overview");
   const [batchPage, setBatchPage] = useState(1);
   const [incubationPage, setIncubationPage] = useState(1);
@@ -85,10 +82,8 @@ export default function HatcheryAnalyticsPage() {
     () => ({
       startDate: rangeBounds.startDate,
       endDate: rangeBounds.endDate,
-      batchType: batchType === "all" ? undefined : batchType,
-      search: batchSearch.trim() || undefined,
     }),
-    [batchSearch, batchType, rangeBounds.endDate, rangeBounds.startDate]
+    [rangeBounds.endDate, rangeBounds.startDate]
   );
 
   const overviewQuery = useGetHatcheryAnalyticsOverview(overviewParams);
@@ -128,14 +123,12 @@ export default function HatcheryAnalyticsPage() {
     activeTab === "sales"
   );
 
-  const selectedRangeLabel = QUICK_RANGES.find((range) => range.value === rangePreset)?.label ?? "Custom range";
-
   useEffect(() => {
     setBatchPage(1);
     setIncubationPage(1);
     setProductionPage(1);
     setSalesPage(1);
-  }, [rangePreset, batchSearch, batchType]);
+  }, [rangePreset]);
 
   useEffect(() => {
     setIncubationPage(1);
@@ -172,9 +165,9 @@ export default function HatcheryAnalyticsPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="space-y-2">
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="space-y-1">
           <div className="flex items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
               <BarChart3 className="h-5 w-5" />
@@ -183,11 +176,6 @@ export default function HatcheryAnalyticsPage() {
               <h1 className="text-2xl font-bold tracking-tight text-slate-900">Analytics</h1>
               <p className="text-sm text-slate-500">Hatchery performance, production, sales, and exposure in one workspace.</p>
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">{selectedRangeLabel}</span>
-            <span className="rounded-full border border-emerald-200 px-3 py-1 text-xs text-emerald-700">Owner scoped</span>
-            <span className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600">Recharts-ready</span>
           </div>
         </div>
 
@@ -206,11 +194,6 @@ export default function HatcheryAnalyticsPage() {
       <AnalyticsFilters
         rangePreset={rangePreset}
         onRangePresetChange={setRangePreset}
-        batchSearch={batchSearch}
-        onBatchSearchChange={setBatchSearch}
-        batchType={batchType}
-        onBatchTypeChange={setBatchType}
-        selectedRangeLabel={selectedRangeLabel}
       />
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AnalyticsTab)}>
@@ -318,8 +301,6 @@ export default function HatcheryAnalyticsPage() {
                 loading={salesQuery.isFetching}
                 page={salesPage}
                 onPageChange={setSalesPage}
-                batchSearch={batchSearch}
-                onBatchSearchChange={setBatchSearch}
                 saleType={saleType}
                 onSaleTypeChange={setSaleType}
               />

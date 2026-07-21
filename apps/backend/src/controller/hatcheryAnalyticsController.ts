@@ -357,29 +357,15 @@ type HatcherySalesAnalyticsRow = {
 export async function getHatcheryAnalyticsOverview(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
-    const { startDate, endDate, period = "30", batchType, search } = req.query as Record<string, string>;
+    const { startDate, endDate, period = "30" } = req.query as Record<string, string>;
 
     const { start, end } = buildRange(startDate, endDate, period);
-    const searchTerm = search?.trim() || "";
-    const normalizedBatchType =
-      batchType === "PARENT_FLOCK" || batchType === "INCUBATION"
-        ? (batchType as HatcheryBatchType)
-        : undefined;
 
     const batchWhere: Prisma.HatcheryBatchWhereInput = {
       hatcheryOwnerId: ownerId,
-      ...(normalizedBatchType ? { type: normalizedBatchType } : {}),
-      ...(searchTerm
-        ? {
-            OR: [
-              { code: { contains: searchTerm, mode: "insensitive" } },
-              { name: { contains: searchTerm, mode: "insensitive" } },
-            ],
-          }
-        : {}),
     };
 
-    const [matchedBatches, ownerSuppliers, ownerParties, inventoryItems] = await Promise.all([
+    const [matchedBatches, ownerSuppliers, ownerParties] = await Promise.all([
       prisma.hatcheryBatch.findMany({
         where: batchWhere,
         select: { id: true, type: true, status: true, code: true, name: true },
@@ -395,43 +381,12 @@ export async function getHatcheryAnalyticsOverview(req: Request, res: Response) 
         select: { id: true, name: true, balance: true },
         orderBy: { balance: "desc" },
       }),
-      prisma.hatcheryInventoryItem.findMany({
-        where: { hatcheryOwnerId: ownerId, deletedAt: null },
-        select: {
-          id: true,
-          name: true,
-          itemType: true,
-          currentStock: true,
-          minStock: true,
-        },
-      }),
     ]);
 
     const batchIds = matchedBatches.map((batch) => batch.id);
 
     const incubationWhere: Prisma.HatcheryIncubationBatchWhereInput = {
       hatcheryOwnerId: ownerId,
-      ...(searchTerm
-        ? {
-            OR: [
-              { code: { contains: searchTerm, mode: "insensitive" } },
-              { name: { contains: searchTerm, mode: "insensitive" } },
-              {
-                parentBatch: {
-                  is: {
-                    OR: [
-                      { code: { contains: searchTerm, mode: "insensitive" } },
-                      { name: { contains: searchTerm, mode: "insensitive" } },
-                    ],
-                  },
-                },
-              },
-            ],
-          }
-        : {}),
-      ...(normalizedBatchType === "PARENT_FLOCK" && batchIds.length > 0
-        ? { parentBatchId: { in: batchIds } }
-        : {}),
     };
 
     const matchedIncubations = await prisma.hatcheryIncubationBatch.findMany({
@@ -616,8 +571,6 @@ export async function getHatcheryAnalyticsOverview(req: Request, res: Response) 
         applied: {
           startDate: start.toISOString(),
           endDate: end.toISOString(),
-          batchType: normalizedBatchType ?? null,
-          search: searchTerm || null,
         },
         overview: {
           totalRevenue: money(totalRevenue),
@@ -679,30 +632,14 @@ export async function getHatcheryAnalyticsBatches(req: Request, res: Response) {
       startDate,
       endDate,
       period = "30",
-      batchType,
-      search,
       page = "1",
       limit = "10",
     } = req.query as Record<string, string>;
 
     const { start, end } = buildRange(startDate, endDate, period);
-    const searchTerm = search?.trim() || "";
-    const normalizedBatchType =
-      batchType === "PARENT_FLOCK" || batchType === "INCUBATION"
-        ? (batchType as HatcheryBatchType)
-        : undefined;
 
     const batchWhere: Prisma.HatcheryBatchWhereInput = {
       hatcheryOwnerId: ownerId,
-      ...(normalizedBatchType ? { type: normalizedBatchType } : {}),
-      ...(searchTerm
-        ? {
-            OR: [
-              { code: { contains: searchTerm, mode: "insensitive" } },
-              { name: { contains: searchTerm, mode: "insensitive" } },
-            ],
-          }
-        : {}),
     };
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -756,8 +693,6 @@ export async function getHatcheryAnalyticsBatches(req: Request, res: Response) {
         applied: {
           startDate: start.toISOString(),
           endDate: end.toISOString(),
-          batchType: normalizedBatchType ?? null,
-          search: searchTerm || null,
         },
         summary: allScope.summary,
         batches: pageScope.rows,
@@ -783,7 +718,6 @@ export async function getHatcheryAnalyticsIncubations(req: Request, res: Respons
       startDate,
       endDate,
       period = "30",
-      search,
       parentBatchId,
       stage,
       page = "1",
@@ -791,7 +725,6 @@ export async function getHatcheryAnalyticsIncubations(req: Request, res: Respons
     } = req.query as Record<string, string>;
 
     const { start, end } = buildRange(startDate, endDate, period);
-    const searchTerm = search?.trim() || "";
     const normalizedStage =
       stage === "SETTER" || stage === "CANDLING" || stage === "HATCHER" || stage === "COMPLETED"
         ? stage
@@ -801,24 +734,6 @@ export async function getHatcheryAnalyticsIncubations(req: Request, res: Respons
       hatcheryOwnerId: ownerId,
       ...(parentBatchId ? { parentBatchId } : {}),
       ...(normalizedStage ? { stage: normalizedStage } : {}),
-      ...(searchTerm
-        ? {
-            OR: [
-              { code: { contains: searchTerm, mode: "insensitive" } },
-              { name: { contains: searchTerm, mode: "insensitive" } },
-              {
-                parentBatch: {
-                  is: {
-                    OR: [
-                      { code: { contains: searchTerm, mode: "insensitive" } },
-                      { name: { contains: searchTerm, mode: "insensitive" } },
-                    ],
-                  },
-                },
-              },
-            ],
-          }
-        : {}),
     };
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -1070,7 +985,6 @@ export async function getHatcheryAnalyticsIncubations(req: Request, res: Respons
         applied: {
           startDate: start.toISOString(),
           endDate: end.toISOString(),
-          search: searchTerm || null,
           parentBatchId: parentBatchId || null,
           stage: normalizedStage ?? null,
         },
@@ -1120,55 +1034,20 @@ export async function getHatcheryAnalyticsProduction(req: Request, res: Response
       startDate,
       endDate,
       period = "30",
-      search,
-      batchType,
       page = "1",
       limit = "10",
     } = req.query as Record<string, string>;
 
     const { start, end } = buildRange(startDate, endDate, period);
-    const searchTerm = search?.trim() || "";
-    const normalizedBatchType =
-      batchType === "PARENT_FLOCK" || batchType === "INCUBATION"
-        ? (batchType as HatcheryBatchType)
-        : undefined;
 
     const batchWhere: Prisma.HatcheryBatchWhereInput = {
       hatcheryOwnerId: ownerId,
-      type: normalizedBatchType ?? HatcheryBatchType.PARENT_FLOCK,
+      type: HatcheryBatchType.PARENT_FLOCK,
     };
 
     const productionWhere: Prisma.HatcheryEggProductionWhereInput = {
       batch: { is: batchWhere },
       date: { gte: start, lte: end },
-      ...(searchTerm
-        ? {
-            OR: [
-              { note: { contains: searchTerm, mode: "insensitive" } },
-              {
-                batch: {
-                  is: {
-                    OR: [
-                      { code: { contains: searchTerm, mode: "insensitive" } },
-                      { name: { contains: searchTerm, mode: "insensitive" } },
-                    ],
-                  },
-                },
-              },
-              {
-                lines: {
-                  some: {
-                    eggType: {
-                      is: {
-                        name: { contains: searchTerm, mode: "insensitive" },
-                      },
-                    },
-                  },
-                },
-              },
-            ],
-          }
-        : {}),
     };
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -1335,8 +1214,6 @@ export async function getHatcheryAnalyticsProduction(req: Request, res: Response
         applied: {
           startDate: start.toISOString(),
           endDate: end.toISOString(),
-          search: searchTerm || null,
-          batchType: normalizedBatchType ?? null,
         },
         summary: {
           totalRecords,
@@ -1375,19 +1252,12 @@ export async function getHatcheryAnalyticsSales(req: Request, res: Response) {
       startDate,
       endDate,
       period = "30",
-      batchType,
-      search,
       saleType,
       page = "1",
       limit = "10",
     } = req.query as Record<string, string>;
 
     const { start, end } = buildRange(startDate, endDate, period);
-    const searchTerm = search?.trim() || "";
-    const normalizedBatchType =
-      batchType === "PARENT_FLOCK" || batchType === "INCUBATION"
-        ? (batchType as HatcheryBatchType)
-        : undefined;
     const normalizedSaleType =
       saleType === "EGG" || saleType === "PARENT" || saleType === "CHICK"
         ? (saleType as "EGG" | "PARENT" | "CHICK")
@@ -1395,15 +1265,6 @@ export async function getHatcheryAnalyticsSales(req: Request, res: Response) {
 
     const batchWhere: Prisma.HatcheryBatchWhereInput = {
       hatcheryOwnerId: ownerId,
-      ...(normalizedBatchType ? { type: normalizedBatchType } : {}),
-      ...(searchTerm
-        ? {
-            OR: [
-              { code: { contains: searchTerm, mode: "insensitive" } },
-              { name: { contains: searchTerm, mode: "insensitive" } },
-            ],
-          }
-        : {}),
     };
 
     const [matchedBatches, ownerParties] = await Promise.all([
@@ -1423,27 +1284,6 @@ export async function getHatcheryAnalyticsSales(req: Request, res: Response) {
 
     const incubationWhere: Prisma.HatcheryIncubationBatchWhereInput = {
       hatcheryOwnerId: ownerId,
-      ...(searchTerm
-        ? {
-            OR: [
-              { code: { contains: searchTerm, mode: "insensitive" } },
-              { name: { contains: searchTerm, mode: "insensitive" } },
-              {
-                parentBatch: {
-                  is: {
-                    OR: [
-                      { code: { contains: searchTerm, mode: "insensitive" } },
-                      { name: { contains: searchTerm, mode: "insensitive" } },
-                    ],
-                  },
-                },
-              },
-            ],
-          }
-        : {}),
-      ...(normalizedBatchType === "PARENT_FLOCK" && batchIds.length > 0
-        ? { parentBatchId: { in: batchIds } }
-        : {}),
     };
 
     const matchedIncubations = await prisma.hatcheryIncubationBatch.findMany({
@@ -1595,28 +1435,7 @@ export async function getHatcheryAnalyticsSales(req: Request, res: Response) {
       });
     }
 
-    const searchMatch = (row: HatcherySalesAnalyticsRow) => {
-      if (!searchTerm) return true;
-      const haystack = [
-        row.batchCode,
-        row.batchName ?? "",
-        row.sourceCode ?? "",
-        row.sourceName ?? "",
-        row.partyName ?? "",
-        row.partyPhone ?? "",
-        row.itemLabel,
-        row.grade ?? "",
-        row.note ?? "",
-        row.saleType,
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(searchTerm.toLowerCase());
-    };
-
-    const filteredRows = rows
-      .filter(searchMatch)
-      .sort((a, b) => b.date.localeCompare(a.date));
+    const filteredRows = rows.sort((a, b) => b.date.localeCompare(a.date));
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const pageLimit = Math.max(1, parseInt(limit, 10) || 10);
@@ -1703,8 +1522,6 @@ export async function getHatcheryAnalyticsSales(req: Request, res: Response) {
         applied: {
           startDate: start.toISOString(),
           endDate: end.toISOString(),
-          search: searchTerm || null,
-          batchType: normalizedBatchType ?? null,
           saleType: normalizedSaleType,
         },
         summary: {

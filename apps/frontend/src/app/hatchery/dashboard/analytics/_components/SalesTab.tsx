@@ -1,13 +1,12 @@
 "use client";
 
-import { ArrowUpRight, BarChart3, Bird, CalendarRange, Egg, Layers, Search, ShieldAlert, Users, Wallet } from "lucide-react";
+import { ArrowUpRight, BarChart3, Bird, CalendarRange, Egg, Layers, ShieldAlert, Users, Wallet } from "lucide-react";
 import { useMemo } from "react";
 import { Badge } from "@/common/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/common/components/ui/chart";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { DataTable, type Column } from "@/common/components/ui/data-table";
-import { Input } from "@/common/components/ui/input";
 import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/common/components/ui/select";
 import { cn } from "@/common/lib/utils";
@@ -30,8 +29,6 @@ export function SalesTab({
   loading,
   page,
   onPageChange,
-  batchSearch,
-  onBatchSearchChange,
   saleType,
   onSaleTypeChange,
 }: {
@@ -39,8 +36,6 @@ export function SalesTab({
   loading: boolean;
   page: number;
   onPageChange: (page: number) => void;
-  batchSearch: string;
-  onBatchSearchChange: (value: string) => void;
   saleType: SaleTypeFilter;
   onSaleTypeChange: (value: SaleTypeFilter) => void;
 }) {
@@ -237,14 +232,9 @@ export function SalesTab({
 
       <Card className="border-slate-200/80 shadow-sm">
         <CardContent className="space-y-4 p-4 md:p-5">
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input value={batchSearch} onChange={(e) => onBatchSearchChange(e.target.value)} placeholder="Search batch, party, egg type, or note" className="h-10 rounded-xl pl-9" />
-            </div>
-
+          <div className="flex justify-end">
             <Select value={saleType} onValueChange={(value) => onSaleTypeChange(value as SaleTypeFilter)}>
-              <SelectTrigger className="h-10 rounded-xl">
+              <SelectTrigger className="h-10 w-[220px] rounded-xl">
                 <SelectValue placeholder="Sale type" />
               </SelectTrigger>
               <SelectContent>

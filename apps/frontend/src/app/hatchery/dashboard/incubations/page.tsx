@@ -10,6 +10,13 @@ import { DateDisplay } from "@/common/components/ui/date-display";
 import { DataTable, type Column } from "@/common/components/ui/data-table";
 import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -54,11 +61,13 @@ function StagePreview({ parentBatchId }: { parentBatchId: string }) {
 export default function IncubationsPage() {
   const router = useRouter();
   const [stageFilter, setStageFilter] = useState<IncubationStage | "">("");
+  const [parentBatchFilter, setParentBatchFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
   const { data, isLoading } = useIncubationBatches({
     stage: stageFilter || undefined,
+    parentBatchId: parentBatchFilter === "all" ? undefined : parentBatchFilter,
     search: search || undefined,
     page,
     limit: 10,
@@ -86,7 +95,7 @@ export default function IncubationsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [stageFilter, search]);
+  }, [stageFilter, parentBatchFilter, search]);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -184,12 +193,12 @@ export default function IncubationsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex flex-wrap gap-3">
         <Input
           placeholder="Search by code..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-48"
+          className="w-full max-w-56"
         />
         <div className="flex gap-2">
           {(["", "SETTER", "CANDLING", "HATCHER", "COMPLETED"] as const).map((s) => (
@@ -206,6 +215,19 @@ export default function IncubationsPage() {
             </button>
           ))}
         </div>
+        <Select value={parentBatchFilter} onValueChange={setParentBatchFilter}>
+          <SelectTrigger className="h-10 w-full max-w-64 rounded-full">
+            <SelectValue placeholder="All parent batches" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All parent batches</SelectItem>
+            {parentBatches.map((batch) => (
+              <SelectItem key={batch.id} value={batch.id}>
+                {batch.code}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Table */}
