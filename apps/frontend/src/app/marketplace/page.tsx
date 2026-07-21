@@ -19,7 +19,7 @@ import {
 
 const MARKETPLACE_LIMIT = 100;
 
-const VALID_CATEGORIES = new Set<string>(["CHICKEN", "EGGS", "LAYERS", "FISH"]);
+const VALID_CATEGORIES = new Set<string>(["CHICKEN", "EGGS", "LAYERS"]);
 
 export default function MarketplacePage() {
   const { t } = useI18n();

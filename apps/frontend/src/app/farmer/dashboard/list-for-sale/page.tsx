@@ -44,7 +44,7 @@ import {
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { usePublicLocationSearch, reversePublicLocation } from "@/fetchers/public/locationQueries";
 
-const CATEGORIES: ListForSaleCategory[] = ["CHICKEN", "EGGS", "LAYERS", "FISH"];
+const CATEGORIES: ListForSaleCategory[] = ["CHICKEN", "EGGS", "LAYERS"];
 
 const defaultForm = (): CreateListForSaleBody => ({
   category: "CHICKEN",
@@ -64,11 +64,10 @@ const defaultForm = (): CreateListForSaleBody => ({
 });
 
 function categoryLabelKey(cat: ListForSaleCategory): string {
-  const keyMap: Record<ListForSaleCategory, string> = {
+  const keyMap: Partial<Record<ListForSaleCategory, string>> = {
     CHICKEN: "farmerListForSale.categories.chicken",
     EGGS: "farmerListForSale.categories.eggs",
     LAYERS: "farmerListForSale.categories.layers",
-    FISH: "farmerListForSale.categories.fish",
     OTHER: "farmerListForSale.categories.other",
   };
   return keyMap[cat] ?? cat;
