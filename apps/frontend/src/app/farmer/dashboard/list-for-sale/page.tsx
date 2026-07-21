@@ -532,19 +532,6 @@ export default function ListForSalePage() {
                     </p>
                   </div>
 
-                  {form.latitude != null && form.longitude != null && (
-                    <div className="overflow-hidden rounded-xl border bg-white">
-                      <iframe
-                        title="Location preview"
-                        src={`https://www.openstreetmap.org/export/embed.html?marker=${form.latitude},${form.longitude}&layer=mapnik`}
-                        className="h-56 w-full border-0"
-                        loading="lazy"
-                      />
-                      <div className="border-t px-3 py-2 text-xs text-slate-500">
-                        Free OpenStreetMap preview. Public users will still navigate via Google Maps links.
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 
