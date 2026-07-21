@@ -32,7 +32,7 @@ export const authMiddleware = async (
     decoded = jwt.verify(token, process.env.JWT_SECRET || "mysupersecretkey");
   } catch (err) {
     console.log("error", err);
-    return res.status(403).json({ error: "Access denied" });
+    return res.status(401).json({ error: "Invalid or expired token" });
   }
 
 
