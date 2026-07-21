@@ -2232,11 +2232,12 @@ model LandingContact {
 // ==================== BOOK A DEMO ENQUIRIES (PUBLIC) ====================
 // Landing page "Book a demo" modal submissions (no auth required).
 model DemoEnquiry {
-  id           String   @id @default(cuid())
-  companyName String
+  id            String   @id @default(cuid())
+  companyName   String
   // Stored in normalized format including country code (e.g. +977XXXXXXXXXX)
-  phoneNumber String
-  message     String?  @db.Text
+  phoneNumber   String
+  businessTypes String[] @default([])
+  message       String?  @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

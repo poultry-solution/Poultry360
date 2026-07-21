@@ -10,6 +10,7 @@ export interface AdminDemoEnquiry {
   id: string;
   companyName: string;
   phoneNumber: string;
+  businessTypes: string[];
   message?: string | null;
   createdAt: string;
 }
@@ -32,4 +33,3 @@ export function useGetAdminDemoEnquiries(limit = 200) {
     refetchOnWindowFocus: false,
   });
 }
-

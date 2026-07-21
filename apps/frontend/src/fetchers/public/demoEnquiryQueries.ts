@@ -4,6 +4,7 @@ import { publicApi } from "@/common/lib/axios";
 export interface CreateDemoEnquiryBody {
   companyName: string;
   phoneNumber: string; // UI sends local part; backend normalizes to +977...
+  businessTypes?: string[];
   message?: string;
 }
 
@@ -13,6 +14,7 @@ export interface CreateDemoEnquiryResponse {
     id: string;
     companyName: string;
     phoneNumber: string;
+    businessTypes: string[];
     message?: string | null;
     createdAt: string;
   };
@@ -30,4 +32,3 @@ export function useCreateDemoEnquiry() {
     },
   });
 }
-
