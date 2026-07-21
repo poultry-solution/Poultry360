@@ -46,16 +46,6 @@ import { usePublicLocationSearch, reversePublicLocation } from "@/fetchers/publi
 
 const CATEGORIES: ListForSaleCategory[] = ["CHICKEN", "EGGS", "LAYERS", "FISH"];
 
-const NEPAL_PROVINCES: string[] = [
-  "Koshi Province",
-  "Madhesh Province",
-  "Bagmati Province",
-  "Gandaki Province",
-  "Lumbini Province",
-  "Karnali Province",
-  "Sudurpashchim Province",
-];
-
 const defaultForm = (): CreateListForSaleBody => ({
   category: "CHICKEN",
   phone: "",
@@ -185,7 +175,7 @@ export default function ListForSalePage() {
     setForm((current) => ({
       ...current,
       address: location.address ?? location.label,
-      province: current.province ?? location.province,
+      province: location.province,
       latitude: location.latitude,
       longitude: location.longitude,
     }));
@@ -197,6 +187,7 @@ export default function ListForSalePage() {
     setForm((current) => ({
       ...current,
       address: "",
+      province: null,
       latitude: null,
       longitude: null,
     }));
@@ -221,7 +212,7 @@ export default function ListForSalePage() {
           setForm((current) => ({
             ...current,
             address: resolved.address ?? resolved.label,
-            province: current.province ?? resolved.province,
+            province: resolved.province,
             latitude,
             longitude,
           }));
@@ -232,6 +223,7 @@ export default function ListForSalePage() {
             ...current,
             latitude,
             longitude,
+            province: null,
           }));
           setLocationSearch(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
           setLocationNotice("Current location captured");
@@ -428,349 +420,337 @@ export default function ListForSalePage() {
       </Card>
 
       {/* Add/Edit modal */}
-      <Modal isOpen={modalOpen} onClose={closeModal} title={editingId ? t("farmerListForSale.modalEditTitle") : t("farmerListForSale.modalAddTitle")}>
+      <Modal
+        isOpen={modalOpen}
+        onClose={closeModal}
+        title={editingId ? t("farmerListForSale.modalEditTitle") : t("farmerListForSale.modalAddTitle")}
+        className="sm:max-w-3xl lg:max-w-5xl"
+      >
         <ModalContent>
-          <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
-            <div>
-              <Label>{t("farmerListForSale.companyName")}</Label>
-              <Input value={companyName || "N/A"} readOnly disabled className="bg-muted" />
-            </div>
-            <div>
-              <Label>{t("farmerListForSale.category")}</Label>
-              <Select
-                value={form.category}
-                onValueChange={(v) => setForm((f) => ({ ...f, category: v as ListForSaleCategory }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {t(categoryLabelKey(c))}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>{t("farmerListForSale.phone")}</Label>
-              <Input
-                value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                placeholder={t("farmerListForSale.phonePlaceholder")}
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>{t("farmerListForSale.province")}</Label>
+          <div className="space-y-5 px-1 max-h-[75vh] overflow-y-auto lg:max-h-none lg:overflow-visible">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="lg:col-span-2">
+                <Label>{t("farmerListForSale.companyName")}</Label>
+                <Input value={companyName || "N/A"} readOnly disabled className="bg-muted" />
+              </div>
+
+              <div className="lg:col-span-2">
+                <Label>{t("farmerListForSale.category")}</Label>
                 <Select
-                  value={form.province ?? "NONE"}
-                  onValueChange={(val) =>
-                    setForm((f) => ({
-                      ...f,
-                      province: val === "NONE" ? null : val,
-                    }))
-                  }
+                  value={form.category}
+                  onValueChange={(v) => setForm((f) => ({ ...f, category: v as ListForSaleCategory }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={t("farmerListForSale.provincePlaceholder")} />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="NONE">{t("farmerListForSale.provinceNone")}</SelectItem>
-                    {NEPAL_PROVINCES.map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {p}
+                    {CATEGORIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {t(categoryLabelKey(c))}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            </div>
 
-            <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <Label className="text-sm font-semibold text-slate-900">Exact location</Label>
-                  <p className="text-xs text-slate-500">
-                    Search an address, use your current location, or type the exact business address.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={useCurrentLocation} disabled={isLocating}>
-                    <LocateFixed className="h-4 w-4" />
-                    {isLocating ? "Locating..." : "Use my location"}
-                  </Button>
-                  <Button type="button" variant="ghost" size="sm" onClick={clearLocation}>
-                    <X className="h-4 w-4" />
-                    Clear
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
+              <div className="lg:col-span-2">
+                <Label>{t("farmerListForSale.phone")}</Label>
                 <Input
-                  value={locationSearch}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setLocationSearch(next);
-                    setForm((current) => ({
-                      ...current,
-                      address: next,
-                    }));
-                  }}
-                  placeholder="Type an address, business name, or landmark"
+                  value={form.phone}
+                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                  placeholder={t("farmerListForSale.phonePlaceholder")}
                 />
+              </div>
 
-                {locationQuery.isFetching && (
-                  <p className="text-xs text-slate-500">Searching locations...</p>
-                )}
-
-                {locationNotice && <p className="text-xs text-emerald-700">{locationNotice}</p>}
-
-                {debouncedLocationSearch.length >= 2 && locationSuggestions.length > 0 && (
-                  <div className="max-h-56 overflow-y-auto rounded-xl border bg-white shadow-sm">
-                    {locationSuggestions.map((suggestion) => (
-                      <button
-                        key={suggestion.id}
-                        type="button"
-                        className="flex w-full items-start gap-3 border-b px-3 py-2 text-left last:border-b-0 hover:bg-slate-50"
-                        onClick={() => applyLocationSuggestion(suggestion)}
-                      >
-                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-slate-900">{suggestion.label}</p>
-                          <p className="truncate text-xs text-slate-500">{suggestion.subtitle}</p>
-                        </div>
-                      </button>
-                    ))}
+              <div className="lg:col-span-2 space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <Label className="text-sm font-semibold text-slate-900">Exact location</Label>
+                    <p className="text-xs text-slate-500">
+                      Search an address, use your current location, or type the exact business address.
+                    </p>
                   </div>
-                )}
-
-                <div className="rounded-xl border border-dashed border-slate-300 bg-white p-3 text-xs text-slate-600">
-                  <p className="font-medium text-slate-700">Saved location</p>
-                  <p className="mt-1 break-words">
-                    {form.address || "No address selected yet"}
-                  </p>
-                  <p className="mt-1">
-                    {form.latitude != null && form.longitude != null
-                      ? `Coordinates: ${form.latitude.toFixed(6)}, ${form.longitude.toFixed(6)}`
-                      : "Coordinates will be saved when you use your current location or choose a suggestion."}
-                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={useCurrentLocation} disabled={isLocating}>
+                      <LocateFixed className="h-4 w-4" />
+                      {isLocating ? "Locating..." : "Use my location"}
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={clearLocation}>
+                      <X className="h-4 w-4" />
+                      Clear
+                    </Button>
+                  </div>
                 </div>
 
-                {form.latitude != null && form.longitude != null && (
-                  <div className="overflow-hidden rounded-xl border bg-white">
-                    <iframe
-                      title="Location preview"
-                      src={`https://www.openstreetmap.org/export/embed.html?marker=${form.latitude},${form.longitude}&layer=mapnik`}
-                      className="h-56 w-full border-0"
-                      loading="lazy"
-                    />
-                    <div className="border-t px-3 py-2 text-xs text-slate-500">
-                      Free OpenStreetMap preview. Public users will still navigate via Google Maps links.
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+                <div className="space-y-2">
+                  <Input
+                    value={locationSearch}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setLocationSearch(next);
+                      setForm((current) => ({
+                        ...current,
+                        address: next,
+                      }));
+                    }}
+                    placeholder="Type an address, business name, or landmark"
+                  />
 
-            {(form.category === "CHICKEN" || form.category === "LAYERS") && (
-              <>
+                  {locationQuery.isFetching && <p className="text-xs text-slate-500">Searching locations...</p>}
+
+                  {locationNotice && <p className="text-xs text-emerald-700">{locationNotice}</p>}
+
+                  {debouncedLocationSearch.length >= 2 && locationSuggestions.length > 0 && (
+                    <div className="max-h-56 overflow-y-auto rounded-xl border bg-white shadow-sm">
+                      {locationSuggestions.map((suggestion) => (
+                        <button
+                          key={suggestion.id}
+                          type="button"
+                          className="flex w-full items-start gap-3 border-b px-3 py-2 text-left last:border-b-0 hover:bg-slate-50"
+                          onClick={() => applyLocationSuggestion(suggestion)}
+                        >
+                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-slate-900">{suggestion.label}</p>
+                            <p className="truncate text-xs text-slate-500">{suggestion.subtitle}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="rounded-xl border border-dashed border-slate-300 bg-white p-3 text-xs text-slate-600">
+                    <p className="font-medium text-slate-700">Saved location</p>
+                    <p className="mt-1 break-words">{form.address || "No address selected yet"}</p>
+                    <p className="mt-1">
+                      Province: {form.province ?? "Auto-derived when location is selected"}
+                    </p>
+                    <p className="mt-1">
+                      {form.latitude != null && form.longitude != null
+                        ? `Coordinates: ${form.latitude.toFixed(6)}, ${form.longitude.toFixed(6)}`
+                        : "Coordinates will be saved when you use your current location or choose a suggestion."}
+                    </p>
+                  </div>
+
+                  {form.latitude != null && form.longitude != null && (
+                    <div className="overflow-hidden rounded-xl border bg-white">
+                      <iframe
+                        title="Location preview"
+                        src={`https://www.openstreetmap.org/export/embed.html?marker=${form.latitude},${form.longitude}&layer=mapnik`}
+                        className="h-56 w-full border-0"
+                        loading="lazy"
+                      />
+                      <div className="border-t px-3 py-2 text-xs text-slate-500">
+                        Free OpenStreetMap preview. Public users will still navigate via Google Maps links.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {(form.category === "CHICKEN" || form.category === "LAYERS") && (
+                <>
+                  <div>
+                    <Label>{t("farmerListForSale.rateOptional")}</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={form.rate ?? ""}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          rate: e.target.value === "" ? null : parseFloat(e.target.value) || 0,
+                        }))
+                      }
+                      placeholder={t("farmerListForSale.ratePlaceholder")}
+                    />
+                  </div>
+                  <div>
+                    <Label>{t("farmerListForSale.quantity")}</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={form.quantity || ""}
+                      onChange={(e) => setForm((f) => ({ ...f, quantity: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                </>
+              )}
+
+              <div>
+                <Label>{t("farmerListForSale.unit")}</Label>
+                <Input
+                  value={form.unit}
+                  onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
+                  placeholder={t("farmerListForSale.unitPlaceholder")}
+                />
+              </div>
+
+              <div>
+                <Label>{t("farmerListForSale.availabilityFrom")}</Label>
+                <DateInput
+                  value={form.availabilityFrom}
+                  onChange={(v) => setForm((f) => ({ ...f, availabilityFrom: v }))}
+                />
+              </div>
+
+              <div>
+                <Label>{t("farmerListForSale.availabilityTo")}</Label>
+                <DateInput
+                  value={form.availabilityTo}
+                  onChange={(v) => setForm((f) => ({ ...f, availabilityTo: v }))}
+                />
+              </div>
+
+              {(form.category === "CHICKEN" || form.category === "LAYERS") && (
                 <div>
-                  <Label>{t("farmerListForSale.rateOptional")}</Label>
+                  <Label>{t("farmerListForSale.avgWeightKg")}</Label>
                   <Input
                     type="number"
                     min={0}
                     step="0.01"
-                    value={form.rate ?? ""}
+                    value={form.avgWeightKg ?? ""}
                     onChange={(e) =>
-                      setForm((f) => ({ ...f, rate: e.target.value === "" ? null : parseFloat(e.target.value) || 0 }))
+                      setForm((f) => ({
+                        ...f,
+                        avgWeightKg: e.target.value === "" ? undefined : parseFloat(e.target.value) || 0,
+                      }))
                     }
-                    placeholder={t("farmerListForSale.ratePlaceholder")}
+                    placeholder={t("farmerListForSale.avgWeightPlaceholder")}
                   />
                 </div>
-                <div>
-                  <Label>{t("farmerListForSale.quantity")}</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="any"
-                    value={form.quantity || ""}
-                    onChange={(e) => setForm((f) => ({ ...f, quantity: parseFloat(e.target.value) || 0 }))}
-                  />
+              )}
+
+              {form.category === "EGGS" && (
+                <div className="lg:col-span-2 space-y-2">
+                  <Label>{t("farmerListForSale.sizesLabel")}</Label>
+                  {eggRows.map((row, i) => (
+                    <div key={i} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <Input
+                        placeholder={t("farmerListForSale.sizePlaceholder")}
+                        value={row.size}
+                        onChange={(e) =>
+                          setEggRows((prev) => {
+                            const n = [...prev];
+                            n[i] = { ...n[i], size: e.target.value };
+                            return n;
+                          })
+                        }
+                      />
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder={t("farmerListForSale.qtyPlaceholder")}
+                        value={row.quantity || ""}
+                        onChange={(e) =>
+                          setEggRows((prev) => {
+                            const n = [...prev];
+                            n[i] = { ...n[i], quantity: parseFloat(e.target.value) || 0 };
+                            return n;
+                          })
+                        }
+                      />
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder={t("farmerListForSale.rateColumnHeader")}
+                        value={row.rate || ""}
+                        onChange={(e) =>
+                          setEggRows((prev) => {
+                            const n = [...prev];
+                            n[i] = { ...n[i], rate: parseFloat(e.target.value) || 0 };
+                            return n;
+                          })
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setEggRows((prev) => prev.filter((_, j) => j !== i))}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEggRows((prev) => [...prev, { size: "", quantity: 0, rate: 0 }])}
+                  >
+                    {t("farmerListForSale.addSize")}
+                  </Button>
                 </div>
-              </>
-            )}
-            <div>
-              <Label>{t("farmerListForSale.unit")}</Label>
-              <Input
-                value={form.unit}
-                onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
-                placeholder={t("farmerListForSale.unitPlaceholder")}
-              />
-            </div>
-            <div>
-              <Label>{t("farmerListForSale.availabilityFrom")}</Label>
-              <DateInput
-                value={form.availabilityFrom}
-                onChange={(v) => setForm((f) => ({ ...f, availabilityFrom: v }))}
-              />
-            </div>
-            <div>
-              <Label>{t("farmerListForSale.availabilityTo")}</Label>
-              <DateInput
-                value={form.availabilityTo}
-                onChange={(v) => setForm((f) => ({ ...f, availabilityTo: v }))}
-              />
-            </div>
+              )}
 
-            {(form.category === "CHICKEN" || form.category === "LAYERS") && (
-              <div>
-                <Label>{t("farmerListForSale.avgWeightKg")}</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={form.avgWeightKg ?? ""}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      avgWeightKg: e.target.value === "" ? undefined : parseFloat(e.target.value) || 0,
-                    }))
-                  }
-                  placeholder={t("farmerListForSale.avgWeightPlaceholder")}
-                />
-              </div>
-            )}
-
-            {form.category === "EGGS" && (
-              <div className="space-y-2">
-                <Label>{t("farmerListForSale.sizesLabel")}</Label>
-                {eggRows.map((row, i) => (
-                  <div key={i} className="flex gap-2 items-center">
-                    <Input
-                      placeholder={t("farmerListForSale.sizePlaceholder")}
-                      value={row.size}
-                      onChange={(e) =>
-                        setEggRows((prev) => {
-                          const n = [...prev];
-                          n[i] = { ...n[i], size: e.target.value };
-                          return n;
-                        })
-                      }
-                    />
-                    <Input
-                      type="number"
-                      min={0}
-                      placeholder={t("farmerListForSale.qtyPlaceholder")}
-                      value={row.quantity || ""}
-                      onChange={(e) =>
-                        setEggRows((prev) => {
-                          const n = [...prev];
-                          n[i] = { ...n[i], quantity: parseFloat(e.target.value) || 0 };
-                          return n;
-                        })
-                      }
-                    />
-                    <Input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      placeholder={t("farmerListForSale.rateColumnHeader")}
-                      value={row.rate || ""}
-                      onChange={(e) =>
-                        setEggRows((prev) => {
-                          const n = [...prev];
-                          n[i] = { ...n[i], rate: parseFloat(e.target.value) || 0 };
-                          return n;
-                        })
-                      }
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setEggRows((prev) => prev.filter((_, j) => j !== i))}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEggRows((prev) => [...prev, { size: "", quantity: 0, rate: 0 }])}
-                >
-                  {t("farmerListForSale.addSize")}
-                </Button>
-              </div>
-            )}
-
-            {form.category === "FISH" && (
-              <div className="space-y-2">
-                <Label>{t("farmerListForSale.typesLabel")}</Label>
-                {typeRows.map((row, i) => (
-                  <div key={i} className="flex gap-2 items-center">
-                    <Input
-                      placeholder={t("farmerListForSale.typePlaceholder")}
-                      value={row.type}
-                      onChange={(e) =>
-                        setTypeRows((prev) => {
-                          const n = [...prev];
-                          n[i] = { ...n[i], type: e.target.value };
-                          return n;
-                        })
-                      }
-                    />
-                    <Input
-                      type="number"
-                      min={0}
-                      placeholder={t("farmerListForSale.qtyPlaceholder")}
-                      value={row.quantity || ""}
-                      onChange={(e) =>
-                        setTypeRows((prev) => {
-                          const n = [...prev];
-                          n[i] = { ...n[i], quantity: parseFloat(e.target.value) || 0 };
-                          return n;
-                        })
-                      }
-                    />
-                    <Input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      placeholder={t("farmerListForSale.rateColumnHeader")}
-                      value={row.rate || ""}
-                      onChange={(e) =>
-                        setTypeRows((prev) => {
-                          const n = [...prev];
-                          n[i] = { ...n[i], rate: parseFloat(e.target.value) || 0 };
-                          return n;
-                        })
-                      }
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setTypeRows((prev) => prev.filter((_, j) => j !== i))}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setTypeRows((prev) => [...prev, { type: "", quantity: 0, rate: 0 }])}
-                >
-                  {t("farmerListForSale.addType")}
-                </Button>
-              </div>
-            )}
+              {form.category === "FISH" && (
+                <div className="lg:col-span-2 space-y-2">
+                  <Label>{t("farmerListForSale.typesLabel")}</Label>
+                  {typeRows.map((row, i) => (
+                    <div key={i} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <Input
+                        placeholder={t("farmerListForSale.typePlaceholder")}
+                        value={row.type}
+                        onChange={(e) =>
+                          setTypeRows((prev) => {
+                            const n = [...prev];
+                            n[i] = { ...n[i], type: e.target.value };
+                            return n;
+                          })
+                        }
+                      />
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder={t("farmerListForSale.qtyPlaceholder")}
+                        value={row.quantity || ""}
+                        onChange={(e) =>
+                          setTypeRows((prev) => {
+                            const n = [...prev];
+                            n[i] = { ...n[i], quantity: parseFloat(e.target.value) || 0 };
+                            return n;
+                          })
+                        }
+                      />
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder={t("farmerListForSale.rateColumnHeader")}
+                        value={row.rate || ""}
+                        onChange={(e) =>
+                          setTypeRows((prev) => {
+                            const n = [...prev];
+                            n[i] = { ...n[i], rate: parseFloat(e.target.value) || 0 };
+                            return n;
+                          })
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setTypeRows((prev) => prev.filter((_, j) => j !== i))}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setTypeRows((prev) => [...prev, { type: "", quantity: 0, rate: 0 }])}
+                  >
+                    {t("farmerListForSale.addType")}
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </ModalContent>
         <ModalFooter>
