@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { MapPin, X } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import type { ListForSalePublicItem } from "@/fetchers/public/listForSaleQueries";
 
@@ -74,7 +74,6 @@ export default function NepalMarketplaceMap({
   marketplaceHref: string;
 }) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const markers = useMemo<MarkerListing[]>(
     () =>
@@ -88,12 +87,9 @@ export default function NepalMarketplaceMap({
   );
 
   const hoveredMarker = markers.find((marker) => marker.item.id === hoveredId) ?? null;
-  const selectedMarker = markers.find((marker) => marker.item.id === selectedId) ?? null;
-  const previewMarker = selectedMarker ?? hoveredMarker;
 
   useEffect(() => {
     setHoveredId(null);
-    setSelectedId(null);
   }, [listings]);
 
   const hasMarkers = markers.length > 0;
@@ -118,15 +114,15 @@ export default function NepalMarketplaceMap({
         ) : (
           <>
             {markers.map((marker) => {
-              const isActive = previewMarker?.item.id === marker.item.id;
+              const isActive = hoveredMarker?.item.id === marker.item.id;
               const isHovered = hoveredId === marker.item.id;
 
               return (
-                <button
+                <Link
                   key={marker.item.id}
-                  type="button"
                   aria-label={marker.item.companyName}
                   className="group absolute z-20 -translate-x-1/2 -translate-y-full"
+                  href="/marketplace"
                   style={{
                     left: `${marker.left}%`,
                     top: `${marker.top}%`,
@@ -135,7 +131,6 @@ export default function NepalMarketplaceMap({
                   onMouseLeave={() => setHoveredId((current) => (current === marker.item.id ? null : current))}
                   onFocus={() => setHoveredId(marker.item.id)}
                   onBlur={() => setHoveredId((current) => (current === marker.item.id ? null : current))}
-                  onClick={() => setSelectedId(marker.item.id)}
                 >
                   <span
                     className={`absolute left-1/2 top-full mt-1 h-3 w-[2px] -translate-x-1/2 rounded-full ${
@@ -163,40 +158,14 @@ export default function NepalMarketplaceMap({
                   >
                     {marker.item.companyName}
                   </span>
-                </button>
+                </Link>
               );
             })}
           </>
         )}
 
-        <div className="absolute inset-x-3 bottom-3 z-30 lg:hidden">
-          {selectedMarker ? (
-            <div className="rounded-2xl border border-slate-200 bg-white/96 p-4 shadow-2xl backdrop-blur">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Selected listing</p>
-                  <h3 className="mt-1 truncate text-base font-semibold text-slate-900">
-                    {selectedMarker.item.companyName}
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-                  onClick={() => setSelectedId(null)}
-                  aria-label="Close listing preview"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <Button asChild size="sm" className="mt-3 w-full rounded-xl">
-                <Link href={marketplaceHref}>Open marketplace</Link>
-              </Button>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-white/70 bg-white/88 px-4 py-3 text-sm text-slate-600 shadow-lg backdrop-blur">
-              Tap a pin to preview the company name.
-            </div>
-          )}
+        <div className="absolute inset-x-3 bottom-3 z-30 lg:hidden rounded-2xl border border-white/70 bg-white/88 px-4 py-3 text-sm text-slate-600 shadow-lg backdrop-blur">
+          Tap a pin to open the marketplace.
         </div>
       </div>
     </div>
