@@ -100,13 +100,6 @@ export default function NepalMarketplaceMap({
 
   return (
     <div className="relative overflow-hidden rounded-[32px] border border-slate-200/80 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.10)]">
-      <div className="absolute left-4 top-4 z-20 rounded-full border border-white/80 bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm backdrop-blur">
-        Hover a pin to preview
-      </div>
-      <div className="absolute right-4 top-4 z-20 rounded-full border border-white/80 bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm backdrop-blur">
-        Only listings with exact location are shown
-      </div>
-
       <div className="relative aspect-[16/10] min-h-[440px] w-full overflow-hidden sm:aspect-[16/9] lg:min-h-[560px]">
         <MapBackdrop />
 
