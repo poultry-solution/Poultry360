@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, ArrowLeft, Printer } from "lucide-react";
+import { AlertCircle, ArrowLeft, FileText, Printer, ReceiptText } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Card, CardContent } from "@/common/components/ui/card";
 import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
@@ -14,26 +14,22 @@ export default function SalePrintPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const saleId = params?.saleId;
-  const autoPrint = searchParams.get("autoPrint") === "1";
-  const hasPrintedRef = useRef(false);
+  const initialLayout = searchParams.get("layout") === "compact" ? "compact" : "standard";
+  const [layout, setLayout] = useState<"standard" | "compact">(initialLayout);
 
   const { data, isLoading, isError } = useGetSale(saleId, {
     enabled: !!saleId,
   });
   const sale = data?.data;
 
-  useEffect(() => {
-    if (!autoPrint || !sale || hasPrintedRef.current) return;
-    hasPrintedRef.current = true;
-    const timer = window.setTimeout(() => {
-      window.print();
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [autoPrint, sale]);
-
   const billTitle = useMemo(() => {
-    return sale?.invoiceNumber ? `Invoice ${sale.invoiceNumber}` : "Print bill";
-  }, [sale?.invoiceNumber]);
+    const base = sale?.invoiceNumber ? `Invoice ${sale.invoiceNumber}` : "Print bill";
+    return layout === "compact" ? `${base} • Compact` : base;
+  }, [sale?.invoiceNumber, layout]);
+
+  const layoutHint = layout === "compact"
+    ? "Compact is better for thermal or small paper printers."
+    : "Standard is better for normal paper printing.";
 
   if (isLoading) {
     return <AppLoadingScreen message="Loading bill..." />;
@@ -65,12 +61,33 @@ export default function SalePrintPage() {
 
   return (
     <div className="min-h-screen bg-slate-100 px-3 py-4 md:px-6 print:bg-white print:px-0 print:py-0">
-      <div className="mx-auto mb-4 flex max-w-5xl items-center justify-between gap-2 print:hidden">
+      <div className="mx-auto mb-4 flex max-w-5xl flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="text-sm text-muted-foreground">Print preview</div>
           <h1 className="text-xl font-semibold">{billTitle}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{layoutHint}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex rounded-md border bg-background p-1">
+            <Button
+              variant={layout === "standard" ? "default" : "ghost"}
+              size="sm"
+              className="h-8 rounded-md"
+              onClick={() => setLayout("standard")}
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              Standard
+            </Button>
+            <Button
+              variant={layout === "compact" ? "default" : "ghost"}
+              size="sm"
+              className="h-8 rounded-md"
+              onClick={() => setLayout("compact")}
+            >
+              <ReceiptText className="mr-2 h-4 w-4" />
+              Compact
+            </Button>
+          </div>
           <Button variant="outline" onClick={() => router.back()}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
@@ -85,6 +102,7 @@ export default function SalePrintPage() {
       <div className="mx-auto max-w-5xl print:max-w-none">
         <SaleBillDocument
           sale={sale}
+          mode={layout}
           onBack={() => router.back()}
           onPrint={() => window.print()}
         />

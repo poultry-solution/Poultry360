@@ -1018,7 +1018,7 @@ export default function SalesLedgerPage() {
             variant="outline"
             size="sm"
             className="h-8 w-8 p-0"
-            onClick={() => router.push(`/farmer/dashboard/sales-ledger/print/${row.id}?autoPrint=1`)}
+            onClick={() => router.push(`/farmer/dashboard/sales-ledger/print/${row.id}`)}
             title="Print bill"
           >
             <Printer className="h-4 w-4" />
@@ -2177,7 +2177,7 @@ export default function SalesLedgerPage() {
               const saleId = savedSaleForPrint?.id;
               setIsPrintPromptOpen(false);
               if (saleId) {
-                router.push(`/farmer/dashboard/sales-ledger/print/${saleId}?autoPrint=1`);
+                router.push(`/farmer/dashboard/sales-ledger/print/${saleId}`);
               }
               setSavedSaleForPrint(null);
             }}

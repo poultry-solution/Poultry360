@@ -15,6 +15,7 @@ type SaleBillLine = {
 
 type SaleBillDocumentProps = {
   sale: any;
+  mode?: "standard" | "compact";
   onPrint?: () => void;
   onBack?: () => void;
   showActions?: boolean;
@@ -28,10 +29,12 @@ const formatCurrency = (value: number) =>
 
 export function SaleBillDocument({
   sale,
+  mode = "standard",
   onPrint,
   onBack,
   showActions = true,
 }: SaleBillDocumentProps) {
+  const isCompact = mode === "compact";
   const eggLines = Array.isArray(sale?.eggLines) ? sale.eggLines : [];
 
   const lines: SaleBillLine[] =
@@ -73,18 +76,23 @@ export function SaleBillDocument({
 
   return (
     <div className="bg-white text-slate-900">
-      <Card className="mx-auto w-full max-w-3xl border-0 shadow-none rounded-none print:shadow-none print:border-0">
-        <div className="px-5 py-4 border-b">
+      <Card
+        className={[
+          "mx-auto w-full border-0 shadow-none rounded-none print:shadow-none print:border-0",
+          isCompact ? "max-w-xl" : "max-w-3xl",
+        ].join(" ")}
+      >
+        <div className={isCompact ? "px-4 py-3 border-b" : "px-5 py-4 border-b"}>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="text-2xl font-semibold">
+              <div className={isCompact ? "text-lg font-semibold" : "text-2xl font-semibold"}>
                 {sale?.farm?.owner?.name || sale?.farm?.name || "Poultry360"}
               </div>
-              <div className="text-sm text-slate-600">
+              <div className={isCompact ? "text-xs text-slate-600" : "text-sm text-slate-600"}>
                 {sale?.farm?.name ? `Farm: ${sale.farm.name}` : "Sales bill"}
               </div>
             </div>
-            <div className="text-right text-sm text-slate-600">
+            <div className={isCompact ? "text-right text-xs text-slate-600" : "text-right text-sm text-slate-600"}>
               <div className="font-medium text-slate-900">
                 Invoice #{sale?.invoiceNumber || "—"}
               </div>
@@ -94,7 +102,12 @@ export function SaleBillDocument({
             </div>
           </div>
 
-          <div className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+          <div
+            className={[
+              "mt-3 grid gap-2 text-slate-700",
+              isCompact ? "grid-cols-1 text-xs sm:grid-cols-2" : "text-sm sm:grid-cols-2",
+            ].join(" ")}
+          >
             <div>
               <span className="font-medium">Customer: </span>
               {sale?.customer?.name || "Walk-in"}
@@ -114,33 +127,33 @@ export function SaleBillDocument({
           </div>
         </div>
 
-        <div className="px-5 py-4">
+        <div className={isCompact ? "px-4 py-3" : "px-5 py-4"}>
           <div className="overflow-hidden rounded-lg border">
-            <table className="w-full border-collapse text-sm">
+            <table className={["w-full border-collapse", isCompact ? "text-xs" : "text-sm"].join(" ")}>
               <thead className="bg-slate-50">
                 <tr>
-                  <th className="px-3 py-2 text-left font-semibold">Item</th>
-                  <th className="px-3 py-2 text-right font-semibold">Qty</th>
-                  <th className="px-3 py-2 text-right font-semibold">Rate</th>
-                  <th className="px-3 py-2 text-right font-semibold">Total</th>
+                  <th className={["text-left font-semibold", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>Item</th>
+                  <th className={["text-right font-semibold", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>Qty</th>
+                  <th className={["text-right font-semibold", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>Rate</th>
+                  <th className={["text-right font-semibold", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>Total</th>
                 </tr>
               </thead>
               <tbody>
                 {lines.map((line, index) => (
                   <tr key={line.id || `${line.name}-${index}`} className="border-t">
-                    <td className="px-3 py-2 align-top">
+                    <td className={["align-top", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>
                       <div className="font-medium">{line.name}</div>
                       {line.note ? (
-                        <div className="text-xs text-slate-500">{line.note}</div>
+                        <div className={isCompact ? "text-[10px] text-slate-500" : "text-xs text-slate-500"}>{line.note}</div>
                       ) : null}
                     </td>
-                    <td className="px-3 py-2 text-right align-top">
+                    <td className={["text-right align-top", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>
                       {Number.isFinite(line.quantity) ? line.quantity.toLocaleString() : "0"}
                     </td>
-                    <td className="px-3 py-2 text-right align-top">
+                    <td className={["text-right align-top", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>
                       ₹{formatCurrency(line.rate)}
                     </td>
-                    <td className="px-3 py-2 text-right align-top font-medium">
+                    <td className={["text-right align-top font-medium", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>
                       ₹{formatCurrency(line.total)}
                     </td>
                   </tr>
@@ -149,17 +162,17 @@ export function SaleBillDocument({
             </table>
           </div>
 
-          <div className="mt-4 flex flex-col gap-2 sm:items-end">
-            <div className="w-full max-w-sm rounded-lg border bg-slate-50 p-4">
-              <div className="flex items-center justify-between text-sm">
+          <div className={isCompact ? "mt-3 flex flex-col gap-2" : "mt-4 flex flex-col gap-2 sm:items-end"}>
+            <div className={["w-full rounded-lg border bg-slate-50", isCompact ? "max-w-md p-3" : "max-w-sm p-4"].join(" ")}>
+              <div className={isCompact ? "flex items-center justify-between text-xs" : "flex items-center justify-between text-sm"}>
                 <span>Total Amount</span>
                 <span className="font-semibold">₹{formatCurrency(totalAmount)}</span>
               </div>
-              <div className="mt-2 flex items-center justify-between text-sm">
+              <div className={isCompact ? "mt-1.5 flex items-center justify-between text-xs" : "mt-2 flex items-center justify-between text-sm"}>
                 <span>Paid</span>
                 <span className="font-semibold">₹{formatCurrency(paidAmount)}</span>
               </div>
-              <div className="mt-2 flex items-center justify-between text-sm">
+              <div className={isCompact ? "mt-1.5 flex items-center justify-between text-xs" : "mt-2 flex items-center justify-between text-sm"}>
                 <span>Due</span>
                 <span className="font-semibold">₹{formatCurrency(dueAmount)}</span>
               </div>
@@ -168,14 +181,14 @@ export function SaleBillDocument({
         </div>
 
         {showActions && (onPrint || onBack) ? (
-          <div className="px-5 pb-5 flex items-center justify-end gap-2 no-print print:hidden">
+          <div className={["flex items-center justify-end gap-2 no-print print:hidden", isCompact ? "px-4 pb-4" : "px-5 pb-5"].join(" ")}>
             {onBack ? (
-              <Button variant="outline" onClick={onBack}>
+              <Button variant="outline" size="sm" onClick={onBack}>
                 Back
               </Button>
             ) : null}
             {onPrint ? (
-              <Button onClick={onPrint}>
+              <Button size="sm" onClick={onPrint}>
                 Print
               </Button>
             ) : null}
