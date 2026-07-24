@@ -1,7 +1,5 @@
 import { Router } from "express";
 import {
-  searchCompanies,
-  searchDealers,
   getLandingReviews,
   createLandingReview,
   getLandingContacts,
@@ -17,12 +15,6 @@ import {
 const router = Router();
 
 // ==================== PUBLIC ROUTES (NO AUTH REQUIRED) ====================
-
-// Search companies - used during dealer signup
-router.get("/companies/search", searchCompanies);
-
-// Search dealers - used when farmers want to connect
-router.get("/dealers/search", searchDealers);
 
 // Landing page reviews (list + submit)
 router.get("/reviews", getLandingReviews);

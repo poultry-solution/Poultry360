@@ -9,7 +9,6 @@ import { Button } from "@/common/components/ui/button";
 import { Eye, EyeOff, Store } from "lucide-react";
 import axiosInstance from "@/common/lib/axios";
 import { useAuthStore } from "@/common/store/store";
-import { PublicCompanySearchSelect } from "@/common/components/forms/PublicCompanySearchSelect";
 import { useI18n } from "@/i18n/useI18n";
 import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
 
@@ -28,7 +27,6 @@ export default function DealerSignupPage() {
     confirmPassword: "",
     dealerName: "",
     dealerAddress: "",
-    companyId: null as string | null,
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,7 +89,6 @@ export default function DealerSignupPage() {
         entityName: formData.dealerName,
         entityContact: phoneWithPrefix, // Use same phone for contact
         entityAddress: formData.dealerAddress || undefined,
-        companyId: formData.companyId || undefined,
       });
 
       const { accessToken, user, onboarding } = response.data;
@@ -230,21 +227,6 @@ export default function DealerSignupPage() {
                 placeholder={t("auth.dealerSignup.dealerAddressPlaceholder")}
               />
             </div>
-
-            <div className="space-y-2">
-              <PublicCompanySearchSelect
-                value={formData.companyId}
-                onValueChange={(value: string | null) =>
-                  setFormData({ ...formData, companyId: value })
-                }
-                placeholder={t("auth.dealerSignup.companyPlaceholder")}
-                label={t("auth.dealerSignup.companyLabel")}
-              />
-              <p className="text-xs text-muted-foreground">
-                {t("auth.dealerSignup.companyHelp")}
-              </p>
-            </div>
-
 
             <div className="space-y-2">
               <Label htmlFor="password">{t("auth.dealerSignup.passwordLabel")}</Label>
