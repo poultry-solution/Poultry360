@@ -45,6 +45,7 @@ import {
   Loader2,
   Eye,
   Edit,
+  Printer,
   Trash2,
   UserPlus,
   Receipt,
@@ -111,6 +112,7 @@ export default function SalesLedgerPage() {
   // State management
   const [activeTab, setActiveTab] = useState<TabType>("overview");
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
+  const [isPrintPromptOpen, setIsPrintPromptOpen] = useState(false);
   const [isPartyModalOpen, setIsPartyModalOpen] = useState(false);
   // Party details is now a dedicated page (see /sales-ledger/party/[partyId])
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -130,6 +132,7 @@ export default function SalesLedgerPage() {
   const [isPaymentPasswordModalOpen, setIsPaymentPasswordModalOpen] = useState(false);
   const [paymentDeletePasswordForm, setPaymentDeletePasswordForm] = useState({ password: "" });
   const [paymentDeleteError, setPaymentDeleteError] = useState<{ message: string } | null>(null);
+  const [savedSaleForPrint, setSavedSaleForPrint] = useState<any>(null);
   const softDeletePayment = useSoftDeleteCustomerPayment();
 
   // Filters
@@ -679,10 +682,14 @@ export default function SalesLedgerPage() {
       console.log("🚀 Sending sale data to API:", saleData);
 
       if (editingSaleId) {
-        await updateSale({ id: editingSaleId, data: saleData });
+        const updatedSale = await updateSale({ id: editingSaleId, data: saleData });
+        setSavedSaleForPrint(updatedSale?.data ?? updatedSale);
+        setIsPrintPromptOpen(true);
         toast.success(t("farmer.salesLedger.toast.saleUpdated"));
       } else {
-        await createSale(saleData);
+        const createdSale = await createSale(saleData);
+        setSavedSaleForPrint(createdSale?.data ?? createdSale);
+        setIsPrintPromptOpen(true);
         toast.success(t("farmer.salesLedger.toast.saleCreated"));
       }
 
@@ -1006,6 +1013,15 @@ export default function SalesLedgerPage() {
             }}
           >
             <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => router.push(`/farmer/dashboard/sales-ledger/print/${row.id}?autoPrint=1`)}
+            title="Print bill"
+          >
+            <Printer className="h-4 w-4" />
           </Button>
           <Button
             variant="outline"
@@ -2122,6 +2138,54 @@ export default function SalesLedgerPage() {
             </Button>
           </ModalFooter>
         </form>
+      </Modal>
+
+      {/* Print Prompt Modal */}
+      <Modal
+        isOpen={isPrintPromptOpen}
+        onClose={() => {
+          setIsPrintPromptOpen(false);
+          setSavedSaleForPrint(null);
+        }}
+        title="Sale saved"
+      >
+        <ModalContent>
+          <div className="space-y-3">
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <div className="text-sm text-muted-foreground">Invoice</div>
+              <div className="text-lg font-semibold">
+                {savedSaleForPrint?.invoiceNumber || "—"}
+              </div>
+              <div className="mt-2 text-sm text-muted-foreground">
+                The sale is saved. You can print the bill now or continue later.
+              </div>
+            </div>
+          </div>
+        </ModalContent>
+        <ModalFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setIsPrintPromptOpen(false);
+              setSavedSaleForPrint(null);
+            }}
+          >
+            Later
+          </Button>
+          <Button
+            onClick={() => {
+              const saleId = savedSaleForPrint?.id;
+              setIsPrintPromptOpen(false);
+              if (saleId) {
+                router.push(`/farmer/dashboard/sales-ledger/print/${saleId}?autoPrint=1`);
+              }
+              setSavedSaleForPrint(null);
+            }}
+            disabled={!savedSaleForPrint?.id}
+          >
+            Print now
+          </Button>
+        </ModalFooter>
       </Modal>
 
       {/* Party Modal */}
