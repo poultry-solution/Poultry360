@@ -144,9 +144,6 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       calendarType,
     } = data;
 
-    // Get optional dealerId from request body (not in schema validation)
-    const { dealerId } = req.body;
-
     // Check if phone number already exists (phone must be unique)
     const existingUser = await prisma.user.findUnique({
       where: {
@@ -158,20 +155,6 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       return res
         .status(400)
         .json({ message: "Phone number already registered" });
-    }
-
-    // Validate dealer exists if dealerId is provided
-    if (dealerId) {
-      const dealer = await prisma.dealer.findUnique({
-        where: { id: dealerId },
-      });
-
-      if (!dealer) {
-        return res.status(400).json({
-          success: false,
-          message: "Dealer not found",
-        });
-      }
     }
 
     // Hash password
@@ -221,18 +204,6 @@ export const register = async (req: Request, res: Response): Promise<any> => {
           lockedUntilApproved: approvalRequired,
         },
       });
-
-      // If dealerId provided and user is owner/farmer, create verification request
-      if (dealerId && (role === UserRole.OWNER || !role)) {
-        await (tx as any).farmerVerificationRequest.create({
-          data: {
-            farmerId: user.id,
-            dealerId: dealerId,
-            status: "PENDING",
-            rejectedCount: 0,
-          },
-        });
-      }
 
       return user;
     });
@@ -687,7 +658,6 @@ export const registerEntity = async (
       entityName,
       entityContact,
       entityAddress,
-      companyId,
     } = req.body;
 
     // Validation
@@ -737,20 +707,6 @@ export const registerEntity = async (
         success: false,
         message: "Phone number already registered",
       });
-    }
-
-    // Validate company exists if companyId is provided (DEALER only)
-    if (entityType === "DEALER" && companyId) {
-      const company = await prisma.company.findUnique({
-        where: { id: companyId },
-      });
-
-      if (!company) {
-        return res.status(400).json({
-          success: false,
-          message: "Company not found",
-        });
-      }
     }
 
     // Hash password
@@ -835,18 +791,6 @@ export const registerEntity = async (
             ownerId: user.id,
           },
         });
-
-        // If companyId provided, create verification request instead of direct link
-        if (companyId) {
-          await (tx as any).dealerVerificationRequest.create({
-            data: {
-              dealerId: dealer.id,
-              companyId: companyId,
-              status: "PENDING",
-              rejectedCount: 0,
-            },
-          });
-        }
 
         return { user, entity: dealer, entityType: "DEALER" };
       } else if (entityType === "HATCHERY") {

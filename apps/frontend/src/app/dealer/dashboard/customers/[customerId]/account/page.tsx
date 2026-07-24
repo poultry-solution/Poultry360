@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -26,13 +26,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui
 import { useGetDealerSales } from "@/fetchers/dealer/dealerSaleQueries";
 import {
   dealerLedgerKeys,
-  useGetPartyLedger,
+  useGetLedgerEntries,
   useDeleteDealerManualGeneralPayment,
 } from "@/fetchers/dealer/dealerLedgerQueries";
 import axiosInstance from "@/common/lib/axios";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DealerAddPaymentDialog } from "@/components/dealer/DealerAddPaymentDialog";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
 import {
   Dialog,
   DialogContent,
@@ -56,8 +57,11 @@ export default function CustomerAccountPage() {
   const params = useParams();
   const router = useRouter();
   const customerId = params.customerId as string;
+  const PAGE_SIZE = 10;
 
   const [activeTab, setActiveTab] = useState("sales");
+  const [salesPage, setSalesPage] = useState(1);
+  const [paymentsPage, setPaymentsPage] = useState(1);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isEditOpeningOpen, setIsEditOpeningOpen] = useState(false);
   const [openingAmount, setOpeningAmount] = useState<string>("");
@@ -88,29 +92,53 @@ export default function CustomerAccountPage() {
   // Sales
   const { data: salesData, isLoading: salesLoading } = useGetDealerSales({
     customerId,
-    limit: 100,
+    page: salesPage,
+    limit: PAGE_SIZE,
   });
 
-  // Ledger
-  const { data: ledgerData, isLoading: ledgerLoading } = useGetPartyLedger(
+  // Payments
+  const { data: paymentsData, isLoading: paymentsLoading } = useGetLedgerEntries({
     partyId,
-    { limit: 100 }
-  );
+    type: "PAYMENT_RECEIVED",
+    page: paymentsPage,
+    limit: PAGE_SIZE,
+  });
 
   const sales = salesData?.data || [];
-  const ledgerEntries = Array.isArray(ledgerData?.data)
-    ? ledgerData.data
-    : ledgerData?.data?.entries ?? [];
+  const salesPagination = salesData?.pagination;
+  const payments = paymentsData?.data || [];
+  const paymentsPagination = paymentsData?.pagination;
   const totalSales = Number(customer?.totalSales ?? 0);
   const totalPaid = Number(customer?.totalPayments ?? 0);
   const currentBalance = Number(customer?.balance ?? 0);
-  const payments = ledgerEntries.filter((entry: any) =>
-    entry.type === "PAYMENT_RECEIVED" || entry.type === "PAYMENT"
-  );
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
   };
+
+  const salesTotalRows = Number(salesPagination?.total ?? 0);
+  const salesTotalPages = Math.max(1, Number(salesPagination?.totalPages ?? 1));
+  const salesCurrentPage = Math.min(Math.max(1, Number(salesPagination?.page ?? salesPage)), salesTotalPages);
+  const salesShowingStart = salesTotalRows > 0 ? (salesCurrentPage - 1) * PAGE_SIZE + 1 : 0;
+  const salesShowingEnd = salesTotalRows > 0 ? Math.min(salesCurrentPage * PAGE_SIZE, salesTotalRows) : 0;
+
+  const paymentsTotalRows = Number(paymentsPagination?.total ?? 0);
+  const paymentsTotalPages = Math.max(1, Number(paymentsPagination?.totalPages ?? 1));
+  const paymentsCurrentPage = Math.min(Math.max(1, Number(paymentsPagination?.page ?? paymentsPage)), paymentsTotalPages);
+  const paymentsShowingStart = paymentsTotalRows > 0 ? (paymentsCurrentPage - 1) * PAGE_SIZE + 1 : 0;
+  const paymentsShowingEnd = paymentsTotalRows > 0 ? Math.min(paymentsCurrentPage * PAGE_SIZE, paymentsTotalRows) : 0;
+
+  useEffect(() => {
+    if (salesPage > salesTotalPages) {
+      setSalesPage(salesTotalPages);
+    }
+  }, [salesPage, salesTotalPages]);
+
+  useEffect(() => {
+    if (paymentsPage > paymentsTotalPages) {
+      setPaymentsPage(paymentsTotalPages);
+    }
+  }, [paymentsPage, paymentsTotalPages]);
 
   const openingBalance = customer?.openingBalance;
   const openEditOpening = () => {
@@ -161,8 +189,7 @@ export default function CustomerAccountPage() {
     }
   };
 
-  const dataLoading = salesLoading || ledgerLoading;
-  if (customerLoading || dataLoading) {
+  if (customerLoading) {
     return (
       <div className="space-y-6">
         <div className="text-center py-8">
@@ -258,9 +285,9 @@ export default function CustomerAccountPage() {
             <div className="text-2xl font-bold">
               {formatCurrency(totalSales)}
             </div>
-            {sales.length > 0 && (
+            {salesTotalRows > 0 && (
               <p className="text-xs text-muted-foreground mt-1">
-                {sales.length} transaction(s)
+                {salesTotalRows} transaction(s)
               </p>
             )}
           </CardContent>
@@ -277,9 +304,9 @@ export default function CustomerAccountPage() {
             <div className="text-2xl font-bold">
               {formatCurrency(totalPaid)}
             </div>
-            {payments.length > 0 && (
+            {paymentsTotalRows > 0 && (
               <p className="text-xs text-muted-foreground mt-1">
-                {payments.length} payment(s)
+                {paymentsTotalRows} payment(s)
               </p>
             )}
           </CardContent>
@@ -329,16 +356,21 @@ export default function CustomerAccountPage() {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="sales">
-                Sales ({sales.length})
+                Sales ({salesTotalRows})
               </TabsTrigger>
               <TabsTrigger value="payments">
-                Payments ({payments.length})
+                Payments ({paymentsTotalRows})
               </TabsTrigger>
             </TabsList>
 
             {/* Sales Tab */}
             <TabsContent value="sales" className="mt-4">
-              {sales.length === 0 ? (
+              {salesLoading ? (
+                <div className="text-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+                  <p>Loading sales...</p>
+                </div>
+              ) : sales.length === 0 ? (
                 <div className="text-center py-8">
                   <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No sales yet</h3>
@@ -422,11 +454,32 @@ export default function CustomerAccountPage() {
                   ))}
                 </div>
               )}
+              {salesPagination && salesTotalPages > 1 && (
+                <LedgerPagination
+                  className="mt-4"
+                  page={salesCurrentPage}
+                  totalPages={salesTotalPages}
+                  totalRows={salesTotalRows}
+                  pageLimit={PAGE_SIZE}
+                  onPageChange={setSalesPage}
+                  loading={salesLoading}
+                />
+              )}
+              {salesPagination && salesTotalRows > 0 && (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Showing {salesShowingStart}-{salesShowingEnd} of {salesTotalRows}
+                </p>
+              )}
             </TabsContent>
 
             {/* Payments Tab */}
             <TabsContent value="payments" className="mt-4">
-              {payments.length === 0 ? (
+              {paymentsLoading ? (
+                <div className="text-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+                  <p>Loading payments...</p>
+                </div>
+              ) : payments.length === 0 ? (
                 <div className="text-center py-8">
                   <Wallet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No payments yet</h3>
@@ -501,6 +554,22 @@ export default function CustomerAccountPage() {
                     </div>
                   ))}
                 </div>
+              )}
+              {paymentsPagination && paymentsTotalPages > 1 && (
+                <LedgerPagination
+                  className="mt-4"
+                  page={paymentsCurrentPage}
+                  totalPages={paymentsTotalPages}
+                  totalRows={paymentsTotalRows}
+                  pageLimit={PAGE_SIZE}
+                  onPageChange={setPaymentsPage}
+                  loading={paymentsLoading}
+                />
+              )}
+              {paymentsPagination && paymentsTotalRows > 0 && (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Showing {paymentsShowingStart}-{paymentsShowingEnd} of {paymentsTotalRows}
+                </p>
               )}
             </TabsContent>
           </Tabs>

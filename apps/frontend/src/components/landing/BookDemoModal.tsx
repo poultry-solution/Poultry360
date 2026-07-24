@@ -9,6 +9,14 @@ import { toast } from "sonner";
 import { useI18n } from "@/i18n/useI18n";
 import { useCreateDemoEnquiry } from "@/fetchers/public/demoEnquiryQueries";
 
+const BUSINESS_TYPE_OPTIONS = [
+  { value: "Layer Farm", labelKey: "landing.hero.bookDemoModal.businessTypes.layerFarm" },
+  { value: "Broiler Farm", labelKey: "landing.hero.bookDemoModal.businessTypes.broilerFarm" },
+  { value: "Hatchery", labelKey: "landing.hero.bookDemoModal.businessTypes.hatchery" },
+  { value: "Feed Mill", labelKey: "landing.hero.bookDemoModal.businessTypes.feedMill" },
+  { value: "Feed Dealer", labelKey: "landing.hero.bookDemoModal.businessTypes.feedDealer" },
+] as const;
+
 export default function BookDemoModal({
   open,
   onOpenChange,
@@ -21,6 +29,7 @@ export default function BookDemoModal({
 
   const [companyName, setCompanyName] = useState("");
   const [phoneLocal, setPhoneLocal] = useState("");
+  const [businessTypes, setBusinessTypes] = useState<string[]>([]);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -39,12 +48,14 @@ export default function BookDemoModal({
       await createDemoEnquiry.mutateAsync({
         companyName,
         phoneNumber: normalizedPhoneLocal,
+        businessTypes: businessTypes.length > 0 ? businessTypes : undefined,
         message: message.trim() || undefined,
       });
 
       toast.success(t("landing.hero.bookDemoModal.submitSuccess"));
       setCompanyName("");
       setPhoneLocal("");
+      setBusinessTypes([]);
       setMessage("");
       onOpenChange(false);
     } catch (e: any) {
@@ -88,9 +99,41 @@ export default function BookDemoModal({
                 inputMode="numeric"
               />
             </div>
-            <p className="text-xs text-muted-foreground">
-              {t("landing.hero.bookDemoModal.phoneHelp")}
-            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {t("landing.hero.bookDemoModal.businessType")}
+            </label>
+            <div className="grid gap-2 rounded-md border border-input p-3 sm:grid-cols-2">
+              {BUSINESS_TYPE_OPTIONS.map((option) => {
+                const checked = businessTypes.includes(option.value);
+                const inputId = `business-type-${option.value.replace(/\s+/g, "-").toLowerCase()}`;
+
+                return (
+                  <label
+                    key={option.value}
+                    htmlFor={inputId}
+                    className="flex items-center gap-2 text-sm text-foreground"
+                  >
+                    <input
+                      id={inputId}
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => {
+                        setBusinessTypes((current) =>
+                          e.target.checked
+                            ? [...current, option.value]
+                            : current.filter((value) => value !== option.value)
+                        );
+                      }}
+                      className="h-4 w-4 rounded border-input accent-primary"
+                    />
+                    <span>{t(option.labelKey)}</span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
 
           <div className="space-y-1">
@@ -122,4 +165,3 @@ export default function BookDemoModal({
     </Dialog>
   );
 }
-

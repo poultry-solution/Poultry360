@@ -2827,7 +2827,14 @@
         "companyNamePlaceholder": "कम्पनी नाम लेख्नुहोस्",
         "phoneNumber": "फोन नम्बर",
         "phonePlaceholder": "98XXXXXXXX",
-        "phoneHelp": "+977 बिना आफ्नो नेपाल नम्बर लेख्नुहोस्।",
+        "businessType": "व्यवसाय प्रकार (वैकल्पिक)",
+        "businessTypes": {
+          "layerFarm": "लेयर फार्म",
+          "broilerFarm": "ब्रोइलर फार्म",
+          "hatchery": "ह्याचरी",
+          "feedMill": "दाना मिल",
+          "feedDealer": "दाना डिलर"
+        },
         "message": "सन्देश (वैकल्पिक)",
         "messagePlaceholder": "छोटो सन्देश लेख्नुहोस्",
         "submitBtn": "अनुरोध पठाउनुहोस्",
@@ -3075,6 +3082,7 @@
       "empty": "कुनै अनुरोध फेला परेन।",
       "company": "कम्पनी",
       "phone": "फोन",
+      "businessType": "व्यवसाय प्रकार",
       "message": "सन्देश",
       "createdAt": "पठाइएको मिति"
     }

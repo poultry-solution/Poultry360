@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
 import { MobileNavSheet } from "@/components/dashboard/MobileNavSheet";
@@ -12,10 +13,18 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const pathname = usePathname();
+  const isPrintRoute = pathname?.startsWith(
+    "/farmer/dashboard/sales-ledger/print/"
+  );
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
   };
+
+  if (isPrintRoute) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="flex h-screen bg-background relative">

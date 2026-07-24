@@ -2828,7 +2828,14 @@
         "companyNamePlaceholder": "Enter company name",
         "phoneNumber": "Phone Number",
         "phonePlaceholder": "98XXXXXXXX",
-        "phoneHelp": "Enter your Nepal number (without +977).",
+        "businessType": "Business Type (optional)",
+        "businessTypes": {
+          "layerFarm": "Layer Farm",
+          "broilerFarm": "Broiler Farm",
+          "hatchery": "Hatchery",
+          "feedMill": "Feed Mill",
+          "feedDealer": "Feed Dealer"
+        },
         "message": "Message (optional)",
         "messagePlaceholder": "Write a short message",
         "submitBtn": "Submit request",
@@ -3076,6 +3083,7 @@
       "empty": "No enquiries found.",
       "company": "Company",
       "phone": "Phone",
+      "businessType": "Business Type",
       "message": "Message",
       "createdAt": "Submitted At"
     }

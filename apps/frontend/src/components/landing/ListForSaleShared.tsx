@@ -1,7 +1,10 @@
 "use client";
 
+import { Navigation } from "lucide-react";
 import { Badge } from "@/common/components/ui/badge";
+import { Button } from "@/common/components/ui/button";
 import { Card, CardContent } from "@/common/components/ui/card";
+import { DateDisplay } from "@/common/components/ui/date-display";
 import { useI18n } from "@/i18n/useI18n";
 import type { ListForSaleCategoryPublic, ListForSalePublicItem } from "@/fetchers/public/listForSaleQueries";
 
@@ -10,7 +13,6 @@ export const FILTERS: { value: ListForSaleCategoryPublic | null; labelKey: strin
   { value: "CHICKEN", labelKey: "landing.listForSale.filters.chicken" },
   { value: "EGGS", labelKey: "landing.listForSale.filters.eggs" },
   { value: "LAYERS", labelKey: "landing.listForSale.filters.layers" },
-  { value: "FISH", labelKey: "landing.listForSale.filters.fish" },
 ];
 
 export const NEPAL_PROVINCES: string[] = [
@@ -23,15 +25,6 @@ export const NEPAL_PROVINCES: string[] = [
   "Sudurpashchim Province",
 ];
 
-export function formatDate(s: string): string {
-  try {
-    const d = new Date(s);
-    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-  } catch {
-    return s;
-  }
-}
-
 export function formatRate(rate: number | null | undefined): string {
   if (rate == null || rate === 0) return "Contact for Rate";
   return String(rate);
@@ -42,6 +35,16 @@ function rateDisplay(rate: number | null | undefined, contactForRate: string): s
   return String(rate);
 }
 
+function buildNavigateUrl(item: ListForSalePublicItem): string | null {
+  if (item.latitude != null && item.longitude != null) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}`;
+  }
+
+  const pieces = [item.address, item.province].filter(Boolean).join(", ").trim();
+  if (!pieces) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pieces)}`;
+}
+
 export function ListingCard({ item }: { item: ListForSalePublicItem }) {
   const { t } = useI18n();
   const contactForRate = t("landing.listForSale.contactForRate");
@@ -49,6 +52,7 @@ export function ListingCard({ item }: { item: ListForSalePublicItem }) {
   const avgWeight = t("landing.listForSale.avgWeight");
   const contactLabel = t("landing.listForSale.contactLabel");
   const addressLabel = t("landing.listForSale.addressLabel");
+  const navigateUrl = buildNavigateUrl(item);
 
   const hasVariants =
     (item.eggVariants && item.eggVariants.length > 0) || (item.typeVariants && item.typeVariants.length > 0);
@@ -99,7 +103,8 @@ export function ListingCard({ item }: { item: ListForSalePublicItem }) {
             </p>
           )}
           <p>
-            {available}: {formatDate(item.availabilityFrom)} – {formatDate(item.availabilityTo)}
+            {available}: <DateDisplay date={item.availabilityFrom} format="short" /> –{" "}
+            <DateDisplay date={item.availabilityTo} format="short" />
           </p>
           {item.avgWeightKg != null && item.avgWeightKg > 0 && (
             <p>{avgWeight}: {item.avgWeightKg} kg</p>
@@ -115,6 +120,14 @@ export function ListingCard({ item }: { item: ListForSalePublicItem }) {
               {item.phone}
             </a>
           </p>
+        )}
+        {navigateUrl && (
+          <Button asChild variant="outline" size="sm" className="mt-3 w-full justify-start rounded-xl">
+            <a href={navigateUrl} target="_blank" rel="noreferrer">
+              <Navigation className="h-4 w-4" />
+              Navigate
+            </a>
+          </Button>
         )}
       </CardContent>
     </Card>

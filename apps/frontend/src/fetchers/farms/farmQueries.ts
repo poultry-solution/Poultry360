@@ -1,9 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
-  Farm, 
   CreateFarm, 
   UpdateFarm,
-  FarmResponse,
   FarmListResponse,
   FarmDetailResponse
 } from "@myapp/shared-types";
@@ -13,7 +11,6 @@ import axiosInstance from "@/common/lib/axios";
 export const farmKeys = {
   all: ["farms"] as const,
   lists: () => [...farmKeys.all, "list"] as const,
-  list: (filters: Record<string, any>) => [...farmKeys.lists(), filters] as const,
   details: () => [...farmKeys.all, "detail"] as const,
   detail: (id: string) => [...farmKeys.details(), id] as const,
   myFarms: () => [...farmKeys.all, "my-farms"] as const,
@@ -22,32 +19,20 @@ export const farmKeys = {
 
 // ==================== QUERY HOOKS ====================
 
-// Get all farms
-export const useGetAllFarms = (params?: {
-  page?: number;
-  limit?: number;
-  search?: string;
-  ownerId?: string;
-  managerId?: string;
-}) => {
-  return useQuery<FarmListResponse>({
-    queryKey: farmKeys.list(params || {}),
-    queryFn: async () => {
-      const response = await axiosInstance.get("/farms", { params });
-      return response.data;
-    },
-  });
-};
-
 // Get current user's farms
-export const useGetUserFarms = (type?: "owned" | "managed" | "all") => {
+export const useGetUserFarms = (
+  type?: "owned" | "managed" | "all",
+  params?: {
+    page?: number;
+    limit?: number;
+  }
+) => {
   return useQuery<FarmListResponse>({
-    queryKey: [...farmKeys.myFarms(), { type }],
+    queryKey: [...farmKeys.myFarms(), { type, ...params }],
     queryFn: async () => {
       const response = await axiosInstance.get("/farms/my-farms", { 
-        params: { type } 
+        params: { type, ...params } 
       });
-      console.log("Get User farms", response.data);
       return response.data;
     },
   });

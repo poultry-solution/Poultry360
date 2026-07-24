@@ -2,6 +2,44 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { ListForSaleCategory, ListForSaleStatus } from "@prisma/client";
 
+const NEPAL_PROVINCES = [
+  "Koshi Province",
+  "Madhesh Province",
+  "Bagmati Province",
+  "Gandaki Province",
+  "Lumbini Province",
+  "Karnali Province",
+  "Sudurpashchim Province",
+] as const;
+
+const PROVINCE_ALIASES: Record<string, readonly string[]> = {
+  "Koshi Province": ["koshi", "koshi province", "province 1", "province no 1", "province no. 1", "pradesh 1"],
+  "Madhesh Province": ["madhesh", "madhesh province", "province 2", "province no 2", "province no. 2", "pradesh 2"],
+  "Bagmati Province": [
+    "bagmati",
+    "bagmati province",
+    "bagamati",
+    "bagamati province",
+    "province 3",
+    "province no 3",
+    "province no. 3",
+    "pradesh 3",
+  ],
+  "Gandaki Province": ["gandaki", "gandaki province", "province 4", "province no 4", "province no. 4", "pradesh 4"],
+  "Lumbini Province": ["lumbini", "lumbini province", "province 5", "province no 5", "province no. 5", "pradesh 5"],
+  "Karnali Province": ["karnali", "karnali province", "province 6", "province no 6", "province no. 6", "pradesh 6"],
+  "Sudurpashchim Province": [
+    "sudurpashchim",
+    "sudurpaschim",
+    "sudur paschim",
+    "sudurpashchim province",
+    "province 7",
+    "province no 7",
+    "province no. 7",
+    "pradesh 7",
+  ],
+};
+
 const listForSaleSelectPublic = {
   id: true,
   companyName: true,
@@ -14,6 +52,8 @@ const listForSaleSelectPublic = {
   availabilityTo: true,
   province: true,
   address: true,
+  latitude: true,
+  longitude: true,
   avgWeightKg: true,
   eggVariants: true,
   typeVariants: true,
@@ -34,7 +74,20 @@ export const getPublicListForSale = async (req: Request, res: Response): Promise
       where.category = category as ListForSaleCategory;
     }
     if (province && typeof province === "string" && province.trim().length > 0) {
-      where.province = province.trim();
+      const provinceVariants = getProvinceQueryVariants(province.trim());
+      if (provinceVariants.length > 0) {
+        // Match canonical and legacy province strings while older rows still exist.
+        // This keeps the province filter working even when the saved data varies.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (where as any).OR = [
+          { province: { in: provinceVariants } },
+          ...provinceVariants.map((variant) => ({
+            address: { contains: variant, mode: "insensitive" as const },
+          })),
+        ];
+      } else {
+        where.province = province.trim();
+      }
     }
 
     const [listings, total] = await Promise.all([
@@ -48,10 +101,119 @@ export const getPublicListForSale = async (req: Request, res: Response): Promise
       prisma.listForSale.count({ where }),
     ]);
 
-    return res.json({ success: true, data: listings, total });
+    return res.json({ success: true, data: listings.map(normalizeListForSaleProvince), total });
   } catch (error) {
     console.error("Get public list for sale error:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+export const searchPublicLocations = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const query = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const limit = Math.max(1, Math.min(10, parseInt(typeof req.query.limit === "string" ? req.query.limit : "5", 10) || 5));
+
+    if (query.length < 2) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const url = new URL("https://nominatim.openstreetmap.org/search");
+    url.searchParams.set("format", "jsonv2");
+    url.searchParams.set("addressdetails", "1");
+    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("countrycodes", "np");
+    url.searchParams.set("q", query);
+
+    const response = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "Accept-Language": "en",
+        "User-Agent": "Poultry360/1.0",
+      },
+    });
+
+    if (!response.ok) {
+      return res.status(502).json({ success: false, message: "Location search service unavailable" });
+    }
+
+    const items = (await response.json()) as Array<{
+      place_id?: number;
+      display_name?: string;
+      lat?: string;
+      lon?: string;
+      address?: Record<string, string | undefined>;
+    }>;
+
+    const data = items
+      .map((item) => {
+        const lat = item.lat != null ? Number(item.lat) : NaN;
+        const lng = item.lon != null ? Number(item.lon) : NaN;
+        if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+        const province = normalizeProvince(item.address);
+        return {
+          id: String(item.place_id ?? `${lat}-${lng}`),
+          label: item.display_name ?? "Selected location",
+          subtitle: province ?? "Nepal",
+          latitude: lat,
+          longitude: lng,
+          province,
+          address: item.display_name ?? null,
+        };
+      })
+      .filter(Boolean);
+
+    return res.json({ success: true, data });
+  } catch (error: any) {
+    console.error("Search public locations error:", error);
+    return res.status(500).json({ success: false, message: error.message || "Failed to search locations" });
+  }
+};
+
+export const reversePublicLocation = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const lat = typeof req.query.lat === "string" ? Number(req.query.lat) : NaN;
+    const lng = typeof req.query.lng === "string" ? Number(req.query.lng) : NaN;
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
+      return res.status(400).json({ success: false, message: "Valid latitude and longitude are required" });
+    }
+
+    const url = new URL("https://nominatim.openstreetmap.org/reverse");
+    url.searchParams.set("format", "jsonv2");
+    url.searchParams.set("addressdetails", "1");
+    url.searchParams.set("lat", String(lat));
+    url.searchParams.set("lon", String(lng));
+
+    const response = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "Accept-Language": "en",
+        "User-Agent": "Poultry360/1.0",
+      },
+    });
+
+    if (!response.ok) {
+      return res.status(502).json({ success: false, message: "Location lookup service unavailable" });
+    }
+
+    const item = (await response.json()) as {
+      display_name?: string;
+      address?: Record<string, string | undefined>;
+    };
+
+    return res.json({
+      success: true,
+      data: {
+        latitude: lat,
+        longitude: lng,
+        label: item.display_name ?? `${lat}, ${lng}`,
+        subtitle: normalizeProvince(item.address) ?? "Nepal",
+        province: normalizeProvince(item.address),
+        address: item.display_name ?? null,
+      },
+    });
+  } catch (error: any) {
+    console.error("Reverse public location error:", error);
+    return res.status(500).json({ success: false, message: error.message || "Failed to resolve location" });
   }
 };
 
@@ -70,7 +232,7 @@ export const getFarmerListForSale = async (req: Request, res: Response): Promise
       where,
       orderBy: { createdAt: "desc" },
     });
-    return res.json({ success: true, data: listings });
+    return res.json({ success: true, data: listings.map(normalizeListForSaleProvince) });
   } catch (error) {
     console.error("Get farmer list for sale error:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });
@@ -88,7 +250,7 @@ export const getFarmerListForSaleById = async (req: Request, res: Response): Pro
       where: { id, userId },
     });
     if (!listing) return res.status(404).json({ success: false, message: "Listing not found" });
-    return res.json({ success: true, data: listing });
+    return res.json({ success: true, data: normalizeListForSaleProvince(listing) });
   } catch (error) {
     console.error("Get farmer list for sale by id error:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });
@@ -113,6 +275,8 @@ export const createListForSale = async (req: Request, res: Response): Promise<an
       unit,
       availabilityFrom,
       availabilityTo,
+      latitude,
+      longitude,
       avgWeightKg,
       eggVariants,
       typeVariants,
@@ -137,6 +301,10 @@ export const createListForSale = async (req: Request, res: Response): Promise<an
     const to = parseDate(availabilityTo);
     if (!from || !to || from > to) {
       return res.status(400).json({ success: false, message: "Valid availability dates (from <= to) are required" });
+    }
+    const coords = parseCoordinates(latitude, longitude);
+    if (coords.error) {
+      return res.status(400).json({ success: false, message: coords.error });
     }
 
     if (category === "CHICKEN") {
@@ -163,6 +331,7 @@ export const createListForSale = async (req: Request, res: Response): Promise<an
     }
 
     const rateVal = rate != null && rate !== "" ? parseDecimal(rate) : null;
+    const resolvedProvince = resolveProvinceForStorage({ province, address });
 
     const created = await prisma.listForSale.create({
       data: {
@@ -175,18 +344,20 @@ export const createListForSale = async (req: Request, res: Response): Promise<an
         unit: unit.trim(),
         availabilityFrom: from,
         availabilityTo: to,
+        latitude: coords.latitude ?? undefined,
+        longitude: coords.longitude ?? undefined,
         avgWeightKg: category === "CHICKEN" && avgWeightKg != null ? (parseDecimal(avgWeightKg) ?? undefined) : undefined,
         eggVariants: eggVariantsJson as any,
         typeVariants: typeVariantsJson as any,
-        ...(typeof province === "string" && province.trim().length > 0 && {
-          province: province.trim(),
+        ...(resolvedProvince !== undefined && {
+          province: resolvedProvince,
         }),
         ...(typeof address === "string" && address.trim().length > 0 && {
           address: address.trim(),
         }),
       },
     });
-    return res.status(201).json({ success: true, data: created });
+    return res.status(201).json({ success: true, data: normalizeListForSaleProvince(created) });
   } catch (error) {
     console.error("Create list for sale error:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });
@@ -212,10 +383,11 @@ export const updateListForSale = async (req: Request, res: Response): Promise<an
       unit,
       availabilityFrom,
       availabilityTo,
+      latitude,
+      longitude,
       avgWeightKg,
       eggVariants,
       typeVariants,
-      companyName,
       province,
       address,
     } = body;
@@ -240,6 +412,10 @@ export const updateListForSale = async (req: Request, res: Response): Promise<an
     const to = availabilityTo != null ? parseDate(availabilityTo) : existing.availabilityTo;
     if (!from || !to || from > to) {
       return res.status(400).json({ success: false, message: "Valid availability dates (from <= to) are required" });
+    }
+    const coords = parseCoordinates(latitude, longitude, existing.latitude, existing.longitude);
+    if (coords.error) {
+      return res.status(400).json({ success: false, message: coords.error });
     }
 
     if (categoryVal === "CHICKEN") {
@@ -270,6 +446,7 @@ export const updateListForSale = async (req: Request, res: Response): Promise<an
     }
 
     const rateVal = rate !== undefined ? (rate == null || rate === "" ? null : parseDecimal(rate)) : (existing.rate != null ? Number(existing.rate) : null);
+    const resolvedProvince = resolveProvinceForStorage({ province, address, existingProvince: existing.province });
 
     const updated = await prisma.listForSale.update({
       where: { id },
@@ -281,10 +458,13 @@ export const updateListForSale = async (req: Request, res: Response): Promise<an
         unit: unitVal,
         availabilityFrom: from,
         availabilityTo: to,
-        // province and address are new optional fields; keep update logic simple and backward compatible
-        ...(province !== undefined && {
-          province: typeof province === "string" && province.trim().length > 0 ? province.trim() : null,
-        }),
+        ...(coords.latitude !== undefined && { latitude: coords.latitude }),
+        ...(coords.longitude !== undefined && { longitude: coords.longitude }),
+        ...(province !== undefined || address !== undefined
+          ? {
+              province: resolvedProvince,
+            }
+          : {}),
         ...(address !== undefined && {
           address: typeof address === "string" && address.trim().length > 0 ? address.trim() : null,
         }),
@@ -295,7 +475,7 @@ export const updateListForSale = async (req: Request, res: Response): Promise<an
         typeVariants: typeVariantsJson as any,
       },
     });
-    return res.json({ success: true, data: updated });
+    return res.json({ success: true, data: normalizeListForSaleProvince(updated) });
   } catch (error) {
     console.error("Update list for sale error:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });
@@ -385,6 +565,131 @@ function parseDate(v: any): Date | null {
     return Number.isNaN(d.getTime()) ? null : d;
   }
   return null;
+}
+
+function parseCoordinate(value: any): number | null {
+  if (value == null || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function parseCoordinates(
+  latitude: any,
+  longitude: any,
+  fallbackLatitude?: number | null,
+  fallbackLongitude?: number | null
+): { latitude?: number | null; longitude?: number | null; error?: string } {
+  const hasLatitude = latitude !== undefined;
+  const hasLongitude = longitude !== undefined;
+
+  if (!hasLatitude && !hasLongitude) {
+    return {};
+  }
+
+  if (latitude == null && longitude == null) {
+    if (fallbackLatitude !== undefined || fallbackLongitude !== undefined) {
+      return { latitude: null, longitude: null };
+    }
+    return {};
+  }
+
+  const parsedLat = parseCoordinate(latitude);
+  const parsedLng = parseCoordinate(longitude);
+
+  if ((latitude != null || longitude != null) && (parsedLat == null || parsedLng == null)) {
+    return { error: "Valid latitude and longitude are required together" };
+  }
+
+  if (parsedLat != null && (parsedLat < -90 || parsedLat > 90)) {
+    return { error: "Latitude must be between -90 and 90" };
+  }
+  if (parsedLng != null && (parsedLng < -180 || parsedLng > 180)) {
+    return { error: "Longitude must be between -180 and 180" };
+  }
+
+  return {
+    latitude: latitude === undefined ? fallbackLatitude ?? undefined : parsedLat ?? undefined,
+    longitude: longitude === undefined ? fallbackLongitude ?? undefined : parsedLng ?? undefined,
+  };
+}
+
+function normalizeProvince(address?: Record<string, string | undefined> | null): string | null {
+  if (!address) return null;
+  return resolveProvinceCanonical(
+    address.state ||
+      address.province ||
+      address.region ||
+      address.county ||
+      address.municipality ||
+      address.state_district ||
+      address.city ||
+      address.suburb ||
+      null
+  );
+}
+
+function normalizeProvinceText(value?: string | null): string {
+  return (value ?? "").trim().toLowerCase().replace(/\./g, "").replace(/\s+/g, " ");
+}
+
+function resolveProvinceCanonical(value?: string | null): string | null {
+  if (!value) return null;
+  const normalized = normalizeProvinceText(value);
+  for (const province of NEPAL_PROVINCES) {
+    const provinceNormalized = normalizeProvinceText(province);
+    if (normalized === provinceNormalized || normalized.includes(provinceNormalized)) {
+      return province;
+    }
+    const aliases = PROVINCE_ALIASES[province];
+    if (aliases.some((alias) => normalized === alias || normalized.includes(alias))) {
+      return province;
+    }
+  }
+  return null;
+}
+
+function getProvinceQueryVariants(input: string): string[] {
+  const canonical = resolveProvinceCanonical(input);
+  if (!canonical) return [];
+  return [canonical, ...(PROVINCE_ALIASES[canonical] ?? [])];
+}
+
+function deriveProvinceFromText(text?: string | null): string | null {
+  if (!text) return null;
+  return resolveProvinceCanonical(text);
+}
+
+function resolveProvinceForStorage(input: {
+  province?: unknown;
+  address?: unknown;
+  existingProvince?: string | null;
+}): string | null | undefined {
+  if (input.province !== undefined) {
+    if (input.province == null) return null;
+    return resolveProvinceCanonical(String(input.province)) ?? null;
+  }
+
+  if (input.address !== undefined) {
+    const derived = deriveProvinceFromText(typeof input.address === "string" ? input.address : String(input.address ?? ""));
+    return derived ?? null;
+  }
+
+  if (input.existingProvince !== undefined) {
+    return input.existingProvince;
+  }
+
+  return undefined;
+}
+
+function normalizeListForSaleProvince<T extends { province?: string | null; address?: string | null }>(item: T): T {
+  return {
+    ...item,
+    province: resolveProvinceCanonical(item.province) ?? deriveProvinceFromText(item.address),
+  };
 }
 
 function parseEggVariants(v: any): Array<{ size: string; quantity: number; rate: number }> | null {

@@ -329,9 +329,9 @@ export class HatcheryIncubationService {
       _sum: { count: true },
     });
     const fertileEggs = incubation.eggsSetCount - (candlingLoss._sum.count ?? 0);
-    if (totalOutcome > fertileEggs) {
+    if (totalOutcome !== fertileEggs) {
       throw new Error(
-        `Hatch result total cannot exceed fertile eggs (${fertileEggs})`
+        `Hatch result total must equal fertile eggs (${fertileEggs}). Entered total was ${totalOutcome}.`
       );
     }
 

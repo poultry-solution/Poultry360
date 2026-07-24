@@ -31,6 +31,7 @@ export interface DataTableProps<T = any> {
   data: T[];
   columns: Column<T>[];
   actions?: Action<T>[];
+  onRowClick?: (row: T, index: number) => void;
   onSort?: (key: string, direction: 'asc' | 'desc') => void;
   sortKey?: string;
   sortDirection?: 'asc' | 'desc';
@@ -55,6 +56,7 @@ export function DataTable<T = any>({
   data,
   columns,
   actions = [],
+  onRowClick,
   onSort,
   sortKey,
   sortDirection,
@@ -127,10 +129,13 @@ export function DataTable<T = any>({
                   "h-8 w-8 p-0",
                   action.variant === 'destructive' 
                     ? "hover:bg-red-50 hover:border-red-300" 
-                    : "hover:bg-blue-50 hover:border-blue-300",
+                  : "hover:bg-blue-50 hover:border-blue-300",
                   action.className
                 )}
-                onClick={() => action.onClick(row, index)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  action.onClick(row, index);
+                }}
                 title={action.label}
               >
                 {action.icon || (action.variant === 'destructive' ? <Trash2 className="h-4 w-4" /> : <Pencil className="h-4 w-4" />)}
@@ -225,8 +230,22 @@ export function DataTable<T = any>({
               data.map((row, index) => (
                 <div
                   key={getRowKey ? getRowKey(row, index) : index}
+                  role={onRowClick ? "button" : undefined}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  onClick={onRowClick ? () => onRowClick(row, index) : undefined}
+                  onKeyDown={
+                    onRowClick
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onRowClick(row, index);
+                          }
+                        }
+                      : undefined
+                  }
                   className={cn(
                     "grid hover:bg-gray-50 transition-colors duration-150",
+                    onRowClick && "cursor-pointer",
                     index % 2 === 0 ? "bg-white" : "bg-gray-50/30",
                     rowClassName?.(row, index)
                   )}

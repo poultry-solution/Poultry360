@@ -104,8 +104,6 @@ export const getDealerSales = async (
       search,
       isPaid,
       customerId,
-      startDate,
-      endDate,
     } = req.query;
 
     // Get the dealer record
@@ -143,17 +141,6 @@ export const getDealerSales = async (
 
     if (customerId) {
       where.customerId = customerId;
-    }
-
-    const rangeResult = parseDealerSaleDateRange(startDate, endDate);
-    if (!rangeResult.ok) {
-      return res.status(400).json({ message: rangeResult.message });
-    }
-    if (rangeResult.range) {
-      where.date = {
-        gte: rangeResult.range.gte,
-        lte: rangeResult.range.lte,
-      };
     }
 
     const [sales, total] = await Promise.all([
@@ -399,7 +386,7 @@ export const getDealerCustomers = async (
 ): Promise<any> => {
   try {
     const userId = req.userId;
-    const { search, page = 1, limit = 50, archived } = req.query;
+    const { search, page = 1, limit = 10, archived } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
 

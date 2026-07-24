@@ -4,6 +4,7 @@ export declare const UserRoleSchema: z.ZodEnum<{
     MANAGER: "MANAGER";
     DEALER: "DEALER";
     COMPANY: "COMPANY";
+    HATCHERY: "HATCHERY";
     SUPER_ADMIN: "SUPER_ADMIN";
 }>;
 export type UserRole = z.infer<typeof UserRoleSchema>;
@@ -119,6 +120,7 @@ export declare const UserSchema: z.ZodObject<{
         MANAGER: "MANAGER";
         DEALER: "DEALER";
         COMPANY: "COMPANY";
+        HATCHERY: "HATCHERY";
         SUPER_ADMIN: "SUPER_ADMIN";
     }>;
     status: z.ZodEnum<{
@@ -141,6 +143,7 @@ export declare const CreateUserSchema: z.ZodObject<{
         MANAGER: "MANAGER";
         DEALER: "DEALER";
         COMPANY: "COMPANY";
+        HATCHERY: "HATCHERY";
         SUPER_ADMIN: "SUPER_ADMIN";
     }>>>;
     gender: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
@@ -164,6 +167,7 @@ export declare const UpdateUserSchema: z.ZodObject<{
         MANAGER: "MANAGER";
         DEALER: "DEALER";
         COMPANY: "COMPANY";
+        HATCHERY: "HATCHERY";
         SUPER_ADMIN: "SUPER_ADMIN";
     }>>;
     gender: z.ZodOptional<z.ZodEnum<{
@@ -203,6 +207,7 @@ export declare const FarmOwnerSchema: z.ZodObject<{
         MANAGER: "MANAGER";
         DEALER: "DEALER";
         COMPANY: "COMPANY";
+        HATCHERY: "HATCHERY";
         SUPER_ADMIN: "SUPER_ADMIN";
     }>;
 }, z.core.$strip>;
@@ -216,6 +221,7 @@ export declare const FarmManagerSchema: z.ZodObject<{
         MANAGER: "MANAGER";
         DEALER: "DEALER";
         COMPANY: "COMPANY";
+        HATCHERY: "HATCHERY";
         SUPER_ADMIN: "SUPER_ADMIN";
     }>;
 }, z.core.$strip>;
@@ -245,6 +251,7 @@ export declare const FarmResponseSchema: z.ZodObject<{
             MANAGER: "MANAGER";
             DEALER: "DEALER";
             COMPANY: "COMPANY";
+            HATCHERY: "HATCHERY";
             SUPER_ADMIN: "SUPER_ADMIN";
         }>;
     }, z.core.$strip>;
@@ -257,6 +264,7 @@ export declare const FarmResponseSchema: z.ZodObject<{
             MANAGER: "MANAGER";
             DEALER: "DEALER";
             COMPANY: "COMPANY";
+            HATCHERY: "HATCHERY";
             SUPER_ADMIN: "SUPER_ADMIN";
         }>;
     }, z.core.$strip>>;
@@ -1002,7 +1010,24 @@ export declare const DealerDetailResponseSchema: z.ZodObject<{
     balance: z.ZodNumber;
     thisMonthAmount: z.ZodNumber;
     totalTransactions: z.ZodNumber;
-    purchases: z.ZodArray<z.ZodObject<{
+    openingBalance: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+        id: z.ZodString;
+        amount: z.ZodNumber;
+        date: z.ZodDate;
+        notes: z.ZodNullable<z.ZodString>;
+    }, z.core.$strip>>>;
+    openingBalanceHistory: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        id: z.ZodString;
+        amount: z.ZodNumber;
+        date: z.ZodDate;
+        notes: z.ZodNullable<z.ZodString>;
+    }, z.core.$strip>>>;
+    connectionType: z.ZodDefault<z.ZodEnum<{
+        MANUAL: "MANUAL";
+        CONNECTED: "CONNECTED";
+    }>>;
+    isOwnedDealer: z.ZodOptional<z.ZodBoolean>;
+    purchases: z.ZodOptional<z.ZodArray<z.ZodObject<{
         id: z.ZodString;
         itemName: z.ZodNullable<z.ZodString>;
         purchaseCategory: z.ZodOptional<z.ZodNullable<z.ZodEnum<{
@@ -1020,15 +1045,15 @@ export declare const DealerDetailResponseSchema: z.ZodObject<{
         description: z.ZodNullable<z.ZodString>;
         reference: z.ZodNullable<z.ZodString>;
         imageUrl: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-    }, z.core.$strip>>;
-    payments: z.ZodArray<z.ZodObject<{
+    }, z.core.$strip>>>;
+    payments: z.ZodOptional<z.ZodArray<z.ZodObject<{
         id: z.ZodString;
         amount: z.ZodNumber;
         date: z.ZodDate;
         description: z.ZodNullable<z.ZodString>;
         reference: z.ZodNullable<z.ZodString>;
         imageUrl: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-    }, z.core.$strip>>;
+    }, z.core.$strip>>>;
     transactionTable: z.ZodOptional<z.ZodArray<z.ZodObject<{
         itemName: z.ZodString;
         rate: z.ZodNumber;
@@ -1047,8 +1072,11 @@ export declare const DealerDetailResponseSchema: z.ZodObject<{
     summary: z.ZodObject<{
         totalPurchases: z.ZodNumber;
         totalPayments: z.ZodNumber;
+        totalPurchasedAmount: z.ZodNumber;
+        totalPaidAmount: z.ZodNumber;
         outstandingAmount: z.ZodNumber;
         thisMonthPurchases: z.ZodNumber;
+        thisMonthAmount: z.ZodNumber;
     }, z.core.$strip>;
 }, z.core.$strip>;
 export type DealerDetailResponse = z.infer<typeof DealerDetailResponseSchema>;
@@ -1501,6 +1529,7 @@ export declare const SignupSchema: z.ZodObject<{
         MANAGER: "MANAGER";
         DEALER: "DEALER";
         COMPANY: "COMPANY";
+        HATCHERY: "HATCHERY";
         SUPER_ADMIN: "SUPER_ADMIN";
     }>>>;
     companyName: z.ZodOptional<z.ZodString>;
@@ -1560,6 +1589,7 @@ export declare const UserResponseSchema: z.ZodObject<{
         MANAGER: "MANAGER";
         DEALER: "DEALER";
         COMPANY: "COMPANY";
+        HATCHERY: "HATCHERY";
         SUPER_ADMIN: "SUPER_ADMIN";
     }>;
     gender: z.ZodEnum<{
@@ -1591,6 +1621,7 @@ export declare const AuthResponseSchema: z.ZodObject<{
             MANAGER: "MANAGER";
             DEALER: "DEALER";
             COMPANY: "COMPANY";
+            HATCHERY: "HATCHERY";
             SUPER_ADMIN: "SUPER_ADMIN";
         }>;
         gender: z.ZodEnum<{
@@ -1630,6 +1661,7 @@ export declare const FarmListResponseSchema: z.ZodObject<{
                 MANAGER: "MANAGER";
                 DEALER: "DEALER";
                 COMPANY: "COMPANY";
+                HATCHERY: "HATCHERY";
                 SUPER_ADMIN: "SUPER_ADMIN";
             }>;
         }, z.core.$strip>;
@@ -1642,6 +1674,7 @@ export declare const FarmListResponseSchema: z.ZodObject<{
                 MANAGER: "MANAGER";
                 DEALER: "DEALER";
                 COMPANY: "COMPANY";
+                HATCHERY: "HATCHERY";
                 SUPER_ADMIN: "SUPER_ADMIN";
             }>;
         }, z.core.$strip>>;
@@ -1652,6 +1685,12 @@ export declare const FarmListResponseSchema: z.ZodObject<{
             expenses: z.ZodNumber;
             sales: z.ZodNumber;
         }, z.core.$strip>;
+    }, z.core.$strip>>;
+    pagination: z.ZodOptional<z.ZodObject<{
+        page: z.ZodNumber;
+        limit: z.ZodNumber;
+        total: z.ZodNumber;
+        totalPages: z.ZodNumber;
     }, z.core.$strip>>;
     message: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
@@ -1675,6 +1714,7 @@ export declare const FarmDetailResponseSchema: z.ZodObject<{
                 MANAGER: "MANAGER";
                 DEALER: "DEALER";
                 COMPANY: "COMPANY";
+                HATCHERY: "HATCHERY";
                 SUPER_ADMIN: "SUPER_ADMIN";
             }>;
         }, z.core.$strip>;
@@ -1687,6 +1727,7 @@ export declare const FarmDetailResponseSchema: z.ZodObject<{
                 MANAGER: "MANAGER";
                 DEALER: "DEALER";
                 COMPANY: "COMPANY";
+                HATCHERY: "HATCHERY";
                 SUPER_ADMIN: "SUPER_ADMIN";
             }>;
         }, z.core.$strip>>;
@@ -1701,6 +1742,14 @@ export declare const FarmDetailResponseSchema: z.ZodObject<{
     message: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type FarmDetailResponse = z.infer<typeof FarmDetailResponseSchema>;
+export declare const BatchListSummarySchema: z.ZodObject<{
+    totalBatches: z.ZodNumber;
+    activeBatches: z.ZodNumber;
+    closedBatches: z.ZodNumber;
+    totalInitialChicks: z.ZodNumber;
+    totalCurrentChicks: z.ZodNumber;
+}, z.core.$strip>;
+export type BatchListSummary = z.infer<typeof BatchListSummarySchema>;
 export declare const BatchListResponseSchema: z.ZodObject<{
     success: z.ZodBoolean;
     data: z.ZodArray<z.ZodObject<{
@@ -1778,6 +1827,13 @@ export declare const BatchListResponseSchema: z.ZodObject<{
         total: z.ZodNumber;
         totalPages: z.ZodNumber;
     }, z.core.$strip>;
+    summary: z.ZodOptional<z.ZodObject<{
+        totalBatches: z.ZodNumber;
+        activeBatches: z.ZodNumber;
+        closedBatches: z.ZodNumber;
+        totalInitialChicks: z.ZodNumber;
+        totalCurrentChicks: z.ZodNumber;
+    }, z.core.$strip>>;
     message: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type BatchListResponse = z.infer<typeof BatchListResponseSchema>;
@@ -1861,6 +1917,7 @@ export declare const schemas: {
         MANAGER: "MANAGER";
         DEALER: "DEALER";
         COMPANY: "COMPANY";
+        HATCHERY: "HATCHERY";
         SUPER_ADMIN: "SUPER_ADMIN";
     }>;
     readonly BatchStatus: z.ZodEnum<{
@@ -1957,6 +2014,7 @@ export declare const schemas: {
             MANAGER: "MANAGER";
             DEALER: "DEALER";
             COMPANY: "COMPANY";
+            HATCHERY: "HATCHERY";
             SUPER_ADMIN: "SUPER_ADMIN";
         }>;
         status: z.ZodEnum<{
@@ -1978,6 +2036,7 @@ export declare const schemas: {
             MANAGER: "MANAGER";
             DEALER: "DEALER";
             COMPANY: "COMPANY";
+            HATCHERY: "HATCHERY";
             SUPER_ADMIN: "SUPER_ADMIN";
         }>>>;
         gender: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
@@ -2000,6 +2059,7 @@ export declare const schemas: {
             MANAGER: "MANAGER";
             DEALER: "DEALER";
             COMPANY: "COMPANY";
+            HATCHERY: "HATCHERY";
             SUPER_ADMIN: "SUPER_ADMIN";
         }>>;
         gender: z.ZodOptional<z.ZodEnum<{
@@ -2059,6 +2119,7 @@ export declare const schemas: {
                 MANAGER: "MANAGER";
                 DEALER: "DEALER";
                 COMPANY: "COMPANY";
+                HATCHERY: "HATCHERY";
                 SUPER_ADMIN: "SUPER_ADMIN";
             }>;
         }, z.core.$strip>;
@@ -2071,6 +2132,7 @@ export declare const schemas: {
                 MANAGER: "MANAGER";
                 DEALER: "DEALER";
                 COMPANY: "COMPANY";
+                HATCHERY: "HATCHERY";
                 SUPER_ADMIN: "SUPER_ADMIN";
             }>;
         }, z.core.$strip>>;
@@ -2091,6 +2153,7 @@ export declare const schemas: {
             MANAGER: "MANAGER";
             DEALER: "DEALER";
             COMPANY: "COMPANY";
+            HATCHERY: "HATCHERY";
             SUPER_ADMIN: "SUPER_ADMIN";
         }>;
     }, z.core.$strip>;
@@ -2103,6 +2166,7 @@ export declare const schemas: {
             MANAGER: "MANAGER";
             DEALER: "DEALER";
             COMPANY: "COMPANY";
+            HATCHERY: "HATCHERY";
             SUPER_ADMIN: "SUPER_ADMIN";
         }>;
     }, z.core.$strip>;
@@ -2132,6 +2196,7 @@ export declare const schemas: {
                     MANAGER: "MANAGER";
                     DEALER: "DEALER";
                     COMPANY: "COMPANY";
+                    HATCHERY: "HATCHERY";
                     SUPER_ADMIN: "SUPER_ADMIN";
                 }>;
             }, z.core.$strip>;
@@ -2144,6 +2209,7 @@ export declare const schemas: {
                     MANAGER: "MANAGER";
                     DEALER: "DEALER";
                     COMPANY: "COMPANY";
+                    HATCHERY: "HATCHERY";
                     SUPER_ADMIN: "SUPER_ADMIN";
                 }>;
             }, z.core.$strip>>;
@@ -2176,6 +2242,7 @@ export declare const schemas: {
                     MANAGER: "MANAGER";
                     DEALER: "DEALER";
                     COMPANY: "COMPANY";
+                    HATCHERY: "HATCHERY";
                     SUPER_ADMIN: "SUPER_ADMIN";
                 }>;
             }, z.core.$strip>;
@@ -2188,6 +2255,7 @@ export declare const schemas: {
                     MANAGER: "MANAGER";
                     DEALER: "DEALER";
                     COMPANY: "COMPANY";
+                    HATCHERY: "HATCHERY";
                     SUPER_ADMIN: "SUPER_ADMIN";
                 }>;
             }, z.core.$strip>>;
@@ -2198,6 +2266,12 @@ export declare const schemas: {
                 expenses: z.ZodNumber;
                 sales: z.ZodNumber;
             }, z.core.$strip>;
+        }, z.core.$strip>>;
+        pagination: z.ZodOptional<z.ZodObject<{
+            page: z.ZodNumber;
+            limit: z.ZodNumber;
+            total: z.ZodNumber;
+            totalPages: z.ZodNumber;
         }, z.core.$strip>>;
         message: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>;
@@ -2423,6 +2497,13 @@ export declare const schemas: {
             total: z.ZodNumber;
             totalPages: z.ZodNumber;
         }, z.core.$strip>;
+        summary: z.ZodOptional<z.ZodObject<{
+            totalBatches: z.ZodNumber;
+            activeBatches: z.ZodNumber;
+            closedBatches: z.ZodNumber;
+            totalInitialChicks: z.ZodNumber;
+            totalCurrentChicks: z.ZodNumber;
+        }, z.core.$strip>>;
         message: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>;
     readonly BatchDetailResponse: z.ZodObject<{
@@ -2941,7 +3022,24 @@ export declare const schemas: {
         balance: z.ZodNumber;
         thisMonthAmount: z.ZodNumber;
         totalTransactions: z.ZodNumber;
-        purchases: z.ZodArray<z.ZodObject<{
+        openingBalance: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+            id: z.ZodString;
+            amount: z.ZodNumber;
+            date: z.ZodDate;
+            notes: z.ZodNullable<z.ZodString>;
+        }, z.core.$strip>>>;
+        openingBalanceHistory: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            amount: z.ZodNumber;
+            date: z.ZodDate;
+            notes: z.ZodNullable<z.ZodString>;
+        }, z.core.$strip>>>;
+        connectionType: z.ZodDefault<z.ZodEnum<{
+            MANUAL: "MANUAL";
+            CONNECTED: "CONNECTED";
+        }>>;
+        isOwnedDealer: z.ZodOptional<z.ZodBoolean>;
+        purchases: z.ZodOptional<z.ZodArray<z.ZodObject<{
             id: z.ZodString;
             itemName: z.ZodNullable<z.ZodString>;
             purchaseCategory: z.ZodOptional<z.ZodNullable<z.ZodEnum<{
@@ -2959,15 +3057,15 @@ export declare const schemas: {
             description: z.ZodNullable<z.ZodString>;
             reference: z.ZodNullable<z.ZodString>;
             imageUrl: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-        }, z.core.$strip>>;
-        payments: z.ZodArray<z.ZodObject<{
+        }, z.core.$strip>>>;
+        payments: z.ZodOptional<z.ZodArray<z.ZodObject<{
             id: z.ZodString;
             amount: z.ZodNumber;
             date: z.ZodDate;
             description: z.ZodNullable<z.ZodString>;
             reference: z.ZodNullable<z.ZodString>;
             imageUrl: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-        }, z.core.$strip>>;
+        }, z.core.$strip>>>;
         transactionTable: z.ZodOptional<z.ZodArray<z.ZodObject<{
             itemName: z.ZodString;
             rate: z.ZodNumber;
@@ -2986,8 +3084,11 @@ export declare const schemas: {
         summary: z.ZodObject<{
             totalPurchases: z.ZodNumber;
             totalPayments: z.ZodNumber;
+            totalPurchasedAmount: z.ZodNumber;
+            totalPaidAmount: z.ZodNumber;
             outstandingAmount: z.ZodNumber;
             thisMonthPurchases: z.ZodNumber;
+            thisMonthAmount: z.ZodNumber;
         }, z.core.$strip>;
     }, z.core.$strip>;
     readonly Hatchery: z.ZodObject<{
@@ -3399,6 +3500,7 @@ export declare const schemas: {
             MANAGER: "MANAGER";
             DEALER: "DEALER";
             COMPANY: "COMPANY";
+            HATCHERY: "HATCHERY";
             SUPER_ADMIN: "SUPER_ADMIN";
         }>>>;
         companyName: z.ZodOptional<z.ZodString>;
@@ -3455,6 +3557,7 @@ export declare const schemas: {
             MANAGER: "MANAGER";
             DEALER: "DEALER";
             COMPANY: "COMPANY";
+            HATCHERY: "HATCHERY";
             SUPER_ADMIN: "SUPER_ADMIN";
         }>;
         gender: z.ZodEnum<{
@@ -3485,6 +3588,7 @@ export declare const schemas: {
                 MANAGER: "MANAGER";
                 DEALER: "DEALER";
                 COMPANY: "COMPANY";
+                HATCHERY: "HATCHERY";
                 SUPER_ADMIN: "SUPER_ADMIN";
             }>;
             gender: z.ZodEnum<{

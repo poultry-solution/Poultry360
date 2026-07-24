@@ -6,6 +6,7 @@ import {
   CloseBatch,
   BatchSummary,
   BatchStatus,
+  BatchType,
   BatchResponse,
   BatchListResponse,
   BatchDetailResponse,
@@ -52,6 +53,7 @@ export const useGetAllBatches = (params?: {
   limit?: number;
   farmId?: string;
   status?: BatchStatus;
+  batchType?: BatchType;
   search?: string;
 }, options?: { enabled?: boolean }) => {
   return useQuery<BatchListResponse>({

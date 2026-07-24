@@ -14,11 +14,13 @@ export const getAllBatches = async (
   res: Response
 ): Promise<any> => {
   try {
-    const { page = 1, limit = 10, farmId, status, search } = req.query;
+    const { page = 1, limit = 10, farmId, status, search, batchType } = req.query;
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    const skip = (Number(page) - 1) * Number(limit);
+    const currentPage = Math.max(1, Number(page) || 1);
+    const pageSize = Math.max(1, Number(limit) || 10);
+    const skip = (currentPage - 1) * pageSize;
 
     // Build where clause
     const where: any = {};
@@ -45,15 +47,19 @@ export const getAllBatches = async (
       where.status = status as BatchStatus;
     }
 
+    if (batchType) {
+      where.batchType = batchType as BatchType;
+    }
+
     if (search) {
       where.batchNumber = { contains: search as string, mode: "insensitive" };
     }
 
-    const [batches, total] = await Promise.all([
+    const [batches, total, allMatchingBatches] = await Promise.all([
       prisma.batch.findMany({
         where,
         skip,
-        take: Number(limit),
+        take: pageSize,
         include: {
           farm: {
             select: {
@@ -82,35 +88,85 @@ export const getAllBatches = async (
         orderBy: { startDate: "desc" },
       }),
       prisma.batch.count({ where }),
+      prisma.batch.findMany({
+        where,
+        select: {
+          id: true,
+          status: true,
+          initialChicks: true,
+        },
+      }),
     ]);
 
-    // Calculate current chicks for each batch
-    const batchesWithCurrentChicks = await Promise.all(
-      batches.map(async (batch) => {
-        const totalMortality = await prisma.mortality.aggregate({
-          where: { batchId: batch.id },
-          _sum: { count: true },
-        });
+    const allBatchIds = allMatchingBatches.map((batch) => batch.id);
+    const groupedMortalityTotals =
+      allBatchIds.length > 0
+        ? await prisma.mortality.groupBy({
+            by: ["batchId"],
+            where: {
+              batchId: {
+                in: allBatchIds,
+              },
+            },
+            _sum: {
+              count: true,
+            },
+          })
+        : [];
 
-        const currentChicks =
-          batch.initialChicks - Number(totalMortality._sum.count || 0);
+    const mortalityMap = new Map(
+      groupedMortalityTotals.map((entry) => [
+        entry.batchId,
+        Number(entry._sum.count || 0),
+      ])
+    );
 
-        return {
-          ...batch,
-          currentChicks: Math.max(0, currentChicks),
-        };
-      })
+    const batchesWithCurrentChicks = batches.map((batch) => {
+      const totalMortality = mortalityMap.get(batch.id) || 0;
+      const currentChicks = batch.initialChicks - totalMortality;
+
+      return {
+        ...batch,
+        currentChicks: Math.max(0, currentChicks),
+      };
+    });
+
+    const summary = allMatchingBatches.reduce(
+      (acc, batch) => {
+        const totalMortality = mortalityMap.get(batch.id) || 0;
+        const currentChicks = Math.max(0, batch.initialChicks - totalMortality);
+
+        acc.totalBatches += 1;
+        acc.totalInitialChicks += batch.initialChicks;
+        acc.totalCurrentChicks += currentChicks;
+
+        if (batch.status === BatchStatus.ACTIVE) {
+          acc.activeBatches += 1;
+        } else {
+          acc.closedBatches += 1;
+        }
+
+        return acc;
+      },
+      {
+        totalBatches: 0,
+        activeBatches: 0,
+        closedBatches: 0,
+        totalInitialChicks: 0,
+        totalCurrentChicks: 0,
+      }
     );
 
     return res.json({
       success: true,
       data: batchesWithCurrentChicks,
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page: currentPage,
+        limit: pageSize,
         total,
-        totalPages: Math.ceil(total / Number(limit)),
+        totalPages: Math.ceil(total / pageSize),
       },
+      summary,
     });
   } catch (error) {
     console.error("Get all batches error:", error);

@@ -17,6 +17,8 @@ export interface ListForSalePublicItem {
   availabilityTo: string;
   province?: string | null;
   address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   avgWeightKg: number | null;
   eggVariants: Array<{ size: string; quantity: number; rate: number }> | null;
   typeVariants: Array<{ type: string; quantity: number; rate: number }> | null;

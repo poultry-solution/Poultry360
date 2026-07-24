@@ -267,119 +267,68 @@ export const getDealerById = async (
     const connectionType = "MANUAL";
     const isOwnedDealer = !!dealer.ownerId;
 
-    // ── Manual dealers: use dealer.balance + EntityTransaction ──
+    // ── Manual dealers: use dealer.balance + EntityTransaction aggregates ──
     const balance = Number(dealer.balance);
-
-    const transactions = await prisma.entityTransaction.findMany({
-      where: { dealerId: id },
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-    });
-
-    const openingBalanceTxn = transactions.find((t) => t.type === "OPENING_BALANCE") || null;
-    const openingBalanceHistory = transactions
-      .filter((t) => t.type === "OPENING_BALANCE")
-      .map((t) => ({
-        id: t.id,
-        amount: Number(t.amount),
-        date: t.date,
-        notes: t.description,
-      }));
 
     const currentMonth = new Date();
     currentMonth.setDate(1);
     currentMonth.setHours(0, 0, 0, 0);
 
-    const thisMonthTransactions = transactions.filter(
-      (t) => new Date(t.date) >= currentMonth
-    );
+    const [
+      openingBalanceHistoryRaw,
+      purchaseSummary,
+      paymentSummary,
+      thisMonthPurchaseSummary,
+      thisMonthPurchaseCount,
+      totalTransactions,
+    ] = await Promise.all([
+      prisma.entityTransaction.findMany({
+        where: { dealerId: id, type: TransactionType.OPENING_BALANCE },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      }),
+      prisma.entityTransaction.aggregate({
+        where: { dealerId: id, type: TransactionType.PURCHASE },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      prisma.entityTransaction.aggregate({
+        where: { dealerId: id, type: TransactionType.PAYMENT },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      prisma.entityTransaction.aggregate({
+        where: {
+          dealerId: id,
+          type: TransactionType.PURCHASE,
+          date: { gte: currentMonth },
+        },
+        _sum: { amount: true },
+      }),
+      prisma.entityTransaction.count({
+        where: {
+          dealerId: id,
+          type: TransactionType.PURCHASE,
+          date: { gte: currentMonth },
+        },
+      }),
+      prisma.entityTransaction.count({
+        where: { dealerId: id },
+      }),
+    ]);
 
-    const thisMonthAmount = thisMonthTransactions
-      .filter((t) => t.type === "PURCHASE")
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const openingBalanceTxn = openingBalanceHistoryRaw[0] || null;
+    const openingBalanceHistory = openingBalanceHistoryRaw.map((t) => ({
+      id: t.id,
+      amount: Number(t.amount),
+      date: t.date,
+      notes: t.description,
+    }));
 
-    // Group transactions by item for the table view
-    const transactionGroups = transactions.reduce((groups, transaction) => {
-      if (transaction.type === "PURCHASE") {
-        const key = `${transaction.itemName || "Unknown Item"}_${transaction.id}`;
-        if (!groups[key]) {
-          groups[key] = {
-            id: transaction.id,
-            itemName: transaction.itemName || "Unknown Item",
-            rate:
-              Number(transaction.amount) / Number(transaction.quantity || 1),
-            quantity: 0,
-            totalAmount: 0,
-            amountPaid: 0,
-            amountDue: 0,
-            date: transaction.date,
-            dueDate: new Date(
-              transaction.date.getTime() + 30 * 24 * 60 * 60 * 1000
-            ),
-            payments: [],
-          };
-        }
-        groups[key].quantity += transaction.quantity || 0;
-        groups[key].totalAmount += Number(transaction.amount);
-        groups[key].amountDue += Number(transaction.amount);
-      }
-      return groups;
-    }, {} as any);
-
-    const purchaseGroups = Object.values(transactionGroups) as any[];
-    const paymentsRaw = transactions.filter((t) => t.type === "PAYMENT");
-
-    for (const payment of paymentsRaw) {
-      const paymentAmount = Number(payment.amount);
-      if (!payment.paymentToPurchaseId) continue;
-
-      const targetGroup = purchaseGroups.find(
-        (group) => group.id === payment.paymentToPurchaseId
-      );
-      if (!targetGroup) continue;
-
-      const currentDue = targetGroup.totalAmount - targetGroup.amountPaid;
-      if (currentDue <= 0) continue;
-
-      const paymentToApply = Math.min(paymentAmount, currentDue);
-      targetGroup.amountPaid += paymentToApply;
-      targetGroup.amountDue = Math.max(0, targetGroup.totalAmount - targetGroup.amountPaid);
-      targetGroup.payments.push({
-        amount: paymentToApply,
-        date: payment.date,
-        reference: payment.reference,
-      });
-    }
-
-    const transactionTable = Object.values(transactionGroups);
-
-    const purchases = transactions
-      .filter((t) => t.type === "PURCHASE")
-      .map((t) => ({
-        id: t.id,
-        itemName: t.itemName,
-        purchaseCategory: t.purchaseCategory,
-        quantity: t.quantity,
-        freeQuantity: t.freeQuantity,
-        amount: Number(t.amount),
-        unitPrice: t.unitPrice ? Number(t.unitPrice) : null,
-        unit: t.unit || null,
-        date: t.date,
-        expiryDate: t.expiryDate,
-        description: t.description,
-        reference: t.reference,
-      }));
-
-    const paymentsList = transactions
-      .filter((t) => t.type === "PAYMENT")
-      .map((t) => ({
-        id: t.id,
-        amount: Number(t.amount),
-        date: t.date,
-        description: t.description,
-        reference: t.reference,
-        imageUrl: t.imageUrl,
-        paymentToPurchaseId: t.paymentToPurchaseId,
-      }));
+    const totalPurchasedAmount = Number(purchaseSummary._sum.amount || 0);
+    const totalPaidAmount = Number(paymentSummary._sum.amount || 0);
+    const purchaseCount = Number(purchaseSummary._count._all || 0);
+    const paymentCount = Number(paymentSummary._count._all || 0);
+    const thisMonthAmount = Number(thisMonthPurchaseSummary._sum.amount || 0);
 
     return res.json({
       success: true,
@@ -396,19 +345,17 @@ export const getDealerById = async (
           : null,
         openingBalanceHistory,
         thisMonthAmount,
-        totalTransactions: transactions.length,
-        transactionTable,
-        purchases,
-        payments: paymentsList,
+        totalTransactions,
         connectionType,
         isOwnedDealer,
         summary: {
-          totalPurchases: purchases.length,
-          totalPayments: paymentsList.length,
+          totalPurchases: purchaseCount,
+          totalPayments: paymentCount,
+          totalPurchasedAmount,
+          totalPaidAmount,
           outstandingAmount: balance,
-          thisMonthPurchases: thisMonthTransactions.filter(
-            (t) => t.type === "PURCHASE"
-          ).length,
+          thisMonthPurchases: thisMonthPurchaseCount,
+          thisMonthAmount,
         },
       },
     });

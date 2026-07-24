@@ -51,6 +51,7 @@ export default function AdminDemoEnquiriesPage() {
                   <TableRow>
                     <TableHead>{t("admin.demoEnquiries.company")}</TableHead>
                     <TableHead>{t("admin.demoEnquiries.phone")}</TableHead>
+                    <TableHead>{t("admin.demoEnquiries.businessType")}</TableHead>
                     <TableHead>{t("admin.demoEnquiries.message")}</TableHead>
                     <TableHead>{t("admin.demoEnquiries.createdAt")}</TableHead>
                   </TableRow>
@@ -60,6 +61,19 @@ export default function AdminDemoEnquiriesPage() {
                     <TableRow key={e.id}>
                       <TableCell className="font-medium">{e.companyName}</TableCell>
                       <TableCell className="text-muted-foreground">{e.phoneNumber}</TableCell>
+                      <TableCell>
+                        {(e.businessTypes ?? []).length > 0 ? (
+                          <div className="flex max-w-[260px] flex-wrap gap-1">
+                            {e.businessTypes.map((businessType) => (
+                              <Badge key={businessType} variant="outline">
+                                {businessType}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <Badge variant="outline">--</Badge>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {e.message ? (
                           <span className="line-clamp-2 max-w-[360px] block">
@@ -83,4 +97,3 @@ export default function AdminDemoEnquiriesPage() {
     </div>
   );
 }
-

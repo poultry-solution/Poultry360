@@ -1,15 +1,22 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/common/components/ui/card";
-import { Layers, Plus, TrendingUp, Users, Loader2 } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Layers,
+  Plus,
+  TrendingUp,
+  Users,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
 import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
@@ -35,20 +42,12 @@ import { useInventoryByType } from "@/fetchers/inventory/inventoryQueries";
 import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { useI18n } from "@/i18n/useI18n";
+import { DataTable, type Column } from "@/common/components/ui/data-table";
 
 
 export default function BatchesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { t } = useI18n();
-
-
-  // Fetch batches data
-  const {
-    data: batchesResponse,
-    isLoading: batchesLoading,
-    error: batchesError,
-  } = useGetAllBatches();
-  const batches = batchesResponse?.data || [];
 
   // Fetch farms for the form
   const { data: farmsResponse, isLoading: farmsLoading } = useGetFarms("all");
@@ -172,7 +171,7 @@ export default function BatchesPage() {
       await createBatchMutation.mutateAsync({
         batchNumber:
           formData.batchNumber ||
-          `B-${new Date().getFullYear()}-${String(batches.length + 1).padStart(3, "0")}`,
+          `B-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
 
         batchType: formData.batchType,
         farmId: formData.farmId,
@@ -213,12 +212,190 @@ export default function BatchesPage() {
     });
   };
 
-  const activeBatches = batches.filter(
-    (b: BatchResponse) => b.status === "ACTIVE"
-  );
-  const closedBatches = batches.filter(
-    (b: BatchResponse) => b.status === "COMPLETED"
-  );
+  const [page, setPage] = useState(1);
+  const limit = 10;
+  const [farmFilter, setFarmFilter] = useState("all");
+  const [batchTypeFilter, setBatchTypeFilter] = useState<"ALL" | "BROILER" | "LAYERS">("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "COMPLETED">("ALL");
+
+  const router = useRouter();
+
+  const mainBatchQueryParams: {
+    page: number;
+    limit: number;
+    farmId?: string;
+    batchType?: "BROILER" | "LAYERS";
+    status?: BatchStatus;
+  } = {
+    page,
+    limit,
+    farmId: farmFilter === "all" ? undefined : farmFilter,
+    batchType: batchTypeFilter === "ALL" ? undefined : batchTypeFilter,
+    status: statusFilter === "ALL" ? undefined : statusFilter,
+  };
+
+  const summaryBatchQueryParams: {
+    page: number;
+    limit: number;
+    farmId?: string;
+    batchType?: "BROILER" | "LAYERS";
+  } = {
+    page: 1,
+    limit: 1,
+    farmId: farmFilter === "all" ? undefined : farmFilter,
+    batchType: batchTypeFilter === "ALL" ? undefined : batchTypeFilter,
+  };
+
+  const countModalStatus: BatchStatus =
+    countFilter === "Active" ? "ACTIVE" : "COMPLETED";
+  const countModalQueryParams: {
+    page: number;
+    limit: number;
+    farmId?: string;
+    batchType?: "BROILER" | "LAYERS";
+    status: BatchStatus;
+  } = {
+    page: 1,
+    limit: 1000,
+    farmId: farmFilter === "all" ? undefined : farmFilter,
+    batchType: batchTypeFilter === "ALL" ? undefined : batchTypeFilter,
+    status: countModalStatus,
+  };
+
+  const {
+    data: batchesResponse,
+    isLoading: batchesLoading,
+    error: batchesError,
+  } = useGetAllBatches(mainBatchQueryParams);
+
+  const {
+    data: summaryResponse,
+  } = useGetAllBatches(summaryBatchQueryParams);
+
+  const {
+    data: countModalResponse,
+    isLoading: countModalLoading,
+    error: countModalError,
+  } = useGetAllBatches(countModalQueryParams, { enabled: isCountModalOpen });
+
+  const batches = batchesResponse?.data || [];
+  const pagination = batchesResponse?.pagination;
+  const summary = summaryResponse?.summary || batchesResponse?.summary;
+  const totalBatches = summary?.totalBatches ?? pagination?.total ?? 0;
+  const totalBirds = summary?.totalInitialChicks ?? 0;
+  const currentBirds = summary?.totalCurrentChicks ?? 0;
+  const activeCount = summary?.activeBatches ?? 0;
+  const closedCount = summary?.closedBatches ?? 0;
+  const countModalBatches = countModalResponse?.data || [];
+
+  const farmOptions = farms.map((farm: any) => ({
+    id: farm.id,
+    name: farm.name,
+  }));
+
+  const batchColumns = useMemo<Column<BatchResponse>[]>(() => [
+    {
+      key: "batchNumber",
+      label: "Batch",
+      width: "240px",
+      render: (_value, batch) => (
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="font-medium leading-tight">{batch.batchNumber}</span>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {t("farmer.batches.list.started")} <DateDisplay date={batch.startDate} format="short" />
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "farm",
+      label: "Farm",
+      width: "210px",
+      render: (_value, batch) => (
+        <div className="min-w-0">
+          <div className="font-medium truncate">{batch.farm.name}</div>
+          <div className="text-xs text-muted-foreground truncate">
+            {batch.farm.capacity.toLocaleString()} birds capacity
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "batchType",
+      label: "Type",
+      width: "130px",
+      render: (_value, batch) => (
+        <Badge
+          variant="outline"
+          className="text-xs font-normal"
+        >
+          {batch.batchType === "LAYERS"
+            ? t("farmer.batches.modal.layers")
+            : t("farmer.batches.modal.broiler")}
+        </Badge>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      width: "130px",
+      render: (_value, batch) => (
+        <Badge
+          variant="default"
+          className={
+            batch.status === "ACTIVE"
+              ? "bg-green-100 text-green-800 text-xs"
+              : "bg-gray-100 text-gray-800 text-xs"
+          }
+        >
+          {batch.status}
+        </Badge>
+      ),
+    },
+    {
+      key: "initialChicks",
+      label: "Initial Birds",
+      width: "140px",
+      type: "number",
+    },
+    {
+      key: "currentChicks",
+      label: "Current Birds",
+      width: "140px",
+      type: "number",
+    },
+    {
+      key: "age",
+      label: "Age",
+      width: "110px",
+      render: (_value, batch) => {
+        const age = Math.floor(
+          (new Date().getTime() - new Date(batch.startDate).getTime()) /
+          (1000 * 60 * 60 * 24)
+        );
+
+        return <span className="font-medium">{age} days</span>;
+      },
+    },
+  ], [t]);
+
+  const handleBatchOpen = (batch: BatchResponse) => {
+    router.push(`/farmer/dashboard/batches/${batch.id}`);
+  };
+
+  const handleResetFilters = () => {
+    setPage(1);
+    setFarmFilter("all");
+    setBatchTypeFilter("ALL");
+    setStatusFilter("ALL");
+  };
+
+  const emptyMessage =
+    farmFilter === "all" && batchTypeFilter === "ALL" && statusFilter === "ALL"
+      ? t("farmer.batches.emptyHelp")
+      : "No batches match the selected filters.";
 
   return (
     <div className="space-y-6">
@@ -258,194 +435,233 @@ export default function BatchesPage() {
         </div>
       )}
 
-      {/* Batch Stats */}
       {!batchesLoading && !batchesError && (
-        <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
-          <Card
-            className="group cursor-pointer transition-colors hover:bg-primary hover:text-primary-foreground hover:border-transparent"
-            onClick={() => openCountModal("Active")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium group-hover:text-primary-foreground">
-                {t("farmer.batches.stats.active")}
-              </CardTitle>
-              <Layers className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground group-hover:text-primary-foreground" />
-            </CardHeader>
-            <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-              <div className="text-base md:text-2xl font-bold group-hover:text-primary-foreground">
-                {activeBatches.length}
-              </div>
-              <p className="text-xs text-muted-foreground group-hover:text-primary-foreground">
-                {t("farmer.batches.stats.running")}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("farmer.batches.stats.totalBirds")}</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-              <div className="text-base md:text-2xl font-bold">
-                {batches
-                  .reduce((sum, b: BatchResponse) => sum + b.initialChicks, 0)
-                  .toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {t("farmer.batches.stats.acrossAll")}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {t("farmer.batches.stats.currentBirds")}
-              </CardTitle>
-              <TrendingUp className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-              <div className="text-base md:text-2xl font-bold">
-                {batches
-                  .reduce((sum, b: BatchResponse) => sum + b.currentChicks, 0)
-                  .toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground">{t("farmer.batches.stats.currentlyAlive")}</p>
-            </CardContent>
-          </Card>
-
-          <Card
-            className="group cursor-pointer transition-colors hover:bg-primary hover:text-primary-foreground hover:border-transparent"
-            onClick={() => openCountModal("Closed")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium group-hover:text-primary-foreground">
-                {t("farmer.batches.stats.closed")}
-              </CardTitle>
-              <Layers className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground group-hover:text-primary-foreground" />
-            </CardHeader>
-            <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-              <div className="text-base md:text-2xl font-bold group-hover:text-primary-foreground">
-                {closedBatches.length}
-              </div>
-              <p className="text-xs text-muted-foreground group-hover:text-primary-foreground">
-                {t("farmer.batches.stats.tillNow")}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Batches List */}
-      {!batchesLoading && !batchesError && (
-        <div className="grid gap-4">
-          {/* Suggest closing batches with 0 current chicks */}
-          {activeBatches.some((b: BatchResponse) => (b as any).currentChicks === 0) && (
-            <Card className="border-orange-200 bg-orange-50">
-              <CardContent className="pt-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="text-sm font-semibold text-orange-900">
-                      {t("farmer.batches.finishedNoticeTitle")}
-                    </div>
-                    <div className="text-sm text-orange-800">
-                      {t("farmer.batches.finishedNoticeBody")}
-                    </div>
-                  </div>
+        <>
+          {/* Batch Stats */}
+          <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
+            <Card
+              className="group cursor-pointer transition-colors hover:bg-primary hover:text-primary-foreground hover:border-transparent"
+              onClick={() => openCountModal("Active")}
+            >
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium group-hover:text-primary-foreground">
+                  {t("farmer.batches.stats.active")}
+                </CardTitle>
+                <Layers className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground group-hover:text-primary-foreground" />
+              </CardHeader>
+              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+                <div className="text-base md:text-2xl font-bold group-hover:text-primary-foreground">
+                  {activeCount.toLocaleString()}
                 </div>
+                <p className="text-xs text-muted-foreground group-hover:text-primary-foreground">
+                  {t("farmer.batches.stats.running")}
+                </p>
               </CardContent>
             </Card>
-          )}
-          {batches.length === 0 ? (
-            <div className="text-center py-8">
-              <Layers className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">{t("farmer.batches.emptyTitle")}</h3>
-              <p className="text-muted-foreground mb-4">{t("farmer.batches.emptyHelp")}</p>
-              <Button onClick={() => setIsModalOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                {t("farmer.batches.createBatch")}
-              </Button>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{t("farmer.batches.stats.totalBirds")}</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+                <div className="text-base md:text-2xl font-bold">
+                  {totalBirds.toLocaleString()}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("farmer.batches.stats.acrossAll")}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  {t("farmer.batches.stats.currentBirds")}
+                </CardTitle>
+                <TrendingUp className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+                <div className="text-base md:text-2xl font-bold">
+                  {currentBirds.toLocaleString()}
+                </div>
+                <p className="text-xs text-muted-foreground">{t("farmer.batches.stats.currentlyAlive")}</p>
+              </CardContent>
+            </Card>
+
+            <Card
+              className="group cursor-pointer transition-colors hover:bg-primary hover:text-primary-foreground hover:border-transparent"
+              onClick={() => openCountModal("Closed")}
+            >
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium group-hover:text-primary-foreground">
+                  {t("farmer.batches.stats.closed")}
+                </CardTitle>
+                <Layers className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground group-hover:text-primary-foreground" />
+              </CardHeader>
+              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
+                <div className="text-base md:text-2xl font-bold group-hover:text-primary-foreground">
+                  {closedCount.toLocaleString()}
+                </div>
+                <p className="text-xs text-muted-foreground group-hover:text-primary-foreground">
+                  {t("farmer.batches.stats.tillNow")}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Table Filters */}
+          <div className="rounded-lg border border-border/70 bg-background p-3 sm:p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground">Farm</Label>
+                  <Select
+                    value={farmFilter}
+                    onValueChange={(value) => {
+                      setFarmFilter(value);
+                      setPage(1);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All farms" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      <SelectItem value="all">All farms</SelectItem>
+                      {farmOptions.map((farm) => (
+                        <SelectItem key={farm.id} value={farm.id}>
+                          {farm.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground">Batch type</Label>
+                  <Select
+                    value={batchTypeFilter}
+                    onValueChange={(value) => {
+                      setBatchTypeFilter(value as typeof batchTypeFilter);
+                      setPage(1);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All types" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      <SelectItem value="ALL">All types</SelectItem>
+                      <SelectItem value="BROILER">Broiler</SelectItem>
+                      <SelectItem value="LAYERS">Layers</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground">Status</Label>
+                  <Select
+                    value={statusFilter}
+                    onValueChange={(value) => {
+                      setStatusFilter(value as typeof statusFilter);
+                      setPage(1);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All status" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      <SelectItem value="ALL">All status</SelectItem>
+                      <SelectItem value="ACTIVE">Active</SelectItem>
+                      <SelectItem value="COMPLETED">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground">Page size</Label>
+                  <Input value={limit} readOnly className="bg-muted cursor-not-allowed" />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={handleResetFilters}>
+                  Reset
+                </Button>
+              </div>
             </div>
-          ) : (
-            batches.map((b: BatchResponse) => (
-              <Link
-                key={b.id}
-                href={`/farmer/dashboard/batches/${b.id}`}
-                className="block"
-              >
-                <Card className="hover:border-primary cursor-pointer">
-                  <CardHeader className="p-3 md:p-6">
-                    <CardTitle className="flex items-center justify-between text-sm md:text-base">
-                      <span className="truncate max-w-[180px] md:max-w-none">{b.batchNumber}</span>
-                      <div className="flex items-center gap-1">
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] md:text-xs font-normal"
-                        >
-                          {(b as any).batchType === "LAYERS" ? t("farmer.batches.modal.layers") : t("farmer.batches.modal.broiler")}
-                        </Badge>
-                        <Badge
-                          variant="default"
-                          className={
-                            b.status === "ACTIVE"
-                              ? "bg-green-100 text-green-800 text-[10px] md:text-xs"
-                              : "bg-gray-100 text-gray-800 text-[10px] md:text-xs"
-                          }
-                        >
-                          {b.status}
-                        </Badge>
-                      </div>
-                    </CardTitle>
-                    <CardDescription>
-                      {b.farm.name} • {t("farmer.batches.list.started")}{" "}
-                      <DateDisplay date={b.startDate} format="short" />
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-3 md:p-6 pt-0">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 text-xs md:text-sm">
-                      <div>
-                        <span className="text-muted-foreground">
-                          {t("farmer.batches.list.initialBirds")}
-                        </span>
-                        <p className="font-medium">
-                          {b.initialChicks.toLocaleString()}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">
-                          {t("farmer.batches.list.currentBirds")}
-                        </span>
-                        <p className="font-medium">
-                          {b.currentChicks.toLocaleString()}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">{t("farmer.batches.list.age")}</span>
-                        <p className="font-medium">
-                          {Math.floor(
-                            (new Date().getTime() -
-                              new Date(b.startDate).getTime()) /
-                            (1000 * 60 * 60 * 24)
-                          )}{" "}
-                          {t("farmer.batches.list.days")}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">{t("farmer.batches.list.status")}</span>
-                        <p
-                          className={`font-medium ${b.status === "ACTIVE" ? "text-green-600" : "text-gray-600"}`}
-                        >
-                          {b.status}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))
+          </div>
+
+          {/* Batches Table */}
+          <div className="space-y-3">
+            <div className="flex flex-col gap-1 px-1">
+              <h2 className="text-base md:text-lg font-semibold">Batches</h2>
+              <p className="text-xs md:text-sm text-muted-foreground">
+                {totalBatches} batches total
+                {pagination
+                  ? ` • Showing ${((pagination.page - 1) * pagination.limit) + 1}-${Math.min(pagination.page * pagination.limit, pagination.total)}`
+                  : ""}
+              </p>
+            </div>
+
+            {totalBatches === 0 ? (
+              <div className="text-center py-12 border rounded-lg bg-background">
+                <Layers className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">{t("farmer.batches.emptyTitle")}</h3>
+                <p className="text-muted-foreground mb-4">{t("farmer.batches.emptyHelp")}</p>
+                <Button onClick={() => setIsModalOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t("farmer.batches.createBatch")}
+                </Button>
+              </div>
+            ) : (
+              <DataTable
+                data={batches}
+                columns={batchColumns}
+                loading={batchesLoading}
+                onRowClick={handleBatchOpen}
+                emptyMessage={emptyMessage}
+                rowClassName={(batch) =>
+                  batch.status === "ACTIVE" ? "bg-green-50/30" : ""
+                }
+              />
+            )}
+          </div>
+
+          {!batchesLoading && !batchesError && pagination && pagination.totalPages > 1 && (
+            <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                {pagination.total} batches total
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  disabled={page <= 1}
+                >
+                  <ChevronLeft className="mr-2 h-4 w-4" />
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {pagination.page} of {pagination.totalPages || 1}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setPage((current) =>
+                      Math.min(pagination.totalPages || current, current + 1)
+                    )
+                  }
+                  disabled={page >= (pagination.totalPages || 1)}
+                >
+                  Next
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           )}
-        </div>
+        </>
       )}
 
       {/* New Batch Modal */}
@@ -719,46 +935,49 @@ export default function BatchesPage() {
       >
         <ModalContent>
           <div className="space-y-3">
-            {(countFilter === "Active" ? activeBatches : closedBatches).map(
-              (b: BatchResponse) => (
-                <Link
-                  key={b.id}
-                  href={`/farmer/dashboard/batches/${b.id}`}
-                  className="block"
+            {countModalLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : countModalError ? (
+              <p className="text-sm text-red-600">Unable to load batches for this status.</p>
+            ) : countModalBatches.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {t("farmer.batches.modal.none", {
+                  status:
+                    countFilter === "Active"
+                      ? t("farmer.batches.counts.active").toLowerCase()
+                      : t("farmer.batches.counts.closed").toLowerCase(),
+                })}
+              </p>
+            ) : (
+              countModalBatches.map((batch: BatchResponse) => (
+                <button
+                  key={batch.id}
+                  type="button"
+                  onClick={() => handleBatchOpen(batch)}
+                  className="flex w-full items-center justify-between rounded-md border p-3 text-left hover:border-primary/60"
                 >
-                  <div className="flex items-center justify-between rounded-md border p-3 hover:border-primary/60 cursor-pointer">
-                    <div>
-                      <div className="font-medium">{b.batchNumber}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {b.farm.name} • Started:{" "}
-                        <DateDisplay date={b.startDate} format="short" />
-                      </div>
+                  <div>
+                    <div className="font-medium">{batch.batchNumber}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {batch.farm.name} • Started:{" "}
+                      <DateDisplay date={batch.startDate} format="short" />
                     </div>
-                    <Badge
-                      variant="outline"
-                      className={
-                        countFilter === "Active"
-                          ? "text-green-600 border-green-600/30"
-                          : "text-gray-600 border-gray-600/30"
-                      }
-                    >
-                      {b.status}
-                    </Badge>
                   </div>
-                </Link>
-              )
-            )}
-            {(countFilter === "Active" ? activeBatches : closedBatches)
-              .length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  {t("farmer.batches.modal.none", {
-                    status:
+                  <Badge
+                    variant="outline"
+                    className={
                       countFilter === "Active"
-                        ? t("farmer.batches.counts.active").toLowerCase()
-                        : t("farmer.batches.counts.closed").toLowerCase(),
-                  })}
-                </p>
-              )}
+                        ? "text-green-600 border-green-600/30"
+                        : "text-gray-600 border-gray-600/30"
+                    }
+                  >
+                    {batch.status}
+                  </Badge>
+                </button>
+              ))
+            )}
           </div>
         </ModalContent>
         <ModalFooter>

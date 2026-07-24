@@ -8,7 +8,6 @@ import {
     Plus,
     Search,
     Building2,
-    AlertCircle,
     Eye,
     Archive,
     ArchiveRestore,
@@ -284,35 +283,17 @@ export default function DealerCompanyPage() {
             </div>
 
             <>
-                    <Card className="border-amber-200 bg-amber-50/60">
-                        <CardContent className="pt-6">
-                            <div className="flex items-start gap-3">
-                                <AlertCircle className="h-5 w-5 text-amber-700 mt-0.5" />
-                                <div className="space-y-1">
-                                    <p className="font-medium text-amber-900">
-                                        Company connection workflows are being removed.
-                                    </p>
-                                    <p className="text-sm text-amber-800">
-                                        Use manual companies for purchase tracking, direct payments, and account history.
-                                    </p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardContent className="pt-4 pb-4">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    placeholder="Search companies by name, phone, or address"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    className="pl-10"
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <div className="max-w-md">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                placeholder="Search companies by name, phone, or address"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="pl-10"
+                            />
+                        </div>
+                    </div>
 
                     {/* Manual Companies Section */}
                     <Card>

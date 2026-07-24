@@ -8,7 +8,8 @@ export const dealerLedgerKeys = {
   lists: () => [...dealerLedgerKeys.all, "list"] as const,
   list: (filters: string) => [...dealerLedgerKeys.lists(), { filters }] as const,
   balance: () => [...dealerLedgerKeys.all, "balance"] as const,
-  summary: () => [...dealerLedgerKeys.all, "summary"] as const,
+  summary: (filters?: string) =>
+    filters ? [...dealerLedgerKeys.all, "summary", { filters }] as const : [...dealerLedgerKeys.all, "summary"] as const,
   party: (partyId: string) => [...dealerLedgerKeys.all, "party", partyId] as const,
 };
 
@@ -51,12 +52,7 @@ export interface LedgerSummaryResponse {
     totalPurchases: number;
     totalPaymentsReceived: number;
     totalPaymentsMade: number;
-    entriesByType: Array<{
-      type: string;
-      count: number;
-      total: number;
-    }>;
-    outstandingBalances: number;
+    activeCustomerCount: number;
   };
 }
 
@@ -116,7 +112,7 @@ export const useGetLedgerSummary = (params?: {
   ).toString();
 
   return useQuery({
-    queryKey: dealerLedgerKeys.summary(),
+    queryKey: dealerLedgerKeys.summary(queryString),
     queryFn: async () => {
       const { data } = await axiosInstance.get<LedgerSummaryResponse>(
         `/dealer/ledger/summary?${queryString}`
@@ -276,4 +272,3 @@ export const useExportLedger = () => {
     },
   });
 };
-

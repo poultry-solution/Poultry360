@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Loader2,
   AlertTriangle,
-  X,
   Plus,
   Trash2,
   CheckCircle,
@@ -18,6 +17,7 @@ import { Input } from "@/common/components/ui/input";
 import { Badge } from "@/common/components/ui/badge";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { DataTable, type Column } from "@/common/components/ui/data-table";
+import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
 import {
   useHatcheryBatch,
   useCloseHatcheryBatch,
@@ -42,16 +42,15 @@ import {
   type HatcheryBatchDetail,
   type HatcheryBatchMortality,
   type HatcheryBatchExpense,
-  type HatcheryEggProduction,
   type HatcheryEggSale,
   type HatcheryParentSale,
 } from "@/fetchers/hatchery/hatcheryBatchQueries";
 import {
   useGetHatcheryInventory,
-  type HatcheryInventoryItem,
   type HatcheryInventoryItemType,
+  type HatcheryInventoryItem,
 } from "@/fetchers/hatchery/hatcheryInventoryQueries";
-import { useHatcheryParties, type HatcheryParty } from "@/fetchers/hatchery/hatcheryPartyQueries";
+import { useHatcheryParties } from "@/fetchers/hatchery/hatcheryPartyQueries";
 
 type Tab =
   | "overview"
@@ -489,7 +488,8 @@ function MortalityTab({
   batchId: string;
   currentParents: number;
 }) {
-  const { data: mortalities = [], isLoading } = useHatcheryMortalities(batchId);
+  const [page, setPage] = useState(1);
+  const { data: mortalityRes, isLoading } = useHatcheryMortalities(batchId, { page, limit: 10 });
   const addMutation = useAddHatcheryMortality(batchId);
   const deleteMutation = useDeleteHatcheryMortality(batchId);
 
@@ -498,6 +498,19 @@ function MortalityTab({
   const [note, setNote] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const mortalities = mortalityRes?.mortalities ?? [];
+  const totalMortality = Number(mortalityRes?.summary.totalMortality ?? 0);
+  const totalRows = Number(mortalityRes?.total ?? 0);
+  const totalPages = Math.max(1, Number(mortalityRes?.totalPages ?? 1));
+  const currentPage = Math.max(1, Number(mortalityRes?.page ?? page));
+  const pageLimit = Number(mortalityRes?.limit ?? 10);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   async function handleAdd() {
     setFormError(null);
@@ -553,8 +566,6 @@ function MortalityTab({
     },
   ];
 
-  const totalMortality = mortalities.reduce((s, m) => s + m.count, 0);
-
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
@@ -597,6 +608,14 @@ function MortalityTab({
           emptyMessage="No mortality records yet."
           getRowKey={(row) => row.id}
         />
+        <LedgerPagination
+          page={currentPage}
+          totalPages={totalPages}
+          totalRows={totalRows}
+          pageLimit={pageLimit}
+          onPageChange={setPage}
+          loading={isLoading}
+        />
       </div>
     </div>
   );
@@ -612,11 +631,11 @@ const INVENTORY_ITEM_TYPE_OPTIONS: { value: HatcheryInventoryItemType; label: st
 ];
 
 function ExpensesTab({ batchId }: { batchId: string }) {
-  const { data: expenses = [], isLoading } = useHatcheryExpenses(batchId);
+  const [page, setPage] = useState(1);
+  const { data: expenseRes, isLoading } = useHatcheryExpenses(batchId, { page, limit: 10 });
   const addMutation = useAddHatcheryExpense(batchId);
   const deleteMutation = useDeleteHatcheryExpense(batchId);
   const { data: inventoryRes } = useGetHatcheryInventory();
-  const inventoryItems: HatcheryInventoryItem[] = inventoryRes?.data ?? [];
 
   const [expenseType, setExpenseType] = useState<"INVENTORY" | "MANUAL">("INVENTORY");
   const [date, setDate] = useState(today());
@@ -631,17 +650,33 @@ function ExpensesTab({ batchId }: { batchId: string }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const filteredInventoryItems = useMemo(
-    () => inventoryItems.filter((i) => i.itemType === inventoryCategory),
-    [inventoryItems, inventoryCategory]
+  const filteredInventoryItems = useMemo<HatcheryInventoryItem[]>(
+    () =>
+      ((inventoryRes?.data ?? []) as HatcheryInventoryItem[]).filter(
+        (item: HatcheryInventoryItem) => item.itemType === inventoryCategory
+      ),
+    [inventoryRes?.data, inventoryCategory]
   );
 
   // Auto-fill amount when picking inventory item + qty
-  const selectedItem = filteredInventoryItems.find((i) => i.id === inventoryItemId);
+  const selectedItem = filteredInventoryItems.find((item: HatcheryInventoryItem) => item.id === inventoryItemId);
   const computedAmount =
     expenseType === "INVENTORY" && selectedItem && quantity
       ? Math.round(Number(selectedItem.unitPrice) * Number(quantity) * 100) / 100
       : null;
+
+  const expenses = expenseRes?.expenses ?? [];
+  const totalExpenses = Number(expenseRes?.summary.totalExpenses ?? 0);
+  const totalRows = Number(expenseRes?.total ?? 0);
+  const totalPages = Math.max(1, Number(expenseRes?.totalPages ?? 1));
+  const currentPage = Math.max(1, Number(expenseRes?.page ?? page));
+  const pageLimit = Number(expenseRes?.limit ?? 10);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   async function handleAdd() {
     setFormError(null);
@@ -679,8 +714,6 @@ function ExpensesTab({ batchId }: { batchId: string }) {
       setFormError(err?.response?.data?.error ?? "Failed to add expense");
     }
   }
-
-  const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
 
   const columns: Column<HatcheryBatchExpense>[] = [
     {
@@ -808,7 +841,7 @@ function ExpensesTab({ batchId }: { batchId: string }) {
                 onChange={(e) => setInventoryItemId(e.target.value)}
               >
                 <option value="">Select item</option>
-                {filteredInventoryItems.map((item) => (
+                {filteredInventoryItems.map((item: HatcheryInventoryItem) => (
                   <option key={item.id} value={item.id}>
                     {item.name} ({item.unit}) — {Number(item.currentStock)} in stock @ NPR {Number(item.unitPrice)}
                   </option>
@@ -892,6 +925,14 @@ function ExpensesTab({ batchId }: { batchId: string }) {
           emptyMessage="No expenses recorded yet."
           getRowKey={(row) => row.id}
         />
+        <LedgerPagination
+          page={currentPage}
+          totalPages={totalPages}
+          totalRows={totalRows}
+          pageLimit={pageLimit}
+          onPageChange={setPage}
+          loading={isLoading}
+        />
       </div>
     </div>
   );
@@ -906,7 +947,11 @@ function EggProductionTab({
   batchId: string;
   batch: HatcheryBatchDetail;
 }) {
-  const { data: productions = [], isLoading } = useHatcheryEggProductions(batchId);
+  const [page, setPage] = useState(1);
+  const { data: productionRes, isLoading } = useHatcheryEggProductions(batchId, {
+    page,
+    limit: 10,
+  });
   const { data: eggTypes = [] } = useHatcheryEggTypes();
   const addMutation = useAddHatcheryEggProduction(batchId);
   const deleteMutation = useDeleteHatcheryEggProduction(batchId);
@@ -916,6 +961,20 @@ function EggProductionTab({
   const [counts, setCounts] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const productions = productionRes?.productions ?? [];
+  const totalRows = Number(productionRes?.total ?? 0);
+  const totalPages = Math.max(1, Number(productionRes?.totalPages ?? 1));
+  const currentPage = Math.max(1, Number(productionRes?.page ?? page));
+  const pageLimit = Number(productionRes?.limit ?? 10);
+  const typeTotals = productionRes?.summary.typeTotals ?? {};
+  const grandTotal = Number(productionRes?.summary.grandTotal ?? 0);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   async function handleAdd() {
     setFormError(null);
@@ -936,15 +995,6 @@ function EggProductionTab({
       setFormError(err?.response?.data?.error ?? "Failed to add production");
     }
   }
-
-  // Compute totals per type across all productions
-  const typeTotals: Record<string, number> = {};
-  productions.forEach((prod) => {
-    prod.lines.forEach((line) => {
-      typeTotals[line.eggTypeId] = (typeTotals[line.eggTypeId] ?? 0) + line.count;
-    });
-  });
-  const grandTotal = Object.values(typeTotals).reduce((s, v) => s + v, 0);
 
   const productionDays = hatcheryBatchProductionDays(batch.startDate, batch.endDate);
   const currentHens =
@@ -1108,6 +1158,14 @@ function EggProductionTab({
             })}
           </div>
         )}
+        <LedgerPagination
+          page={currentPage}
+          totalPages={totalPages}
+          totalRows={totalRows}
+          pageLimit={pageLimit}
+          onPageChange={setPage}
+          loading={isLoading}
+        />
       </div>
     </div>
   );
@@ -1172,8 +1230,16 @@ function SalesTab({
   currentParents: number;
 }) {
   const { data: eggTypes = [] } = useHatcheryEggTypes();
-  const { data: eggSales = [], isLoading: eggSalesLoading } = useHatcheryEggSales(batchId);
-  const { data: parentSales = [], isLoading: parentSalesLoading } = useHatcheryParentSales(batchId);
+  const [eggPage, setEggPage] = useState(1);
+  const [parentPage, setParentPage] = useState(1);
+  const { data: eggSalesRes, isLoading: eggSalesLoading } = useHatcheryEggSales(batchId, {
+    page: eggPage,
+    limit: 10,
+  });
+  const { data: parentSalesRes, isLoading: parentSalesLoading } = useHatcheryParentSales(batchId, {
+    page: parentPage,
+    limit: 10,
+  });
   const { data: partiesData } = useHatcheryParties();
 
   const addEggSaleMutation = useAddHatcheryEggSale(batchId);
@@ -1212,6 +1278,32 @@ function SalesTab({
     parentTotalWeight && parentCount && parseInt(parentCount) > 0
       ? Math.round((parseFloat(parentTotalWeight) / parseInt(parentCount)) * 1000) / 1000
       : null;
+
+  const eggSales = eggSalesRes?.data ?? [];
+  const parentSales = parentSalesRes?.data ?? [];
+  const eggTotalRows = Number(eggSalesRes?.total ?? 0);
+  const eggTotalPages = Math.max(1, Number(eggSalesRes?.totalPages ?? 1));
+  const eggCurrentPage = Math.max(1, Number(eggSalesRes?.page ?? eggPage));
+  const eggPageLimit = Number(eggSalesRes?.limit ?? 10);
+  const totalEggRevenue = Number(eggSalesRes?.summary?.totalRevenue ?? 0);
+
+  const parentTotalRows = Number(parentSalesRes?.total ?? 0);
+  const parentTotalPages = Math.max(1, Number(parentSalesRes?.totalPages ?? 1));
+  const parentCurrentPage = Math.max(1, Number(parentSalesRes?.page ?? parentPage));
+  const parentPageLimit = Number(parentSalesRes?.limit ?? 10);
+  const totalParentRevenue = Number(parentSalesRes?.summary?.totalRevenue ?? 0);
+
+  useEffect(() => {
+    if (eggPage > eggTotalPages) {
+      setEggPage(eggTotalPages);
+    }
+  }, [eggPage, eggTotalPages]);
+
+  useEffect(() => {
+    if (parentPage > parentTotalPages) {
+      setParentPage(parentTotalPages);
+    }
+  }, [parentPage, parentTotalPages]);
 
   async function handleAddEggSale() {
     setEggFormError(null);
@@ -1312,9 +1404,6 @@ function SalesTab({
     },
   ];
 
-  const totalEggRevenue = eggSales.reduce((s, e) => s + Number(e.amount), 0);
-  const totalParentRevenue = parentSales.reduce((s, p) => s + Number(p.amount), 0);
-
   return (
     <div className="space-y-6">
       {/* Summary */}
@@ -1367,6 +1456,14 @@ function SalesTab({
             emptyMessage="No egg sales yet."
             getRowKey={(r) => r.id}
           />
+          <LedgerPagination
+            page={eggCurrentPage}
+            totalPages={eggTotalPages}
+            totalRows={eggTotalRows}
+            pageLimit={eggPageLimit}
+            onPageChange={setEggPage}
+            loading={eggSalesLoading}
+          />
         </div>
       </div>
 
@@ -1411,6 +1508,14 @@ function SalesTab({
             loading={parentSalesLoading}
             emptyMessage="No parent sales yet."
             getRowKey={(r) => r.id}
+          />
+          <LedgerPagination
+            page={parentCurrentPage}
+            totalPages={parentTotalPages}
+            totalRows={parentTotalRows}
+            pageLimit={parentPageLimit}
+            onPageChange={setParentPage}
+            loading={parentSalesLoading}
           />
         </div>
       </div>

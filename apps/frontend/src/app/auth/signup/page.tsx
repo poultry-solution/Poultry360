@@ -7,8 +7,7 @@ import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Button } from "@/common/components/ui/button";
 
-import { useAuth, useAuthStore } from "@/common/store/store";
-import { PublicDealerSearchSelect } from "@/common/components/forms/PublicDealerSearchSelect";
+import { useAuth } from "@/common/store/store";
 import { Eye, EyeOff } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
 import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
@@ -30,7 +29,6 @@ export default function SignupPage() {
     phone: "",
     password: "",
     confirmPassword: "",
-    dealerId: null as string | null,
   });
 
   const handleInputChange = (
@@ -80,7 +78,6 @@ export default function SignupPage() {
         role: "OWNER" as const,
         companyName: formData.companyName,
         companyFarmLocation,
-        dealerId: formData.dealerId || undefined,
       };
 
       await register(registerData);
@@ -204,20 +201,6 @@ export default function SignupPage() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {t("auth.signup.phoneHelp")}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <PublicDealerSearchSelect
-                    value={formData.dealerId}
-                    onValueChange={(value: string | null) =>
-                      setFormData({ ...formData, dealerId: value })
-                    }
-                    placeholder={t("auth.signup.dealerPlaceholder")}
-                    label={t("auth.signup.dealerLabel")}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {t("auth.signup.dealerHelp")}
                   </p>
                 </div>
 

@@ -467,18 +467,41 @@ export async function listHatcheryMortalities(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
     const { id: batchId } = req.params;
+    const { page = "1", limit = "10" } = req.query as Record<string, string>;
 
     const batch = await prisma.hatcheryBatch.findFirst({
       where: { id: batchId, hatcheryOwnerId: ownerId },
     });
     if (!batch) return res.status(404).json({ error: "Batch not found" });
 
-    const mortalities = await prisma.hatcheryBatchMortality.findMany({
-      where: { batchId },
-      orderBy: { date: "desc" },
-    });
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const pageLimit = Math.max(1, parseInt(limit, 10) || 10);
+    const where = { batchId };
 
-    return res.json(mortalities);
+    const [mortalities, totalRows, totalSummary] = await Promise.all([
+      prisma.hatcheryBatchMortality.findMany({
+        where,
+        orderBy: { date: "desc" },
+        skip: (pageNum - 1) * pageLimit,
+        take: pageLimit,
+      }),
+      prisma.hatcheryBatchMortality.count({ where }),
+      prisma.hatcheryBatchMortality.aggregate({
+        where,
+        _sum: { count: true },
+      }),
+    ]);
+
+    return res.json({
+      mortalities,
+      page: pageNum,
+      limit: pageLimit,
+      total: totalRows,
+      totalPages: Math.max(1, Math.ceil(totalRows / pageLimit)),
+      summary: {
+        totalMortality: Number(totalSummary._sum.count ?? 0),
+      },
+    });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
@@ -556,21 +579,44 @@ export async function listHatcheryExpenses(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
     const { id: batchId } = req.params;
+    const { page = "1", limit = "10" } = req.query as Record<string, string>;
 
     const batch = await prisma.hatcheryBatch.findFirst({
       where: { id: batchId, hatcheryOwnerId: ownerId },
     });
     if (!batch) return res.status(404).json({ error: "Batch not found" });
 
-    const expenses = await prisma.hatcheryBatchExpense.findMany({
-      where: { batchId },
-      orderBy: { date: "desc" },
-      include: {
-        inventoryItem: { select: { id: true, name: true, unit: true } },
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const pageLimit = Math.max(1, parseInt(limit, 10) || 10);
+    const where = { batchId };
+
+    const [expenses, totalRows, totalSummary] = await Promise.all([
+      prisma.hatcheryBatchExpense.findMany({
+        where,
+        orderBy: { date: "desc" },
+        skip: (pageNum - 1) * pageLimit,
+        take: pageLimit,
+        include: {
+          inventoryItem: { select: { id: true, name: true, unit: true } },
+        },
+      }),
+      prisma.hatcheryBatchExpense.count({ where }),
+      prisma.hatcheryBatchExpense.aggregate({
+        where,
+        _sum: { amount: true },
+      }),
+    ]);
+
+    return res.json({
+      expenses,
+      page: pageNum,
+      limit: pageLimit,
+      total: totalRows,
+      totalPages: Math.max(1, Math.ceil(totalRows / pageLimit)),
+      summary: {
+        totalExpenses: Number(totalSummary._sum.amount ?? 0),
       },
     });
-
-    return res.json(expenses);
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
@@ -782,25 +828,55 @@ export async function listEggProductions(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
     const { id: batchId } = req.params;
+    const { page = "1", limit = "10" } = req.query as Record<string, string>;
 
     const batch = await prisma.hatcheryBatch.findFirst({
       where: { id: batchId, hatcheryOwnerId: ownerId },
     });
     if (!batch) return res.status(404).json({ error: "Batch not found" });
 
-    const productions = await prisma.hatcheryEggProduction.findMany({
-      where: { batchId },
-      orderBy: { date: "desc" },
-      include: {
-        lines: {
-          include: {
-            eggType: { select: { id: true, name: true, isHatchable: true } },
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const pageLimit = Math.max(1, parseInt(limit, 10) || 10);
+    const where = { batchId };
+
+    const [productions, totalRows, lineRows] = await Promise.all([
+      prisma.hatcheryEggProduction.findMany({
+        where,
+        orderBy: { date: "desc" },
+        skip: (pageNum - 1) * pageLimit,
+        take: pageLimit,
+        include: {
+          lines: {
+            include: {
+              eggType: { select: { id: true, name: true, isHatchable: true } },
+            },
           },
         },
+      }),
+      prisma.hatcheryEggProduction.count({ where }),
+      prisma.hatcheryEggProductionLine.findMany({
+        where: { production: { batchId } },
+        select: { eggTypeId: true, count: true },
+      }),
+    ]);
+
+    const typeTotals: Record<string, number> = {};
+    for (const line of lineRows) {
+      typeTotals[line.eggTypeId] = (typeTotals[line.eggTypeId] ?? 0) + Number(line.count);
+    }
+    const grandTotal = Object.values(typeTotals).reduce((sum, value) => sum + value, 0);
+
+    return res.json({
+      productions,
+      page: pageNum,
+      limit: pageLimit,
+      total: totalRows,
+      totalPages: Math.max(1, Math.ceil(totalRows / pageLimit)),
+      summary: {
+        typeTotals,
+        grandTotal,
       },
     });
-
-    return res.json(productions);
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
@@ -875,7 +951,7 @@ export async function deleteEggProduction(req: Request, res: Response) {
 export async function getEggInventory(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
-    const { batchId, typeId } = req.query as Record<string, string>;
+    const { batchId, typeId, page = "1", limit = "10" } = req.query as Record<string, string>;
 
     const where: any = {
       batch: { hatcheryOwnerId: ownerId },
@@ -883,16 +959,39 @@ export async function getEggInventory(req: Request, res: Response) {
     if (batchId) where.batchId = batchId;
     if (typeId) where.eggTypeId = typeId;
 
-    const stockRows = await prisma.hatcheryEggStock.findMany({
-      where,
-      include: {
-        batch: { select: { id: true, code: true, name: true, status: true } },
-        eggType: { select: { id: true, name: true, isHatchable: true } },
-      },
-      orderBy: [{ batch: { startDate: "desc" } }, { eggType: { isHatchable: "desc" } }],
-    });
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    return res.json(stockRows);
+    const [stockRows, totalRows, stockSummary] = await Promise.all([
+      prisma.hatcheryEggStock.findMany({
+        where,
+        include: {
+          batch: { select: { id: true, code: true, name: true, status: true } },
+          eggType: { select: { id: true, name: true, isHatchable: true } },
+        },
+        orderBy: [{ batch: { startDate: "desc" } }, { eggType: { isHatchable: "desc" } }],
+        skip,
+        take: parseInt(limit),
+      }),
+      prisma.hatcheryEggStock.count({ where }),
+      prisma.hatcheryEggStock.aggregate({
+        where,
+        _sum: { currentStock: true },
+      }),
+    ]);
+
+    return res.json({
+      data: stockRows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: totalRows,
+        totalPages: Math.max(1, Math.ceil(totalRows / parseInt(limit))),
+      },
+      summary: {
+        totalStock: Number(stockSummary._sum.currentStock ?? 0),
+        totalRows,
+      },
+    });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
@@ -904,19 +1003,43 @@ export async function listEggSales(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
     const { id: batchId } = req.params;
+    const { page = "1", limit = "10" } = req.query as Record<string, string>;
 
     const batch = await prisma.hatcheryBatch.findFirst({
       where: { id: batchId, hatcheryOwnerId: ownerId },
     });
     if (!batch) return res.status(404).json({ error: "Batch not found" });
 
-    const sales = await prisma.hatcheryEggSale.findMany({
-      where: { batchId },
-      orderBy: { date: "desc" },
-      include: { eggType: { select: { id: true, name: true, isHatchable: true } } },
-    });
+    const currentPage = Math.max(1, parseInt(page) || 1);
+    const pageLimit = Math.max(1, parseInt(limit) || 10);
+    const skip = (currentPage - 1) * pageLimit;
 
-    return res.json(sales);
+    const [sales, totalRows, salesAgg] = await Promise.all([
+      prisma.hatcheryEggSale.findMany({
+        where: { batchId },
+        orderBy: { date: "desc" },
+        skip,
+        take: pageLimit,
+        include: { eggType: { select: { id: true, name: true, isHatchable: true } } },
+      }),
+      prisma.hatcheryEggSale.count({ where: { batchId } }),
+      prisma.hatcheryEggSale.aggregate({
+        where: { batchId },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    return res.json({
+      data: sales,
+      page: currentPage,
+      limit: pageLimit,
+      total: totalRows,
+      totalPages: Math.max(1, Math.ceil(totalRows / pageLimit)),
+      summary: {
+        totalRevenue: Number(salesAgg._sum.amount ?? 0),
+        totalSales: totalRows,
+      },
+    });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
@@ -986,18 +1109,42 @@ export async function listParentSales(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
     const { id: batchId } = req.params;
+    const { page = "1", limit = "10" } = req.query as Record<string, string>;
 
     const batch = await prisma.hatcheryBatch.findFirst({
       where: { id: batchId, hatcheryOwnerId: ownerId },
     });
     if (!batch) return res.status(404).json({ error: "Batch not found" });
 
-    const sales = await prisma.hatcheryParentSale.findMany({
-      where: { batchId },
-      orderBy: { date: "desc" },
-    });
+    const currentPage = Math.max(1, parseInt(page) || 1);
+    const pageLimit = Math.max(1, parseInt(limit) || 10);
+    const skip = (currentPage - 1) * pageLimit;
 
-    return res.json(sales);
+    const [sales, totalRows, salesAgg] = await Promise.all([
+      prisma.hatcheryParentSale.findMany({
+        where: { batchId },
+        orderBy: { date: "desc" },
+        skip,
+        take: pageLimit,
+      }),
+      prisma.hatcheryParentSale.count({ where: { batchId } }),
+      prisma.hatcheryParentSale.aggregate({
+        where: { batchId },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    return res.json({
+      data: sales,
+      page: currentPage,
+      limit: pageLimit,
+      total: totalRows,
+      totalPages: Math.max(1, Math.ceil(totalRows / pageLimit)),
+      summary: {
+        totalRevenue: Number(salesAgg._sum.amount ?? 0),
+        totalSales: totalRows,
+      },
+    });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }

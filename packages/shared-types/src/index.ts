@@ -859,35 +859,60 @@ export const DealerDetailResponseSchema = BaseSchema.extend({
   balance: z.number(),
   thisMonthAmount: z.number().nonnegative(),
   totalTransactions: z.number().int().nonnegative(),
-
-  // Purchase entries (EntityTransaction where type=PURCHASE)
-  purchases: z.array(
-    z.object({
-      id: z.string(),
-      itemName: z.string().nullable(),
-      purchaseCategory: PurchaseCategorySchema.nullable().optional(),
-      quantity: z.number().nullable(),
-      freeQuantity: z.number().nullable().optional(),
-      unitPrice: z.number(),
-      totalAmount: z.number(),
-      date: z.date(),
-      description: z.string().nullable(),
-      reference: z.string().nullable(),
-      imageUrl: z.string().nullable().optional(),
-    })
-  ),
-
-  // Payment entries (EntityTransaction where type=PAYMENT)
-  payments: z.array(
-    z.object({
+  openingBalance: z
+    .object({
       id: z.string(),
       amount: z.number(),
       date: z.date(),
-      description: z.string().nullable(),
-      reference: z.string().nullable(),
-      imageUrl: z.string().nullable().optional(),
+      notes: z.string().nullable(),
     })
-  ),
+    .nullable()
+    .optional(),
+  openingBalanceHistory: z
+    .array(
+      z.object({
+        id: z.string(),
+        amount: z.number(),
+        date: z.date(),
+        notes: z.string().nullable(),
+      })
+    )
+    .optional(),
+  connectionType: z.enum(["MANUAL", "CONNECTED"]).default("MANUAL"),
+  isOwnedDealer: z.boolean().optional(),
+
+  // Purchase entries (EntityTransaction where type=PURCHASE)
+  purchases: z
+    .array(
+      z.object({
+        id: z.string(),
+        itemName: z.string().nullable(),
+        purchaseCategory: PurchaseCategorySchema.nullable().optional(),
+        quantity: z.number().nullable(),
+        freeQuantity: z.number().nullable().optional(),
+        unitPrice: z.number(),
+        totalAmount: z.number(),
+        date: z.date(),
+        description: z.string().nullable(),
+        reference: z.string().nullable(),
+        imageUrl: z.string().nullable().optional(),
+      })
+    )
+    .optional(),
+
+  // Payment entries (EntityTransaction where type=PAYMENT)
+  payments: z
+    .array(
+      z.object({
+        id: z.string(),
+        amount: z.number(),
+        date: z.date(),
+        description: z.string().nullable(),
+        reference: z.string().nullable(),
+        imageUrl: z.string().nullable().optional(),
+      })
+    )
+    .optional(),
 
   // Keep legacy transactionTable for backward compatibility (old dealer-ledger page)
   transactionTable: z.array(
@@ -913,8 +938,11 @@ export const DealerDetailResponseSchema = BaseSchema.extend({
   summary: z.object({
     totalPurchases: z.number().int().nonnegative(),
     totalPayments: z.number().int().nonnegative(),
+    totalPurchasedAmount: z.number().nonnegative(),
+    totalPaidAmount: z.number().nonnegative(),
     outstandingAmount: z.number().nonnegative(),
     thisMonthPurchases: z.number().int().nonnegative(),
+    thisMonthAmount: z.number().nonnegative(),
   }),
 });
 
@@ -1352,6 +1380,12 @@ export type AuthResponse = z.infer<typeof AuthResponseSchema>;
 export const FarmListResponseSchema = z.object({
   success: z.boolean(),
   data: z.array(FarmResponseSchema),
+  pagination: z.object({
+    page: z.number().int().positive(),
+    limit: z.number().int().positive(),
+    total: z.number().int().nonnegative(),
+    totalPages: z.number().int().nonnegative(),
+  }).optional(),
   message: z.string().optional(),
 });
 
@@ -1367,6 +1401,16 @@ export type FarmDetailResponse = z.infer<typeof FarmDetailResponseSchema>;
 
 // ==================== BATCH API RESPONSE SCHEMAS ====================
 
+export const BatchListSummarySchema = z.object({
+  totalBatches: z.number().int().nonnegative(),
+  activeBatches: z.number().int().nonnegative(),
+  closedBatches: z.number().int().nonnegative(),
+  totalInitialChicks: z.number().int().nonnegative(),
+  totalCurrentChicks: z.number().int().nonnegative(),
+});
+
+export type BatchListSummary = z.infer<typeof BatchListSummarySchema>;
+
 export const BatchListResponseSchema = z.object({
   success: z.boolean(),
   data: z.array(BatchResponseSchema),
@@ -1376,6 +1420,7 @@ export const BatchListResponseSchema = z.object({
     total: z.number().int().nonnegative(),
     totalPages: z.number().int().nonnegative(),
   }),
+  summary: BatchListSummarySchema.optional(),
   message: z.string().optional(),
 });
 

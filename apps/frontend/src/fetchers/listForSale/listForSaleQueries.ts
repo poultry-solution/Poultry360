@@ -30,8 +30,10 @@ export interface ListForSaleItem {
   unit: string;
   availabilityFrom: string;
   availabilityTo: string;
-   province?: string | null;
-   address?: string | null;
+  province?: string | null;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   avgWeightKg: number | null;
   eggVariants: EggVariant[] | null;
   typeVariants: TypeVariant[] | null;
@@ -50,6 +52,8 @@ export interface CreateListForSaleBody {
   availabilityTo: string;
   province?: string | null;
   address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   avgWeightKg?: number | null;
   eggVariants?: EggVariant[] | null;
   typeVariants?: TypeVariant[] | null;

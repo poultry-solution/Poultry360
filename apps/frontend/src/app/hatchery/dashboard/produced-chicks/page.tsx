@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bird, FlaskConical, Layers } from "lucide-react";
 import { Badge } from "@/common/components/ui/badge";
 import { DataTable, type Column } from "@/common/components/ui/data-table";
+import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
 import { useHatcheryBatches } from "@/fetchers/hatchery/hatcheryBatchQueries";
 import {
   useIncubationBatches,
@@ -28,28 +29,36 @@ const STAGE_COLORS: Record<string, string> = {
 export default function HatcheryProducedChicksPage() {
   const [selectedParentBatchId, setSelectedParentBatchId] = useState("");
   const [selectedIncubationBatchId, setSelectedIncubationBatchId] = useState("");
+  const [page, setPage] = useState(1);
 
   const { data: parentBatchData } = useHatcheryBatches({ type: "PARENT_FLOCK", limit: 100 });
   const { data: incubationData } = useIncubationBatches({
     parentBatchId: selectedParentBatchId || undefined,
     limit: 200,
   });
-  const { data: rows = [], isLoading } = useProducedChickStock({
+  const { data: stockRes, isLoading } = useProducedChickStock({
     parentBatchId: selectedParentBatchId || undefined,
     incubationBatchId: selectedIncubationBatchId || undefined,
+    page,
+    limit: 10,
   });
 
   const parentBatches = parentBatchData?.batches ?? [];
   const incubations = incubationData?.batches ?? [];
+  const rows = stockRes?.data ?? [];
+  const pagination = stockRes?.pagination;
+  const summary = stockRes?.summary;
+  const totalRows = Number(summary?.totalRows ?? 0);
+  const totalPages = Math.max(1, Number(pagination?.totalPages ?? 1));
+  const currentPage = Math.max(1, Number(pagination?.page ?? page));
+  const pageLimit = Number(pagination?.limit ?? 10);
 
-  const totalChicks = rows.reduce((sum, row) => sum + row.currentStock, 0);
-  const gradeTotals = rows.reduce(
-    (acc, row) => {
-      acc[row.grade] += row.currentStock;
-      return acc;
-    },
-    { A: 0, B: 0, CULL: 0 } as Record<ChickGrade, number>
-  );
+  const totalChicks = Number(summary?.totalStock ?? 0);
+  const gradeTotals = summary?.grades ?? ({ A: 0, B: 0, CULL: 0 } as Record<ChickGrade, number>);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedParentBatchId, selectedIncubationBatchId]);
 
   const columns: Column<ProducedChickStockRow>[] = [
     {
@@ -190,6 +199,15 @@ export default function HatcheryProducedChicksPage() {
           emptyMessage="No produced chick stock found. Add hatch results in an incubation batch to see stock here."
           getRowKey={(row) => row.id}
           rowClassName={(row) => (row.currentStock === 0 ? "opacity-50" : "")}
+        />
+        <LedgerPagination
+          page={currentPage}
+          totalPages={totalPages}
+          totalRows={totalRows}
+          pageLimit={pageLimit}
+          onPageChange={setPage}
+          loading={isLoading}
+          className="px-4"
         />
       </div>
     </div>

@@ -7,7 +7,7 @@ import { Button } from "@/common/components/ui/button";
 import { Tag, Loader2, ArrowRight } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
 import { usePublicListForSale, type ListForSaleCategoryPublic } from "@/fetchers/public/listForSaleQueries";
-import { FILTERS, ListingCard, NEPAL_PROVINCES } from "./ListForSaleShared";
+import { FILTERS, NEPAL_PROVINCES } from "./ListForSaleShared";
 import {
   Select,
   SelectContent,
@@ -15,8 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/common/components/ui/select";
+import NepalMarketplaceMap from "@/components/landing/NepalMarketplaceMap";
 
-const LANDING_LIMIT = 4;
+const LANDING_LIMIT = 12;
 
 export default function ListForSaleSection() {
   const { t } = useI18n();
@@ -92,11 +93,7 @@ export default function ListForSaleSection() {
           <p className="text-center text-gray-500 py-12">{t("landing.listForSale.emptyCategory")}</p>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {listings.map((item) => (
-                <ListingCard key={item.id} item={item} />
-              ))}
-            </div>
+            <NepalMarketplaceMap listings={listings} marketplaceHref={marketplaceHref} />
             <div className="flex justify-center mt-8">
               <Button asChild variant="outline" size="lg" className="gap-2">
                 <Link href={marketplaceHref}>

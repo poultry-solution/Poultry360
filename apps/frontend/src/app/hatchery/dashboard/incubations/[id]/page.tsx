@@ -381,14 +381,21 @@ function HatchResultsTab({ batch, batchId }: { batch: any; batchId: string }) {
   const canAddHatchResult =
     !isLoading && batch.stage === "HATCHER" && !!batch.transferredAt && !hasHatchResult;
   const isFinalized = batch.stage === "COMPLETED" || hasHatchResult;
+  const fertileEggs = Number(batch?.summary?.fertileEggs ?? 0);
+  const enteredTotal = [hatchedA, hatchedB, cull, lateDead, unhatched].reduce(
+    (sum, value) => sum + (Number(value) || 0),
+    0
+  );
+  const remainingEggs = fertileEggs - enteredTotal;
+  const isBalanced = enteredTotal > 0 && remainingEggs === 0;
 
   async function handleAdd() {
     setErr(null);
-    const total = [hatchedA, hatchedB, cull, lateDead, unhatched].reduce(
-      (s, v) => s + (Number(v) || 0),
-      0
-    );
-    if (total === 0) return setErr("Enter at least one count");
+    if (!isBalanced) {
+      return setErr(
+        `Enter a complete hatch result. Fertile eggs: ${fertileEggs}, entered: ${enteredTotal}, remaining: ${remainingEggs}.`
+      );
+    }
     try {
       await addMutation.mutateAsync({
         date,
@@ -446,6 +453,24 @@ function HatchResultsTab({ batch, batchId }: { batch: any; batchId: string }) {
         <div className="border rounded-lg p-4 space-y-3">
           <h3 className="font-semibold">Record Hatch Result</h3>
           {err && <p className="text-destructive text-sm">{err}</p>}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
+            <div>
+              <p className="text-muted-foreground text-xs">Fertile Eggs</p>
+              <p className="font-semibold">{fertileEggs}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-xs">Entered Total</p>
+              <p className={`font-semibold ${isBalanced ? "text-green-700" : "text-amber-700"}`}>
+                {enteredTotal}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-xs">Remaining</p>
+              <p className={`font-semibold ${remainingEggs === 0 ? "text-green-700" : "text-red-700"}`}>
+                {remainingEggs}
+              </p>
+            </div>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">Date</label>
@@ -477,7 +502,7 @@ function HatchResultsTab({ batch, batchId }: { batch: any; batchId: string }) {
             <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional" />
           </div>
           <div className="flex justify-end">
-            <Button onClick={handleAdd} disabled={addMutation.isPending}>
+            <Button onClick={handleAdd} disabled={addMutation.isPending || !isBalanced}>
               {addMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               <Plus className="h-4 w-4 mr-2" />
               Add Result

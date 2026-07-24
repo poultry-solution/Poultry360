@@ -148,7 +148,6 @@ const ManualToasts = () => {
 
 ### Farm Operations
 - `useToastFarmMutations()` - All farm CRUD operations with toasts
-- `useGetAllFarms()` - Get farms with filtering
 - `useGetUserFarms()` - Get user's farms
 - `useGetFarmById(id)` - Get specific farm
 - `useGetFarmAnalytics(id)` - Get farm analytics

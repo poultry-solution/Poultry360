@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -44,7 +44,13 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/common/components/ui/tabs";
-import { useGetDealerById, useSetDealerOpeningBalance } from "@/fetchers/dealers/dealerQueries";
+import { DataTable, Column, createColumn } from "@/common/components/ui/data-table";
+import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
+import {
+  useGetDealerById,
+  useGetDealerTransactions,
+  useSetDealerOpeningBalance,
+} from "@/fetchers/dealers/dealerQueries";
 import { toast } from "sonner";
 
 function getCategoryBadgeColor(category: string | null | undefined) {
@@ -64,25 +70,56 @@ function getCategoryBadgeColor(category: string | null | undefined) {
   }
 }
 
+const LEDGER_PAGE_LIMIT = 10;
+
 export default function SupplierDetailPage() {
   const params = useParams();
   const router = useRouter();
   const supplierId = params.id as string;
 
   const [activeTab, setActiveTab] = useState("purchases");
+  const [purchasePage, setPurchasePage] = useState(1);
+  const [paymentPage, setPaymentPage] = useState(1);
   const [isEditOpeningOpen, setIsEditOpeningOpen] = useState(false);
   const [openingAmount, setOpeningAmount] = useState("");
   const [openingDirection, setOpeningDirection] = useState<"OWED" | "ADVANCE">("OWED");
   const [openingNotes, setOpeningNotes] = useState("");
 
   const { data, isLoading, error, isError } = useGetDealerById(supplierId);
+  const {
+    data: purchasesResponse,
+    isLoading: purchasesLoading,
+  } = useGetDealerTransactions(
+    supplierId,
+    {
+      page: purchasePage,
+      limit: LEDGER_PAGE_LIMIT,
+      type: "PURCHASE",
+    },
+    { enabled: !!supplierId && activeTab === "purchases" }
+  );
+  const {
+    data: paymentsResponse,
+    isLoading: paymentsLoading,
+  } = useGetDealerTransactions(
+    supplierId,
+    {
+      page: paymentPage,
+      limit: LEDGER_PAGE_LIMIT,
+      type: "PAYMENT",
+    },
+    { enabled: !!supplierId && activeTab === "payments" }
+  );
   const setOpeningBalance = useSetDealerOpeningBalance();
 
   const supplier = data?.data;
-  const purchases: any[] = supplier?.purchases ?? [];
-  const payments: any[] = supplier?.payments ?? [];
+  const purchases: any[] = purchasesResponse?.data ?? [];
+  const payments: any[] = paymentsResponse?.data ?? [];
+  const purchasesPagination = purchasesResponse?.pagination;
+  const paymentsPagination = paymentsResponse?.pagination;
   const openingBalance = supplier?.openingBalance ?? null;
   const openingHistory: any[] = supplier?.openingBalanceHistory ?? [];
+  const summary = supplier?.summary ?? {};
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -96,17 +133,114 @@ export default function SupplierDetailPage() {
     });
   };
 
-  // Prefer summary totals when available; fall back to transaction totals.
-  const totalPurchased = supplier?.summary?.totalPurchasedAmount
-    ?? purchases.reduce((sum, p) => sum + Number(p.amount), 0);
-  const totalPaid = supplier?.summary?.totalPaidAmount
-    ?? payments.reduce((sum, p) => sum + Number(p.amount), 0);
+  useEffect(() => {
+    setPurchasePage(1);
+    setPaymentPage(1);
+  }, [supplierId]);
+
+  useEffect(() => {
+    if (purchasePage > Number(purchasesPagination?.totalPages || 1)) {
+      setPurchasePage(Math.max(1, Number(purchasesPagination?.totalPages || 1)));
+    }
+  }, [purchasePage, purchasesPagination?.totalPages]);
+
+  useEffect(() => {
+    if (paymentPage > Number(paymentsPagination?.totalPages || 1)) {
+      setPaymentPage(Math.max(1, Number(paymentsPagination?.totalPages || 1)));
+    }
+  }, [paymentPage, paymentsPagination?.totalPages]);
+
+  const totalPurchased = Number(summary.totalPurchasedAmount || 0);
+  const totalPaid = Number(summary.totalPaidAmount || 0);
   const currentBalance = supplier?.balance ?? 0;
   const paymentRate = totalPurchased
     ? Math.round((totalPaid / totalPurchased) * 100)
     : 0;
 
   const canEditOpeningBalance = supplier?.connectionType !== "CONNECTED";
+
+  const purchaseColumns: Column[] = [
+    createColumn("purchaseCategory", "Category", {
+      render: (_, row) => (
+        <Badge className={`text-xs ${getCategoryBadgeColor(row.purchaseCategory)}`}>
+          {row.purchaseCategory || "—"}
+        </Badge>
+      ),
+    }),
+    createColumn("itemName", "Item", {
+      render: (value, row: any) => (
+        <div>
+          <div className="font-medium">{value || "Purchase"}</div>
+          {row.description && (
+            <div className="text-xs text-muted-foreground">{row.description}</div>
+          )}
+        </div>
+      ),
+    }),
+    createColumn("quantity", "Qty", {
+      align: "right",
+      render: (_, row: any) => {
+        const qty = row.quantity ?? 0;
+        const free = row.freeQuantity ?? 0;
+        const unit = row.unit || "";
+        return (
+          <span>
+            {qty}
+            {unit ? ` ${unit}` : ""}
+            {free > 0 ? <span className="text-green-600"> +{free} free</span> : null}
+          </span>
+        );
+      },
+    }),
+    createColumn("unitPrice", "Rate", {
+      align: "right",
+      render: (_, row: any) => {
+        const unitPrice = row.unitPrice ?? (row.quantity ? row.amount / row.quantity : 0);
+        return <span>रू {Number(unitPrice || 0).toFixed(2)}</span>;
+      },
+    }),
+    createColumn("amount", "Amount", {
+      type: "currency",
+      align: "right",
+    }),
+    createColumn("date", "Date", {
+      type: "date",
+    }),
+    createColumn("reference", "Ref", {
+      render: (_, row: any) => <span className="text-xs text-muted-foreground">{row.reference || "—"}</span>,
+    }),
+  ];
+
+  const paymentColumns: Column[] = [
+    createColumn("amount", "Amount", {
+      type: "currency",
+      align: "right",
+    }),
+    createColumn("date", "Date", {
+      type: "date",
+    }),
+    createColumn("description", "Note", {
+      render: (_, row: any) => <span className="text-xs text-muted-foreground">{row.description || "—"}</span>,
+    }),
+    createColumn("reference", "Ref", {
+      render: (_, row: any) => <span className="text-xs text-muted-foreground">{row.reference || "—"}</span>,
+    }),
+    createColumn("imageUrl", "Receipt", {
+      render: (_, row: any) =>
+        row.imageUrl ? (
+          <a
+            href={row.imageUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            View
+          </a>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        ),
+    }),
+  ];
 
   function openEditOpening() {
     const current = openingBalance?.amount != null ? Number(openingBalance.amount) : 0;
@@ -233,7 +367,7 @@ export default function SupplierDetailPage() {
               {formatCurrency(totalPurchased)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {purchases.length} purchase(s)
+              {Number(summary.totalPurchases || 0)} purchase(s)
             </p>
           </CardContent>
         </Card>
@@ -248,7 +382,7 @@ export default function SupplierDetailPage() {
               {formatCurrency(totalPaid)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {payments.length} payment(s)
+              {Number(summary.totalPayments || 0)} payment(s)
             </p>
           </CardContent>
         </Card>
@@ -316,10 +450,10 @@ export default function SupplierDetailPage() {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className={`grid w-full ${canEditOpeningBalance ? "grid-cols-3" : "grid-cols-2"}`}>
               <TabsTrigger value="purchases">
-                Purchases ({purchases.length})
+                Purchases ({Number(summary.totalPurchases || 0)})
               </TabsTrigger>
               <TabsTrigger value="payments">
-                Payments ({payments.length})
+                Payments ({Number(summary.totalPayments || 0)})
               </TabsTrigger>
               {canEditOpeningBalance && (
                 <TabsTrigger value="opening">
@@ -329,151 +463,55 @@ export default function SupplierDetailPage() {
             </TabsList>
 
             <TabsContent value="purchases" className="mt-4">
-              {purchases.length === 0 ? (
-                <div className="text-center py-8">
-                  <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">
-                    No purchases yet
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Purchase entries for this supplier will appear here
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {purchases.map((purchase: any) => (
-                    <div
-                      key={purchase.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-lg bg-blue-100">
-                          <Receipt className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-medium">
-                              {purchase.itemName || "Purchase"}
-                            </p>
-                            {purchase.purchaseCategory && (
-                              <Badge
-                                className={`text-xs ${getCategoryBadgeColor(purchase.purchaseCategory)}`}
-                              >
-                                {purchase.purchaseCategory}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {formatDate(purchase.date)}
-                          </p>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                            {purchase.quantity && (
-                              <span>
-                                Qty: {purchase.quantity}
-                                {purchase.freeQuantity > 0 && (
-                                  <span className="text-green-600">
-                                    {" "}
-                                    +{purchase.freeQuantity} free
-                                  </span>
-                                )}
-                              </span>
-                            )}
-                            {purchase.reference && (
-                              <Badge variant="outline" className="text-xs">
-                                {purchase.reference}
-                              </Badge>
-                            )}
-                          </div>
-                          {purchase.description && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {purchase.description}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        {purchase.subtotalAmount != null && (
-                          <p className="text-xs text-muted-foreground line-through">
-                            {formatCurrency(Number(purchase.subtotalAmount))}
-                          </p>
-                        )}
-                        <p className="text-lg font-bold text-red-600">
-                          +{formatCurrency(Number(purchase.amount))}
-                        </p>
-                        {purchase.discountType && purchase.discountValue != null && (
-                          <p className="text-xs text-green-600">
-                            {purchase.discountType === "PERCENT"
-                              ? `${Number(purchase.discountValue)}% off`
-                              : `रू ${Number(purchase.discountValue)} off`}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <DataTable
+                data={purchases}
+                columns={purchaseColumns}
+                loading={purchasesLoading}
+                emptyMessage="No purchases yet"
+                showFooter={(purchases.length || 0) > 0}
+                footerContent={
+                  <div className="flex items-center justify-between px-2 text-sm">
+                    <span className="font-semibold">Total</span>
+                    <span className="font-semibold text-red-600">
+                      ₹{Number(summary.totalPurchasedAmount || 0).toLocaleString()}
+                    </span>
+                  </div>
+                }
+              />
+              <LedgerPagination
+                page={purchasePage}
+                totalPages={Number(purchasesPagination?.totalPages || 1)}
+                totalRows={Number(purchasesPagination?.total || 0)}
+                pageLimit={LEDGER_PAGE_LIMIT}
+                onPageChange={setPurchasePage}
+                loading={purchasesLoading}
+              />
             </TabsContent>
 
             <TabsContent value="payments" className="mt-4">
-              {payments.length === 0 ? (
-                <div className="text-center py-8">
-                  <Wallet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">
-                    No payments yet
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Payments to this supplier will appear here
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {payments.map((payment: any) => (
-                    <div
-                      key={payment.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-lg bg-green-100">
-                          <Wallet className="h-5 w-5 text-green-600" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium">Payment</p>
-                            {payment.reference && (
-                              <Badge variant="outline" className="text-xs">
-                                {payment.reference}
-                              </Badge>
-                            )}
-                            {payment.paymentMethod && (
-                              <Badge variant="outline" className="text-xs">
-                                {payment.paymentMethod}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {formatDate(payment.date)}
-                          </p>
-                          {payment.description && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {payment.description}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-green-600">
-                          -{formatCurrency(Number(payment.amount))}
-                        </p>
-                        {payment.balanceAfter != null && (
-                          <p className="text-xs text-muted-foreground">
-                            Balance: {formatCurrency(Number(payment.balanceAfter))}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <DataTable
+                data={payments}
+                columns={paymentColumns}
+                loading={paymentsLoading}
+                emptyMessage="No payments yet"
+                showFooter={(payments.length || 0) > 0}
+                footerContent={
+                  <div className="flex items-center justify-between px-2 text-sm">
+                    <span className="font-semibold">Total paid</span>
+                    <span className="font-semibold text-green-600">
+                      ₹{Number(summary.totalPaidAmount || 0).toLocaleString()}
+                    </span>
+                  </div>
+                }
+              />
+              <LedgerPagination
+                page={paymentPage}
+                totalPages={Number(paymentsPagination?.totalPages || 1)}
+                totalRows={Number(paymentsPagination?.total || 0)}
+                pageLimit={LEDGER_PAGE_LIMIT}
+                onPageChange={setPaymentPage}
+                loading={paymentsLoading}
+              />
             </TabsContent>
 
             {canEditOpeningBalance && (

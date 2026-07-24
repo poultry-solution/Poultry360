@@ -1,8 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Edit, Trash2, Archive, ArchiveRestore, Phone, MapPin, DollarSign } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Archive,
+  ArchiveRestore,
+  Phone,
+  MapPin,
+  DollarSign,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import {
   Card,
   CardContent,
@@ -56,6 +68,7 @@ export default function DealerCustomersPage() {
   const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [customerTab, setCustomerTab] = useState<"active" | "archived">("active");
+  const [page, setPage] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
 
@@ -74,12 +87,14 @@ export default function DealerCustomersPage() {
 
   // Get customers
   const { data: customersData, isLoading: customersLoading } = useQuery({
-    queryKey: ["dealer-customers", search, customerTab],
+    queryKey: ["dealer-customers", search, customerTab, page],
     queryFn: async () => {
       const { data } = await axiosInstance.get("/dealer/sales/customers", {
         params: {
           ...(search ? { search } : {}),
           archived: customerTab === "archived" ? "true" : "false",
+          page,
+          limit: 10,
         },
       });
       return data;
@@ -87,9 +102,25 @@ export default function DealerCustomersPage() {
   });
   const isLoading = customersLoading;
 
+  const pagination = customersData?.pagination;
+  const totalCustomers = Number(pagination?.total ?? 0);
+  const totalPages = Math.max(1, Number(pagination?.totalPages ?? 1));
+  const currentPage = Math.min(Math.max(1, Number(pagination?.page ?? page)), totalPages);
+
   const customers: Customer[] = (customersData?.data || []).sort((a: Customer, b: Customer) => {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, customerTab]);
+
+  useEffect(() => {
+    if (!pagination) return;
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, pagination, totalPages]);
 
   const queryClient = useQueryClient();
 
@@ -333,19 +364,17 @@ export default function DealerCustomersPage() {
       </div>
 
       {/* Search */}
-      <Card>
-        <CardContent className="pt-4 pb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={t("dealer.customers.searchPlaceholder")}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="max-w-md">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder={t("dealer.customers.searchPlaceholder")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
 
       {/* Customers Table - Unified DataTable */}
       <Card>
@@ -354,7 +383,9 @@ export default function DealerCustomersPage() {
             <div>
               <CardTitle className="text-base md:text-lg">{t("dealer.customers.table.title")}</CardTitle>
               <CardDescription className="text-xs md:text-sm">
-                {t(customers.length === 1 ? "dealer.customers.table.description" : "dealer.customers.table.descriptionPlural", { count: customers.length, singular_customer: "customer" })}
+                {pagination
+                  ? `Showing ${((currentPage - 1) * pagination.limit) + 1}-${Math.min(currentPage * pagination.limit, totalCustomers)} of ${totalCustomers} customers`
+                  : t(customers.length === 1 ? "dealer.customers.table.description" : "dealer.customers.table.descriptionPlural", { count: customers.length, singular_customer: "customer" })}
               </CardDescription>
             </div>
             <Button
@@ -499,6 +530,33 @@ export default function DealerCustomersPage() {
               }
             ] as Column[]}
           />
+          {!isLoading && pagination && pagination.totalPages > 1 && (
+            <div className="flex flex-col gap-3 border-t border-gray-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-muted-foreground">
+                Page {currentPage} of {pagination.totalPages}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  <ChevronLeft className="mr-1 h-4 w-4" />
+                  Prev
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((current) => Math.min(pagination.totalPages, current + 1))}
+                  disabled={currentPage >= pagination.totalPages}
+                >
+                  Next
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

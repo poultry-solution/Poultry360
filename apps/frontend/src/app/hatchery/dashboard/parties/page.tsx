@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Users, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { DataTable, type Column } from "@/common/components/ui/data-table";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
 import {
   Dialog,
   DialogContent,
@@ -23,10 +24,25 @@ import {
 export default function HatcheryPartiesPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
 
-  const { data, isLoading } = useHatcheryParties(search || undefined);
+  const { data, isLoading } = useHatcheryParties(search || undefined, page, 10);
   const createParty = useCreateHatcheryParty();
+  const total = Number(data?.total ?? 0);
+  const currentPage = Math.max(1, Number(data?.page ?? page));
+  const pageLimit = Math.max(1, Number(data?.limit ?? 10));
+  const totalPages = Math.max(1, Math.ceil(total / pageLimit));
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   const [form, setForm] = useState({
     name: "",
@@ -103,6 +119,15 @@ export default function HatcheryPartiesPage() {
         data={data?.parties ?? []}
         loading={isLoading}
         getRowKey={(r) => r.id}
+      />
+
+      <LedgerPagination
+        page={currentPage}
+        totalPages={totalPages}
+        totalRows={total}
+        pageLimit={pageLimit}
+        onPageChange={setPage}
+        loading={isLoading}
       />
 
       <Dialog open={showModal} onOpenChange={setShowModal}>

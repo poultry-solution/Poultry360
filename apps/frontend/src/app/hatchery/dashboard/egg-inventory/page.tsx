@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Egg, CheckCircle } from "lucide-react";
 import { Badge } from "@/common/components/ui/badge";
+import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
 import {
   useHatcheryEggInventory,
   useHatcheryBatches,
@@ -14,16 +15,30 @@ import { DataTable, type Column } from "@/common/components/ui/data-table";
 export default function HatcheryEggInventoryPage() {
   const [selectedBatchId, setSelectedBatchId] = useState("");
   const [selectedTypeId, setSelectedTypeId] = useState("");
+  const [page, setPage] = useState(1);
 
-  const { data: stockRows = [], isLoading } = useHatcheryEggInventory({
+  const { data: stockRes, isLoading } = useHatcheryEggInventory({
     batchId: selectedBatchId || undefined,
     typeId: selectedTypeId || undefined,
+    page,
+    limit: 10,
   });
   const { data: batchData } = useHatcheryBatches({ limit: 100 });
   const { data: eggTypes = [] } = useHatcheryEggTypes();
 
   const batches = batchData?.batches ?? [];
-  const totalStock = stockRows.reduce((s, r) => s + r.currentStock, 0);
+  const stockRows = stockRes?.data ?? [];
+  const pagination = stockRes?.pagination;
+  const summary = stockRes?.summary;
+  const totalStock = Number(summary?.totalStock ?? 0);
+  const totalRows = Number(summary?.totalRows ?? 0);
+  const currentPage = Math.max(1, Number(pagination?.page ?? page));
+  const totalPages = Math.max(1, Number(pagination?.totalPages ?? 1));
+  const pageLimit = Number(pagination?.limit ?? 10);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedBatchId, selectedTypeId]);
 
   const columns: Column<HatcheryEggStockRow>[] = [
     {
@@ -105,7 +120,7 @@ export default function HatcheryEggInventoryPage() {
         </div>
         <div className="bg-white border rounded-xl p-4">
           <p className="text-sm text-gray-500">Stock Rows</p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{stockRows.length}</p>
+          <p className="text-3xl font-bold text-gray-900 mt-1">{totalRows}</p>
         </div>
       </div>
 
@@ -154,6 +169,15 @@ export default function HatcheryEggInventoryPage() {
           rowClassName={(row) =>
             row.currentStock === 0 ? "opacity-50" : ""
           }
+        />
+        <LedgerPagination
+          page={currentPage}
+          totalPages={totalPages}
+          totalRows={totalRows}
+          pageLimit={pageLimit}
+          onPageChange={setPage}
+          loading={isLoading}
+          className="px-4"
         />
       </div>
     </div>

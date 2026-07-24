@@ -1,6 +1,14 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 
+const ALLOWED_BUSINESS_TYPES = new Set([
+  "Layer Farm",
+  "Broiler Farm",
+  "Hatchery",
+  "Feed Mill",
+  "Feed Dealer",
+]);
+
 function normalizePhoneNumber(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
@@ -24,14 +32,32 @@ function normalizePhoneNumber(raw: string): string | null {
   return `+977${localDigits}`;
 }
 
+function normalizeBusinessTypes(raw: unknown): string[] | null {
+  if (typeof raw === "undefined" || raw === null) return [];
+  if (!Array.isArray(raw)) return null;
+
+  const normalized = raw
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  if (normalized.length !== raw.length) return null;
+
+  const unique = Array.from(new Set(normalized));
+  if (unique.some((value) => !ALLOWED_BUSINESS_TYPES.has(value))) return null;
+
+  return unique;
+}
+
 export const createDemoEnquiry = async (
   req: Request,
   res: Response
 ): Promise<any> => {
   try {
-    const { companyName, phoneNumber, message } = req.body as {
+    const { companyName, phoneNumber, businessTypes, message } = req.body as {
       companyName?: string;
       phoneNumber?: string;
+      businessTypes?: unknown;
       message?: string;
     };
 
@@ -53,6 +79,11 @@ export const createDemoEnquiry = async (
       return res.status(400).json({ success: false, message: "Invalid phone number" });
     }
 
+    const normalizedBusinessTypes = normalizeBusinessTypes(businessTypes);
+    if (!normalizedBusinessTypes) {
+      return res.status(400).json({ success: false, message: "Invalid business type" });
+    }
+
     const normalizedMessage =
       typeof message === "string" ? message.trim() : undefined;
     if (normalizedMessage && normalizedMessage.length === 0) {
@@ -68,12 +99,14 @@ export const createDemoEnquiry = async (
       data: {
         companyName: normalizedCompanyName,
         phoneNumber: normalizedPhone,
+        businessTypes: normalizedBusinessTypes,
         message: normalizedMessage || undefined,
       },
       select: {
         id: true,
         companyName: true,
         phoneNumber: true,
+        businessTypes: true,
         message: true,
         createdAt: true,
       },
@@ -102,6 +135,7 @@ export const getDemoEnquiries = async (
         id: true,
         companyName: true,
         phoneNumber: true,
+        businessTypes: true,
         message: true,
         createdAt: true,
       },
@@ -113,4 +147,3 @@ export const getDemoEnquiries = async (
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
-

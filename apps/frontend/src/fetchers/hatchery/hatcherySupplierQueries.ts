@@ -122,7 +122,7 @@ export const useGetHatcherySupplierById = (id: string | null) => {
 
 export const useGetHatcherySupplierTransactions = (
   id: string | null,
-  filters?: { page?: number; limit?: number; type?: string }
+  filters?: { page?: number; limit?: number; type?: string; types?: HatcherySupplierTxnType[] }
 ) => {
   return useQuery({
     queryKey: [
@@ -135,6 +135,7 @@ export const useGetHatcherySupplierTransactions = (
       if (filters?.page) params.append("page", String(filters.page));
       if (filters?.limit) params.append("limit", String(filters.limit));
       if (filters?.type) params.append("type", filters.type);
+      if (filters?.types?.length) params.append("types", filters.types.join(","));
       const res = await axiosInstance.get(
         `/hatchery/suppliers/${id}/transactions?${params.toString()}`
       );
@@ -221,6 +222,7 @@ export const useSetHatcherySupplierOpeningBalance = () => {
     },
     onSuccess: (_, { supplierId }) => {
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.detail(supplierId) });
+      qc.invalidateQueries({ queryKey: hatcherySupplierKeys.transactions(supplierId) });
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.lists() });
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.statistics() });
     },
@@ -251,6 +253,7 @@ export const useAddHatcherySupplierPurchase = () => {
     },
     onSuccess: (_, { supplierId }) => {
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.detail(supplierId) });
+      qc.invalidateQueries({ queryKey: hatcherySupplierKeys.transactions(supplierId) });
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.lists() });
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.statistics() });
       qc.invalidateQueries({ queryKey: ["hatcheryInventory"] });
@@ -284,6 +287,7 @@ export const useAddHatcherySupplierPayment = () => {
     },
     onSuccess: (_, { supplierId }) => {
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.detail(supplierId) });
+      qc.invalidateQueries({ queryKey: hatcherySupplierKeys.transactions(supplierId) });
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.lists() });
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.statistics() });
     },
@@ -310,6 +314,7 @@ export const useDeleteHatcherySupplierTransaction = () => {
     },
     onSuccess: (_, { supplierId }) => {
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.detail(supplierId) });
+      qc.invalidateQueries({ queryKey: hatcherySupplierKeys.transactions(supplierId) });
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.lists() });
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.statistics() });
       qc.invalidateQueries({ queryKey: ["hatcheryInventory"] });

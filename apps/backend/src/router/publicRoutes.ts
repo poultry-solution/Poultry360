@@ -1,24 +1,20 @@
 import { Router } from "express";
 import {
-  searchCompanies,
-  searchDealers,
   getLandingReviews,
   createLandingReview,
   getLandingContacts,
   createLandingContact,
 } from "../controller/publicController";
 import { createDemoEnquiry } from "../controller/demoEnquiryController";
-import { getPublicListForSale } from "../controller/listForSaleController";
+import {
+  getPublicListForSale,
+  searchPublicLocations,
+  reversePublicLocation,
+} from "../controller/listForSaleController";
 
 const router = Router();
 
 // ==================== PUBLIC ROUTES (NO AUTH REQUIRED) ====================
-
-// Search companies - used during dealer signup
-router.get("/companies/search", searchCompanies);
-
-// Search dealers - used when farmers want to connect
-router.get("/dealers/search", searchDealers);
 
 // Landing page reviews (list + submit)
 router.get("/reviews", getLandingReviews);
@@ -33,5 +29,9 @@ router.post("/demo-enquiries", createDemoEnquiry);
 
 // List for sale (public marketplace - no auth)
 router.get("/list-for-sale", getPublicListForSale);
+
+// Free location lookup for listing forms
+router.get("/locations/search", searchPublicLocations);
+router.get("/locations/reverse", reversePublicLocation);
 
 export default router;
