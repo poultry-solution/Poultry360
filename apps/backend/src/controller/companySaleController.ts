@@ -65,7 +65,7 @@ export const searchDealersForCompany = async (
         return {
           ...dealer,
           balance: account ? Number(account.balance) : 0,
-          connectionType: "MANUAL",
+          accountType: "MANUAL",
           isOwnedDealer: true,
         };
       })

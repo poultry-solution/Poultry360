@@ -60,7 +60,6 @@ interface Dealer {
   address: string;
   balance: number;
   createdAt?: Date;
-  connectionType?: "CONNECTED" | "MANUAL";
   isOwnedDealer?: boolean;
 }
 
@@ -251,7 +250,6 @@ export default function CompanyDealersPage() {
   };
 
   const dealers: Dealer[] = accountDealers
-    .filter((dealer) => dealer.isManualDealer || dealer.connectionType === "MANUAL")
     .map((dealer) => ({
       id: dealer.id,
       dealerId: dealer.dealerId,
@@ -260,7 +258,6 @@ export default function CompanyDealersPage() {
       address: dealer.dealerAddress || "",
       balance: dealer.balance,
       createdAt: undefined,
-      connectionType: dealer.connectionType,
       isOwnedDealer: dealer.isManualDealer,
     }))
     .filter((dealer) => {

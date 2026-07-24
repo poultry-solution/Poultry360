@@ -867,7 +867,7 @@ export const getInventoryTableData = async (
     const dealerIds = [...new Set(
       purchases.filter((p) => p.dealerId).map((p) => p.dealerId!)
     )];
-    const connections =
+    const dealerAccounts =
       dealerIds.length > 0
         ? await prisma.dealerFarmerAccount.findMany({
             where: {
@@ -877,7 +877,7 @@ export const getInventoryTableData = async (
             select: { dealerId: true },
           })
         : [];
-    const connectedDealerIds = new Set(connections.map((c) => c.dealerId));
+    const accountDealerIds = new Set(dealerAccounts.map((account) => account.dealerId));
 
     const tableData = items.map((item) => {
       const latest = latestByItem.get(item.id);
@@ -917,7 +917,7 @@ export const getInventoryTableData = async (
           latest?.entityType ??
           (latest?.dealerId ? "DEALER" : latest?.hatcheryId ? "HATCHERY" : latest?.medicineSupplierId ? "MEDICINE_SUPPLIER" : null),
         purchaseCategory: latest?.purchaseCategory ?? null,
-        isConnectedDealer: latest?.dealerId ? connectedDealerIds.has(latest.dealerId) : false,
+        hasDealerAccount: latest?.dealerId ? accountDealerIds.has(latest.dealerId) : false,
       };
     });
 

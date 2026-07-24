@@ -46,7 +46,7 @@ export const getAllDealers = async (
 
     // Build where clause
     let where: any;
-    let dealerCompanyConnections: Map<string, { connectionId: string; connectionType: string }> = new Map();
+    let dealerCompanyAccounts: Map<string, { accountId: string; accountType: string }> = new Map();
 
     // For company users, get dealers linked via surviving company-dealer accounts OR manually created
     if (currentUserRole === UserRole.COMPANY && company) {
@@ -62,11 +62,11 @@ export const getAllDealers = async (
 
       const linkedDealerIds = dealerAccounts.map((account) => account.dealerId);
 
-      // Store connection metadata for later use
+      // Store account metadata for later use
       dealerAccounts.forEach((account) => {
-        dealerCompanyConnections.set(account.dealerId, {
-          connectionId: account.id,
-          connectionType: "CONNECTED",
+        dealerCompanyAccounts.set(account.dealerId, {
+          accountId: account.id,
+          accountType: "MANUAL",
         });
       });
 
@@ -123,11 +123,11 @@ export const getAllDealers = async (
         let recentTransactions: any[] = [];
 
         // Determine connection type first
-        let connectionInfo;
+        let accountInfo;
         if (currentUserRole === UserRole.COMPANY) {
-          connectionInfo = dealerCompanyConnections.get(dealer.id);
+          accountInfo = dealerCompanyAccounts.get(dealer.id);
         }
-        const connectionType = connectionInfo ? "CONNECTED" : "MANUAL";
+        const accountType = "MANUAL";
         const isOwnedDealer = !!dealer.ownerId;
 
         // For company users, fetch balance from CompanyDealerAccount
@@ -219,8 +219,8 @@ export const getAllDealers = async (
           thisMonthAmount,
           totalTransactions,
           recentTransactions,
-          connectionType,
-          connectionId: connectionInfo?.connectionId,
+          accountType,
+          accountId: accountInfo?.accountId,
           isOwnedDealer,
         };
       })
@@ -1377,8 +1377,8 @@ export const getCompanyProducts = async (
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    // Verify dealer has a company-dealer account relationship
-    const connection = await prisma.companyDealerAccount.findUnique({
+    // Verify dealer has a company-dealer account.
+    const account = await prisma.companyDealerAccount.findUnique({
       where: {
         companyId_dealerId: {
           companyId: String(companyId),
@@ -1387,9 +1387,9 @@ export const getCompanyProducts = async (
       },
     });
 
-    if (!connection) {
+    if (!account) {
       return res.status(403).json({
-        message: "You are not connected to this company",
+        message: "No company account exists for this dealer",
       });
     }
 

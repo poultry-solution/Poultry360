@@ -157,7 +157,7 @@ export default function SupplierDetailPage() {
     ? Math.round((totalPaid / totalPurchased) * 100)
     : 0;
 
-  const canEditOpeningBalance = supplier?.connectionType !== "CONNECTED";
+  const canEditOpeningBalance = true;
 
   const purchaseColumns: Column[] = [
     createColumn("purchaseCategory", "Category", {

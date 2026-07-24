@@ -113,8 +113,8 @@ export interface AdminUserDetail {
     createdAt: string;
     _count: { batches: number };
   }>;
-  dealerConnections: Array<{
-    connectedAt: string;
+  dealerAccounts: Array<{
+    accountCreatedAt: string;
     dealer: {
       id: string;
       name: string;

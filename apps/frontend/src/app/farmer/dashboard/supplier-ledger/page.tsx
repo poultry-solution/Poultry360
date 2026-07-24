@@ -582,7 +582,7 @@ export default function SupplierLedgerPage() {
     }
   }
 
-  const canDeleteSupplier = activeSupplier?.connectionType !== "CONNECTED";
+  const canDeleteSupplier = true;
 
   return (
     <div className="space-y-4 md:space-y-6">

@@ -26,11 +26,9 @@ export interface AdminCompany {
     createdAt: Date;
   };
   _count: {
-    dealerCompanies: number;
+    dealerAccounts: number;
     companySales: number;
-    consignments: number;
     ledgerEntries: number;
-    paymentRequests?: number;
   };
   managedBy?: Array<{
     id: string;
@@ -65,8 +63,8 @@ export interface AdminCompanyDetail {
     phone: string;
     status: string;
   } | null;
-  dealerCompanies: Array<{
-    connectedAt: string;
+  dealerAccounts: Array<{
+    accountCreatedAt: string;
     dealer: {
       id: string;
       name: string;

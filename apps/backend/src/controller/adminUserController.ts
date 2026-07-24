@@ -211,8 +211,8 @@ export const getUserById = async (
 
     const normalizedUser = {
       ...user,
-      dealerConnections: user.farmerAccounts.map((account: any) => ({
-        connectedAt: account.createdAt,
+      dealerAccounts: user.farmerAccounts.map((account: any) => ({
+        accountCreatedAt: account.createdAt,
         dealer: account.dealer,
       })),
     };

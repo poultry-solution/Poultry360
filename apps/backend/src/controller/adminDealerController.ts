@@ -192,11 +192,11 @@ export const getDealerById = async (
     const dealerWithCompanies = {
       ...dealer,
       companies: dealer.companyAccounts.map((account: any) => ({
-        connectedAt: account.createdAt,
+        accountCreatedAt: account.createdAt,
         company: account.company,
       })),
-      farmerConnections: dealer.farmerAccounts.map((account: any) => ({
-        connectedAt: account.createdAt,
+      farmerAccounts: dealer.farmerAccounts.map((account: any) => ({
+        accountCreatedAt: account.createdAt,
         farmer: account.farmer,
       })),
     };

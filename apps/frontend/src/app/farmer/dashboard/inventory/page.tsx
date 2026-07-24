@@ -286,7 +286,7 @@ export default function InventoryPage() {
         render: (_, item: any) => {
           const qty = Number(item.quantity ?? 0);
           const canDelete = qty === 0;
-          const showReorder = item.dealerId && !item.isConnectedDealer;
+          const showReorder = item.dealerId && !item.hasDealerAccount;
           return (
             <div className="flex flex-col items-start gap-0.5">
               <div className="flex items-center gap-1">

@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { Prisma } from "@prisma/client";
 import prisma from "../utils/prisma";
 import { CompanyDealerAccountService } from "../services/companyDealerAccountService";
 
@@ -37,27 +36,6 @@ export const getDealerAccount = async (
       dealerId
     );
 
-    let adjustments: any[] = [];
-    try {
-      adjustments = await prisma.companyDealerAccountAdjustment.findMany({
-        where: { accountId: account.id, type: "OPENING_BALANCE" },
-        orderBy: { createdAt: "desc" },
-        take: 50,
-      });
-    } catch (error) {
-      // Older local databases may not have the adjustment table yet.
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2021"
-      ) {
-        console.warn(
-          "Company dealer account adjustments table is unavailable; returning empty history."
-        );
-      } else {
-        throw error;
-      }
-    }
-
     return res.status(200).json({
       success: true,
       data: {
@@ -74,21 +52,6 @@ export const getDealerAccount = async (
           (account as any).openingBalanceCurrent != null
             ? Number((account as any).openingBalanceCurrent)
             : null,
-        openingBalanceProposed:
-          (account as any).openingBalanceProposed != null
-            ? Number((account as any).openingBalanceProposed)
-            : null,
-        openingBalanceStatus: (account as any).openingBalanceStatus ?? null,
-        openingBalanceHistory: adjustments.map((a: any) => ({
-          id: a.id,
-          amount: Number(a.amount),
-          status: a.status,
-          notes: a.notes,
-          createdAt: a.createdAt,
-          createdByRole: a.createdByRole,
-          respondedAt: a.respondedAt,
-          dealerResponseNote: a.dealerResponseNote,
-        })),
         dealer: account.dealer,
         company: account.company,
       },

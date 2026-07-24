@@ -278,6 +278,33 @@ export const getLedgerSummary = async (
 
     // Net position (can be negative when advances outweigh due)
     // Customer side: positive = money to receive; negative = money to give (advance)
+    // Net position (can be negative when advances outweigh due)
+    // Customer side: positive = money to receive; negative = money to give (advance)
+    const manualCustomerAgg = await prisma.customer.aggregate({
+      where: { userId },
+      _sum: { balance: true },
+    });
+    const manualCustomerNetBalance = Number(manualCustomerAgg._sum.balance || 0);
+
+    const farmerAccountAgg = await prisma.dealerFarmerAccount.aggregate({
+      where: { dealerId: dealer.id },
+      _sum: { balance: true },
+    });
+    const farmerAccountNetBalance = Number(
+      farmerAccountAgg._sum.balance || 0
+    );
+
+    const netCustomerBalance =
+      manualCustomerNetBalance + farmerAccountNetBalance;
+
+    // Company side: dealer owes company when balance > 0; dealer has paid advance when balance < 0
+    const companyAccountAgg = await prisma.companyDealerAccount.aggregate({
+      where: { dealerId: dealer.id },
+      _sum: { balance: true },
+    });
+    const companyAccountNetBalance = Number(
+      companyAccountAgg._sum.balance || 0
+    );
     const manualCompanyAgg = await prisma.dealerManualCompany.aggregate({
       where: { dealerId: dealer.id, archivedAt: null },
       _sum: {
@@ -290,12 +317,9 @@ export const getLedgerSummary = async (
       manualCompanyAgg._sum.balance || 0
     );
 
-    const manualCustomerNetBalance = customers.reduce((sum, customer) => {
-      return sum + Number(customer.balance || 0);
-    }, 0);
+    const netCompanyBalance =
+      companyAccountNetBalance + manualCompanyNetBalance;
 
-    const netCustomerBalance = manualCustomerNetBalance;
-    const netCompanyBalance = manualCompanyNetBalance;
     const totalPaymentsReceived = customers.reduce((sum, customer) => {
       return sum + Number(customer.totalPayments || 0);
     }, 0);

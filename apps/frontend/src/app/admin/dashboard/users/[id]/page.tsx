@@ -131,18 +131,18 @@ function FarmsSection({ title, farms }: {
   );
 }
 
-function DealerConnectionsSection({ connections }: {
-  connections: AdminUserDetail["dealerConnections"];
+function DealerAccountsSection({ accounts }: {
+  accounts: AdminUserDetail["dealerAccounts"];
 }) {
-  if (connections.length === 0) return null;
+  if (accounts.length === 0) return null;
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <Users className="size-4" />
-          Connected Dealers
+          Dealer Accounts
           <span className="ml-auto text-sm font-normal text-muted-foreground">
-            {connections.length} total
+            {accounts.length} total
           </span>
         </CardTitle>
       </CardHeader>
@@ -153,17 +153,17 @@ function DealerConnectionsSection({ connections }: {
               <TableHead>Name</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Address</TableHead>
-              <TableHead>Connected At</TableHead>
+              <TableHead>Account Created</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {connections.map((conn) => (
-              <TableRow key={conn.dealer.id}>
-                <TableCell className="font-medium">{conn.dealer.name}</TableCell>
-                <TableCell className="text-muted-foreground">{conn.dealer.contact}</TableCell>
-                <TableCell className="text-muted-foreground">{conn.dealer.address || "--"}</TableCell>
+            {accounts.map((account) => (
+              <TableRow key={account.dealer.id}>
+                <TableCell className="font-medium">{account.dealer.name}</TableCell>
+                <TableCell className="text-muted-foreground">{account.dealer.contact}</TableCell>
+                <TableCell className="text-muted-foreground">{account.dealer.address || "--"}</TableCell>
                 <TableCell className="text-muted-foreground">
-                  {new Date(conn.connectedAt).toLocaleDateString()}
+                  {new Date(account.accountCreatedAt).toLocaleDateString()}
                 </TableCell>
               </TableRow>
             ))}
@@ -177,13 +177,13 @@ function DealerConnectionsSection({ connections }: {
 function DealerEntitySection({ dealer }: { dealer: AdminDealerDetail }) {
   return (
     <>
-      {/* Dealer's companies */}
+      {/* Dealer's company accounts */}
       {dealer.companies.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <Building2 className="size-4" />
-              Connected Companies
+              Company Accounts
               <span className="ml-auto text-sm font-normal text-muted-foreground">
                 {dealer.companies.length} total
               </span>
@@ -195,16 +195,16 @@ function DealerEntitySection({ dealer }: { dealer: AdminDealerDetail }) {
                 <TableRow>
                   <TableHead>Company Name</TableHead>
                   <TableHead>Address</TableHead>
-                  <TableHead>Connected At</TableHead>
+                  <TableHead>Account Created</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {dealer.companies.map((conn) => (
-                  <TableRow key={conn.company.id}>
-                    <TableCell className="font-medium">{conn.company.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{conn.company.address || "--"}</TableCell>
+                {dealer.companies.map((account) => (
+                  <TableRow key={account.company.id}>
+                    <TableCell className="font-medium">{account.company.name}</TableCell>
+                    <TableCell className="text-muted-foreground">{account.company.address || "--"}</TableCell>
                     <TableCell className="text-muted-foreground">
-                      {new Date(conn.connectedAt).toLocaleDateString()}
+                      {new Date(account.accountCreatedAt).toLocaleDateString()}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -214,15 +214,15 @@ function DealerEntitySection({ dealer }: { dealer: AdminDealerDetail }) {
         </Card>
       )}
 
-      {/* Dealer's farmers */}
-      {dealer.farmerConnections.length > 0 && (
+      {/* Dealer's farmer accounts */}
+      {dealer.farmerAccounts.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <Tractor className="size-4" />
-              Connected Farmers
+              Farmer Accounts
               <span className="ml-auto text-sm font-normal text-muted-foreground">
-                {dealer.farmerConnections.length} total
+                {dealer.farmerAccounts.length} total
               </span>
             </CardTitle>
           </CardHeader>
@@ -233,17 +233,17 @@ function DealerEntitySection({ dealer }: { dealer: AdminDealerDetail }) {
                   <TableHead>Name</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead>Location</TableHead>
-                  <TableHead>Connected At</TableHead>
+                  <TableHead>Account Created</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {dealer.farmerConnections.map((conn) => (
-                  <TableRow key={conn.farmer.id}>
-                    <TableCell className="font-medium">{conn.farmer.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{conn.farmer.phone}</TableCell>
-                    <TableCell className="text-muted-foreground">{conn.farmer.CompanyFarmLocation || "--"}</TableCell>
+                {dealer.farmerAccounts.map((account) => (
+                  <TableRow key={account.farmer.id}>
+                    <TableCell className="font-medium">{account.farmer.name}</TableCell>
+                    <TableCell className="text-muted-foreground">{account.farmer.phone}</TableCell>
+                    <TableCell className="text-muted-foreground">{account.farmer.CompanyFarmLocation || "--"}</TableCell>
                     <TableCell className="text-muted-foreground">
-                      {new Date(conn.connectedAt).toLocaleDateString()}
+                      {new Date(account.accountCreatedAt).toLocaleDateString()}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -257,15 +257,15 @@ function DealerEntitySection({ dealer }: { dealer: AdminDealerDetail }) {
 }
 
 function CompanyEntitySection({ company }: { company: AdminCompanyDetail }) {
-  if (company.dealerCompanies.length === 0) return null;
+  if (company.dealerAccounts.length === 0) return null;
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <Users className="size-4" />
-          Connected Dealers
+          Dealer Accounts
           <span className="ml-auto text-sm font-normal text-muted-foreground">
-            {company.dealerCompanies.length} total
+            {company.dealerAccounts.length} total
           </span>
         </CardTitle>
       </CardHeader>
@@ -276,17 +276,17 @@ function CompanyEntitySection({ company }: { company: AdminCompanyDetail }) {
               <TableHead>Dealer Name</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Address</TableHead>
-              <TableHead>Connected At</TableHead>
+              <TableHead>Account Created</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {company.dealerCompanies.map((conn) => (
-              <TableRow key={conn.dealer.id}>
-                <TableCell className="font-medium">{conn.dealer.name}</TableCell>
-                <TableCell className="text-muted-foreground">{conn.dealer.contact}</TableCell>
-                <TableCell className="text-muted-foreground">{conn.dealer.address || "--"}</TableCell>
+            {company.dealerAccounts.map((account) => (
+              <TableRow key={account.dealer.id}>
+                <TableCell className="font-medium">{account.dealer.name}</TableCell>
+                <TableCell className="text-muted-foreground">{account.dealer.contact}</TableCell>
+                <TableCell className="text-muted-foreground">{account.dealer.address || "--"}</TableCell>
                 <TableCell className="text-muted-foreground">
-                  {new Date(conn.connectedAt).toLocaleDateString()}
+                  {new Date(account.accountCreatedAt).toLocaleDateString()}
                 </TableCell>
               </TableRow>
             ))}
@@ -605,8 +605,8 @@ export default function AdminUserDetailPage({
             />
             <StatCard
               icon={Users}
-              value={user.dealerConnections.length}
-              label={user.dealerConnections.length !== 1 ? "Dealers" : "Dealer"}
+              value={user.dealerAccounts.length}
+              label={user.dealerAccounts.length !== 1 ? "Dealers" : "Dealer"}
               color="bg-orange-100 text-orange-700"
             />
           </>
@@ -621,8 +621,8 @@ export default function AdminUserDetailPage({
             />
             <StatCard
               icon={Tractor}
-              value={dealerEntity?.farmerConnections.length ?? 0}
-              label={(dealerEntity?.farmerConnections.length ?? 0) !== 1 ? "Farmers" : "Farmer"}
+              value={dealerEntity?.farmerAccounts.length ?? 0}
+              label={(dealerEntity?.farmerAccounts.length ?? 0) !== 1 ? "Farmers" : "Farmer"}
               color="bg-emerald-100 text-emerald-700"
             />
           </>
@@ -630,8 +630,8 @@ export default function AdminUserDetailPage({
         {user.company && (
           <StatCard
             icon={Users}
-            value={companyEntity?.dealerCompanies.length ?? 0}
-            label={(companyEntity?.dealerCompanies.length ?? 0) !== 1 ? "Dealers" : "Dealer"}
+            value={companyEntity?.dealerAccounts.length ?? 0}
+            label={(companyEntity?.dealerAccounts.length ?? 0) !== 1 ? "Dealers" : "Dealer"}
             color="bg-orange-100 text-orange-700"
           />
         )}
@@ -645,10 +645,10 @@ export default function AdminUserDetailPage({
         )}
       </div>
 
-      {/* Connection Tables */}
+      {/* Account Tables */}
       <FarmsSection title="Owned Farms" farms={user.ownedFarms} />
       <FarmsSection title="Managed Farms" farms={user.managedFarms} />
-      <DealerConnectionsSection connections={user.dealerConnections} />
+      <DealerAccountsSection accounts={user.dealerAccounts} />
       {dealerEntity && <DealerEntitySection dealer={dealerEntity} />}
       {companyEntity && <CompanyEntitySection company={companyEntity} />}
       <DoctorConversationsSection conversations={user.doctorConversations} />

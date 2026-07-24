@@ -36,10 +36,7 @@ export interface AdminDealer {
   _count: {
     products: number;
     sales: number;
-    consignmentsFrom: number;
-    consignmentsTo: number;
     ledgerEntries: number;
-    paymentRequests: number;
   };
   managers?: Array<{
     id: string;
@@ -80,15 +77,15 @@ export interface AdminDealerDetail {
     status: string;
   }>;
   companies: Array<{
-    connectedAt: string;
+    accountCreatedAt: string;
     company: {
       id: string;
       name: string;
       address: string | null;
     };
   }>;
-  farmerConnections: Array<{
-    connectedAt: string;
+  farmerAccounts: Array<{
+    accountCreatedAt: string;
     farmer: {
       id: string;
       name: string;

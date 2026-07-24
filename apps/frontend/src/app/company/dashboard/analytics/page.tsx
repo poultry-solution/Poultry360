@@ -23,7 +23,6 @@ import {
   DollarSign,
   Package,
   Users,
-  Truck,
   CreditCard,
   Loader2,
   ArrowUpRight,
@@ -347,7 +346,7 @@ export default function CompanyAnalyticsPage() {
         </Card>
       </div>
 
-      {/* Product Performance & Consignments */}
+      {/* Product Performance */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
@@ -375,55 +374,6 @@ export default function CompanyAnalyticsPage() {
                     <div className="w-full bg-muted rounded-full h-2">
                       <div
                         className="bg-green-600 h-2 rounded-full transition-all"
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" />
-              Consignment Status
-            </CardTitle>
-            <CardDescription>Consignment distribution by status</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {analytics.consignments.byStatus.map((stat) => {
-                const totalConsignments = analytics.consignments.byStatus.reduce(
-                  (sum, s) => sum + s.count,
-                  0
-                );
-                const percentage = totalConsignments > 0 ? (stat.count / totalConsignments) * 100 : 0;
-                const statusColors: Record<string, string> = {
-                  CREATED: "bg-gray-500",
-                  ACCEPTED_PENDING_DISPATCH: "bg-blue-600",
-                  DISPATCHED: "bg-purple-600",
-                  RECEIVED: "bg-green-600",
-                  SETTLED: "bg-emerald-600",
-                  REJECTED: "bg-red-600",
-                  CANCELLED: "bg-orange-600",
-                };
-                return (
-                  <div key={stat.status} className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {stat.status.replace(/_/g, " ")}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">{stat.count} consignments</span>
-                      </div>
-                      <span className="text-sm font-bold">{formatCurrency(stat.totalAmount)}</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full transition-all ${statusColors[stat.status] || "bg-gray-500"}`}
                         style={{ width: `${percentage}%` }}
                       />
                     </div>

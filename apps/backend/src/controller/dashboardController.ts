@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { UserRole } from "@prisma/client";
 
-// Helper: compute total outstanding to dealers (manual + connected). Must match getDealerStatistics.
+// Helper: compute total outstanding to dealers (manual suppliers + account ledgers). Must match getDealerStatistics.
 export async function getMoneyToGiveForUser(userId: string): Promise<number> {
   const farmerAccounts = await prisma.dealerFarmerAccount.findMany({
     where: {
@@ -10,26 +10,26 @@ export async function getMoneyToGiveForUser(userId: string): Promise<number> {
     },
     select: { dealerId: true, balance: true },
   });
-  const connectedDealerIds = farmerAccounts.map((account) => account.dealerId);
+  const accountDealerIds = farmerAccounts.map((account) => account.dealerId);
   const dealerWhere: any = {
     OR: [{ userId: userId }],
   };
-  if (connectedDealerIds.length > 0) {
-    dealerWhere.OR.push({ id: { in: connectedDealerIds } });
+  if (accountDealerIds.length > 0) {
+    dealerWhere.OR.push({ id: { in: accountDealerIds } });
   }
   const dealers = await prisma.dealer.findMany({
     where: dealerWhere,
   });
-  const connectedSet = new Set(connectedDealerIds);
+  const accountDealerSet = new Set(accountDealerIds);
   let farmerAccountBalances: Map<string, number> = new Map();
-  if (connectedDealerIds.length > 0) {
+  if (accountDealerIds.length > 0) {
     farmerAccounts.forEach((a) => {
       farmerAccountBalances.set(a.dealerId, Number(a.balance));
     });
   }
   let total = 0;
   for (const dealer of dealers) {
-    const balance = connectedSet.has(dealer.id)
+    const balance = accountDealerSet.has(dealer.id)
       ? (farmerAccountBalances.get(dealer.id) ?? 0)
       : Number(dealer.balance);
     if (balance > 0) total += balance;
@@ -46,7 +46,7 @@ export const getDashboardOverview = async (
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    // Money to give: dealers only (manual + connected), same as /dealers/statistics. Compute once for all responses.
+    // Money to give: dealers only (manual suppliers + account ledgers), same as /dealers/statistics. Compute once for all responses.
     const moneyToGive =
       currentUserId != null
         ? await getMoneyToGiveForUser(currentUserId)
