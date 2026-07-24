@@ -86,10 +86,10 @@ export function SaleBillDocument({
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className={isCompact ? "text-lg font-semibold" : "text-2xl font-semibold"}>
-                {sale?.farm?.owner?.name || sale?.farm?.name || "Poultry360"}
+                {sale?.farm?.name || sale?.farm?.owner?.name || "Poultry360"}
               </div>
               <div className={isCompact ? "text-xs text-slate-600" : "text-sm text-slate-600"}>
-                {sale?.farm?.name ? `Farm: ${sale.farm.name}` : "Sales bill"}
+                Sales bill
               </div>
             </div>
             <div className={isCompact ? "text-right text-xs text-slate-600" : "text-right text-sm text-slate-600"}>
@@ -101,29 +101,9 @@ export function SaleBillDocument({
               </div>
             </div>
           </div>
-
-          <div
-            className={[
-              "mt-3 grid gap-2 text-slate-700",
-              isCompact ? "grid-cols-1 text-xs sm:grid-cols-2" : "text-sm sm:grid-cols-2",
-            ].join(" ")}
-          >
-            <div>
-              <span className="font-medium">Customer: </span>
-              {sale?.customer?.name || "Walk-in"}
-            </div>
-            <div>
-              <span className="font-medium">Phone: </span>
-              {sale?.customer?.phone || "—"}
-            </div>
-            <div>
-              <span className="font-medium">Category: </span>
-              {sale?.customer?.category || sale?.category?.name || "—"}
-            </div>
-            <div>
-              <span className="font-medium">Batch: </span>
-              {sale?.batch?.batchNumber || "—"}
-            </div>
+          <div className={isCompact ? "mt-3 text-xs text-slate-700" : "mt-3 text-sm text-slate-700"}>
+            <span className="font-medium">Category: </span>
+            {sale?.customer?.category || sale?.category?.name || "—"}
           </div>
         </div>
 
