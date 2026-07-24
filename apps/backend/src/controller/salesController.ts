@@ -467,6 +467,7 @@ export const getSaleById = async (
               select: {
                 id: true,
                 name: true,
+                companyName: true,
               },
             },
           },

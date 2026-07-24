@@ -86,7 +86,7 @@ export function SaleBillDocument({
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className={isCompact ? "text-lg font-semibold" : "text-2xl font-semibold"}>
-                {sale?.farm?.name || sale?.farm?.owner?.name || "Poultry360"}
+                {sale?.farm?.owner?.companyName || sale?.farm?.owner?.name || "Poultry360"}
               </div>
               <div className={isCompact ? "text-xs text-slate-600" : "text-sm text-slate-600"}>
                 Sales bill
