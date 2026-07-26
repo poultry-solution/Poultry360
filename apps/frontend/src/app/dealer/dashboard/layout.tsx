@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import Sidebar, { dealerNavigation } from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
 import { MobileNavSheet } from "@/components/dashboard/MobileNavSheet";
@@ -12,13 +13,19 @@ export default function DealerDashboardLayout({
   children: React.ReactNode;
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const pathname = usePathname();
   const { user } = useAuthStore();
 
   const role = user?.role as "DEALER";
+  const isPrintRoute = pathname?.startsWith("/dealer/dashboard/sales/print/");
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
   };
+
+  if (isPrintRoute) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="flex h-screen bg-background relative">
