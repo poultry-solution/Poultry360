@@ -253,7 +253,7 @@
       "phoneLabel": "Phone Number *",
       "phonePlaceholder": "98XXXXXXXX",
       "phoneHelp": "This number will be used for both owner and dealer contact.",
-      "dealerNameLabel": "Dealer Name *",
+      "dealerNameLabel": "Company name *",
       "dealerNameHelp": "Your business/dealer name",
       "dealerAddressLabel": "Dealer Address",
       "dealerAddressPlaceholder": "Optional business address",

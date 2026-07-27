@@ -9,6 +9,7 @@ import { useAuth, useAuthStore } from "@/common/store/store";
 import { useLoginRedirect } from "@/common/hooks/useRoleBasedRouting";
 import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
 import { useI18n } from "@/i18n/useI18n";
+import { SignupChooserDialog } from "@/common/components/auth/SignupChooserDialog";
 
 export default function LoginPage() {
   const { login, isLoading, error, clearError } = useAuth();
@@ -177,9 +178,16 @@ export default function LoginPage() {
         </div>
         <p className="text-sm text-muted-foreground mt-3 text-center">
           {t("auth.login.newTo")}{" "}
-          <Link href="/auth/signup" className="text-primary hover:underline">
-            {t("auth.login.createAccount")}
-          </Link>
+          <SignupChooserDialog
+            trigger={
+              <button
+                type="button"
+                className="text-primary hover:underline font-medium"
+              >
+                {t("auth.login.createAccount")}
+              </button>
+            }
+          />
         </p>
       </div>
     </div>
