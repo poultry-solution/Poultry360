@@ -276,9 +276,11 @@ export default function DealerCompanyPage() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t("dealer.company.title")}</h1>
-                    <p className="text-sm md:text-base text-muted-foreground">
-                        {t("dealer.company.subtitle")}
-                    </p>
+                    {t("dealer.company.subtitle") ? (
+                        <p className="text-sm md:text-base text-muted-foreground">
+                            {t("dealer.company.subtitle")}
+                        </p>
+                    ) : null}
                 </div>
             </div>
 
@@ -295,12 +297,12 @@ export default function DealerCompanyPage() {
                         </div>
                     </div>
 
-                    {/* Manual Companies Section */}
+                    {/* Companies Section */}
                     <Card>
                         <CardHeader>
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <CardTitle>Manual Companies</CardTitle>
+                                    <CardTitle>Companies</CardTitle>
                                     <CardDescription>
                                         Companies managed directly for purchase tracking ({filteredManualCompanies.length})
                                     </CardDescription>
@@ -344,17 +346,17 @@ export default function DealerCompanyPage() {
                                         {search
                                             ? "No Matching Companies"
                                             : manualTab === "archived"
-                                                ? "No Archived Manual Companies"
-                                                : "No Manual Companies"}
+                                                ? "No Archived Companies"
+                                                : "No Companies"}
                                     </h3>
                                     <p className="text-muted-foreground mb-4">
                                         {search
                                             ? "Try a different search term."
-                                            : "Add companies you purchase from and manage them manually."}
+                                            : "Add companies you purchase from and manage them here."}
                                     </p>
                                     <Button onClick={() => setIsAddManualOpen(true)} disabled={manualTab === "archived"}>
                                         <Plus className="mr-2 h-4 w-4" />
-                                        Add Manual Company
+                                        Add Company
                                     </Button>
                                 </div>
                             ) : (

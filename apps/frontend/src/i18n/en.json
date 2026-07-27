@@ -1908,7 +1908,7 @@
     },
     "company": {
       "title": "My Companies",
-      "subtitle": "Manage your company connections and verification requests",
+      "subtitle": "",
       "buttons": {
         "consignments": "Consignments",
         "paymentRequest": "Payment Request",
