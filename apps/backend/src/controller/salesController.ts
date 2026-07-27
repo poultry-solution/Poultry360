@@ -2127,10 +2127,17 @@ export const createCustomer = async (
   try {
     const currentUserId = req.userId;
     const { name, phone, category, address, openingBalance, openingBalanceNotes } = req.body;
+    const normalizedName = typeof name === "string" ? name.trim() : "";
+    const normalizedPhone =
+      typeof phone === "string"
+        ? (phone.trim() === "" ? null : phone.trim())
+        : phone === null
+          ? null
+          : undefined;
 
-    if (!name || !phone) {
+    if (!normalizedName) {
       return res.status(400).json({
-        message: "Customer name and phone are required"
+        message: "Customer name is required"
       });
     }
 
@@ -2148,8 +2155,8 @@ export const createCustomer = async (
       where: {
         userId: currentUserId,
         OR: [
-          { name: name },
-          { phone: phone }
+          { name: normalizedName },
+          ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
         ],
       },
     });
@@ -2163,8 +2170,8 @@ export const createCustomer = async (
     const customer = await prisma.$transaction(async (tx) => {
       const created = await tx.customer.create({
         data: {
-          name,
-          phone,
+          name: normalizedName,
+          phone: normalizedPhone || null,
           category: category || null,
           address: address || null,
           balance: numericOpeningBalance ?? 0,
@@ -2209,6 +2216,20 @@ export const updateCustomer = async (
     const { id } = req.params;
     const currentUserId = req.userId;
     const { name, phone, category, address } = req.body;
+    const normalizedName =
+      typeof name === "string" ? name.trim() : undefined;
+    const normalizedPhone =
+      typeof phone === "string"
+        ? (phone.trim() === "" ? null : phone.trim())
+        : phone === null
+          ? null
+          : undefined;
+
+    if (normalizedName === "") {
+      return res.status(400).json({
+        message: "Customer name is required",
+      });
+    }
 
     // Check if customer exists and belongs to user
     const existingCustomer = await prisma.customer.findFirst({
@@ -2223,14 +2244,14 @@ export const updateCustomer = async (
     }
 
     // Check if name or phone conflicts with other customers
-    if (name || phone) {
+    if (normalizedName !== undefined || normalizedPhone !== undefined) {
       const conflictCustomer = await prisma.customer.findFirst({
         where: {
           id: { not: id },
           userId: currentUserId,
           OR: [
-            ...(name ? [{ name: name }] : []),
-            ...(phone ? [{ phone: phone }] : []),
+            ...(normalizedName ? [{ name: normalizedName }] : []),
+            ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
           ],
         },
       });
@@ -2246,8 +2267,8 @@ export const updateCustomer = async (
     const updatedCustomer = await prisma.customer.update({
       where: { id },
       data: {
-        ...(name && { name }),
-        ...(phone && { phone }),
+        ...(normalizedName !== undefined && { name: normalizedName }),
+        ...(normalizedPhone !== undefined && { phone: normalizedPhone }),
         ...(category !== undefined && { category }),
         ...(address !== undefined && { address }),
       },

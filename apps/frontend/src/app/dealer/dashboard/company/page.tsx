@@ -274,15 +274,10 @@ export default function DealerCompanyPage() {
         <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t("dealer.company.title")}</h1>
-                    {t("dealer.company.subtitle") ? (
-                        <p className="text-sm md:text-base text-muted-foreground">
-                            {t("dealer.company.subtitle")}
-                        </p>
-                    ) : null}
-                </div>
+            <div>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t("dealer.company.title")}</h1>
             </div>
+        </div>
 
             <>
                     <div className="max-w-md">

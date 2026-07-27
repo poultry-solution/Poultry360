@@ -183,7 +183,7 @@ export default function NewSalePage() {
   };
 
   const handleCreateCustomer = async () => {
-    if (!newCustomerData.name || !newCustomerData.phone) {
+    if (!newCustomerData.name.trim()) {
       toast.error(t("dealer.newSale.messages.customerRequired"));
       return;
     }
@@ -328,7 +328,9 @@ export default function NewSalePage() {
                 <div className="p-3 bg-muted/50 rounded-lg">
                   <div>
                     <p className="font-medium">{selectedCustomer.name}</p>
-                    <p className="text-sm text-muted-foreground">{selectedCustomer.phone}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedCustomer.phone || "—"}
+                    </p>
                     {selectedCustomer.address && (
                       <p className="text-sm text-muted-foreground">{selectedCustomer.address}</p>
                     )}
@@ -826,7 +828,6 @@ export default function NewSalePage() {
                 onChange={(e) =>
                   setNewCustomerData({ ...newCustomerData, phone: e.target.value })
                 }
-                required
               />
             </div>
             <div className="space-y-2">

@@ -254,7 +254,7 @@ export const BatchSaleModel = ({
                                   ...prev,
                                   customerId: customer.id,
                                   customerName: customer.name,
-                                  contact: customer.phone,
+                                  contact: customer.phone || "",
                                   customerCategory:
                                     customer.category || "Chicken",
                                 }));
@@ -263,7 +263,7 @@ export const BatchSaleModel = ({
                             >
                               <div className="font-medium">{customer.name}</div>
                               <div className="text-sm text-gray-500">
-                                {customer.phone}
+                                {customer.phone || "—"}
                               </div>
                               {customer.category && (
                                 <div className="text-xs text-blue-600">
