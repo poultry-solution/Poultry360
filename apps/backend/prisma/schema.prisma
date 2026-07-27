@@ -1472,7 +1472,7 @@ model DealerProductTransaction {
 
 model DealerSale {
   id              String    @id @default(cuid())
-  invoiceNumber   String?   @unique
+  invoiceNumber   String?
   date            DateTime
   subtotalAmount  Decimal?  @db.Decimal(10, 2) // Before discount; null when no discount
   totalAmount     Decimal   @db.Decimal(10, 2)
@@ -1503,6 +1503,7 @@ model DealerSale {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([dealerId, invoiceNumber])
   @@index([dealerId, date])
   @@index([customerId])
   @@index([farmerId])
