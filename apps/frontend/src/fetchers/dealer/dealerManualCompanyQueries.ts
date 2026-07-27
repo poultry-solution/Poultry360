@@ -31,6 +31,7 @@ export interface PurchaseItem {
     quantity: number;
     costPrice: number;
     sellingPrice: number;
+    minStock?: number | null;
 }
 
 export interface RecordPurchaseInput {

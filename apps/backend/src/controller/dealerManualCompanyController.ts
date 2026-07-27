@@ -400,12 +400,12 @@ export const recordManualPurchase = async (
             return res.status(404).json({ message: "Manual company not found" });
         }
 
-        const result = await prisma.$transaction(async (tx) => {
+            const result = await prisma.$transaction(async (tx) => {
             let grossTotalAmount = 0;
             const purchaseItems: any[] = [];
 
             for (const item of items) {
-                const { productName, type, unit, quantity, costPrice, sellingPrice } = item;
+                const { productName, type, unit, quantity, costPrice, sellingPrice, minStock } = item;
 
                 if (!productName || !type || !unit || !quantity || costPrice === undefined || costPrice === null || sellingPrice === undefined || sellingPrice === null) {
                     throw new Error("Each item must have productName, type, unit, quantity, costPrice, and sellingPrice");
@@ -414,6 +414,15 @@ export const recordManualPurchase = async (
                 const qty = Number(quantity);
                 const cost = Number(costPrice);
                 const sell = Number(sellingPrice);
+                const minStockValue =
+                    minStock === undefined || minStock === null || minStock === ""
+                        ? undefined
+                        : Number(minStock);
+
+                if (minStockValue !== undefined && (Number.isNaN(minStockValue) || minStockValue < 0)) {
+                    throw new Error("Minimum stock must be a valid non-negative number");
+                }
+
                 const itemTotal = qty * cost;
                 grossTotalAmount += itemTotal;
 
@@ -438,6 +447,9 @@ export const recordManualPurchase = async (
                             // If this item was previously hidden at zero stock,
                             // restocking should make it visible again.
                             hiddenAt: null,
+                            ...(minStockValue !== undefined
+                                ? { minStock: new Prisma.Decimal(minStockValue) }
+                                : {}),
                         },
                     });
                 } else {
@@ -450,6 +462,7 @@ export const recordManualPurchase = async (
                             costPrice: new Prisma.Decimal(cost),
                             sellingPrice: new Prisma.Decimal(sell),
                             currentStock: new Prisma.Decimal(qty),
+                            minStock: minStockValue !== undefined ? new Prisma.Decimal(minStockValue) : null,
                             dealerId: dealer.id,
                             manualCompanyId: id,
                         },

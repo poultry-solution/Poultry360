@@ -76,7 +76,16 @@ export default function DealerCompanyPage() {
     const [purchaseCompany, setPurchaseCompany] = useState<ManualCompany | null>(null);
     const [purchaseDateAd, setPurchaseDateAd] = useState(getTodayLocalDate());
     const [purchaseTradeDiscount, setPurchaseTradeDiscount] = useState<number>(0);
-    const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([{ productName: "", type: "FEED", unit: "kg", quantity: 0, costPrice: 0, sellingPrice: 0 }]);
+    const createEmptyPurchaseItem = (): PurchaseItem => ({
+        productName: "",
+        type: "FEED",
+        unit: "kg",
+        quantity: 0,
+        costPrice: 0,
+        sellingPrice: 0,
+        minStock: null,
+    });
+    const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([createEmptyPurchaseItem()]);
     const [purchaseNotes, setPurchaseNotes] = useState("");
     const [paymentCompany, setPaymentCompany] = useState<ManualCompany | null>(null);
     const [paymentDateAd, setPaymentDateAd] = useState(getTodayLocalDate());
@@ -183,14 +192,19 @@ export default function DealerCompanyPage() {
         try {
             await recordPurchaseMutation.mutateAsync({
                 companyId: purchaseCompany.id,
-                items: validItems,
+                items: validItems.map((item) => ({
+                    ...item,
+                    minStock: item.minStock === null || item.minStock === undefined
+                        ? undefined
+                        : Number(item.minStock),
+                })),
                 notes: purchaseNotes || undefined,
                 date: new Date((purchaseDateAd || getTodayLocalDate()) + "T12:00:00").toISOString(),
                 tradeDiscountAmount: purchaseTradeDiscount || 0,
             });
             toast.success("Purchase recorded! Items added to inventory.");
             setPurchaseCompany(null);
-            setPurchaseItems([{ productName: "", type: "FEED", unit: "kg", quantity: 0, costPrice: 0, sellingPrice: 0 }]);
+            setPurchaseItems([createEmptyPurchaseItem()]);
             setPurchaseNotes("");
             setPurchaseTradeDiscount(0);
         } catch (error: any) {
@@ -232,7 +246,7 @@ export default function DealerCompanyPage() {
     };
 
     const addPurchaseItem = () => {
-        setPurchaseItems([...purchaseItems, { productName: "", type: "FEED", unit: "kg", quantity: 0, costPrice: 0, sellingPrice: 0 }]);
+        setPurchaseItems([...purchaseItems, createEmptyPurchaseItem()]);
     };
 
     const removePurchaseItem = (index: number) => {
@@ -405,16 +419,16 @@ export default function DealerCompanyPage() {
                                                 </div>
 
                                                 <div className="mt-4 flex flex-wrap gap-2">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="flex-1"
-                                                        onClick={() => {
-                                                            setPurchaseCompany(company);
-                                                            setPurchaseItems([{ productName: "", type: "FEED", unit: "kg", quantity: 0, costPrice: 0, sellingPrice: 0 }]);
-                                                            setPurchaseNotes("");
-                                                        }}
-                                                    >
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex-1"
+                                        onClick={() => {
+                                            setPurchaseCompany(company);
+                                                            setPurchaseItems([createEmptyPurchaseItem()]);
+                                            setPurchaseNotes("");
+                                        }}
+                                    >
                                                         <ShoppingCart className="mr-2 h-4 w-4" />
                                                         Purchase
                                                     </Button>
@@ -695,6 +709,24 @@ export default function DealerCompanyPage() {
                                             value={item.sellingPrice || ""}
                                             onChange={(e) => updatePurchaseItem(index, "sellingPrice", Number(e.target.value))}
                                             placeholder="0"
+                                            className="mt-1"
+                                            min="0"
+                                            step="0.01"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-muted-foreground">Minimum Stock (optional)</label>
+                                        <Input
+                                            type="number"
+                                            value={item.minStock ?? ""}
+                                            onChange={(e) =>
+                                                updatePurchaseItem(
+                                                    index,
+                                                    "minStock",
+                                                    e.target.value === "" ? null : Number(e.target.value)
+                                                )
+                                            }
+                                            placeholder="Threshold for low stock"
                                             className="mt-1"
                                             min="0"
                                             step="0.01"
