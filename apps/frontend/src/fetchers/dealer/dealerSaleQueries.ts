@@ -81,7 +81,7 @@ export interface AddSalePaymentInput {
 
 export interface CreateCustomerInput {
   name: string;
-  phone: string;
+  phone?: string | null;
   address?: string;
   category?: string;
 }
@@ -89,7 +89,7 @@ export interface CreateCustomerInput {
 export interface DealerCustomer {
   id: string;
   name: string;
-  phone: string;
+  phone?: string | null;
   address?: string;
   category?: string;
   balance: number;

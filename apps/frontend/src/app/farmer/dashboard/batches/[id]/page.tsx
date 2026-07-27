@@ -2134,14 +2134,14 @@ export default function BatchDetailPage() {
                                     ...prev,
                                     customerId: customer.id,
                                     customerName: customer.name,
-                                    contact: customer.phone,
+                                    contact: customer.phone || "",
                                     customerCategory: customer.category || "Chicken",
                                   }));
                                   setCustomerSearch("");
                                 }}
                               >
                                 <div className="font-medium">{customer.name}</div>
-                                <div className="text-sm text-gray-500">{customer.phone}</div>
+                                <div className="text-sm text-gray-500">{customer.phone || "—"}</div>
                                 {customer.category && (
                                   <div className="text-xs text-blue-600">{customer.category}</div>
                                 )}

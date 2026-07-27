@@ -438,7 +438,7 @@ export default function DealerAnalyticsPage() {
                           <TableCell>
                             <div className="space-y-1">
                               <div className="font-medium">{customer.name}</div>
-                              <div className="text-xs text-muted-foreground">{customer.phone}</div>
+                              <div className="text-xs text-muted-foreground">{customer.phone || "—"}</div>
                             </div>
                           </TableCell>
                           <TableCell className="text-right font-medium text-red-600">
@@ -630,7 +630,7 @@ export default function DealerAnalyticsPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="font-medium">{customer.name}</div>
-                      <div className="text-xs text-muted-foreground">{customer.phone}</div>
+                      <div className="text-xs text-muted-foreground">{customer.phone || "—"}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-semibold text-red-600">{formatMoney(customer.balance)}</div>

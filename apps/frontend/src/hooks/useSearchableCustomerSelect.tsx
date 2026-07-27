@@ -13,7 +13,7 @@ export function useSearchableCustomerSelect() {
   const options: SearchableSelectOption[] = customers.map((customer: any) => ({
     value: customer.id,
     label: customer.name,
-    subtitle: `${customer.phone}${customer.address ? ` • ${customer.address}` : ""}`,
+    subtitle: [customer.phone, customer.address].filter(Boolean).join(" • "),
     data: customer,
   }));
 

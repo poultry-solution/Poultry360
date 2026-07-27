@@ -7,9 +7,9 @@ import "@sbmdkl/nepali-datepicker-reactjs/dist/index.css";
 import {
   ArrowLeft,
   Package,
+  Printer,
   XCircle,
   UserPlus,
-  CreditCard,
 } from "lucide-react";
 import {
   Card,
@@ -80,6 +80,8 @@ export default function NewSalePage() {
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [useCustomInvoice, setUseCustomInvoice] = useState(false);
   const [isCreateCustomerOpen, setIsCreateCustomerOpen] = useState(false);
+  const [isPrintPromptOpen, setIsPrintPromptOpen] = useState(false);
+  const [savedSaleForPrint, setSavedSaleForPrint] = useState<any>(null);
   const [newCustomerData, setNewCustomerData] = useState({
     name: "",
     phone: "",
@@ -181,7 +183,7 @@ export default function NewSalePage() {
   };
 
   const handleCreateCustomer = async () => {
-    if (!newCustomerData.name || !newCustomerData.phone) {
+    if (!newCustomerData.name.trim()) {
       toast.error(t("dealer.newSale.messages.customerRequired"));
       return;
     }
@@ -218,7 +220,7 @@ export default function NewSalePage() {
     }
 
     try {
-      await createSaleMutation.mutateAsync({
+      const result = await createSaleMutation.mutateAsync({
         customerId,
         items: items.map((item) => ({
           productId: item.productId,
@@ -238,7 +240,9 @@ export default function NewSalePage() {
       });
 
       toast.success(t("dealer.newSale.messages.success"));
-      router.push("/dealer/dashboard/sales");
+
+      setSavedSaleForPrint(result?.data ?? result);
+      setIsPrintPromptOpen(true);
     } catch (error: any) {
       toast.error(error.response?.data?.message || t("dealer.newSale.messages.failed"));
     }
@@ -324,7 +328,9 @@ export default function NewSalePage() {
                 <div className="p-3 bg-muted/50 rounded-lg">
                   <div>
                     <p className="font-medium">{selectedCustomer.name}</p>
-                    <p className="text-sm text-muted-foreground">{selectedCustomer.phone}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedCustomer.phone || "—"}
+                    </p>
                     {selectedCustomer.address && (
                       <p className="text-sm text-muted-foreground">{selectedCustomer.address}</p>
                     )}
@@ -822,7 +828,6 @@ export default function NewSalePage() {
                 onChange={(e) =>
                   setNewCustomerData({ ...newCustomerData, phone: e.target.value })
                 }
-                required
               />
             </div>
             <div className="space-y-2">
@@ -859,6 +864,49 @@ export default function NewSalePage() {
               disabled={createCustomerMutation.isPending}
             >
               {createCustomerMutation.isPending ? t("dealer.newSale.createCustomer.creating") : t("dealer.newSale.createCustomer.create")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Print Prompt Dialog */}
+      <Dialog open={isPrintPromptOpen} onOpenChange={setIsPrintPromptOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sale saved</DialogTitle>
+            <DialogDescription>
+              Do you want to print the bill now or continue later?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+            The bill will open in a clean preview with standard and compact print options.
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsPrintPromptOpen(false);
+                setSavedSaleForPrint(null);
+                router.push("/dealer/dashboard/sales");
+              }}
+            >
+              Later
+            </Button>
+            <Button
+              onClick={() => {
+                const saleId = savedSaleForPrint?.id;
+                setIsPrintPromptOpen(false);
+                if (saleId) {
+                  router.push(`/dealer/dashboard/sales/print/${saleId}`);
+                } else {
+                  router.push("/dealer/dashboard/sales");
+                }
+                setSavedSaleForPrint(null);
+              }}
+              disabled={!savedSaleForPrint?.id}
+            >
+              <Printer className="mr-2 h-4 w-4" />
+              Print now
             </Button>
           </DialogFooter>
         </DialogContent>

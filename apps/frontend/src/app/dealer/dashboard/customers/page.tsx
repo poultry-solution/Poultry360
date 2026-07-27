@@ -51,7 +51,7 @@ import {
 interface Customer {
   id: string;
   name: string;
-  phone: string;
+  phone?: string | null;
   address?: string;
   category?: string;
   balance: number;
@@ -149,7 +149,7 @@ export default function DealerCustomersPage() {
       id: string;
       data: {
         name: string;
-        phone: string;
+        phone?: string | null;
         category?: string;
         address?: string;
       };
@@ -226,7 +226,7 @@ export default function DealerCustomersPage() {
       setEditingCustomer(customer);
       setFormData({
         name: customer.name,
-        phone: customer.phone,
+        phone: customer.phone || "",
         address: customer.address || "",
         category: customer.category || "",
         openingBalanceAmount: "",
@@ -265,8 +265,8 @@ export default function DealerCustomersPage() {
     const name = formData.name.trim();
     const phone = formData.phone.trim();
 
-    if (!name || !phone) {
-      toast.error(t("dealer.customers.messages.required"));
+    if (!name) {
+      toast.error(t("dealer.customers.messages.requiredName"));
       return;
     }
 
@@ -278,7 +278,7 @@ export default function DealerCustomersPage() {
         id: editingCustomer.id,
         data: {
           name,
-          phone,
+          phone: phone || null,
           ...(categoryTrimmed ? { category: categoryTrimmed } : {}),
           ...(addressTrimmed ? { address: addressTrimmed } : {}),
         },
@@ -297,7 +297,7 @@ export default function DealerCustomersPage() {
             : amtRaw;
       createMutation.mutate({
         name,
-        phone,
+        phone: phone || null,
         address: formData.address,
         category: formData.category,
         openingBalance,
@@ -415,13 +415,13 @@ export default function DealerCustomersPage() {
                 key: 'phone',
                 label: t("dealer.customers.table.phone"),
                 width: '120px',
-                render: (val) => (
-                  <div className="flex items-center gap-1.5">
-                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span>{val}</span>
-                  </div>
-                )
-              },
+                  render: (val) => (
+                    <div className="flex items-center gap-1.5">
+                      <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>{val || "—"}</span>
+                    </div>
+                  )
+                },
               {
                 key: 'address',
                 label: t("dealer.customers.table.address"),
@@ -599,7 +599,6 @@ export default function DealerCustomersPage() {
                     setFormData({ ...formData, phone: e.target.value })
                   }
                   placeholder={t("dealer.customers.dialog.phonePlaceholder")}
-                  required
                 />
               </div>
 
@@ -696,7 +695,7 @@ export default function DealerCustomersPage() {
         customers={customers.map((c) => ({
           id: c.id,
           name: c.name,
-          phone: c.phone,
+          phone: c.phone ?? undefined,
           balance: c.balance,
         }))}
         onSuccess={async () => {

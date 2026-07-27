@@ -43,7 +43,7 @@ import { cn } from "@/common/lib/utils";
 export interface DealerAddPaymentCustomer {
   id: string;
   name: string;
-  phone?: string;
+  phone?: string | null;
   balance?: number;
 }
 
@@ -340,4 +340,3 @@ export function DealerAddPaymentDialog({
     </Dialog>
   );
 }
-

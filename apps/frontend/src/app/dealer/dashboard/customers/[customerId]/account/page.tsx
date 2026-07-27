@@ -237,7 +237,7 @@ export default function CustomerAccountPage() {
             {customer.name} - Account
           </h1>
           <p className="text-muted-foreground">
-            {customer.phone} {customer.address && `• ${customer.address}`}
+            {customer.phone || "—"} {customer.address && `• ${customer.address}`}
           </p>
         </div>
         <Button onClick={() => setIsPaymentDialogOpen(true)}>
@@ -583,7 +583,7 @@ export default function CustomerAccountPage() {
         customer={{
           id: customer.id,
           name: customer.name,
-          phone: customer.phone,
+          phone: customer.phone || "",
           balance: currentBalance,
         }}
         onSuccess={() => {

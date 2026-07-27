@@ -10,6 +10,7 @@ import {
   FileText,
   Check,
   X,
+  Printer,
 } from "lucide-react";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import {
@@ -82,6 +83,13 @@ export default function SaleDetailPage() {
           </p>
         </div>
       </div>
+        <Button
+          variant="outline"
+          onClick={() => router.push(`/dealer/dashboard/sales/print/${sale.id}`)}
+        >
+          <Printer className="mr-2 h-4 w-4" />
+          Print bill
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">

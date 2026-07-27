@@ -4,14 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { SignupChooserDialog } from "@/common/components/auth/SignupChooserDialog";
 import { useI18n } from "@/i18n/useI18n";
 
 export default function Navbar() {
@@ -50,54 +43,13 @@ export default function Navbar() {
 
         {/* Desktop: Language Toggle + Get Started */}
         <div className="hidden md:flex items-center gap-3">
-          <Dialog>
-            <DialogTrigger asChild>
+          <SignupChooserDialog
+            trigger={
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6">
                 {t("landing.navbar.getStarted")}
               </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="text-center text-2xl font-bold">{t("landing.navbar.signUpAs")}</DialogTitle>
-                <DialogDescription className="text-center">
-                  {t("landing.navbar.signUpDescription")}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-3 py-4">
-                <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
-                  <Link href="/auth/signup">
-                    <span className="w-8 text-xl">👨‍🌾</span> {t("landing.navbar.farmer")}
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
-                  <Link href="/auth/signup/dealer">
-                    <span className="w-8 text-xl">🏪</span> {t("landing.navbar.dealer")}
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
-                  <Link href="/auth/signup/company">
-                    <span className="w-8 text-xl">🏢</span> {t("landing.navbar.company")}
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
-                  <Link href="/auth/signup/hatchery">
-                    <span className="w-8 text-xl">🥚</span> {t("landing.navbar.hatchery")}
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
-                  <Link href="/auth/signup/doctor">
-                    <span className="w-8 text-xl">🩺</span> {t("landing.navbar.veterinary")}
-                  </Link>
-                </Button>
-              </div>
-              <div className="text-center mt-1 text-sm text-muted-foreground">
-                {t("landing.navbar.alreadyHaveAccount")}{" "}
-                <Link href="/auth/login" className="text-primary hover:underline font-semibold">
-                  {t("landing.navbar.login")}
-                </Link>
-              </div>
-            </DialogContent>
-          </Dialog>
+            }
+          />
         </div>
 
         {/* Mobile: Hamburger Menu Button */}
@@ -153,54 +105,13 @@ export default function Navbar() {
 
             <div className="border-t pt-3 space-y-3">
               {/* Get Started */}
-              <Dialog>
-                <DialogTrigger asChild>
+              <SignupChooserDialog
+                trigger={
                   <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
                     {t("landing.navbar.getStarted")}
                   </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="text-center text-2xl font-bold">{t("landing.navbar.signUpAs")}</DialogTitle>
-                    <DialogDescription className="text-center">
-                      {t("landing.navbar.signUpDescription")}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-3 py-4">
-                    <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
-                      <Link href="/auth/signup">
-                        <span className="w-8 text-xl">👨‍🌾</span> {t("landing.navbar.farmer")}
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
-                      <Link href="/auth/signup/dealer">
-                        <span className="w-8 text-xl">🏪</span> {t("landing.navbar.dealer")}
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
-                      <Link href="/auth/signup/company">
-                        <span className="w-8 text-xl">🏢</span> {t("landing.navbar.company")}
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
-                      <Link href="/auth/signup/hatchery">
-                        <span className="w-8 text-xl">🥚</span> {t("landing.navbar.hatchery")}
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" className="h-14 justify-start px-6 text-base font-semibold border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
-                      <Link href="/auth/signup/doctor">
-                        <span className="w-8 text-xl">🩺</span> {t("landing.navbar.veterinary")}
-                      </Link>
-                    </Button>
-                  </div>
-                  <div className="text-center mt-1 text-sm text-muted-foreground">
-                    {t("landing.navbar.alreadyHaveAccount")}{" "}
-                    <Link href="/auth/login" className="text-primary hover:underline font-semibold">
-                      {t("landing.navbar.login")}
-                    </Link>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                }
+              />
             </div>
           </div>
         </div>

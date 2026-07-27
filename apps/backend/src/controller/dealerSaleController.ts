@@ -675,11 +675,13 @@ export const createCustomer = async (
   try {
     const userId = req.userId;
     const { name, phone, address, category, openingBalance } = req.body;
+    const normalizedName = typeof name === "string" ? name.trim() : "";
+    const normalizedPhone = typeof phone === "string" ? phone.trim() : "";
 
     // Validation
-    if (!name || !phone) {
+    if (!normalizedName) {
       return res.status(400).json({
-        message: "Name and phone are required",
+        message: "Name is required",
       });
     }
 
@@ -688,7 +690,7 @@ export const createCustomer = async (
       where: {
         userId_name: {
           userId: userId as string,
-          name,
+          name: normalizedName,
         },
       },
     });
@@ -708,10 +710,10 @@ export const createCustomer = async (
     const customer = await prisma.$transaction(async (tx) => {
       const created = await tx.customer.create({
         data: {
-          name,
-          phone,
-          address,
-          category,
+          name: normalizedName,
+          phone: normalizedPhone || null,
+          address: address ? String(address).trim() : null,
+          category: category ? String(category).trim() : null,
           userId: userId as string,
           balance: ob,
         },

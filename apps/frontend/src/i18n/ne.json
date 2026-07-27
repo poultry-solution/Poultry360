@@ -252,7 +252,7 @@
       "phoneLabel": "फोन नम्बर *",
       "phonePlaceholder": "98XXXXXXXX",
       "phoneHelp": "यो नम्बर मालिक र डिलर दुवैका लागि प्रयोग हुनेछ।",
-      "dealerNameLabel": "डिलरको नाम *",
+      "dealerNameLabel": "कम्पनीको नाम *",
       "dealerNameHelp": "तपाईंको व्यवसाय/डिलरको नाम",
       "dealerAddressLabel": "डिलर ठेगाना",
       "dealerAddressPlaceholder": "ऐच्छिक व्यवसाय ठेगाना",
@@ -1907,7 +1907,7 @@
     },
     "company": {
       "title": "मेरा कम्पनीहरू",
-      "subtitle": "तपाईंको कम्पनी जडान र प्रमाणीकरण अनुरोधहरू प्रबन्ध गर्नुहोस्",
+      "subtitle": "",
       "buttons": {
         "consignments": "कन्साइनमेन्टहरू",
         "paymentRequest": "भुक्तानी अनुरोध",
@@ -2504,7 +2504,7 @@
         "title": "नयाँ ग्राहक बनाउनुहोस्",
         "description": "तपाईंको सूचीमा नयाँ ग्राहक थप्नुहोस्",
         "name": "नाम *",
-        "phone": "फोन *",
+        "phone": "फोन",
         "address": "ठेगाना",
         "category": "श्रेणी",
         "placeholder": "जस्तै, किसान, खुद्रा विक्रेता",
@@ -2514,7 +2514,7 @@
       "messages": {
         "productExists": "उत्पादन पहिले नै थपिएको छ",
         "productAdded": "उत्पादन थपियो",
-        "customerRequired": "नाम र फोन आवश्यक छ",
+        "customerRequired": "ग्राहकको नाम आवश्यक छ",
         "customerCreated": "ग्राहक सफलतापुर्वक सिर्जना गरियो",
         "customerFailed": "ग्राहक सिर्जना गर्न असफल भयो",
         "selectRequired": "कृपया ग्राहक छान्नुहोस् र वस्तुहरू थप्नुहोस्",
@@ -2556,7 +2556,7 @@
         "editDescription": "ग्राहक जानकारी अपडेट गर्नुहोस्",
         "name": "ग्राहकको नाम *",
         "namePlaceholder": "ग्राहकको नाम प्रविष्ट गर्नुहोस्",
-        "phone": "फोन नम्बर *",
+        "phone": "फोन नम्बर",
         "phonePlaceholder": "फोन नम्बर प्रविष्ट गर्नुहोस्",
         "address": "ठेगाना",
         "addressPlaceholder": "ठेगाना प्रविष्ट गर्नुहोस् (वैकल्पिक)",
@@ -2568,7 +2568,7 @@
         "saving": "बचत गर्दै..."
       },
       "messages": {
-        "required": "नाम र फोन आवश्यक छ",
+        "requiredName": "नाम आवश्यक छ",
         "updateSoon": "अपडेट कार्यक्षमता चाडै आउँदैछ",
         "deleteConfirm": "के तपाईं निश्चित रूपमा \"{name}\" मेटाउन चाहनुहुन्छ?",
         "createSuccess": "ग्राहक सफलतापुर्वक सिर्जना गरियो",
