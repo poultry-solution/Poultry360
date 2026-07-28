@@ -4,7 +4,8 @@ import { toast } from "sonner";
 
 // ==================== TYPES ====================
 
-export type StaffStatus = "ACTIVE" | "STOPPED";
+export type StaffStatus = "ACTIVE" | "STOPPED" | "ARCHIVED";
+export type StaffStatusFilter = StaffStatus | "ARCHIVED" | "ALL";
 
 export interface StaffSalary {
   id: string;
@@ -37,6 +38,16 @@ export interface StaffItem {
   currentMonthlySalary: number;
 }
 
+export interface StaffSummary {
+  totalStaff: number;
+  activeStaff: number;
+  stoppedStaff: number;
+  archivedStaff: number;
+  totalSalaryExpense: number;
+  totalSalaryPayments: number;
+  remainingBalance: number;
+}
+
 export interface StaffDetail extends StaffItem {
   salaries: StaffSalary[];
   payments: StaffPayment[];
@@ -51,7 +62,9 @@ export type TransactionItem =
 const staffBase = (owner: "farmer" | "dealer") => ["staff", owner] as const;
 export const staffKeys = {
   all: (owner: "farmer" | "dealer") => staffBase(owner),
-  list: (owner: "farmer" | "dealer") => [...staffBase(owner), "list"] as const,
+  list: (owner: "farmer" | "dealer", status: StaffStatusFilter = "ALL") =>
+    [...staffBase(owner), "list", status] as const,
+  summary: (owner: "farmer" | "dealer") => [...staffBase(owner), "summary"] as const,
   detail: (owner: "farmer" | "dealer", id: string) => [...staffBase(owner), "detail", id] as const,
   transactions: (owner: "farmer" | "dealer", id: string) => [...staffBase(owner), "transactions", id] as const,
 };
@@ -62,11 +75,26 @@ function staffPath(owner: "farmer" | "dealer") {
 
 // ==================== QUERIES ====================
 
-export function useStaffList(owner: "farmer" | "dealer") {
+export function useStaffList(owner: "farmer" | "dealer", status: StaffStatusFilter = "ALL") {
   return useQuery({
-    queryKey: staffKeys.list(owner),
+    queryKey: staffKeys.list(owner, status),
     queryFn: async () => {
-      const { data } = await axiosInstance.get<{ success: boolean; data: StaffItem[] }>(staffPath(owner));
+      const params = status === "ALL" ? undefined : { status };
+      const { data } = await axiosInstance.get<{ success: boolean; data: StaffItem[] }>(staffPath(owner), {
+        params,
+      });
+      return data;
+    },
+  });
+}
+
+export function useStaffSummary(owner: "farmer" | "dealer") {
+  return useQuery({
+    queryKey: staffKeys.summary(owner),
+    queryFn: async () => {
+      const { data } = await axiosInstance.get<{ success: boolean; data: StaffSummary }>(
+        `${staffPath(owner)}/summary`
+      );
       return data;
     },
   });
@@ -125,6 +153,7 @@ export function useCreateStaff(owner: "farmer" | "dealer") {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: staffKeys.all(owner) });
+      qc.invalidateQueries({ queryKey: staffKeys.summary(owner) });
       toast.success("Staff added");
     },
     onError: (err: any) => {
@@ -145,6 +174,7 @@ export function useUpdateStaff(owner: "farmer" | "dealer") {
     },
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: staffKeys.all(owner) });
+      qc.invalidateQueries({ queryKey: staffKeys.summary(owner) });
       qc.invalidateQueries({ queryKey: staffKeys.detail(owner, id) });
       qc.invalidateQueries({ queryKey: staffKeys.transactions(owner, id) });
       toast.success("Updated");
@@ -166,6 +196,7 @@ export function useStopStaff(owner: "farmer" | "dealer") {
     },
     onSuccess: (_, id) => {
       qc.invalidateQueries({ queryKey: staffKeys.all(owner) });
+      qc.invalidateQueries({ queryKey: staffKeys.summary(owner) });
       qc.invalidateQueries({ queryKey: staffKeys.detail(owner, id) });
       qc.invalidateQueries({ queryKey: staffKeys.transactions(owner, id) });
       toast.success("Staff stopped");
@@ -195,12 +226,35 @@ export function useAddStaffPayment(owner: "farmer" | "dealer") {
     },
     onSuccess: (_, { staffId }) => {
       qc.invalidateQueries({ queryKey: staffKeys.all(owner) });
+      qc.invalidateQueries({ queryKey: staffKeys.summary(owner) });
       qc.invalidateQueries({ queryKey: staffKeys.detail(owner, staffId) });
       qc.invalidateQueries({ queryKey: staffKeys.transactions(owner, staffId) });
       toast.success("Payment recorded");
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.message ?? "Failed to record payment");
+    },
+  });
+}
+
+export function useArchiveStaff(owner: "farmer" | "dealer") {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await axiosInstance.patch<{ success: boolean; data: StaffDetail; message?: string }>(
+        `${staffPath(owner)}/${id}/archive`
+      );
+      return data;
+    },
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: staffKeys.all(owner) });
+      qc.invalidateQueries({ queryKey: staffKeys.summary(owner) });
+      qc.invalidateQueries({ queryKey: staffKeys.detail(owner, id) });
+      qc.invalidateQueries({ queryKey: staffKeys.transactions(owner, id) });
+      toast.success("Staff archived");
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message ?? "Failed to archive staff");
     },
   });
 }

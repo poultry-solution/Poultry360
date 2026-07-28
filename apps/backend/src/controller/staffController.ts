@@ -3,10 +3,13 @@ import prisma from "../utils/prisma";
 import { StaffStatus } from "@prisma/client";
 import {
   listStaffForOwner,
+  getStaffSummaryForOwner,
   getStaffById as getStaffByIdService,
   getStaffTransactions,
   computeBalance,
   getFirstDayOfStartBSMonth,
+  archiveStaffForOwner,
+  type StaffStatusFilter,
 } from "../services/staffService";
 
 function parseDate(val: unknown): Date | null {
@@ -32,10 +35,28 @@ export const listStaff = async (req: Request, res: Response): Promise<void> => {
       res.status(401).json({ success: false, message: "Unauthorized" });
       return;
     }
-    const list = await listStaffForOwner(ownerId);
+    const statusParam = typeof req.query.status === "string" ? req.query.status.toUpperCase() : "ALL";
+    const allowedStatus: StaffStatusFilter =
+      statusParam === "ACTIVE" || statusParam === "STOPPED" || statusParam === "ARCHIVED" ? statusParam : "ALL";
+    const list = await listStaffForOwner(ownerId, allowedStatus);
     res.json({ success: true, data: list });
   } catch (error) {
     console.error("List staff error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+export const getStaffSummary = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ownerId = req.userId;
+    if (!ownerId) {
+      res.status(401).json({ success: false, message: "Unauthorized" });
+      return;
+    }
+    const summary = await getStaffSummaryForOwner(ownerId);
+    res.json({ success: true, data: summary });
+  } catch (error) {
+    console.error("Get staff summary error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
@@ -126,6 +147,10 @@ export const updateStaff = async (req: Request, res: Response): Promise<void> =>
       res.status(404).json({ success: false, message: "Staff not found" });
       return;
     }
+    if (existing.status === StaffStatus.ARCHIVED) {
+      res.status(400).json({ success: false, message: "Archived staff cannot be updated" });
+      return;
+    }
     const { name, monthlySalary, effectiveFrom } = req.body;
     const updates: { name?: string } = {};
     if (name !== undefined && typeof name === "string" && name.trim().length > 0) {
@@ -175,6 +200,10 @@ export const stopStaff = async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ success: false, message: "Staff not found" });
       return;
     }
+    if (staff.status === StaffStatus.ARCHIVED) {
+      res.status(400).json({ success: false, message: "Archived staff cannot be stopped" });
+      return;
+    }
     if (staff.status === StaffStatus.STOPPED) {
       res.status(400).json({ success: false, message: "Staff is already stopped" });
       return;
@@ -209,6 +238,10 @@ export const addPayment = async (req: Request, res: Response): Promise<void> => 
       res.status(404).json({ success: false, message: "Staff not found" });
       return;
     }
+    if (staff.status === StaffStatus.ARCHIVED) {
+      res.status(400).json({ success: false, message: "Archived staff cannot receive payments" });
+      return;
+    }
     const { amount, paidAt, note, receiptImageUrl } = req.body;
     const amt = parseDecimal(amount);
     if (amt === null || amt <= 0) {
@@ -234,6 +267,36 @@ export const addPayment = async (req: Request, res: Response): Promise<void> => 
   } catch (error) {
     console.error("Add staff payment error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// ==================== ARCHIVE ====================
+export const archiveStaff = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ownerId = req.userId;
+    const { id } = req.params;
+    if (!ownerId) {
+      res.status(401).json({ success: false, message: "Unauthorized" });
+      return;
+    }
+
+    const archived = await archiveStaffForOwner(id, ownerId);
+    if (!archived) {
+      res.status(404).json({ success: false, message: "Staff not found" });
+      return;
+    }
+
+    res.json({ success: true, data: archived, message: "Staff archived" });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Internal server error";
+    const status =
+      message === "Only stopped staff can be archived" ||
+      message === "Staff can only be archived when balance is zero" ||
+      message === "Staff is already archived"
+        ? 400
+        : 500;
+    console.error("Archive staff error:", error);
+    res.status(status).json({ success: false, message });
   }
 };
 

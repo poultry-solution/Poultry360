@@ -88,12 +88,6 @@ export default function DealerSalesPage() {
           </p>
         </div>
         <div className="flex flex-col items-start sm:items-end gap-1">
-          <div className="text-sm md:text-base font-medium">
-            Total sales:{" "}
-            <span className="font-bold">
-              {salesStatsLoading ? "..." : formatCurrency(lifetimeSalesAmount)}
-            </span>
-          </div>
           <Button
             onClick={() => router.push("/dealer/dashboard/sales/new")}
             variant="outline"
@@ -123,15 +117,19 @@ export default function DealerSalesPage() {
       </div>
 
       {/* Sales Table - Unified DataTable */}
-      <Card>
-        <CardHeader className="p-3 md:p-6">
-          <CardTitle className="text-base md:text-lg">{t("dealer.sales.table.title")}</CardTitle>
-          <CardDescription className="text-xs md:text-sm">
-            {t("dealer.sales.table.description", {
-              count: pagination?.total ?? 0,
-            })}
-          </CardDescription>
-        </CardHeader>
+        <Card>
+          <CardHeader className="p-3 md:p-6">
+            <CardTitle className="text-base md:text-lg">{t("dealer.sales.table.title")}</CardTitle>
+            <CardDescription className="text-xs md:text-sm">
+              {t("dealer.sales.table.description", {
+                count: pagination?.total ?? 0,
+              })}
+              <span className="mx-2">,</span>
+              <span className="font-medium text-foreground">
+                Total sales: {salesStatsLoading ? "..." : formatCurrency(lifetimeSalesAmount)}
+              </span>
+            </CardDescription>
+          </CardHeader>
         <CardContent className="p-0">
           <DataTable
             data={sales}
