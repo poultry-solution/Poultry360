@@ -6,6 +6,7 @@ import {
   UpdateDealerSchema,
 } from "@myapp/shared-types";
 import { InventoryService } from "../services/inventoryService";
+import { parseDealerDateRange } from "../utils/dealerSaleDateRange";
 
 // ==================== GET ALL DEALERS ====================
 export const getAllDealers = async (
@@ -1319,14 +1320,16 @@ export const getDealerTransactions = async (
       where.type = type as TransactionType;
     }
 
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) {
-        where.date.gte = new Date(startDate as string);
-      }
-      if (endDate) {
-        where.date.lte = new Date(endDate as string);
-      }
+    const dateRange = parseDealerDateRange(startDate, endDate);
+    if (!dateRange.ok) {
+      return res.status(400).json({ message: dateRange.message });
+    }
+
+    if (dateRange.range) {
+      where.date = {
+        gte: dateRange.range.gte,
+        lte: dateRange.range.lte,
+      };
     }
 
     const [transactions, total] = await Promise.all([

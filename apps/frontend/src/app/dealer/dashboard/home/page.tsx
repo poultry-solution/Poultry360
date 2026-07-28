@@ -25,20 +25,9 @@ export default function DealerHomePage() {
 
   const formatCurrency = (amount: number) => `रू ${Number(amount || 0).toFixed(2)}`;
 
-  // Calculate current month date range (local dates to avoid UTC shift)
-  const currentDate = new Date();
-  const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-  const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const startDate = `${startOfMonth.getFullYear()}-${pad(startOfMonth.getMonth() + 1)}-${pad(startOfMonth.getDate())}`;
-  const endDate = `${endOfMonth.getFullYear()}-${pad(endOfMonth.getMonth() + 1)}-${pad(endOfMonth.getDate())}`;
-
   // Fetch real data
   const { data: inventoryData, isLoading: inventoryLoading } = useGetInventorySummary();
-  const { data: salesStatsData, isLoading: salesStatsLoading } = useGetSalesStatistics({
-    startDate,
-    endDate,
-  });
+  const { data: salesStatsData, isLoading: salesStatsLoading } = useGetSalesStatistics();
   const { data: recentSalesData, isLoading: recentSalesLoading } = useGetDealerSales({
     limit: 5,
   });
@@ -75,7 +64,8 @@ export default function DealerHomePage() {
   const stats = {
     totalInventory: inventory?.totalProducts || 0,
     totalCustomers,
-    totalSales: salesStats?.totalSales || 0,
+    totalSalesAmount: salesStats?.totalRevenue || 0,
+    totalSalesTransactions: salesStats?.totalSales || 0,
   };
 
   // Net balances (can be negative due to advances)
@@ -153,9 +143,9 @@ export default function DealerHomePage() {
             {isLoading ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <div className="text-xl md:text-2xl font-bold">{stats.totalSales}</div>
+              <div className="text-xl md:text-2xl font-bold">{formatCurrency(stats.totalSalesAmount)}</div>
             )}
-            <p className="text-[10px] md:text-xs text-muted-foreground">{t("dealer.dashboard.stats.thisMonth")}</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Lifetime sales</p>
           </CardContent>
         </Card>
 

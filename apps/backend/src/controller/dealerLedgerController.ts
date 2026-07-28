@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { Prisma } from "@prisma/client";
 import { DealerService } from "../services/dealerService";
+import { parseDealerDateRange } from "../utils/dealerSaleDateRange";
 
 // ==================== GET LEDGER ENTRIES ====================
 export const getLedgerEntries = async (
@@ -29,12 +30,17 @@ export const getLedgerEntries = async (
     }
 
     // Use service to get ledger entries
+    const dateRange = parseDealerDateRange(startDate, endDate);
+    if (!dateRange.ok) {
+      return res.status(400).json({ message: dateRange.message });
+    }
+
     const result = await DealerService.getLedgerEntries({
       dealerId: dealer.id,
       type: type as string,
       partyId: partyId as string,
-      startDate: startDate ? new Date(startDate as string) : undefined,
-      endDate: endDate ? new Date(endDate as string) : undefined,
+      startDate: dateRange.range?.gte,
+      endDate: dateRange.range?.lte,
       page: Number(page),
       limit: Number(limit),
     });
@@ -104,11 +110,16 @@ export const getPartyLedger = async (
     }
 
     // Use service to get party-specific ledger
+    const dateRange = parseDealerDateRange(startDate, endDate);
+    if (!dateRange.ok) {
+      return res.status(400).json({ message: dateRange.message });
+    }
+
     const result = await DealerService.getLedgerEntries({
       dealerId: dealer.id,
       partyId,
-      startDate: startDate ? new Date(startDate as string) : undefined,
-      endDate: endDate ? new Date(endDate as string) : undefined,
+      startDate: dateRange.range?.gte,
+      endDate: dateRange.range?.lte,
       page: Number(page),
       limit: Number(limit),
     });
@@ -239,10 +250,15 @@ export const getLedgerSummary = async (
       accountId: null,
     };
 
-    if (startDate || endDate) {
-      salesWhere.date = {};
-      if (startDate) salesWhere.date.gte = new Date(startDate as string);
-      if (endDate) salesWhere.date.lte = new Date(endDate as string);
+    const dateRange = parseDealerDateRange(startDate, endDate);
+    if (!dateRange.ok) {
+      return res.status(400).json({ message: dateRange.message });
+    }
+    if (dateRange.range) {
+      salesWhere.date = {
+        gte: dateRange.range.gte,
+        lte: dateRange.range.lte,
+      };
     }
 
     const salesSummary = await prisma.dealerSale.aggregate({
@@ -368,11 +384,16 @@ export const exportLedger = async (
     }
 
     // Get all entries without pagination
+    const dateRange = parseDealerDateRange(startDate, endDate);
+    if (!dateRange.ok) {
+      return res.status(400).json({ message: dateRange.message });
+    }
+
     const result = await DealerService.getLedgerEntries({
       dealerId: dealer.id,
       type: type as string,
-      startDate: startDate ? new Date(startDate as string) : undefined,
-      endDate: endDate ? new Date(endDate as string) : undefined,
+      startDate: dateRange.range?.gte,
+      endDate: dateRange.range?.lte,
       page: 1,
       limit: 10000, // Large limit for export
     });

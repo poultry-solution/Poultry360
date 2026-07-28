@@ -136,6 +136,7 @@ function MetricCard({
   icon: Icon,
   tone,
   badge,
+  scopeBadge,
 }: {
   title: string;
   value: string;
@@ -143,6 +144,7 @@ function MetricCard({
   icon: ComponentType<{ className?: string }>;
   tone: string;
   badge?: string;
+  scopeBadge?: string;
 }) {
   return (
     <Card>
@@ -151,7 +153,14 @@ function MetricCard({
           <CardTitle className="text-sm font-medium">{title}</CardTitle>
           <CardDescription className="text-xs">{description}</CardDescription>
         </div>
-        <Icon className={`h-4 w-4 ${tone}`} />
+        <div className="flex flex-col items-end gap-2">
+          {scopeBadge ? (
+            <Badge variant="outline" className="text-[10px] font-normal">
+              {scopeBadge}
+            </Badge>
+          ) : null}
+          <Icon className={`h-4 w-4 ${tone}`} />
+        </div>
       </CardHeader>
       <CardContent className="space-y-2">
         <div className="text-2xl font-semibold tracking-tight">{value}</div>
@@ -187,14 +196,16 @@ export default function DealerAnalyticsPage() {
   const inventorySummaryQuery = useGetInventorySummary();
   const lowStockProductsQuery = useGetDealerProducts({ lowStock: true, limit: 6 });
   const salesStatsQuery = useGetSalesStatistics(statsParams);
-  const ledgerSummaryQuery = useGetLedgerSummary(statsParams);
+  const lifetimeSalesStatsQuery = useGetSalesStatistics();
+  const lifetimeLedgerSummaryQuery = useGetLedgerSummary();
   const manualCompaniesQuery = useGetManualCompanies({ archived: false });
   const profitSummaryQuery = useGetDealerProfitSummary();
   const customersQuery = useGetDealerCustomers({ page: 1, limit: 100, archived: false });
 
   const inventorySummary = inventorySummaryQuery.data?.data;
   const salesStats = salesStatsQuery.data?.data;
-  const ledgerSummary = ledgerSummaryQuery.data?.data;
+  const lifetimeSalesStats = lifetimeSalesStatsQuery.data?.data;
+  const lifetimeLedgerSummary = lifetimeLedgerSummaryQuery.data?.data;
   const manualCompanies = manualCompaniesQuery.data ?? [];
   const profitSummary = profitSummaryQuery.data;
   const customers = customersQuery.data?.data ?? [];
@@ -259,10 +270,11 @@ export default function DealerAnalyticsPage() {
   const salesTotal = Number(salesStats?.totalRevenue || 0);
   const paidAtSale = Number(salesStats?.totalPaid || 0);
   const dueAtSale = Number(salesStats?.totalDue || 0);
+  const lifetimeSalesTotal = Number(lifetimeSalesStats?.totalRevenue || 0);
   const totalPurchases = Number(profitSummary?.totalPurchases || 0);
-  const totalPaymentsReceived = Number(ledgerSummary?.totalPaymentsReceived || 0);
-  const netCustomerBalance = Number(ledgerSummary?.netCustomerBalance || 0);
-  const netCompanyBalance = Number(ledgerSummary?.netCompanyBalance || 0);
+  const totalPaymentsReceived = Number(lifetimeLedgerSummary?.totalPaymentsReceived || 0);
+  const netCustomerBalance = Number(lifetimeLedgerSummary?.netCustomerBalance || 0);
+  const netCompanyBalance = Number(lifetimeLedgerSummary?.netCompanyBalance || 0);
   const profit = Number(profitSummary?.profit || 0);
 
   return (
@@ -352,60 +364,91 @@ export default function DealerAnalyticsPage() {
               <CalendarRange className="h-3.5 w-3.5" />
               Filtered summary
             </Badge>
-            <span>Use the quick ranges or override with custom dates.</span>
+            <span>Use the quick ranges or override with custom dates. Only sales and collections follow this range.</span>
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <MetricCard
-          title="Sales"
-          value={salesStatsQuery.isLoading ? "..." : formatMoney(salesTotal)}
-          description="Revenue in the selected range"
-          icon={ReceiptText}
-          tone="text-green-600"
-          badge={`${formatNumber(salesStats?.totalSales || 0)} sales`}
-        />
-        <MetricCard
-          title="Collections"
-          value={salesStatsQuery.isLoading ? "..." : formatMoney(paidAtSale)}
-          description="Cash collected at sale time"
-          icon={Wallet}
-          tone="text-blue-600"
-          badge={`${formatMoney(dueAtSale)} due`}
-        />
-        <MetricCard
-          title="Profit"
-          value={profitSummaryQuery.isLoading ? "..." : formatMoney(profit)}
-          description="Purchase cost versus sales"
-          icon={TrendingUp}
-          tone="text-emerald-600"
-          badge={`${formatMoney(totalPurchases)} purchases`}
-        />
-        <MetricCard
-          title="Customer balance"
-          value={ledgerSummaryQuery.isLoading ? "..." : formatMoney(netCustomerBalance)}
-          description="Net manual customer exposure"
-          icon={Users}
-          tone="text-violet-600"
-          badge={`${formatNumber(overdueCustomers.length)} overdue`}
-        />
-        <MetricCard
-          title="Company balance"
-          value={ledgerSummaryQuery.isLoading ? "..." : formatMoney(netCompanyBalance)}
-          description="Net manual company exposure"
-          icon={Building2}
-          tone="text-amber-600"
-          badge={`${manualCompanies.length} suppliers`}
-        />
-        <MetricCard
-          title="Alerts"
-          value={inventorySummaryQuery.isLoading ? "..." : formatNumber(alertCount)}
-          description="Low stock, out of stock, overdue"
-          icon={AlertTriangle}
-          tone="text-red-600"
-          badge={`${formatNumber(lowStockCount)} low stock`}
-        />
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="space-y-1">
+            <div className="text-sm font-semibold">Selected range</div>
+            <div className="text-xs text-muted-foreground">
+              These cards change with the date filter.
+            </div>
+          </div>
+          <Badge variant="secondary">Range-based</Badge>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
+          <MetricCard
+            title="Sales"
+            value={salesStatsQuery.isLoading ? "..." : formatMoney(salesTotal)}
+            description="Revenue in the selected range"
+            icon={ReceiptText}
+            tone="text-green-600"
+            scopeBadge="Selected range"
+            badge={`${formatNumber(salesStats?.totalSales || 0)} sales`}
+          />
+          <MetricCard
+            title="Collections"
+            value={salesStatsQuery.isLoading ? "..." : formatMoney(paidAtSale)}
+            description="Cash collected at sale time"
+            icon={Wallet}
+            tone="text-blue-600"
+            scopeBadge="Selected range"
+            badge={`${formatMoney(dueAtSale)} due`}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="space-y-1">
+            <div className="text-sm font-semibold">Lifetime snapshot</div>
+            <div className="text-xs text-muted-foreground">
+              These cards reflect current dealer exposure and inventory pressure.
+            </div>
+          </div>
+          <Badge variant="outline">Lifetime</Badge>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            title="Profit"
+            value={profitSummaryQuery.isLoading ? "..." : formatMoney(profit)}
+            description="Purchase cost versus sales"
+            icon={TrendingUp}
+            tone="text-emerald-600"
+            scopeBadge="Lifetime"
+            badge={`${formatMoney(totalPurchases)} purchases`}
+          />
+          <MetricCard
+            title="Customer balance"
+            value={lifetimeLedgerSummaryQuery.isLoading ? "..." : formatMoney(netCustomerBalance)}
+            description="Net manual customer exposure"
+            icon={Users}
+            tone="text-violet-600"
+            scopeBadge="Lifetime"
+            badge={`${formatNumber(overdueCustomers.length)} overdue`}
+          />
+          <MetricCard
+            title="Company balance"
+            value={lifetimeLedgerSummaryQuery.isLoading ? "..." : formatMoney(netCompanyBalance)}
+            description="Net manual company exposure"
+            icon={Building2}
+            tone="text-amber-600"
+            scopeBadge="Lifetime"
+            badge={`${manualCompanies.length} suppliers`}
+          />
+          <MetricCard
+            title="Alerts"
+            value={inventorySummaryQuery.isLoading ? "..." : formatNumber(alertCount)}
+            description="Low stock, out of stock, overdue"
+            icon={AlertTriangle}
+            tone="text-red-600"
+            scopeBadge="Lifetime"
+            badge={`${formatNumber(lowStockCount)} low stock`}
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -415,7 +458,7 @@ export default function DealerAnalyticsPage() {
               <AlertTriangle className="h-5 w-5" />
               Watch list
             </CardTitle>
-            <CardDescription>Customers owing money and products needing attention.</CardDescription>
+            <CardDescription>Current overdue customers and products needing attention.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
@@ -449,7 +492,7 @@ export default function DealerAnalyticsPage() {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
-                          No overdue customers in this range.
+                          No overdue customers right now.
                         </TableCell>
                       </TableRow>
                     )}
@@ -548,27 +591,35 @@ export default function DealerAnalyticsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base md:text-lg">
             <Wallet className="h-5 w-5" />
-            Balance summary
+            Lifetime balance summary
           </CardTitle>
-          <CardDescription>Aggregated money flow across dealer books.</CardDescription>
+          <CardDescription>Aggregated money flow across dealer books, not the selected range.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-lg border p-3">
               <div className="text-xs text-muted-foreground">Total sales</div>
-              <div className="mt-1 text-lg font-semibold">{formatMoney(salesTotal)}</div>
+              <div className="mt-1 text-lg font-semibold">
+                {lifetimeSalesStatsQuery.isLoading ? "..." : formatMoney(lifetimeSalesTotal)}
+              </div>
             </div>
             <div className="rounded-lg border p-3">
               <div className="text-xs text-muted-foreground">Total purchases</div>
-              <div className="mt-1 text-lg font-semibold">{formatMoney(totalPurchases)}</div>
+              <div className="mt-1 text-lg font-semibold">
+                {profitSummaryQuery.isLoading ? "..." : formatMoney(totalPurchases)}
+              </div>
             </div>
             <div className="rounded-lg border p-3">
               <div className="text-xs text-muted-foreground">Payments received</div>
-              <div className="mt-1 text-lg font-semibold">{formatMoney(totalPaymentsReceived)}</div>
+              <div className="mt-1 text-lg font-semibold">
+                {lifetimeLedgerSummaryQuery.isLoading ? "..." : formatMoney(totalPaymentsReceived)}
+              </div>
             </div>
             <div className="rounded-lg border p-3">
               <div className="text-xs text-muted-foreground">Payments made</div>
-              <div className="mt-1 text-lg font-semibold">{formatMoney(totalPaymentsMade)}</div>
+              <div className="mt-1 text-lg font-semibold">
+                {manualCompaniesQuery.isLoading ? "..." : formatMoney(totalPaymentsMade)}
+              </div>
             </div>
           </div>
         </CardContent>
