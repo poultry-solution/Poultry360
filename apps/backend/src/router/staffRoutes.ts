@@ -14,9 +14,9 @@ import { authMiddleware } from "../middelware/middelware";
 
 const router = Router();
 
-// Farmer and Dealer only
+// Farmer, Dealer, and Hatchery only
 router.use((req, res, next) => {
-  authMiddleware(req, res, next, ["OWNER", "DEALER"]);
+  authMiddleware(req, res, next, ["OWNER", "DEALER", "HATCHERY"] as any);
 });
 
 router.get("/", listStaff);

@@ -235,6 +235,11 @@ export const hatcheryNavigation: NavigationItem[] = [
     icon: Users,
   },
   {
+    nameKey: "sidebar.nav.staffManagement",
+    href: "/hatchery/dashboard/staff",
+    icon: Users,
+  },
+  {
     nameKey: "sidebar.nav.analytics",
     href: "/hatchery/dashboard/analytics",
     icon: BarChart3,
