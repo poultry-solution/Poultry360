@@ -44,7 +44,10 @@ export default function HatcheryProducedChicksPage() {
   });
 
   const parentBatches = parentBatchData?.batches ?? [];
-  const incubations = incubationData?.batches ?? [];
+  const activeParentBatchIds = new Set(parentBatches.map((batch) => batch.id));
+  const incubations = (incubationData?.batches ?? []).filter((batch) =>
+    activeParentBatchIds.has(batch.parentBatchId)
+  );
   const rows = stockRes?.data ?? [];
   const pagination = stockRes?.pagination;
   const summary = stockRes?.summary;
@@ -161,7 +164,7 @@ export default function HatcheryProducedChicksPage() {
                 setSelectedIncubationBatchId("");
               }}
             >
-              <option value="">All Parent Batches</option>
+              <option value="">All Active Parent Batches</option>
               {parentBatches.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.code}{b.name ? ` – ${b.name}` : ""}
@@ -180,7 +183,7 @@ export default function HatcheryProducedChicksPage() {
               value={selectedIncubationBatchId}
               onChange={(e) => setSelectedIncubationBatchId(e.target.value)}
             >
-              <option value="">All Incubations</option>
+              <option value="">All Active Incubations</option>
               {incubations.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.code}{b.name ? ` – ${b.name}` : ""}

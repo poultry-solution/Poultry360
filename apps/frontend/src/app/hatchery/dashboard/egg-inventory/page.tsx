@@ -23,7 +23,7 @@ export default function HatcheryEggInventoryPage() {
     page,
     limit: 10,
   });
-  const { data: batchData } = useHatcheryBatches({ limit: 100 });
+  const { data: batchData } = useHatcheryBatches({ status: "ACTIVE", limit: 100 });
   const { data: eggTypes = [] } = useHatcheryEggTypes();
 
   const batches = batchData?.batches ?? [];
@@ -133,7 +133,7 @@ export default function HatcheryEggInventoryPage() {
             value={selectedBatchId}
             onChange={(e) => setSelectedBatchId(e.target.value)}
           >
-            <option value="">All Batches</option>
+            <option value="">All Active Batches</option>
             {batches.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.code}{b.name ? ` – ${b.name}` : ""}
