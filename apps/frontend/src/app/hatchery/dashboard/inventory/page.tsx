@@ -13,7 +13,6 @@ import { Label } from "@/common/components/ui/label";
 import { Badge } from "@/common/components/ui/badge";
 import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
 import { DateInput } from "@/common/components/ui/date-input";
-import { DateDisplay } from "@/common/components/ui/date-display";
 import { DataTable, type Column } from "@/common/components/ui/data-table";
 import { toast } from "sonner";
 import {
@@ -22,7 +21,6 @@ import {
   Trash2,
   AlertTriangle,
   RefreshCw,
-  Minus,
 } from "lucide-react";
 import {
   Select,
@@ -39,7 +37,6 @@ import {
   useUpdateHatcheryInventoryItem,
   useDeleteHatcheryInventoryItem,
   useReorderHatcheryInventoryItem,
-  useRecordHatcheryInventoryUsage,
   type HatcheryInventoryItemType,
   type HatcheryInventoryItem,
 } from "@/fetchers/hatchery/hatcheryInventoryQueries";
@@ -78,13 +75,11 @@ export default function HatcheryInventoryPage() {
 
   // Modals
   const [isReorderOpen, setIsReorderOpen] = useState(false);
-  const [isUsageOpen, setIsUsageOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   // Forms
   const [reorderForm, setReorderForm] = useState({ quantity: "", date: "" });
-  const [usageForm, setUsageForm] = useState({ quantity: "", date: "", note: "" });
   const [editForm, setEditForm] = useState({ name: "", unit: "", minStock: "" });
 
   // Queries
@@ -98,7 +93,6 @@ export default function HatcheryInventoryPage() {
   const updateItem = useUpdateHatcheryInventoryItem();
   const deleteItem = useDeleteHatcheryInventoryItem();
   const reorderItem = useReorderHatcheryInventoryItem();
-  const recordUsage = useRecordHatcheryInventoryUsage();
 
   const items: HatcheryInventoryItem[] = tableRes?.data || [];
   const stats = statsRes?.data || {};
@@ -108,12 +102,6 @@ export default function HatcheryInventoryPage() {
     setSelectedItem(item);
     setReorderForm({ quantity: "", date: getNowLocalDateTime() });
     setIsReorderOpen(true);
-  };
-
-  const openUsage = (item: HatcheryInventoryItem) => {
-    setSelectedItem(item);
-    setUsageForm({ quantity: "", date: getNowLocalDateTime(), note: "" });
-    setIsUsageOpen(true);
   };
 
   const openEdit = (item: HatcheryInventoryItem) => {
@@ -150,26 +138,6 @@ export default function HatcheryInventoryPage() {
       setIsReorderOpen(false);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to reorder");
-    }
-  };
-
-  const handleUsage = async () => {
-    if (!usageForm.quantity || Number(usageForm.quantity) <= 0) {
-      toast.error("Quantity must be > 0");
-      return;
-    }
-    if (!selectedItem) return;
-    try {
-      await recordUsage.mutateAsync({
-        id: selectedItem.id,
-        quantity: Number(usageForm.quantity),
-        date: usageForm.date,
-        note: usageForm.note || undefined,
-      });
-      toast.success("Usage recorded");
-      setIsUsageOpen(false);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to record usage");
     }
   };
 
@@ -302,15 +270,6 @@ export default function HatcheryInventoryPage() {
               Reorder
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={() => openUsage(row)}
-          >
-            <Minus className="w-3 h-3 mr-1" />
-            Use
-          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -485,67 +444,6 @@ export default function HatcheryInventoryPage() {
             disabled={reorderItem.isPending}
           >
             {reorderItem.isPending ? "Creating..." : "Create Reorder"}
-          </Button>
-        </ModalFooter>
-      </Modal>
-
-      {/* Usage */}
-      <Modal
-        isOpen={isUsageOpen}
-        onClose={() => setIsUsageOpen(false)}
-        title={`Record Usage: ${selectedItem?.name}`}
-      >
-        <ModalContent>
-          <div className="space-y-4">
-            <div>
-              <Label>
-                Quantity used ({selectedItem?.unit})
-              </Label>
-              <Input
-                type="number"
-                min="0"
-                placeholder="0"
-                value={usageForm.quantity}
-                onChange={(e) =>
-                  setUsageForm((p) => ({ ...p, quantity: e.target.value }))
-                }
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Available:{" "}
-                <strong>
-                  {fmtStock(selectedItem?.currentStock ?? 0)} {selectedItem?.unit}
-                </strong>
-              </p>
-            </div>
-            <div>
-              <Label>Date</Label>
-              <DateInput
-                value={usageForm.date}
-                onChange={(v) => setUsageForm((p) => ({ ...p, date: v }))}
-              />
-            </div>
-            <div>
-              <Label>Note</Label>
-              <Input
-                placeholder="Optional"
-                value={usageForm.note}
-                onChange={(e) =>
-                  setUsageForm((p) => ({ ...p, note: e.target.value }))
-                }
-              />
-            </div>
-          </div>
-        </ModalContent>
-        <ModalFooter>
-          <Button variant="outline" onClick={() => setIsUsageOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            className="bg-orange-500 hover:bg-orange-600"
-            onClick={handleUsage}
-            disabled={recordUsage.isPending}
-          >
-            {recordUsage.isPending ? "Saving..." : "Record Usage"}
           </Button>
         </ModalFooter>
       </Modal>

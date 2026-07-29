@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import {
   HatcheryInventoryItemType,
-  HatcheryInventoryTxnType,
 } from "@prisma/client";
 import { HatcherySupplierService } from "../services/hatcherySupplierService";
 import { HatcheryPurchaseCategory } from "@prisma/client";
@@ -389,53 +388,6 @@ export const reorderHatcheryInventoryItem = async (
     });
   } catch (err: any) {
     console.error("reorderHatcheryInventoryItem:", err);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-// ==================== RECORD USAGE ====================
-export const recordHatcheryInventoryUsage = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
-  try {
-    const userId = req.userId!;
-    const { id } = req.params;
-    const { quantity, date, note } = req.body;
-
-    if (!quantity || Number(quantity) <= 0)
-      return res.status(400).json({ message: "quantity must be > 0" });
-
-    const item = await prisma.hatcheryInventoryItem.findFirst({
-      where: { id, hatcheryOwnerId: userId, deletedAt: null },
-    });
-    if (!item) return res.status(404).json({ message: "Item not found" });
-
-    const qty = Number(quantity);
-    if (Number(item.currentStock) < qty)
-      return res.status(400).json({
-        message: `Insufficient stock. Available: ${item.currentStock}`,
-      });
-
-    await prisma.$transaction(async (tx) => {
-      await tx.hatcheryInventoryTxn.create({
-        data: {
-          itemId: id,
-          type: HatcheryInventoryTxnType.USAGE,
-          quantity: qty,
-          date: date ? new Date(date) : new Date(),
-          note,
-        },
-      });
-      await tx.hatcheryInventoryItem.update({
-        where: { id },
-        data: { currentStock: { decrement: qty } },
-      });
-    });
-
-    return res.json({ success: true, message: "Usage recorded" });
-  } catch (err) {
-    console.error("recordHatcheryInventoryUsage:", err);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

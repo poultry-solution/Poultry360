@@ -12,7 +12,6 @@ import {
   updateHatcheryInventoryItem,
   deleteHatcheryInventoryItem,
   reorderHatcheryInventoryItem,
-  recordHatcheryInventoryUsage,
 } from "../controller/hatcheryInventoryController";
 
 const router = express.Router();
@@ -31,6 +30,5 @@ router.post("/", createHatcheryInventoryItem);
 router.put("/:id", updateHatcheryInventoryItem);
 router.delete("/:id", deleteHatcheryInventoryItem);
 router.post("/:id/reorder", reorderHatcheryInventoryItem);
-router.post("/:id/usage", recordHatcheryInventoryUsage);
 
 export default router;
