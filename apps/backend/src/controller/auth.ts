@@ -743,8 +743,8 @@ export const registerEntity = async (
         await tx.userOnboardingPayment.create({
           data: {
             userId: user.id,
-            state: UserOnboardingPaymentState.PAYMENT_APPROVED,
-            lockedUntilApproved: false,
+            state: UserOnboardingPaymentState.PENDING_PAYMENT,
+            lockedUntilApproved: true,
           },
         });
 

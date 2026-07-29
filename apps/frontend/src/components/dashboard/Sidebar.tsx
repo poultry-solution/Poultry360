@@ -101,11 +101,6 @@ const doctorNavigation: NavigationItem[] = [
     href: "/doctor/dashboard/chat",
     icon: MessageCircle,
   },
-  {
-    nameKey: "sidebar.nav.ledger",
-    href: "/doctor/dashboard/ledger",
-    icon: Receipt,
-  },
 ];
 
 export const dealerNavigation: NavigationItem[] = [

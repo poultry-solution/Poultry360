@@ -15,6 +15,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useAuthStore } from "@/common/store/store";
+import { convertADtoBS } from "@/common/lib/nepali-date";
 import { useHatcheryBatches, useHatcheryEggInventory } from "@/fetchers/hatchery/hatcheryBatchQueries";
 import { useIncubationBatches, useProducedChickStock } from "@/fetchers/hatchery/hatcheryIncubationQueries";
 import { useHatcheryParties } from "@/fetchers/hatchery/hatcheryPartyQueries";
@@ -58,7 +59,7 @@ function KpiCard({
 
 export default function HatcheryHomePage() {
   const { user } = useAuthStore();
-  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const today = useMemo(() => convertADtoBS(new Date()), []);
 
   const { data: parentBatchData, isLoading: isParentBatchLoading } = useHatcheryBatches({
     type: "PARENT_FLOCK",

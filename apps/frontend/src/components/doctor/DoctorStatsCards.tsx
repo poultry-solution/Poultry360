@@ -8,7 +8,6 @@ import {
 } from "@/common/components/ui/card";
 import {
   Calendar,
-  BookOpen,
   MessageCircle,
   AlertCircle,
   TrendingUp,
@@ -37,7 +36,6 @@ interface DoctorStatsCardsProps {
       unreadMessages: number;
     };
   } | undefined;
-  onLedgerClick: () => void;
   onActiveChatsClick: () => void;
   onPendingRequestsClick: () => void;
 }
@@ -46,12 +44,11 @@ export function DoctorStatsCards({
   stats,
   statusLoading,
   doctorStatus,
-  onLedgerClick,
   onActiveChatsClick,
   onPendingRequestsClick,
 }: DoctorStatsCardsProps) {
   return (
-    <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
       <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-blue-50 to-white overflow-hidden group cursor-pointer">
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform" />
         <CardHeader className="pb-3 relative z-10">
@@ -75,27 +72,6 @@ export function DoctorStatsCards({
             <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
             Active consultations
           </p>
-        </CardContent>
-      </Card>
-
-      <Card
-        className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-purple-50 to-white overflow-hidden group cursor-pointer"
-        onClick={onLedgerClick}
-      >
-        <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform" />
-        <CardHeader className="pb-3 relative z-10">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium text-slate-600">
-              Ledger
-            </CardTitle>
-            <div className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-              <BookOpen className="h-5 w-5 text-purple-600" />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="relative z-10">
-          <div className="text-3xl font-bold text-slate-900">₹15,240</div>
-          <p className="text-sm text-slate-500 mt-1">Total transactions</p>
         </CardContent>
       </Card>
 

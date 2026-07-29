@@ -187,7 +187,6 @@ export default function DoctorDashboard() {
           stats={todayStats}
           statusLoading={statusLoading}
           doctorStatus={doctorStatus}
-          onLedgerClick={() => router.push("/doctor/dashboard/ledger")}
           onActiveChatsClick={() => setShowActiveChats(true)}
           onPendingRequestsClick={() => setShowPendingRequests(true)}
         />

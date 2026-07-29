@@ -90,6 +90,12 @@ export default function DoctorSignupPage() {
           companyFarmLocation: user.companyFarmLocation ?? null,
           role: user.role,
           status: user.status,
+          onboardingPayment: response.data.onboarding
+            ? {
+                state: response.data.onboarding.state,
+                lockedUntilApproved: response.data.onboarding.lockedUntilApproved,
+              }
+            : null,
           language: user.language || "ENGLISH",
           calendarType: user.calendarType || "AD",
           managedFarms: [],

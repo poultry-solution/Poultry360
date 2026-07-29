@@ -60,8 +60,8 @@ export const authMiddleware = async (
   // allow only auth + onboarding status endpoints until an admin approves.
   try {
     if (req.userId) {
-      // SUPER_ADMIN and DOCTOR are not approval-gated
-      if (role !== "SUPER_ADMIN" && role !== "DOCTOR") {
+      // SUPER_ADMIN is not approval-gated
+      if (role !== "SUPER_ADMIN") {
         const onboarding = await prisma.userOnboardingPayment.findUnique({
           where: { userId: req.userId },
           select: { state: true, lockedUntilApproved: true },
