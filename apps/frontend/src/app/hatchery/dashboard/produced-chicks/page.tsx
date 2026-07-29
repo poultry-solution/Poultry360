@@ -31,7 +31,11 @@ export default function HatcheryProducedChicksPage() {
   const [selectedIncubationBatchId, setSelectedIncubationBatchId] = useState("");
   const [page, setPage] = useState(1);
 
-  const { data: parentBatchData } = useHatcheryBatches({ type: "PARENT_FLOCK", limit: 100 });
+  const { data: parentBatchData } = useHatcheryBatches({
+    type: "PARENT_FLOCK",
+    status: "ACTIVE",
+    limit: 100,
+  });
   const { data: incubationData } = useIncubationBatches({
     parentBatchId: selectedParentBatchId || undefined,
     limit: 200,
