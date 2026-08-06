@@ -165,13 +165,15 @@ export default function IncubationsPage() {
     },
     {
       key: "actions",
-      label: "",
+      label: "Action",
       render: (_, b) => (
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
+          className="h-8 gap-1.5"
           onClick={(e) => { e.stopPropagation(); router.push(`/hatchery/dashboard/incubations/${b.id}`); }}
         >
+          <span>View details</span>
           <ChevronRight className="h-4 w-4" />
         </Button>
       ),

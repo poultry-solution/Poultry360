@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Prisma, HatcheryChickGrade } from "@prisma/client";
+import { Prisma, HatcheryBatchStatus, HatcheryChickGrade } from "@prisma/client";
 import prisma from "../utils/prisma";
 import { HatcheryIncubationService } from "../services/hatcheryIncubationService";
 import { HatcheryChickSalesService } from "../services/hatcheryChickSalesService";
@@ -373,6 +373,9 @@ export async function listProducedChickStock(req: Request, res: Response) {
     const where: any = {
       incubationBatch: {
         hatcheryOwnerId: ownerId,
+        parentBatch: {
+          status: HatcheryBatchStatus.ACTIVE,
+        },
       },
     };
 

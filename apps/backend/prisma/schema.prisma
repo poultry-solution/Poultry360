@@ -2294,6 +2294,7 @@ model ListForSale {
 enum StaffStatus {
   ACTIVE   // Still employed; salary accrues each BS month
   STOPPED  // No longer employed; no more accrual, show remaining balance
+  ARCHIVED // Finalized record; read-only after balance reaches zero
 }
 
 model Staff {

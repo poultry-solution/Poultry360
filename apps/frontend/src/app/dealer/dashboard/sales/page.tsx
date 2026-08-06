@@ -27,6 +27,7 @@ import {
   useGetDealerSales,
   useGetDealerSaleById,
   useDeleteDealerSale,
+  useGetSalesStatistics,
   type DealerSale,
 } from "@/fetchers/dealer/dealerSaleQueries";
 import { useI18n } from "@/i18n/useI18n";
@@ -40,6 +41,7 @@ export default function DealerSalesPage() {
   const [deleteSaleId, setDeleteSaleId] = useState<string | null>(null);
   const [deletePassword, setDeletePassword] = useState("");
   const deleteSaleMutation = useDeleteDealerSale();
+  const { data: salesStatsData, isLoading: salesStatsLoading } = useGetSalesStatistics();
 
   // Get sales
   const { data: salesData, isLoading } = useGetDealerSales(
@@ -58,6 +60,7 @@ export default function DealerSalesPage() {
   const pagination = salesData?.pagination;
   const sale = saleDetailData?.data;
   const emptyTableMessage = t("dealer.sales.table.empty");
+  const lifetimeSalesAmount = salesStatsData?.data?.totalRevenue || 0;
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -77,18 +80,18 @@ export default function DealerSalesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t("dealer.sales.title")}</h1>
           <p className="text-sm md:text-base text-muted-foreground">
             {t("dealer.sales.subtitle")}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col items-start sm:items-end gap-1">
           <Button
             onClick={() => router.push("/dealer/dashboard/sales/new")}
             variant="outline"
-            className="flex-1 sm:flex-none hover:bg-green-50 hover:text-green-700 border-green-200"
+            className="w-full sm:w-auto hover:bg-green-50 hover:text-green-700 border-green-200"
           >
             <Plus className="mr-2 h-4 w-4" />
             <span className="hidden sm:inline">{t("dealer.sales.buttons.newSale")}</span>
@@ -114,15 +117,19 @@ export default function DealerSalesPage() {
       </div>
 
       {/* Sales Table - Unified DataTable */}
-      <Card>
-        <CardHeader className="p-3 md:p-6">
-          <CardTitle className="text-base md:text-lg">{t("dealer.sales.table.title")}</CardTitle>
-          <CardDescription className="text-xs md:text-sm">
-            {t("dealer.sales.table.description", {
-              count: pagination?.total ?? 0,
-            })}
-          </CardDescription>
-        </CardHeader>
+        <Card>
+          <CardHeader className="p-3 md:p-6">
+            <CardTitle className="text-base md:text-lg">{t("dealer.sales.table.title")}</CardTitle>
+            <CardDescription className="text-xs md:text-sm">
+              {t("dealer.sales.table.description", {
+                count: pagination?.total ?? 0,
+              })}
+              <span className="mx-2">,</span>
+              <span className="font-medium text-foreground">
+                Total sales: {salesStatsLoading ? "..." : formatCurrency(lifetimeSalesAmount)}
+              </span>
+            </CardDescription>
+          </CardHeader>
         <CardContent className="p-0">
           <DataTable
             data={sales}
@@ -327,25 +334,9 @@ export default function DealerSalesPage() {
       <Dialog open={!!selectedSaleId} onOpenChange={(open) => { if (!open) setSelectedSaleId(null); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
-            <div className="flex items-center justify-between gap-2">
-              <DialogTitle className="text-xl">
-                Invoice #{sale?.invoiceNumber || sale?.id?.slice(0, 8) || "..."}
-              </DialogTitle>
-              {sale && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-destructive border-destructive/40 hover:bg-destructive/10"
-                  onClick={() => {
-                    setDeleteSaleId(selectedSaleId);
-                    setDeletePassword("");
-                  }}
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Delete
-                </Button>
-              )}
-            </div>
+            <DialogTitle className="text-xl">
+              Invoice #{sale?.invoiceNumber || sale?.id?.slice(0, 8) || "..."}
+            </DialogTitle>
             <DialogDescription>
               {sale ? <span>Sale created on <DateDisplay date={sale.date} format="long" /></span> : "Loading..."}
             </DialogDescription>

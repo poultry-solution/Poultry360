@@ -76,7 +76,7 @@ function getTodayInNepal(): Date {
  */
 export function computeAccruedSalary(staff: Staff, salaries: StaffSalary[]): number {
   const startDate = new Date(staff.startDate);
-  const endDate = staff.status === StaffStatus.STOPPED && staff.endDate
+  const endDate = staff.status !== StaffStatus.ACTIVE && staff.endDate
     ? new Date(staff.endDate)
     : getTodayInNepal();
 
@@ -106,18 +106,40 @@ export interface StaffWithBalance extends Staff {
   currentMonthlySalary: number;
 }
 
-/**
- * List staff for owner with computed balance and current salary.
- */
-export async function listStaffForOwner(ownerId: string): Promise<StaffWithBalance[]> {
-  const staffList = await prisma.staff.findMany({
-    where: { ownerId },
+export interface StaffSummary {
+  totalStaff: number;
+  activeStaff: number;
+  stoppedStaff: number;
+  archivedStaff: number;
+  totalSalaryExpense: number;
+  totalSalaryPayments: number;
+  remainingBalance: number;
+}
+
+export type StaffStatusFilter = StaffStatus | "ALL";
+
+async function getStaffAccountingRows(ownerId: string, statusFilter: StaffStatusFilter = "ALL") {
+  return prisma.staff.findMany({
+    where: {
+      ownerId,
+      ...(statusFilter === "ALL" ? {} : { status: statusFilter }),
+    },
     include: {
       salaries: { orderBy: { effectiveFrom: "desc" } },
       payments: true,
     },
     orderBy: { createdAt: "desc" },
   });
+}
+
+/**
+ * List staff for owner with computed balance and current salary.
+ */
+export async function listStaffForOwner(
+  ownerId: string,
+  statusFilter: StaffStatusFilter = "ALL"
+): Promise<StaffWithBalance[]> {
+  const staffList = await getStaffAccountingRows(ownerId, statusFilter);
 
   return staffList.map((s) => {
     const balance = computeBalance(s, s.salaries, s.payments);
@@ -129,6 +151,84 @@ export async function listStaffForOwner(ownerId: string): Promise<StaffWithBalan
       currentMonthlySalary: currentSalary,
     };
   });
+}
+
+export async function getStaffSummaryForOwner(ownerId: string): Promise<StaffSummary> {
+  const staffList = await getStaffAccountingRows(ownerId);
+
+  return staffList.reduce<StaffSummary>(
+    (summary, staff) => {
+      const balance = computeBalance(staff, staff.salaries, staff.payments);
+      const salaryExpense = computeAccruedSalary(staff, staff.salaries);
+      const payments = staff.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+
+      summary.totalStaff += 1;
+      summary.totalSalaryExpense += salaryExpense;
+      summary.totalSalaryPayments += payments;
+      summary.remainingBalance += balance;
+
+      if (staff.status === StaffStatus.ACTIVE) summary.activeStaff += 1;
+      else if (staff.status === StaffStatus.STOPPED) summary.stoppedStaff += 1;
+      else summary.archivedStaff += 1;
+
+      return summary;
+    },
+    {
+      totalStaff: 0,
+      activeStaff: 0,
+      stoppedStaff: 0,
+      archivedStaff: 0,
+      totalSalaryExpense: 0,
+      totalSalaryPayments: 0,
+      remainingBalance: 0,
+    }
+  );
+}
+
+export async function archiveStaffForOwner(staffId: string, ownerId: string): Promise<StaffWithBalance | null> {
+  const staff = await prisma.staff.findFirst({
+    where: { id: staffId, ownerId },
+    include: {
+      salaries: { orderBy: { effectiveFrom: "desc" } },
+      payments: true,
+    },
+  });
+
+  if (!staff) {
+    return null;
+  }
+
+  if (staff.status === StaffStatus.ACTIVE) {
+    throw new Error("Only stopped staff can be archived");
+  }
+
+  if (staff.status === StaffStatus.ARCHIVED) {
+    throw new Error("Staff is already archived");
+  }
+
+  const balance = computeBalance(staff, staff.salaries, staff.payments);
+  if (Math.abs(balance) > 0.0001) {
+    throw new Error("Staff can only be archived when balance is zero");
+  }
+
+  const updated = await prisma.staff.update({
+    where: { id: staff.id },
+    data: { status: StaffStatus.ARCHIVED },
+    include: {
+      salaries: { orderBy: { effectiveFrom: "desc" } },
+      payments: true,
+    },
+  });
+
+  const updatedBalance = computeBalance(updated, updated.salaries, updated.payments);
+  const currentSalary = updated.salaries.length > 0 ? Number(updated.salaries[0].monthlyAmount) : 0;
+  const { salaries, payments, ...rest } = updated;
+
+  return {
+    ...rest,
+    balance: updatedBalance,
+    currentMonthlySalary: currentSalary,
+  };
 }
 
 /**
@@ -163,7 +263,7 @@ export type TransactionItem =
  */
 export function getStaffTransactions(staff: Staff, salaries: StaffSalary[], payments: StaffPayment[]): TransactionItem[] {
   const startDate = new Date(staff.startDate);
-  const endDate = staff.status === StaffStatus.STOPPED && staff.endDate
+  const endDate = staff.status !== StaffStatus.ACTIVE && staff.endDate
     ? new Date(staff.endDate)
     : new Date();
   const startBS = getBSYearMonth(startDate);

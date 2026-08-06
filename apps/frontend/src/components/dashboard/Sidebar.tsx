@@ -101,11 +101,6 @@ const doctorNavigation: NavigationItem[] = [
     href: "/doctor/dashboard/chat",
     icon: MessageCircle,
   },
-  {
-    nameKey: "sidebar.nav.ledger",
-    href: "/doctor/dashboard/ledger",
-    icon: Receipt,
-  },
 ];
 
 export const dealerNavigation: NavigationItem[] = [
@@ -232,6 +227,11 @@ export const hatcheryNavigation: NavigationItem[] = [
   {
     nameKey: "sidebar.nav.hatcheryParties",
     href: "/hatchery/dashboard/parties",
+    icon: Users,
+  },
+  {
+    nameKey: "sidebar.nav.staffManagement",
+    href: "/hatchery/dashboard/staff",
     icon: Users,
   },
   {

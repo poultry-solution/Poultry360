@@ -214,29 +214,3 @@ export const useReorderHatcheryInventoryItem = () => {
     },
   });
 };
-
-export const useRecordHatcheryInventoryUsage = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      id,
-      quantity,
-      date,
-      note,
-    }: {
-      id: string;
-      quantity: number;
-      date: string;
-      note?: string;
-    }) => {
-      const res = await axiosInstance.post(
-        `/hatchery/inventory/${id}/usage`,
-        { quantity, date, note }
-      );
-      return res.data;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: hatcheryInventoryKeys.all });
-    },
-  });
-};

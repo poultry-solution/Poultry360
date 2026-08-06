@@ -110,6 +110,7 @@ router.use("/hatchery/batches", hatcheryBatchRoutes);
 router.use("/hatchery/egg-types", hatcheryEggTypeRoutes);
 router.use("/", hatcheryIncubationRoutes);
 router.use("/", hatcheryPartyRoutes);
+router.use("/hatchery/staff", staffRoutes);
 router.use("/hatchery/analytics", hatcheryAnalyticsRoutes);
 router.use("/public", publicRoutes);
 router.use("/upload", uploadRoutes);

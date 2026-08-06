@@ -954,7 +954,7 @@ export async function getEggInventory(req: Request, res: Response) {
     const { batchId, typeId, page = "1", limit = "10" } = req.query as Record<string, string>;
 
     const where: any = {
-      batch: { hatcheryOwnerId: ownerId },
+      batch: { hatcheryOwnerId: ownerId, status: HatcheryBatchStatus.ACTIVE },
     };
     if (batchId) where.batchId = batchId;
     if (typeId) where.eggTypeId = typeId;
