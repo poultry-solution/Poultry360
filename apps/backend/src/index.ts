@@ -18,6 +18,11 @@ app.use(cookieParser());
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
+
+  // Production
+  "https://poultry360.org",
+  "https://www.poultry360.org",
+
   "https://poultry360-frontend.vercel.app",
   "https://poultry360.org",
   "https://www.poultry360.org",
