@@ -19,11 +19,11 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
   "https://poultry360-frontend.vercel.app",
-  "https://poultry360.app",
-  "https://www.poultry360.app",
+  "https://poultry360.org",
+  "https://www.poultry360.org",
 ];
 
-const defaultOrigin = "https://poultry360.app";
+const defaultOrigin = "https://poultry360.org";
 
 console.log("🔧 Allowed CORS origins:", allowedOrigins);
 

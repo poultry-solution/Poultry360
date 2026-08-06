@@ -29,7 +29,10 @@ const caveat = Caveat({
   weight: ["400", "500", "600", "700"],
 });
 
+const siteUrl = "https://poultry360.org";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "Poultry360 - Smart Poultry Management System",
   description:
     "Comprehensive poultry management system for Broiler farming. Track sales, manage expenses, control inventory & more. Start with Broiler, scale to Layers, Hatchery & Feed dealers.",
