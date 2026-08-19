@@ -31,6 +31,21 @@ const caveat = Caveat({
 
 const siteUrl = "https://poultry360.org";
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Poultry360",
+  "url": siteUrl,
+  "description": "Web-based poultry management software for Broiler farming in Nepal. Track sales, expenses, inventory & more.",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web",
+  "audience": {
+    "@type": "Audience",
+    "audienceType": "Poultry Farmers in Nepal"
+  },
+  "featureList": "Sales Tracking, Expense Management, Inventory Control, Broiler Growth Analysis"
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: "Poultry360 - Smart Poultry Management System",
@@ -66,6 +81,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} antialiased`}
       >
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        
         <I18nProvider>
           <AuthProvider>
             <QueryProvider>
