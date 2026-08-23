@@ -2203,6 +2203,12 @@ model DealerProductUnitConversion {
 
 // ==================== LANDING PAGE REVIEWS (PUBLIC) ====================
 // Submitted by anyone (no auth); phone stored but not shown on landing
+enum LandingReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model LandingReview {
   id          String   @id @default(cuid())
   name        String
@@ -2211,11 +2217,16 @@ model LandingReview {
   phoneNumber String   // Stored for contact; not displayed on cards
   stars       Int      // 1-5
   review      String   @db.Text
+  status      LandingReviewStatus @default(PENDING)
+  reviewedAt  DateTime?
+  reviewedBy  String?
+  rejectionReason String? @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([createdAt])
+  @@index([status, createdAt])
 }
 
 // ==================== LANDING PAGE CONTACT SUBMISSIONS (PUBLIC) ====================

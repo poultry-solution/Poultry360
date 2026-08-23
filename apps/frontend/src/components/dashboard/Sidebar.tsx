@@ -25,6 +25,7 @@ import {
   Bird,
   FlaskConical,
   Wallet,
+  Star,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { useAuth } from "@/common/store/store";
@@ -262,6 +263,11 @@ const adminNavigation: NavigationItem[] = [
     nameKey: "sidebar.nav.enquiries",
     href: "/admin/dashboard/enquiries",
     icon: MessageCircle,
+  },
+  {
+    nameKey: "sidebar.nav.reviews",
+    href: "/admin/dashboard/reviews",
+    icon: Star,
   },
   {
     nameKey: "Blog",

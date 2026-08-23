@@ -106,6 +106,7 @@
       "passwordResets": "Password Resets",
       "paymentApprovals": "Payment Approvals",
       "enquiries": "Enquiries",
+      "reviews": "Reviews",
       "financial": "Financial",
       "suppliers": "Suppliers",
       "performance": "Performance",
@@ -2892,7 +2893,7 @@
       "review": "Your Review",
       "reviewPlaceholder": "Share your experience with Poultry360...",
       "submit": "Submit Review",
-      "submitSuccess": "Thank you! Your review has been submitted.",
+      "submitSuccess": "Thank you! Your review has been submitted for approval.",
       "emptyMessage": "No reviews yet. Be the first to share your experience!",
       "modalTitle": "Write a Review"
     },

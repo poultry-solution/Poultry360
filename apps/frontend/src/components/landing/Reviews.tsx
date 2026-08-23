@@ -12,18 +12,29 @@ import {
 } from "@/common/components/ui/dialog";
 import { Input } from "@/common/components/ui/input";
 import { useI18n } from "@/i18n/useI18n";
-import { useLandingReviews, useCreateLandingReview } from "@/fetchers/public/reviewQueries";
+import {
+  useLandingReviews,
+  useCreateLandingReview,
+} from "@/fetchers/public/reviewQueries";
 import { toast } from "sonner";
+import type { LandingReview } from "@/lib/reviews";
 
-export default function Reviews() {
+export default function Reviews({
+  initialReviews,
+}: {
+  initialReviews?: LandingReview[];
+}) {
   const { t } = useI18n();
-  const { data, isLoading } = useLandingReviews(20);
+  const { data, isLoading } = useLandingReviews(6, initialReviews);
   const [writeModalOpen, setWriteModalOpen] = useState(false);
 
   const reviews = data?.data ?? [];
 
   return (
-    <section id="reviews" className="py-16 lg:py-24 bg-gradient-to-br from-gray-50 to-white">
+    <section
+      id="reviews"
+      className="py-16 lg:py-24 bg-gradient-to-br from-gray-50 to-white"
+    >
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="text-center mb-16">
           <Badge className="bg-primary text-primary-foreground px-4 py-2 rounded-full mb-4">
@@ -58,12 +69,17 @@ export default function Reviews() {
         {reviews.length > 0 && (
           <div className="grid md:grid-cols-4 gap-8 bg-white rounded-2xl p-8 shadow-lg mb-12">
             <div className="text-center">
-              <div className="text-3xl font-bold text-primary mb-2">{reviews.length}+</div>
+              <div className="text-3xl font-bold text-primary mb-2">
+                {reviews.length}
+              </div>
               <p className="text-gray-600">Reviews</p>
             </div>
             <div className="text-center">
               <div className="text-3xl font-bold text-primary mb-2">
-                {(reviews.reduce((a, r) => a + r.stars, 0) / reviews.length).toFixed(1)}/5
+                {(
+                  reviews.reduce((a, r) => a + r.stars, 0) / reviews.length
+                ).toFixed(1)}
+                /5
               </div>
               <p className="text-gray-600">Average Rating</p>
             </div>
@@ -89,7 +105,8 @@ export default function Reviews() {
             Ready to Join Our Success Stories?
           </h3>
           <p className="text-gray-600 mb-8 max-w-2xl mx-auto">
-            Start your journey with Poultry360 today and transform your poultry farming business like hundreds of other farmers.
+            Start your journey with Poultry360 today and transform your poultry
+            farming business like hundreds of other farmers.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
@@ -117,25 +134,15 @@ export default function Reviews() {
   );
 }
 
-function ReviewCard({
-  review,
-}: {
-  review: {
-    id: string;
-    name: string;
-    business: string;
-    address: string;
-    stars: number;
-    review: string;
-    createdAt: string;
-  };
-}) {
+function ReviewCard({ review }: { review: LandingReview }) {
   const initial = review.name.trim().charAt(0).toUpperCase() || "?";
   return (
     <div className="relative bg-white rounded-2xl p-8 shadow-xl border border-gray-100 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
       <div className="absolute -top-4 left-8">
         <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center">
-          <span className="text-primary-foreground font-bold text-xl">{initial}</span>
+          <span className="text-primary-foreground font-bold text-xl">
+            {initial}
+          </span>
         </div>
       </div>
       <div className="flex items-center mb-4 mt-4">
@@ -147,7 +154,9 @@ function ReviewCard({
         ))}
       </div>
       <Quote className="w-8 h-8 text-primary mb-4 opacity-50" />
-      <p className="text-gray-700 mb-6 leading-relaxed">&ldquo;{review.review}&rdquo;</p>
+      <p className="text-gray-700 mb-6 leading-relaxed">
+        &ldquo;{review.review}&rdquo;
+      </p>
       <div className="border-t border-gray-100 pt-4">
         <h4 className="font-semibold text-gray-900">{review.name}</h4>
         <p className="text-sm text-gray-600">
@@ -201,54 +210,71 @@ function WriteReviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" showCloseButton>
+      <DialogContent
+        className="sm:max-w-md max-h-[90vh] overflow-y-auto"
+        showCloseButton
+      >
         <DialogHeader>
           <DialogTitle>{t("landing.reviews.modalTitle")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div>
-            <label className="text-sm font-medium text-gray-700">{t("landing.reviews.name")}</label>
+            <label className="text-sm font-medium text-gray-700">
+              {t("landing.reviews.name")}
+            </label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={t("landing.reviews.namePlaceholder")}
               className="mt-1"
+              maxLength={100}
               required
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700">{t("landing.reviews.business")}</label>
+            <label className="text-sm font-medium text-gray-700">
+              {t("landing.reviews.business")}
+            </label>
             <Input
               value={business}
               onChange={(e) => setBusiness(e.target.value)}
               placeholder={t("landing.reviews.businessPlaceholder")}
               className="mt-1"
+              maxLength={150}
               required
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700">{t("landing.reviews.address")}</label>
+            <label className="text-sm font-medium text-gray-700">
+              {t("landing.reviews.address")}
+            </label>
             <Input
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder={t("landing.reviews.addressPlaceholder")}
               className="mt-1"
+              maxLength={150}
               required
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700">{t("landing.reviews.phoneNumber")}</label>
+            <label className="text-sm font-medium text-gray-700">
+              {t("landing.reviews.phoneNumber")}
+            </label>
             <Input
               type="tel"
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
               placeholder={t("landing.reviews.phoneNumberPlaceholder")}
               className="mt-1"
+              maxLength={30}
               required
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700">{t("landing.reviews.stars")}</label>
+            <label className="text-sm font-medium text-gray-700">
+              {t("landing.reviews.stars")}
+            </label>
             <div className="flex gap-1 mt-2">
               {[1, 2, 3, 4, 5].map((i) => (
                 <button
@@ -265,12 +291,16 @@ function WriteReviewModal({
             </div>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700">{t("landing.reviews.review")}</label>
+            <label className="text-sm font-medium text-gray-700">
+              {t("landing.reviews.review")}
+            </label>
             <textarea
               value={review}
               onChange={(e) => setReview(e.target.value)}
               placeholder={t("landing.reviews.reviewPlaceholder")}
               className="mt-1 w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              minLength={10}
+              maxLength={2000}
               required
             />
           </div>

@@ -1,17 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { publicApi } from "@/common/lib/axios";
+import type { LandingReview } from "@/lib/reviews";
+
+export type { LandingReview } from "@/lib/reviews";
 
 // ==================== TYPES ====================
-
-export interface LandingReview {
-  id: string;
-  name: string;
-  business: string;
-  address: string;
-  stars: number;
-  review: string;
-  createdAt: string;
-}
 
 export interface CreateReviewBody {
   name: string;
@@ -42,15 +35,22 @@ export const landingReviewKeys = {
 
 // ==================== QUERIES ====================
 
-export function useLandingReviews(limit = 20) {
+export function useLandingReviews(
+  limit = 20,
+  initialReviews?: LandingReview[],
+) {
   return useQuery<ReviewsResponse>({
     queryKey: landingReviewKeys.list(limit),
     queryFn: async () => {
       const { data } = await publicApi.get<ReviewsResponse>(
-        `/public/reviews?limit=${limit}`
+        `/public/reviews?limit=${limit}`,
       );
       return data;
     },
+    initialData:
+      initialReviews === undefined
+        ? undefined
+        : { success: true, data: initialReviews },
   });
 }
 
@@ -62,7 +62,7 @@ export function useCreateLandingReview() {
     mutationFn: async (body: CreateReviewBody) => {
       const { data } = await publicApi.post<CreateReviewResponse>(
         "/public/reviews",
-        body
+        body,
       );
       return data;
     },
