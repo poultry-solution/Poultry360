@@ -8,6 +8,8 @@ const blogPostSchema = z.object({
   slug: z.string().trim().max(180).optional().or(z.literal("")),
   excerpt: z.string().trim().min(20).max(320),
   contentMarkdown: z.string().trim().min(120),
+  bannerImageUrl: z.string().trim().url().max(2048).optional().or(z.literal("")),
+  isFeatured: z.boolean().optional().default(false),
   authorName: z.string().trim().min(2).max(80),
   seoTitle: z.string().trim().max(160).optional().or(z.literal("")),
   seoDescription: z.string().trim().max(320).optional().or(z.literal("")),
@@ -20,6 +22,8 @@ const publicBlogPostSelect = {
   slug: true,
   excerpt: true,
   contentMarkdown: true,
+  bannerImageUrl: true,
+  isFeatured: true,
   authorName: true,
   seoTitle: true,
   seoDescription: true,
@@ -35,6 +39,8 @@ const adminBlogPostSelect = {
   slug: true,
   excerpt: true,
   contentMarkdown: true,
+  bannerImageUrl: true,
+  isFeatured: true,
   authorName: true,
   seoTitle: true,
   seoDescription: true,
@@ -57,6 +63,25 @@ function slugify(input: string) {
 function normalizeOptionalText(value?: string) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function canRemainPublishedWithoutBanner(options: {
+  currentStatus?: BlogPostStatus;
+  currentBannerImageUrl?: string | null;
+  nextStatus: BlogPostStatus;
+  nextBannerImageUrl: string | null;
+}) {
+  const { currentStatus, currentBannerImageUrl, nextStatus, nextBannerImageUrl } = options;
+
+  if (nextStatus !== BlogPostStatus.PUBLISHED) {
+    return true;
+  }
+
+  if (nextBannerImageUrl) {
+    return true;
+  }
+
+  return currentStatus === BlogPostStatus.PUBLISHED && !currentBannerImageUrl;
 }
 
 async function ensureUniqueSlug(slug: string, excludeId?: string) {
@@ -145,12 +170,28 @@ export const createAdminBlogPost = async (req: Request, res: Response): Promise<
       return res.status(409).json({ success: false, message: "Slug already exists" });
     }
 
+    const nextBannerImageUrl = normalizeOptionalText(parsed.data.bannerImageUrl);
+
+    if (
+      !canRemainPublishedWithoutBanner({
+        nextStatus: parsed.data.status,
+        nextBannerImageUrl,
+      })
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "A banner image is required before publishing this blog post",
+      });
+    }
+
     const created = await prisma.blogPost.create({
       data: {
         title: parsed.data.title.trim(),
         slug: normalizedSlug,
         excerpt: parsed.data.excerpt.trim(),
         contentMarkdown: parsed.data.contentMarkdown.trim(),
+        bannerImageUrl: nextBannerImageUrl,
+        isFeatured: parsed.data.isFeatured,
         authorName: parsed.data.authorName.trim(),
         seoTitle: normalizeOptionalText(parsed.data.seoTitle),
         seoDescription: normalizeOptionalText(parsed.data.seoDescription),
@@ -176,7 +217,7 @@ export const updateAdminBlogPost = async (req: Request, res: Response): Promise<
   try {
     const existing = await prisma.blogPost.findUnique({
       where: { id: req.params.id },
-      select: { id: true, publishedAt: true, status: true },
+      select: { id: true, publishedAt: true, status: true, bannerImageUrl: true },
     });
 
     if (!existing) {
@@ -204,6 +245,21 @@ export const updateAdminBlogPost = async (req: Request, res: Response): Promise<
     }
 
     const nextStatus = parsed.data.status;
+    const nextBannerImageUrl = normalizeOptionalText(parsed.data.bannerImageUrl);
+
+    if (
+      !canRemainPublishedWithoutBanner({
+        currentStatus: existing.status,
+        currentBannerImageUrl: existing.bannerImageUrl,
+        nextStatus,
+        nextBannerImageUrl,
+      })
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "A banner image is required before publishing this blog post",
+      });
+    }
 
     const updated = await prisma.blogPost.update({
       where: { id: existing.id },
@@ -212,6 +268,8 @@ export const updateAdminBlogPost = async (req: Request, res: Response): Promise<
         slug: normalizedSlug,
         excerpt: parsed.data.excerpt.trim(),
         contentMarkdown: parsed.data.contentMarkdown.trim(),
+        bannerImageUrl: nextBannerImageUrl,
+        isFeatured: parsed.data.isFeatured,
         authorName: parsed.data.authorName.trim(),
         seoTitle: normalizeOptionalText(parsed.data.seoTitle),
         seoDescription: normalizeOptionalText(parsed.data.seoDescription),
@@ -239,11 +297,18 @@ export const publishAdminBlogPost = async (req: Request, res: Response): Promise
   try {
     const existing = await prisma.blogPost.findUnique({
       where: { id: req.params.id },
-      select: { id: true, publishedAt: true },
+      select: { id: true, publishedAt: true, bannerImageUrl: true },
     });
 
     if (!existing) {
       return res.status(404).json({ success: false, message: "Blog post not found" });
+    }
+
+    if (!existing.bannerImageUrl) {
+      return res.status(400).json({
+        success: false,
+        message: "A banner image is required before publishing this blog post",
+      });
     }
 
     const updated = await prisma.blogPost.update({

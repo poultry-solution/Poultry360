@@ -2259,6 +2259,8 @@ model BlogPost {
   slug            String         @unique
   excerpt         String         @db.Text
   contentMarkdown String         @db.Text
+  bannerImageUrl  String?
+  isFeatured      Boolean        @default(false)
   authorName      String
   seoTitle        String?
   seoDescription  String?

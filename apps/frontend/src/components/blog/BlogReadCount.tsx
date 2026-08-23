@@ -2,11 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { publicApi } from "@/common/lib/axios";
-import { getReadCountLabel } from "@/lib/blog";
 
 interface BlogReadCountProps {
   slug: string;
   initialCount: number;
+}
+
+function getReadCountLabel(viewCount: number) {
+  return `${viewCount} ${viewCount === 1 ? "read" : "reads"}`;
 }
 
 export default function BlogReadCount({ slug, initialCount }: BlogReadCountProps) {

@@ -36,6 +36,8 @@ export default function AdminBlogPostDetailPage() {
   const deletePost = useDeleteAdminBlogPost(id);
 
   const post = data?.data;
+  const canPublishNow = Boolean(post?.bannerImageUrl?.trim());
+  const allowPublishedWithoutBanner = post?.status === "PUBLISHED" && !post.bannerImageUrl;
 
   if (isLoading) {
     return <div className="text-sm text-muted-foreground">Loading blog post...</div>;
@@ -63,7 +65,7 @@ export default function AdminBlogPostDetailPage() {
         {post.status === "DRAFT" ? (
           <Button
             variant="outline"
-            disabled={publishPost.isPending}
+            disabled={publishPost.isPending || !canPublishNow}
             onClick={async () => {
               try {
                 const response = await publishPost.mutateAsync();
@@ -131,6 +133,8 @@ export default function AdminBlogPostDetailPage() {
           slug: post.slug,
           excerpt: post.excerpt,
           contentMarkdown: post.contentMarkdown,
+          bannerImageUrl: post.bannerImageUrl ?? "",
+          isFeatured: post.isFeatured,
           authorName: post.authorName,
           seoTitle: post.seoTitle ?? "",
           seoDescription: post.seoDescription ?? "",
@@ -138,6 +142,7 @@ export default function AdminBlogPostDetailPage() {
         }}
         publishedAt={post.publishedAt}
         viewCount={post.viewCount}
+        allowPublishedWithoutBanner={allowPublishedWithoutBanner}
         submitLabel={updatePost.isPending ? "Saving..." : "Save Changes"}
         isSubmitting={updatePost.isPending}
         onSubmit={async (values) => {
@@ -149,6 +154,12 @@ export default function AdminBlogPostDetailPage() {
           }
         }}
       />
+
+      {post.status === "DRAFT" && !canPublishNow ? (
+        <p className="text-sm text-amber-700">
+          Add a banner image before publishing this article.
+        </p>
+      ) : null}
     </div>
   );
 }

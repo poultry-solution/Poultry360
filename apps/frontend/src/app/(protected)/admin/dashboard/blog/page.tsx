@@ -108,6 +108,8 @@ export default function AdminBlogPostsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Title</TableHead>
+                  <TableHead>Image</TableHead>
+                  <TableHead>Featured</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Published</TableHead>
                   <TableHead>Reads</TableHead>
@@ -123,6 +125,16 @@ export default function AdminBlogPostsPage() {
                         <p className="font-medium">{post.title}</p>
                         <p className="text-xs text-muted-foreground">/blog/{post.slug}</p>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={post.bannerImageUrl ? "default" : "outline"}>
+                        {post.bannerImageUrl ? "Ready" : "Missing"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={post.isFeatured ? "default" : "outline"}>
+                        {post.isFeatured ? "Featured" : "Standard"}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant={post.status === "PUBLISHED" ? "default" : "outline"}>

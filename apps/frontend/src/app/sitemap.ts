@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getPublishedBlogPosts } from "@/lib/blog";
+import { getPublishedBlogPosts, isBlogApiUnavailable } from "@/lib/blog";
 
 const siteUrl = "https://www.poultry360.org";
 
@@ -9,7 +9,15 @@ export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const lastModified = new Date();
-  const blogPosts = await getPublishedBlogPosts();
+  let blogPosts: Awaited<ReturnType<typeof getPublishedBlogPosts>> = [];
+
+  try {
+    blogPosts = await getPublishedBlogPosts();
+  } catch (error) {
+    if (!isBlogApiUnavailable(error)) {
+      throw error;
+    }
+  }
 
   const coreEntries: MetadataRoute.Sitemap = publicPaths.map((path) => ({
     url: `${siteUrl}${path}`,

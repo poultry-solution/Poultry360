@@ -9,6 +9,8 @@ export interface AdminBlogPost {
   slug: string;
   excerpt: string;
   contentMarkdown: string;
+  bannerImageUrl: string | null;
+  isFeatured: boolean;
   authorName: string;
   seoTitle: string | null;
   seoDescription: string | null;
@@ -34,6 +36,8 @@ export interface AdminBlogPostInput {
   slug?: string;
   excerpt: string;
   contentMarkdown: string;
+  bannerImageUrl?: string;
+  isFeatured?: boolean;
   authorName: string;
   seoTitle?: string;
   seoDescription?: string;

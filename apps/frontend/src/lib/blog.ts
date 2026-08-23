@@ -6,6 +6,8 @@ export interface PublicBlogPost {
   slug: string;
   excerpt: string;
   contentMarkdown: string;
+  bannerImageUrl: string | null;
+  isFeatured: boolean;
   authorName: string;
   seoTitle: string | null;
   seoDescription: string | null;

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ExternalLink, Sparkles } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui/card";
+import { ImageUpload } from "@/common/components/ui/image-upload";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Textarea } from "@/common/components/ui/textarea";
@@ -23,6 +24,8 @@ const EMPTY_VALUES: AdminBlogPostInput = {
   slug: "",
   excerpt: "",
   contentMarkdown: "",
+  bannerImageUrl: "",
+  isFeatured: false,
   authorName: "Poultry360 Team",
   seoTitle: "",
   seoDescription: "",
@@ -44,6 +47,7 @@ interface BlogPostEditorProps {
   initialValues?: Partial<AdminBlogPostInput>;
   publishedAt?: string | null;
   viewCount?: number;
+  allowPublishedWithoutBanner?: boolean;
   isSubmitting?: boolean;
   submitLabel?: string;
   onSubmit: (values: AdminBlogPostInput) => Promise<void> | void;
@@ -55,6 +59,7 @@ export default function BlogPostEditor({
   initialValues,
   publishedAt,
   viewCount = 0,
+  allowPublishedWithoutBanner = false,
   isSubmitting = false,
   submitLabel = "Save post",
   onSubmit,
@@ -63,15 +68,31 @@ export default function BlogPostEditor({
     ...EMPTY_VALUES,
     ...initialValues,
   });
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
   const publicHref = values.slug ? `${BLOG_SITE_URL}/blog/${values.slug}` : null;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const bannerImageUrl = values.bannerImageUrl?.trim() || "";
+    const isPublishingWithoutBanner = values.status === "PUBLISHED" && !bannerImageUrl;
+
+    if (isPublishingWithoutBanner && !allowPublishedWithoutBanner) {
+      setValidationMessage("A banner image is required before publishing this blog post.");
+      return;
+    }
+
+    setValidationMessage(null);
     await onSubmit(values);
   };
 
   const applyStatus = (status: BlogPostStatus) => {
+    if (status === "PUBLISHED" && !values.bannerImageUrl?.trim() && !allowPublishedWithoutBanner) {
+      setValidationMessage("Add a banner image before publishing so the blog card and article hero can render properly.");
+    } else {
+      setValidationMessage(null);
+    }
+
     setValues((current) => ({ ...current, status }));
   };
 
@@ -152,6 +173,12 @@ export default function BlogPostEditor({
               />
             </div>
 
+            {validationMessage ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                {validationMessage}
+              </div>
+            ) : null}
+
             <div className="space-y-2">
               <Label htmlFor="contentMarkdown">Markdown Content</Label>
               <Textarea
@@ -171,6 +198,30 @@ export default function BlogPostEditor({
         </Card>
 
         <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Banner Image</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <ImageUpload
+                value={values.bannerImageUrl ?? ""}
+                onChange={(url) => {
+                  setValidationMessage(null);
+                  setValues((current) => ({ ...current, bannerImageUrl: url }));
+                }}
+                folder="blogs"
+                placeholder="Upload the article banner image"
+              />
+
+              <div className="space-y-1 text-sm text-muted-foreground">
+                <p>Used on the blog card, article hero, and social share preview.</p>
+                <p>
+                  Required for newly published posts. Legacy published posts can stay live until you backfill an image.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Publishing</CardTitle>
@@ -200,7 +251,28 @@ export default function BlogPostEditor({
               <div className="space-y-1 text-sm text-muted-foreground">
                 <p>Published date: {formatBlogDate(publishedAt ?? null)}</p>
                 <p>Read count: {viewCount}</p>
+                <p>Banner image: {values.bannerImageUrl ? "Ready" : "Missing"}</p>
               </div>
+
+              <label className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(values.isFeatured)}
+                  onChange={(event) =>
+                    setValues((current) => ({
+                      ...current,
+                      isFeatured: event.target.checked,
+                    }))
+                  }
+                  className="size-4 rounded border-slate-300"
+                />
+                <div>
+                  <p className="font-medium text-slate-900">Mark as featured</p>
+                  <p className="text-xs text-muted-foreground">
+                    Featured posts can appear in the public article sidebar.
+                  </p>
+                </div>
+              </label>
 
               {publicHref && (
                 <Button asChild variant="outline" className="w-full">
