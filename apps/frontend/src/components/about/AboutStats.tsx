@@ -1,0 +1,63 @@
+"use client";
+
+import Image from "next/image";
+
+export function AboutStats() {
+  return (
+    <section className="w-full py-16 sm:py-24">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+        {/* Left Column: Image Illustration Card */}
+        <div className="lg:col-span-6">
+          <div className="relative w-full aspect-[4/3] rounded-3xl bg-[#F8FAFC] border border-slate-100 overflow-hidden flex items-center justify-center p-6 sm:p-10 shadow-xs">
+            <Image
+              src="/about-illustration.png"
+              alt="Livine journey illustration"
+              fill
+              className="object-contain p-6"
+            />
+          </div>
+        </div>
+
+        {/* Right Column: Numbers and Stats */}
+        <div className="lg:col-span-6 space-y-6">
+          <span className="inline-block rounded-full bg-primary/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
+            Numbers
+          </span>
+
+          <h2 className="text-3xl sm:text-4xl lg:text-[46px] font-semibold text-slate-900 leading-tight tracking-tight">
+            We&apos;re only just getting started on our journey
+          </h2>
+
+          <div className="grid grid-cols-2 gap-y-8 gap-x-6 pt-4">
+            <div>
+              <div className="text-4xl sm:text-5xl font-bold text-primary tracking-tight">
+                12+
+              </div>
+              <div className="mt-2 font-semibold text-slate-900 text-base">
+                Year of experience
+              </div>
+            </div>
+
+            <div>
+              <div className="text-4xl sm:text-5xl font-bold text-primary tracking-tight">
+                25+
+              </div>
+              <div className="mt-2 font-semibold text-slate-900 text-base">
+                Global customers
+              </div>
+            </div>
+
+            <div className="col-span-2 pt-2">
+              <div className="text-4xl sm:text-5xl font-bold text-primary tracking-tight">
+                100%
+              </div>
+              <div className="mt-2 font-semibold text-slate-900 text-base">
+                Customer satisfaction
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

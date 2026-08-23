@@ -40,10 +40,9 @@ export default function Footer() {
           <div>
             <h3 className="text-lg font-semibold mb-6">Quick Links</h3>
             <ul className="space-y-3">
-              <li><a href="#home" className="text-gray-300 hover:text-primary transition-colors">Home</a></li>
-              <li><a href="#features" className="text-gray-300 hover:text-primary transition-colors">Features</a></li>
-              <li><a href="#contact" className="text-gray-300 hover:text-primary transition-colors">Contact</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-primary transition-colors">About Us</a></li>
+              <li><Link href="/" className="text-gray-300 hover:text-primary transition-colors">Home</Link></li>
+              <li><Link href="/#contact" className="text-gray-300 hover:text-primary transition-colors">Contact</Link></li>
+              <li><Link href="/about-us" className="text-gray-300 hover:text-primary transition-colors">About Us</Link></li>
               <li><Link href="/blog" className="text-gray-300 hover:text-primary transition-colors">Blog</Link></li>
             </ul>
           </div>
@@ -52,10 +51,10 @@ export default function Footer() {
           <div>
             <h3 className="text-lg font-semibold mb-6">Solutions</h3>
             <ul className="space-y-3">
-              <li><a href="#" className="text-gray-300 hover:text-primary transition-colors">Broiler Management</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-primary transition-colors">Layer Farming</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-primary transition-colors">Hatchery Operations</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-primary transition-colors">Feed Distribution</a></li>
+              <li><Link href="/broiler-farm-software" className="text-gray-300 hover:text-primary transition-colors">Broiler Management</Link></li>
+              <li><Link href="/layer-farm-software" className="text-gray-300 hover:text-primary transition-colors">Layer Farming</Link></li>
+              <li><Link href="/hatchery-software" className="text-gray-300 hover:text-primary transition-colors">Hatchery Operations</Link></li>
+              <li><Link href="/feed-dealer-software" className="text-gray-300 hover:text-primary transition-colors">Feed Distribution</Link></li>
               <li><a href="#" className="text-gray-300 hover:text-primary transition-colors">Farm Analytics</a></li>
             </ul>
           </div>
