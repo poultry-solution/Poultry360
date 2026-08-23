@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { LandingReviewStatus } from "@prisma/client";
 import prisma from "../utils/prisma";
 
 // ==================== LANDING REVIEWS (PUBLIC, NO AUTH) ====================
@@ -8,6 +9,7 @@ export const getLandingReviews = async (req: Request, res: Response): Promise<an
   try {
     const limit = Math.min(Number(req.query.limit) || 20, 50);
     const reviews = await prisma.landingReview.findMany({
+      where: { status: LandingReviewStatus.APPROVED },
       orderBy: { createdAt: "desc" },
       take: limit,
       select: {
@@ -32,24 +34,24 @@ export const createLandingReview = async (req: Request, res: Response): Promise<
   try {
     const { name, business, address, phoneNumber, stars, review } = req.body;
 
-    if (!name || typeof name !== "string" || name.trim().length === 0) {
-      return res.status(400).json({ success: false, message: "Name is required" });
+    if (!name || typeof name !== "string" || name.trim().length === 0 || name.trim().length > 100) {
+      return res.status(400).json({ success: false, message: "Name must be between 1 and 100 characters" });
     }
-    if (!business || typeof business !== "string" || business.trim().length === 0) {
-      return res.status(400).json({ success: false, message: "Business is required" });
+    if (!business || typeof business !== "string" || business.trim().length === 0 || business.trim().length > 150) {
+      return res.status(400).json({ success: false, message: "Business must be between 1 and 150 characters" });
     }
-    if (!address || typeof address !== "string" || address.trim().length === 0) {
-      return res.status(400).json({ success: false, message: "Address is required" });
+    if (!address || typeof address !== "string" || address.trim().length === 0 || address.trim().length > 150) {
+      return res.status(400).json({ success: false, message: "Address must be between 1 and 150 characters" });
     }
-    if (!phoneNumber || typeof phoneNumber !== "string" || phoneNumber.trim().length === 0) {
-      return res.status(400).json({ success: false, message: "Phone number is required" });
+    if (!phoneNumber || typeof phoneNumber !== "string" || phoneNumber.trim().length === 0 || phoneNumber.trim().length > 30) {
+      return res.status(400).json({ success: false, message: "Phone number must be between 1 and 30 characters" });
     }
     const starsNum = Number(stars);
     if (!Number.isInteger(starsNum) || starsNum < 1 || starsNum > 5) {
       return res.status(400).json({ success: false, message: "Stars must be 1 to 5" });
     }
-    if (!review || typeof review !== "string" || review.trim().length === 0) {
-      return res.status(400).json({ success: false, message: "Review text is required" });
+    if (!review || typeof review !== "string" || review.trim().length < 10 || review.trim().length > 2000) {
+      return res.status(400).json({ success: false, message: "Review must be between 10 and 2000 characters" });
     }
 
     const created = await prisma.landingReview.create({
@@ -60,6 +62,7 @@ export const createLandingReview = async (req: Request, res: Response): Promise<
         phoneNumber: phoneNumber.trim(),
         stars: starsNum,
         review: review.trim(),
+        status: LandingReviewStatus.PENDING,
       },
       select: {
         id: true,
@@ -71,7 +74,11 @@ export const createLandingReview = async (req: Request, res: Response): Promise<
         createdAt: true,
       },
     });
-    return res.status(201).json({ success: true, data: created });
+    return res.status(201).json({
+      success: true,
+      data: created,
+      message: "Thank you. Your review was submitted for approval.",
+    });
   } catch (error) {
     console.error("Create landing review error:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });

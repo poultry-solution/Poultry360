@@ -6,6 +6,7 @@ import ListForSaleSection from "@/components/landing/ListForSaleSection";
 import Reviews from "@/components/landing/Reviews";
 import Contact from "@/components/landing/Contact";
 import Footer from "@/components/landing/Footer";
+import { getPublishedLandingReviews } from "@/lib/reviews";
 
 const siteUrl = "https://www.poultry360.org";
 
@@ -32,14 +33,22 @@ export const metadata: Metadata = {
   },
 };
 
-export default function Home() {
+export default async function Home() {
+  let initialReviews;
+
+  try {
+    initialReviews = await getPublishedLandingReviews(6);
+  } catch (error) {
+    console.error("Unable to load reviews during homepage render:", error);
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
       <Hero />
       <Pricing />
       <ListForSaleSection />
-      <Reviews />
+      <Reviews initialReviews={initialReviews} />
       <Contact />
       <Footer />
     </div>
