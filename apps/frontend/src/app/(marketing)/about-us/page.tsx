@@ -7,9 +7,9 @@ import { WhyChooseUs } from "@/components/about/WhyChooseUs";
 import { AboutCtaBanner } from "@/components/about/AboutCtaBanner";
 
 export const metadata: Metadata = {
-  title: "About Us | Livine Poultry Software | Poultry360",
+  title: "About Us | Poultry360",
   description:
-    "Discover how Livine empowers poultry enterprises with cutting-edge SaaS software solutions tailored to streamline hatchery and poultry operations worldwide.",
+    "Learn how Poultry360 is building digital infrastructure for Nepal's poultry ecosystem with software for farms, hatcheries, feed dealers, and poultry businesses.",
   alternates: {
     canonical: "/about-us",
   },

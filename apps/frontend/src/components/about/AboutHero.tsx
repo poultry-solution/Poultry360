@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronRight, ArrowRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import { AboutBookDemoButton } from "@/components/about/AboutBookDemoButton";
 
 export function AboutHero() {
   return (
@@ -19,11 +20,11 @@ export function AboutHero() {
       {/* Top Header */}
       <div className="space-y-4 mb-12 sm:mb-16">
         <h1 className="text-4xl sm:text-5xl lg:text-[54px] font-semibold tracking-tight text-slate-900 leading-tight">
-          About <span className="text-primary font-bold">Livine</span>
+          About <span className="text-primary font-bold">Poultry360</span>
         </h1>
 
         <p className="text-slate-600 text-base sm:text-[15px] leading-relaxed w-full font-normal">
-          Welcome to Livine, your trusted partner in poultry management since 2009. At Livine, we specialize in providing cutting-edge SaaS software solutions tailored to streamline hatchery and poultry operations worldwide. Livine&apos;s platform streamlines every aspect of your poultry business, from flock monitoring to feed management and beyond. With features like automated data tracking and real-time insights, you&apos;ll have everything you need to optimize productivity and profitability.
+          Poultry360 is a Nepal-focused poultry management platform built to help digitize the country&apos;s poultry ecosystem. We started building the product in 2025 and launched in January 2026 with a clear goal: give poultry farms, hatcheries, feed dealers, and related businesses one practical system to manage operations, records, inventory, sales, and performance with confidence.
         </p>
       </div>
 
@@ -37,20 +38,17 @@ export function AboutHero() {
           </h2>
 
           <p className="text-slate-600 text-base sm:text-[15px] leading-relaxed">
-            Since 2009, Livine has propelled large poultry enterprises in India, the Middle East, and Southeast Asia with innovative solutions. Our team of poultry and technology experts collaborates to deliver transformative results, ensuring your enterprise achieves peak efficiency and productivity.
+            Poultry360 is designed around the real workflows of Nepal&apos;s poultry industry. From broiler and layer farms to hatchery operations, feed distribution, and business coordination, we are building software that reduces manual work, improves visibility, and helps poultry businesses make faster and better decisions every day.
           </p>
 
           <p className="text-slate-600 text-base sm:text-[15px] leading-relaxed">
-            Partner today and say goodbye to the hassle with Livine&apos;s advanced poultry management software!
+            Our mission is to move the poultry sector away from scattered notebooks and disconnected spreadsheets toward a modern, connected operating system built for growth in Nepal.
           </p>
 
           <div className="pt-2">
-            <Link
-              href="/contact"
+            <AboutBookDemoButton
               className="inline-flex items-center gap-2 rounded-full border border-primary px-7 py-3 text-base font-semibold text-primary transition-colors hover:bg-primary/5"
-            >
-              Book a demo <ArrowRight className="w-4 h-4 ml-1" />
-            </Link>
+            />
           </div>
         </div>
 

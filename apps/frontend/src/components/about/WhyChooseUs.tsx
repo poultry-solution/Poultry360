@@ -4,30 +4,30 @@ import Image from "next/image";
 
 const WHY_CHOOSE_US_ROWS = [
   {
-    title: "Decade-Long Expertise",
+    title: "Built for Nepal's Poultry Ecosystem",
     description:
-      "With a legacy dating back to 2009, Livine has amassed over a decade of invaluable experience in revolutionizing poultry management. Our deep-rooted understanding of the industry's complexities enables us to deliver tailored solutions that address specific operational challenges with precision.",
+      "Poultry360 is being built specifically for the operational reality of Nepal's poultry sector. We are focused on digitizing the links between farms, hatcheries, feed dealers, inventory, sales, and business records so the ecosystem can run with better visibility and less manual friction.",
     image: "/about-illustration.png",
     imageLeft: true,
   },
   {
-    title: "Collaborative Approach",
+    title: "Practical Product Thinking",
     description:
-      "Our team comprises seasoned poultry domain experts and technology specialists who work in tandem to develop and implement solutions that drive efficiency and profitability. By understanding your unique business needs, we customize our offerings to maximize your operational potential.",
+      "We are not building generic software for agriculture. Poultry360 is shaped around day-to-day poultry workflows such as batch management, mortality tracking, egg production, feed movement, sales, balances, and party ledgers so the product stays useful in real operations.",
     image: "/about-illustration.png",
     imageLeft: false,
   },
   {
-    title: "Global Reach, Local Expertise",
+    title: "Focused on Digitization, Not Complexity",
     description:
-      "Trusted by large poultry enterprises across diverse regions including India, the Middle East, and Southeast Asia, Livine's solutions are tailored to meet the specific demands of local markets while leveraging global best practices. This ensures that your business remains competitive in a dynamic industry landscape.",
+      "The goal is simple: replace disconnected manual records with a cleaner digital system. By centralizing core poultry activities in one platform, Poultry360 helps owners and teams reduce confusion, improve accountability, and make decisions from real data instead of guesswork.",
     image: "/about-illustration.png",
     imageLeft: true,
   },
   {
     title: "All-In-One Solution",
     description:
-      "We offer a comprehensive suite of solutions designed to streamline every facet of poultry management. From hatchery operations to flock health monitoring and supply chain optimization, our integrated platform ensures seamless end-to-end management.",
+      "Poultry360 brings together the modules needed across broiler farms, layer farms, hatcheries, feed dealers, and related poultry businesses. That means fewer separate tools, more consistent records, and a stronger digital foundation for the industry's next phase.",
     image: "/about-illustration.png",
     imageLeft: false,
   },
@@ -39,10 +39,10 @@ export function WhyChooseUs() {
       {/* Intro Header */}
       <div className="space-y-4 mb-16 sm:mb-20">
         <h2 className="text-4xl sm:text-5xl lg:text-[54px] font-semibold text-slate-900 tracking-tight">
-          Why <span className="text-primary font-bold">Livine</span>
+          Why <span className="text-primary font-bold">Poultry360</span>
         </h2>
         <p className="text-slate-600 text-base sm:text-lg leading-relaxed max-w-4xl font-normal">
-          At Livine, we pride ourselves on being the foremost choice for poultry enterprises seeking innovation, efficiency, and sustainable growth. Here are several compelling reasons why industry leaders trust us.
+          Poultry360 exists to help modernize the way Nepal's poultry businesses operate. These are the reasons we believe a focused digital platform can create real value across the ecosystem.
         </p>
       </div>
 

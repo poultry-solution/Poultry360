@@ -11,7 +11,7 @@ export function AboutStats() {
           <div className="relative w-full aspect-[4/3] rounded-3xl bg-[#F8FAFC] border border-slate-100 overflow-hidden flex items-center justify-center p-6 sm:p-10 shadow-xs">
             <Image
               src="/about-illustration.png"
-              alt="Livine journey illustration"
+              alt="Poultry360 journey illustration"
               fill
               className="object-contain p-6"
             />
@@ -25,34 +25,34 @@ export function AboutStats() {
           </span>
 
           <h2 className="text-3xl sm:text-4xl lg:text-[46px] font-semibold text-slate-900 leading-tight tracking-tight">
-            We&apos;re only just getting started on our journey
+            We&apos;re building the digital foundation for what comes next
           </h2>
 
           <div className="grid grid-cols-2 gap-y-8 gap-x-6 pt-4">
             <div>
               <div className="text-4xl sm:text-5xl font-bold text-primary tracking-tight">
-                12+
+                2025
               </div>
               <div className="mt-2 font-semibold text-slate-900 text-base">
-                Year of experience
+                Product development started
               </div>
             </div>
 
             <div>
               <div className="text-4xl sm:text-5xl font-bold text-primary tracking-tight">
-                25+
+                Jan 2026
               </div>
               <div className="mt-2 font-semibold text-slate-900 text-base">
-                Global customers
+                Public launch
               </div>
             </div>
 
             <div className="col-span-2 pt-2">
               <div className="text-4xl sm:text-5xl font-bold text-primary tracking-tight">
-                100%
+                Nepal-first
               </div>
               <div className="mt-2 font-semibold text-slate-900 text-base">
-                Customer satisfaction
+                Built to digitize the poultry ecosystem
               </div>
             </div>
           </div>
