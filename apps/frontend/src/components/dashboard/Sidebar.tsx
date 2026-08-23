@@ -263,6 +263,11 @@ const adminNavigation: NavigationItem[] = [
     href: "/admin/dashboard/enquiries",
     icon: MessageCircle,
   },
+  {
+    nameKey: "Blog",
+    href: "/admin/dashboard/blog",
+    icon: FileText,
+  },
 ];
 
 interface SidebarProps {

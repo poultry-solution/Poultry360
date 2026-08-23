@@ -10,6 +10,7 @@
     "dev": "nodemon src/index.ts",
     "seed": "ts-node src/scripts/seedDemoFarmer.ts",
     "seed:demo": "ts-node src/scripts/seedDemoFarmer.ts",
+    "seed:blog": "ts-node src/scripts/seedBlogPosts.ts",
     "build": "tsc"
   },
   "keywords": [],

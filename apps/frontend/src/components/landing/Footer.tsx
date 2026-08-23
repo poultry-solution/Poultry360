@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Footer() {
   return (
     <footer className="bg-gray-900 text-white">
@@ -42,7 +44,7 @@ export default function Footer() {
               <li><a href="#features" className="text-gray-300 hover:text-primary transition-colors">Features</a></li>
               <li><a href="#contact" className="text-gray-300 hover:text-primary transition-colors">Contact</a></li>
               <li><a href="#" className="text-gray-300 hover:text-primary transition-colors">About Us</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-primary transition-colors">Blog</a></li>
+              <li><Link href="/blog" className="text-gray-300 hover:text-primary transition-colors">Blog</Link></li>
             </ul>
           </div>
 
@@ -63,7 +65,7 @@ export default function Footer() {
         <div className="border-t border-gray-800 mt-12 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-400 text-sm">
-              © 2024 Poultry360. All rights reserved.
+              © 2026 Poultry360. All rights reserved.
             </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
               <a href="#" className="text-gray-400 hover:text-primary text-sm transition-colors">Privacy Policy</a>

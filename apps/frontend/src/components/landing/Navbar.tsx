@@ -33,6 +33,9 @@ export default function Navbar() {
           <Link href="/marketplace" className="text-muted-foreground hover:text-foreground transition-colors">
             {t("landing.navbar.marketplace")}
           </Link>
+          <Link href="/blog" className="text-muted-foreground hover:text-foreground transition-colors">
+            Blog
+          </Link>
           <Link href="#reviews" className="text-muted-foreground hover:text-foreground transition-colors">
             {t("landing.navbar.reviews")}
           </Link>
@@ -87,6 +90,13 @@ export default function Navbar() {
               className="block py-2 text-muted-foreground hover:text-foreground transition-colors font-medium"
             >
               {t("landing.navbar.marketplace")}
+            </Link>
+            <Link
+              href="/blog"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-2 text-muted-foreground hover:text-foreground transition-colors font-medium"
+            >
+              Blog
             </Link>
             <Link
               href="#reviews"

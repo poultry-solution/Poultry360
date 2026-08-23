@@ -5,6 +5,11 @@ import {
   getLandingContacts,
   createLandingContact,
 } from "../controller/publicController";
+import {
+  getPublicBlogPostBySlug,
+  getPublicBlogPosts,
+  incrementPublicBlogPostView,
+} from "../controller/blogPostController";
 import { createDemoEnquiry } from "../controller/demoEnquiryController";
 import {
   getPublicListForSale,
@@ -26,6 +31,11 @@ router.post("/contacts", createLandingContact);
 
 // Landing hero "Book a demo" form (no auth required)
 router.post("/demo-enquiries", createDemoEnquiry);
+
+// SEO blog
+router.get("/blog-posts", getPublicBlogPosts);
+router.get("/blog-posts/:slug", getPublicBlogPostBySlug);
+router.post("/blog-posts/:slug/view", incrementPublicBlogPostView);
 
 // List for sale (public marketplace - no auth)
 router.get("/list-for-sale", getPublicListForSale);
