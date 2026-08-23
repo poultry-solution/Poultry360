@@ -103,6 +103,11 @@ enum AuditAction {
   LOGOUT
 }
 
+enum BlogPostStatus {
+  DRAFT
+  PUBLISHED
+}
+
 // ==================== CORE MODELS ====================
 
 enum UserStatus {
@@ -2243,6 +2248,29 @@ model DemoEnquiry {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([createdAt])
+}
+
+// ==================== SEO BLOG POSTS ====================
+// Managed by super admins and rendered publicly on /blog and /blog/[slug].
+model BlogPost {
+  id              String         @id @default(cuid())
+  title           String
+  slug            String         @unique
+  excerpt         String         @db.Text
+  contentMarkdown String         @db.Text
+  bannerImageUrl  String?
+  isFeatured      Boolean        @default(false)
+  authorName      String
+  seoTitle        String?
+  seoDescription  String?
+  status          BlogPostStatus @default(DRAFT)
+  publishedAt     DateTime?
+  viewCount       Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([status, publishedAt])
   @@index([createdAt])
 }
 

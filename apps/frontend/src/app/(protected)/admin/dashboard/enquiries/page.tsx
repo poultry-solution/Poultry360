@@ -14,14 +14,30 @@ import { Badge } from "@/common/components/ui/badge";
 import { Button } from "@/common/components/ui/button";
 import { useI18n } from "@/i18n/useI18n";
 import { useGetAdminDemoEnquiries } from "@/fetchers/admin/demoEnquiryQueries";
+import { useLandingContacts } from "@/fetchers/public/contactQueries";
 
 export default function AdminDemoEnquiriesPage() {
   const { t } = useI18n();
   const [limit] = useState(200);
 
-  const { data, isLoading, refetch } = useGetAdminDemoEnquiries(limit);
+  const {
+    data: demoData,
+    isLoading: isDemoLoading,
+    refetch: refetchDemo,
+  } = useGetAdminDemoEnquiries(limit);
+  const {
+    data: contactData,
+    isLoading: isContactLoading,
+    refetch: refetchContacts,
+  } = useLandingContacts(limit);
 
-  const enquiries = useMemo(() => data?.data ?? [], [data?.data]);
+  const enquiries = useMemo(() => demoData?.data ?? [], [demoData?.data]);
+  const contacts = useMemo(() => contactData?.data ?? [], [contactData?.data]);
+
+  const handleRefresh = () => {
+    void refetchDemo();
+    void refetchContacts();
+  };
 
   return (
     <div className="space-y-4">
@@ -34,13 +50,13 @@ export default function AdminDemoEnquiriesPage() {
             </p>
           </div>
 
-          <Button type="button" variant="outline" onClick={() => refetch()}>
+          <Button type="button" variant="outline" onClick={handleRefresh}>
             Refresh
           </Button>
         </CardHeader>
 
         <CardContent>
-          {isLoading ? (
+          {isDemoLoading ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
           ) : enquiries.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("admin.demoEnquiries.empty")}</p>
@@ -85,6 +101,74 @@ export default function AdminDemoEnquiriesPage() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {new Date(e.createdAt).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div>
+            <CardTitle>Contact Form Submissions</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Messages submitted from the public contact form on the marketing site.
+            </p>
+          </div>
+
+          <Button type="button" variant="outline" onClick={handleRefresh}>
+            Refresh
+          </Button>
+        </CardHeader>
+
+        <CardContent>
+          {isContactLoading ? (
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : contacts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No contact form submissions found.</p>
+          ) : (
+            <div className="overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Farm Type</TableHead>
+                    <TableHead>Message</TableHead>
+                    <TableHead>Created At</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {contacts.map((contact) => (
+                    <TableRow key={contact.id}>
+                      <TableCell className="font-medium">
+                        {contact.firstName} {contact.lastName}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {contact.email}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {contact.phone || "--"}
+                      </TableCell>
+                      <TableCell>
+                        {contact.farmType ? (
+                          <Badge variant="outline">{contact.farmType}</Badge>
+                        ) : (
+                          <Badge variant="outline">--</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="line-clamp-2 block max-w-[360px]">
+                          {contact.message}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {new Date(contact.createdAt).toLocaleString()}
                       </TableCell>
                     </TableRow>
                   ))}

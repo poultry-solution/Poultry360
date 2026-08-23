@@ -2,15 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Caveat } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/common/providers/QueryProvider";
-import { AuthGuard } from "@/common/components/auth/AuthGuard";
-import { AuthProvider } from "@/common/providers/AuthProvider";
-import { InventoryProvider } from "@/common/contexts/InventoryContext";
 import { ToastProvider } from "@/common/providers/ToastProvider";
-import { ChatProvider } from "@/common/contexts/ChatContext";
-import { LoadingProvider } from "@/common/providers/LoadingProvider";
-import { RoleBasedMiddleware } from "@/common/components/auth/RoleBasedMiddleware";
 import { I18nProvider } from "@/i18n/I18nProvider";
-import { PushNotificationInit } from "@/common/components/PushNotificationInit";
 import { NumberInputWheelGuard } from "@/common/components/NumberInputWheelGuard";
 
 const geistSans = Geist({
@@ -29,7 +22,7 @@ const caveat = Caveat({
   weight: ["400", "500", "600", "700"],
 });
 
-const siteUrl = "https://poultry360.org";
+const siteUrl = "https://www.poultry360.org";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -67,25 +60,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} antialiased`}
       >
         <I18nProvider>
-          <AuthProvider>
-            <QueryProvider>
-              <InventoryProvider>
-                <ChatProvider>
-                  <ToastProvider>
-                    <LoadingProvider>
-                      <RoleBasedMiddleware>
-                        <AuthGuard>
-                          <NumberInputWheelGuard />
-                          <PushNotificationInit />
-                          {children}
-                        </AuthGuard>
-                      </RoleBasedMiddleware>
-                    </LoadingProvider>
-                  </ToastProvider>
-                </ChatProvider>
-              </InventoryProvider>
-            </QueryProvider>
-          </AuthProvider>
+          <QueryProvider>
+            <ToastProvider>
+              <NumberInputWheelGuard />
+              {children}
+            </ToastProvider>
+          </QueryProvider>
         </I18nProvider>
       </body>
     </html>

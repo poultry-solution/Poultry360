@@ -1,16 +1,62 @@
 import type { MetadataRoute } from "next";
+import { getPublishedBlogPosts, isBlogApiUnavailable } from "@/lib/blog";
 
-const siteUrl = "https://poultry360.org";
+const siteUrl = "https://www.poultry360.org";
 
-const publicPaths = ["/", "/marketplace"];
+const publicPaths = [
+  "/",
+  "/about-us",
+  "/marketplace",
+  "/blog",
+  "/layer-farm-software",
+  "/broiler-farm-software",
+  "/feed-dealer-software",
+  "/hatchery-software",
+];
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export const dynamic = "force-dynamic";
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const lastModified = new Date();
+  let blogPosts: Awaited<ReturnType<typeof getPublishedBlogPosts>> = [];
 
-  return publicPaths.map((path) => ({
+  try {
+    blogPosts = await getPublishedBlogPosts();
+  } catch (error) {
+    if (!isBlogApiUnavailable(error)) {
+      throw error;
+    }
+  }
+
+  const coreEntries: MetadataRoute.Sitemap = publicPaths.map((path) => ({
     url: `${siteUrl}${path}`,
     lastModified,
-    changeFrequency: path === "/" ? "weekly" : "monthly",
-    priority: path === "/" ? 1 : 0.8,
+    changeFrequency:
+      path === "/"
+        ? ("weekly" as const)
+        : path === "/blog"
+          ? ("daily" as const)
+          : path === "/about-us"
+            ? ("monthly" as const)
+            : path.includes("-software")
+              ? ("weekly" as const)
+          : ("monthly" as const),
+    priority:
+      path === "/"
+        ? 1
+        : path === "/blog"
+          ? 0.9
+          : path.includes("-software")
+            ? 0.85
+            : 0.8,
   }));
+
+  const blogEntries: MetadataRoute.Sitemap = blogPosts.map((post) => ({
+    url: `${siteUrl}/blog/${post.slug}`,
+    lastModified: new Date(post.updatedAt || post.publishedAt || lastModified),
+    changeFrequency: "monthly" as const,
+    priority: 0.7,
+  }));
+
+  return [...coreEntries, ...blogEntries];
 }
