@@ -54,13 +54,13 @@ export function AboutHero() {
 
         {/* Right Column: Large Rounded Card with Illustration */}
         <div className="lg:col-span-6">
-          <div className="relative w-full aspect-[4/3] rounded-3xl bg-[#F8FAFC] border border-slate-100 overflow-hidden flex items-center justify-center p-6 sm:p-10 shadow-xs">
+          <div className="relative w-full aspect-[4/3] rounded-3xl border border-slate-100 overflow-hidden bg-white shadow-xs">
             <Image
-              src="/about-illustration.png"
-              alt="Poultry Operations Dashboard Illustration"
+              src="/about-us-hero.png"
+              alt="Poultry360 poultry management illustration"
               fill
               priority
-              className="object-contain p-6"
+              className="object-cover"
             />
           </div>
         </div>

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 export default function Footer() {
@@ -8,8 +9,13 @@ export default function Footer() {
           {/* Company Info */}
           <div className="lg:col-span-2">
             <div className="flex items-center space-x-2 mb-6">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-lg">P</span>
+              <div className="relative h-8 w-8 overflow-hidden rounded-lg">
+                <Image
+                  src="/icons/final-icon.png"
+                  alt="Poultry360 icon"
+                  fill
+                  className="object-cover"
+                />
               </div>
               <span className="text-xl font-bold">Poultry360</span>
             </div>
