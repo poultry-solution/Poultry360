@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-const siteUrl = "https://poultry360.org";
+const siteUrl = "https://www.poultry360.org";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

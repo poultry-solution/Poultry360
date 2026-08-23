@@ -16,7 +16,7 @@ interface RoleRouteConfig {
 }
 
 // Define role-based routing configuration
-const ROLE_ROUTES: RoleRouteConfig = {
+export const ROLE_ROUTES: RoleRouteConfig = {
   DOCTOR: {
     basePath: "/doctor",
     defaultRoute: "/doctor/dashboard",

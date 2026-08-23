@@ -2,15 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Caveat } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/common/providers/QueryProvider";
-import { AuthGuard } from "@/common/components/auth/AuthGuard";
-import { AuthProvider } from "@/common/providers/AuthProvider";
-import { InventoryProvider } from "@/common/contexts/InventoryContext";
 import { ToastProvider } from "@/common/providers/ToastProvider";
-import { ChatProvider } from "@/common/contexts/ChatContext";
-import { LoadingProvider } from "@/common/providers/LoadingProvider";
-import { RoleBasedMiddleware } from "@/common/components/auth/RoleBasedMiddleware";
 import { I18nProvider } from "@/i18n/I18nProvider";
-import { PushNotificationInit } from "@/common/components/PushNotificationInit";
 import { NumberInputWheelGuard } from "@/common/components/NumberInputWheelGuard";
 
 const geistSans = Geist({
@@ -29,45 +22,7 @@ const caveat = Caveat({
   weight: ["400", "500", "600", "700"],
 });
 
-const siteUrl = "https://poultry360.org";
-
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": ["SoftwareApplication", "WebApplication"],
-  "@id": `${siteUrl}/#software`,
-  name: "Poultry360",
-  url: siteUrl,
-  description:
-    "Poultry management software for broiler and layer farmers, feed dealers, feed mills, hatcheries, and veterinary businesses in Nepal.",
-  applicationCategory: "BusinessApplication",
-  applicationSubCategory: "Poultry Farm Management Software",
-  operatingSystem: "Web",
-  browserRequirements: "Requires a modern web browser and internet connection.",
-  countriesSupported: "NP",
-  featureList: [
-    "Broiler farm management",
-    "Layer farm management",
-    "Batch management",
-    "Sales management",
-    "Expense management",
-    "Inventory management",
-    "Mortality tracking",
-    "Feed management",
-    "FCR evaluation",
-    "Egg production tracking"
-  ],
-  audience: {
-    "@type": "Audience",
-    audienceType: "Poultry farmers and poultry businesses in Nepal"
-  },
-  offers: {
-    "@type": "Offer",
-    price: 0,
-    priceCurrency: "NPR",
-    availability: "https://schema.org/InStock",
-    url: siteUrl
-  }
-};
+const siteUrl = "https://www.poultry360.org";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -104,31 +59,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} antialiased`}
       >
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
-        
         <I18nProvider>
-          <AuthProvider>
-            <QueryProvider>
-              <InventoryProvider>
-                <ChatProvider>
-                  <ToastProvider>
-                    <LoadingProvider>
-                      <RoleBasedMiddleware>
-                        <AuthGuard>
-                          <NumberInputWheelGuard />
-                          <PushNotificationInit />
-                          {children}
-                        </AuthGuard>
-                      </RoleBasedMiddleware>
-                    </LoadingProvider>
-                  </ToastProvider>
-                </ChatProvider>
-              </InventoryProvider>
-            </QueryProvider>
-          </AuthProvider>
+          <QueryProvider>
+            <ToastProvider>
+              <NumberInputWheelGuard />
+              {children}
+            </ToastProvider>
+          </QueryProvider>
         </I18nProvider>
       </body>
     </html>
