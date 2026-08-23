@@ -87,7 +87,7 @@ export default function ModuleSeoPage({
                   size="lg"
                   className="bg-primary px-7 text-primary-foreground hover:bg-primary/90"
                 >
-                  <Link href="/auth/signup">
+                  <Link href={content.signupHref}>
                     Get Started
                     <ArrowRight className="h-4 w-4" />
                   </Link>
@@ -275,7 +275,7 @@ export default function ModuleSeoPage({
                   size="lg"
                   className="bg-primary px-7 text-primary-foreground hover:bg-primary/90"
                 >
-                  <Link href="/auth/signup">
+                  <Link href={content.signupHref}>
                     Create Account
                     <ArrowRight className="h-4 w-4" />
                   </Link>

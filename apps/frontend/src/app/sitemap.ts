@@ -3,7 +3,16 @@ import { getPublishedBlogPosts, isBlogApiUnavailable } from "@/lib/blog";
 
 const siteUrl = "https://www.poultry360.org";
 
-const publicPaths = ["/", "/marketplace", "/blog"];
+const publicPaths = [
+  "/",
+  "/about-us",
+  "/marketplace",
+  "/blog",
+  "/layer-farm-software",
+  "/broiler-farm-software",
+  "/feed-dealer-software",
+  "/hatchery-software",
+];
 
 export const dynamic = "force-dynamic";
 
@@ -27,8 +36,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         ? ("weekly" as const)
         : path === "/blog"
           ? ("daily" as const)
+          : path === "/about-us"
+            ? ("monthly" as const)
+            : path.includes("-software")
+              ? ("weekly" as const)
           : ("monthly" as const),
-    priority: path === "/" ? 1 : path === "/blog" ? 0.9 : 0.8,
+    priority:
+      path === "/"
+        ? 1
+        : path === "/blog"
+          ? 0.9
+          : path.includes("-software")
+            ? 0.85
+            : 0.8,
   }));
 
   const blogEntries: MetadataRoute.Sitemap = blogPosts.map((post) => ({

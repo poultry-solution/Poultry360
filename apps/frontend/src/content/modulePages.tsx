@@ -48,6 +48,7 @@ type ModuleAccent = {
 
 export type ModulePageContent = {
   slug: string;
+  signupHref: string;
   metaTitle: string;
   metaDescription: string;
   openGraphTitle: string;
@@ -130,6 +131,7 @@ export function buildModuleMetadata(content: ModulePageContent): Metadata {
 export const modulePageContent: Record<string, ModulePageContent> = {
   layer: {
     slug: "layer-farm-software",
+    signupHref: "/auth/signup",
     metaTitle:
       "Layer Farm Software for Nepal | Egg Production Management | Poultry360",
     metaDescription:
@@ -314,6 +316,7 @@ export const modulePageContent: Record<string, ModulePageContent> = {
   },
   broiler: {
     slug: "broiler-farm-software",
+    signupHref: "/auth/signup",
     metaTitle:
       "Broiler Farm Software for Nepal | Batch and FCR Tracking | Poultry360",
     metaDescription:
@@ -487,6 +490,7 @@ export const modulePageContent: Record<string, ModulePageContent> = {
   },
   dealer: {
     slug: "feed-dealer-software",
+    signupHref: "/auth/signup/dealer",
     metaTitle:
       "Feed Dealer Software for Nepal | Inventory and Farmer Network | Poultry360",
     metaDescription:
@@ -634,6 +638,7 @@ export const modulePageContent: Record<string, ModulePageContent> = {
   },
   hatchery: {
     slug: "hatchery-software",
+    signupHref: "/auth/signup/hatchery",
     metaTitle:
       "Hatchery Software for Nepal | Incubation and Chick Tracking | Poultry360",
     metaDescription:
@@ -792,4 +797,3 @@ export const modulePageContent: Record<string, ModulePageContent> = {
     ],
   },
 };
-

@@ -65,7 +65,7 @@ const MODULES: Module[] = [
     description:
       "Complete management system built for layer farms — from flock lifecycle to egg production analytics.",
     icon: Egg,
-    href: "/auth/signup",
+    href: "/layer-farm-software",
     features: [
       ...BASE_FARMER_FEATURES,
       "Egg production tracking by type",
@@ -91,7 +91,7 @@ const MODULES: Module[] = [
     description:
       "End-to-end batch and sales tracking purpose-built for the fast turnaround of broiler farming.",
     icon: Bird,
-    href: "/auth/signup",
+    href: "/broiler-farm-software",
     features: BASE_FARMER_FEATURES,
     accent: {
       tab: "bg-orange-500",
@@ -112,7 +112,7 @@ const MODULES: Module[] = [
     description:
       "Manage inventory, sales pipeline, and your full farmer network — all from a single dashboard.",
     icon: ShoppingBag,
-    href: "/auth/signup/dealer",
+    href: "/feed-dealer-software",
     features: [
       "Company Purchase management",
       "Company Balance management",
@@ -171,7 +171,7 @@ const MODULES: Module[] = [
     description:
       "From parent flock management and incubation lifecycle to chick grading and delivery — all in one place.",
     icon: Layers,
-    href: "/auth/signup/hatchery",
+    href: "/hatchery-software",
     features: [
       "Supplier ledger management",
       "Inventory management",
@@ -290,12 +290,21 @@ export default function Modules() {
                   <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-0.5">
                     {active.subtitle}
                   </p>
-                  <h3 className="text-lg font-bold text-gray-900 leading-tight">
+                  <Link
+                    href={active.href}
+                    className="inline-block text-lg font-bold leading-tight text-gray-900 transition-colors hover:text-primary"
+                  >
                     {active.label}
-                  </h3>
+                  </Link>
                   <p className="text-sm text-gray-500 mt-1.5 max-w-md leading-relaxed">
                     {active.description}
                   </p>
+                  <Link
+                    href={active.href}
+                    className="mt-2 inline-flex text-sm font-medium text-primary transition-colors hover:text-primary/80"
+                  >
+                    View module details
+                  </Link>
                 </div>
               </div>
 
