@@ -10,7 +10,7 @@ export function AboutStats() {
         <div className="lg:col-span-6">
           <div className="relative w-full aspect-[4/3] rounded-3xl bg-[#F8FAFC] border border-slate-100 overflow-hidden flex items-center justify-center p-6 sm:p-10 shadow-xs">
             <Image
-              src="/about-illustration.png"
+              src="/about-us/number-section-about-us.png"
               alt="Poultry360 journey illustration"
               fill
               className="object-contain p-6"
