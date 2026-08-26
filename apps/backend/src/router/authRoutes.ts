@@ -9,6 +9,7 @@ import {
   storeCrossPortAuth,
   getCrossPortAuth,
   verifyPassword,
+  changePassword,
   registerEntity,
 } from "../controller/auth";
 import {
@@ -30,6 +31,7 @@ authRouter.get("/validate", validateToken);
 authRouter.post("/store-cross-port", storeCrossPortAuth);
 authRouter.get("/get-cross-port", getCrossPortAuth);
 authRouter.post("/verify-password", authMiddleware, verifyPassword);
+authRouter.post("/change-password", authMiddleware, changePassword);
 
 // Password reset (public - no auth required)
 authRouter.post("/forgot-password/generate-otp", generateResetOtp);

@@ -26,6 +26,7 @@ import {
   FlaskConical,
   Wallet,
   Star,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { useAuth } from "@/common/store/store";
@@ -273,6 +274,11 @@ const adminNavigation: NavigationItem[] = [
     nameKey: "Blog",
     href: "/admin/dashboard/blog",
     icon: FileText,
+  },
+  {
+    nameKey: "topbar.settings",
+    href: "/admin/dashboard/settings",
+    icon: Settings,
   },
 ];
 

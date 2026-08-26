@@ -644,6 +644,110 @@ export const verifyPassword = async (
   }
 };
 
+// ==================== CHANGE PASSWORD ====================
+export const changePassword = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { currentPassword, newPassword } = req.body ?? {};
+    const currentUserId = req.userId;
+
+    if (
+      !currentPassword ||
+      typeof currentPassword !== "string" ||
+      !newPassword ||
+      typeof newPassword !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password and new password are required",
+      });
+    }
+
+    if (!currentUserId) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters",
+      });
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be different from current password",
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: currentUserId },
+      select: {
+        id: true,
+        role: true,
+        password: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (user.role !== UserRole.SUPER_ADMIN) {
+      return res.status(403).json({
+        success: false,
+        message: "Password change is not available for this account",
+      });
+    }
+
+    const passwordMatches = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+
+    if (!passwordMatches) {
+      return res.status(401).json({
+        success: false,
+        message: "Current password is incorrect",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword },
+    });
+
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      path: "/",
+    });
+
+    return res.json({
+      success: true,
+      message: "Password changed successfully. Please log in again.",
+    });
+  } catch (error) {
+    console.error("Change password error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
 // ==================== REGISTER ENTITY (DEALER/COMPANY) ====================
 export const registerEntity = async (
   req: Request,
