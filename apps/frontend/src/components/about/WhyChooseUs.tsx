@@ -7,28 +7,28 @@ const WHY_CHOOSE_US_ROWS = [
     title: "Built for Nepal's Poultry Ecosystem",
     description:
       "Poultry360 is being built specifically for the operational reality of Nepal's poultry sector. We are focused on digitizing the links between farms, hatcheries, feed dealers, inventory, sales, and business records so the ecosystem can run with better visibility and less manual friction.",
-    image: "/about-illustration.png",
+    image: "/about-us/Why-Poultry360-about-us.jpeg",
     imageLeft: true,
   },
   {
     title: "Practical Product Thinking",
     description:
       "We are not building generic software for agriculture. Poultry360 is shaped around day-to-day poultry workflows such as batch management, mortality tracking, egg production, feed movement, sales, balances, and party ledgers so the product stays useful in real operations.",
-    image: "/product-thinking-about-us.png",
+    image: "/about-us/product-thinking-about-us.png",
     imageLeft: false,
   },
   {
     title: "Focused on Digitization, Not Complexity",
     description:
       "The goal is simple: replace disconnected manual records with a cleaner digital system. By centralizing core poultry activities in one platform, Poultry360 helps owners and teams reduce confusion, improve accountability, and make decisions from real data instead of guesswork.",
-    image: "/second-last-about-us.png",
+    image: "/about-us/second-last-about-us.png",
     imageLeft: true,
   },
   {
     title: "All-In-One Solution",
     description:
       "Poultry360 brings together the modules needed across broiler farms, layer farms, hatcheries, feed dealers, and related poultry businesses. That means fewer separate tools, more consistent records, and a stronger digital foundation for the industry's next phase.",
-    image: "/last-section-about-us.png",
+    image: "/about-us/last-section-about-us.png",
     imageLeft: false,
   },
 ];

@@ -1,14 +1,15 @@
 "use client";
 
 import { BlogCard } from "./BlogCard";
-import type { PublicBlogPost } from "@/lib/blog";
+import type { BlogLocale, PublicBlogPost } from "@/lib/blog";
 
 interface BlogGridProps {
   posts: PublicBlogPost[];
+  locale: BlogLocale;
   sortBy: string;
 }
 
-export function BlogGrid({ posts, sortBy }: BlogGridProps) {
+export function BlogGrid({ posts, locale, sortBy }: BlogGridProps) {
   const sortedPosts = [...posts].sort((left, right) => {
     if (sortBy === "popular") {
       return right.viewCount - left.viewCount;
@@ -27,7 +28,7 @@ export function BlogGrid({ posts, sortBy }: BlogGridProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 mt-8 sm:mt-10">
       {sortedPosts.map((post) => (
-        <BlogCard key={post.id} post={post} />
+        <BlogCard key={post.id} post={post} locale={locale} />
       ))}
     </div>
   );

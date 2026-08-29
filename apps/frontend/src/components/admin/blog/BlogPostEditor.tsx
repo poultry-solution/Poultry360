@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
-import { Textarea } from "@/common/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -16,21 +15,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/common/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
+import { Textarea } from "@/common/components/ui/textarea";
 import type { AdminBlogPostInput, BlogPostStatus } from "@/fetchers/admin/blogQueries";
 import { BLOG_SITE_URL, formatBlogDate } from "@/lib/blog";
 
 const EMPTY_VALUES: AdminBlogPostInput = {
   title: "",
+  titleNe: "",
   slug: "",
   excerpt: "",
+  excerptNe: "",
   contentMarkdown: "",
+  contentMarkdownNe: "",
   bannerImageUrl: "",
   isFeatured: false,
   authorName: "Poultry360 Team",
   seoTitle: "",
+  seoTitleNe: "",
   seoDescription: "",
+  seoDescriptionNe: "",
   status: "DRAFT",
 };
+
+type LocaleTab = "en" | "ne";
 
 function slugify(input: string) {
   return input
@@ -39,6 +47,48 @@ function slugify(input: string) {
     .replace(/^-+|-+$/g, "")
     .replace(/-{2,}/g, "-")
     .slice(0, 180);
+}
+
+function getNepaliTranslationStatus(values: AdminBlogPostInput) {
+  const hasAnyContent = Boolean(
+    values.titleNe?.trim() ||
+      values.excerptNe?.trim() ||
+      values.contentMarkdownNe?.trim() ||
+      values.seoTitleNe?.trim() ||
+      values.seoDescriptionNe?.trim()
+  );
+
+  const isComplete = Boolean(
+    values.titleNe?.trim() &&
+      values.excerptNe?.trim() &&
+      values.contentMarkdownNe?.trim()
+  );
+
+  if (isComplete) {
+    return {
+      label: "Nepali ready",
+      toneClass: "text-green-700",
+      description: "The Nepali article can be shown publicly at /ne/blog once the post is published.",
+      isComplete: true,
+    };
+  }
+
+  if (hasAnyContent) {
+    return {
+      label: "Nepali incomplete",
+      toneClass: "text-amber-700",
+      description:
+        "Add Nepali title, excerpt, and markdown content before the NP switch appears publicly.",
+      isComplete: false,
+    };
+  }
+
+  return {
+    label: "Nepali not started",
+    toneClass: "text-slate-600",
+    description: "Only the English article will be public until a full Nepali translation is added.",
+    isComplete: false,
+  };
 }
 
 interface BlogPostEditorProps {
@@ -68,9 +118,15 @@ export default function BlogPostEditor({
     ...EMPTY_VALUES,
     ...initialValues,
   });
+  const [activeTab, setActiveTab] = useState<LocaleTab>("en");
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
   const publicHref = values.slug ? `${BLOG_SITE_URL}/blog/${values.slug}` : null;
+  const publicHrefNe =
+    values.slug && getNepaliTranslationStatus(values).isComplete
+      ? `${BLOG_SITE_URL}/ne/blog/${values.slug}`
+      : null;
+  const nepaliStatus = getNepaliTranslationStatus(values);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -123,77 +179,137 @@ export default function BlogPostEditor({
             <CardTitle>Post Content</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
-              <Input
-                id="title"
-                value={values.title}
-                onChange={(event) =>
-                  setValues((current) => ({ ...current, title: event.target.value }))
-                }
-                placeholder="Example: Broiler feed price tracking in Nepal"
-              />
-            </div>
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as LocaleTab)}>
+              <TabsList className="h-auto w-full justify-start gap-2 rounded-2xl bg-muted/30 p-2">
+                <TabsTrigger value="en" className="rounded-xl px-4 py-2">
+                  English
+                </TabsTrigger>
+                <TabsTrigger value="ne" className="rounded-xl px-4 py-2">
+                  Nepali
+                </TabsTrigger>
+              </TabsList>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="slug">Slug</Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    setValues((current) => ({ ...current, slug: slugify(current.title) }))
-                  }
-                >
-                  <Sparkles className="mr-1 size-4" />
-                  Generate From Title
-                </Button>
-              </div>
-              <Input
-                id="slug"
-                value={values.slug}
-                onChange={(event) =>
-                  setValues((current) => ({ ...current, slug: event.target.value }))
-                }
-                placeholder="broiler-feed-price-nepal"
-              />
-            </div>
+              {validationMessage ? (
+                <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  {validationMessage}
+                </div>
+              ) : null}
 
-            <div className="space-y-2">
-              <Label htmlFor="excerpt">Meta Description / Excerpt</Label>
-              <Textarea
-                id="excerpt"
-                value={values.excerpt}
-                onChange={(event) =>
-                  setValues((current) => ({ ...current, excerpt: event.target.value }))
-                }
-                className="min-h-28"
-                placeholder="Write a concise summary for search engines and the blog index."
-              />
-            </div>
+              <TabsContent value="en" className="mt-5 space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Title</Label>
+                  <Input
+                    id="title"
+                    value={values.title}
+                    onChange={(event) =>
+                      setValues((current) => ({ ...current, title: event.target.value }))
+                    }
+                    placeholder="Example: Broiler feed price tracking in Nepal"
+                  />
+                </div>
 
-            {validationMessage ? (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                {validationMessage}
-              </div>
-            ) : null}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="slug">Slug</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setValues((current) => ({ ...current, slug: slugify(current.title) }))
+                      }
+                    >
+                      <Sparkles className="mr-1 size-4" />
+                      Generate From Title
+                    </Button>
+                  </div>
+                  <Input
+                    id="slug"
+                    value={values.slug}
+                    onChange={(event) =>
+                      setValues((current) => ({ ...current, slug: event.target.value }))
+                    }
+                    placeholder="broiler-feed-price-nepal"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="contentMarkdown">Markdown Content</Label>
-              <Textarea
-                id="contentMarkdown"
-                value={values.contentMarkdown}
-                onChange={(event) =>
-                  setValues((current) => ({
-                    ...current,
-                    contentMarkdown: event.target.value,
-                  }))
-                }
-                className="min-h-[460px] font-mono text-sm"
-                placeholder="# Heading&#10;&#10;Write the article in markdown..."
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="excerpt">Meta Description / Excerpt</Label>
+                  <Textarea
+                    id="excerpt"
+                    value={values.excerpt}
+                    onChange={(event) =>
+                      setValues((current) => ({ ...current, excerpt: event.target.value }))
+                    }
+                    className="min-h-28"
+                    placeholder="Write a concise summary for search engines and the blog index."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="contentMarkdown">Markdown Content</Label>
+                  <Textarea
+                    id="contentMarkdown"
+                    value={values.contentMarkdown}
+                    onChange={(event) =>
+                      setValues((current) => ({
+                        ...current,
+                        contentMarkdown: event.target.value,
+                      }))
+                    }
+                    className="min-h-[460px] font-mono text-sm"
+                    placeholder="Write the English article in markdown..."
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="ne" className="mt-5 space-y-5">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  Add Nepali title, excerpt, and markdown content if you want this post available on `/ne/blog`.
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="titleNe">Nepali Title</Label>
+                  <Input
+                    id="titleNe"
+                    value={values.titleNe ?? ""}
+                    onChange={(event) =>
+                      setValues((current) => ({ ...current, titleNe: event.target.value }))
+                    }
+                    placeholder="नेपाली शीर्षक"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="excerptNe">Nepali Meta Description / Excerpt</Label>
+                  <Textarea
+                    id="excerptNe"
+                    value={values.excerptNe ?? ""}
+                    onChange={(event) =>
+                      setValues((current) => ({ ...current, excerptNe: event.target.value }))
+                    }
+                    className="min-h-28"
+                    placeholder="नेपाली सारांश वा मेटा विवरण लेख्नुहोस्।"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="contentMarkdownNe">Nepali Markdown Content</Label>
+                  <Textarea
+                    id="contentMarkdownNe"
+                    value={values.contentMarkdownNe ?? ""}
+                    onChange={(event) =>
+                      setValues((current) => ({
+                        ...current,
+                        contentMarkdownNe: event.target.value,
+                      }))
+                    }
+                    className="min-h-[460px] font-mono text-sm"
+                    placeholder="नेपाली लेख markdown मा लेख्नुहोस्..."
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
 
@@ -252,6 +368,8 @@ export default function BlogPostEditor({
                 <p>Published date: {formatBlogDate(publishedAt ?? null)}</p>
                 <p>Read count: {viewCount}</p>
                 <p>Banner image: {values.bannerImageUrl ? "Ready" : "Missing"}</p>
+                <p className={nepaliStatus.toneClass}>Nepali translation: {nepaliStatus.label}</p>
+                <p>{nepaliStatus.description}</p>
               </div>
 
               <label className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-3 text-sm">
@@ -274,14 +392,25 @@ export default function BlogPostEditor({
                 </div>
               </label>
 
-              {publicHref && (
-                <Button asChild variant="outline" className="w-full">
-                  <Link href={publicHref} target="_blank">
-                    Open Public URL
-                    <ExternalLink className="ml-2 size-4" />
-                  </Link>
-                </Button>
-              )}
+              {publicHref ? (
+                <div className="space-y-2">
+                  <Button asChild variant="outline" className="w-full">
+                    <Link href={publicHref} target="_blank">
+                      Open English URL
+                      <ExternalLink className="ml-2 size-4" />
+                    </Link>
+                  </Button>
+
+                  {publicHrefNe ? (
+                    <Button asChild variant="outline" className="w-full">
+                      <Link href={publicHrefNe} target="_blank">
+                        Open Nepali URL
+                        <ExternalLink className="ml-2 size-4" />
+                      </Link>
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -302,33 +431,76 @@ export default function BlogPostEditor({
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="seoTitle">SEO Title</Label>
-                <Input
-                  id="seoTitle"
-                  value={values.seoTitle ?? ""}
-                  onChange={(event) =>
-                    setValues((current) => ({ ...current, seoTitle: event.target.value }))
-                  }
-                  placeholder="Optional override for the page title"
-                />
-              </div>
+              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as LocaleTab)}>
+                <TabsList className="h-auto w-full justify-start gap-2 rounded-2xl bg-muted/30 p-2">
+                  <TabsTrigger value="en" className="rounded-xl px-4 py-2">
+                    English SEO
+                  </TabsTrigger>
+                  <TabsTrigger value="ne" className="rounded-xl px-4 py-2">
+                    Nepali SEO
+                  </TabsTrigger>
+                </TabsList>
 
-              <div className="space-y-2">
-                <Label htmlFor="seoDescription">SEO Description</Label>
-                <Textarea
-                  id="seoDescription"
-                  value={values.seoDescription ?? ""}
-                  onChange={(event) =>
-                    setValues((current) => ({
-                      ...current,
-                      seoDescription: event.target.value,
-                    }))
-                  }
-                  className="min-h-24"
-                  placeholder="Optional override for meta description and social cards"
-                />
-              </div>
+                <TabsContent value="en" className="mt-5 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="seoTitle">SEO Title</Label>
+                    <Input
+                      id="seoTitle"
+                      value={values.seoTitle ?? ""}
+                      onChange={(event) =>
+                        setValues((current) => ({ ...current, seoTitle: event.target.value }))
+                      }
+                      placeholder="Optional override for the page title"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="seoDescription">SEO Description</Label>
+                    <Textarea
+                      id="seoDescription"
+                      value={values.seoDescription ?? ""}
+                      onChange={(event) =>
+                        setValues((current) => ({
+                          ...current,
+                          seoDescription: event.target.value,
+                        }))
+                      }
+                      className="min-h-24"
+                      placeholder="Optional override for meta description and social cards"
+                    />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="ne" className="mt-5 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="seoTitleNe">Nepali SEO Title</Label>
+                    <Input
+                      id="seoTitleNe"
+                      value={values.seoTitleNe ?? ""}
+                      onChange={(event) =>
+                        setValues((current) => ({ ...current, seoTitleNe: event.target.value }))
+                      }
+                      placeholder="नेपाली SEO शीर्षक"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="seoDescriptionNe">Nepali SEO Description</Label>
+                    <Textarea
+                      id="seoDescriptionNe"
+                      value={values.seoDescriptionNe ?? ""}
+                      onChange={(event) =>
+                        setValues((current) => ({
+                          ...current,
+                          seoDescriptionNe: event.target.value,
+                        }))
+                      }
+                      className="min-h-24"
+                      placeholder="नेपाली SEO विवरण"
+                    />
+                  </div>
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </div>

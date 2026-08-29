@@ -3,18 +3,20 @@ import { getBlogArticleMetadata, renderBlogArticlePage } from "@/lib/blog-page";
 
 export const dynamic = "force-dynamic";
 
-type BlogArticlePageProps = {
+type NepaliBlogArticlePageProps = {
   params: Promise<{ slug: string }>;
 };
 
 export async function generateMetadata({
   params,
-}: BlogArticlePageProps): Promise<Metadata> {
+}: NepaliBlogArticlePageProps): Promise<Metadata> {
   const { slug } = await params;
-  return getBlogArticleMetadata("en", slug);
+  return getBlogArticleMetadata("ne", slug);
 }
 
-export default async function BlogArticlePage({ params }: BlogArticlePageProps) {
+export default async function NepaliBlogArticlePage({
+  params,
+}: NepaliBlogArticlePageProps) {
   const { slug } = await params;
-  return renderBlogArticlePage("en", slug);
+  return renderBlogArticlePage("ne", slug);
 }

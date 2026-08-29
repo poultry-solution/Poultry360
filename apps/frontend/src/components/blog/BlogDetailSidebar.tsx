@@ -4,28 +4,40 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowUpRight } from "lucide-react";
 import { BlogCard } from "./BlogCard";
-import type { PublicBlogPost } from "@/lib/blog";
+import {
+  getBlogPageCopy,
+  getBlogPath,
+  type BlogLocale,
+  type PublicBlogPost,
+} from "@/lib/blog";
 
 interface BlogDetailSidebarProps {
+  locale: BlogLocale;
   featuredPost?: PublicBlogPost | null;
   relatedPosts: PublicBlogPost[];
 }
 
-export function BlogDetailSidebar({ featuredPost, relatedPosts }: BlogDetailSidebarProps) {
+export function BlogDetailSidebar({
+  locale,
+  featuredPost,
+  relatedPosts,
+}: BlogDetailSidebarProps) {
   if (!featuredPost && relatedPosts.length === 0) {
     return null;
   }
+
+  const copy = getBlogPageCopy(locale);
 
   return (
     <aside className="w-full space-y-12 lg:pl-4">
       {featuredPost ? (
         <div>
           <h3 className="text-xl font-bold text-slate-900 mb-5 tracking-tight">
-            Featured Blog
+            {copy.featuredBlog}
           </h3>
           
           <Link
-            href={`/blog/${featuredPost.slug}`}
+            href={getBlogPath(locale, featuredPost.slug)}
             className="group block space-y-3"
           >
             <div className="relative w-full aspect-[16/10] overflow-hidden rounded-md bg-slate-100">
@@ -56,12 +68,12 @@ export function BlogDetailSidebar({ featuredPost, relatedPosts }: BlogDetailSide
       {relatedPosts.length > 0 ? (
         <div>
           <h3 className="text-xl font-bold text-slate-900 mb-6 tracking-tight">
-            Related Blogs
+            {copy.relatedBlogs}
           </h3>
 
           <div className="space-y-8">
             {relatedPosts.map((post) => (
-              <BlogCard key={post.id} post={post} />
+              <BlogCard key={post.id} post={post} locale={locale} />
             ))}
           </div>
         </div>

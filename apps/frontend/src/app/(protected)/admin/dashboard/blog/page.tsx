@@ -88,7 +88,7 @@ export default function AdminBlogPostsPage() {
             Refresh
           </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-hidden">
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading blog posts...</p>
           ) : isError ? (
@@ -104,74 +104,90 @@ export default function AdminBlogPostsPage() {
               <p className="mt-3 text-sm text-muted-foreground">No blog posts found.</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Image</TableHead>
-                  <TableHead>Featured</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Published</TableHead>
-                  <TableHead>Reads</TableHead>
-                  <TableHead>Updated</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {posts.map((post) => (
-                  <TableRow key={post.id}>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <p className="font-medium">{post.title}</p>
-                        <p className="text-xs text-muted-foreground">/blog/{post.slug}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={post.bannerImageUrl ? "default" : "outline"}>
-                        {post.bannerImageUrl ? "Ready" : "Missing"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={post.isFeatured ? "default" : "outline"}>
-                        {post.isFeatured ? "Featured" : "Standard"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={post.status === "PUBLISHED" ? "default" : "outline"}>
-                        {post.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatBlogDate(post.publishedAt)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {getReadCountLabel(post.viewCount)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatBlogDate(post.updatedAt)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button asChild size="sm" variant="ghost">
-                          <Link href={`/admin/dashboard/blog/${post.id}`}>
-                            <PencilLine className="mr-1 size-4" />
-                            Edit
-                          </Link>
-                        </Button>
-                        {post.status === "PUBLISHED" && (
+            <div className="w-full overflow-x-auto">
+              <Table className="min-w-[980px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Image</TableHead>
+                    <TableHead>Featured</TableHead>
+                    <TableHead>Translation</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Published</TableHead>
+                    <TableHead>Reads</TableHead>
+                    <TableHead>Updated</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {posts.map((post) => (
+                    <TableRow key={post.id}>
+                      <TableCell className="min-w-[320px] max-w-[420px] align-top">
+                        <div className="space-y-1 overflow-hidden">
+                          <p className="font-medium break-words">{post.title}</p>
+                          <p className="text-xs text-muted-foreground break-all">/blog/{post.slug}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={post.bannerImageUrl ? "default" : "outline"}>
+                          {post.bannerImageUrl ? "Ready" : "Missing"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={post.isFeatured ? "default" : "outline"}>
+                          {post.isFeatured ? "Featured" : "Standard"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={post.hasNepaliTranslation ? "default" : "outline"}>
+                          {post.hasNepaliTranslation ? "NP Ready" : "EN Only"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={post.status === "PUBLISHED" ? "default" : "outline"}>
+                          {post.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatBlogDate(post.publishedAt)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {getReadCountLabel(post.viewCount)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatBlogDate(post.updatedAt)}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        <div className="flex justify-end gap-2 whitespace-nowrap">
                           <Button asChild size="sm" variant="ghost">
-                            <Link href={`/blog/${post.slug}`} target="_blank">
-                              <ExternalLink className="mr-1 size-4" />
-                              View
+                            <Link href={`/admin/dashboard/blog/${post.id}`}>
+                              <PencilLine className="mr-1 size-4" />
+                              Edit
                             </Link>
                           </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                          {post.status === "PUBLISHED" && (
+                            <Button asChild size="sm" variant="ghost">
+                              <Link href={`/blog/${post.slug}`} target="_blank">
+                                <ExternalLink className="mr-1 size-4" />
+                                View
+                              </Link>
+                            </Button>
+                          )}
+                          {post.status === "PUBLISHED" && post.hasNepaliTranslation && (
+                            <Button asChild size="sm" variant="ghost">
+                              <Link href={`/ne/blog/${post.slug}`} target="_blank">
+                                <ExternalLink className="mr-1 size-4" />
+                                View NP
+                              </Link>
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

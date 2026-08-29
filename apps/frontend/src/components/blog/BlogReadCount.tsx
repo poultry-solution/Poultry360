@@ -2,17 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import { publicApi } from "@/common/lib/axios";
+import { getReadCountLabel, type BlogLocale } from "@/lib/blog";
 
 interface BlogReadCountProps {
   slug: string;
   initialCount: number;
+  locale: BlogLocale;
 }
 
-function getReadCountLabel(viewCount: number) {
-  return `${viewCount} ${viewCount === 1 ? "read" : "reads"}`;
-}
-
-export default function BlogReadCount({ slug, initialCount }: BlogReadCountProps) {
+export default function BlogReadCount({
+  slug,
+  initialCount,
+  locale,
+}: BlogReadCountProps) {
   const [count, setCount] = useState(initialCount);
   const hasTracked = useRef(false);
 
@@ -37,5 +39,5 @@ export default function BlogReadCount({ slug, initialCount }: BlogReadCountProps
     void trackView();
   }, [slug]);
 
-  return <span>{getReadCountLabel(count)}</span>;
+  return <span>{getReadCountLabel(count, locale)}</span>;
 }

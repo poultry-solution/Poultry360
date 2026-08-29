@@ -2267,14 +2267,19 @@ model DemoEnquiry {
 model BlogPost {
   id              String         @id @default(cuid())
   title           String
+  titleNe         String?
   slug            String         @unique
   excerpt         String         @db.Text
+  excerptNe       String?        @db.Text
   contentMarkdown String         @db.Text
+  contentMarkdownNe String?      @db.Text
   bannerImageUrl  String?
   isFeatured      Boolean        @default(false)
   authorName      String
   seoTitle        String?
+  seoTitleNe      String?
   seoDescription  String?
+  seoDescriptionNe String?
   status          BlogPostStatus @default(DRAFT)
   publishedAt     DateTime?
   viewCount       Int            @default(0)

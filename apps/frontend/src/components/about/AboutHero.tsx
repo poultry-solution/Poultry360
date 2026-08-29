@@ -56,7 +56,7 @@ export function AboutHero() {
         <div className="lg:col-span-6">
           <div className="relative w-full aspect-[4/3] rounded-3xl border border-slate-100 overflow-hidden bg-white shadow-xs">
             <Image
-              src="/about-us-hero.png"
+              src="/about-us/about-us-hero.png"
               alt="Poultry360 poultry management illustration"
               fill
               priority

@@ -3,30 +3,42 @@ import { BlogPostStatus } from "@prisma/client";
 import { z } from "zod";
 import prisma from "../utils/prisma";
 
+const blogLocaleSchema = z.enum(["en", "ne"]);
+
 const blogPostSchema = z.object({
   title: z.string().trim().min(5).max(160),
+  titleNe: z.string().trim().max(160).optional().or(z.literal("")),
   slug: z.string().trim().max(180).optional().or(z.literal("")),
   excerpt: z.string().trim().min(20).max(320),
+  excerptNe: z.string().trim().max(320).optional().or(z.literal("")),
   contentMarkdown: z.string().trim().min(120),
+  contentMarkdownNe: z.string().trim().optional().or(z.literal("")),
   bannerImageUrl: z.string().trim().url().max(2048).optional().or(z.literal("")),
   isFeatured: z.boolean().optional().default(false),
   authorName: z.string().trim().min(2).max(80),
   seoTitle: z.string().trim().max(160).optional().or(z.literal("")),
+  seoTitleNe: z.string().trim().max(160).optional().or(z.literal("")),
   seoDescription: z.string().trim().max(320).optional().or(z.literal("")),
+  seoDescriptionNe: z.string().trim().max(320).optional().or(z.literal("")),
   status: z.nativeEnum(BlogPostStatus).default(BlogPostStatus.DRAFT),
 });
 
 const publicBlogPostSelect = {
   id: true,
   title: true,
+  titleNe: true,
   slug: true,
   excerpt: true,
+  excerptNe: true,
   contentMarkdown: true,
+  contentMarkdownNe: true,
   bannerImageUrl: true,
   isFeatured: true,
   authorName: true,
   seoTitle: true,
+  seoTitleNe: true,
   seoDescription: true,
+  seoDescriptionNe: true,
   publishedAt: true,
   viewCount: true,
   createdAt: true,
@@ -36,14 +48,19 @@ const publicBlogPostSelect = {
 const adminBlogPostSelect = {
   id: true,
   title: true,
+  titleNe: true,
   slug: true,
   excerpt: true,
+  excerptNe: true,
   contentMarkdown: true,
+  contentMarkdownNe: true,
   bannerImageUrl: true,
   isFeatured: true,
   authorName: true,
   seoTitle: true,
+  seoTitleNe: true,
   seoDescription: true,
+  seoDescriptionNe: true,
   status: true,
   publishedAt: true,
   viewCount: true,
@@ -63,6 +80,87 @@ function slugify(input: string) {
 function normalizeOptionalText(value?: string) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function getRequestedBlogLocale(input: unknown): z.infer<typeof blogLocaleSchema> {
+  const parsed = blogLocaleSchema.safeParse(input);
+  return parsed.success ? parsed.data : "en";
+}
+
+function hasNepaliTranslation(post: {
+  titleNe?: string | null;
+  excerptNe?: string | null;
+  contentMarkdownNe?: string | null;
+}) {
+  return Boolean(
+    post.titleNe?.trim() &&
+      post.excerptNe?.trim() &&
+      post.contentMarkdownNe?.trim()
+  );
+}
+
+function buildAdminBlogPost<T extends {
+  titleNe?: string | null;
+  excerptNe?: string | null;
+  contentMarkdownNe?: string | null;
+}>(post: T) {
+  return {
+    ...post,
+    hasNepaliTranslation: hasNepaliTranslation(post),
+  };
+}
+
+function localizePublicBlogPost<T extends {
+  id: string;
+  title: string;
+  titleNe?: string | null;
+  slug: string;
+  excerpt: string;
+  excerptNe?: string | null;
+  contentMarkdown: string;
+  contentMarkdownNe?: string | null;
+  bannerImageUrl: string | null;
+  isFeatured: boolean;
+  authorName: string;
+  seoTitle?: string | null;
+  seoTitleNe?: string | null;
+  seoDescription?: string | null;
+  seoDescriptionNe?: string | null;
+  publishedAt: Date | string | null;
+  viewCount: number;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}>(
+  post: T,
+  locale: z.infer<typeof blogLocaleSchema>
+) {
+  const translated = hasNepaliTranslation(post);
+  const useNepali = locale === "ne" && translated;
+
+  return {
+    id: post.id,
+    title: useNepali ? post.titleNe?.trim() || post.title : post.title,
+    slug: post.slug,
+    excerpt: useNepali ? post.excerptNe?.trim() || post.excerpt : post.excerpt,
+    contentMarkdown: useNepali
+      ? post.contentMarkdownNe?.trim() || post.contentMarkdown
+      : post.contentMarkdown,
+    bannerImageUrl: post.bannerImageUrl,
+    isFeatured: post.isFeatured,
+    authorName: post.authorName,
+    seoTitle: useNepali
+      ? normalizeOptionalText(post.seoTitleNe || undefined)
+      : normalizeOptionalText(post.seoTitle || undefined),
+    seoDescription: useNepali
+      ? normalizeOptionalText(post.seoDescriptionNe || undefined)
+      : normalizeOptionalText(post.seoDescription || undefined),
+    publishedAt: post.publishedAt,
+    viewCount: post.viewCount,
+    createdAt: post.createdAt,
+    updatedAt: post.updatedAt,
+    hasNepaliTranslation: translated,
+    locale,
+  };
 }
 
 function canRemainPublishedWithoutBanner(options: {
@@ -112,8 +210,10 @@ export const getAdminBlogPosts = async (req: Request, res: Response): Promise<an
     if (typeof search === "string" && search.trim().length > 0) {
       where.OR = [
         { title: { contains: search.trim(), mode: "insensitive" } },
+        { titleNe: { contains: search.trim(), mode: "insensitive" } },
         { slug: { contains: search.trim(), mode: "insensitive" } },
         { excerpt: { contains: search.trim(), mode: "insensitive" } },
+        { excerptNe: { contains: search.trim(), mode: "insensitive" } },
       ];
     }
 
@@ -123,7 +223,7 @@ export const getAdminBlogPosts = async (req: Request, res: Response): Promise<an
       select: adminBlogPostSelect,
     });
 
-    return res.json({ success: true, data: posts });
+    return res.json({ success: true, data: posts.map(buildAdminBlogPost) });
   } catch (error) {
     console.error("Error fetching admin blog posts:", error);
     return res.status(500).json({ success: false, message: "Failed to fetch blog posts" });
@@ -141,7 +241,7 @@ export const getAdminBlogPostById = async (req: Request, res: Response): Promise
       return res.status(404).json({ success: false, message: "Blog post not found" });
     }
 
-    return res.json({ success: true, data: post });
+    return res.json({ success: true, data: buildAdminBlogPost(post) });
   } catch (error) {
     console.error("Error fetching admin blog post:", error);
     return res.status(500).json({ success: false, message: "Failed to fetch blog post" });
@@ -187,14 +287,19 @@ export const createAdminBlogPost = async (req: Request, res: Response): Promise<
     const created = await prisma.blogPost.create({
       data: {
         title: parsed.data.title.trim(),
+        titleNe: normalizeOptionalText(parsed.data.titleNe),
         slug: normalizedSlug,
         excerpt: parsed.data.excerpt.trim(),
+        excerptNe: normalizeOptionalText(parsed.data.excerptNe),
         contentMarkdown: parsed.data.contentMarkdown.trim(),
+        contentMarkdownNe: normalizeOptionalText(parsed.data.contentMarkdownNe),
         bannerImageUrl: nextBannerImageUrl,
         isFeatured: parsed.data.isFeatured,
         authorName: parsed.data.authorName.trim(),
         seoTitle: normalizeOptionalText(parsed.data.seoTitle),
+        seoTitleNe: normalizeOptionalText(parsed.data.seoTitleNe),
         seoDescription: normalizeOptionalText(parsed.data.seoDescription),
+        seoDescriptionNe: normalizeOptionalText(parsed.data.seoDescriptionNe),
         status: parsed.data.status,
         publishedAt:
           parsed.data.status === BlogPostStatus.PUBLISHED ? new Date() : null,
@@ -204,7 +309,7 @@ export const createAdminBlogPost = async (req: Request, res: Response): Promise<
 
     return res.status(201).json({
       success: true,
-      data: created,
+      data: buildAdminBlogPost(created),
       message: created.status === BlogPostStatus.PUBLISHED ? "Blog post published" : "Draft saved",
     });
   } catch (error) {
@@ -265,14 +370,19 @@ export const updateAdminBlogPost = async (req: Request, res: Response): Promise<
       where: { id: existing.id },
       data: {
         title: parsed.data.title.trim(),
+        titleNe: normalizeOptionalText(parsed.data.titleNe),
         slug: normalizedSlug,
         excerpt: parsed.data.excerpt.trim(),
+        excerptNe: normalizeOptionalText(parsed.data.excerptNe),
         contentMarkdown: parsed.data.contentMarkdown.trim(),
+        contentMarkdownNe: normalizeOptionalText(parsed.data.contentMarkdownNe),
         bannerImageUrl: nextBannerImageUrl,
         isFeatured: parsed.data.isFeatured,
         authorName: parsed.data.authorName.trim(),
         seoTitle: normalizeOptionalText(parsed.data.seoTitle),
+        seoTitleNe: normalizeOptionalText(parsed.data.seoTitleNe),
         seoDescription: normalizeOptionalText(parsed.data.seoDescription),
+        seoDescriptionNe: normalizeOptionalText(parsed.data.seoDescriptionNe),
         status: nextStatus,
         publishedAt:
           nextStatus === BlogPostStatus.PUBLISHED
@@ -284,7 +394,7 @@ export const updateAdminBlogPost = async (req: Request, res: Response): Promise<
 
     return res.json({
       success: true,
-      data: updated,
+      data: buildAdminBlogPost(updated),
       message: updated.status === BlogPostStatus.PUBLISHED ? "Blog post updated" : "Draft updated",
     });
   } catch (error) {
@@ -320,7 +430,11 @@ export const publishAdminBlogPost = async (req: Request, res: Response): Promise
       select: adminBlogPostSelect,
     });
 
-    return res.json({ success: true, data: updated, message: "Blog post published" });
+    return res.json({
+      success: true,
+      data: buildAdminBlogPost(updated),
+      message: "Blog post published",
+    });
   } catch (error) {
     console.error("Error publishing blog post:", error);
     return res.status(500).json({ success: false, message: "Failed to publish blog post" });
@@ -344,7 +458,11 @@ export const unpublishAdminBlogPost = async (req: Request, res: Response): Promi
       select: adminBlogPostSelect,
     });
 
-    return res.json({ success: true, data: updated, message: "Blog post moved to draft" });
+    return res.json({
+      success: true,
+      data: buildAdminBlogPost(updated),
+      message: "Blog post moved to draft",
+    });
   } catch (error) {
     console.error("Error unpublishing blog post:", error);
     return res.status(500).json({ success: false, message: "Failed to unpublish blog post" });
@@ -375,16 +493,21 @@ export const deleteAdminBlogPost = async (req: Request, res: Response): Promise<
 
 export const getPublicBlogPosts = async (req: Request, res: Response): Promise<any> => {
   try {
+    const locale = getRequestedBlogLocale(req.query.locale);
     const limit = Math.min(Number(req.query.limit) || 50, 100);
 
     const posts = await prisma.blogPost.findMany({
       where: { status: BlogPostStatus.PUBLISHED },
       orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
-      take: limit,
       select: publicBlogPostSelect,
     });
 
-    return res.json({ success: true, data: posts });
+    const localizedPosts = posts
+      .filter((post) => (locale === "ne" ? hasNepaliTranslation(post) : true))
+      .slice(0, limit)
+      .map((post) => localizePublicBlogPost(post, locale));
+
+    return res.json({ success: true, data: localizedPosts });
   } catch (error) {
     console.error("Error fetching public blog posts:", error);
     return res.status(500).json({ success: false, message: "Failed to fetch blog posts" });
@@ -393,6 +516,7 @@ export const getPublicBlogPosts = async (req: Request, res: Response): Promise<a
 
 export const getPublicBlogPostBySlug = async (req: Request, res: Response): Promise<any> => {
   try {
+    const locale = getRequestedBlogLocale(req.query.locale);
     const post = await prisma.blogPost.findFirst({
       where: {
         slug: req.params.slug,
@@ -405,7 +529,14 @@ export const getPublicBlogPostBySlug = async (req: Request, res: Response): Prom
       return res.status(404).json({ success: false, message: "Blog post not found" });
     }
 
-    return res.json({ success: true, data: post });
+    if (locale === "ne" && !hasNepaliTranslation(post)) {
+      return res.status(404).json({ success: false, message: "Blog post not found" });
+    }
+
+    return res.json({
+      success: true,
+      data: localizePublicBlogPost(post, locale),
+    });
   } catch (error) {
     console.error("Error fetching public blog post:", error);
     return res.status(500).json({ success: false, message: "Failed to fetch blog post" });
