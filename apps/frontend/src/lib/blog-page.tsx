@@ -77,6 +77,21 @@ function getPublishedTimestamp(post: PublicBlogPost) {
   return post.publishedAt ? new Date(post.publishedAt).getTime() : 0;
 }
 
+function getSocialImageUrl(bannerImageUrl: string | null) {
+  if (!bannerImageUrl) return null;
+
+  const uploadPath = "/image/upload/";
+
+  if (!bannerImageUrl.includes("res.cloudinary.com") || !bannerImageUrl.includes(uploadPath)) {
+    return bannerImageUrl;
+  }
+
+  return bannerImageUrl.replace(
+    uploadPath,
+    `${uploadPath}c_fill,g_auto,w_1200,h_630,q_auto,f_jpg/`
+  );
+}
+
 function pickFeaturedPost(posts: PublicBlogPost[], currentSlug: string) {
   return (
     [...posts]
@@ -199,6 +214,7 @@ export async function getBlogArticleMetadata(
   const title = post.seoTitle || post.title;
   const description = post.seoDescription || post.excerpt;
   const canonicalPath = getBlogPath(locale, post.slug);
+  const socialImageUrl = getSocialImageUrl(post.bannerImageUrl);
 
   return {
     title,
@@ -213,11 +229,25 @@ export async function getBlogArticleMetadata(
       publishedTime: post.publishedAt || undefined,
       modifiedTime: post.updatedAt,
       authors: [post.authorName],
+      ...(socialImageUrl
+        ? {
+            images: [
+              {
+                url: socialImageUrl,
+                width: 1200,
+                height: 630,
+                alt: post.title,
+                type: "image/jpeg",
+              },
+            ],
+          }
+        : {}),
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
+      ...(socialImageUrl ? { images: [socialImageUrl] } : {}),
     },
   };
 }
