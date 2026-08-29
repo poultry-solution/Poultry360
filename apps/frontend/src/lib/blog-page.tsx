@@ -211,6 +211,7 @@ export async function getBlogArticleMetadata(
       siteName: "Poultry360",
       type: "article",
       publishedTime: post.publishedAt || undefined,
+      modifiedTime: post.updatedAt,
       authors: [post.authorName],
       images: post.bannerImageUrl
         ? [
