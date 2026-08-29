@@ -8,6 +8,7 @@ const publicPaths = [
   "/about-us",
   "/marketplace",
   "/blog",
+  "/ne/blog",
   "/layer-farm-software",
   "/broiler-farm-software",
   "/feed-dealer-software",
@@ -21,7 +22,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let blogPosts: Awaited<ReturnType<typeof getPublishedBlogPosts>> = [];
 
   try {
-    blogPosts = await getPublishedBlogPosts();
+    blogPosts = await getPublishedBlogPosts(100, "en");
   } catch (error) {
     if (!isBlogApiUnavailable(error)) {
       throw error;
@@ -34,7 +35,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency:
       path === "/"
         ? ("weekly" as const)
-        : path === "/blog"
+        : path === "/blog" || path === "/ne/blog"
           ? ("daily" as const)
           : path === "/about-us"
             ? ("monthly" as const)
@@ -44,7 +45,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority:
       path === "/"
         ? 1
-        : path === "/blog"
+        : path === "/blog" || path === "/ne/blog"
           ? 0.9
           : path.includes("-software")
             ? 0.85
@@ -58,5 +59,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  return [...coreEntries, ...blogEntries];
+  const nepaliBlogEntries: MetadataRoute.Sitemap = blogPosts
+    .filter((post) => post.hasNepaliTranslation)
+    .map((post) => ({
+      url: `${siteUrl}/ne/blog/${post.slug}`,
+      lastModified: new Date(post.updatedAt || post.publishedAt || lastModified),
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    }));
+
+  return [...coreEntries, ...blogEntries, ...nepaliBlogEntries];
 }

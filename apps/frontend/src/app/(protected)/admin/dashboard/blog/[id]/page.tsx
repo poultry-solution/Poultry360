@@ -130,14 +130,19 @@ export default function AdminBlogPostDetailPage() {
         description="Update copy, SEO metadata, or publishing state."
         initialValues={{
           title: post.title,
+          titleNe: post.titleNe ?? "",
           slug: post.slug,
           excerpt: post.excerpt,
+          excerptNe: post.excerptNe ?? "",
           contentMarkdown: post.contentMarkdown,
+          contentMarkdownNe: post.contentMarkdownNe ?? "",
           bannerImageUrl: post.bannerImageUrl ?? "",
           isFeatured: post.isFeatured,
           authorName: post.authorName,
           seoTitle: post.seoTitle ?? "",
+          seoTitleNe: post.seoTitleNe ?? "",
           seoDescription: post.seoDescription ?? "",
+          seoDescriptionNe: post.seoDescriptionNe ?? "",
           status: post.status,
         }}
         publishedAt={post.publishedAt}

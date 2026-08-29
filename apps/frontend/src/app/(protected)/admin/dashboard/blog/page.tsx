@@ -111,6 +111,7 @@ export default function AdminBlogPostsPage() {
                     <TableHead>Title</TableHead>
                     <TableHead>Image</TableHead>
                     <TableHead>Featured</TableHead>
+                    <TableHead>Translation</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Published</TableHead>
                     <TableHead>Reads</TableHead>
@@ -135,6 +136,11 @@ export default function AdminBlogPostsPage() {
                       <TableCell>
                         <Badge variant={post.isFeatured ? "default" : "outline"}>
                           {post.isFeatured ? "Featured" : "Standard"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={post.hasNepaliTranslation ? "default" : "outline"}>
+                          {post.hasNepaliTranslation ? "NP Ready" : "EN Only"}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -164,6 +170,14 @@ export default function AdminBlogPostsPage() {
                               <Link href={`/blog/${post.slug}`} target="_blank">
                                 <ExternalLink className="mr-1 size-4" />
                                 View
+                              </Link>
+                            </Button>
+                          )}
+                          {post.status === "PUBLISHED" && post.hasNepaliTranslation && (
+                            <Button asChild size="sm" variant="ghost">
+                              <Link href={`/ne/blog/${post.slug}`} target="_blank">
+                                <ExternalLink className="mr-1 size-4" />
+                                View NP
                               </Link>
                             </Button>
                           )}

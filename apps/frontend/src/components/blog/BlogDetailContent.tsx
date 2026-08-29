@@ -3,13 +3,21 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import type { PublicBlogPost } from "@/lib/blog";
+import {
+  getBlogPageCopy,
+  getBlogPath,
+  type BlogLocale,
+  type PublicBlogPost,
+} from "@/lib/blog";
 
 interface BlogDetailContentProps {
   post: PublicBlogPost;
+  locale: BlogLocale;
 }
 
-export function BlogDetailContent({ post }: BlogDetailContentProps) {
+export function BlogDetailContent({ post, locale }: BlogDetailContentProps) {
+  const copy = getBlogPageCopy(locale);
+
   return (
     <div className="w-full text-slate-700">
       <article className="prose prose-slate max-w-none space-y-6 break-words overflow-hidden">
@@ -65,11 +73,11 @@ export function BlogDetailContent({ post }: BlogDetailContentProps) {
       {/* View All Blogs Action */}
       <div className="pt-10 pb-6 border-t border-slate-200 mt-12">
         <Link
-          href="/blog"
+          href={getBlogPath(locale)}
           className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-semibold text-base sm:text-lg transition-colors group"
         >
           <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
-          View All Blogs
+          {copy.viewAllBlogs}
         </Link>
       </div>
     </div>

@@ -6,19 +6,25 @@ export type BlogPostStatus = "DRAFT" | "PUBLISHED";
 export interface AdminBlogPost {
   id: string;
   title: string;
+  titleNe: string | null;
   slug: string;
   excerpt: string;
+  excerptNe: string | null;
   contentMarkdown: string;
+  contentMarkdownNe: string | null;
   bannerImageUrl: string | null;
   isFeatured: boolean;
   authorName: string;
   seoTitle: string | null;
+  seoTitleNe: string | null;
   seoDescription: string | null;
+  seoDescriptionNe: string | null;
   status: BlogPostStatus;
   publishedAt: string | null;
   viewCount: number;
   createdAt: string;
   updatedAt: string;
+  hasNepaliTranslation: boolean;
 }
 
 export interface AdminBlogPostsResponse {
@@ -33,14 +39,19 @@ export interface AdminBlogPostResponse {
 
 export interface AdminBlogPostInput {
   title: string;
+  titleNe?: string;
   slug?: string;
   excerpt: string;
+  excerptNe?: string;
   contentMarkdown: string;
+  contentMarkdownNe?: string;
   bannerImageUrl?: string;
   isFeatured?: boolean;
   authorName: string;
   seoTitle?: string;
+  seoTitleNe?: string;
   seoDescription?: string;
+  seoDescriptionNe?: string;
   status: BlogPostStatus;
 }
 

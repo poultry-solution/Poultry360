@@ -3,15 +3,16 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowUpRight } from "lucide-react";
-import type { PublicBlogPost } from "@/lib/blog";
+import { getBlogPath, type BlogLocale, type PublicBlogPost } from "@/lib/blog";
 
 interface BlogCardProps {
   post: PublicBlogPost;
+  locale: BlogLocale;
 }
 
-export function BlogCard({ post }: BlogCardProps) {
+export function BlogCard({ post, locale }: BlogCardProps) {
   return (
-    <Link href={`/blog/${post.slug}`} className="group block h-full">
+    <Link href={getBlogPath(locale, post.slug)} className="group block h-full">
       <div className="flex flex-col h-full space-y-4">
         {/* Card Image Container - rounded-md / rounded-lg matching Livine */}
         <div className="relative w-full aspect-[16/10] overflow-hidden rounded-md bg-slate-100">
