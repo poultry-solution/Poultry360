@@ -56,7 +56,7 @@ async function blogFetch<T>(path: string, init?: RequestInit): Promise<T> {
         ...(init?.headers || {}),
       },
     });
-  } catch (error) {
+  } catch {
     throw new BlogApiError("Blog API is unavailable", { isUnavailable: true });
   }
 

@@ -94,21 +94,13 @@ export async function generateMetadata({
       siteName: "Poultry360",
       type: "article",
       publishedTime: post.publishedAt || undefined,
+      modifiedTime: post.updatedAt,
       authors: [post.authorName],
-      images: post.bannerImageUrl
-        ? [
-            {
-              url: post.bannerImageUrl,
-              alt: post.title,
-            },
-          ]
-        : undefined,
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: post.bannerImageUrl ? [post.bannerImageUrl] : undefined,
     },
   };
 }
