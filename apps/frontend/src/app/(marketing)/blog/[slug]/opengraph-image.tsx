@@ -17,17 +17,6 @@ type OpenGraphImageProps = {
   params: Promise<{ slug: string }>;
 };
 
-function getSafeHeroImageUrl(value: string | null) {
-  if (!value) return null;
-
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
-
 function fitTitle(title: string) {
   const normalized = title.replace(/\s+/g, " ").trim();
 
@@ -46,7 +35,6 @@ export default async function OpenGraphImage({ params }: OpenGraphImageProps) {
   }
 
   const title = fitTitle(post?.title || "Poultry farming insights for smarter decisions");
-  const heroImageUrl = getSafeHeroImageUrl(post?.bannerImageUrl || null);
   const titleSize = title.length > 82 ? 54 : title.length > 55 ? 62 : 70;
 
   return new ImageResponse(
@@ -77,7 +65,7 @@ export default async function OpenGraphImage({ params }: OpenGraphImageProps) {
 
         <div
           style={{
-            width: heroImageUrl ? "64%" : "100%",
+            width: "100%",
             height: "100%",
             display: "flex",
             flexDirection: "column",
@@ -127,7 +115,7 @@ export default async function OpenGraphImage({ params }: OpenGraphImageProps) {
             style={{
               display: "flex",
               marginTop: 18,
-              maxWidth: heroImageUrl ? 650 : 1010,
+              maxWidth: 1010,
               fontSize: titleSize,
               lineHeight: 1.06,
               fontWeight: 800,
@@ -156,45 +144,18 @@ export default async function OpenGraphImage({ params }: OpenGraphImageProps) {
           </div>
         </div>
 
-        {heroImageUrl ? (
-          <div
-            style={{
-              position: "relative",
-              width: "36%",
-              height: "100%",
-              display: "flex",
-              background: "#173b25",
-            }}
-          >
-            <img
-              src={heroImageUrl}
-              alt=""
-              width={432}
-              height={630}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "linear-gradient(90deg, rgba(24, 61, 36, 0.28), transparent 48%)",
-              }}
-            />
-          </div>
-        ) : (
-          <div
-            style={{
-              position: "absolute",
-              right: 62,
-              bottom: 50,
-              display: "flex",
-              width: 150,
-              height: 10,
-              borderRadius: 999,
-              background: "#76bd34",
-            }}
-          />
-        )}
+        <div
+          style={{
+            position: "absolute",
+            right: 62,
+            bottom: 50,
+            display: "flex",
+            width: 150,
+            height: 10,
+            borderRadius: 999,
+            background: "#76bd34",
+          }}
+        />
       </div>
     ),
     size
