@@ -248,4 +248,58 @@ The refactor plan’s phases (foundation, doctor migration, shared infrastructur
 
 ---
 
+## 10. Production Demo Accounts
+
+The backend image contains four manual, idempotent demo seeds. They use reserved
+IDs and phone numbers and only upsert their own canonical rows. They do not run
+`deleteMany`, truncate tables, or remove other production data.
+
+Default logins:
+
+| Role           | Phone            | Password          |
+| -------------- | ---------------- | ----------------- |
+| Farmer / owner | `+9779800360001` | `Poultry360Demo!` |
+| Dealer         | `+9779800360002` | `Poultry360Demo!` |
+| Company        | `+9779800360003` | `Poultry360Demo!` |
+| Hatchery       | `+9779800360004` | `Poultry360Demo!` |
+
+The login form already displays `+977`, so enter only the final 10 digits there
+(for example, `9800360001` for the farmer account).
+
+Override the shared password with `P360_DEMO_PASSWORD`, or use the role-specific
+`P360_DEMO_FARMER_PASSWORD`, `P360_DEMO_DEALER_PASSWORD`, and
+`P360_DEMO_COMPANY_PASSWORD`, or `P360_DEMO_HATCHERY_PASSWORD` variables when
+running the seed.
+
+After taking or confirming a current database backup and deploying the latest
+backend image, run all four seeds on the VM:
+
+```bash
+cd ~/p360
+bash scripts/seed-demo-prod.sh all
+```
+
+If the helper script is not present on the VM, run the compiled scripts directly:
+
+```bash
+docker exec poultry360-backend node /app/dist/scripts/seedDemoFarmer.js
+docker exec poultry360-backend node /app/dist/scripts/seedDemoDealer.js
+docker exec poultry360-backend node /app/dist/scripts/seedDemoCompany.js
+docker exec poultry360-backend node /app/dist/scripts/seedDemoHatchery.js
+```
+
+To set a non-default password for all four direct runs:
+
+```bash
+docker exec --env P360_DEMO_PASSWORD='replace-with-a-strong-password' poultry360-backend node /app/dist/scripts/seedDemoFarmer.js
+docker exec --env P360_DEMO_PASSWORD='replace-with-a-strong-password' poultry360-backend node /app/dist/scripts/seedDemoDealer.js
+docker exec --env P360_DEMO_PASSWORD='replace-with-a-strong-password' poultry360-backend node /app/dist/scripts/seedDemoCompany.js
+docker exec --env P360_DEMO_PASSWORD='replace-with-a-strong-password' poultry360-backend node /app/dist/scripts/seedDemoHatchery.js
+```
+
+Rerunning a seed updates the same reserved records and refreshes their relative
+dates. Extra records created interactively while demonstrating the app are kept.
+
+---
+
 *Last updated to reflect single deployment and subdomain-based routing (farmer, dealer, company, doctor, admin) and reference UNIFIED_APP_REFACTOR_PLAN.md for future architecture.*

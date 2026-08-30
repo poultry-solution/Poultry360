@@ -9,6 +9,7 @@ on:
       - "packages/shared-types/**"
       - "Dockerfile"
       - "scripts/docker-entrypoint.sh"
+      - "scripts/seed-demo-prod.sh"
       - "pnpm-lock.yaml"
 
   workflow_dispatch:
