@@ -269,7 +269,7 @@ export default function HatcheryBatchesPage() {
 
       {/* Create Modal */}
       <Dialog open={showCreate} onOpenChange={(open) => { if (!open) { setShowCreate(false); resetForm(); } }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Parent Flock Batch</DialogTitle>
           </DialogHeader>
@@ -320,9 +320,9 @@ export default function HatcheryBatchesPage() {
 
               <div className="space-y-2">
                 {placements.map((placement, idx) => (
-                  <div key={idx} className="flex gap-2 items-center">
+                  <div key={idx} className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_112px_auto] sm:items-center">
                     <select
-                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                      className="min-w-0 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
                       value={placement.inventoryItemId}
                       onChange={(e) => updatePlacement(idx, "inventoryItemId", e.target.value)}
                     >
@@ -337,14 +337,14 @@ export default function HatcheryBatchesPage() {
                       type="number"
                       min="1"
                       placeholder="Qty"
-                      className="w-28"
+                      className="w-full sm:w-28"
                       value={placement.quantity}
                       onChange={(e) => updatePlacement(idx, "quantity", e.target.value)}
                     />
                     {placements.length > 1 && (
                       <button
                         onClick={() => removePlacementRow(idx)}
-                        className="p-1 hover:bg-red-50 text-red-400 rounded"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded p-1 text-red-400 hover:bg-red-50 sm:justify-self-start"
                       >
                         <X className="h-4 w-4" />
                       </button>
