@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Script from "next/script";
 import { Button } from "@/common/components/ui/button";
-import { Monitor, PlayCircle } from "lucide-react";
+import { Monitor } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
 import BookDemoModal from "@/components/landing/BookDemoModal";
 
@@ -54,9 +54,7 @@ export default function Hero() {
         </div>
 
         {/* Right Column - Demo Video */}
-        <div className="relative">
-          <div className="absolute inset-0 bg-primary rounded-2xl lg:rounded-[3rem] transform rotate-3 scale-100 lg:scale-105 opacity-10"></div>
-
+        <div className="relative flex justify-center lg:justify-end">
           <Script
             src={`https://fast.wistia.com/embed/medias/${WISTIA_MEDIA_ID}.jsonp`}
             strategy="afterInteractive"
@@ -66,18 +64,12 @@ export default function Hero() {
             strategy="afterInteractive"
           />
 
-          <div className="relative overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl lg:rounded-[2rem]">
-            <div className="aspect-video w-full bg-gray-100">
+          <div className="w-full max-w-[300px] overflow-hidden rounded-2xl border border-gray-200 bg-black shadow-2xl sm:max-w-[340px] lg:max-w-[380px]">
+            <div className="aspect-[9/16] w-full">
               <div
-                className={`wistia_embed wistia_async_${WISTIA_MEDIA_ID} popover=true popoverAnimateThumbnail=true videoFoam=true`}
-                style={{ height: "100%", position: "relative", width: "100%" }}
+                className={`wistia_embed wistia_async_${WISTIA_MEDIA_ID} videoFoam=true`}
+                style={{ height: "100%", width: "100%" }}
               />
-            </div>
-
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/95 text-white shadow-xl ring-8 ring-white/70 transition-transform sm:h-16 sm:w-16">
-                <PlayCircle className="h-8 w-8 sm:h-9 sm:w-9" />
-              </div>
             </div>
           </div>
         </div>
