@@ -14,7 +14,7 @@ export default function Hero() {
   const [bookDemoOpen, setBookDemoOpen] = useState(false);
 
   return (
-    <section className="max-w-7xl mx-auto px-4 lg:px-6 py-10 lg:py-24">
+    <section className="max-w-7xl mx-auto px-4 pt-6 pb-10 lg:px-6 lg:pt-10 lg:pb-20">
       <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
         {/* Left Column - Text Content */}
         <div className="space-y-5 lg:space-y-8">
