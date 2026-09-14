@@ -657,6 +657,7 @@ export async function addHatcheryExpense(req: Request, res: Response) {
         }
         expense = await HatcheryBatchExpenseService.createInventoryExpense(tx, {
           batchId,
+          hatcheryOwnerId: ownerId,
           date: new Date(date),
           category,
           inventoryItemId,

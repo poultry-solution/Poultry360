@@ -306,6 +306,13 @@ export const addHatcherySupplierTransaction = async (
           return res.status(400).json({ message: "unitPrice must be >= 0 for each item" });
         if (!item.totalAmount || Number(item.totalAmount) <= 0)
           return res.status(400).json({ message: "totalAmount must be > 0 for each item" });
+        if (!Number.isFinite(Number(item.freeQuantity ?? 0)) || Number(item.freeQuantity ?? 0) < 0)
+          return res.status(400).json({ message: "freeQuantity must be >= 0 for each item" });
+        if (category !== HatcheryPurchaseCategory.CHICKS && Number(item.freeQuantity ?? 0) !== 0)
+          return res.status(400).json({ message: "freeQuantity is only supported for chick purchases" });
+        const expectedTotal = Math.round(Number(item.quantity) * Number(item.unitPrice) * 100) / 100;
+        if (Math.abs(expectedTotal - Number(item.totalAmount)) > 0.01)
+          return res.status(400).json({ message: "totalAmount must equal quantity × unitPrice" });
       }
 
       const txn = await HatcherySupplierService.addPurchaseTxn({
@@ -318,7 +325,7 @@ export const addHatcherySupplierTransaction = async (
           freeQuantity: Number(i.freeQuantity ?? 0),
           unit: i.unit ?? "kg",
           unitPrice: Number(i.unitPrice),
-          totalAmount: Number(i.totalAmount),
+          totalAmount: Math.round(Number(i.quantity) * Number(i.unitPrice) * 100) / 100,
         })),
         date: new Date(date),
         note,

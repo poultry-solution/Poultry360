@@ -18,6 +18,7 @@ import { Badge } from "@/common/components/ui/badge";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { DataTable, type Column } from "@/common/components/ui/data-table";
 import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
+import { SearchableSelect } from "@/components/common/SearchableSelect";
 import {
   useHatcheryBatch,
   useCloseHatcheryBatch,
@@ -627,6 +628,7 @@ const INVENTORY_ITEM_TYPE_OPTIONS: { value: HatcheryInventoryItemType; label: st
   { value: "FEED", label: "Feed" },
   { value: "MEDICINE", label: "Medicine" },
   { value: "CHICKS", label: "Chicks" },
+  { value: "SELF_MADE", label: "Self Made" },
   { value: "OTHER", label: "Other" },
 ];
 
@@ -635,11 +637,16 @@ function ExpensesTab({ batchId }: { batchId: string }) {
   const { data: expenseRes, isLoading } = useHatcheryExpenses(batchId, { page, limit: 10 });
   const addMutation = useAddHatcheryExpense(batchId);
   const deleteMutation = useDeleteHatcheryExpense(batchId);
-  const { data: inventoryRes } = useGetHatcheryInventory();
+  const [inventorySearch, setInventorySearch] = useState("");
+  const [inventoryCategory, setInventoryCategory] = useState<HatcheryInventoryItemType>("FEED");
+  const { data: inventoryRes, isLoading: inventoryLoading } = useGetHatcheryInventory({
+    itemType: inventoryCategory,
+    search: inventorySearch || undefined,
+    limit: 30,
+  });
 
   const [expenseType, setExpenseType] = useState<"INVENTORY" | "MANUAL">("INVENTORY");
   const [date, setDate] = useState(today());
-  const [inventoryCategory, setInventoryCategory] = useState<HatcheryInventoryItemType>("FEED");
   const [inventoryItemId, setInventoryItemId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [itemName, setItemName] = useState("");
@@ -662,7 +669,7 @@ function ExpensesTab({ batchId }: { batchId: string }) {
   const selectedItem = filteredInventoryItems.find((item: HatcheryInventoryItem) => item.id === inventoryItemId);
   const computedAmount =
     expenseType === "INVENTORY" && selectedItem && quantity
-      ? Math.round(Number(selectedItem.unitPrice) * Number(quantity) * 100) / 100
+      ? Math.round(Number(selectedItem.effectiveUnitCost ?? selectedItem.unitPrice) * Number(quantity) * 100) / 100
       : null;
 
   const expenses = expenseRes?.expenses ?? [];
@@ -835,18 +842,22 @@ function ExpensesTab({ batchId }: { batchId: string }) {
 
           {expenseType === "INVENTORY" ? (
             <>
-              <select
-                className="flex-1 min-w-48 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
-                value={inventoryItemId}
-                onChange={(e) => setInventoryItemId(e.target.value)}
-              >
-                <option value="">Select item</option>
-                {filteredInventoryItems.map((item: HatcheryInventoryItem) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} ({item.unit}) — {Number(item.currentStock)} in stock @ NPR {Number(item.unitPrice)}
-                  </option>
-                ))}
-              </select>
+              <div className="flex-1 min-w-48">
+                <SearchableSelect<HatcheryInventoryItem>
+                  value={inventoryItemId}
+                  options={filteredInventoryItems.map((item) => ({
+                    value: item.id,
+                    label: item.name,
+                    subtitle: `${item.itemType === "SELF_MADE" ? "Self Made · " : ""}${Number(item.currentStock)} ${item.unit} in stock · NPR ${Number(item.effectiveUnitCost ?? item.unitPrice)}/${item.unit}`,
+                    data: item,
+                  }))}
+                  placeholder="Search inventory item"
+                  searchPlaceholder="Search by name..."
+                  isLoading={inventoryLoading}
+                  onSearch={setInventorySearch}
+                  onValueChange={setInventoryItemId}
+                />
+              </div>
               <Input
                 type="number"
                 min="0.01"

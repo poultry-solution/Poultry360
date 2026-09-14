@@ -13,6 +13,7 @@ const CATEGORY_TO_ITEM_TYPE: Record<
   FEED: HatcheryInventoryItemType.FEED,
   MEDICINE: HatcheryInventoryItemType.MEDICINE,
   CHICKS: HatcheryInventoryItemType.CHICKS,
+  RAW_MATERIAL: HatcheryInventoryItemType.RAW_MATERIAL,
   OTHER: HatcheryInventoryItemType.OTHER,
 };
 
@@ -70,10 +71,11 @@ export class HatcheryInventoryService {
     // Find existing item (if any) to compute weighted-average cost
     const existing = await tx.hatcheryInventoryItem.findUnique({
       where: {
-        hatcheryOwnerId_itemType_name_unitPrice_supplierKey: {
+        hatcheryOwnerId_itemType_name_unit_unitPrice_supplierKey: {
           hatcheryOwnerId,
           itemType,
           name: itemName,
+          unit,
           unitPrice: roundedUnitPrice,
           supplierKey,
         },
@@ -98,10 +100,11 @@ export class HatcheryInventoryService {
     // Upsert inventory item by identity key
     const inventoryItem = await tx.hatcheryInventoryItem.upsert({
       where: {
-        hatcheryOwnerId_itemType_name_unitPrice_supplierKey: {
+        hatcheryOwnerId_itemType_name_unit_unitPrice_supplierKey: {
           hatcheryOwnerId,
           itemType,
           name: itemName,
+          unit,
           unitPrice: roundedUnitPrice,
           supplierKey,
         },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -37,6 +37,7 @@ import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
+import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { getNowLocalDateTime } from "@/common/lib/utils";
 import {
   useGetHatcherySuppliers,
@@ -52,6 +53,7 @@ import {
   type HatcheryPurchaseCategory,
   type AddPurchaseItem,
 } from "@/fetchers/hatchery/hatcherySupplierQueries";
+import { useGetHatcheryInventory, type HatcheryInventoryItem } from "@/fetchers/hatchery/hatcheryInventoryQueries";
 
 // ==================== HELPERS ====================
 
@@ -59,24 +61,28 @@ const CATEGORIES: HatcheryPurchaseCategory[] = [
   "FEED",
   "MEDICINE",
   "CHICKS",
+  "RAW_MATERIAL",
   "OTHER",
 ];
 const CATEGORY_LABELS: Record<HatcheryPurchaseCategory, string> = {
   FEED: "Feed",
   MEDICINE: "Medicine",
   CHICKS: "Chicks",
+  RAW_MATERIAL: "Raw Material",
   OTHER: "Other",
 };
 const CATEGORY_COLORS: Record<HatcheryPurchaseCategory, string> = {
   FEED: "bg-amber-100 text-amber-800",
   MEDICINE: "bg-blue-100 text-blue-800",
   CHICKS: "bg-yellow-100 text-yellow-800",
+  RAW_MATERIAL: "bg-teal-100 text-teal-800",
   OTHER: "bg-purple-100 text-purple-800",
 };
 const DEFAULT_UNITS: Record<HatcheryPurchaseCategory, string> = {
   FEED: "kg",
   MEDICINE: "ml",
   CHICKS: "birds",
+  RAW_MATERIAL: "kg",
   OTHER: "pcs",
 };
 
@@ -158,11 +164,18 @@ export default function HatcherySupplierLedgerPage() {
   });
   const [deleteTxnPassword, setDeleteTxnPassword] = useState("");
   const [deleteSupplierPassword, setDeleteSupplierPassword] = useState("");
+  const [rawMaterialSearch, setRawMaterialSearch] = useState("");
 
   // Queries
   const { data: suppliersRes, isLoading: suppliersLoading } =
     useGetHatcherySuppliers({ page: supplierPage, limit: SUPPLIER_PAGE_LIMIT });
   const { data: statsRes } = useGetHatcherySupplierStatistics();
+  const { data: rawMaterialRes, isLoading: rawMaterialsLoading } = useGetHatcheryInventory({
+    itemType: "RAW_MATERIAL",
+    includeEmpty: true,
+    search: rawMaterialSearch || undefined,
+    limit: 50,
+  });
   const { data: purchaseTxnRes, isLoading: purchaseLoading } =
     useGetHatcherySupplierTransactions(
       activeTab === "purchases" && activeSupplierId ? activeSupplierId : null,
@@ -188,6 +201,18 @@ export default function HatcherySupplierLedgerPage() {
   const setOpeningBalance = useSetHatcherySupplierOpeningBalance();
   const addPurchase = useAddHatcherySupplierPurchase();
   const addPayment = useAddHatcherySupplierPayment();
+  const rawMaterialOptions = useMemo(() => {
+    const unique = new Map<string, HatcheryInventoryItem>();
+    for (const item of (rawMaterialRes?.data ?? []) as HatcheryInventoryItem[]) {
+      if (!unique.has(item.name.toLowerCase())) unique.set(item.name.toLowerCase(), item);
+    }
+    return [...unique.values()].map((item) => ({
+      value: item.name,
+      label: item.name,
+      subtitle: item.unit,
+      data: item,
+    }));
+  }, [rawMaterialRes?.data]);
   const deleteTxn = useDeleteHatcherySupplierTransaction();
 
   const suppliers = suppliersRes?.data || [];
@@ -951,13 +976,34 @@ export default function HatcherySupplierLedgerPage() {
                       )}
                     </div>
 
-                    <Input
-                      placeholder="Item name *"
-                      value={li.itemName}
-                      onChange={(e) =>
-                        updateLineItem(idx, "itemName", e.target.value)
-                      }
-                    />
+                    {purchaseForm.category === "RAW_MATERIAL" ? (
+                      <SearchableSelect<HatcheryInventoryItem>
+                        value={li.itemName}
+                        displayValue={li.itemName}
+                        options={rawMaterialOptions}
+                        placeholder="Search or enter raw material *"
+                        searchPlaceholder="Search raw materials..."
+                        isLoading={rawMaterialsLoading}
+                        onSearch={setRawMaterialSearch}
+                        onInputValueChange={(name) =>
+                          updateLineItem(idx, "itemName", name)
+                        }
+                        onValueChange={(_, option) => {
+                          if (option?.data) {
+                            updateLineItem(idx, "itemName", option.data.name);
+                            updateLineItem(idx, "unit", option.data.unit);
+                          } else updateLineItem(idx, "itemName", "");
+                        }}
+                        onCreate={(name) => updateLineItem(idx, "itemName", name)}
+                        createLabel={(name) => `Use new raw material “${name}”`}
+                      />
+                    ) : (
+                      <Input
+                        placeholder="Item name *"
+                        value={li.itemName}
+                        onChange={(e) => updateLineItem(idx, "itemName", e.target.value)}
+                      />
+                    )}
 
                     <div className="grid grid-cols-3 gap-2">
                       <div>

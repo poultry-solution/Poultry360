@@ -13,6 +13,7 @@ export type HatcheryPurchaseCategory =
   | "FEED"
   | "MEDICINE"
   | "CHICKS"
+  | "RAW_MATERIAL"
   | "OTHER";
 
 export interface HatcherySupplier {

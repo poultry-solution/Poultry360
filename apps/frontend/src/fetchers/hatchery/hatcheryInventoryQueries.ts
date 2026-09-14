@@ -7,9 +7,16 @@ export type HatcheryInventoryItemType =
   | "FEED"
   | "MEDICINE"
   | "CHICKS"
+  | "RAW_MATERIAL"
+  | "SELF_MADE"
   | "OTHER";
 
-export type HatcheryInventoryTxnType = "PURCHASE" | "USAGE" | "ADJUSTMENT";
+export type HatcheryInventoryTxnType =
+  | "PURCHASE"
+  | "USAGE"
+  | "ADJUSTMENT"
+  | "PRODUCTION_INPUT"
+  | "PRODUCTION_OUTPUT";
 
 export interface HatcheryInventoryItem {
   id: string;
@@ -18,7 +25,10 @@ export interface HatcheryInventoryItem {
   name: string;
   unit: string;
   unitPrice: number;
+  effectiveUnitCost: number | null;
   supplierKey: string;
+  supplier?: { id: string; name: string } | null;
+  manufacturedProductId?: string | null;
   currentStock: number;
   minStock: number | null;
   deletedAt: string | null;
@@ -61,6 +71,8 @@ export const useGetHatcheryInventory = (params?: {
   itemType?: HatcheryInventoryItemType;
   includeEmpty?: boolean;
   search?: string;
+  page?: number;
+  limit?: number;
 }) => {
   return useQuery({
     queryKey: hatcheryInventoryKeys.list(params ?? {}),

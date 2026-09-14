@@ -470,6 +470,8 @@ export function useAddHatcheryExpense(batchId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.expenses(batchId) });
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.detail(batchId) });
+      qc.invalidateQueries({ queryKey: ["hatcheryInventory"] });
+      qc.invalidateQueries({ queryKey: ["hatcheryProducts"] });
     },
   });
 }
@@ -483,6 +485,8 @@ export function useDeleteHatcheryExpense(batchId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.expenses(batchId) });
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.detail(batchId) });
+      qc.invalidateQueries({ queryKey: ["hatcheryInventory"] });
+      qc.invalidateQueries({ queryKey: ["hatcheryProducts"] });
     },
   });
 }
