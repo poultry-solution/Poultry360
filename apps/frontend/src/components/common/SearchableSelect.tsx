@@ -1,38 +1,42 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Check, ChevronsUpDown, Loader2, Search } from "lucide-react";
-import { Button } from "@/common/components/ui/button";
+import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { Input } from "@/common/components/ui/input";
 import {
   Popover,
+  PopoverAnchor,
   PopoverContent,
-  PopoverTrigger,
 } from "@/common/components/ui/popover";
 import { ScrollArea } from "@/common/components/ui/scroll-area";
 import { cn } from "@/common/lib/utils";
 
-export interface SearchableSelectOption {
+export interface SearchableSelectOption<T = unknown> {
   value: string;
   label: string;
   subtitle?: string;
-  data?: any;
+  data?: T;
 }
 
-interface SearchableSelectProps {
+interface SearchableSelectProps<T = unknown> {
   value: string;
-  onValueChange: (value: string, option?: SearchableSelectOption) => void;
-  options: SearchableSelectOption[];
+  onValueChange: (value: string, option?: SearchableSelectOption<T>) => void;
+  options: SearchableSelectOption<T>[];
   placeholder?: string;
   searchPlaceholder?: string;
   emptyText?: string;
   disabled?: boolean;
   isLoading?: boolean;
   onSearch?: (query: string) => void;
+  onInputValueChange?: (value: string) => void;
+  onCreate?: (query: string) => void;
+  createLabel?: (query: string) => string;
+  minimumSearchLength?: number;
+  displayValue?: string;
   className?: string;
 }
 
-export function SearchableSelect({
+export function SearchableSelect<T = unknown>({
   value,
   onValueChange,
   options,
@@ -42,8 +46,13 @@ export function SearchableSelect({
   disabled = false,
   isLoading = false,
   onSearch,
+  onInputValueChange,
+  onCreate,
+  createLabel = (query) => `Create “${query}”`,
+  minimumSearchLength = 0,
+  displayValue,
   className,
-}: SearchableSelectProps) {
+}: SearchableSelectProps<T>) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [inputValue, setInputValue] = useState("");
@@ -72,35 +81,38 @@ export function SearchableSelect({
   // Sync display value
   useEffect(() => {
     if (!open) {
-      setInputValue(selectedOption ? selectedOption.label : "");
+      setInputValue(selectedOption ? selectedOption.label : displayValue ?? "");
       setSearchQuery("");
     }
-  }, [open, selectedOption]);
+  }, [open, selectedOption, displayValue]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
+    const selectedLabel = selectedOption?.label ?? displayValue ?? "";
+    if (!onInputValueChange && value && newValue !== selectedLabel) {
+      onValueChange("");
+    }
     setInputValue(newValue);
     setSearchQuery(newValue);
+    onInputValueChange?.(newValue);
     if (!open && newValue.length > 0) setOpen(true);
   };
 
   const handleFocus = () => {
-    // Only open if there's already a value or if user starts typing
-    if (inputValue.length > 0) {
-      setOpen(true);
-    }
+    setOpen(true);
   };
 
   return (
     <div className="relative w-full">
       <Popover open={open} onOpenChange={setOpen} modal={false}>
-        <PopoverTrigger asChild>
+        <PopoverAnchor asChild>
           <div className="relative w-full">
             <Input
               value={inputValue}
               onChange={handleInputChange}
               onFocus={handleFocus}
-              placeholder={placeholder}
+              onClick={() => setOpen(true)}
+              placeholder={open ? searchPlaceholder : placeholder}
               disabled={disabled}
               className={cn("pr-8", className)}
               autoComplete="off"
@@ -112,22 +124,22 @@ export function SearchableSelect({
               <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
-        </PopoverTrigger>
+        </PopoverAnchor>
         <PopoverContent 
           className="bg-white w-[var(--radix-popover-trigger-width)] p-0 " 
           align="start"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <ScrollArea className="max-h-[300px]">
-            {searchQuery.length === 0 ? (
+            {searchQuery.length < minimumSearchLength ? (
               <div className="py-8  text-center text-sm text-muted-foreground">
-                Start typing to search...
+                Type at least {minimumSearchLength} character{minimumSearchLength === 1 ? "" : "s"} to search...
               </div>
             ) : isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
-            ) : filteredOptions.length === 0 ? (
+            ) : filteredOptions.length === 0 && !onCreate ? (
               <div className="py-8 text-center text-sm text-muted-foreground">
                 {emptyText}
               </div>
@@ -162,6 +174,20 @@ export function SearchableSelect({
                     </div>
                   </div>
                 ))}
+                {onCreate && searchQuery.trim() && !filteredOptions.some((option) => option.label.toLowerCase() === searchQuery.trim().toLowerCase()) && (
+                  <button
+                    type="button"
+                    className="w-full rounded-md px-3 py-2.5 text-left text-sm font-medium text-primary hover:bg-accent"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      onCreate(searchQuery.trim());
+                      setInputValue(searchQuery.trim());
+                      setOpen(false);
+                    }}
+                  >
+                    {createLabel(searchQuery.trim())}
+                  </button>
+                )}
               </div>
             )}
           </ScrollArea>

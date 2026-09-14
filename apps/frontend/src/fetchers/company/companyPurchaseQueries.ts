@@ -74,11 +74,11 @@ export function useGetCompanyPurchases(params?: { page?: number; limit?: number;
   });
 }
 
-export function useGetCompanyPurchasesAggregated() {
+export function useGetCompanyPurchasesAggregated(params: { search?: string; page?: number; limit?: number } = {}) {
   return useQuery({
-    queryKey: companyPurchaseKeys.aggregated(),
+    queryKey: [...companyPurchaseKeys.aggregated(), params],
     queryFn: async () => {
-      const { data } = await axiosInstance.get("/company/purchases/aggregated");
+      const { data } = await axiosInstance.get("/company/purchases/aggregated", { params });
       return data;
     },
   });

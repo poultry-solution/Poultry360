@@ -16,6 +16,7 @@ export class HatcheryBatchExpenseService {
     tx: Prisma.TransactionClient,
     data: {
       batchId: string;
+      hatcheryOwnerId: string;
       date: Date;
       category: string;
       inventoryItemId: string;
@@ -23,11 +24,19 @@ export class HatcheryBatchExpenseService {
       note?: string;
     }
   ) {
-    const { batchId, date, category, inventoryItemId, quantity, note } = data;
+    const { batchId, hatcheryOwnerId, date, category, inventoryItemId, quantity, note } = data;
 
-    const item = await tx.hatcheryInventoryItem.findUniqueOrThrow({
-      where: { id: inventoryItemId },
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      throw new Error("quantity must be greater than 0");
+    }
+
+    const item = await tx.hatcheryInventoryItem.findFirst({
+      where: { id: inventoryItemId, hatcheryOwnerId, deletedAt: null },
     });
+    if (!item) throw new Error("Inventory item not found");
+    if (category.toUpperCase() !== item.itemType) {
+      throw new Error("Selected inventory item does not match the chosen category");
+    }
 
     if (Number(item.currentStock) < quantity) {
       throw new Error(
@@ -53,10 +62,11 @@ export class HatcheryBatchExpenseService {
     });
 
     // Decrement stock
-    await tx.hatcheryInventoryItem.update({
-      where: { id: inventoryItemId },
+    const updated = await tx.hatcheryInventoryItem.updateMany({
+      where: { id: inventoryItemId, hatcheryOwnerId, currentStock: { gte: quantity }, deletedAt: null },
       data: { currentStock: { decrement: quantity } },
     });
+    if (updated.count !== 1) throw new Error(`Insufficient stock for "${item.name}"`);
 
     // Create expense
     const expense = await tx.hatcheryBatchExpense.create({

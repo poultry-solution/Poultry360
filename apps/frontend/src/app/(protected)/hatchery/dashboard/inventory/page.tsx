@@ -4,8 +4,6 @@ import { useState } from "react";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
@@ -22,13 +20,6 @@ import {
   AlertTriangle,
   RefreshCw,
 } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/common/components/ui/select";
 import { getNowLocalDateTime } from "@/common/lib/utils";
 import {
   useGetHatcheryInventoryTable,
@@ -40,6 +31,13 @@ import {
   type HatcheryInventoryItemType,
   type HatcheryInventoryItem,
 } from "@/fetchers/hatchery/hatcheryInventoryQueries";
+import {
+  useArchiveHatcheryProduct,
+  useCreateHatcheryProduct,
+  useGetHatcheryProducts,
+  useUpdateHatcheryProduct,
+  type HatcheryManufacturedProduct,
+} from "@/fetchers/hatchery/hatcheryProductQueries";
 
 // ==================== HELPERS ====================
 
@@ -48,6 +46,8 @@ const TABS: { type: HatcheryInventoryItemType | "ALL"; label: string }[] = [
   { type: "FEED", label: "Feed" },
   { type: "MEDICINE", label: "Medicine" },
   { type: "CHICKS", label: "Chicks" },
+  { type: "RAW_MATERIAL", label: "Raw Material" },
+  { type: "SELF_MADE", label: "Self Made" },
   { type: "OTHER", label: "Other" },
 ];
 
@@ -55,6 +55,8 @@ const TYPE_COLORS: Record<HatcheryInventoryItemType, string> = {
   FEED: "bg-amber-100 text-amber-800",
   MEDICINE: "bg-blue-100 text-blue-800",
   CHICKS: "bg-yellow-100 text-yellow-800",
+  RAW_MATERIAL: "bg-teal-100 text-teal-800",
+  SELF_MADE: "bg-emerald-100 text-emerald-800",
   OTHER: "bg-purple-100 text-purple-800",
 };
 
@@ -77,10 +79,13 @@ export default function HatcheryInventoryPage() {
   const [isReorderOpen, setIsReorderOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isProductOpen, setIsProductOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<HatcheryManufacturedProduct | null>(null);
 
   // Forms
   const [reorderForm, setReorderForm] = useState({ quantity: "", date: "" });
   const [editForm, setEditForm] = useState({ name: "", unit: "", minStock: "" });
+  const [productForm, setProductForm] = useState({ name: "", unit: "kg", minStock: "" });
 
   // Queries
   const { data: tableRes, isLoading } = useGetHatcheryInventoryTable(
@@ -88,15 +93,20 @@ export default function HatcheryInventoryPage() {
   );
   const { data: statsRes } = useGetHatcheryInventoryStatistics();
   const { data: lowStockRes } = useGetHatcheryLowStock();
+  const { data: productsRes, isLoading: productsLoading } = useGetHatcheryProducts({ limit: 100 });
 
   // Mutations
   const updateItem = useUpdateHatcheryInventoryItem();
   const deleteItem = useDeleteHatcheryInventoryItem();
   const reorderItem = useReorderHatcheryInventoryItem();
+  const createProduct = useCreateHatcheryProduct();
+  const updateProduct = useUpdateHatcheryProduct();
+  const archiveProduct = useArchiveHatcheryProduct();
 
   const items: HatcheryInventoryItem[] = tableRes?.data || [];
   const stats = statsRes?.data || {};
   const lowStockItems: HatcheryInventoryItem[] = lowStockRes?.data || [];
+  const manufacturedProducts: HatcheryManufacturedProduct[] = productsRes?.data || [];
 
   const openReorder = (item: HatcheryInventoryItem) => {
     setSelectedItem(item);
@@ -173,6 +183,28 @@ export default function HatcheryInventoryPage() {
       setIsDeleteOpen(false);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to delete item");
+    }
+  };
+
+  const handleCreateProduct = async () => {
+    if (!productForm.name.trim() || !productForm.unit.trim()) {
+      toast.error("Product name and unit are required");
+      return;
+    }
+    try {
+      const input = {
+        name: productForm.name.trim(),
+        unit: productForm.unit.trim(),
+        minStock: productForm.minStock ? Number(productForm.minStock) : null,
+      };
+      if (editingProduct) await updateProduct.mutateAsync({ id: editingProduct.id, input });
+      else await createProduct.mutateAsync({ ...input, minStock: input.minStock ?? undefined });
+      toast.success(editingProduct ? "Self Made product updated" : "Self Made product created");
+      setProductForm({ name: "", unit: "kg", minStock: "" });
+      setEditingProduct(null);
+      setIsProductOpen(false);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to create product");
     }
   };
 
@@ -293,17 +325,38 @@ export default function HatcheryInventoryPage() {
     },
   ];
 
+  const productColumns: Column<HatcheryManufacturedProduct>[] = [
+    { key: "name", label: "Product", render: (_, row) => <span className="font-medium">{row.name}</span> },
+    { key: "currentStock", label: "Stock", align: "right", render: (value, row) => <span className="font-semibold">{fmtStock(value)} <span className="font-normal text-muted-foreground">{row.unit}</span></span> },
+    { key: "lotCount", label: "Production Lots", align: "right" },
+    { key: "minStock", label: "Min Stock", align: "right", render: (value, row) => value == null ? "—" : `${fmtStock(value)} ${row.unit}` },
+    { key: "__actions", label: "", align: "right", render: (_, row) => <div className="flex justify-end gap-1">
+      <Button variant="ghost" size="sm" onClick={() => {
+        setEditingProduct(row);
+        setProductForm({ name: row.name, unit: row.unit, minStock: row.minStock == null ? "" : String(row.minStock) });
+        setIsProductOpen(true);
+      }}>Edit</Button>
+      {Number(row.currentStock) === 0 && <Button variant="ghost" size="sm" className="text-red-500" onClick={async () => {
+        try { await archiveProduct.mutateAsync(row.id); toast.success("Product archived"); }
+        catch (err: any) { toast.error(err?.response?.data?.message || "Failed to archive product"); }
+      }}><Trash2 className="h-3.5 w-3.5 mr-1" /> Archive</Button>}
+    </div> },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Package className="w-6 h-6 text-orange-500" />
-        <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Package className="w-6 h-6 text-orange-500" />
+          <div>
           <h1 className="text-2xl font-bold">Inventory</h1>
           <p className="text-sm text-muted-foreground">
-            Stock levels for feed, medicine, chicks and equipment
+            Purchased stock, raw materials, and Self Made products
           </p>
+          </div>
         </div>
+        {activeTab === "SELF_MADE" && <Button onClick={() => { setEditingProduct(null); setProductForm({ name: "", unit: "kg", minStock: "" }); setIsProductOpen(true); }}><Plus className="h-4 w-4 mr-1" /> Add Product</Button>}
       </div>
 
       {/* Stats */}
@@ -313,6 +366,8 @@ export default function HatcheryInventoryPage() {
           { label: "Feed", value: stats.feedCount ?? 0, color: "text-amber-600" },
           { label: "Medicine", value: stats.medicineCount ?? 0, color: "text-blue-600" },
           { label: "Chicks", value: stats.chicksCount ?? 0, color: "text-yellow-600" },
+          { label: "Raw Material", value: stats.rawMaterialCount ?? 0, color: "text-teal-600" },
+          { label: "Self Made", value: manufacturedProducts.length, color: "text-emerald-600" },
           {
             label: "Low Stock",
             value: stats.lowStockCount ?? 0,
@@ -372,7 +427,15 @@ export default function HatcheryInventoryPage() {
       </div>
 
       {/* Inventory table */}
-      {isLoading ? (
+      {activeTab === "SELF_MADE" ? (
+        productsLoading ? <div className="text-center text-muted-foreground py-8">Loading...</div> : manufacturedProducts.length === 0 ? (
+          <div className="text-center text-muted-foreground py-8">
+            <Package className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+            <p className="font-medium">No Self Made products</p>
+            <p className="text-sm mt-1">Create a product here before recording production.</p>
+          </div>
+        ) : <DataTable data={manufacturedProducts} columns={productColumns} emptyMessage="No Self Made products" />
+      ) : isLoading ? (
         <div className="text-center text-muted-foreground py-8">Loading...</div>
       ) : items.length === 0 ? (
         <div className="text-center text-muted-foreground py-8">
@@ -398,6 +461,20 @@ export default function HatcheryInventoryPage() {
       )}
 
       {/* ==================== MODALS ==================== */}
+
+      <Modal isOpen={isProductOpen} onClose={() => { setIsProductOpen(false); setEditingProduct(null); }} title={editingProduct ? "Edit Self Made Product" : "Add Self Made Product"}>
+        <ModalContent>
+          <div className="space-y-4">
+            <div><Label>Product Name</Label><Input value={productForm.name} onChange={(e) => setProductForm((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Starter feed" /></div>
+            <div><Label>Unit</Label><Input value={productForm.unit} onChange={(e) => setProductForm((p) => ({ ...p, unit: e.target.value }))} placeholder="kg" /></div>
+            <div><Label>Minimum Stock (optional)</Label><Input type="number" min="0" value={productForm.minStock} onChange={(e) => setProductForm((p) => ({ ...p, minStock: e.target.value }))} /></div>
+          </div>
+        </ModalContent>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => { setIsProductOpen(false); setEditingProduct(null); }}>Cancel</Button>
+          <Button onClick={handleCreateProduct} disabled={createProduct.isPending || updateProduct.isPending}>{createProduct.isPending || updateProduct.isPending ? "Saving..." : editingProduct ? "Save Changes" : "Create Product"}</Button>
+        </ModalFooter>
+      </Modal>
 
       {/* Reorder */}
       <Modal

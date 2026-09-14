@@ -56,6 +56,8 @@ import hatcheryEggTypeRoutes from "./hatcheryEggTypeRoutes";
 import hatcheryIncubationRoutes from "./hatcheryIncubationRoutes";
 import hatcheryPartyRoutes from "./hatcheryPartyRoutes";
 import hatcheryAnalyticsRoutes from "./hatcheryAnalyticsRoutes";
+import hatcheryProductRoutes from "./hatcheryProductRoutes";
+import hatcheryProductionRoutes from "./hatcheryProductionRoutes";
 
 // Test routes (only in test environment)
 let testRoutes: express.Router | null = null;
@@ -110,6 +112,8 @@ router.use("/admin/landing-reviews", adminLandingReviewRoutes);
 router.use("/onboarding/payment", onboardingPaymentRoutes);
 router.use("/hatchery/suppliers", hatcherySupplierRoutes);
 router.use("/hatchery/inventory", hatcheryInventoryRoutes);
+router.use("/hatchery/products", hatcheryProductRoutes);
+router.use("/hatchery/production", hatcheryProductionRoutes);
 router.use("/hatchery/batches", hatcheryBatchRoutes);
 router.use("/hatchery/egg-types", hatcheryEggTypeRoutes);
 router.use("/", hatcheryIncubationRoutes);

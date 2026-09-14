@@ -202,6 +202,11 @@ export const hatcheryNavigation: NavigationItem[] = [
     icon: Package,
   },
   {
+    nameKey: "sidebar.nav.production",
+    href: "/hatchery/dashboard/production",
+    icon: Factory,
+  },
+  {
     nameKey: "sidebar.nav.hatcheryBatches",
     href: "/hatchery/dashboard/batches",
     icon: Layers,

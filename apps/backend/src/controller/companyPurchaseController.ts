@@ -181,6 +181,11 @@ export const getCompanyPurchases = async (req: Request, res: Response): Promise<
 export const getCompanyPurchasesAggregated = async (req: Request, res: Response): Promise<any> => {
   try {
     const userId = req.userId;
+    const search = String(req.query.search ?? "").trim().toLowerCase();
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = req.query.limit === undefined
+      ? null
+      : Math.min(100, Math.max(1, Number(req.query.limit) || 100));
 
     const company = await prisma.company.findUnique({
       where: { ownerId: userId },
@@ -262,13 +267,20 @@ export const getCompanyPurchasesAggregated = async (req: Request, res: Response)
       bucket.remainingAmount = bucket.remainingQuantity * bucket.unitPrice;
     }
 
-    const data = Array.from(map.values()).sort(
+    const allData = Array.from(map.values()).filter((bucket) => !search || bucket.rawMaterial.name.toLowerCase().includes(search) || bucket.supplier.name.toLowerCase().includes(search)).sort(
       (a, b) => a.rawMaterial.name.localeCompare(b.rawMaterial.name) || a.supplier.name.localeCompare(b.supplier.name)
     );
+    const data = limit === null ? allData : allData.slice((page - 1) * limit, page * limit);
 
     return res.status(200).json({
       success: true,
       data,
+      pagination: {
+        page,
+        limit: limit ?? allData.length,
+        total: allData.length,
+        totalPages: limit === null ? 1 : Math.ceil(allData.length / limit),
+      },
     });
   } catch (error) {
     console.error("Get company purchases aggregated error:", error);

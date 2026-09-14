@@ -20,6 +20,8 @@ export const listHatcheryInventory = async (
   try {
     const userId = req.userId!;
     const { itemType, includeEmpty = "false", search } = req.query;
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
 
     const where: any = {
       hatcheryOwnerId: userId,
@@ -30,15 +32,45 @@ export const listHatcheryInventory = async (
       where.itemType = itemType;
     if (includeEmpty !== "true") where.currentStock = { gt: 0 };
     if (search) {
-      where.name = { contains: search as string, mode: "insensitive" };
+      const query = String(search).trim();
+      const matchingSuppliers = await prisma.hatcherySupplier.findMany({
+        where: { hatcheryOwnerId: userId, name: { contains: query, mode: "insensitive" } },
+        select: { id: true },
+        take: 50,
+      });
+      const numericRate = Number(query);
+      where.OR = [
+        { name: { contains: query, mode: "insensitive" } },
+        ...(matchingSuppliers.length ? [{ supplierKey: { in: matchingSuppliers.map((supplier) => `HATCHERY_SUPPLIER:${supplier.id}`) } }] : []),
+        ...(Number.isFinite(numericRate) ? [{ unitPrice: numericRate }] : []),
+      ];
     }
 
-    const items = await prisma.hatcheryInventoryItem.findMany({
-      where,
-      orderBy: [{ itemType: "asc" }, { name: "asc" }],
-    });
+    const [items, total] = await Promise.all([
+      prisma.hatcheryInventoryItem.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: [{ itemType: "asc" }, { name: "asc" }],
+      }),
+      prisma.hatcheryInventoryItem.count({ where }),
+    ]);
 
-    return res.json({ success: true, data: items });
+    const supplierIds = [...new Set(items.map((item) => item.supplierKey)
+      .filter((key) => key.startsWith("HATCHERY_SUPPLIER:"))
+      .map((key) => key.replace("HATCHERY_SUPPLIER:", "")))];
+    const suppliers = supplierIds.length
+      ? await prisma.hatcherySupplier.findMany({ where: { id: { in: supplierIds }, hatcheryOwnerId: userId }, select: { id: true, name: true } })
+      : [];
+    const supplierMap = new Map(suppliers.map((supplier) => [supplier.id, supplier]));
+    const data = items.map((item) => ({
+      ...item,
+      supplier: item.supplierKey.startsWith("HATCHERY_SUPPLIER:")
+        ? supplierMap.get(item.supplierKey.replace("HATCHERY_SUPPLIER:", "")) ?? null
+        : null,
+    }));
+
+    return res.json({ success: true, data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
   } catch (err) {
     console.error("listHatcheryInventory:", err);
     return res.status(500).json({ message: "Internal server error" });
@@ -108,6 +140,12 @@ export const hatcheryInventoryStatistics = async (
     const otherCount = items.filter(
       (i) => i.itemType === HatcheryInventoryItemType.OTHER
     ).length;
+    const rawMaterialCount = items.filter(
+      (i) => i.itemType === HatcheryInventoryItemType.RAW_MATERIAL
+    ).length;
+    const selfMadeCount = items.filter(
+      (i) => i.itemType === HatcheryInventoryItemType.SELF_MADE
+    ).length;
 
     return res.json({
       success: true,
@@ -117,6 +155,8 @@ export const hatcheryInventoryStatistics = async (
         feedCount,
         medicineCount,
         chicksCount,
+        rawMaterialCount,
+        selfMadeCount,
         otherCount,
       },
     });
@@ -226,6 +266,10 @@ export const createHatcheryInventoryItem = async (
       return res.status(400).json({ message: "Valid itemType is required" });
     if (!name?.trim())
       return res.status(400).json({ message: "name is required" });
+
+    if (itemType === HatcheryInventoryItemType.SELF_MADE) {
+      return res.status(400).json({ message: "Create Self Made products from the Self Made inventory tab" });
+    }
 
     const item = await prisma.hatcheryInventoryItem.create({
       data: {
@@ -356,17 +400,22 @@ export const reorderHatcheryInventoryItem = async (
     const totalAmount = unitPrice * qty;
 
     // Map item type to purchase category
-    const typeToCat: Record<HatcheryInventoryItemType, HatcheryPurchaseCategory> = {
+    if (item.itemType === HatcheryInventoryItemType.SELF_MADE) {
+      return res.status(400).json({ message: "Self Made stock can only be added through production" });
+    }
+
+    const typeToCat: Partial<Record<HatcheryInventoryItemType, HatcheryPurchaseCategory>> = {
       FEED: HatcheryPurchaseCategory.FEED,
       MEDICINE: HatcheryPurchaseCategory.MEDICINE,
       CHICKS: HatcheryPurchaseCategory.CHICKS,
+      RAW_MATERIAL: HatcheryPurchaseCategory.RAW_MATERIAL,
       OTHER: HatcheryPurchaseCategory.OTHER,
     };
 
     const txn = await HatcherySupplierService.addPurchaseTxn({
       supplierId,
       hatcheryOwnerId: userId,
-      category: typeToCat[item.itemType],
+      category: typeToCat[item.itemType]!,
       items: [
         {
           itemName: item.name,

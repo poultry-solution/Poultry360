@@ -15,18 +15,12 @@ import { Button } from "@/common/components/ui/button";
 import { Label } from "@/common/components/ui/label";
 import { Input } from "@/common/components/ui/input";
 import { DateInput } from "@/common/components/ui/date-input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/common/components/ui/select";
+import { SearchableSelect } from "@/components/common/SearchableSelect";
 import {
   useGetCompanyPurchasesAggregated,
   type AggregatedPurchaseRow,
 } from "@/fetchers/company/companyPurchaseQueries";
-import { useGetCompanyProducts } from "@/fetchers/company/companyProductQueries";
+import { useGetCompanyProducts, type CompanyProduct } from "@/fetchers/company/companyProductQueries";
 import { useCreateProductionRun } from "@/fetchers/company/companyProductionQueries";
 import { toast } from "sonner";
 
@@ -37,13 +31,15 @@ function bucketKey(row: { rawMaterialId: string; supplierId: string; unitPrice: 
   return `${row.rawMaterialId}|${row.supplierId}|${row.unitPrice}`;
 }
 
-type InputLine = { rawMaterialId: string; supplierId: string; unitPrice: number; quantity: number };
-type OutputLine = { productId: string; quantity: number };
+type InputLine = { rawMaterialId: string; supplierId: string; unitPrice: number; quantity: number; label: string; available: number };
+type OutputLine = { productId: string; quantity: number; label: string; unit: string };
 
 export default function NewProductionPage() {
   const router = useRouter();
-  const { data: aggregatedData } = useGetCompanyPurchasesAggregated();
-  const { data: productsData } = useGetCompanyProducts({ page: 1, limit: 500 });
+  const [materialSearch, setMaterialSearch] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const { data: aggregatedData } = useGetCompanyPurchasesAggregated({ search: materialSearch || undefined, limit: 50 });
+  const { data: productsData } = useGetCompanyProducts({ page: 1, limit: 50, search: productSearch || undefined });
   const createMutation = useCreateProductionRun();
 
   const buckets: AggregatedPurchaseRow[] = aggregatedData?.data ?? [];
@@ -54,14 +50,14 @@ export default function NewProductionPage() {
   const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");
   const [inputLines, setInputLines] = useState<InputLine[]>([
-    { rawMaterialId: "", supplierId: "", unitPrice: 0, quantity: 0 },
+    { rawMaterialId: "", supplierId: "", unitPrice: 0, quantity: 0, label: "", available: 0 },
   ]);
   const [outputLines, setOutputLines] = useState<OutputLine[]>([
-    { productId: "", quantity: 0 },
+    { productId: "", quantity: 0, label: "", unit: "" },
   ]);
 
   const addInputLine = () => {
-    setInputLines((prev) => [...prev, { rawMaterialId: "", supplierId: "", unitPrice: 0, quantity: 0 }]);
+    setInputLines((prev) => [...prev, { rawMaterialId: "", supplierId: "", unitPrice: 0, quantity: 0, label: "", available: 0 }]);
   };
   const updateInputLine = (index: number, updates: Partial<InputLine>) => {
     setInputLines((prev) => {
@@ -81,13 +77,15 @@ export default function NewProductionPage() {
         rawMaterialId: row.rawMaterialId,
         supplierId: row.supplierId,
         unitPrice: row.unitPrice,
+        label: row.rawMaterial.name,
+        available: Number(row.remainingQuantity ?? row.totalQuantity ?? 0),
         quantity: inputLines[index]?.quantity ?? 0,
       });
-    }
+    } else updateInputLine(index, { rawMaterialId: "", supplierId: "", unitPrice: 0, label: "", available: 0 });
   };
 
   const addOutputLine = () => {
-    setOutputLines((prev) => [...prev, { productId: "", quantity: 0 }]);
+    setOutputLines((prev) => [...prev, { productId: "", quantity: 0, label: "", unit: "" }]);
   };
   const updateOutputLine = (index: number, updates: Partial<OutputLine>) => {
     setOutputLines((prev) => {
@@ -111,7 +109,7 @@ export default function NewProductionPage() {
     const row = buckets.find(
       (b) => b.rawMaterialId === line.rawMaterialId && b.supplierId === line.supplierId && b.unitPrice === line.unitPrice
     );
-    return Number(row?.remainingQuantity ?? row?.totalQuantity ?? 0);
+    return row ? Number(row.remainingQuantity ?? row.totalQuantity ?? 0) : line.available;
   };
 
   const getLineBucketKey = (line: InputLine) => {
@@ -236,24 +234,20 @@ export default function NewProductionPage() {
                 >
                   <div className="sm:col-span-5">
                     <Label className="text-xs">Item (supplier · rate)</Label>
-                    <Select
+                    <SearchableSelect<AggregatedPurchaseRow>
                       value={getLineBucketKey(line)}
+                      displayValue={line.label}
                       onValueChange={(v) => setInputLineBucket(index, v)}
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Select from purchases list" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {bucketsWithStock.map((b) => (
-                          <SelectItem key={bucketKey(b)} value={bucketKey(b)}>
-                            {b.rawMaterial.name} — {b.supplier.name} — {formatCurrency(b.unitPrice)}/{b.rawMaterial.unit} — Available:{" "}
-                            {Number(b.remainingQuantity ?? b.totalQuantity).toLocaleString("en-IN", {
-                              minimumFractionDigits: 2,
-                            })}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      onSearch={setMaterialSearch}
+                      placeholder="Search purchases inventory"
+                      searchPlaceholder="Material or supplier..."
+                      options={bucketsWithStock.map((b) => ({
+                        value: bucketKey(b),
+                        label: b.rawMaterial.name,
+                        subtitle: `${b.supplier.name} · ${formatCurrency(b.unitPrice)}/${b.rawMaterial.unit} · ${Number(b.remainingQuantity ?? b.totalQuantity).toLocaleString("en-IN")} available`,
+                        data: b,
+                      }))}
+                    />
                   </div>
                   <div className="sm:col-span-3">
                     <Label className="text-xs">Quantity</Label>
@@ -316,23 +310,14 @@ export default function NewProductionPage() {
                   >
                     <div className="sm:col-span-5">
                       <Label className="text-xs">Product</Label>
-                      <Select
+                      <SearchableSelect<CompanyProduct>
                         value={line.productId || ""}
-                        onValueChange={(v) =>
-                          updateOutputLine(index, { productId: v, quantity: line.quantity })
-                        }
-                      >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue placeholder="Select product" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {companyProducts.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.name} ({p.unit})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        displayValue={line.label}
+                        onValueChange={(v, option) => updateOutputLine(index, { productId: v, quantity: line.quantity, label: option?.label ?? "", unit: option?.data?.unit ?? "" })}
+                        onSearch={setProductSearch}
+                        placeholder="Search products"
+                        options={companyProducts.map((p) => ({ value: p.id, label: p.name, subtitle: p.unit, data: p }))}
+                      />
                     </div>
                     <div className="sm:col-span-3">
                       <Label className="text-xs">Produced quantity</Label>
@@ -351,8 +336,8 @@ export default function NewProductionPage() {
                       />
                     </div>
                     <div className="sm:col-span-3 text-sm text-muted-foreground flex items-center h-9 mt-1">
-                      {selectedProduct && (
-                        <span>{selectedProduct.unit}</span>
+                      {(selectedProduct || line.unit) && (
+                        <span>{selectedProduct?.unit ?? line.unit}</span>
                       )}
                     </div>
                     <div className="sm:col-span-1">

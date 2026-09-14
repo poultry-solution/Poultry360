@@ -183,10 +183,10 @@ model User {
   // Farms this user manages
   managedFarms Farm[] @relation("FarmManagers")
 
-  customers        Customer[] @relation("CustomerOwner")
-  customerRecords  Customer[] @relation("CustomerFarmer") // Reverse relation for connected farmers
-  vaccinations     Vaccination[]
-  auditLogs        AuditLog[]
+  customers       Customer[]    @relation("CustomerOwner")
+  customerRecords Customer[]    @relation("CustomerFarmer") // Reverse relation for connected farmers
+  vaccinations    Vaccination[]
+  auditLogs       AuditLog[]
 
   // Categories (unified)
   categories Category[]
@@ -208,14 +208,16 @@ model User {
   hatcheryBusiness HatcheryBusiness?
 
   // Hatchery supplier ledger + inventory
-  hatcherySuppliers   HatcherySupplier[]       @relation("HatcheryOwnerSuppliers")
-  hatcheryInventory   HatcheryInventoryItem[]  @relation("HatcheryOwnerInventory")
+  hatcherySuppliers            HatcherySupplier[]            @relation("HatcheryOwnerSuppliers")
+  hatcheryInventory            HatcheryInventoryItem[]       @relation("HatcheryOwnerInventory")
+  hatcheryManufacturedProducts HatcheryManufacturedProduct[] @relation("HatcheryManufacturedProducts")
+  hatcheryMaterialProductions  HatcheryProductionRun[]       @relation("HatcheryMaterialProductions")
 
   // Hatchery batches + egg types
-  hatcheryBatches     HatcheryBatch[]          @relation("HatcheryBatches")
-  hatcheryEggTypes    HatcheryEggType[]        @relation("HatcheryEggTypes")
+  hatcheryBatches     HatcheryBatch[]           @relation("HatcheryBatches")
+  hatcheryEggTypes    HatcheryEggType[]         @relation("HatcheryEggTypes")
   hatcheryIncubations HatcheryIncubationBatch[] @relation("HatcheryIncubationBatches")
-  hatcheryParties     HatcheryParty[]          @relation("HatcheryParties")
+  hatcheryParties     HatcheryParty[]           @relation("HatcheryParties")
 
   suppliedProducts Product[] @relation("ProductSupplier")
 
@@ -245,24 +247,24 @@ model User {
   companySalesMade CompanySale[]
 
   // Company-Dealer account payments
-  companyDealerPaymentsRecorded CompanyDealerPayment[] @relation("CompanyDealerPaymentRecorder")
-  companyPurchasesCreated        CompanyPurchase[]     @relation("CompanyPurchaseCreatedBy")
+  companyDealerPaymentsRecorded   CompanyDealerPayment[]   @relation("CompanyDealerPaymentRecorder")
+  companyPurchasesCreated         CompanyPurchase[]        @relation("CompanyPurchaseCreatedBy")
   companySupplierPaymentsRecorded CompanySupplierPayment[] @relation("CompanySupplierPaymentRecorder")
-  productionRunsCreated         ProductionRun[]      @relation("ProductionRunCreatedBy")
+  productionRunsCreated           ProductionRun[]          @relation("ProductionRunCreatedBy")
 
   balanceLimitsSet CompanyDealerAccount[] @relation("BalanceLimitSetter")
 
   // Dealer-Farmer account relationships
-  farmerAccounts                  DealerFarmerAccount[]          @relation("FarmerAccounts")
-  farmerPaymentsRecorded          DealerFarmerPayment[]          @relation("DealerFarmerPaymentRecorder")
-  dealerFarmerBalanceLimitsSet    DealerFarmerAccount[]          @relation("DealerFarmerBalanceLimitSetter")
-  dealerCashMovementsRecorded     DealerCashMovement[]           @relation("DealerCashMovementRecorder")
+  farmerAccounts               DealerFarmerAccount[] @relation("FarmerAccounts")
+  farmerPaymentsRecorded       DealerFarmerPayment[] @relation("DealerFarmerPaymentRecorder")
+  dealerFarmerBalanceLimitsSet DealerFarmerAccount[] @relation("DealerFarmerBalanceLimitSetter")
+  dealerCashMovementsRecorded  DealerCashMovement[]  @relation("DealerCashMovementRecorder")
 
   // Farmer cash in hand (per user account)
-  farmerCashSettings              FarmerCashSettings?
-  farmerCashBookMovements         FarmerCashMovement[]           @relation("FarmerCashBook")
-  farmerCashDayCloses             FarmerCashDayClose[]           @relation("FarmerCashDayCloseOwner")
-  farmerCashMovementsRecorded     FarmerCashMovement[]           @relation("FarmerCashMovementRecorder")
+  farmerCashSettings          FarmerCashSettings?
+  farmerCashBookMovements     FarmerCashMovement[] @relation("FarmerCashBook")
+  farmerCashDayCloses         FarmerCashDayClose[] @relation("FarmerCashDayCloseOwner")
+  farmerCashMovementsRecorded FarmerCashMovement[] @relation("FarmerCashMovementRecorder")
 
   // List for sale (farmer marketplace listings)
   listForSaleListings ListForSale[] @relation("ListForSaleOwner")
@@ -275,7 +277,7 @@ model User {
   notifications     Notification[]
 
   // Admin-gated onboarding approval (new users only)
-  onboarding           UserOnboardingPayment?
+  onboarding UserOnboardingPayment?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -298,14 +300,14 @@ model UserOnboardingPayment {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  state              UserOnboardingPaymentState @default(PENDING_PAYMENT)
-  lockedUntilApproved Boolean                   @default(true)
+  state               UserOnboardingPaymentState @default(PENDING_PAYMENT)
+  lockedUntilApproved Boolean                    @default(true)
 
   approvedAt DateTime?
   approvedBy String?
 
-  rejectedAt DateTime?
-  rejectedBy String?
+  rejectedAt      DateTime?
+  rejectedBy      String?
   rejectionReason String?
 
   createdAt DateTime @default(now())
@@ -324,23 +326,23 @@ model Company {
   ownerId String @unique
   owner   User   @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
 
-  managedBy            User[]                      @relation("CompanyManagedBy")
-  companySales         CompanySale[]
-  ledgerEntries        CompanyLedgerEntry[]
-  dealerCarts          DealerCart[]
-  dealerAccounts       CompanyDealerAccount[]
+  managedBy      User[]                 @relation("CompanyManagedBy")
+  companySales   CompanySale[]
+  ledgerEntries  CompanyLedgerEntry[]
+  dealerCarts    DealerCart[]
+  dealerAccounts CompanyDealerAccount[]
 
   // Supplier & purchasing (feed mill)
-  suppliers            Supplier[]
-  rawMaterials         RawMaterial[]
-  companyPurchases     CompanyPurchase[]
-  supplierPayments      CompanySupplierPayment[]
+  suppliers        Supplier[]
+  rawMaterials     RawMaterial[]
+  companyPurchases CompanyPurchase[]
+  supplierPayments CompanySupplierPayment[]
 
   // Dealer inventory rows that originated from this company
   suppliedDealerProducts DealerProduct[] @relation("DealerProductSupplierCompany")
 
   // Production (raw materials used → produced items log)
-  productionRuns       ProductionRun[]
+  productionRuns ProductionRun[]
 
   @@index([ownerId])
 }
@@ -404,14 +406,14 @@ model Batch {
   birdWeights      BirdWeight[]
   inventoryUsages  InventoryUsage[]
   // Shares referencing this batch
-  batchShares BatchShare[]
+  batchShares      BatchShare[]
 
   // Layers: daily egg production (one record per batch per day)
-  eggProductions EggProduction[]
+  eggProductions      EggProduction[]
   // Per-batch egg inventory (so sales show and deduct from this batch's stock)
   batchEggInventories BatchEggInventory[]
-  reminders Reminder[]
-  batchNotes BatchNote[]
+  reminders           Reminder[]
+  batchNotes          BatchNote[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -438,7 +440,7 @@ model Reminder {
   id           String   @id @default(cuid())
   userId       String
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title        String   // What to be reminded of
+  title        String // What to be reminded of
   reminderDate DateTime // Date (day) when user wants to be reminded
   isNoticed    Boolean  @default(false) // When true, hide from "due" list
 
@@ -458,12 +460,12 @@ model Reminder {
 
 // User-defined egg types (e.g. Large, Medium, Small or XL, XS, XXL)
 model EggType {
-  id           String   @id @default(cuid())
+  id           String @id @default(cuid())
   userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name         String   // Display name: "Large", "XL"
-  code         String   // Unique per user, used in API: "LARGE", "XL"
-  displayOrder Int      @default(0)
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String // Display name: "Large", "XL"
+  code         String // Unique per user, used in API: "LARGE", "XL"
+  displayOrder Int    @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -478,10 +480,10 @@ model EggType {
 }
 
 model EggProduction {
-  id        String   @id @default(cuid())
-  batchId   String
-  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  date      DateTime
+  id      String   @id @default(cuid())
+  batchId String
+  batch   Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date    DateTime
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -493,12 +495,12 @@ model EggProduction {
 
 // One row per egg type per production record (replaces largeCount/mediumCount/smallCount)
 model EggProductionEntry {
-  id              String       @id @default(cuid())
+  id              String        @id @default(cuid())
   eggProductionId String
   eggProduction   EggProduction @relation(fields: [eggProductionId], references: [id], onDelete: Cascade)
   eggTypeId       String
-  eggType         EggType      @relation(fields: [eggTypeId], references: [id], onDelete: Cascade)
-  count           Int          @default(0)
+  eggType         EggType       @relation(fields: [eggTypeId], references: [id], onDelete: Cascade)
+  count           Int           @default(0)
 
   @@unique([eggProductionId, eggTypeId])
   @@index([eggProductionId])
@@ -506,12 +508,12 @@ model EggProductionEntry {
 
 // Per-batch egg inventory: which eggs belong to which batch (for layers)
 model BatchEggInventory {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   batchId   String
-  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  batch     Batch   @relation(fields: [batchId], references: [id], onDelete: Cascade)
   eggTypeId String
-  eggType   EggType  @relation(fields: [eggTypeId], references: [id], onDelete: Cascade)
-  quantity  Int      @default(0)
+  eggType   EggType @relation(fields: [eggTypeId], references: [id], onDelete: Cascade)
+  quantity  Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -541,19 +543,19 @@ enum InventoryItemType {
 }
 
 model Product {
-  id           String            @id @default(cuid())
-  name         String
-  description  String?
-  type         InventoryItemType
-  unit         String
+  id               String            @id @default(cuid())
+  name             String
+  description      String?
+  type             InventoryItemType
+  unit             String
   unitSellingPrice Decimal           @db.Decimal(10, 2)
-  unitCostPrice Decimal           @default(0) @db.Decimal(10, 2)
-  quantity     Decimal           @db.Decimal(10, 2)
-  currentStock Decimal           @default(0) @db.Decimal(10, 2)
-  totalPrice   Decimal           @db.Decimal(10, 2)
-  imageUrl     String?           // Product image URL (static URL for now, designed for future file uploads)
-  supplierId   String?
-  supplier     User?             @relation("ProductSupplier", fields: [supplierId], references: [id], onDelete: Cascade)
+  unitCostPrice    Decimal           @default(0) @db.Decimal(10, 2)
+  quantity         Decimal           @db.Decimal(10, 2)
+  currentStock     Decimal           @default(0) @db.Decimal(10, 2)
+  totalPrice       Decimal           @db.Decimal(10, 2)
+  imageUrl         String? // Product image URL (static URL for now, designed for future file uploads)
+  supplierId       String?
+  supplier         User?             @relation("ProductSupplier", fields: [supplierId], references: [id], onDelete: Cascade)
 
   dealerProducts    DealerProduct[]
   companySaleItems  CompanySaleItem[]
@@ -637,7 +639,7 @@ model Sale {
   description   String?
 
   itemType    SalesItemType @default(Chicken_Meat)
-  eggTypeId   String?       // For EGGS sales: user's egg type
+  eggTypeId   String? // For EGGS sales: user's egg type
   eggType     EggType?      @relation(fields: [eggTypeId], references: [id], onDelete: SetNull)
   // Credit tracking (simplified)
   isCredit    Boolean       @default(false)
@@ -653,7 +655,7 @@ model Sale {
   customerId  String?
   customer    Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
   payments    SalePayment[]
-  eggLines    SaleEggLine[]  // Multiple egg types in one sale (e.g. Large 10, Small 20)
+  eggLines    SaleEggLine[] // Multiple egg types in one sale (e.g. Large 10, Small 20)
   mortality   Mortality?    @relation(fields: [mortalityId], references: [id], onDelete: Cascade)
   mortalityId String?       @unique
   createdAt   DateTime      @default(now())
@@ -667,13 +669,13 @@ model Sale {
 
 // Multiple egg type lines per sale (e.g. Large 10 @ ₹5, Small 20 @ ₹4)
 model SaleEggLine {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   saleId    String
-  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
   eggTypeId String
-  eggType   EggType  @relation(fields: [eggTypeId], references: [id], onDelete: Cascade)
-  quantity  Int      // number of eggs
-  unitPrice Decimal  @db.Decimal(10, 2) // rate per unit for this type
+  eggType   EggType @relation(fields: [eggTypeId], references: [id], onDelete: Cascade)
+  quantity  Int // number of eggs
+  unitPrice Decimal @db.Decimal(10, 2) // rate per unit for this type
 
   @@index([saleId])
   @@index([eggTypeId])
@@ -709,10 +711,10 @@ model InventoryItem {
   itemType InventoryItemType @default(OTHER)
 
   // Identity: same name + rate + supplier = merge; different rate or supplier = separate line
-  unitPrice   Decimal? @db.Decimal(10, 2)
-  supplierKey String?  // e.g. "DEALER:id", "HATCHERY:id", "MEDICINE_SUPPLIER:id", "NONE"
-  expiryDate  DateTime?
-  expiryDateKey String @default("NO_EXPIRY")
+  unitPrice     Decimal?  @db.Decimal(10, 2)
+  supplierKey   String? // e.g. "DEALER:id", "HATCHERY:id", "MEDICINE_SUPPLIER:id", "NONE"
+  expiryDate    DateTime?
+  expiryDateKey String    @default("NO_EXPIRY")
 
   // Relationships
   userId       String
@@ -835,8 +837,8 @@ model EntityTransaction {
   // Only set on PURCHASE transactions; null for PAYMENT, ADJUSTMENT, legacy rows
   purchaseCategory PurchaseCategory?
 
-  unit      String?
-  unitPrice Decimal? @db.Decimal(10, 2)
+  unit       String?
+  unitPrice  Decimal?  @db.Decimal(10, 2)
   expiryDate DateTime?
 
   createdAt DateTime @default(now())
@@ -866,7 +868,7 @@ model Dealer {
 
   // Running balance for self-created (manual) dealers
   // Positive = farmer owes dealer, Negative = advance/overpayment
-  balance       Decimal @default(0) @db.Decimal(10, 2)
+  balance        Decimal @default(0) @db.Decimal(10, 2)
   totalPurchases Decimal @default(0) @db.Decimal(10, 2)
   totalPayments  Decimal @default(0) @db.Decimal(10, 2)
 
@@ -884,18 +886,18 @@ model Dealer {
   // NEW: Managers of this dealer (many-to-many)
   managers User[] @relation("DealerManagers")
 
-  transactions         EntityTransaction[]
-  products             DealerProduct[]
-  sales                DealerSale[]
-  ledgerEntries        DealerLedgerEntry[]
-  companySales         CompanySale[]
-  carts                DealerCart[]
-  companyAccounts      CompanyDealerAccount[]
-  farmerAccounts       DealerFarmerAccount[]
-  manualCompanies      DealerManualCompany[]
-  cashSettings         DealerCashSettings?
-  cashMovements        DealerCashMovement[]
-  cashDayCloses        DealerCashDayClose[]
+  transactions    EntityTransaction[]
+  products        DealerProduct[]
+  sales           DealerSale[]
+  ledgerEntries   DealerLedgerEntry[]
+  companySales    CompanySale[]
+  carts           DealerCart[]
+  companyAccounts CompanyDealerAccount[]
+  farmerAccounts  DealerFarmerAccount[]
+  manualCompanies DealerManualCompany[]
+  cashSettings    DealerCashSettings?
+  cashMovements   DealerCashMovement[]
+  cashDayCloses   DealerCashDayClose[]
 
   @@unique([userId, name])
   @@index([ownerId])
@@ -904,11 +906,11 @@ model Dealer {
 // ==================== DEALER CART MODELS ====================
 
 model DealerCart {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
   dealerId  String
-  dealer    Dealer   @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  dealer    Dealer           @relation(fields: [dealerId], references: [id], onDelete: Cascade)
   companyId String
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company   Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   items     DealerCartItem[]
 
   createdAt DateTime @default(now())
@@ -989,11 +991,11 @@ model MedicineSupplier {
 }
 
 model Customer {
-  id       String  @id @default(cuid())
-  name     String
-  phone    String?
-  category String?
-  address  String?
+  id            String  @id @default(cuid())
+  name          String
+  phone         String?
+  category      String?
+  address       String?
   balance       Decimal @default(0) @db.Decimal(10, 2) // Positive: they owe us
   totalSales    Decimal @default(0) @db.Decimal(10, 2) // Cumulative sales total
   totalPayments Decimal @default(0) @db.Decimal(10, 2) // Cumulative payments total
@@ -1003,11 +1005,11 @@ model Customer {
   farmerId String? // Optional historical link to a farmer user
 
   // Relationships
-  userId           String
-  user             User                  @relation("CustomerOwner", fields: [userId], references: [id], onDelete: Cascade)
-  connectedFarmer  User?                 @relation("CustomerFarmer", fields: [farmerId], references: [id], onDelete: SetNull)
-  sales            Sale[]
-  transactions     CustomerTransaction[]
+  userId          String
+  user            User                  @relation("CustomerOwner", fields: [userId], references: [id], onDelete: Cascade)
+  connectedFarmer User?                 @relation("CustomerFarmer", fields: [farmerId], references: [id], onDelete: SetNull)
+  sales           Sale[]
+  transactions    CustomerTransaction[]
 
   // ✅ Direct relationship to entity transactions
   entityTransactions EntityTransaction[]
@@ -1170,35 +1172,35 @@ enum WeightSource {
 // ==================== DEALER-FARMER ACCOUNT SYSTEM ====================
 
 model DealerFarmerAccount {
-  id        String   @id @default(cuid())
-  dealerId  String
-  dealer    Dealer   @relation(fields: [dealerId], references: [id], onDelete: Cascade)
-  farmerId  String
-  farmer    User     @relation("FarmerAccounts", fields: [farmerId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  dealerId String
+  dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  farmerId String
+  farmer   User   @relation("FarmerAccounts", fields: [farmerId], references: [id], onDelete: Cascade)
 
   // Running balance (positive = farmer owes dealer, negative = advance/credit)
-  balance         Decimal @default(0) @db.Decimal(10, 2)
+  balance Decimal @default(0) @db.Decimal(10, 2)
 
   // Latest proposed/confirmed opening balance snapshot for this account
-  openingBalanceCurrent Decimal? @db.Decimal(10, 2)
+  openingBalanceCurrent Decimal?                             @db.Decimal(10, 2)
   openingBalanceStatus  DealerFarmerAccountAdjustmentStatus?
 
   // Totals for reference
-  totalSales      Decimal @default(0) @db.Decimal(10, 2)
-  totalPayments   Decimal @default(0) @db.Decimal(10, 2)
+  totalSales    Decimal @default(0) @db.Decimal(10, 2)
+  totalPayments Decimal @default(0) @db.Decimal(10, 2)
 
   // Timestamps
   lastSaleDate    DateTime?
   lastPaymentDate DateTime?
 
   // Balance limit feature (optional - for future use)
-  balanceLimit    Decimal?  @db.Decimal(10, 2)
-  balanceLimitSetAt DateTime?
-  balanceLimitSetBy String?
-  balanceLimitSetByUser User? @relation("DealerFarmerBalanceLimitSetter", fields: [balanceLimitSetBy], references: [id])
+  balanceLimit          Decimal?  @db.Decimal(10, 2)
+  balanceLimitSetAt     DateTime?
+  balanceLimitSetBy     String?
+  balanceLimitSetByUser User?     @relation("DealerFarmerBalanceLimitSetter", fields: [balanceLimitSetBy], references: [id])
 
-  sales    DealerSale[]
-  payments DealerFarmerPayment[]
+  sales       DealerSale[]
+  payments    DealerFarmerPayment[]
   adjustments DealerFarmerAccountAdjustment[]
 
   createdAt DateTime @default(now())
@@ -1210,22 +1212,22 @@ model DealerFarmerAccount {
 }
 
 model DealerFarmerPayment {
-  id          String   @id @default(cuid())
-  accountId   String
-  account     DealerFarmerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  id        String              @id @default(cuid())
+  accountId String
+  account   DealerFarmerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
-  amount          Decimal  @db.Decimal(10, 2)
-  paymentMethod   String   @default("CASH")
-  paymentDate     DateTime @default(now())
-  notes           String?
-  reference       String?
+  amount        Decimal  @db.Decimal(10, 2)
+  paymentMethod String   @default("CASH")
+  paymentDate   DateTime @default(now())
+  notes         String?
+  reference     String?
 
   // Optional proof/receipt images
   receiptImageUrl String?
   proofImageUrl   String?
 
   // Balance snapshot after this payment
-  balanceAfter    Decimal  @db.Decimal(10, 2)
+  balanceAfter Decimal @db.Decimal(10, 2)
 
   // User who recorded the payment (dealer or farmer)
   recordedById String
@@ -1237,12 +1239,12 @@ model DealerFarmerPayment {
 }
 
 model DealerFarmerAccountAdjustment {
-  id        String   @id @default(cuid())
+  id        String              @id @default(cuid())
   accountId String
   account   DealerFarmerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   type   DealerFarmerAccountAdjustmentType
-  amount Decimal @db.Decimal(10, 2)
+  amount Decimal                           @db.Decimal(10, 2)
   notes  String?
 
   createdByRole DealerFarmerAccountAdjustmentCreatedByRole
@@ -1436,10 +1438,10 @@ model DealerProduct {
   companyProductId String?
   companyProduct   Product? @relation(fields: [companyProductId], references: [id], onDelete: SetNull)
 
-  transactions         DealerProductTransaction[]
-  saleItems            DealerSaleItem[]
-  manualPurchaseItems  DealerManualPurchaseItem[]
-  unitConversions             DealerProductUnitConversion[]
+  transactions        DealerProductTransaction[]
+  saleItems           DealerSaleItem[]
+  manualPurchaseItems DealerManualPurchaseItem[]
+  unitConversions     DealerProductUnitConversion[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1476,15 +1478,15 @@ model DealerProductTransaction {
 }
 
 model DealerSale {
-  id              String    @id @default(cuid())
-  invoiceNumber   String?
-  date            DateTime
-  subtotalAmount  Decimal?  @db.Decimal(10, 2) // Before discount; null when no discount
-  totalAmount     Decimal   @db.Decimal(10, 2)
-  paidAmount      Decimal   @default(0) @db.Decimal(10, 2)
-  dueAmount       Decimal?  @db.Decimal(10, 2)
-  isCredit        Boolean   @default(false)
-  notes           String?
+  id             String   @id @default(cuid())
+  invoiceNumber  String?
+  date           DateTime
+  subtotalAmount Decimal? @db.Decimal(10, 2) // Before discount; null when no discount
+  totalAmount    Decimal  @db.Decimal(10, 2)
+  paidAmount     Decimal  @default(0) @db.Decimal(10, 2)
+  dueAmount      Decimal? @db.Decimal(10, 2)
+  isCredit       Boolean  @default(false)
+  notes          String?
 
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
@@ -1499,11 +1501,11 @@ model DealerSale {
   accountId String?
   account   DealerFarmerAccount? @relation(fields: [accountId], references: [id])
 
-  discount        SaleDiscount?
-  items           DealerSaleItem[]
-  transactions    DealerProductTransaction[]
-  payments        DealerSalePayment[]
-  ledgerEntries   DealerLedgerEntry[]
+  discount      SaleDiscount?
+  items         DealerSaleItem[]
+  transactions  DealerProductTransaction[]
+  payments      DealerSalePayment[]
+  ledgerEntries DealerLedgerEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1587,14 +1589,14 @@ model DealerLedgerEntry {
 
 // ==================== COMPANY SALES ====================
 model CompanySale {
-  id              String   @id @default(cuid())
-  invoiceNumber   String?  @unique
-  date            DateTime @default(now())
-  subtotalAmount  Decimal? @db.Decimal(10, 2) // Before discount; null when no discount
-  totalAmount     Decimal  @db.Decimal(10, 2)
-  isCredit        Boolean  @default(false)
-  paymentMethod   String   @default("CASH")
-  notes           String?
+  id             String   @id @default(cuid())
+  invoiceNumber  String?  @unique
+  date           DateTime @default(now())
+  subtotalAmount Decimal? @db.Decimal(10, 2) // Before discount; null when no discount
+  totalAmount    Decimal  @db.Decimal(10, 2)
+  isCredit       Boolean  @default(false)
+  paymentMethod  String   @default("CASH")
+  notes          String?
 
   companyId String
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -1648,16 +1650,16 @@ model CompanySaleItem {
 
 // Global or item-level discount on a sale (one per sale for scope SALE; future: scope ITEM per item)
 model SaleDiscount {
-  id            String        @id @default(cuid())
-  type          DiscountType
-  value         Decimal       @db.Decimal(10, 2)
-  scope         DiscountScope @default(SALE)
+  id    String        @id @default(cuid())
+  type  DiscountType
+  value Decimal       @db.Decimal(10, 2)
+  scope DiscountScope @default(SALE)
 
-  dealerSaleId  String?       @unique
-  dealerSale    DealerSale?   @relation(fields: [dealerSaleId], references: [id], onDelete: Cascade)
+  dealerSaleId String?     @unique
+  dealerSale   DealerSale? @relation(fields: [dealerSaleId], references: [id], onDelete: Cascade)
 
-  companySaleId String?       @unique
-  companySale   CompanySale?  @relation(fields: [companySaleId], references: [id], onDelete: Cascade)
+  companySaleId String?      @unique
+  companySale   CompanySale? @relation(fields: [companySaleId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
@@ -1670,53 +1672,53 @@ model SaleDiscount {
 // ==================== COMPANY-DEALER ACCOUNT SYSTEM ====================
 
 model CompanyDealerAccount {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   companyId String
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   dealerId  String
-  dealer    Dealer   @relation(fields: [dealerId], references: [id], onDelete: Cascade)
-  
+  dealer    Dealer  @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
   // Running balance (positive = dealer owes company, negative = advance/credit)
-  balance         Decimal @default(0) @db.Decimal(10, 2)
+  balance Decimal @default(0) @db.Decimal(10, 2)
 
   // Opening balance proposal/ack workflow for this dealer/company account
-  openingBalanceCurrent  Decimal? @db.Decimal(10, 2) // latest ACKNOWLEDGED snapshot
-  openingBalanceProposed Decimal? @db.Decimal(10, 2) // latest PENDING_ACK proposal
+  openingBalanceCurrent  Decimal?                              @db.Decimal(10, 2) // latest ACKNOWLEDGED snapshot
+  openingBalanceProposed Decimal?                              @db.Decimal(10, 2) // latest PENDING_ACK proposal
   openingBalanceStatus   CompanyDealerAccountAdjustmentStatus?
-  
+
   // Totals for reference
-  totalSales      Decimal @default(0) @db.Decimal(10, 2)
-  totalPayments   Decimal @default(0) @db.Decimal(10, 2)
-  
+  totalSales    Decimal @default(0) @db.Decimal(10, 2)
+  totalPayments Decimal @default(0) @db.Decimal(10, 2)
+
   // Timestamps
   lastSaleDate    DateTime?
   lastPaymentDate DateTime?
-  
+
   // Balance limit feature
-  balanceLimit    Decimal?  @db.Decimal(10, 2) // Maximum allowed balance (null = no limit)
-  balanceLimitSetAt DateTime? // When the limit was last set/updated
-  balanceLimitSetBy String?   // User ID who set the limit
-  balanceLimitSetByUser User? @relation("BalanceLimitSetter", fields: [balanceLimitSetBy], references: [id])
-  
-  sales    CompanySale[]
-  payments CompanyDealerPayment[]
+  balanceLimit          Decimal?  @db.Decimal(10, 2) // Maximum allowed balance (null = no limit)
+  balanceLimitSetAt     DateTime? // When the limit was last set/updated
+  balanceLimitSetBy     String? // User ID who set the limit
+  balanceLimitSetByUser User?     @relation("BalanceLimitSetter", fields: [balanceLimitSetBy], references: [id])
+
+  sales       CompanySale[]
+  payments    CompanyDealerPayment[]
   adjustments CompanyDealerAccountAdjustment[]
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@unique([companyId, dealerId])
   @@index([companyId])
   @@index([dealerId])
 }
 
 model CompanyDealerAccountAdjustment {
-  id        String   @id @default(cuid())
+  id        String               @id @default(cuid())
   accountId String
   account   CompanyDealerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   type   CompanyDealerAccountAdjustmentType
-  amount Decimal @db.Decimal(10, 2)
+  amount Decimal                            @db.Decimal(10, 2)
   notes  String?
 
   createdByRole CompanyDealerAccountAdjustmentCreatedByRole
@@ -1734,29 +1736,29 @@ model CompanyDealerAccountAdjustment {
 }
 
 model CompanyDealerPayment {
-  id          String   @id @default(cuid())
-  accountId   String
-  account     CompanyDealerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  
-  amount          Decimal  @db.Decimal(10, 2)
-  paymentMethod   String   @default("CASH")
-  paymentDate     DateTime @default(now())
-  notes           String?
-  reference       String?
-  
+  id        String               @id @default(cuid())
+  accountId String
+  account   CompanyDealerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  amount        Decimal  @db.Decimal(10, 2)
+  paymentMethod String   @default("CASH")
+  paymentDate   DateTime @default(now())
+  notes         String?
+  reference     String?
+
   // Optional proof/receipt images (for future use)
   receiptImageUrl String? // Payment receipt uploaded by payer
   proofImageUrl   String? // Additional payment proof
-  
+
   // Balance snapshot after this payment
-  balanceAfter    Decimal  @db.Decimal(10, 2)
-  
+  balanceAfter Decimal @db.Decimal(10, 2)
+
   // User who recorded the payment
   recordedById String
   recordedBy   User   @relation("CompanyDealerPaymentRecorder", fields: [recordedById], references: [id])
-  
+
   createdAt DateTime @default(now())
-  
+
   @@index([accountId, paymentDate])
 }
 
@@ -1791,10 +1793,10 @@ model CompanyLedgerEntry {
 // ==================== COMPANY SUPPLIERS & PURCHASING (feed mill) ====================
 
 model Supplier {
-  id        String   @id @default(cuid())
-  name      String
-  contact   String?
-  address   String?
+  id      String  @id @default(cuid())
+  name    String
+  contact String?
+  address String?
 
   companyId String
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -1811,15 +1813,15 @@ model Supplier {
 
 // Raw materials (inputs) that company purchases; later used in production to make Products (finished goods)
 model RawMaterial {
-  id          String   @id @default(cuid())
-  name        String
-  unit        String
+  id           String  @id @default(cuid())
+  name         String
+  unit         String
   currentStock Decimal @default(0) @db.Decimal(12, 2)
 
   companyId String
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  purchaseItems   CompanyPurchaseItem[]
+  purchaseItems    CompanyPurchaseItem[]
   productionInputs ProductionInput[]
 
   createdAt DateTime @default(now())
@@ -1836,12 +1838,12 @@ model CompanyPurchase {
   notes           String?
   totalAmount     Decimal  @db.Decimal(12, 2)
 
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  supplierId String
-  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
   createdById String?
-  createdBy   User?   @relation("CompanyPurchaseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?    @relation("CompanyPurchaseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   items CompanyPurchaseItem[]
 
@@ -1853,10 +1855,10 @@ model CompanyPurchase {
 }
 
 model CompanyPurchaseItem {
-  id          String   @id @default(cuid())
-  quantity    Decimal  @db.Decimal(12, 2)
-  unitPrice   Decimal  @db.Decimal(12, 2)
-  totalAmount Decimal  @db.Decimal(12, 2)
+  id          String  @id @default(cuid())
+  quantity    Decimal @db.Decimal(12, 2)
+  unitPrice   Decimal @db.Decimal(12, 2)
+  totalAmount Decimal @db.Decimal(12, 2)
 
   purchaseId    String
   purchase      CompanyPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
@@ -1877,12 +1879,12 @@ model CompanySupplierPayment {
   notes         String?
   reference     String?
 
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  supplierId String
-  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplierId   String
+  supplier     Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
   recordedById String?
-  recordedBy   User?   @relation("CompanySupplierPaymentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+  recordedBy   User?    @relation("CompanySupplierPaymentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
@@ -1913,16 +1915,16 @@ model ProductionRun {
 }
 
 model ProductionInput {
-  id            String   @id @default(cuid())
-  quantity      Decimal  @db.Decimal(12, 2)
-  unitPrice     Decimal  @db.Decimal(12, 2) // bucket identifier (same as purchase rate)
+  id        String  @id @default(cuid())
+  quantity  Decimal @db.Decimal(12, 2)
+  unitPrice Decimal @db.Decimal(12, 2) // bucket identifier (same as purchase rate)
 
-  productionId   String
-  production     ProductionRun @relation(fields: [productionId], references: [id], onDelete: Cascade)
-  rawMaterialId  String
-  rawMaterial    RawMaterial    @relation(fields: [rawMaterialId], references: [id], onDelete: Restrict)
-  supplierId     String
-  supplier       Supplier      @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  productionId  String
+  production    ProductionRun @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  rawMaterialId String
+  rawMaterial   RawMaterial   @relation(fields: [rawMaterialId], references: [id], onDelete: Restrict)
+  supplierId    String
+  supplier      Supplier      @relation(fields: [supplierId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
 
@@ -1932,15 +1934,15 @@ model ProductionInput {
 }
 
 model ProductionOutput {
-  id          String   @id @default(cuid())
-  productName String   // Denormalized for display; when productId is set, matches product.name
-  quantity    Decimal  @db.Decimal(12, 2)
-  unit        String?  @default("kg")
+  id          String  @id @default(cuid())
+  productName String // Denormalized for display; when productId is set, matches product.name
+  quantity    Decimal @db.Decimal(12, 2)
+  unit        String? @default("kg")
 
   productionId String
   production   ProductionRun @relation(fields: [productionId], references: [id], onDelete: Cascade)
   productId    String?
-  product      Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  product      Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
@@ -1951,10 +1953,10 @@ model ProductionOutput {
 // ==================== DEALER MANUAL COMPANY MODELS ====================
 
 model DealerManualCompany {
-  id       String  @id @default(cuid())
-  name     String
-  phone    String?
-  address  String?
+  id      String  @id @default(cuid())
+  name    String
+  phone   String?
+  address String?
 
   dealerId String
   dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
@@ -1968,9 +1970,9 @@ model DealerManualCompany {
   totalPurchases Decimal @default(0) @db.Decimal(10, 2)
   totalPayments  Decimal @default(0) @db.Decimal(10, 2)
 
-  purchases DealerManualPurchase[]
-  payments  DealerManualCompanyPayment[]
-  adjustments DealerManualCompanyAdjustment[]
+  purchases        DealerManualPurchase[]
+  payments         DealerManualCompanyPayment[]
+  adjustments      DealerManualCompanyAdjustment[]
   suppliedProducts DealerProduct[]
 
   createdAt DateTime @default(now())
@@ -1986,12 +1988,12 @@ enum DealerManualCompanyAdjustmentType {
 }
 
 model DealerManualCompanyAdjustment {
-  id        String   @id @default(cuid())
-  type      DealerManualCompanyAdjustmentType @default(ADJUSTMENT)
+  id     String                            @id @default(cuid())
+  type   DealerManualCompanyAdjustmentType @default(ADJUSTMENT)
   // Signed amount: positive = dealer owes company, negative = advance/credit
-  amount    Decimal  @db.Decimal(10, 2)
-  date      DateTime @default(now())
-  notes     String?
+  amount Decimal                           @db.Decimal(10, 2)
+  date   DateTime                          @default(now())
+  notes  String?
 
   // Balance snapshot after applying this adjustment
   balanceAfter Decimal @db.Decimal(10, 2)
@@ -2006,12 +2008,12 @@ model DealerManualCompanyAdjustment {
 }
 
 model DealerManualPurchase {
-  id          String   @id @default(cuid())
-  date        DateTime @default(now())
-  totalAmount Decimal  @db.Decimal(10, 2)
+  id                  String   @id @default(cuid())
+  date                DateTime @default(now())
+  totalAmount         Decimal  @db.Decimal(10, 2)
   tradeDiscountAmount Decimal? @db.Decimal(10, 2)
-  notes       String?
-  reference   String?
+  notes               String?
+  reference           String?
 
   // Void instead of hard delete (audit-safe)
   voidedAt     DateTime?
@@ -2028,15 +2030,15 @@ model DealerManualPurchase {
 }
 
 model DealerManualPurchaseItem {
-  id           String   @id @default(cuid())
+  id           String            @id @default(cuid())
   productName  String
   type         InventoryItemType
   unit         String
-  quantity     Decimal  @db.Decimal(10, 2)
-  baseQuantity Decimal? @db.Decimal(10, 2)
-  costPrice    Decimal  @db.Decimal(10, 2)
-  sellingPrice Decimal  @db.Decimal(10, 2)
-  totalAmount  Decimal  @db.Decimal(10, 2)
+  quantity     Decimal           @db.Decimal(10, 2)
+  baseQuantity Decimal?          @db.Decimal(10, 2)
+  costPrice    Decimal           @db.Decimal(10, 2)
+  sellingPrice Decimal           @db.Decimal(10, 2)
+  totalAmount  Decimal           @db.Decimal(10, 2)
 
   purchaseId String
   purchase   DealerManualPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
@@ -2099,14 +2101,14 @@ model DealerCashSettings {
 }
 
 model DealerCashMovement {
-  id          String                 @id @default(cuid())
-  dealerId    String
-  dealer      Dealer                 @relation(fields: [dealerId], references: [id], onDelete: Cascade)
-  bsDate      String
-  direction   CashMovementDirection
-  amount      Decimal                @db.Decimal(10, 2)
-  partyName   String
-  notes       String?
+  id           String                @id @default(cuid())
+  dealerId     String
+  dealer       Dealer                @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  bsDate       String
+  direction    CashMovementDirection
+  amount       Decimal               @db.Decimal(10, 2)
+  partyName    String
+  notes        String?
   recordedById String?
   recordedBy   User?                 @relation("DealerCashMovementRecorder", fields: [recordedById], references: [id])
 
@@ -2116,14 +2118,14 @@ model DealerCashMovement {
 }
 
 model DealerCashDayClose {
-  id               String             @id @default(cuid())
-  dealerId         String
-  dealer           Dealer             @relation(fields: [dealerId], references: [id], onDelete: Cascade)
-  bsDate           String
-  openingSnapshot  Decimal            @db.Decimal(10, 2)
-  closingSnapshot  Decimal            @db.Decimal(10, 2)
-  source           CashDayCloseSource
-  closedAt         DateTime
+  id              String             @id @default(cuid())
+  dealerId        String
+  dealer          Dealer             @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  bsDate          String
+  openingSnapshot Decimal            @db.Decimal(10, 2)
+  closingSnapshot Decimal            @db.Decimal(10, 2)
+  source          CashDayCloseSource
+  closedAt        DateTime
 
   @@unique([dealerId, bsDate])
   @@index([dealerId, bsDate])
@@ -2143,16 +2145,16 @@ model FarmerCashSettings {
 }
 
 model FarmerCashMovement {
-  id           String                  @id @default(cuid())
+  id           String                @id @default(cuid())
   userId       String
-  user         User                    @relation("FarmerCashBook", fields: [userId], references: [id], onDelete: Cascade)
+  user         User                  @relation("FarmerCashBook", fields: [userId], references: [id], onDelete: Cascade)
   bsDate       String
   direction    CashMovementDirection
-  amount       Decimal                 @db.Decimal(10, 2)
+  amount       Decimal               @db.Decimal(10, 2)
   partyName    String
   notes        String?
   recordedById String?
-  recordedBy   User?                   @relation("FarmerCashMovementRecorder", fields: [recordedById], references: [id])
+  recordedBy   User?                 @relation("FarmerCashMovementRecorder", fields: [recordedById], references: [id])
 
   createdAt DateTime @default(now())
 
@@ -2160,14 +2162,14 @@ model FarmerCashMovement {
 }
 
 model FarmerCashDayClose {
-  id               String             @id @default(cuid())
-  userId           String
-  user             User               @relation("FarmerCashDayCloseOwner", fields: [userId], references: [id], onDelete: Cascade)
-  bsDate           String
-  openingSnapshot  Decimal            @db.Decimal(10, 2)
-  closingSnapshot  Decimal            @db.Decimal(10, 2)
-  source           CashDayCloseSource
-  closedAt         DateTime
+  id              String             @id @default(cuid())
+  userId          String
+  user            User               @relation("FarmerCashDayCloseOwner", fields: [userId], references: [id], onDelete: Cascade)
+  bsDate          String
+  openingSnapshot Decimal            @db.Decimal(10, 2)
+  closingSnapshot Decimal            @db.Decimal(10, 2)
+  source          CashDayCloseSource
+  closedAt        DateTime
 
   @@unique([userId, bsDate])
   @@index([userId, bsDate])
@@ -2210,17 +2212,17 @@ enum LandingReviewStatus {
 }
 
 model LandingReview {
-  id          String   @id @default(cuid())
-  name        String
-  business    String
-  address     String
-  phoneNumber String   // Stored for contact; not displayed on cards
-  stars       Int      // 1-5
-  review      String   @db.Text
-  status      LandingReviewStatus @default(PENDING)
-  reviewedAt  DateTime?
-  reviewedBy  String?
-  rejectionReason String? @db.Text
+  id              String              @id @default(cuid())
+  name            String
+  business        String
+  address         String
+  phoneNumber     String // Stored for contact; not displayed on cards
+  stars           Int // 1-5
+  review          String              @db.Text
+  status          LandingReviewStatus @default(PENDING)
+  reviewedAt      DateTime?
+  reviewedBy      String?
+  rejectionReason String?             @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2232,13 +2234,13 @@ model LandingReview {
 // ==================== LANDING PAGE CONTACT SUBMISSIONS (PUBLIC) ====================
 // Contact form submissions from landing page (no auth)
 model LandingContact {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   firstName String
   lastName  String
   email     String
   phone     String?
-  farmType  String?  // broiler | layer | hatchery | feed-dealer | mixed | other
-  message   String   @db.Text
+  farmType  String? // broiler | layer | hatchery | feed-dealer | mixed | other
+  message   String  @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2265,26 +2267,26 @@ model DemoEnquiry {
 // ==================== SEO BLOG POSTS ====================
 // Managed by super admins and rendered publicly on /blog and /blog/[slug].
 model BlogPost {
-  id              String         @id @default(cuid())
-  title           String
-  titleNe         String?
-  slug            String         @unique
-  excerpt         String         @db.Text
-  excerptNe       String?        @db.Text
-  contentMarkdown String         @db.Text
-  contentMarkdownNe String?      @db.Text
-  bannerImageUrl  String?
-  isFeatured      Boolean        @default(false)
-  authorName      String
-  seoTitle        String?
-  seoTitleNe      String?
-  seoDescription  String?
-  seoDescriptionNe String?
-  status          BlogPostStatus @default(DRAFT)
-  publishedAt     DateTime?
-  viewCount       Int            @default(0)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id                String         @id @default(cuid())
+  title             String
+  titleNe           String?
+  slug              String         @unique
+  excerpt           String         @db.Text
+  excerptNe         String?        @db.Text
+  contentMarkdown   String         @db.Text
+  contentMarkdownNe String?        @db.Text
+  bannerImageUrl    String?
+  isFeatured        Boolean        @default(false)
+  authorName        String
+  seoTitle          String?
+  seoTitleNe        String?
+  seoDescription    String?
+  seoDescriptionNe  String?
+  status            BlogPostStatus @default(DRAFT)
+  publishedAt       DateTime?
+  viewCount         Int            @default(0)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   @@index([status, publishedAt])
   @@index([createdAt])
@@ -2305,27 +2307,27 @@ enum ListForSaleStatus {
 }
 
 model ListForSale {
-  id           String   @id @default(cuid())
-  userId       String
-  user         User     @relation("ListForSaleOwner", fields: [userId], references: [id], onDelete: Cascade)
-  companyName  String
-  category     ListForSaleCategory
-  phone        String
-  rate         Decimal? @db.Decimal(10, 2)
-  quantity     Decimal  @db.Decimal(10, 2)
-  unit         String
+  id               String              @id @default(cuid())
+  userId           String
+  user             User                @relation("ListForSaleOwner", fields: [userId], references: [id], onDelete: Cascade)
+  companyName      String
+  category         ListForSaleCategory
+  phone            String
+  rate             Decimal?            @db.Decimal(10, 2)
+  quantity         Decimal             @db.Decimal(10, 2)
+  unit             String
   availabilityFrom DateTime
   availabilityTo   DateTime
-  province     String?
-  address      String?
-  latitude     Float?
-  longitude    Float?
-  avgWeightKg  Decimal? @db.Decimal(6, 2)
-  eggVariants  Json?
-  typeVariants Json?
-  status       ListForSaleStatus @default(ACTIVE)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  province         String?
+  address          String?
+  latitude         Float?
+  longitude        Float?
+  avgWeightKg      Decimal?            @db.Decimal(6, 2)
+  eggVariants      Json?
+  typeVariants     Json?
+  status           ListForSaleStatus   @default(ACTIVE)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
   @@index([userId])
   @@index([category])
@@ -2336,8 +2338,8 @@ model ListForSale {
 // ==================== STAFF MANAGEMENT (Farmer / Dealer) ====================
 
 enum StaffStatus {
-  ACTIVE   // Still employed; salary accrues each BS month
-  STOPPED  // No longer employed; no more accrual, show remaining balance
+  ACTIVE // Still employed; salary accrues each BS month
+  STOPPED // No longer employed; no more accrual, show remaining balance
   ARCHIVED // Finalized record; read-only after balance reaches zero
 }
 
@@ -2346,11 +2348,11 @@ model Staff {
   ownerId   String
   owner     User        @relation("StaffOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   name      String
-  startDate DateTime   // First day of employment (AD stored)
-  endDate   DateTime?  // When stopped (AD); null if ACTIVE
+  startDate DateTime // First day of employment (AD stored)
+  endDate   DateTime? // When stopped (AD); null if ACTIVE
   status    StaffStatus @default(ACTIVE)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
   salaries StaffSalary[]
   payments StaffPayment[]
@@ -2386,10 +2388,10 @@ model Notification {
   id        String             @id @default(cuid())
   userId    String
   user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String             // e.g. "REMINDER_DUE", "STAFF_DUE", etc.
+  type      String // e.g. "REMINDER_DUE", "STAFF_DUE", etc.
   title     String
   body      String
-  data      Json?              // { url, reminderId, etc. }
+  data      Json? // { url, reminderId, etc. }
   status    NotificationStatus @default(UNREAD)
   createdAt DateTime           @default(now())
   readAt    DateTime?
@@ -2399,12 +2401,12 @@ model Notification {
 }
 
 model StaffSalary {
-  id             String   @id @default(cuid())
-  staffId        String
-  staff          Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  monthlyAmount  Decimal  @db.Decimal(12, 2)
-  effectiveFrom  DateTime // First day of BS month in AD (when this salary applies from)
-  createdAt      DateTime @default(now())
+  id            String   @id @default(cuid())
+  staffId       String
+  staff         Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  monthlyAmount Decimal  @db.Decimal(12, 2)
+  effectiveFrom DateTime // First day of BS month in AD (when this salary applies from)
+  createdAt     DateTime @default(now())
 
   @@index([staffId])
   @@index([effectiveFrom])
@@ -2437,6 +2439,7 @@ enum HatcheryPurchaseCategory {
   FEED
   MEDICINE
   CHICKS
+  RAW_MATERIAL
   OTHER
 }
 
@@ -2444,6 +2447,8 @@ enum HatcheryInventoryItemType {
   FEED
   MEDICINE
   CHICKS
+  RAW_MATERIAL
+  SELF_MADE
   OTHER
 }
 
@@ -2451,50 +2456,52 @@ enum HatcheryInventoryTxnType {
   PURCHASE
   USAGE
   ADJUSTMENT
+  PRODUCTION_INPUT
+  PRODUCTION_OUTPUT
 }
 
 // Hatchery-owned supplier master (separate from farmer dealer/medicine supplier)
 model HatcherySupplier {
-  id               String  @id @default(cuid())
-  hatcheryOwnerId  String
-  hatcheryOwner    User    @relation("HatcheryOwnerSuppliers", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+  id              String @id @default(cuid())
+  hatcheryOwnerId String
+  hatcheryOwner   User   @relation("HatcheryOwnerSuppliers", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
 
-  name             String
-  contact          String?
-  address          String?
-  openingBalance   Decimal @db.Decimal(12, 2) @default(0)
-  balance          Decimal @db.Decimal(12, 2) @default(0)
+  name           String
+  contact        String?
+  address        String?
+  openingBalance Decimal @default(0) @db.Decimal(12, 2)
+  balance        Decimal @default(0) @db.Decimal(12, 2)
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  transactions     HatcherySupplierTxn[]
+  transactions HatcherySupplierTxn[]
 
-  @@index([hatcheryOwnerId])
   @@unique([hatcheryOwnerId, name])
+  @@index([hatcheryOwnerId])
 }
 
 // Hatchery supplier ledger transaction (purchase / payment / adjustment / opening balance)
 model HatcherySupplierTxn {
-  id               String                   @id @default(cuid())
-  supplierId       String
-  supplier         HatcherySupplier         @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  id         String           @id @default(cuid())
+  supplierId String
+  supplier   HatcherySupplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
 
-  type             HatcherySupplierTxnType
-  amount           Decimal                  @db.Decimal(12, 2)
-  balanceAfter     Decimal                  @db.Decimal(12, 2)
-  date             DateTime
-  note             String?
+  type         HatcherySupplierTxnType
+  amount       Decimal                 @db.Decimal(12, 2)
+  balanceAfter Decimal                 @db.Decimal(12, 2)
+  date         DateTime
+  note         String?
 
   purchaseCategory HatcheryPurchaseCategory?
   receiptImageUrl  String?
   reference        String?
 
-  items            HatcherySupplierPurchaseItem[]
-  inventoryTxns    HatcheryInventoryTxn[]
+  items         HatcherySupplierPurchaseItem[]
+  inventoryTxns HatcheryInventoryTxn[]
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([supplierId])
   @@index([date])
@@ -2502,69 +2509,159 @@ model HatcherySupplierTxn {
 
 // Line items for a hatchery supplier PURCHASE transaction
 model HatcherySupplierPurchaseItem {
-  id            String              @id @default(cuid())
-  txnId         String
-  txn           HatcherySupplierTxn @relation(fields: [txnId], references: [id], onDelete: Cascade)
+  id    String              @id @default(cuid())
+  txnId String
+  txn   HatcherySupplierTxn @relation(fields: [txnId], references: [id], onDelete: Cascade)
 
-  itemName      String
-  quantity      Decimal             @db.Decimal(12, 4)
-  freeQuantity  Decimal             @db.Decimal(12, 4) @default(0)
-  unit          String              @default("kg")
-  unitPrice     Decimal             @db.Decimal(12, 4)
-  totalAmount   Decimal             @db.Decimal(12, 2)
+  itemName     String
+  quantity     Decimal @db.Decimal(12, 4)
+  freeQuantity Decimal @default(0) @db.Decimal(12, 4)
+  unit         String  @default("kg")
+  unitPrice    Decimal @db.Decimal(12, 4)
+  totalAmount  Decimal @db.Decimal(12, 2)
 
   @@index([txnId])
 }
 
 // Hatchery inventory item (feed / medicine / chicks / other – no expiry)
 model HatcheryInventoryItem {
-  id               String                    @id @default(cuid())
-  hatcheryOwnerId  String
-  hatcheryOwner    User                      @relation("HatcheryOwnerInventory", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+  id              String @id @default(cuid())
+  hatcheryOwnerId String
+  hatcheryOwner   User   @relation("HatcheryOwnerInventory", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
 
-  itemType         HatcheryInventoryItemType
-  name             String
-  unit             String                    @default("kg")
-  unitPrice           Decimal                   @db.Decimal(12, 4)
-  effectiveUnitCost   Decimal?                  @db.Decimal(12, 4)  // weighted-avg cost per unit (paid÷(paid+free))
-  supplierKey         String                    @default("NONE")
-  currentStock        Decimal                   @db.Decimal(12, 4) @default(0)
-  minStock            Decimal?                  @db.Decimal(12, 4)
-  deletedAt        DateTime?
+  itemType          HatcheryInventoryItemType
+  name              String
+  unit              String                    @default("kg")
+  unitPrice         Decimal                   @db.Decimal(12, 4)
+  effectiveUnitCost Decimal?                  @db.Decimal(12, 4) // weighted-avg cost per unit (paid÷(paid+free))
+  supplierKey       String                    @default("NONE")
+  currentStock      Decimal                   @default(0) @db.Decimal(12, 4)
+  minStock          Decimal?                  @db.Decimal(12, 4)
+  deletedAt         DateTime?
 
-  transactions     HatcheryInventoryTxn[]
-  batchPlacements  HatcheryBatchPlacement[]
-  batchExpenses    HatcheryBatchExpense[]
-  chickSales       HatcheryChickSale[]      @relation("ChickSaleInventory")
+  // Set only for SELF_MADE inventory lots. One product may have many
+  // production lots so costing and production reversal remain traceable.
+  manufacturedProductId String?
+  manufacturedProduct   HatcheryManufacturedProduct? @relation(fields: [manufacturedProductId], references: [id], onDelete: Restrict)
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  transactions      HatcheryInventoryTxn[]
+  batchPlacements   HatcheryBatchPlacement[]
+  batchExpenses     HatcheryBatchExpense[]
+  chickSales        HatcheryChickSale[]        @relation("ChickSaleInventory")
+  productionInputs  HatcheryProductionInput[]
+  productionOutputs HatcheryProductionOutput[]
 
-  @@unique([hatcheryOwnerId, itemType, name, unitPrice, supplierKey])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([hatcheryOwnerId, itemType, name, unit, unitPrice, supplierKey], map: "HatcheryInventoryItem_owner_type_name_unit_price_source_key")
   @@index([hatcheryOwnerId])
   @@index([itemType])
+  @@index([manufacturedProductId])
 }
 
 // Hatchery inventory transaction (PURCHASE / USAGE / ADJUSTMENT)
 model HatcheryInventoryTxn {
-  id                   String                    @id @default(cuid())
-  itemId               String
-  item                 HatcheryInventoryItem     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  id     String                @id @default(cuid())
+  itemId String
+  item   HatcheryInventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
-  type                 HatcheryInventoryTxnType
-  quantity             Decimal                   @db.Decimal(12, 4)
-  unitPrice            Decimal?                  @db.Decimal(12, 4)
-  amount               Decimal?                  @db.Decimal(12, 2)
-  date                 DateTime
-  note                 String?
+  type      HatcheryInventoryTxnType
+  quantity  Decimal                  @db.Decimal(12, 4)
+  unitPrice Decimal?                 @db.Decimal(12, 4)
+  amount    Decimal?                 @db.Decimal(12, 2)
+  date      DateTime
+  note      String?
 
-  sourceSupplierTxnId  String?
-  sourceSupplierTxn    HatcherySupplierTxn?      @relation(fields: [sourceSupplierTxnId], references: [id], onDelete: SetNull)
+  sourceSupplierTxnId String?
+  sourceSupplierTxn   HatcherySupplierTxn? @relation(fields: [sourceSupplierTxnId], references: [id], onDelete: SetNull)
 
-  createdAt            DateTime @default(now())
+  productionInput  HatcheryProductionInput?  @relation("HatcheryProductionInputTxn")
+  productionOutput HatcheryProductionOutput? @relation("HatcheryProductionOutputTxn")
+
+  createdAt DateTime @default(now())
 
   @@index([itemId])
   @@index([sourceSupplierTxnId])
+}
+
+// Catalog entry managed from Inventory > Self Made. Stock remains in
+// HatcheryInventoryItem lots created by production runs.
+model HatcheryManufacturedProduct {
+  id              String    @id @default(cuid())
+  hatcheryOwnerId String
+  hatcheryOwner   User      @relation("HatcheryManufacturedProducts", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+  name            String
+  unit            String    @default("kg")
+  minStock        Decimal?  @db.Decimal(12, 4)
+  deletedAt       DateTime?
+
+  inventoryLots     HatcheryInventoryItem[]
+  productionOutputs HatcheryProductionOutput[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([hatcheryOwnerId, name, unit])
+  @@index([hatcheryOwnerId, deletedAt])
+}
+
+model HatcheryProductionRun {
+  id              String   @id @default(cuid())
+  hatcheryOwnerId String
+  hatcheryOwner   User     @relation("HatcheryMaterialProductions", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+  date            DateTime @default(now())
+  referenceNumber String?
+  notes           String?
+
+  inputs  HatcheryProductionInput[]
+  outputs HatcheryProductionOutput[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([hatcheryOwnerId, date])
+  @@index([referenceNumber])
+}
+
+model HatcheryProductionInput {
+  id              String                @id @default(cuid())
+  productionId    String
+  production      HatcheryProductionRun @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  inventoryItemId String
+  inventoryItem   HatcheryInventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  inventoryTxnId  String                @unique
+  inventoryTxn    HatcheryInventoryTxn  @relation("HatcheryProductionInputTxn", fields: [inventoryTxnId], references: [id], onDelete: Restrict)
+  quantity        Decimal               @db.Decimal(12, 4)
+  unitCost        Decimal               @db.Decimal(12, 4)
+  amount          Decimal               @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([productionId])
+  @@index([inventoryItemId])
+}
+
+model HatcheryProductionOutput {
+  id                    String                      @id @default(cuid())
+  productionId          String
+  production            HatcheryProductionRun       @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  productId             String
+  product               HatcheryManufacturedProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+  inventoryItemId       String
+  inventoryItem         HatcheryInventoryItem       @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  inventoryTxnId        String                      @unique
+  inventoryTxn          HatcheryInventoryTxn        @relation("HatcheryProductionOutputTxn", fields: [inventoryTxnId], references: [id], onDelete: Restrict)
+  quantity              Decimal                     @db.Decimal(12, 4)
+  costAllocationPercent Decimal                     @db.Decimal(7, 4)
+  unitCost              Decimal                     @db.Decimal(12, 4)
+  amount                Decimal                     @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([productionId])
+  @@index([productId])
+  @@index([inventoryItemId])
 }
 
 // ==================== HATCHERY BATCH + EGG PRODUCTION ====================
@@ -2592,35 +2689,35 @@ enum HatcheryBatchExpenseType {
 
 // Parent flock batch (or incubation batch skeleton for later)
 model HatcheryBatch {
-  id               String              @id @default(cuid())
-  hatcheryOwnerId  String
-  hatcheryOwner    User                @relation("HatcheryBatches", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+  id              String @id @default(cuid())
+  hatcheryOwnerId String
+  hatcheryOwner   User   @relation("HatcheryBatches", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
 
-  type             HatcheryBatchType   @default(PARENT_FLOCK)
-  status           HatcheryBatchStatus @default(ACTIVE)
-  code             String              // auto-generated e.g. "PF-001"
-  name             String?             // optional user override
-  startDate        DateTime
-  endDate          DateTime?
-  notes            String?
+  type      HatcheryBatchType   @default(PARENT_FLOCK)
+  status    HatcheryBatchStatus @default(ACTIVE)
+  code      String // auto-generated e.g. "PF-001"
+  name      String? // optional user override
+  startDate DateTime
+  endDate   DateTime?
+  notes     String?
 
   // Parent flock only fields (null for INCUBATION type)
-  initialParents   Int?
-  currentParents   Int?
-  placedAt         DateTime?
+  initialParents Int?
+  currentParents Int?
+  placedAt       DateTime?
 
-  placements       HatcheryBatchPlacement[]
-  mortalities      HatcheryBatchMortality[]
-  expenses         HatcheryBatchExpense[]
-  eggProductions   HatcheryEggProduction[]
-  eggStockRows     HatcheryEggStock[]
-  eggTxns          HatcheryEggTxn[]
-  eggSales         HatcheryEggSale[]
-  parentSales      HatcheryParentSale[]
-  incubations      HatcheryIncubationBatch[] @relation("ParentFlockIncubations")
+  placements     HatcheryBatchPlacement[]
+  mortalities    HatcheryBatchMortality[]
+  expenses       HatcheryBatchExpense[]
+  eggProductions HatcheryEggProduction[]
+  eggStockRows   HatcheryEggStock[]
+  eggTxns        HatcheryEggTxn[]
+  eggSales       HatcheryEggSale[]
+  parentSales    HatcheryParentSale[]
+  incubations    HatcheryIncubationBatch[] @relation("ParentFlockIncubations")
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([hatcheryOwnerId, code])
   @@index([hatcheryOwnerId])
@@ -2637,7 +2734,7 @@ model HatcheryBatchPlacement {
   inventoryItem   HatcheryInventoryItem @relation(fields: [inventoryItemId], references: [id])
   quantity        Int
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([batchId])
 }
@@ -2658,25 +2755,25 @@ model HatcheryBatchMortality {
 
 // Expense (inventory-backed or manual utility/labor)
 model HatcheryBatchExpense {
-  id              String                   @id @default(cuid())
-  batchId         String
-  batch           HatcheryBatch            @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  date            DateTime
-  type            HatcheryBatchExpenseType @default(MANUAL)
-  category        String                   // "feed", "medicine", "utilities", "labor", or custom
-  itemName        String
-  quantity        Decimal?                 @db.Decimal(12, 4)
-  unit            String?
-  unitPrice       Decimal?                 @db.Decimal(12, 4)
-  amount          Decimal                  @db.Decimal(12, 2)
-  note            String?
+  id        String                   @id @default(cuid())
+  batchId   String
+  batch     HatcheryBatch            @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date      DateTime
+  type      HatcheryBatchExpenseType @default(MANUAL)
+  category  String // "feed", "medicine", "utilities", "labor", or custom
+  itemName  String
+  quantity  Decimal?                 @db.Decimal(12, 4)
+  unit      String?
+  unitPrice Decimal?                 @db.Decimal(12, 4)
+  amount    Decimal                  @db.Decimal(12, 2)
+  note      String?
 
   // Only set when type=INVENTORY
-  inventoryItemId    String?
-  inventoryItem      HatcheryInventoryItem? @relation(fields: [inventoryItemId], references: [id])
-  inventoryTxnId     String?               // ID of the HatcheryInventoryTxn created for this expense
+  inventoryItemId String?
+  inventoryItem   HatcheryInventoryItem? @relation(fields: [inventoryItemId], references: [id])
+  inventoryTxnId  String? // ID of the HatcheryInventoryTxn created for this expense
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([batchId])
   @@index([date])
@@ -2692,12 +2789,12 @@ model HatcheryEggType {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  productionLines HatcheryEggProductionLine[]
-  eggStockRows    HatcheryEggStock[]
-  eggTxns         HatcheryEggTxn[]
-  eggSales        HatcheryEggSale[]
-  incubationBatches HatcheryIncubationBatch[] @relation("HatchableEggTypeIncubations")
-  eggMoves        HatcheryEggMove[]           @relation("EggMoveType")
+  productionLines   HatcheryEggProductionLine[]
+  eggStockRows      HatcheryEggStock[]
+  eggTxns           HatcheryEggTxn[]
+  eggSales          HatcheryEggSale[]
+  incubationBatches HatcheryIncubationBatch[]   @relation("HatchableEggTypeIncubations")
+  eggMoves          HatcheryEggMove[]           @relation("EggMoveType")
 
   @@unique([hatcheryOwnerId, name])
   @@index([hatcheryOwnerId])
@@ -2705,13 +2802,13 @@ model HatcheryEggType {
 
 // One production record per date/batch entry
 model HatcheryEggProduction {
-  id        String                    @id @default(cuid())
+  id        String                      @id @default(cuid())
   batchId   String
-  batch     HatcheryBatch             @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  batch     HatcheryBatch               @relation(fields: [batchId], references: [id], onDelete: Cascade)
   date      DateTime
   note      String?
   lines     HatcheryEggProductionLine[]
-  createdAt DateTime                  @default(now())
+  createdAt DateTime                    @default(now())
 
   @@index([batchId])
   @@index([date])
@@ -2739,7 +2836,7 @@ model HatcheryEggStock {
   eggType      HatcheryEggType @relation(fields: [eggTypeId], references: [id])
   currentStock Int             @default(0)
 
-  updatedAt    DateTime @updatedAt
+  updatedAt DateTime @updatedAt
 
   @@unique([batchId, eggTypeId])
   @@index([batchId])
@@ -2755,7 +2852,7 @@ model HatcheryEggTxn {
   type      HatcheryEggTxnType
   count     Int
   date      DateTime
-  sourceId  String?            // productionId or saleId for traceability
+  sourceId  String? // productionId or saleId for traceability
   note      String?
   createdAt DateTime           @default(now())
 
@@ -2766,19 +2863,19 @@ model HatcheryEggTxn {
 
 // Egg sale record (reduces egg stock for the batch)
 model HatcheryEggSale {
-  id          String           @id @default(cuid())
-  batchId     String
-  batch       HatcheryBatch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  eggTypeId   String
-  eggType     HatcheryEggType  @relation(fields: [eggTypeId], references: [id])
-  date        DateTime
-  count       Int
-  unitPrice   Decimal          @db.Decimal(12, 4)
-  amount      Decimal          @db.Decimal(12, 2)
-  partyId     String?
-  party       HatcheryParty?   @relation("EggSaleParty", fields: [partyId], references: [id], onDelete: SetNull)
-  note        String?
-  createdAt   DateTime         @default(now())
+  id        String          @id @default(cuid())
+  batchId   String
+  batch     HatcheryBatch   @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  eggTypeId String
+  eggType   HatcheryEggType @relation(fields: [eggTypeId], references: [id])
+  date      DateTime
+  count     Int
+  unitPrice Decimal         @db.Decimal(12, 4)
+  amount    Decimal         @db.Decimal(12, 2)
+  partyId   String?
+  party     HatcheryParty?  @relation("EggSaleParty", fields: [partyId], references: [id], onDelete: SetNull)
+  note      String?
+  createdAt DateTime        @default(now())
 
   @@index([batchId])
   @@index([date])
@@ -2837,37 +2934,37 @@ enum HatcheryChickTxnType {
 
 // An incubation run: linked to a parent flock batch, consumes HATCHABLE eggs
 model HatcheryIncubationBatch {
-  id                  String                    @id @default(cuid())
-  hatcheryOwnerId     String
-  hatcheryOwner       User                      @relation("HatcheryIncubationBatches", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
-  parentBatchId       String
-  parentBatch         HatcheryBatch             @relation("ParentFlockIncubations", fields: [parentBatchId], references: [id])
-  hatchableEggTypeId  String
-  hatchableEggType    HatcheryEggType           @relation("HatchableEggTypeIncubations", fields: [hatchableEggTypeId], references: [id])
+  id                 String          @id @default(cuid())
+  hatcheryOwnerId    String
+  hatcheryOwner      User            @relation("HatcheryIncubationBatches", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+  parentBatchId      String
+  parentBatch        HatcheryBatch   @relation("ParentFlockIncubations", fields: [parentBatchId], references: [id])
+  hatchableEggTypeId String
+  hatchableEggType   HatcheryEggType @relation("HatchableEggTypeIncubations", fields: [hatchableEggTypeId], references: [id])
 
-  stage               HatcheryIncubationStage   @default(SETTER)
-  code                String                    // auto-generated e.g. "IN-001"
-  name                String?
-  startDate           DateTime
-  eggsSetCount        Int
+  stage        HatcheryIncubationStage @default(SETTER)
+  code         String // auto-generated e.g. "IN-001"
+  name         String?
+  startDate    DateTime
+  eggsSetCount Int
 
   // Stage timestamps
-  setterAt            DateTime?
-  candledAt           DateTime?
-  transferredAt       DateTime?
-  hatchedAt           DateTime?
+  setterAt      DateTime?
+  candledAt     DateTime?
+  transferredAt DateTime?
+  hatchedAt     DateTime?
 
-  notes               String?
+  notes String?
 
-  eggMoves            HatcheryEggMove[]
-  losses              HatcheryIncubationLoss[]
-  hatchResults        HatcheryHatchResult[]
-  chickStocks         HatcheryChickStock[]
-  chickTxns           HatcheryChickTxn[]
-  chickSales          HatcheryChickSale[]
+  eggMoves     HatcheryEggMove[]
+  losses       HatcheryIncubationLoss[]
+  hatchResults HatcheryHatchResult[]
+  chickStocks  HatcheryChickStock[]
+  chickTxns    HatcheryChickTxn[]
+  chickSales   HatcheryChickSale[]
 
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([hatcheryOwnerId, code])
   @@index([hatcheryOwnerId])
@@ -2877,15 +2974,15 @@ model HatcheryIncubationBatch {
 
 // Audit log of eggs consumed from a parent batch for this incubation
 model HatcheryEggMove {
-  id                  String                   @id @default(cuid())
-  incubationBatchId   String
-  incubationBatch     HatcheryIncubationBatch  @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
-  parentBatchId       String
-  eggTypeId           String
-  eggType             HatcheryEggType          @relation("EggMoveType", fields: [eggTypeId], references: [id])
-  count               Int
-  date                DateTime
-  createdAt           DateTime @default(now())
+  id                String                  @id @default(cuid())
+  incubationBatchId String
+  incubationBatch   HatcheryIncubationBatch @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+  parentBatchId     String
+  eggTypeId         String
+  eggType           HatcheryEggType         @relation("EggMoveType", fields: [eggTypeId], references: [id])
+  count             Int
+  date              DateTime
+  createdAt         DateTime                @default(now())
 
   @@index([incubationBatchId])
   @@index([parentBatchId])
@@ -2893,43 +2990,43 @@ model HatcheryEggMove {
 
 // Losses during candling or in hatcher
 model HatcheryIncubationLoss {
-  id                  String                    @id @default(cuid())
-  incubationBatchId   String
-  incubationBatch     HatcheryIncubationBatch   @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
-  type                HatcheryIncubationLossType
-  date                DateTime
-  count               Int
-  note                String?
-  createdAt           DateTime @default(now())
+  id                String                     @id @default(cuid())
+  incubationBatchId String
+  incubationBatch   HatcheryIncubationBatch    @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+  type              HatcheryIncubationLossType
+  date              DateTime
+  count             Int
+  note              String?
+  createdAt         DateTime                   @default(now())
 
   @@index([incubationBatchId])
 }
 
 // Final hatch outcome: grade breakdown + losses
 model HatcheryHatchResult {
-  id                  String                   @id @default(cuid())
-  incubationBatchId   String
-  incubationBatch     HatcheryIncubationBatch  @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
-  date                DateTime
-  hatchedA            Int      @default(0)
-  hatchedB            Int      @default(0)
-  cull                Int      @default(0)
-  lateDead            Int      @default(0)
-  unhatched           Int      @default(0)
-  note                String?
-  createdAt           DateTime @default(now())
+  id                String                  @id @default(cuid())
+  incubationBatchId String
+  incubationBatch   HatcheryIncubationBatch @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+  date              DateTime
+  hatchedA          Int                     @default(0)
+  hatchedB          Int                     @default(0)
+  cull              Int                     @default(0)
+  lateDead          Int                     @default(0)
+  unhatched         Int                     @default(0)
+  note              String?
+  createdAt         DateTime                @default(now())
 
   @@index([incubationBatchId])
 }
 
 // Running chick stock per incubation batch + grade
 model HatcheryChickStock {
-  id                  String                   @id @default(cuid())
-  incubationBatchId   String
-  incubationBatch     HatcheryIncubationBatch  @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
-  grade               HatcheryChickGrade
-  currentStock        Int                      @default(0)
-  updatedAt           DateTime @updatedAt
+  id                String                  @id @default(cuid())
+  incubationBatchId String
+  incubationBatch   HatcheryIncubationBatch @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+  grade             HatcheryChickGrade
+  currentStock      Int                     @default(0)
+  updatedAt         DateTime                @updatedAt
 
   @@unique([incubationBatchId, grade])
   @@index([incubationBatchId])
@@ -2937,16 +3034,16 @@ model HatcheryChickStock {
 
 // Immutable chick movement log
 model HatcheryChickTxn {
-  id                  String                   @id @default(cuid())
-  incubationBatchId   String
-  incubationBatch     HatcheryIncubationBatch  @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
-  grade               HatcheryChickGrade
-  type                HatcheryChickTxnType
-  count               Int
-  date                DateTime
-  sourceId            String?
-  note                String?
-  createdAt           DateTime @default(now())
+  id                String                  @id @default(cuid())
+  incubationBatchId String
+  incubationBatch   HatcheryIncubationBatch @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+  grade             HatcheryChickGrade
+  type              HatcheryChickTxnType
+  count             Int
+  date              DateTime
+  sourceId          String?
+  note              String?
+  createdAt         DateTime                @default(now())
 
   @@index([incubationBatchId])
   @@index([sourceId])
@@ -2954,20 +3051,20 @@ model HatcheryChickTxn {
 
 // Chick sale record
 model HatcheryChickSale {
-  id                  String                   @id @default(cuid())
-  incubationBatchId   String
-  incubationBatch     HatcheryIncubationBatch  @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
-  grade               HatcheryChickGrade
-  date                DateTime
-  count               Int
-  unitPrice           Decimal                  @db.Decimal(12, 4)
-  amount              Decimal                  @db.Decimal(12, 2)
-  partyId             String?
-  party               HatcheryParty?           @relation("ChickSaleParty", fields: [partyId], references: [id], onDelete: SetNull)
-  note                String?
-  inventoryItemId     String?
-  inventoryItem       HatcheryInventoryItem?   @relation("ChickSaleInventory", fields: [inventoryItemId], references: [id])
-  createdAt           DateTime @default(now())
+  id                String                  @id @default(cuid())
+  incubationBatchId String
+  incubationBatch   HatcheryIncubationBatch @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+  grade             HatcheryChickGrade
+  date              DateTime
+  count             Int
+  unitPrice         Decimal                 @db.Decimal(12, 4)
+  amount            Decimal                 @db.Decimal(12, 2)
+  partyId           String?
+  party             HatcheryParty?          @relation("ChickSaleParty", fields: [partyId], references: [id], onDelete: SetNull)
+  note              String?
+  inventoryItemId   String?
+  inventoryItem     HatcheryInventoryItem?  @relation("ChickSaleInventory", fields: [inventoryItemId], references: [id])
+  createdAt         DateTime                @default(now())
 
   @@index([incubationBatchId])
   @@index([date])
@@ -2984,41 +3081,41 @@ enum HatcheryPartyTxnType {
 }
 
 model HatcheryParty {
-  id              String   @id @default(cuid())
+  id              String @id @default(cuid())
   hatcheryOwnerId String
-  hatcheryOwner   User     @relation("HatcheryParties", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+  hatcheryOwner   User   @relation("HatcheryParties", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
 
-  name            String
-  phone           String
-  address         String?
-  openingBalance  Decimal  @db.Decimal(12, 2) @default(0)
-  balance         Decimal  @db.Decimal(12, 2) @default(0)
+  name           String
+  phone          String
+  address        String?
+  openingBalance Decimal @default(0) @db.Decimal(12, 2)
+  balance        Decimal @default(0) @db.Decimal(12, 2)
 
-  transactions    HatcheryPartyTxn[]
-  payments        HatcheryPartyPayment[]
-  eggSales        HatcheryEggSale[]    @relation("EggSaleParty")
-  chickSales      HatcheryChickSale[]  @relation("ChickSaleParty")
-  parentSales     HatcheryParentSale[] @relation("ParentSaleParty")
+  transactions HatcheryPartyTxn[]
+  payments     HatcheryPartyPayment[]
+  eggSales     HatcheryEggSale[]      @relation("EggSaleParty")
+  chickSales   HatcheryChickSale[]    @relation("ChickSaleParty")
+  parentSales  HatcheryParentSale[]   @relation("ParentSaleParty")
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([hatcheryOwnerId, phone])
   @@index([hatcheryOwnerId])
 }
 
 model HatcheryPartyTxn {
-  id          String               @id @default(cuid())
-  partyId     String
-  party       HatcheryParty        @relation(fields: [partyId], references: [id], onDelete: Cascade)
-  type        HatcheryPartyTxnType
-  date        DateTime
-  amount      Decimal              @db.Decimal(12, 2)
-  balanceAfter Decimal             @db.Decimal(12, 2)
-  sourceType  String?
-  sourceId    String?
-  note        String?
-  createdAt   DateTime @default(now())
+  id           String               @id @default(cuid())
+  partyId      String
+  party        HatcheryParty        @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  type         HatcheryPartyTxnType
+  date         DateTime
+  amount       Decimal              @db.Decimal(12, 2)
+  balanceAfter Decimal              @db.Decimal(12, 2)
+  sourceType   String?
+  sourceId     String?
+  note         String?
+  createdAt    DateTime             @default(now())
 
   @@index([partyId])
   @@index([date])
@@ -3033,7 +3130,7 @@ model HatcheryPartyPayment {
   amount    Decimal       @db.Decimal(12, 2)
   method    String?
   note      String?
-  createdAt DateTime @default(now())
+  createdAt DateTime      @default(now())
 
   @@index([partyId])
   @@index([date])
@@ -3043,7 +3140,7 @@ model HatcheryPartyPayment {
 model PasswordResetOtp {
   id        String   @id @default(cuid())
   phone     String
-  otp       String   // 6-digit OTP
+  otp       String // 6-digit OTP
   used      Boolean  @default(false)
   expiresAt DateTime // OTP expires after 30 minutes
   createdAt DateTime @default(now())
