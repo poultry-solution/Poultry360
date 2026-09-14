@@ -1,17 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import Script from "next/script";
 import { Button } from "@/common/components/ui/button";
 import { Monitor } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
 import BookDemoModal from "@/components/landing/BookDemoModal";
+
+const WISTIA_MEDIA_ID = "3n4jdjyfix";
 
 export default function Hero() {
   const { t } = useI18n();
   const [bookDemoOpen, setBookDemoOpen] = useState(false);
 
   return (
-    <section className="max-w-7xl mx-auto px-4 lg:px-6 py-10 lg:py-24">
+    <section className="max-w-7xl mx-auto px-4 pt-6 pb-10 lg:px-6 lg:pt-10 lg:pb-20">
       <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
         {/* Left Column - Text Content */}
         <div className="space-y-5 lg:space-y-8">
@@ -50,63 +53,23 @@ export default function Hero() {
           </div>
         </div>
 
-        {/* Right Column - Visual Illustration */}
-        <div className="relative">
-          {/* Background Shape */}
-          <div className="absolute inset-0 bg-primary rounded-2xl lg:rounded-[3rem] transform rotate-3 scale-100 lg:scale-105 opacity-10"></div>
+        {/* Right Column - Demo Video */}
+        <div className="relative flex justify-center lg:justify-end">
+          <Script
+            src={`https://fast.wistia.com/embed/medias/${WISTIA_MEDIA_ID}.jsonp`}
+            strategy="afterInteractive"
+          />
+          <Script
+            src="https://fast.wistia.com/assets/external/E-v1.js"
+            strategy="afterInteractive"
+          />
 
-          {/* Main Illustration Container */}
-          <div className="relative bg-white rounded-xl lg:rounded-[2rem] p-4 sm:p-6 lg:p-8 shadow-2xl border border-gray-100">
-            {/* Central Figure - Poultry Farmer */}
-            <div className="flex justify-center mb-4 lg:mb-6">
-              <div className="w-24 h-24 lg:w-32 lg:h-32 bg-gray-200 rounded-full flex items-center justify-center">
-                <span className="text-3xl lg:text-4xl">👨‍🌾</span>
-              </div>
-            </div>
-
-            {/* Floating UI Elements */}
-            <div className="absolute top-3 right-3 lg:top-4 lg:right-4 bg-white rounded-lg p-2 sm:p-3 shadow-lg border">
-              <div className="flex items-center space-x-1.5 sm:space-x-2">
-                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-yellow-400 rounded-full shrink-0"></div>
-                <span className="text-[10px] sm:text-xs font-medium">{t("landing.hero.notifications")}</span>
-              </div>
-            </div>
-
-            <div className="absolute top-12 left-3 lg:top-16 lg:left-4 bg-white rounded-lg p-2 sm:p-3 shadow-lg border">
-              <div className="flex items-center space-x-1.5 sm:space-x-2">
-                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-red-400 rounded-full shrink-0"></div>
-                <span className="text-[10px] sm:text-xs font-medium">{t("landing.hero.paymentDue")}</span>
-              </div>
-            </div>
-
-            <div className="absolute bottom-12 right-2 sm:right-4 lg:bottom-16 lg:right-8 bg-white rounded-lg p-2 sm:p-3 shadow-lg border">
-              <div className="flex items-center space-x-1.5 sm:space-x-2">
-                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-orange-400 rounded-full shrink-0"></div>
-                <span className="text-[10px] sm:text-xs font-medium">{t("landing.hero.lowStockAlert")}</span>
-              </div>
-            </div>
-
-            {/* App Interface Mockup */}
-            <div className="bg-gray-50 rounded-lg p-3 lg:p-4 mt-3 lg:mt-4">
-              <div className="space-y-2">
-                <div className="h-2 bg-gray-200 rounded"></div>
-                <div className="h-2 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-2 bg-gray-200 rounded w-1/2"></div>
-              </div>
-              <div className="flex justify-between mt-4">
-                <div className="text-center">
-                  <div className="text-lg font-bold text-primary">1,250</div>
-                  <div className="text-xs text-gray-500">{t("landing.hero.birds")}</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-primary">₹45,000</div>
-                  <div className="text-xs text-gray-500">{t("landing.hero.revenue")}</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-primary">85%</div>
-                  <div className="text-xs text-gray-500">{t("landing.hero.health")}</div>
-                </div>
-              </div>
+          <div className="w-full max-w-[300px] overflow-hidden rounded-2xl border border-gray-200 bg-black shadow-2xl sm:max-w-[340px] lg:max-w-[380px]">
+            <div className="aspect-[9/16] w-full">
+              <div
+                className={`wistia_embed wistia_async_${WISTIA_MEDIA_ID} videoFoam=true`}
+                style={{ height: "100%", width: "100%" }}
+              />
             </div>
           </div>
         </div>

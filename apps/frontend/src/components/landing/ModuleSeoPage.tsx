@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Script from "next/script";
 import { ArrowRight, Egg } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import EmptyMarketingPageShell from "@/components/landing/EmptyMarketingPageShell";
@@ -66,32 +67,22 @@ export default function ModuleSeoPage({
       />
 
       <section className="relative overflow-hidden border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 pb-16 pt-6 lg:px-6 lg:pb-24 lg:pt-10">
-          <div className="grid gap-12 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+        <div className="mx-auto max-w-7xl px-4 pb-10 pt-3 lg:px-6 lg:pb-20 lg:pt-5">
+          <div className="grid gap-7 sm:gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-center lg:gap-12">
             <div>
               <div
-                className={`inline-flex items-center rounded-full border bg-white px-4 py-2 text-sm font-medium shadow-sm ${content.accent.border} ${content.accent.chipText}`}
+                className={`inline-flex items-center rounded-full border bg-white px-3 py-1.5 text-xs font-medium shadow-sm sm:px-4 sm:py-2 sm:text-sm ${content.accent.border} ${content.accent.chipText}`}
               >
                 {content.heroBadge}
               </div>
-              <h1 className="mt-6 max-w-4xl text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
+              <h1 className="mt-3 max-w-4xl text-3xl font-bold tracking-tight text-slate-900 sm:mt-4 sm:text-5xl lg:text-6xl">
                 {content.heroTitle}
               </h1>
-              <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
+              <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-600 sm:mt-5 sm:text-lg sm:leading-8">
                 {content.heroDescription}
               </p>
 
-              <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-                <Button
-                  asChild
-                  size="lg"
-                  className="bg-primary px-7 text-primary-foreground hover:bg-primary/90"
-                >
-                  <Link href={content.signupHref}>
-                    Get Started
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </Button>
+              <div className="mt-5 flex flex-col gap-3 sm:mt-7 sm:flex-row sm:gap-4">
                 <Button
                   asChild
                   size="lg"
@@ -102,56 +93,67 @@ export default function ModuleSeoPage({
                 </Button>
               </div>
 
-              <div className="mt-10 grid gap-4 sm:grid-cols-2">
-                {content.useCases.map((item) => (
-                  <div
-                    key={item}
-                    className="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-sm"
-                  >
-                    {item}
-                  </div>
-                ))}
-              </div>
             </div>
 
-            <div
-              className={`rounded-[2rem] border bg-white p-6 shadow-[0_30px_80px_rgba(15,23,42,0.08)] ${content.accent.border}`}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-4">
+            {content.wistiaMediaId ? (
+              <div className="flex justify-center lg:justify-end">
+                <Script
+                  src={`https://fast.wistia.com/embed/medias/${content.wistiaMediaId}.jsonp`}
+                  strategy="afterInteractive"
+                />
+                <Script
+                  src="https://fast.wistia.com/assets/external/E-v1.js"
+                  strategy="afterInteractive"
+                />
+                <div className="w-full max-w-[300px] overflow-hidden rounded-2xl border border-slate-200 bg-black shadow-[0_30px_80px_rgba(15,23,42,0.14)] sm:max-w-[340px] lg:max-w-[380px]">
+                  <div className="aspect-[9/16] w-full">
+                    <div
+                      className={`wistia_embed wistia_async_${content.wistiaMediaId} videoFoam=true`}
+                      style={{ height: "100%", width: "100%" }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div
+                className={`rounded-[2rem] border bg-white p-6 shadow-[0_30px_80px_rgba(15,23,42,0.08)] ${content.accent.border}`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={`flex h-14 w-14 items-center justify-center rounded-2xl ${content.accent.iconBg} ${content.accent.iconText}`}
+                    >
+                      <Egg className="h-7 w-7" />
+                    </div>
+                    <div>
+                      <p className={`text-xs font-semibold uppercase tracking-[0.22em] ${content.accent.chipText}`}>
+                        {content.moduleEyebrow}
+                      </p>
+                      <h2 className="mt-1 text-2xl font-bold text-slate-900">
+                        {content.moduleTitle}
+                      </h2>
+                    </div>
+                  </div>
                   <div
-                    className={`flex h-14 w-14 items-center justify-center rounded-2xl ${content.accent.iconBg} ${content.accent.iconText}`}
+                    className={`rounded-full border px-4 py-2 text-sm font-semibold ${content.accent.chipBg} ${content.accent.chipBorder} ${content.accent.chipText}`}
                   >
-                    <Egg className="h-7 w-7" />
-                  </div>
-                  <div>
-                    <p className={`text-xs font-semibold uppercase tracking-[0.22em] ${content.accent.chipText}`}>
-                      {content.moduleEyebrow}
-                    </p>
-                    <h2 className="mt-1 text-2xl font-bold text-slate-900">
-                      {content.moduleTitle}
-                    </h2>
+                    {content.features.length} features
                   </div>
                 </div>
-                <div
-                  className={`rounded-full border px-4 py-2 text-sm font-semibold ${content.accent.chipBg} ${content.accent.chipBorder} ${content.accent.chipText}`}
-                >
-                  {content.features.length} features
+
+                <p className="mt-6 text-base leading-7 text-slate-600">
+                  {content.moduleSummary}
+                </p>
+
+                <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                  {content.outcomes.map((item) => (
+                    <div key={item} className="rounded-2xl bg-slate-50 px-4 py-4">
+                      <p className="text-sm font-semibold text-slate-900">{item}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
-
-              <p className="mt-6 text-base leading-7 text-slate-600">
-                {content.moduleSummary}
-              </p>
-
-              <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                {content.outcomes.map((item) => (
-                  <div key={item} className="rounded-2xl bg-slate-50 px-4 py-4">
-                    <p className="text-sm font-semibold text-slate-900">{item}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </section>

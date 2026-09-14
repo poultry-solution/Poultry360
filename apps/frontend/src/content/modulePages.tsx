@@ -58,6 +58,7 @@ export type ModulePageContent = {
   heroBadge: string;
   heroTitle: string;
   heroDescription: string;
+  wistiaMediaId?: string;
   moduleEyebrow: string;
   moduleTitle: string;
   moduleSummary: string;
@@ -146,6 +147,7 @@ export const modulePageContent: Record<string, ModulePageContent> = {
       "Manage egg production, flock records, and farm operations in one layer farm system",
     heroDescription:
       "Poultry360 is built for layer farms in Nepal that want better visibility into egg production, flock performance, mortality, feed usage, inventory, sales, and expenses without depending on manual registers. The result is faster decisions, cleaner records, and a clearer view of farm profitability.",
+    wistiaMediaId: "0tgwy6qx60",
     moduleEyebrow: "Built for egg-producing farms",
     moduleTitle: "Layer Farmer Module",
     moduleSummary:
@@ -331,6 +333,7 @@ export const modulePageContent: Record<string, ModulePageContent> = {
       "Run broiler batches, cost control, and sales tracking from one broiler farm dashboard",
     heroDescription:
       "Poultry360 helps broiler farms in Nepal manage fast-moving flock cycles with better visibility into batches, mortality, expenses, purchases, inventory, customer balances, and FCR. It replaces scattered manual tracking with one clear operating system for day-to-day broiler decisions.",
+    wistiaMediaId: "mav2cdjek1",
     moduleEyebrow: "Built for meat bird operations",
     moduleTitle: "Broiler Farmer Module",
     moduleSummary:
@@ -505,6 +508,7 @@ export const modulePageContent: Record<string, ModulePageContent> = {
       "Control feed inventory, farmer relationships, and company balances from one dealer system",
     heroDescription:
       "Poultry360 is built for feed dealers in Nepal who need tighter control over inventory, company purchases, sales, farmer accounts, payment follow-up, and staff operations. It keeps distribution records structured so your business can scale with less confusion.",
+    wistiaMediaId: "p7h6y74gsz",
     moduleEyebrow: "Built for feed distribution businesses",
     moduleTitle: "Feed Dealer Module",
     moduleSummary:
@@ -653,6 +657,7 @@ export const modulePageContent: Record<string, ModulePageContent> = {
       "Track parent flock eggs, incubation, hatch result, and chick sales in one hatchery system",
     heroDescription:
       "Poultry360 gives hatchery businesses in Nepal a clearer way to manage parent flock batches, egg inventory, incubation stages, hatch performance, chick grading, party balances, and delivery records. It turns the full hatchery lifecycle into an organized digital workflow.",
+    wistiaMediaId: "e36j6s9t1k",
     moduleEyebrow: "Built for hatchery operations",
     moduleTitle: "Hatchery Module",
     moduleSummary:
