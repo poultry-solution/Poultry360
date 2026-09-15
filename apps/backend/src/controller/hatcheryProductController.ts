@@ -70,13 +70,13 @@ export const createHatcheryProduct = async (req: Request, res: Response): Promis
     const duplicate = await prisma.hatcheryManufacturedProduct.findFirst({
       where: { hatcheryOwnerId, name: { equals: name, mode: "insensitive" }, unit: { equals: unit, mode: "insensitive" } },
     });
-    if (duplicate && !duplicate.deletedAt) return res.status(409).json({ message: "A Self Made product with this name and unit already exists" });
+    if (duplicate && !duplicate.deletedAt) return res.status(409).json({ message: "A Self Feed product with this name and unit already exists" });
     if (duplicate?.deletedAt) {
       const restored = await prisma.hatcheryManufacturedProduct.update({
         where: { id: duplicate.id },
         data: { name, unit, minStock: minStock === undefined || minStock === null ? null : Number(minStock), deletedAt: null },
       });
-      return res.status(201).json({ success: true, data: { ...restored, currentStock: 0, lotCount: 0 }, message: "Self Made product restored" });
+      return res.status(201).json({ success: true, data: { ...restored, currentStock: 0, lotCount: 0 }, message: "Self Feed product restored" });
     }
 
     const product = await prisma.hatcheryManufacturedProduct.create({
@@ -90,7 +90,7 @@ export const createHatcheryProduct = async (req: Request, res: Response): Promis
     return res.status(201).json({ success: true, data: { ...product, currentStock: 0, lotCount: 0 } });
   } catch (error: any) {
     if (error?.code === "P2002") {
-      return res.status(409).json({ message: "A Self Made product with this name and unit already exists" });
+      return res.status(409).json({ message: "A Self Feed product with this name and unit already exists" });
     }
     console.error("createHatcheryProduct:", error);
     return res.status(500).json({ message: "Internal server error" });
@@ -103,7 +103,7 @@ export const updateHatcheryProduct = async (req: Request, res: Response): Promis
     const product = await prisma.hatcheryManufacturedProduct.findFirst({
       where: { id: req.params.id, hatcheryOwnerId, deletedAt: null },
     });
-    if (!product) return res.status(404).json({ message: "Self Made product not found" });
+    if (!product) return res.status(404).json({ message: "Self Feed product not found" });
 
     const name = req.body.name === undefined ? product.name : String(req.body.name).trim();
     const unit = req.body.unit === undefined ? product.unit : String(req.body.unit).trim();
@@ -121,7 +121,7 @@ export const updateHatcheryProduct = async (req: Request, res: Response): Promis
       where: { id: { not: product.id }, hatcheryOwnerId, name: { equals: name, mode: "insensitive" }, unit: { equals: unit, mode: "insensitive" }, deletedAt: null },
       select: { id: true },
     });
-    if (duplicate) return res.status(409).json({ message: "A Self Made product with this name and unit already exists" });
+    if (duplicate) return res.status(409).json({ message: "A Self Feed product with this name and unit already exists" });
 
     const updated = await prisma.hatcheryManufacturedProduct.update({
       where: { id: product.id },
@@ -134,7 +134,7 @@ export const updateHatcheryProduct = async (req: Request, res: Response): Promis
     return res.json({ success: true, data: updated });
   } catch (error: any) {
     if (error?.code === "P2002") {
-      return res.status(409).json({ message: "A Self Made product with this name and unit already exists" });
+      return res.status(409).json({ message: "A Self Feed product with this name and unit already exists" });
     }
     console.error("updateHatcheryProduct:", error);
     return res.status(500).json({ message: "Internal server error" });
@@ -148,13 +148,13 @@ export const archiveHatcheryProduct = async (req: Request, res: Response): Promi
       where: { id: req.params.id, hatcheryOwnerId, deletedAt: null },
       include: { inventoryLots: { where: { deletedAt: null }, select: { currentStock: true } } },
     });
-    if (!product) return res.status(404).json({ message: "Self Made product not found" });
+    if (!product) return res.status(404).json({ message: "Self Feed product not found" });
     const stock = product.inventoryLots.reduce((sum, lot) => sum + Number(lot.currentStock), 0);
     if (stock > 0) {
       return res.status(409).json({ message: "Use all remaining stock before archiving this product" });
     }
     await prisma.hatcheryManufacturedProduct.update({ where: { id: product.id }, data: { deletedAt: new Date() } });
-    return res.json({ success: true, message: "Self Made product archived" });
+    return res.json({ success: true, message: "Self Feed product archived" });
   } catch (error) {
     console.error("archiveHatcheryProduct:", error);
     return res.status(500).json({ message: "Internal server error" });

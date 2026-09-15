@@ -1,15 +1,17 @@
 import { Request, Response } from "express";
 import { HatcheryProductionService, ProductionRequestError } from "../services/hatcheryProductionService";
+import { ProductionValidationError } from "../services/productionDomain";
 
 const handleError = (res: Response, error: unknown) => {
   if (error instanceof ProductionRequestError) return res.status(error.status).json({ message: error.message });
+  if (error instanceof ProductionValidationError) return res.status(400).json({ message: error.message });
   console.error("hatchery production:", error);
   return res.status(500).json({ message: "Internal server error" });
 };
 
 export const createHatcheryProduction = async (req: Request, res: Response): Promise<any> => {
   try {
-    const data = await HatcheryProductionService.create({ hatcheryOwnerId: req.userId!, ...req.body });
+    const data = await HatcheryProductionService.create({ ...req.body, hatcheryOwnerId: req.userId! });
     return res.status(201).json({ success: true, data, message: "Production recorded successfully" });
   } catch (error) { return handleError(res, error); }
 };

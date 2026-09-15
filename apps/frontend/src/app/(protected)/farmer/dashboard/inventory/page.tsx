@@ -17,7 +17,12 @@ import {
   Egg,
   RefreshCw,
   Trash2,
+  Factory,
+  FlaskConical,
+  Pencil,
+  Plus,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
 import { useState, useEffect } from "react";
@@ -36,17 +41,63 @@ import { useAddDealerTransaction } from "@/fetchers/dealers/dealerQueries";
 import { inventoryKeys, useDeleteInventoryItem } from "@/fetchers/inventory/inventoryQueries";
 import { useQueryClient } from "@tanstack/react-query";
 import { getTodayLocalDate } from "@/common/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/common/components/ui/select";
+import {
+  useArchiveFarmerProduct,
+  useCreateFarmerProduct,
+  useGetFarmerProducts,
+  useUpdateFarmerProduct,
+  type FarmerManufacturedProduct,
+  type FarmerProductOutputType,
+} from "@/fetchers/farmer/farmerProductQueries";
+
+const PRODUCT_TYPES: Array<{
+  value: FarmerProductOutputType;
+  label: string;
+}> = [
+  { value: "FEED", label: "Feed" },
+  { value: "MEDICINE", label: "Medicine" },
+  { value: "EQUIPMENT", label: "Equipment" },
+  { value: "RAW_MATERIAL", label: "Raw Material" },
+  { value: "OTHER", label: "Other" },
+];
+
+const emptyProductForm = {
+  name: "",
+  unit: "kg",
+  outputItemType: "FEED" as FarmerProductOutputType,
+  minStock: "",
+};
 
 export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState<
-    "feed" | "chicks" | "medicine" | "other" | "eggs"
+    | "feed"
+    | "chicks"
+    | "medicine"
+    | "raw-material"
+    | "self-made"
+    | "other"
+    | "eggs"
   >("feed");
   const { t } = useI18n();
   const [reorderRow, setReorderRow] = useState<any>(null);
   const [reorderQuantity, setReorderQuantity] = useState("");
   const [reorderDate, setReorderDate] = useState(getTodayLocalDate());
+  const [isProductOpen, setIsProductOpen] = useState(false);
+  const [editingProduct, setEditingProduct] =
+    useState<FarmerManufacturedProduct | null>(null);
+  const [productForm, setProductForm] = useState(emptyProductForm);
   const reorderMutation = useAddDealerTransaction();
   const deleteInventoryMutation = useDeleteInventoryItem();
+  const createProduct = useCreateFarmerProduct();
+  const updateProduct = useUpdateFarmerProduct();
+  const archiveProduct = useArchiveFarmerProduct();
   const queryClient = useQueryClient();
 
   // Use TanStack Query hooks
@@ -76,6 +127,9 @@ export default function InventoryPage() {
     batchId: activeTab === "eggs" ? (selectedEggBatchId || null) : null,
     enabled: hasLayerBatch && (activeTab !== "eggs" || !!selectedEggBatchId),
   });
+  const { data: productsData, isLoading: productsLoading } =
+    useGetFarmerProducts({ limit: 100 });
+  const manufacturedProducts = productsData?.data ?? [];
 
   // Filter table data based on active tab
   const getFilteredInventory = () => {
@@ -104,6 +158,12 @@ export default function InventoryPage() {
         return tableData.filter((item: any) => item.itemType === "CHICKS");
       case "medicine":
         return tableData.filter((item: any) => item.itemType === "MEDICINE");
+      case "raw-material":
+        return tableData.filter(
+          (item: any) => item.itemType === "RAW_MATERIAL"
+        );
+      case "self-made":
+        return tableData.filter((item: any) => item.origin === "SELF_MADE");
       case "other":
         return tableData.filter(
           (item: any) =>
@@ -115,6 +175,20 @@ export default function InventoryPage() {
   };
 
   const filteredInventory = getFilteredInventory();
+  const activeTabLabel =
+    activeTab === "feed"
+      ? t("farmer.inventory.tabs.feed")
+      : activeTab === "chicks"
+        ? t("farmer.inventory.tabs.chicks")
+        : activeTab === "medicine"
+          ? t("farmer.inventory.tabs.medicine")
+          : activeTab === "raw-material"
+            ? "Raw Material"
+            : activeTab === "self-made"
+              ? "Self Feed"
+              : activeTab === "eggs"
+                ? "Eggs"
+                : t("farmer.inventory.tabs.other");
 
   const openReorderModal = (row: any) => {
     setReorderRow(row);
@@ -152,6 +226,80 @@ export default function InventoryPage() {
     }
   };
 
+  const openCreateProduct = () => {
+    setEditingProduct(null);
+    setProductForm(emptyProductForm);
+    setIsProductOpen(true);
+  };
+
+  const openEditProduct = (product: FarmerManufacturedProduct) => {
+    setEditingProduct(product);
+    setProductForm({
+      name: product.name,
+      unit: product.unit,
+      outputItemType: product.outputItemType,
+      minStock: product.minStock === null ? "" : String(product.minStock),
+    });
+    setIsProductOpen(true);
+  };
+
+  const closeProductModal = () => {
+    setIsProductOpen(false);
+    setEditingProduct(null);
+    setProductForm(emptyProductForm);
+  };
+
+  const handleSaveProduct = async () => {
+    const minStock =
+      productForm.minStock === "" ? null : Number(productForm.minStock);
+
+    if (!productForm.name.trim() || !productForm.unit.trim()) {
+      toast.error("Product name and unit are required");
+      return;
+    }
+    if (minStock !== null && (!Number.isFinite(minStock) || minStock < 0)) {
+      toast.error("Minimum stock must be zero or greater");
+      return;
+    }
+
+    try {
+      const input = {
+        name: productForm.name.trim(),
+        unit: productForm.unit.trim(),
+        outputItemType: productForm.outputItemType,
+        minStock,
+      };
+
+      if (editingProduct) {
+        await updateProduct.mutateAsync({ id: editingProduct.id, input });
+      } else {
+        await createProduct.mutateAsync(input);
+      }
+
+      toast.success(
+        editingProduct ? "Product updated" : "Self Feed product added"
+      );
+      closeProductModal();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Could not save product");
+    }
+  };
+
+  const handleArchiveProduct = async (
+    product: FarmerManufacturedProduct
+  ) => {
+    if (!confirm(`Archive ${product.name}?`)) return;
+
+    try {
+      await archiveProduct.mutateAsync(product.id);
+      toast.success("Product archived");
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Could not archive product"
+      );
+    }
+  };
+
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case "eggs":
@@ -162,6 +310,10 @@ export default function InventoryPage() {
         return <Package className="h-4 w-4" />;
       case "medicine":
         return <Pill className="h-4 w-4" />;
+      case "raw-material":
+        return <FlaskConical className="h-4 w-4" />;
+      case "self-made":
+        return <Factory className="h-4 w-4" />;
       case "other":
         return <Box className="h-4 w-4" />;
       default:
@@ -171,7 +323,14 @@ export default function InventoryPage() {
 
   // Column configurations for different categories
   const getInventoryColumns = (
-    category: "feed" | "medicine" | "chicks" | "other" | "eggs"
+    category:
+      | "feed"
+      | "medicine"
+      | "chicks"
+      | "raw-material"
+      | "self-made"
+      | "other"
+      | "eggs"
   ) => {
     if (category === "eggs") {
       return [
@@ -211,7 +370,14 @@ export default function InventoryPage() {
       createColumn("name", t("farmer.inventory.table.item"), {
         render: (_, item: any) => (
           <div>
-            <p className="font-medium">{item.name}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-medium">{item.name}</p>
+              {item.origin === "SELF_MADE" && (
+                <Badge className="bg-emerald-100 text-emerald-800">
+                  Self Feed
+                </Badge>
+              )}
+            </div>
             {item.batchNumber && (
               <p className="text-sm text-gray-600">
                 {t("farmer.inventory.table.batch")}: {item.batchNumber}
@@ -285,8 +451,9 @@ export default function InventoryPage() {
       createColumn("action", "Action", {
         render: (_, item: any) => {
           const qty = Number(item.quantity ?? 0);
-          const canDelete = qty === 0;
-          const showReorder = item.dealerId && !item.hasDealerAccount;
+          const canDelete = qty === 0 && item.origin !== "SELF_MADE";
+          const showReorder =
+            item.origin !== "SELF_MADE" && item.dealerId && !item.hasDealerAccount;
           return (
             <div className="flex flex-col items-start gap-0.5">
               <div className="flex items-center gap-1">
@@ -306,8 +473,14 @@ export default function InventoryPage() {
                   variant="outline"
                   className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-60 disabled:cursor-not-allowed"
                   disabled={!canDelete || deleteInventoryMutation.isPending}
-                  title={canDelete ? undefined : t("farmer.inventory.deleteDisabledReason")}
-                  aria-label={canDelete ? "Delete" : t("farmer.inventory.deleteDisabledReason")}
+                  title={
+                    canDelete
+                      ? undefined
+                      : item.origin === "SELF_MADE"
+                        ? "Reverse its production run to remove this lot"
+                        : t("farmer.inventory.deleteDisabledReason")
+                  }
+                  aria-label={canDelete ? "Delete" : "Delete unavailable"}
                   onClick={() => {
                     if (!canDelete) return;
                     if (!confirm(t("farmer.inventory.deleteConfirm", { name: item.name }))) return;
@@ -322,7 +495,9 @@ export default function InventoryPage() {
               </div>
               {!canDelete && (
                 <span className="text-xs text-amber-600 dark:text-amber-500" role="status">
-                  {t("farmer.inventory.deleteDisabledReason")}
+                  {item.origin === "SELF_MADE"
+                    ? "Reverse production to remove"
+                    : t("farmer.inventory.deleteDisabledReason")}
                 </span>
               )}
             </div>
@@ -333,6 +508,87 @@ export default function InventoryPage() {
 
     return baseColumns;
   };
+
+  const productColumns: Column<FarmerManufacturedProduct>[] = [
+    {
+      key: "name",
+      label: "Product",
+      render: (_, product) => (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium">{product.name}</span>
+          <Badge className="bg-emerald-100 text-emerald-800">
+            Self Feed
+          </Badge>
+        </div>
+      ),
+    },
+    {
+      key: "outputItemType",
+      label: "Category",
+      render: (_, product) => (
+        <Badge variant="outline">
+          {product.outputItemType.replaceAll("_", " ")}
+        </Badge>
+      ),
+    },
+    {
+      key: "currentStock",
+      label: "Quantity",
+      render: (_, product) => (
+        <span className="font-medium">
+          {Number(product.currentStock)} {product.unit}
+        </span>
+      ),
+    },
+    {
+      key: "lotCount",
+      label: "Production lots",
+      render: (_, product) => product.lotCount,
+    },
+    {
+      key: "minStock",
+      label: "Minimum stock",
+      render: (_, product) =>
+        product.minStock === null
+          ? "—"
+          : `${Number(product.minStock)} ${product.unit}`,
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (_, product) => {
+        const hasStock = Number(product.currentStock) > 0;
+
+        return (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => openEditProduct(product)}
+            >
+              <Pencil className="mr-1 h-3.5 w-3.5" />
+              Edit
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-red-600 hover:bg-red-50 hover:text-red-700"
+              disabled={hasStock || archiveProduct.isPending}
+              title={
+                hasStock
+                  ? "Use or reverse all remaining stock before archiving"
+                  : undefined
+              }
+              onClick={() => handleArchiveProduct(product)}
+            >
+              <Trash2 className="mr-1 h-3.5 w-3.5" />
+              Archive
+            </Button>
+          </div>
+        );
+      },
+    },
+  ];
 
   // Loading state
   if (isLoading || isEggLoading) {
@@ -391,6 +647,19 @@ export default function InventoryPage() {
               ))}
             </select>
           </div>
+        ) : activeTab === "self-made" ? (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={openCreateProduct}>
+              <Plus className="mr-1 h-4 w-4" />
+              Add Product
+            </Button>
+            <Button asChild>
+              <Link href="/farmer/dashboard/production/new">
+                <Factory className="mr-1 h-4 w-4" />
+                Add Production
+              </Link>
+            </Button>
+          </div>
         ) : (
           <div className="text-sm text-muted-foreground">
             {t("farmer.inventory.autoAdded")}{" "}
@@ -405,7 +674,6 @@ export default function InventoryPage() {
       <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Items</CardTitle>
             <CardTitle className="text-sm font-medium">{t("farmer.inventory.stats.totalItems")}</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -419,7 +687,6 @@ export default function InventoryPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
             <CardTitle className="text-sm font-medium">{t("farmer.inventory.stats.lowStock")}</CardTitle>
             <AlertTriangle className="h-4 w-4 text-orange-500" />
           </CardHeader>
@@ -474,12 +741,25 @@ export default function InventoryPage() {
               label: t("farmer.inventory.tabs.medicine"),
               icon: <Pill className="h-4 w-4" />,
             },
+            {
+              key: "raw-material",
+              label: "Raw Material",
+              icon: <FlaskConical className="h-4 w-4" />,
+            },
+            {
+              key: "self-made",
+              label: "Self Feed",
+              icon: <Factory className="h-4 w-4" />,
+            },
             { key: "other", label: t("farmer.inventory.tabs.other"), icon: <Box className="h-4 w-4" /> },
           ].map((tab) => {
             const getTabCount = () => {
               if (tab.key === "eggs") {
                 if (!selectedEggBatchId) return 0;
                 return (eggData?.data?.types ?? []).reduce((s: number, t: { quantity?: number }) => s + (t.quantity ?? 0), 0);
+              }
+              if (tab.key === "self-made") {
+                return manufacturedProducts.length;
               }
               if (!tableData) return 0;
               switch (tab.key) {
@@ -494,6 +774,10 @@ export default function InventoryPage() {
                 case "medicine":
                   return tableData.filter(
                     (item: any) => item.itemType === "MEDICINE"
+                  ).length;
+                case "raw-material":
+                  return tableData.filter(
+                    (item: any) => item.itemType === "RAW_MATERIAL"
                   ).length;
                 case "other":
                   return tableData.filter(
@@ -535,35 +819,48 @@ export default function InventoryPage() {
               {activeTab === "eggs"
                 ? "Egg Inventory"
                 : t("farmer.inventory.categoryTitle", {
-                  category:
-                    activeTab === "feed"
-                      ? t("farmer.inventory.tabs.feed")
-                      : activeTab === "chicks"
-                        ? t("farmer.inventory.tabs.chicks")
-                        : activeTab === "medicine"
-                          ? t("farmer.inventory.tabs.medicine")
-                          : t("farmer.inventory.tabs.other"),
-                })}
+                    category: activeTabLabel,
+                  })}
             </span>
           </CardTitle>
           <CardDescription>
             {activeTab === "eggs"
               ? "Current stock of eggs by category"
+              : activeTab === "self-made"
+                ? `${manufacturedProducts.length} Self Feed product${manufacturedProducts.length === 1 ? "" : "s"}, including products with zero stock`
               : t("farmer.inventory.categoryDesc", {
-                count: filteredInventory.length,
-                category:
-                  activeTab === "feed"
-                    ? t("farmer.inventory.tabs.feed")
-                    : activeTab === "chicks"
-                      ? t("farmer.inventory.tabs.chicks")
-                      : activeTab === "medicine"
-                        ? t("farmer.inventory.tabs.medicine")
-                        : t("farmer.inventory.tabs.other"),
-              })}
+                  count: filteredInventory.length,
+                  category: activeTabLabel,
+                })}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          {filteredInventory.length === 0 ? (
+          {activeTab === "self-made" ? (
+            productsLoading ? (
+              <div className="flex items-center justify-center py-10 text-muted-foreground">
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Loading products...
+              </div>
+            ) : manufacturedProducts.length === 0 ? (
+              <div className="py-10 text-center text-muted-foreground">
+                <Factory className="mx-auto mb-3 h-12 w-12 opacity-40" />
+                <p className="font-medium">No Self Feed products</p>
+                <p className="mt-1 text-sm">
+                  Add a product here before recording production.
+                </p>
+                <Button className="mt-4" onClick={openCreateProduct}>
+                  <Plus className="mr-1 h-4 w-4" />
+                  Add Product
+                </Button>
+              </div>
+            ) : (
+              <DataTable
+                data={manufacturedProducts}
+                columns={productColumns}
+                emptyMessage="No Self Feed products"
+              />
+            )
+          ) : filteredInventory.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>{t("farmer.inventory.empty", { category: activeTab })}</p>
@@ -593,6 +890,117 @@ export default function InventoryPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Self Feed product modal */}
+      <Modal
+        isOpen={isProductOpen}
+        onClose={closeProductModal}
+        title={
+          editingProduct ? "Edit Self Feed Product" : "Add Self Feed Product"
+        }
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="self-made-product-name">Product name</Label>
+            <Input
+              id="self-made-product-name"
+              value={productForm.name}
+              onChange={(event) =>
+                setProductForm((current) => ({
+                  ...current,
+                  name: event.target.value,
+                }))
+              }
+              placeholder="e.g. Broiler starter feed"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Inventory category</Label>
+              <Select
+                value={productForm.outputItemType}
+                disabled={Boolean(editingProduct?.lotCount)}
+                onValueChange={(value) =>
+                  setProductForm((current) => ({
+                    ...current,
+                    outputItemType: value as FarmerProductOutputType,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  {PRODUCT_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="self-made-product-unit">Unit</Label>
+              <Input
+                id="self-made-product-unit"
+                value={productForm.unit}
+                disabled={Boolean(editingProduct?.lotCount)}
+                onChange={(event) =>
+                  setProductForm((current) => ({
+                    ...current,
+                    unit: event.target.value,
+                  }))
+                }
+                placeholder="kg, litre, pcs..."
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="self-made-product-min-stock">
+              Minimum stock (optional)
+            </Label>
+            <Input
+              id="self-made-product-min-stock"
+              type="number"
+              min="0"
+              step="any"
+              value={productForm.minStock}
+              onChange={(event) =>
+                setProductForm((current) => ({
+                  ...current,
+                  minStock: event.target.value,
+                }))
+              }
+            />
+          </div>
+
+          {editingProduct && editingProduct.lotCount > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Unit and category cannot be changed after production history
+              exists.
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={closeProductModal}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveProduct}
+              disabled={createProduct.isPending || updateProduct.isPending}
+            >
+              {createProduct.isPending || updateProduct.isPending
+                ? "Saving..."
+                : editingProduct
+                  ? "Save Changes"
+                  : "Add Product"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Reorder Modal */}
       <Modal

@@ -58,6 +58,8 @@ import hatcheryPartyRoutes from "./hatcheryPartyRoutes";
 import hatcheryAnalyticsRoutes from "./hatcheryAnalyticsRoutes";
 import hatcheryProductRoutes from "./hatcheryProductRoutes";
 import hatcheryProductionRoutes from "./hatcheryProductionRoutes";
+import farmerProductRoutes from "./farmerProductRoutes";
+import farmerProductionRoutes from "./farmerProductionRoutes";
 
 // Test routes (only in test environment)
 let testRoutes: express.Router | null = null;
@@ -78,6 +80,8 @@ router.use("/", companyDealerAccountRoutes); // Account routes for both company 
 router.use("/dealer/ledger", dealerLedgerRoutes);
 router.use("/dealer/cash-in-hand", dealerCashInHandRoutes);
 router.use("/farmer/cash-in-hand", farmerCashInHandRoutes);
+router.use("/farmer/products", farmerProductRoutes);
+router.use("/farmer/production", farmerProductionRoutes);
 router.use("/dealer/manual-companies", dealerManualCompanyRoutes);
 router.use("/company/products", companyProductRoutes);
 router.use("/company/sales", companySaleRoutes);

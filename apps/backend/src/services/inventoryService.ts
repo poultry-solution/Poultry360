@@ -3,9 +3,15 @@ import { Prisma } from "@prisma/client";
 import {
   TransactionType,
   InventoryItemType,
-  CategoryType,
+  InventoryOrigin,
+  InventoryTransactionType,
   PurchaseCategory,
 } from "@prisma/client";
+import {
+  ensureFarmerInventoryCategory,
+  getFarmerInventoryUnitCosts,
+  PURCHASE_CATEGORY_TO_ITEM_TYPE,
+} from "./farmerInventoryDomain";
 
 // ==================== INVENTORY SERVICE ====================
 // Handles the connection between suppliers, inventory, and expenses
@@ -68,14 +74,7 @@ export class InventoryService {
     let itemType: InventoryItemType;
     if (dealerId && purchaseCategory) {
       // Unified supplier system: use explicit category
-      const categoryToItemType: Record<PurchaseCategory, InventoryItemType> = {
-        FEED: InventoryItemType.FEED,
-        MEDICINE: InventoryItemType.MEDICINE,
-        CHICKS: InventoryItemType.CHICKS,
-        EQUIPMENT: InventoryItemType.EQUIPMENT,
-        OTHER: InventoryItemType.OTHER,
-      };
-      itemType = categoryToItemType[purchaseCategory];
+      itemType = PURCHASE_CATEGORY_TO_ITEM_TYPE[purchaseCategory];
     } else if (dealerId) {
       itemType = InventoryItemType.FEED; // Backward compatible default
     } else if (hatcheryId) {
@@ -88,38 +87,22 @@ export class InventoryService {
 
     return await prisma.$transaction(
       async (tx) => {
-        // 1. Determine category name
-      const categoryName =
-        itemType === InventoryItemType.FEED
-          ? "Feed"
-          : itemType === InventoryItemType.CHICKS
-            ? "Chicks"
-            : itemType === InventoryItemType.MEDICINE
-              ? "Medicine"
-              : itemType === InventoryItemType.OTHER
-                ? "Equipment"
-                : "Other";
+      if (!itemName.trim()) throw new Error("Item name is required");
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        throw new Error("Quantity must be greater than zero");
+      }
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        throw new Error("Unit price must be a non-negative number");
+      }
 
-      // 2. Upsert category (find or create in one operation)
-      const category = await tx.category.upsert({
-        where: {
-          userId_type_name: {
-            userId,
-            type: "INVENTORY",
-            name: categoryName,
-          },
-        },
-        update: {},
-        create: {
-          name: categoryName,
-          type: CategoryType.INVENTORY,
-          description: `Category for ${categoryName} items`,
-          userId,
-        },
-      });
+      // 1. Use the same canonical category mapping for purchases, manual stock,
+      // and production output.
+      const category = await ensureFarmerInventoryCategory(tx, userId, itemType);
 
       // 3. Find or create inventory item by name + rate + supplier (different rate or supplier = separate line)
       const rateKey = new Prisma.Decimal(Math.round(unitPrice * 100) / 100);
+      const resolvedUnit = unit?.trim() ||
+        (itemType === InventoryItemType.CHICKS ? "birds" : "kg");
       const supplierKey =
         dealerId != null
           ? `DEALER:${dealerId}`
@@ -138,26 +121,28 @@ export class InventoryService {
 
       const inventoryItem = await tx.inventoryItem.upsert({
         where: {
-          userId_categoryId_name_unitPrice_supplierKey_expiryDateKey: {
+          userId_categoryId_name_unit_unitPrice_supplierKey_expiryDateKey: {
             userId,
             categoryId: category.id,
             name: itemName,
+            unit: resolvedUnit,
             unitPrice: rateKey,
             supplierKey,
             expiryDateKey,
           },
         },
         update: {
-          ...(unit ? { unit } : {}),
           expiryDate: normalizedExpiryDate,
           expiryDateKey,
+          deletedAt: null,
         },
         create: {
           name: itemName,
           description: description,
           currentStock: 0,
-          unit: unit || (itemType === InventoryItemType.CHICKS ? "birds" : "kg"),
+          unit: resolvedUnit,
           itemType,
+          origin: InventoryOrigin.PURCHASED,
           userId,
           categoryId: category.id,
           unitPrice: rateKey,
@@ -184,7 +169,7 @@ export class InventoryService {
       // 5. Create inventory transaction for paid quantity (stock addition)
       await tx.inventoryTransaction.create({
         data: {
-          type: TransactionType.PURCHASE,
+          type: InventoryTransactionType.PURCHASE,
           quantity,
           unitPrice,
           totalAmount,
@@ -199,7 +184,7 @@ export class InventoryService {
       if (freeQuantity && freeQuantity > 0) {
         await tx.inventoryTransaction.create({
           data: {
-            type: TransactionType.PURCHASE,
+            type: InventoryTransactionType.PURCHASE,
             quantity: freeQuantity,
             unitPrice: 0,
             totalAmount: 0,
@@ -245,7 +230,7 @@ export class InventoryService {
           inventoryItemId: inventoryItem.id,
           expenseId: expense.id,
           purchaseCategory: resolvedCategory,
-          unit: unit || null,
+          unit: resolvedUnit,
           unitPrice: unitPrice,
           expiryDate: normalizedExpiryDate,
           entityType: dealerId
@@ -307,6 +292,7 @@ export class InventoryService {
 
   // ==================== RECORD INVENTORY USAGE (FARM/BATCH SPECIFIC) ====================
   static async recordInventoryUsage(data: {
+    userId: string;
     itemId: string;
     quantity: number;
     date: Date;
@@ -319,8 +305,8 @@ export class InventoryService {
 
     return await prisma.$transaction(async (tx) => {
       // 1. Check if enough stock available
-      const item = await tx.inventoryItem.findUnique({
-        where: { id: itemId },
+      const item = await tx.inventoryItem.findFirst({
+        where: { id: itemId, userId: data.userId, deletedAt: null },
       });
 
       if (!item) {
@@ -332,12 +318,17 @@ export class InventoryService {
           `Insufficient stock. Available: ${item.currentStock}, Required: ${quantity}`
         );
       }
+      const unitCosts = await getFarmerInventoryUnitCosts(tx, [itemId]);
+      const unitPrice = Number(unitCosts.get(itemId) ?? item.unitPrice ?? 0);
+      const totalAmount = unitPrice * quantity;
 
       // 2. Create usage record
       const usage = await tx.inventoryUsage.create({
         data: {
           date,
           quantity,
+          unitPrice,
+          totalAmount,
           notes,
           itemId,
           farmId,
@@ -347,22 +338,23 @@ export class InventoryService {
       });
 
       // 3. Update stock
-      await tx.inventoryItem.update({
-        where: { id: itemId },
+      const updated = await tx.inventoryItem.updateMany({
+        where: { id: itemId, userId: data.userId, currentStock: { gte: quantity }, deletedAt: null },
         data: {
           currentStock: {
             decrement: quantity,
           },
         },
       });
+      if (updated.count !== 1) throw new Error("Inventory stock changed. Please try again.");
 
       // 4. Create inventory transaction (stock reduction)
       await tx.inventoryTransaction.create({
         data: {
-          type: TransactionType.USAGE, // Using USAGE for internal consumption
+          type: InventoryTransactionType.USAGE,
           quantity,
-          unitPrice: 0, // No price for usage
-          totalAmount: 0,
+          unitPrice,
+          totalAmount,
           date,
           description: `Usage recorded`,
           itemId,
@@ -429,8 +421,8 @@ export class InventoryService {
 
     return await prisma.$transaction(async (tx) => {
       // 1. Get inventory item
-      const item = await tx.inventoryItem.findUnique({
-        where: { id: itemId },
+      const item = await tx.inventoryItem.findFirst({
+        where: { id: itemId, userId, deletedAt: null },
         include: { category: true },
       });
 
@@ -446,13 +438,8 @@ export class InventoryService {
       }
 
       // 3. Effective rate from purchases (total cost / total qty; handles paid + free)
-      const purchaseSums = await tx.inventoryTransaction.aggregate({
-        where: { itemId, type: "PURCHASE" },
-        _sum: { totalAmount: true, quantity: true },
-      });
-      const sumQty = Number(purchaseSums._sum.quantity ?? 0);
-      const sumAmount = Number(purchaseSums._sum.totalAmount ?? 0);
-      const unitPrice = sumQty > 0 ? sumAmount / sumQty : 0;
+      const unitCosts = await getFarmerInventoryUnitCosts(tx, [itemId]);
+      const unitPrice = Number(unitCosts.get(itemId) ?? item.unitPrice ?? 0);
       const totalAmount = unitPrice * quantity;
 
       // 4. Create expense record (with farm/batch context)
@@ -485,19 +472,20 @@ export class InventoryService {
       });
 
       // 6. Update stock
-      await tx.inventoryItem.update({
-        where: { id: itemId },
+      const updated = await tx.inventoryItem.updateMany({
+        where: { id: itemId, userId, currentStock: { gte: quantity }, deletedAt: null },
         data: {
           currentStock: {
             decrement: quantity,
           },
         },
       });
+      if (updated.count !== 1) throw new Error("Inventory stock changed. Please try again.");
 
       // 7. Create inventory transaction (stock reduction)
       await tx.inventoryTransaction.create({
         data: {
-          type: TransactionType.USAGE, // Using USAGE for internal consumption
+          type: InventoryTransactionType.USAGE,
           quantity,
           unitPrice,
           totalAmount,

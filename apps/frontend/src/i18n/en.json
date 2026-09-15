@@ -747,6 +747,7 @@
         "feed": "Feed",
         "medicine": "Medicine",
         "chicks": "Chicks",
+        "rawMaterial": "Raw Material",
         "equipment": "Equipment",
         "other": "Other"
       },

@@ -268,7 +268,7 @@ export const createHatcheryInventoryItem = async (
       return res.status(400).json({ message: "name is required" });
 
     if (itemType === HatcheryInventoryItemType.SELF_MADE) {
-      return res.status(400).json({ message: "Create Self Made products from the Self Made inventory tab" });
+      return res.status(400).json({ message: "Create Self Feed products from the Self Feed inventory tab" });
     }
 
     const item = await prisma.hatcheryInventoryItem.create({
@@ -401,7 +401,7 @@ export const reorderHatcheryInventoryItem = async (
 
     // Map item type to purchase category
     if (item.itemType === HatcheryInventoryItemType.SELF_MADE) {
-      return res.status(400).json({ message: "Self Made stock can only be added through production" });
+      return res.status(400).json({ message: "Self Feed stock can only be added through production" });
     }
 
     const typeToCat: Partial<Record<HatcheryInventoryItemType, HatcheryPurchaseCategory>> = {

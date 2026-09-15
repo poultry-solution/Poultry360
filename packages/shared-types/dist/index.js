@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SaleSchema = exports.SalesItemTypeSchema = exports.UpdateExpenseSchema = exports.CreateExpenseSchema = exports.ExpenseSchema = exports.UpdateCategorySchema = exports.CreateCategorySchema = exports.CategorySchema = exports.BatchSummarySchema = exports.EggInventoryResponseSchema = exports.EggProductionSchema = exports.EggProductionEntrySchema = exports.UpdateEggProductionSchema = exports.CreateEggProductionSchema = exports.UpdateEggTypeSchema = exports.CreateEggTypeSchema = exports.EggTypeSchema = exports.CloseBatchSchema = exports.UpdateBatchSchema = exports.CreateBatchSchema = exports.BatchResponseSchema = exports.BatchCountSchema = exports.BatchFarmSchema = exports.BatchSchema = exports.UpdateFarmSchema = exports.CreateFarmSchema = exports.FarmResponseSchema = exports.FarmCountSchema = exports.FarmManagerSchema = exports.FarmOwnerSchema = exports.FarmSchema = exports.UpdateUserSchema = exports.CreateUserSchema = exports.UserSchema = exports.BaseSchema = exports.RecurrencePatternSchema = exports.ReminderStatusSchema = exports.ReminderTypeSchema = exports.UNIT_PRESETS = exports.CreateUnitConversionSchema = exports.PurchaseCategorySchema = exports.CategoryTypeSchema = exports.AuditActionSchema = exports.VaccinationStatusSchema = exports.NotificationStatusSchema = exports.NotificationTypeSchema = exports.TransactionTypeSchema = exports.BatchTypeSchema = exports.BatchStatusSchema = exports.UserRoleSchema = void 0;
-exports.UpdateReminderSchema = exports.CreateReminderSchema = exports.ReminderSchema = exports.UpdateNotificationSchema = exports.CreateNotificationSchema = exports.NotificationSchema = exports.UpdateBirdWeightSchema = exports.CreateBirdWeightSchema = exports.BirdWeightSchema = exports.UpdateFeedConsumptionSchema = exports.CreateFeedConsumptionSchema = exports.FeedConsumptionSchema = exports.UpdateVaccinationSchema = exports.CreateVaccinationSchema = exports.VaccinationSchema = exports.UpdateMortalitySchema = exports.CreateMortalitySchema = exports.MortalitySchema = exports.CreateCustomerTransactionSchema = exports.CustomerTransactionSchema = exports.UpdateCustomerSchema = exports.CreateCustomerSchema = exports.CustomerSchema = exports.UpdateMedicineSupplierSchema = exports.CreateMedicineSupplierSchema = exports.MedicineSupplierSchema = exports.UpdateHatcherySchema = exports.CreateHatcherySchema = exports.HatcherySchema = exports.DealerDetailResponseSchema = exports.DealerStatisticsSchema = exports.DealerResponseSchema = exports.DealerTransactionSchema = exports.UpdateDealerSchema = exports.CreateDealerSchema = exports.DealerSchema = exports.CreateEntityTransactionSchema = exports.EntityTransactionSchema = exports.CreateInventoryUsageSchema = exports.InventoryUsageSchema = exports.CreateInventoryTransactionSchema = exports.InventoryTransactionSchema = exports.UpdateInventoryItemSchema = exports.CreateInventoryItemSchema = exports.InventoryItemSchema = exports.InventoryItemTypeSchema = exports.CreateSalePaymentSchema = exports.SalePaymentSchema = exports.UpdateSaleSchema = exports.CreateSaleSchema = void 0;
-exports.PaginatedResponseSchema = exports.ApiResponseSchema = exports.schemas = exports.BatchDetailResponseSchema = exports.BatchListResponseSchema = exports.BatchListSummarySchema = exports.FarmDetailResponseSchema = exports.FarmListResponseSchema = exports.AuthResponseSchema = exports.UserResponseSchema = exports.FarmAnalyticsSchema = exports.BatchAnalyticsSchema = exports.SignupSchema = exports.CalendarTypeSchema = exports.LanguageSchema = exports.LoginSchema = exports.CreateAuditLogSchema = exports.AuditLogSchema = void 0;
+exports.SalesItemTypeSchema = exports.UpdateExpenseSchema = exports.CreateExpenseSchema = exports.ExpenseSchema = exports.UpdateCategorySchema = exports.CreateCategorySchema = exports.CategorySchema = exports.BatchSummarySchema = exports.EggInventoryResponseSchema = exports.EggProductionSchema = exports.EggProductionEntrySchema = exports.UpdateEggProductionSchema = exports.CreateEggProductionSchema = exports.UpdateEggTypeSchema = exports.CreateEggTypeSchema = exports.EggTypeSchema = exports.CloseBatchSchema = exports.UpdateBatchSchema = exports.CreateBatchSchema = exports.BatchResponseSchema = exports.BatchCountSchema = exports.BatchFarmSchema = exports.BatchSchema = exports.UpdateFarmSchema = exports.CreateFarmSchema = exports.FarmResponseSchema = exports.FarmCountSchema = exports.FarmManagerSchema = exports.FarmOwnerSchema = exports.FarmSchema = exports.UpdateUserSchema = exports.CreateUserSchema = exports.UserSchema = exports.BaseSchema = exports.RecurrencePatternSchema = exports.ReminderStatusSchema = exports.ReminderTypeSchema = exports.UNIT_PRESETS = exports.CreateUnitConversionSchema = exports.PurchaseCategorySchema = exports.CategoryTypeSchema = exports.AuditActionSchema = exports.VaccinationStatusSchema = exports.NotificationStatusSchema = exports.NotificationTypeSchema = exports.InventoryTransactionTypeSchema = exports.TransactionTypeSchema = exports.BatchTypeSchema = exports.BatchStatusSchema = exports.UserRoleSchema = void 0;
+exports.UpdateBirdWeightSchema = exports.CreateBirdWeightSchema = exports.BirdWeightSchema = exports.UpdateFeedConsumptionSchema = exports.CreateFeedConsumptionSchema = exports.FeedConsumptionSchema = exports.UpdateVaccinationSchema = exports.CreateVaccinationSchema = exports.VaccinationSchema = exports.UpdateMortalitySchema = exports.CreateMortalitySchema = exports.MortalitySchema = exports.CreateCustomerTransactionSchema = exports.CustomerTransactionSchema = exports.UpdateCustomerSchema = exports.CreateCustomerSchema = exports.CustomerSchema = exports.UpdateMedicineSupplierSchema = exports.CreateMedicineSupplierSchema = exports.MedicineSupplierSchema = exports.UpdateHatcherySchema = exports.CreateHatcherySchema = exports.HatcherySchema = exports.DealerDetailResponseSchema = exports.DealerStatisticsSchema = exports.DealerResponseSchema = exports.DealerTransactionSchema = exports.UpdateDealerSchema = exports.CreateDealerSchema = exports.DealerSchema = exports.CreateEntityTransactionSchema = exports.EntityTransactionSchema = exports.CreateFarmerProductionSchema = exports.UpdateFarmerManufacturedProductSchema = exports.CreateFarmerManufacturedProductSchema = exports.FarmerManufacturedProductSchema = exports.CreateInventoryUsageSchema = exports.InventoryUsageSchema = exports.CreateInventoryTransactionSchema = exports.InventoryTransactionSchema = exports.UpdateInventoryItemSchema = exports.CreateInventoryItemSchema = exports.InventoryItemSchema = exports.InventoryOriginSchema = exports.InventoryItemTypeSchema = exports.CreateSalePaymentSchema = exports.SalePaymentSchema = exports.UpdateSaleSchema = exports.CreateSaleSchema = exports.SaleSchema = void 0;
+exports.PaginatedResponseSchema = exports.ApiResponseSchema = exports.schemas = exports.BatchDetailResponseSchema = exports.BatchListResponseSchema = exports.BatchListSummarySchema = exports.FarmDetailResponseSchema = exports.FarmListResponseSchema = exports.AuthResponseSchema = exports.UserResponseSchema = exports.FarmAnalyticsSchema = exports.BatchAnalyticsSchema = exports.SignupSchema = exports.CalendarTypeSchema = exports.LanguageSchema = exports.LoginSchema = exports.CreateAuditLogSchema = exports.AuditLogSchema = exports.UpdateReminderSchema = exports.CreateReminderSchema = exports.ReminderSchema = exports.UpdateNotificationSchema = exports.CreateNotificationSchema = exports.NotificationSchema = void 0;
 // packages/shared-types/index.ts
 const zod_1 = require("zod");
 // ==================== ENUMS ====================
@@ -17,6 +17,13 @@ exports.TransactionTypeSchema = zod_1.z.enum([
     "ADJUSTMENT",
     "OPENING_BALANCE",
     "USAGE",
+]);
+exports.InventoryTransactionTypeSchema = zod_1.z.enum([
+    "PURCHASE",
+    "USAGE",
+    "ADJUSTMENT",
+    "PRODUCTION_INPUT",
+    "PRODUCTION_OUTPUT",
 ]);
 exports.NotificationTypeSchema = zod_1.z.enum([
     "LOW_INVENTORY",
@@ -44,7 +51,14 @@ exports.AuditActionSchema = zod_1.z.enum([
     "LOGOUT",
 ]);
 exports.CategoryTypeSchema = zod_1.z.enum(["EXPENSE", "SALES", "INVENTORY"]);
-exports.PurchaseCategorySchema = zod_1.z.enum(["FEED", "MEDICINE", "CHICKS", "EQUIPMENT", "OTHER"]);
+exports.PurchaseCategorySchema = zod_1.z.enum([
+    "FEED",
+    "MEDICINE",
+    "CHICKS",
+    "EQUIPMENT",
+    "RAW_MATERIAL",
+    "OTHER",
+]);
 // ==================== UNIT CONVERSION ====================
 exports.CreateUnitConversionSchema = zod_1.z.object({
     unitName: zod_1.z.string().min(1).max(20),
@@ -55,6 +69,7 @@ exports.UNIT_PRESETS = {
     MEDICINE: ["Bottle", "Strip", "Vial", "Tablet", "ML", "PCS"],
     CHICKS: ["Birds", "PCS", "Dozen", "Crate"],
     EQUIPMENT: ["PCS", "Set", "Unit", "Box"],
+    RAW_MATERIAL: ["KG", "Gram", "Liters", "ML", "Bag", "Sack", "Packet"],
     OTHER: ["PCS", "KG", "Liters", "Box", "Packet"],
 };
 // ==================== REMINDER SCHEMAS ====================
@@ -356,7 +371,7 @@ exports.ExpenseSchema = exports.BaseSchema.extend({
     date: zod_1.z.date(),
     amount: zod_1.z.number().positive(),
     description: zod_1.z.string().nullable(),
-    quantity: zod_1.z.number().positive().nullable(),
+    quantity: zod_1.z.number().nullable(),
     unitPrice: zod_1.z.number().positive().nullable(),
     farmId: zod_1.z.string(),
     batchId: zod_1.z.string().nullable(),
@@ -366,7 +381,7 @@ exports.CreateExpenseSchema = zod_1.z.object({
     date: zod_1.z.string().datetime(),
     amount: zod_1.z.number().positive(),
     description: zod_1.z.string().optional(),
-    quantity: zod_1.z.number().positive().optional(),
+    quantity: zod_1.z.number().optional(),
     unitPrice: zod_1.z.number().positive().optional(),
     farmId: zod_1.z.string().optional(),
     batchId: zod_1.z.string().optional(),
@@ -488,7 +503,13 @@ exports.InventoryItemTypeSchema = zod_1.z.enum([
     "CHICKS",
     "MEDICINE",
     "EQUIPMENT",
+    "RAW_MATERIAL",
     "OTHER",
+]);
+exports.InventoryOriginSchema = zod_1.z.enum([
+    "PURCHASED",
+    "SELF_MADE",
+    "MANUAL",
 ]);
 exports.InventoryItemSchema = exports.BaseSchema.extend({
     name: zod_1.z.string(),
@@ -499,6 +520,8 @@ exports.InventoryItemSchema = exports.BaseSchema.extend({
     userId: zod_1.z.string(),
     categoryId: zod_1.z.string(),
     itemType: exports.InventoryItemTypeSchema.optional(),
+    origin: exports.InventoryOriginSchema.optional(),
+    manufacturedProductId: zod_1.z.string().nullable().optional(),
 });
 exports.CreateInventoryItemSchema = zod_1.z.object({
     name: zod_1.z.string(),
@@ -520,7 +543,7 @@ exports.UpdateInventoryItemSchema = zod_1.z.object({
     itemType: exports.InventoryItemTypeSchema.optional(),
 });
 exports.InventoryTransactionSchema = exports.BaseSchema.extend({
-    type: exports.TransactionTypeSchema,
+    type: exports.InventoryTransactionTypeSchema,
     quantity: zod_1.z.number().positive(),
     unitPrice: zod_1.z.number().positive(),
     totalAmount: zod_1.z.number().positive(),
@@ -529,7 +552,7 @@ exports.InventoryTransactionSchema = exports.BaseSchema.extend({
     itemId: zod_1.z.string(),
 });
 exports.CreateInventoryTransactionSchema = zod_1.z.object({
-    type: exports.TransactionTypeSchema,
+    type: exports.InventoryTransactionTypeSchema,
     quantity: zod_1.z.number().positive(),
     unitPrice: zod_1.z.number().positive(),
     totalAmount: zod_1.z.number().positive(),
@@ -559,11 +582,43 @@ exports.CreateInventoryUsageSchema = zod_1.z.object({
     batchId: zod_1.z.string().optional(),
     farmId: zod_1.z.string(),
 });
+// ==================== FARMER MATERIAL PRODUCTION ====================
+exports.FarmerManufacturedProductSchema = exports.BaseSchema.extend({
+    farmerId: zod_1.z.string(),
+    name: zod_1.z.string(),
+    unit: zod_1.z.string(),
+    outputItemType: exports.InventoryItemTypeSchema,
+    minStock: zod_1.z.number().nonnegative().nullable(),
+    deletedAt: zod_1.z.date().nullable(),
+    currentStock: zod_1.z.number().nonnegative().optional(),
+    lotCount: zod_1.z.number().int().nonnegative().optional(),
+});
+exports.CreateFarmerManufacturedProductSchema = zod_1.z.object({
+    name: zod_1.z.string().trim().min(1),
+    unit: zod_1.z.string().trim().min(1),
+    outputItemType: exports.InventoryItemTypeSchema,
+    minStock: zod_1.z.number().nonnegative().nullable().optional(),
+});
+exports.UpdateFarmerManufacturedProductSchema = exports.CreateFarmerManufacturedProductSchema.partial();
+exports.CreateFarmerProductionSchema = zod_1.z.object({
+    date: zod_1.z.string().optional(),
+    referenceNumber: zod_1.z.string().optional(),
+    notes: zod_1.z.string().optional(),
+    inputs: zod_1.z.array(zod_1.z.object({
+        inventoryItemId: zod_1.z.string().min(1),
+        quantity: zod_1.z.number().positive(),
+    })).min(1),
+    outputs: zod_1.z.array(zod_1.z.object({
+        productId: zod_1.z.string().min(1),
+        quantity: zod_1.z.number().positive(),
+        costAllocationPercent: zod_1.z.number().positive().max(100),
+    })).min(1),
+});
 // ==================== ENTITY TRANSACTION SCHEMAS ====================
 exports.EntityTransactionSchema = exports.BaseSchema.extend({
     type: exports.TransactionTypeSchema,
     amount: zod_1.z.number(),
-    quantity: zod_1.z.number().int().nullable(),
+    quantity: zod_1.z.number().nullable(),
     itemName: zod_1.z.string().nullable(),
     date: zod_1.z.date(),
     description: zod_1.z.string().nullable(),
@@ -576,7 +631,7 @@ exports.EntityTransactionSchema = exports.BaseSchema.extend({
 exports.CreateEntityTransactionSchema = zod_1.z.object({
     type: exports.TransactionTypeSchema,
     amount: zod_1.z.number(),
-    quantity: zod_1.z.number().int().optional(),
+    quantity: zod_1.z.number().positive().optional(),
     itemName: zod_1.z.string().optional(),
     date: zod_1.z.date(),
     description: zod_1.z.string().optional(),
@@ -609,7 +664,7 @@ exports.DealerTransactionSchema = zod_1.z.object({
     id: zod_1.z.string(),
     type: exports.TransactionTypeSchema,
     amount: zod_1.z.number(),
-    quantity: zod_1.z.number().int().nullable(),
+    quantity: zod_1.z.number().positive().nullable(),
     freeQuantity: zod_1.z.number().int().nullable().optional(),
     itemName: zod_1.z.string().nullable(),
     purchaseCategory: exports.PurchaseCategorySchema.nullable().optional(),
@@ -1073,12 +1128,14 @@ exports.schemas = {
     BatchStatus: exports.BatchStatusSchema,
     BatchType: exports.BatchTypeSchema,
     TransactionType: exports.TransactionTypeSchema,
+    InventoryTransactionType: exports.InventoryTransactionTypeSchema,
     NotificationType: exports.NotificationTypeSchema,
     NotificationStatus: exports.NotificationStatusSchema,
     VaccinationStatus: exports.VaccinationStatusSchema,
     AuditAction: exports.AuditActionSchema,
     CategoryType: exports.CategoryTypeSchema,
     InventoryItemType: exports.InventoryItemTypeSchema,
+    InventoryOrigin: exports.InventoryOriginSchema,
     // Reminder Enums
     ReminderType: exports.ReminderTypeSchema,
     ReminderStatus: exports.ReminderStatusSchema,
@@ -1128,6 +1185,10 @@ exports.schemas = {
     CreateInventoryTransaction: exports.CreateInventoryTransactionSchema,
     InventoryUsage: exports.InventoryUsageSchema,
     CreateInventoryUsage: exports.CreateInventoryUsageSchema,
+    FarmerManufacturedProduct: exports.FarmerManufacturedProductSchema,
+    CreateFarmerManufacturedProduct: exports.CreateFarmerManufacturedProductSchema,
+    UpdateFarmerManufacturedProduct: exports.UpdateFarmerManufacturedProductSchema,
+    CreateFarmerProduction: exports.CreateFarmerProductionSchema,
     // Transactions
     EntityTransaction: exports.EntityTransactionSchema,
     CreateEntityTransaction: exports.CreateEntityTransactionSchema,

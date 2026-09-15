@@ -28,6 +28,14 @@ export declare const TransactionTypeSchema: z.ZodEnum<{
     USAGE: "USAGE";
 }>;
 export type TransactionType = z.infer<typeof TransactionTypeSchema>;
+export declare const InventoryTransactionTypeSchema: z.ZodEnum<{
+    PURCHASE: "PURCHASE";
+    ADJUSTMENT: "ADJUSTMENT";
+    USAGE: "USAGE";
+    PRODUCTION_INPUT: "PRODUCTION_INPUT";
+    PRODUCTION_OUTPUT: "PRODUCTION_OUTPUT";
+}>;
+export type InventoryTransactionType = z.infer<typeof InventoryTransactionTypeSchema>;
 export declare const NotificationTypeSchema: z.ZodEnum<{
     LOW_INVENTORY: "LOW_INVENTORY";
     VACCINATION_DUE: "VACCINATION_DUE";
@@ -68,6 +76,7 @@ export declare const PurchaseCategorySchema: z.ZodEnum<{
     MEDICINE: "MEDICINE";
     CHICKS: "CHICKS";
     EQUIPMENT: "EQUIPMENT";
+    RAW_MATERIAL: "RAW_MATERIAL";
     OTHER: "OTHER";
 }>;
 export type PurchaseCategory = z.infer<typeof PurchaseCategorySchema>;
@@ -720,9 +729,16 @@ export declare const InventoryItemTypeSchema: z.ZodEnum<{
     MEDICINE: "MEDICINE";
     CHICKS: "CHICKS";
     EQUIPMENT: "EQUIPMENT";
+    RAW_MATERIAL: "RAW_MATERIAL";
     OTHER: "OTHER";
 }>;
 export type InventoryItemType = z.infer<typeof InventoryItemTypeSchema>;
+export declare const InventoryOriginSchema: z.ZodEnum<{
+    PURCHASED: "PURCHASED";
+    SELF_MADE: "SELF_MADE";
+    MANUAL: "MANUAL";
+}>;
+export type InventoryOrigin = z.infer<typeof InventoryOriginSchema>;
 export declare const InventoryItemSchema: z.ZodObject<{
     id: z.ZodString;
     createdAt: z.ZodString;
@@ -739,8 +755,15 @@ export declare const InventoryItemSchema: z.ZodObject<{
         MEDICINE: "MEDICINE";
         CHICKS: "CHICKS";
         EQUIPMENT: "EQUIPMENT";
+        RAW_MATERIAL: "RAW_MATERIAL";
         OTHER: "OTHER";
     }>>;
+    origin: z.ZodOptional<z.ZodEnum<{
+        PURCHASED: "PURCHASED";
+        SELF_MADE: "SELF_MADE";
+        MANUAL: "MANUAL";
+    }>>;
+    manufacturedProductId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 }, z.core.$strip>;
 export type InventoryItem = z.infer<typeof InventoryItemSchema>;
 export declare const CreateInventoryItemSchema: z.ZodObject<{
@@ -755,6 +778,7 @@ export declare const CreateInventoryItemSchema: z.ZodObject<{
         MEDICINE: "MEDICINE";
         CHICKS: "CHICKS";
         EQUIPMENT: "EQUIPMENT";
+        RAW_MATERIAL: "RAW_MATERIAL";
         OTHER: "OTHER";
     }>>;
     rate: z.ZodOptional<z.ZodNumber>;
@@ -772,6 +796,7 @@ export declare const UpdateInventoryItemSchema: z.ZodObject<{
         MEDICINE: "MEDICINE";
         CHICKS: "CHICKS";
         EQUIPMENT: "EQUIPMENT";
+        RAW_MATERIAL: "RAW_MATERIAL";
         OTHER: "OTHER";
     }>>;
 }, z.core.$strip>;
@@ -782,12 +807,10 @@ export declare const InventoryTransactionSchema: z.ZodObject<{
     updatedAt: z.ZodString;
     type: z.ZodEnum<{
         PURCHASE: "PURCHASE";
-        SALE: "SALE";
-        PAYMENT: "PAYMENT";
-        RECEIPT: "RECEIPT";
         ADJUSTMENT: "ADJUSTMENT";
-        OPENING_BALANCE: "OPENING_BALANCE";
         USAGE: "USAGE";
+        PRODUCTION_INPUT: "PRODUCTION_INPUT";
+        PRODUCTION_OUTPUT: "PRODUCTION_OUTPUT";
     }>;
     quantity: z.ZodNumber;
     unitPrice: z.ZodNumber;
@@ -800,12 +823,10 @@ export type InventoryTransaction = z.infer<typeof InventoryTransactionSchema>;
 export declare const CreateInventoryTransactionSchema: z.ZodObject<{
     type: z.ZodEnum<{
         PURCHASE: "PURCHASE";
-        SALE: "SALE";
-        PAYMENT: "PAYMENT";
-        RECEIPT: "RECEIPT";
         ADJUSTMENT: "ADJUSTMENT";
-        OPENING_BALANCE: "OPENING_BALANCE";
         USAGE: "USAGE";
+        PRODUCTION_INPUT: "PRODUCTION_INPUT";
+        PRODUCTION_OUTPUT: "PRODUCTION_OUTPUT";
     }>;
     quantity: z.ZodNumber;
     unitPrice: z.ZodNumber;
@@ -842,6 +863,70 @@ export declare const CreateInventoryUsageSchema: z.ZodObject<{
     farmId: z.ZodString;
 }, z.core.$strip>;
 export type CreateInventoryUsage = z.infer<typeof CreateInventoryUsageSchema>;
+export declare const FarmerManufacturedProductSchema: z.ZodObject<{
+    id: z.ZodString;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    farmerId: z.ZodString;
+    name: z.ZodString;
+    unit: z.ZodString;
+    outputItemType: z.ZodEnum<{
+        FEED: "FEED";
+        MEDICINE: "MEDICINE";
+        CHICKS: "CHICKS";
+        EQUIPMENT: "EQUIPMENT";
+        RAW_MATERIAL: "RAW_MATERIAL";
+        OTHER: "OTHER";
+    }>;
+    minStock: z.ZodNullable<z.ZodNumber>;
+    deletedAt: z.ZodNullable<z.ZodDate>;
+    currentStock: z.ZodOptional<z.ZodNumber>;
+    lotCount: z.ZodOptional<z.ZodNumber>;
+}, z.core.$strip>;
+export type FarmerManufacturedProduct = z.infer<typeof FarmerManufacturedProductSchema>;
+export declare const CreateFarmerManufacturedProductSchema: z.ZodObject<{
+    name: z.ZodString;
+    unit: z.ZodString;
+    outputItemType: z.ZodEnum<{
+        FEED: "FEED";
+        MEDICINE: "MEDICINE";
+        CHICKS: "CHICKS";
+        EQUIPMENT: "EQUIPMENT";
+        RAW_MATERIAL: "RAW_MATERIAL";
+        OTHER: "OTHER";
+    }>;
+    minStock: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+}, z.core.$strip>;
+export type CreateFarmerManufacturedProduct = z.infer<typeof CreateFarmerManufacturedProductSchema>;
+export declare const UpdateFarmerManufacturedProductSchema: z.ZodObject<{
+    name: z.ZodOptional<z.ZodString>;
+    unit: z.ZodOptional<z.ZodString>;
+    outputItemType: z.ZodOptional<z.ZodEnum<{
+        FEED: "FEED";
+        MEDICINE: "MEDICINE";
+        CHICKS: "CHICKS";
+        EQUIPMENT: "EQUIPMENT";
+        RAW_MATERIAL: "RAW_MATERIAL";
+        OTHER: "OTHER";
+    }>>;
+    minStock: z.ZodOptional<z.ZodOptional<z.ZodNullable<z.ZodNumber>>>;
+}, z.core.$strip>;
+export type UpdateFarmerManufacturedProduct = z.infer<typeof UpdateFarmerManufacturedProductSchema>;
+export declare const CreateFarmerProductionSchema: z.ZodObject<{
+    date: z.ZodOptional<z.ZodString>;
+    referenceNumber: z.ZodOptional<z.ZodString>;
+    notes: z.ZodOptional<z.ZodString>;
+    inputs: z.ZodArray<z.ZodObject<{
+        inventoryItemId: z.ZodString;
+        quantity: z.ZodNumber;
+    }, z.core.$strip>>;
+    outputs: z.ZodArray<z.ZodObject<{
+        productId: z.ZodString;
+        quantity: z.ZodNumber;
+        costAllocationPercent: z.ZodNumber;
+    }, z.core.$strip>>;
+}, z.core.$strip>;
+export type CreateFarmerProduction = z.infer<typeof CreateFarmerProductionSchema>;
 export declare const EntityTransactionSchema: z.ZodObject<{
     id: z.ZodString;
     createdAt: z.ZodString;
@@ -932,6 +1017,7 @@ export declare const DealerTransactionSchema: z.ZodObject<{
         MEDICINE: "MEDICINE";
         CHICKS: "CHICKS";
         EQUIPMENT: "EQUIPMENT";
+        RAW_MATERIAL: "RAW_MATERIAL";
         OTHER: "OTHER";
     }>>>;
     date: z.ZodDate;
@@ -977,6 +1063,7 @@ export declare const DealerResponseSchema: z.ZodObject<{
             MEDICINE: "MEDICINE";
             CHICKS: "CHICKS";
             EQUIPMENT: "EQUIPMENT";
+            RAW_MATERIAL: "RAW_MATERIAL";
             OTHER: "OTHER";
         }>>>;
         date: z.ZodDate;
@@ -1035,6 +1122,7 @@ export declare const DealerDetailResponseSchema: z.ZodObject<{
             MEDICINE: "MEDICINE";
             CHICKS: "CHICKS";
             EQUIPMENT: "EQUIPMENT";
+            RAW_MATERIAL: "RAW_MATERIAL";
             OTHER: "OTHER";
         }>>>;
         quantity: z.ZodNullable<z.ZodNumber>;
@@ -1937,6 +2025,13 @@ export declare const schemas: {
         OPENING_BALANCE: "OPENING_BALANCE";
         USAGE: "USAGE";
     }>;
+    readonly InventoryTransactionType: z.ZodEnum<{
+        PURCHASE: "PURCHASE";
+        ADJUSTMENT: "ADJUSTMENT";
+        USAGE: "USAGE";
+        PRODUCTION_INPUT: "PRODUCTION_INPUT";
+        PRODUCTION_OUTPUT: "PRODUCTION_OUTPUT";
+    }>;
     readonly NotificationType: z.ZodEnum<{
         LOW_INVENTORY: "LOW_INVENTORY";
         VACCINATION_DUE: "VACCINATION_DUE";
@@ -1972,7 +2067,13 @@ export declare const schemas: {
         MEDICINE: "MEDICINE";
         CHICKS: "CHICKS";
         EQUIPMENT: "EQUIPMENT";
+        RAW_MATERIAL: "RAW_MATERIAL";
         OTHER: "OTHER";
+    }>;
+    readonly InventoryOrigin: z.ZodEnum<{
+        PURCHASED: "PURCHASED";
+        SELF_MADE: "SELF_MADE";
+        MANUAL: "MANUAL";
     }>;
     readonly ReminderType: z.ZodEnum<{
         VACCINATION: "VACCINATION";
@@ -2766,8 +2867,15 @@ export declare const schemas: {
             MEDICINE: "MEDICINE";
             CHICKS: "CHICKS";
             EQUIPMENT: "EQUIPMENT";
+            RAW_MATERIAL: "RAW_MATERIAL";
             OTHER: "OTHER";
         }>>;
+        origin: z.ZodOptional<z.ZodEnum<{
+            PURCHASED: "PURCHASED";
+            SELF_MADE: "SELF_MADE";
+            MANUAL: "MANUAL";
+        }>>;
+        manufacturedProductId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     }, z.core.$strip>;
     readonly CreateInventoryItem: z.ZodObject<{
         name: z.ZodString;
@@ -2781,6 +2889,7 @@ export declare const schemas: {
             MEDICINE: "MEDICINE";
             CHICKS: "CHICKS";
             EQUIPMENT: "EQUIPMENT";
+            RAW_MATERIAL: "RAW_MATERIAL";
             OTHER: "OTHER";
         }>>;
         rate: z.ZodOptional<z.ZodNumber>;
@@ -2797,6 +2906,7 @@ export declare const schemas: {
             MEDICINE: "MEDICINE";
             CHICKS: "CHICKS";
             EQUIPMENT: "EQUIPMENT";
+            RAW_MATERIAL: "RAW_MATERIAL";
             OTHER: "OTHER";
         }>>;
     }, z.core.$strip>;
@@ -2806,12 +2916,10 @@ export declare const schemas: {
         updatedAt: z.ZodString;
         type: z.ZodEnum<{
             PURCHASE: "PURCHASE";
-            SALE: "SALE";
-            PAYMENT: "PAYMENT";
-            RECEIPT: "RECEIPT";
             ADJUSTMENT: "ADJUSTMENT";
-            OPENING_BALANCE: "OPENING_BALANCE";
             USAGE: "USAGE";
+            PRODUCTION_INPUT: "PRODUCTION_INPUT";
+            PRODUCTION_OUTPUT: "PRODUCTION_OUTPUT";
         }>;
         quantity: z.ZodNumber;
         unitPrice: z.ZodNumber;
@@ -2823,12 +2931,10 @@ export declare const schemas: {
     readonly CreateInventoryTransaction: z.ZodObject<{
         type: z.ZodEnum<{
             PURCHASE: "PURCHASE";
-            SALE: "SALE";
-            PAYMENT: "PAYMENT";
-            RECEIPT: "RECEIPT";
             ADJUSTMENT: "ADJUSTMENT";
-            OPENING_BALANCE: "OPENING_BALANCE";
             USAGE: "USAGE";
+            PRODUCTION_INPUT: "PRODUCTION_INPUT";
+            PRODUCTION_OUTPUT: "PRODUCTION_OUTPUT";
         }>;
         quantity: z.ZodNumber;
         unitPrice: z.ZodNumber;
@@ -2861,6 +2967,66 @@ export declare const schemas: {
         expenseId: z.ZodOptional<z.ZodString>;
         batchId: z.ZodOptional<z.ZodString>;
         farmId: z.ZodString;
+    }, z.core.$strip>;
+    readonly FarmerManufacturedProduct: z.ZodObject<{
+        id: z.ZodString;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        farmerId: z.ZodString;
+        name: z.ZodString;
+        unit: z.ZodString;
+        outputItemType: z.ZodEnum<{
+            FEED: "FEED";
+            MEDICINE: "MEDICINE";
+            CHICKS: "CHICKS";
+            EQUIPMENT: "EQUIPMENT";
+            RAW_MATERIAL: "RAW_MATERIAL";
+            OTHER: "OTHER";
+        }>;
+        minStock: z.ZodNullable<z.ZodNumber>;
+        deletedAt: z.ZodNullable<z.ZodDate>;
+        currentStock: z.ZodOptional<z.ZodNumber>;
+        lotCount: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strip>;
+    readonly CreateFarmerManufacturedProduct: z.ZodObject<{
+        name: z.ZodString;
+        unit: z.ZodString;
+        outputItemType: z.ZodEnum<{
+            FEED: "FEED";
+            MEDICINE: "MEDICINE";
+            CHICKS: "CHICKS";
+            EQUIPMENT: "EQUIPMENT";
+            RAW_MATERIAL: "RAW_MATERIAL";
+            OTHER: "OTHER";
+        }>;
+        minStock: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    }, z.core.$strip>;
+    readonly UpdateFarmerManufacturedProduct: z.ZodObject<{
+        name: z.ZodOptional<z.ZodString>;
+        unit: z.ZodOptional<z.ZodString>;
+        outputItemType: z.ZodOptional<z.ZodEnum<{
+            FEED: "FEED";
+            MEDICINE: "MEDICINE";
+            CHICKS: "CHICKS";
+            EQUIPMENT: "EQUIPMENT";
+            RAW_MATERIAL: "RAW_MATERIAL";
+            OTHER: "OTHER";
+        }>>;
+        minStock: z.ZodOptional<z.ZodOptional<z.ZodNullable<z.ZodNumber>>>;
+    }, z.core.$strip>;
+    readonly CreateFarmerProduction: z.ZodObject<{
+        date: z.ZodOptional<z.ZodString>;
+        referenceNumber: z.ZodOptional<z.ZodString>;
+        notes: z.ZodOptional<z.ZodString>;
+        inputs: z.ZodArray<z.ZodObject<{
+            inventoryItemId: z.ZodString;
+            quantity: z.ZodNumber;
+        }, z.core.$strip>>;
+        outputs: z.ZodArray<z.ZodObject<{
+            productId: z.ZodString;
+            quantity: z.ZodNumber;
+            costAllocationPercent: z.ZodNumber;
+        }, z.core.$strip>>;
     }, z.core.$strip>;
     readonly EntityTransaction: z.ZodObject<{
         id: z.ZodString;
@@ -2959,6 +3125,7 @@ export declare const schemas: {
                 MEDICINE: "MEDICINE";
                 CHICKS: "CHICKS";
                 EQUIPMENT: "EQUIPMENT";
+                RAW_MATERIAL: "RAW_MATERIAL";
                 OTHER: "OTHER";
             }>>>;
             date: z.ZodDate;
@@ -2992,6 +3159,7 @@ export declare const schemas: {
             MEDICINE: "MEDICINE";
             CHICKS: "CHICKS";
             EQUIPMENT: "EQUIPMENT";
+            RAW_MATERIAL: "RAW_MATERIAL";
             OTHER: "OTHER";
         }>>>;
         date: z.ZodDate;
@@ -3047,6 +3215,7 @@ export declare const schemas: {
                 MEDICINE: "MEDICINE";
                 CHICKS: "CHICKS";
                 EQUIPMENT: "EQUIPMENT";
+                RAW_MATERIAL: "RAW_MATERIAL";
                 OTHER: "OTHER";
             }>>>;
             quantity: z.ZodNullable<z.ZodNumber>;

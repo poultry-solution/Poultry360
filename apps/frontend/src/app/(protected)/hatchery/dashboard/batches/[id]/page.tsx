@@ -628,7 +628,7 @@ const INVENTORY_ITEM_TYPE_OPTIONS: { value: HatcheryInventoryItemType; label: st
   { value: "FEED", label: "Feed" },
   { value: "MEDICINE", label: "Medicine" },
   { value: "CHICKS", label: "Chicks" },
-  { value: "SELF_MADE", label: "Self Made" },
+  { value: "SELF_MADE", label: "Self Feed" },
   { value: "OTHER", label: "Other" },
 ];
 
@@ -848,7 +848,7 @@ function ExpensesTab({ batchId }: { batchId: string }) {
                   options={filteredInventoryItems.map((item) => ({
                     value: item.id,
                     label: item.name,
-                    subtitle: `${item.itemType === "SELF_MADE" ? "Self Made · " : ""}${Number(item.currentStock)} ${item.unit} in stock · NPR ${Number(item.effectiveUnitCost ?? item.unitPrice)}/${item.unit}`,
+                    subtitle: `${item.itemType === "SELF_MADE" ? "Self Feed · " : ""}${Number(item.currentStock)} ${item.unit} in stock · NPR ${Number(item.effectiveUnitCost ?? item.unitPrice)}/${item.unit}`,
                     data: item,
                   }))}
                   placeholder="Search inventory item"
