@@ -394,8 +394,12 @@ export default function InventoryPage() {
           </div>
         ),
       }),
-      createColumn("rate", t("farmer.inventory.table.rate"), {
-        render: (_, item: any) => `₹${item.rate}`,
+      createColumn("rate", "Cost / Unit", {
+        render: (_, item: any) =>
+          `₹${Number(item.rate || 0).toLocaleString("en-IN", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
+          })}/${item.unit}`,
         align: "right",
       }),
       createColumn("value", t("farmer.inventory.table.value"), {
@@ -544,6 +548,17 @@ export default function InventoryPage() {
       key: "lotCount",
       label: "Production lots",
       render: (_, product) => product.lotCount,
+    },
+    {
+      key: "unitCost",
+      label: "Cost / Unit",
+      render: (_, product) =>
+        product.unitCost === null
+          ? "—"
+          : `₹${Number(product.unitCost).toLocaleString("en-IN", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 4,
+            })}/${product.unit}`,
     },
     {
       key: "minStock",
