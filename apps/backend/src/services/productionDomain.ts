@@ -96,6 +96,37 @@ export const normalizeProductionDate = (value: unknown) => {
   return date;
 };
 
+export const calculateCurrentUnitCost = (
+  lots: Array<{
+    currentStock: Prisma.Decimal | number | string;
+    unitCost: Prisma.Decimal | number | string | null | undefined;
+  }>
+) => {
+  let totalStock = new Prisma.Decimal(0);
+  let totalValue = new Prisma.Decimal(0);
+
+  for (const lot of lots) {
+    if (lot.unitCost === null || lot.unitCost === undefined) continue;
+    const stock = new Prisma.Decimal(lot.currentStock);
+    const unitCost = new Prisma.Decimal(lot.unitCost);
+    if (stock.gt(0)) {
+      totalStock = totalStock.plus(stock);
+      totalValue = totalValue.plus(stock.mul(unitCost));
+    }
+  }
+
+  if (totalStock.gt(0)) {
+    return totalValue.div(totalStock).toDecimalPlaces(4);
+  }
+
+  const latestKnownCost = lots.find(
+    (lot) => lot.unitCost !== null && lot.unitCost !== undefined
+  )?.unitCost;
+  return latestKnownCost === undefined || latestKnownCost === null
+    ? null
+    : new Prisma.Decimal(latestKnownCost).toDecimalPlaces(4);
+};
+
 export const allocateProductionCost = (
   totalCost: Prisma.Decimal,
   outputs: Array<{ quantity: Prisma.Decimal; percentage: Prisma.Decimal }>

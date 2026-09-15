@@ -258,15 +258,17 @@ export default function HatcheryInventoryPage() {
     },
     {
       key: "unitPrice",
-      label: "Unit Price",
+      label: "Cost / Unit",
       align: "right",
       width: "140px",
-      render: (value) => (
+      render: (_value, row) => (
         <span className="text-muted-foreground">
           Rs.{" "}
-          {Number(value || 0).toLocaleString("en-NP", {
+          {Number(row.effectiveUnitCost ?? row.unitPrice ?? 0).toLocaleString("en-NP", {
             minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
           })}
+          /{row.unit}
         </span>
       ),
     },
@@ -328,6 +330,7 @@ export default function HatcheryInventoryPage() {
   const productColumns: Column<HatcheryManufacturedProduct>[] = [
     { key: "name", label: "Product", render: (_, row) => <span className="font-medium">{row.name}</span> },
     { key: "currentStock", label: "Stock", align: "right", render: (value, row) => <span className="font-semibold">{fmtStock(value)} <span className="font-normal text-muted-foreground">{row.unit}</span></span> },
+    { key: "unitCost", label: "Cost / Unit", align: "right", render: (value, row) => value == null ? "—" : <span className="text-muted-foreground">Rs. {Number(value).toLocaleString("en-NP", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}/{row.unit}</span> },
     { key: "lotCount", label: "Production Lots", align: "right" },
     { key: "minStock", label: "Min Stock", align: "right", render: (value, row) => value == null ? "—" : `${fmtStock(value)} ${row.unit}` },
     { key: "__actions", label: "", align: "right", render: (_, row) => <div className="flex justify-end gap-1">

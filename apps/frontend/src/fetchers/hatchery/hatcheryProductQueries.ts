@@ -10,6 +10,7 @@ export interface HatcheryManufacturedProduct {
   minStock: number | null;
   deletedAt: string | null;
   currentStock: number;
+  unitCost: number | null;
   lotCount: number;
   createdAt: string;
   updatedAt: string;

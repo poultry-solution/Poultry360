@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
+import { calculateCurrentUnitCost } from "../services/productionDomain";
 
 const parsePage = (value: unknown, fallback: number) => {
   const parsed = Number(value);
@@ -29,19 +30,39 @@ export const listHatcheryProducts = async (req: Request, res: Response): Promise
         include: {
           inventoryLots: {
             where: { deletedAt: null },
-            select: { id: true, currentStock: true, effectiveUnitCost: true, createdAt: true },
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              currentStock: true,
+              unitPrice: true,
+              effectiveUnitCost: true,
+              createdAt: true,
+            },
           },
         },
       }),
       prisma.hatcheryManufacturedProduct.count({ where }),
     ]);
 
-    const data = products.map(({ inventoryLots, ...product }) => ({
-      ...product,
-      currentStock: inventoryLots.reduce((sum, lot) => sum + Number(lot.currentStock), 0),
-      lotCount: inventoryLots.length,
-      inventoryLots,
-    }));
+    const data = products.map(({ inventoryLots, ...product }) => {
+      const unitCost = calculateCurrentUnitCost(
+        inventoryLots.map((lot) => ({
+          currentStock: lot.currentStock,
+          unitCost: lot.effectiveUnitCost ?? lot.unitPrice,
+        }))
+      );
+
+      return {
+        ...product,
+        currentStock: inventoryLots.reduce(
+          (sum, lot) => sum + Number(lot.currentStock),
+          0
+        ),
+        unitCost: unitCost === null ? null : Number(unitCost),
+        lotCount: inventoryLots.length,
+        inventoryLots,
+      };
+    });
 
     return res.json({
       success: true,

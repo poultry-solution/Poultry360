@@ -1,5 +1,6 @@
 import { InventoryItemType, Prisma } from "@prisma/client";
 import prisma from "../utils/prisma";
+import { calculateCurrentUnitCost } from "./productionDomain";
 
 const ALLOWED_OUTPUT_TYPES = new Set<InventoryItemType>([
   InventoryItemType.FEED,
@@ -55,6 +56,7 @@ export class FarmerProductService {
         include: {
           inventoryLots: {
             where: { deletedAt: null },
+            orderBy: { createdAt: "desc" },
             select: {
               id: true,
               currentStock: true,
@@ -69,15 +71,25 @@ export class FarmerProductService {
     ]);
 
     return {
-      products: products.map(({ inventoryLots, ...product }) => ({
-        ...product,
-        currentStock: inventoryLots.reduce(
-          (sum, lot) => sum.plus(lot.currentStock),
-          new Prisma.Decimal(0)
-        ),
-        lotCount: inventoryLots.length,
-        inventoryLots,
-      })),
+      products: products.map(({ inventoryLots, ...product }) => {
+        const unitCost = calculateCurrentUnitCost(
+          inventoryLots.map((lot) => ({
+            currentStock: lot.currentStock,
+            unitCost: lot.unitPrice,
+          }))
+        );
+
+        return {
+          ...product,
+          currentStock: inventoryLots.reduce(
+            (sum, lot) => sum.plus(lot.currentStock),
+            new Prisma.Decimal(0)
+          ),
+          unitCost: unitCost === null ? null : Number(unitCost),
+          lotCount: inventoryLots.length,
+          inventoryLots,
+        };
+      }),
       total,
     };
   }
