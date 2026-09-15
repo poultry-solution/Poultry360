@@ -39,6 +39,17 @@ enum TransactionType {
   RETURN
 }
 
+// Inventory movements are intentionally separate from supplier/sales ledger
+// transaction types. Production is an inventory concern and should not leak
+// into the list of transaction types accepted by ledger endpoints.
+enum InventoryTransactionType {
+  PURCHASE
+  USAGE
+  ADJUSTMENT
+  PRODUCTION_INPUT
+  PRODUCTION_OUTPUT
+}
+
 enum DealerFarmerAccountAdjustmentType {
   OPENING_BALANCE
 }
@@ -154,6 +165,7 @@ enum PurchaseCategory {
   MEDICINE
   CHICKS
   EQUIPMENT
+  RAW_MATERIAL
   OTHER
 }
 
@@ -223,6 +235,11 @@ model User {
 
   // Inventory
   inventoryItems InventoryItem[]
+
+  // Farmer-owned manufactured product catalog and material production
+  farmerManufacturedProducts  FarmerManufacturedProduct[] @relation("FarmerManufacturedProducts")
+  farmerMaterialProductions   FarmerProductionRun[]       @relation("FarmerMaterialProductions")
+  farmerProductionRunsCreated FarmerProductionRun[]       @relation("FarmerProductionRunCreatedBy")
 
   // Egg types (user-defined: Large, XL, etc.)
   eggTypes EggType[]
@@ -539,7 +556,14 @@ enum InventoryItemType {
   CHICKS // From Hatcheries  
   MEDICINE // From Medicine Suppliers
   EQUIPMENT // General equipment
+  RAW_MATERIAL // Inputs used by Farmer material production
   OTHER // Other items
+}
+
+enum InventoryOrigin {
+  PURCHASED
+  SELF_MADE
+  MANUAL
 }
 
 model Product {
@@ -709,6 +733,7 @@ model InventoryItem {
 
   // 🔗 NEW: Item type based on supplier
   itemType InventoryItemType @default(OTHER)
+  origin   InventoryOrigin   @default(PURCHASED)
 
   // Identity: same name + rate + supplier = merge; different rate or supplier = separate line
   unitPrice     Decimal?  @db.Decimal(10, 2)
@@ -724,6 +749,13 @@ model InventoryItem {
   transactions InventoryTransaction[]
   usages       InventoryUsage[]
 
+  // Set only for lots created by Farmer production. A product can have many
+  // lots so cost and reversal remain traceable per production run.
+  manufacturedProductId String?
+  manufacturedProduct   FarmerManufacturedProduct? @relation(fields: [manufacturedProductId], references: [id], onDelete: Restrict)
+  productionInputs      FarmerProductionInput[]
+  productionOutputs     FarmerProductionOutput[]
+
   // 🔗 NEW: Connect to supplier transactions
   entityTransactions EntityTransaction[]
 
@@ -733,15 +765,16 @@ model InventoryItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, categoryId, name, unitPrice, supplierKey, expiryDateKey], map: "InventoryItem_identity_with_expiry_key")
+  @@unique([userId, categoryId, name, unit, unitPrice, supplierKey, expiryDateKey], map: "InventoryItem_identity_with_unit_and_expiry_key")
+  @@index([manufacturedProductId])
 }
 
 model InventoryTransaction {
-  id          String          @id @default(cuid())
-  type        TransactionType
-  quantity    Decimal         @db.Decimal(10, 2)
-  unitPrice   Decimal         @db.Decimal(10, 2)
-  totalAmount Decimal         @db.Decimal(10, 2)
+  id          String                   @id @default(cuid())
+  type        InventoryTransactionType
+  quantity    Decimal                  @db.Decimal(10, 2)
+  unitPrice   Decimal                  @db.Decimal(10, 2)
+  totalAmount Decimal                  @db.Decimal(10, 2)
   date        DateTime
   description String?
   unit        String?
@@ -750,6 +783,9 @@ model InventoryTransaction {
   // Relationships
   itemId String
   item   InventoryItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  productionInput  FarmerProductionInput?  @relation("FarmerProductionInputTxn")
+  productionOutput FarmerProductionOutput? @relation("FarmerProductionOutputTxn")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -784,13 +820,95 @@ model InventoryUsage {
   @@index([itemId])
 }
 
+// Farmer-managed catalog. Actual stock remains in InventoryItem lots created
+// by production so each run retains its own input cost and reversal boundary.
+model FarmerManufacturedProduct {
+  id             String            @id @default(cuid())
+  farmerId       String
+  farmer         User              @relation("FarmerManufacturedProducts", fields: [farmerId], references: [id], onDelete: Cascade)
+  name           String
+  unit           String            @default("kg")
+  outputItemType InventoryItemType @default(FEED)
+  minStock       Decimal?          @db.Decimal(10, 2)
+  deletedAt      DateTime?
+
+  inventoryLots     InventoryItem[]
+  productionOutputs FarmerProductionOutput[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([farmerId, name, unit, outputItemType])
+  @@index([farmerId, deletedAt])
+}
+
+model FarmerProductionRun {
+  id              String   @id @default(cuid())
+  farmerId        String
+  farmer          User     @relation("FarmerMaterialProductions", fields: [farmerId], references: [id], onDelete: Cascade)
+  createdById     String?
+  createdBy       User?    @relation("FarmerProductionRunCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  date            DateTime @default(now())
+  referenceNumber String?
+  notes           String?
+
+  inputs  FarmerProductionInput[]
+  outputs FarmerProductionOutput[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([farmerId, date])
+  @@index([referenceNumber])
+}
+
+model FarmerProductionInput {
+  id              String               @id @default(cuid())
+  productionId    String
+  production      FarmerProductionRun  @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  inventoryItemId String
+  inventoryItem   InventoryItem        @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  inventoryTxnId  String               @unique
+  inventoryTxn    InventoryTransaction @relation("FarmerProductionInputTxn", fields: [inventoryTxnId], references: [id], onDelete: Restrict)
+  quantity        Decimal              @db.Decimal(10, 2)
+  unitCost        Decimal              @db.Decimal(12, 4)
+  amount          Decimal              @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([productionId])
+  @@index([inventoryItemId])
+}
+
+model FarmerProductionOutput {
+  id                    String                    @id @default(cuid())
+  productionId          String
+  production            FarmerProductionRun       @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  productId             String
+  product               FarmerManufacturedProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+  inventoryItemId       String
+  inventoryItem         InventoryItem             @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  inventoryTxnId        String                    @unique
+  inventoryTxn          InventoryTransaction      @relation("FarmerProductionOutputTxn", fields: [inventoryTxnId], references: [id], onDelete: Restrict)
+  quantity              Decimal                   @db.Decimal(10, 2)
+  costAllocationPercent Decimal                   @db.Decimal(7, 4)
+  unitCost              Decimal                   @db.Decimal(12, 4)
+  amount                Decimal                   @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([productionId])
+  @@index([productId])
+  @@index([inventoryItemId])
+}
+
 // ==================== UNIFIED TRANSACTION MODEL ====================
 
 model EntityTransaction {
   id           String          @id @default(cuid())
   type         TransactionType
   amount       Decimal         @db.Decimal(10, 2)
-  quantity     Int? // Paid quantity (for hatchery chicks, medicine units)
+  quantity     Decimal?        @db.Decimal(10, 2) // Paid quantity; RAW_MATERIAL may be fractional
   // Free quantity provided at zero cost (e.g., free chicks from hatchery)
   freeQuantity Int?
   itemName     String? // For medicine names

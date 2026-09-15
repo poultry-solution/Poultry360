@@ -4,22 +4,22 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { MaterialProductionList } from "@/components/production/MaterialProductionList";
 import {
-  useDeleteHatcheryProduction,
-  useGetHatcheryProduction,
-} from "@/fetchers/hatchery/hatcheryProductionQueries";
+  useDeleteFarmerProduction,
+  useGetFarmerProduction,
+} from "@/fetchers/farmer/farmerProductionQueries";
 
-export default function HatcheryProductionPage() {
+export default function FarmerProductionPage() {
   const [search, setSearch] = useState("");
-  const { data, isLoading } = useGetHatcheryProduction({
+  const { data, isLoading } = useGetFarmerProduction({
     limit: 100,
     search: search || undefined,
   });
-  const remove = useDeleteHatcheryProduction();
+  const remove = useDeleteFarmerProduction();
 
   return (
     <MaterialProductionList
       runs={data?.data ?? []}
-      newHref="/hatchery/dashboard/production/new"
+      newHref="/farmer/dashboard/production/new"
       isLoading={isLoading}
       isRemoving={remove.isPending}
       search={search}

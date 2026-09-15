@@ -70,6 +70,11 @@ export const farmerNavigation: NavigationItem[] = [
     icon: Package,
   },
   {
+    nameKey: "sidebar.nav.production",
+    href: "/farmer/dashboard/production",
+    icon: Factory,
+  },
+  {
     nameKey: "sidebar.nav.listForSale",
     href: "/farmer/dashboard/list-for-sale",
     icon: Tag,

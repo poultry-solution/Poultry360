@@ -1,12 +1,19 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
-import { UserRole, BatchStatus, BatchType } from "@prisma/client";
+import {
+  BatchStatus,
+  BatchType,
+  InventoryItemType,
+  InventoryTransactionType,
+  UserRole,
+} from "@prisma/client";
 import {
   CreateBatchSchema,
   UpdateBatchSchema,
   BatchSchema,
   CloseBatchSchema,
 } from "@myapp/shared-types";
+import { getFarmerInventoryUnitCosts } from "../services/farmerInventoryDomain";
 
 // ==================== GET ALL BATCHES ====================
 export const getAllBatches = async (
@@ -361,13 +368,11 @@ export const getFarmBatches = async (
       return res.status(404).json({ message: "Farm not found" });
     }
 
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        farm.ownerId === currentUserId ||
-        farm.managers.some((manager) => manager.id === currentUserId);
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
+    const hasAccess =
+      farm.ownerId === currentUserId ||
+      farm.managers.some((manager) => manager.id === currentUserId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
     }
 
     const where: any = { farmId };
@@ -494,10 +499,17 @@ export const createBatch = async (
       }
 
       // Validate each allocation, ensure sufficient stock per item, and compute pricing (effective rate = total cost / total qty, handles paid + free)
+      const itemIds = chicksInventory.map((allocation: any) => allocation.itemId);
+      const effectiveCosts = await getFarmerInventoryUnitCosts(tx, itemIds);
       const allocations = await Promise.all(
         chicksInventory.map(async (alloc: any) => {
-          const item = await tx.inventoryItem.findUnique({
-            where: { id: alloc.itemId },
+          const item = await tx.inventoryItem.findFirst({
+            where: {
+              id: alloc.itemId,
+              userId: farm.ownerId,
+              itemType: InventoryItemType.CHICKS,
+              deletedAt: null,
+            },
           });
           if (!item) {
             throw new Error(`Chicks inventory item not found: ${alloc.itemId}`);
@@ -509,13 +521,9 @@ export const createBatch = async (
               `Insufficient chicks stock for item ${alloc.itemId}. Available: ${available}, Required: ${requested}`
             );
           }
-          const purchaseSums = await tx.inventoryTransaction.aggregate({
-            where: { itemId: alloc.itemId, type: "PURCHASE" },
-            _sum: { totalAmount: true, quantity: true },
-          });
-          const sumQty = Number(purchaseSums._sum.quantity ?? 0);
-          const sumAmount = Number(purchaseSums._sum.totalAmount ?? 0);
-          const effectiveRate = sumQty > 0 ? sumAmount / sumQty : 0;
+          const effectiveRate = Number(
+            effectiveCosts.get(alloc.itemId) ?? item.unitPrice ?? 0
+          );
           const totalAmount = effectiveRate * requested;
           return {
             itemId: alloc.itemId,
@@ -584,14 +592,25 @@ export const createBatch = async (
           },
         });
 
-        await tx.inventoryItem.update({
-          where: { id: alloc.itemId },
+        const updated = await tx.inventoryItem.updateMany({
+          where: {
+            id: alloc.itemId,
+            userId: farm.ownerId,
+            itemType: InventoryItemType.CHICKS,
+            currentStock: { gte: alloc.requested },
+            deletedAt: null,
+          },
           data: { currentStock: { decrement: alloc.requested } },
         });
+        if (updated.count !== 1) {
+          throw new Error(
+            `Inventory stock changed for ${alloc.item.name}. Please try again.`
+          );
+        }
 
         await tx.inventoryTransaction.create({
           data: {
-            type: "USAGE",
+            type: InventoryTransactionType.USAGE,
             quantity: alloc.requested,
             unitPrice: alloc.unitPrice,
             totalAmount: alloc.totalAmount,

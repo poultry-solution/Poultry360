@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
-import { UserRole, TransactionType } from "@prisma/client";
+import { PurchaseCategory, UserRole, TransactionType } from "@prisma/client";
 import {
   CreateDealerSchema,
   UpdateDealerSchema,
@@ -737,9 +737,22 @@ export const addDealerTransaction = async (
 
     let transactions: any[] = [];
 
-    if (type === TransactionType.PURCHASE && itemName && numericQuantity !== null) {
-      // Enforce positive integer quantity
-      if (!Number.isInteger(numericQuantity) || numericQuantity <= 0) {
+    if (type === TransactionType.PURCHASE) {
+      if (!String(itemName ?? "").trim()) {
+        return res.status(400).json({ message: "Item name is required for a purchase" });
+      }
+      if (numericQuantity === null || !Number.isFinite(numericQuantity) || numericQuantity <= 0) {
+        return res.status(400).json({ message: "Quantity must be greater than zero" });
+      }
+      if (
+        purchaseCategory &&
+        !Object.values(PurchaseCategory).includes(purchaseCategory)
+      ) {
+        return res.status(400).json({ message: "Invalid purchase category" });
+      }
+      // Feed bags, medicine packs, and chicks retain their whole-unit behavior.
+      // Raw materials may be purchased in fractional weight/volume quantities.
+      if (purchaseCategory !== PurchaseCategory.RAW_MATERIAL && !Number.isInteger(numericQuantity)) {
         return res.status(400).json({ message: "Quantity must be a positive integer" });
       }
       // Validate initial payment if provided
@@ -756,9 +769,12 @@ export const addDealerTransaction = async (
 
       // Use inventory service for purchases
       const numericFreeQuantity = freeQuantity !== undefined && freeQuantity !== null ? Number(freeQuantity) : 0;
+      if (!Number.isFinite(numericFreeQuantity) || numericFreeQuantity < 0 || !Number.isInteger(numericFreeQuantity)) {
+        return res.status(400).json({ message: "Free quantity must be a non-negative integer" });
+      }
       const result = await InventoryService.processSupplierPurchase({
         dealerId: id,
-        itemName,
+        itemName: String(itemName).trim(),
         quantity: Number(numericQuantity),
         freeQuantity: numericFreeQuantity,
         unitPrice: Number(unitPrice || numericAmount / Number(numericQuantity)),

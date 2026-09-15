@@ -4,7 +4,11 @@ import {
   Prisma,
 } from "@prisma/client";
 import prisma from "../utils/prisma";
-import { allocateProductionCost, positiveDecimal } from "./productionDomain";
+import {
+  allocateProductionCost,
+  normalizeMaterialProductionRequest,
+  normalizeProductionDate,
+} from "./productionDomain";
 
 export class ProductionRequestError extends Error {
   constructor(message: string, public status = 400) {
@@ -34,41 +38,11 @@ const productionInclude = {
 
 export class HatcheryProductionService {
   static async create(data: CreateProductionData) {
-    if (!Array.isArray(data.inputs) || data.inputs.length === 0) {
-      throw new ProductionRequestError("At least one raw material is required");
-    }
-    if (!Array.isArray(data.outputs) || data.outputs.length === 0) {
-      throw new ProductionRequestError("At least one produced product is required");
-    }
-
-    const inputMap = new Map<string, Prisma.Decimal>();
-    for (const [index, row] of data.inputs.entries()) {
-      const item = row as Record<string, unknown>;
-      const inventoryItemId = String(item.inventoryItemId ?? "").trim();
-      if (!inventoryItemId) throw new ProductionRequestError(`inputs[${index}].inventoryItemId is required`);
-      const quantity = positiveDecimal(item.quantity, `inputs[${index}].quantity`);
-      inputMap.set(inventoryItemId, (inputMap.get(inventoryItemId) ?? new Prisma.Decimal(0)).plus(quantity));
-    }
-
-    const outputMap = new Map<string, { quantity: Prisma.Decimal; percentage: Prisma.Decimal }>();
-    for (const [index, row] of data.outputs.entries()) {
-      const item = row as Record<string, unknown>;
-      const productId = String(item.productId ?? "").trim();
-      if (!productId) throw new ProductionRequestError(`outputs[${index}].productId is required`);
-      const quantity = positiveDecimal(item.quantity, `outputs[${index}].quantity`);
-      const rawPercentage = item.costAllocationPercent ?? (data.outputs.length === 1 ? 100 : undefined);
-      const percentage = positiveDecimal(rawPercentage, `outputs[${index}].costAllocationPercent`);
-      const existing = outputMap.get(productId);
-      outputMap.set(productId, {
-        quantity: (existing?.quantity ?? new Prisma.Decimal(0)).plus(quantity),
-        percentage: (existing?.percentage ?? new Prisma.Decimal(0)).plus(percentage),
-      });
-    }
-
-    const inputs = [...inputMap].map(([inventoryItemId, quantity]) => ({ inventoryItemId, quantity }));
-    const outputs = [...outputMap].map(([productId, value]) => ({ productId, ...value }));
-    const runDate = data.date ? new Date(String(data.date)) : new Date();
-    if (Number.isNaN(runDate.getTime())) throw new ProductionRequestError("Invalid production date");
+    const { inputs, outputs } = normalizeMaterialProductionRequest(
+      data.inputs,
+      data.outputs
+    );
+    const runDate = normalizeProductionDate(data.date);
 
     try {
       return await prisma.$transaction(async (tx) => {
@@ -93,7 +67,7 @@ export class HatcheryProductionService {
           throw new ProductionRequestError("One or more raw-material lots are invalid or do not belong to this hatchery");
         }
         if (products.length !== outputs.length) {
-          throw new ProductionRequestError("One or more Self Made products are invalid or archived");
+          throw new ProductionRequestError("One or more Self Feed products are invalid or archived");
         }
 
         const itemMap = new Map(inventoryItems.map((item) => [item.id, item]));

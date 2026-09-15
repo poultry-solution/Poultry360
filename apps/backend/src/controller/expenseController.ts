@@ -1,12 +1,18 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
-import { UserRole, TransactionType, CategoryType } from "@prisma/client";
+import {
+  CategoryType,
+  InventoryItemType,
+  InventoryTransactionType,
+  UserRole,
+} from "@prisma/client";
 import {
   CreateExpenseSchema,
   UpdateExpenseSchema,
   ExpenseSchema,
 } from "@myapp/shared-types";
 import { InventoryService } from "../services/inventoryService";
+import { getFarmerInventoryUnitCosts } from "../services/farmerInventoryDomain";
 
 // ==================== GET ALL EXPENSES ====================
 export const getAllExpenses = async (
@@ -423,6 +429,7 @@ export const createExpense = async (
       categoryId,
       inventoryItems, // NEW: Array of inventory items to deduct
     } = data as any; // Type assertion for now
+    let inventoryOwnerId = currentUserId!;
 
     // Check if farm exists and user has access
     if (farmId) {
@@ -437,15 +444,13 @@ export const createExpense = async (
       if (!farm) {
         return res.status(404).json({ message: "Farm not found" });
       }
+      inventoryOwnerId = farm.ownerId;
 
-      // Check access permissions
-      if (currentUserRole === UserRole.MANAGER) {
-        const hasAccess =
-          farm.ownerId === currentUserId ||
-          farm.managers.some((manager) => manager.id === currentUserId);
-        if (!hasAccess) {
-          return res.status(403).json({ message: "Access denied" });
-        }
+      const hasAccess =
+        farm.ownerId === currentUserId ||
+        farm.managers.some((manager) => manager.id === currentUserId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
       }
     }
 
@@ -453,11 +458,19 @@ export const createExpense = async (
     if (batchId) {
       const batch = await prisma.batch.findUnique({
         where: { id: batchId },
-        include: { farm: true },
+        include: { farm: { include: { managers: true } } },
       });
 
       if (!batch) {
         return res.status(404).json({ message: "Batch not found" });
+      }
+      inventoryOwnerId = batch.farm.ownerId;
+
+      const hasAccess =
+        batch.farm.ownerId === currentUserId ||
+        batch.farm.managers.some((manager) => manager.id === currentUserId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
       }
 
       if (farmId && batch.farmId !== farmId) {
@@ -489,22 +502,15 @@ export const createExpense = async (
 
       // Fetch all inventory items in one query
       const items = await prisma.inventoryItem.findMany({
-        where: { id: { in: itemIds } },
+        where: {
+          id: { in: itemIds },
+          userId: inventoryOwnerId,
+          deletedAt: null,
+        },
         include: { category: true },
       });
 
-      // Effective rate per item (total cost / total qty from purchases; handles paid + free)
-      const purchaseAggregates = await prisma.inventoryTransaction.groupBy({
-        by: ["itemId"],
-        where: { itemId: { in: itemIds }, type: "PURCHASE" },
-        _sum: { totalAmount: true, quantity: true },
-      });
-      const effectiveRateByItemId = new Map<string, number>();
-      for (const row of purchaseAggregates) {
-        const sumQty = Number(row._sum.quantity ?? 0);
-        const sumAmount = Number(row._sum.totalAmount ?? 0);
-        effectiveRateByItemId.set(row.itemId, sumQty > 0 ? sumAmount / sumQty : 0);
-      }
+      const effectiveCosts = await getFarmerInventoryUnitCosts(prisma, itemIds);
 
       // Prepare inventory items data
       inventoryItemsData = inventoryItems.map((item: any) => {
@@ -520,7 +526,9 @@ export const createExpense = async (
           );
         }
 
-        const unitPrice = effectiveRateByItemId.get(item.itemId) ?? 0;
+        const unitPrice = Number(
+          effectiveCosts.get(item.itemId) ?? inventoryItem.unitPrice ?? 0
+        );
         const totalAmount = unitPrice * item.quantity;
 
         return {
@@ -574,8 +582,7 @@ export const createExpense = async (
 
               // If this expense is feed consumption and batch is provided, add a FeedConsumption record
               if (
-                category.type === CategoryType.EXPENSE &&
-                category.name.toLowerCase() === "feed" &&
+                inventoryItem.itemType === InventoryItemType.FEED &&
                 batchId
               ) {
                 console.log("Adding feed consumption from inventory item");
@@ -593,19 +600,29 @@ export const createExpense = async (
               }
 
               // Update stock
-              await tx.inventoryItem.update({
-                where: { id: itemData.itemId },
+              const updated = await tx.inventoryItem.updateMany({
+                where: {
+                  id: itemData.itemId,
+                  userId: inventoryOwnerId,
+                  currentStock: { gte: itemData.quantity },
+                  deletedAt: null,
+                },
                 data: {
                   currentStock: {
                     decrement: itemData.quantity,
                   },
                 },
               });
+              if (updated.count !== 1) {
+                throw new Error(
+                  `Inventory stock changed for ${inventoryItem.name}. Please try again.`
+                );
+              }
 
               // Create inventory transaction (stock reduction)
               await tx.inventoryTransaction.create({
                 data: {
-                  type: TransactionType.USAGE, // Using USAGE for internal consumption
+                  type: InventoryTransactionType.USAGE,
                   quantity: itemData.quantity,
                   unitPrice,
                   totalAmount,

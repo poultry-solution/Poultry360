@@ -23,6 +23,17 @@ export const TransactionTypeSchema = z.enum([
 ]);
 export type TransactionType = z.infer<typeof TransactionTypeSchema>;
 
+export const InventoryTransactionTypeSchema = z.enum([
+  "PURCHASE",
+  "USAGE",
+  "ADJUSTMENT",
+  "PRODUCTION_INPUT",
+  "PRODUCTION_OUTPUT",
+]);
+export type InventoryTransactionType = z.infer<
+  typeof InventoryTransactionTypeSchema
+>;
+
 export const NotificationTypeSchema = z.enum([
   "LOW_INVENTORY",
   "VACCINATION_DUE",
@@ -59,7 +70,14 @@ export type AuditAction = z.infer<typeof AuditActionSchema>;
 export const CategoryTypeSchema = z.enum(["EXPENSE", "SALES", "INVENTORY"]);
 export type CategoryType = z.infer<typeof CategoryTypeSchema>;
 
-export const PurchaseCategorySchema = z.enum(["FEED", "MEDICINE", "CHICKS", "EQUIPMENT", "OTHER"]);
+export const PurchaseCategorySchema = z.enum([
+  "FEED",
+  "MEDICINE",
+  "CHICKS",
+  "EQUIPMENT",
+  "RAW_MATERIAL",
+  "OTHER",
+]);
 export type PurchaseCategory = z.infer<typeof PurchaseCategorySchema>;
 
 // ==================== UNIT CONVERSION ====================
@@ -75,6 +93,7 @@ export const UNIT_PRESETS: Record<string, string[]> = {
   MEDICINE:  ["Bottle", "Strip", "Vial", "Tablet", "ML", "PCS"],
   CHICKS:    ["Birds", "PCS", "Dozen", "Crate"],
   EQUIPMENT: ["PCS", "Set", "Unit", "Box"],
+  RAW_MATERIAL: ["KG", "Gram", "Liters", "ML", "Bag", "Sack", "Packet"],
   OTHER:     ["PCS", "KG", "Liters", "Box", "Packet"],
 };
 
@@ -478,7 +497,7 @@ export const ExpenseSchema = BaseSchema.extend({
   date: z.date(),
   amount: z.number().positive(),
   description: z.string().nullable(),
-  quantity: z.number().positive().nullable(),
+  quantity: z.number().nullable(),
   unitPrice: z.number().positive().nullable(),
   farmId: z.string(),
   batchId: z.string().nullable(),
@@ -491,7 +510,7 @@ export const CreateExpenseSchema = z.object({
   date: z.string().datetime(),
   amount: z.number().positive(),
   description: z.string().optional(),
-  quantity: z.number().positive().optional(),
+  quantity: z.number().optional(),
   unitPrice: z.number().positive().optional(),
   farmId: z.string().optional(),
   batchId: z.string().optional(),
@@ -645,9 +664,16 @@ export const InventoryItemTypeSchema = z.enum([
   "CHICKS",
   "MEDICINE",
   "EQUIPMENT",
+  "RAW_MATERIAL",
   "OTHER",
 ]);
 export type InventoryItemType = z.infer<typeof InventoryItemTypeSchema>;
+export const InventoryOriginSchema = z.enum([
+  "PURCHASED",
+  "SELF_MADE",
+  "MANUAL",
+]);
+export type InventoryOrigin = z.infer<typeof InventoryOriginSchema>;
 export const InventoryItemSchema = BaseSchema.extend({
   name: z.string(),
   description: z.string().nullable(),
@@ -657,6 +683,8 @@ export const InventoryItemSchema = BaseSchema.extend({
   userId: z.string(),
   categoryId: z.string(),
   itemType: InventoryItemTypeSchema.optional(),
+  origin: InventoryOriginSchema.optional(),
+  manufacturedProductId: z.string().nullable().optional(),
 });
 
 export type InventoryItem = z.infer<typeof InventoryItemSchema>;
@@ -687,7 +715,7 @@ export const UpdateInventoryItemSchema = z.object({
 export type UpdateInventoryItem = z.infer<typeof UpdateInventoryItemSchema>;
 
 export const InventoryTransactionSchema = BaseSchema.extend({
-  type: TransactionTypeSchema,
+  type: InventoryTransactionTypeSchema,
   quantity: z.number().positive(),
   unitPrice: z.number().positive(),
   totalAmount: z.number().positive(),
@@ -699,7 +727,7 @@ export const InventoryTransactionSchema = BaseSchema.extend({
 export type InventoryTransaction = z.infer<typeof InventoryTransactionSchema>;
 
 export const CreateInventoryTransactionSchema = z.object({
-  type: TransactionTypeSchema,
+  type: InventoryTransactionTypeSchema,
   quantity: z.number().positive(),
   unitPrice: z.number().positive(),
   totalAmount: z.number().positive(),
@@ -740,12 +768,62 @@ export const CreateInventoryUsageSchema = z.object({
 
 export type CreateInventoryUsage = z.infer<typeof CreateInventoryUsageSchema>;
 
+// ==================== FARMER MATERIAL PRODUCTION ====================
+
+export const FarmerManufacturedProductSchema = BaseSchema.extend({
+  farmerId: z.string(),
+  name: z.string(),
+  unit: z.string(),
+  outputItemType: InventoryItemTypeSchema,
+  minStock: z.number().nonnegative().nullable(),
+  deletedAt: z.date().nullable(),
+  currentStock: z.number().nonnegative().optional(),
+  lotCount: z.number().int().nonnegative().optional(),
+});
+export type FarmerManufacturedProduct = z.infer<
+  typeof FarmerManufacturedProductSchema
+>;
+
+export const CreateFarmerManufacturedProductSchema = z.object({
+  name: z.string().trim().min(1),
+  unit: z.string().trim().min(1),
+  outputItemType: InventoryItemTypeSchema,
+  minStock: z.number().nonnegative().nullable().optional(),
+});
+export type CreateFarmerManufacturedProduct = z.infer<
+  typeof CreateFarmerManufacturedProductSchema
+>;
+
+export const UpdateFarmerManufacturedProductSchema =
+  CreateFarmerManufacturedProductSchema.partial();
+export type UpdateFarmerManufacturedProduct = z.infer<
+  typeof UpdateFarmerManufacturedProductSchema
+>;
+
+export const CreateFarmerProductionSchema = z.object({
+  date: z.string().optional(),
+  referenceNumber: z.string().optional(),
+  notes: z.string().optional(),
+  inputs: z.array(z.object({
+    inventoryItemId: z.string().min(1),
+    quantity: z.number().positive(),
+  })).min(1),
+  outputs: z.array(z.object({
+    productId: z.string().min(1),
+    quantity: z.number().positive(),
+    costAllocationPercent: z.number().positive().max(100),
+  })).min(1),
+});
+export type CreateFarmerProduction = z.infer<
+  typeof CreateFarmerProductionSchema
+>;
+
 // ==================== ENTITY TRANSACTION SCHEMAS ====================
 
 export const EntityTransactionSchema = BaseSchema.extend({
   type: TransactionTypeSchema,
   amount: z.number(),
-  quantity: z.number().int().nullable(),
+  quantity: z.number().nullable(),
   itemName: z.string().nullable(),
   date: z.date(),
   description: z.string().nullable(),
@@ -761,7 +839,7 @@ export type EntityTransaction = z.infer<typeof EntityTransactionSchema>;
 export const CreateEntityTransactionSchema = z.object({
   type: TransactionTypeSchema,
   amount: z.number(),
-  quantity: z.number().int().optional(),
+  quantity: z.number().positive().optional(),
   itemName: z.string().optional(),
   date: z.date(),
   description: z.string().optional(),
@@ -810,7 +888,7 @@ export const DealerTransactionSchema = z.object({
   id: z.string(),
   type: TransactionTypeSchema,
   amount: z.number(),
-  quantity: z.number().int().nullable(),
+  quantity: z.number().positive().nullable(),
   freeQuantity: z.number().int().nullable().optional(),
   itemName: z.string().nullable(),
   purchaseCategory: PurchaseCategorySchema.nullable().optional(),
@@ -1442,12 +1520,14 @@ export const schemas = {
   BatchStatus: BatchStatusSchema,
   BatchType: BatchTypeSchema,
   TransactionType: TransactionTypeSchema,
+  InventoryTransactionType: InventoryTransactionTypeSchema,
   NotificationType: NotificationTypeSchema,
   NotificationStatus: NotificationStatusSchema,
   VaccinationStatus: VaccinationStatusSchema,
   AuditAction: AuditActionSchema,
   CategoryType: CategoryTypeSchema,
   InventoryItemType: InventoryItemTypeSchema,
+  InventoryOrigin: InventoryOriginSchema,
 
   // Reminder Enums
   ReminderType: ReminderTypeSchema,
@@ -1511,6 +1591,11 @@ export const schemas = {
 
   InventoryUsage: InventoryUsageSchema,
   CreateInventoryUsage: CreateInventoryUsageSchema,
+
+  FarmerManufacturedProduct: FarmerManufacturedProductSchema,
+  CreateFarmerManufacturedProduct: CreateFarmerManufacturedProductSchema,
+  UpdateFarmerManufacturedProduct: UpdateFarmerManufacturedProductSchema,
+  CreateFarmerProduction: CreateFarmerProductionSchema,
 
   // Transactions
   EntityTransaction: EntityTransactionSchema,

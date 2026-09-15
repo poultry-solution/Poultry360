@@ -1,19 +1,21 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import {
-  UserRole,
   InventoryItemType,
-  TransactionType,
-  CategoryType,
+  InventoryOrigin,
+  InventoryTransactionType,
 } from "@prisma/client";
 import {
   CreateInventoryItemSchema,
   UpdateInventoryItemSchema,
-  InventoryItemSchema,
   CreateInventoryTransactionSchema,
   CreateInventoryUsageSchema,
 } from "@myapp/shared-types";
 import { InventoryService } from "../services/inventoryService";
+import {
+  ensureFarmerInventoryCategory,
+  getFarmerInventoryUnitCosts,
+} from "../services/farmerInventoryDomain";
 
 // ==================== GET ALL INVENTORY ITEMS ====================
 export const getAllInventoryItems = async (
@@ -83,10 +85,20 @@ export const getAllInventoryItems = async (
       }),
       prisma.inventoryItem.count({ where }),
     ]);
+    const effectiveCosts = await getFarmerInventoryUnitCosts(
+      prisma,
+      items.map((item) => item.id)
+    );
+    const data = items.map((item) => ({
+      ...item,
+      effectiveUnitCost: Number(
+        effectiveCosts.get(item.id) ?? item.unitPrice ?? 0
+      ),
+    }));
 
     return res.json({
       success: true,
-      data: items,
+      data,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -248,41 +260,15 @@ export const createInventoryItem = async (
         .json({ message: "Inventory item with this name already exists" });
     }
 
-    // Find or create category
     const itemType = data.itemType || InventoryItemType.OTHER;
-    const categoryName =
-      itemType === InventoryItemType.FEED
-        ? "Feed"
-        : itemType === InventoryItemType.CHICKS
-          ? "Chicks"
-          : itemType === InventoryItemType.MEDICINE
-            ? "Medicine"
-            : itemType === InventoryItemType.EQUIPMENT
-              ? "Equipment"
-              : "Other";
-
-    let category = await prisma.category.findFirst({
-      where: {
-        userId: currentUserId,
-        type: CategoryType.INVENTORY,
-        name: categoryName,
-      },
-    });
-
-    // Create category if it doesn't exist
-    if (!category) {
-      category = await prisma.category.create({
-        data: {
-          name: categoryName,
-          type: CategoryType.INVENTORY,
-          description: `Category for ${categoryName} items`,
-          userId: currentUserId as string,
-        },
-      });
-    }
 
     // Create inventory item with initial transaction if stock > 0
     const item = await prisma.$transaction(async (tx) => {
+      const category = await ensureFarmerInventoryCategory(
+        tx,
+        currentUserId,
+        itemType
+      );
       const inventoryItem = await tx.inventoryItem.create({
         data: {
           name: data.name,
@@ -291,6 +277,7 @@ export const createInventoryItem = async (
           unit: data.unit,
           minStock: data.minStock,
           itemType: itemType,
+          origin: InventoryOrigin.MANUAL,
           userId: currentUserId as string,
           categoryId: category.id,
         },
@@ -304,7 +291,7 @@ export const createInventoryItem = async (
 
         await tx.inventoryTransaction.create({
           data: {
-            type: TransactionType.PURCHASE,
+            type: InventoryTransactionType.PURCHASE,
             quantity: data.currentStock,
             unitPrice: unitPrice,
             totalAmount: totalAmount,
@@ -391,6 +378,17 @@ export const updateInventoryItem = async (
           .status(400)
           .json({ message: "Inventory item with this name already exists" });
       }
+    }
+
+    if (
+      existingItem.origin === InventoryOrigin.SELF_MADE &&
+      ((data.name !== undefined && data.name !== existingItem.name) ||
+        (data.unit !== undefined && data.unit !== existingItem.unit) ||
+        (data.itemType !== undefined && data.itemType !== existingItem.itemType))
+    ) {
+      return res.status(409).json({
+        message: "Edit a Self Feed product from the production product catalog",
+      });
     }
 
     // Update inventory item
@@ -492,6 +490,15 @@ export const addInventoryTransaction = async (
       return res.status(404).json({ message: "Inventory item not found" });
     }
 
+    if (
+      data.type === InventoryTransactionType.PRODUCTION_INPUT ||
+      data.type === InventoryTransactionType.PRODUCTION_OUTPUT
+    ) {
+      return res.status(400).json({
+        message: "Production inventory transactions can only be created by a production run",
+      });
+    }
+
     // Create transaction and update stock
     const result = await prisma.$transaction(async (tx) => {
       // Create transaction
@@ -509,15 +516,27 @@ export const addInventoryTransaction = async (
 
       // Update stock based on transaction type
       const stockChange =
-        data.type === TransactionType.PURCHASE ? data.quantity : -data.quantity;
-      await tx.inventoryItem.update({
-        where: { id: data.itemId },
+        data.type === InventoryTransactionType.PURCHASE
+          ? data.quantity
+          : -data.quantity;
+      const updated = await tx.inventoryItem.updateMany({
+        where: {
+          id: data.itemId,
+          userId: currentUserId,
+          deletedAt: null,
+          ...(stockChange < 0
+            ? { currentStock: { gte: Math.abs(stockChange) } }
+            : {}),
+        },
         data: {
           currentStock: {
             increment: stockChange,
           },
         },
       });
+      if (updated.count !== 1) {
+        throw new Error("Insufficient inventory stock or item changed");
+      }
 
       return transaction;
     });
@@ -551,6 +570,7 @@ export const recordInventoryUsage = async (
 
     // Use the inventory service to record usage
     const usage = await InventoryService.recordInventoryUsage({
+      userId: currentUserId!,
       itemId: data.itemId,
       quantity: data.quantity,
       date: new Date(data.date),
@@ -601,7 +621,7 @@ export const getInventoryTransactions = async (
     };
 
     if (type) {
-      where.type = type as TransactionType;
+      where.type = type as InventoryTransactionType;
     }
 
     if (startDate || endDate) {
@@ -744,7 +764,7 @@ export const getInventoryForExpense = async (
       deletedAt: null,
       currentStock: { gt: 0 },
     };
-    if (itemType === "FEED" || itemType === "MEDICINE" || itemType === "OTHER") {
+    if (Object.values(InventoryItemType).includes(itemType as InventoryItemType)) {
       where.itemType = itemType as InventoryItemType;
     }
 
@@ -756,26 +776,15 @@ export const getInventoryForExpense = async (
         currentStock: true,
         unit: true,
         itemType: true,
+        origin: true,
+        manufacturedProductId: true,
         expiryDate: true,
       },
       orderBy: { name: "asc" },
     });
 
     const itemIds = items.map((i) => i.id);
-    const purchaseAggregates =
-      itemIds.length > 0
-        ? await prisma.inventoryTransaction.groupBy({
-            by: ["itemId"],
-            where: { itemId: { in: itemIds }, type: "PURCHASE" },
-            _sum: { totalAmount: true, quantity: true },
-          })
-        : [];
-    const rateByItemId = new Map<string, number>();
-    for (const row of purchaseAggregates) {
-      const sumQty = Number(row._sum.quantity ?? 0);
-      const sumAmount = Number(row._sum.totalAmount ?? 0);
-      rateByItemId.set(row.itemId, sumQty > 0 ? sumAmount / sumQty : 0);
-    }
+    const unitCosts = await getFarmerInventoryUnitCosts(prisma, itemIds);
 
     const data = items.map((item) => ({
       id: item.id,
@@ -784,8 +793,10 @@ export const getInventoryForExpense = async (
       currentStock: Number(item.currentStock),
       unit: item.unit,
       itemType: item.itemType,
+      origin: item.origin,
+      manufacturedProductId: item.manufacturedProductId,
       expiryDate: item.expiryDate,
-      rate: rateByItemId.get(item.id) ?? 0,
+      rate: Number(unitCosts.get(item.id) ?? 0),
     }));
 
     return res.json({ success: true, data });
@@ -831,17 +842,7 @@ export const getInventoryTableData = async (
     const itemIds = items.map((i) => i.id);
 
     // Effective rate per item: total cost / total quantity (handles paid + free; same for all categories)
-    const purchaseAggregates = await prisma.inventoryTransaction.groupBy({
-      by: ["itemId"],
-      where: { itemId: { in: itemIds }, type: "PURCHASE" },
-      _sum: { totalAmount: true, quantity: true },
-    });
-    const effectiveRateByItemId = new Map<string, number>();
-    for (const row of purchaseAggregates) {
-      const sumQty = Number(row._sum.quantity ?? 0);
-      const sumAmount = Number(row._sum.totalAmount ?? 0);
-      effectiveRateByItemId.set(row.itemId, sumQty > 0 ? sumAmount / sumQty : 0);
-    }
+    const effectiveCosts = await getFarmerInventoryUnitCosts(prisma, itemIds);
 
     // Latest purchase per item (for supplier, dealerId, unit, purchaseCategory - display only)
     const purchases = await prisma.entityTransaction.findMany({
@@ -881,7 +882,7 @@ export const getInventoryTableData = async (
 
     const tableData = items.map((item) => {
       const latest = latestByItem.get(item.id);
-      const rate = effectiveRateByItemId.get(item.id) ?? 0;
+      const rate = Number(effectiveCosts.get(item.id) ?? item.unitPrice ?? 0);
       let supplier = "";
       if (latest) {
         if (latest.dealer) supplier = latest.dealer.name;
@@ -906,7 +907,12 @@ export const getInventoryTableData = async (
         unit,
         rate,
         value: quantity * rate,
-        supplier: supplier || undefined,
+        supplier:
+          item.origin === InventoryOrigin.SELF_MADE
+            ? "Self Feed"
+            : supplier || undefined,
+        origin: item.origin,
+        manufacturedProductId: item.manufacturedProductId,
         status,
         minStock: item.minStock,
         category: item.category.name,
@@ -969,24 +975,10 @@ export const getInventoryStatistics = async (
       ]);
 
     const itemIds = itemsForValue.map((i) => i.id);
-    const purchaseAggregates =
-      itemIds.length > 0
-        ? await prisma.inventoryTransaction.groupBy({
-            by: ["itemId"],
-            where: { itemId: { in: itemIds }, type: "PURCHASE" },
-            _sum: { totalAmount: true, quantity: true },
-          })
-        : [];
-
-    const effectiveRateByItemId = new Map<string, number>();
-    for (const row of purchaseAggregates) {
-      const sumQty = Number(row._sum.quantity ?? 0);
-      const sumAmount = Number(row._sum.totalAmount ?? 0);
-      effectiveRateByItemId.set(row.itemId, sumQty > 0 ? sumAmount / sumQty : 0);
-    }
+    const effectiveCosts = await getFarmerInventoryUnitCosts(prisma, itemIds);
 
     const totalInventoryValue = itemsForValue.reduce((sum, item) => {
-      const rate = effectiveRateByItemId.get(item.id) ?? 0;
+      const rate = Number(effectiveCosts.get(item.id) ?? 0);
       const currentStock = Number(item.currentStock);
       return sum + rate * currentStock;
     }, 0);

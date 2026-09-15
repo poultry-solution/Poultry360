@@ -63,6 +63,8 @@ function getCategoryBadgeColor(category: string | null | undefined) {
       return "bg-yellow-100 text-yellow-800";
     case "EQUIPMENT":
       return "bg-gray-100 text-gray-800";
+    case "RAW_MATERIAL":
+      return "bg-teal-100 text-teal-800";
     case "OTHER":
       return "bg-purple-100 text-purple-800";
     default:

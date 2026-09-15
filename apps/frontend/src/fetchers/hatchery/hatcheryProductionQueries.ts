@@ -2,44 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 import { hatcheryInventoryKeys } from "./hatcheryInventoryQueries";
 import { hatcheryProductKeys } from "./hatcheryProductQueries";
+import type {
+  CreateMaterialProductionInput,
+  MaterialProductionRun,
+} from "@/fetchers/production/materialProductionTypes";
 
-export interface HatcheryProductionInput {
-  id: string;
-  inventoryItemId: string;
-  quantity: number;
-  unitCost: number;
-  amount: number;
-  inventoryItem: { id: string; name: string; unit: string; supplierKey: string };
-}
-
-export interface HatcheryProductionOutput {
-  id: string;
-  productId: string;
-  inventoryItemId: string;
-  quantity: number;
-  costAllocationPercent: number;
-  unitCost: number;
-  amount: number;
-  product: { id: string; name: string; unit: string };
-}
-
-export interface HatcheryProductionRun {
-  id: string;
-  date: string;
-  referenceNumber: string | null;
-  notes: string | null;
-  inputs: HatcheryProductionInput[];
-  outputs: HatcheryProductionOutput[];
-  createdAt: string;
-}
-
-export interface CreateHatcheryProductionInput {
-  date?: string;
-  referenceNumber?: string;
-  notes?: string;
-  inputs: Array<{ inventoryItemId: string; quantity: number }>;
-  outputs: Array<{ productId: string; quantity: number; costAllocationPercent: number }>;
-}
+export type HatcheryProductionRun = MaterialProductionRun;
+export type CreateHatcheryProductionInput = CreateMaterialProductionInput;
 
 export const hatcheryProductionKeys = {
   all: ["hatcheryProduction"] as const,

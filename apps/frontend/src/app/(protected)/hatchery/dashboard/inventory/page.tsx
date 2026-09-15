@@ -47,7 +47,7 @@ const TABS: { type: HatcheryInventoryItemType | "ALL"; label: string }[] = [
   { type: "MEDICINE", label: "Medicine" },
   { type: "CHICKS", label: "Chicks" },
   { type: "RAW_MATERIAL", label: "Raw Material" },
-  { type: "SELF_MADE", label: "Self Made" },
+  { type: "SELF_MADE", label: "Self Feed" },
   { type: "OTHER", label: "Other" },
 ];
 
@@ -199,7 +199,7 @@ export default function HatcheryInventoryPage() {
       };
       if (editingProduct) await updateProduct.mutateAsync({ id: editingProduct.id, input });
       else await createProduct.mutateAsync({ ...input, minStock: input.minStock ?? undefined });
-      toast.success(editingProduct ? "Self Made product updated" : "Self Made product created");
+      toast.success(editingProduct ? "Self Feed product updated" : "Self Feed product created");
       setProductForm({ name: "", unit: "kg", minStock: "" });
       setEditingProduct(null);
       setIsProductOpen(false);
@@ -352,7 +352,7 @@ export default function HatcheryInventoryPage() {
           <div>
           <h1 className="text-2xl font-bold">Inventory</h1>
           <p className="text-sm text-muted-foreground">
-            Purchased stock, raw materials, and Self Made products
+            Purchased stock, raw materials, and Self Feed products
           </p>
           </div>
         </div>
@@ -367,7 +367,7 @@ export default function HatcheryInventoryPage() {
           { label: "Medicine", value: stats.medicineCount ?? 0, color: "text-blue-600" },
           { label: "Chicks", value: stats.chicksCount ?? 0, color: "text-yellow-600" },
           { label: "Raw Material", value: stats.rawMaterialCount ?? 0, color: "text-teal-600" },
-          { label: "Self Made", value: manufacturedProducts.length, color: "text-emerald-600" },
+          { label: "Self Feed", value: manufacturedProducts.length, color: "text-emerald-600" },
           {
             label: "Low Stock",
             value: stats.lowStockCount ?? 0,
@@ -431,10 +431,10 @@ export default function HatcheryInventoryPage() {
         productsLoading ? <div className="text-center text-muted-foreground py-8">Loading...</div> : manufacturedProducts.length === 0 ? (
           <div className="text-center text-muted-foreground py-8">
             <Package className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
-            <p className="font-medium">No Self Made products</p>
+            <p className="font-medium">No Self Feed products</p>
             <p className="text-sm mt-1">Create a product here before recording production.</p>
           </div>
-        ) : <DataTable data={manufacturedProducts} columns={productColumns} emptyMessage="No Self Made products" />
+        ) : <DataTable data={manufacturedProducts} columns={productColumns} emptyMessage="No Self Feed products" />
       ) : isLoading ? (
         <div className="text-center text-muted-foreground py-8">Loading...</div>
       ) : items.length === 0 ? (
@@ -462,7 +462,7 @@ export default function HatcheryInventoryPage() {
 
       {/* ==================== MODALS ==================== */}
 
-      <Modal isOpen={isProductOpen} onClose={() => { setIsProductOpen(false); setEditingProduct(null); }} title={editingProduct ? "Edit Self Made Product" : "Add Self Made Product"}>
+      <Modal isOpen={isProductOpen} onClose={() => { setIsProductOpen(false); setEditingProduct(null); }} title={editingProduct ? "Edit Self Feed Product" : "Add Self Feed Product"}>
         <ModalContent>
           <div className="space-y-4">
             <div><Label>Product Name</Label><Input value={productForm.name} onChange={(e) => setProductForm((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Starter feed" /></div>

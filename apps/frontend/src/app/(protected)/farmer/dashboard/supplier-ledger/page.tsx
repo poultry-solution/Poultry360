@@ -66,12 +66,14 @@ const PURCHASE_CATEGORY_VALUES = [
   "FEED",
   "MEDICINE",
   "CHICKS",
+  "RAW_MATERIAL",
   "OTHER",
 ] as const;
 const CATEGORY_I18N_KEYS: Record<(typeof PURCHASE_CATEGORY_VALUES)[number], string> = {
   FEED: "farmer.supplierLedger.categories.feed",
   MEDICINE: "farmer.supplierLedger.categories.medicine",
   CHICKS: "farmer.supplierLedger.categories.chicks",
+  RAW_MATERIAL: "farmer.supplierLedger.categories.rawMaterial",
   OTHER: "farmer.supplierLedger.categories.other",
 };
 
@@ -85,6 +87,8 @@ function getCategoryBadgeColor(category: string | null | undefined) {
       return "bg-blue-100 text-blue-800";
     case "CHICKS":
       return "bg-yellow-100 text-yellow-800";
+    case "RAW_MATERIAL":
+      return "bg-teal-100 text-teal-800";
     case "OTHER":
       return "bg-purple-100 text-purple-800";
     default:
@@ -1040,11 +1044,13 @@ export default function SupplierLedgerPage() {
                 <Select
                   value={newEntry.category}
                   onValueChange={(value) => {
-                    setNewEntry({
-                      ...newEntry,
+                    setNewEntry((current) => ({
+                      ...current,
                       category: value,
-                      expiryDate: value === "MEDICINE" ? newEntry.expiryDate : "",
-                    });
+                      unit: value === "CHICKS" ? "Birds" : "KG",
+                      expiryDate:
+                        value === "MEDICINE" ? current.expiryDate : "",
+                    }));
                     // Reset free chicks state when switching away from CHICKS
                     if (value !== "CHICKS") {
                       setFreeMode("count");
@@ -1072,15 +1078,20 @@ export default function SupplierLedgerPage() {
                   id="item"
                   value={newEntry.item}
                   onChange={(e) =>
-                    setNewEntry({ ...newEntry, item: e.target.value })
+                    setNewEntry((current) => ({
+                      ...current,
+                      item: e.target.value,
+                    }))
                   }
                   placeholder={
                     newEntry.category === "FEED"
                       ? t("farmer.supplierLedger.addEntry.itemPlaceholderFeed")
                       : newEntry.category === "MEDICINE"
                         ? t("farmer.supplierLedger.addEntry.itemPlaceholderMedicine")
-                        : newEntry.category === "CHICKS"
+                      : newEntry.category === "CHICKS"
                           ? t("farmer.supplierLedger.addEntry.itemPlaceholderChicks")
+                          : newEntry.category === "RAW_MATERIAL"
+                            ? "e.g. Maize, soybean meal, limestone"
                           : t("farmer.supplierLedger.addEntry.itemPlaceholder")
                   }
                   required
@@ -1093,7 +1104,7 @@ export default function SupplierLedgerPage() {
                 <Select
                   value={newEntry.unit || ""}
                   onValueChange={(value) =>
-                    setNewEntry({ ...newEntry, unit: value })
+                    setNewEntry((current) => ({ ...current, unit: value }))
                   }
                 >
                   <SelectTrigger className="mt-1">
@@ -1106,6 +1117,8 @@ export default function SupplierLedgerPage() {
                         ? ["Bottle", "Strip", "Vial", "Tablet", "ML", "PCS"]
                         : newEntry.category === "CHICKS"
                           ? ["Birds", "PCS", "Dozen", "Crate"]
+                          : newEntry.category === "RAW_MATERIAL"
+                            ? ["KG", "Gram", "Quintal", "Ton", "Liters", "Bag"]
                           : ["PCS", "KG", "Liters", "Box", "Packet"]
                     ).map((u) => (
                       <SelectItem key={u} value={u}>
@@ -1123,9 +1136,14 @@ export default function SupplierLedgerPage() {
                   <Input
                     id="rate"
                     type="number"
+                    min="0"
+                    step="any"
                     value={newEntry.rate}
                     onChange={(e) =>
-                      setNewEntry({ ...newEntry, rate: e.target.value })
+                      setNewEntry((current) => ({
+                        ...current,
+                        rate: e.target.value,
+                      }))
                     }
                     required
                   />
@@ -1135,9 +1153,14 @@ export default function SupplierLedgerPage() {
                   <Input
                     id="quantity"
                     type="number"
+                    min="0"
+                    step={newEntry.category === "RAW_MATERIAL" ? "any" : "1"}
                     value={newEntry.quantity}
                     onChange={(e) =>
-                      setNewEntry({ ...newEntry, quantity: e.target.value })
+                      setNewEntry((current) => ({
+                        ...current,
+                        quantity: e.target.value,
+                      }))
                     }
                     required
                   />
@@ -1215,7 +1238,7 @@ export default function SupplierLedgerPage() {
                   label={t("farmer.supplierLedger.addEntry.dateLabel")}
                   value={newEntry.date}
                   onChange={(value) =>
-                    setNewEntry({ ...newEntry, date: value })
+                    setNewEntry((current) => ({ ...current, date: value }))
                   }
                 />
               </div>
@@ -1226,7 +1249,10 @@ export default function SupplierLedgerPage() {
                     label={t("farmer.supplierLedger.addEntry.expiryDateLabel")}
                     value={newEntry.expiryDate}
                     onChange={(value) =>
-                      setNewEntry({ ...newEntry, expiryDate: value })
+                      setNewEntry((current) => ({
+                        ...current,
+                        expiryDate: value,
+                      }))
                     }
                     preferNativeInput
                   />
@@ -1240,7 +1266,10 @@ export default function SupplierLedgerPage() {
                   id="description"
                   value={newEntry.description}
                   onChange={(e) =>
-                    setNewEntry({ ...newEntry, description: e.target.value })
+                    setNewEntry((current) => ({
+                      ...current,
+                      description: e.target.value,
+                    }))
                   }
                   placeholder={t("farmer.supplierLedger.addEntry.notePlaceholder")}
                 />

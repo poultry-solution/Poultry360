@@ -5,6 +5,7 @@ import {
   TransactionType,
 } from "@myapp/shared-types";
 import axiosInstance from "@/common/lib/axios";
+import { inventoryKeys } from "@/fetchers/inventory/inventoryQueries";
 
 // ==================== QUERY KEYS ====================
 export const dealerKeys = {
@@ -221,6 +222,7 @@ export const useAddDealerTransaction = () => {
       });
       queryClient.invalidateQueries({ queryKey: dealerKeys.lists() });
       queryClient.invalidateQueries({ queryKey: dealerKeys.statistics() });
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
     },
   });
 };
