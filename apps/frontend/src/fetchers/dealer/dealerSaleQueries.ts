@@ -145,7 +145,7 @@ export const useGetDealerSaleById = (id: string) => {
 export const useGetSalesStatistics = (params?: {
   startDate?: string;
   endDate?: string;
-}) => {
+}, options?: { enabled?: boolean }) => {
   const queryString = new URLSearchParams(
     Object.entries(params || {})
       .filter(([_, v]) => v !== undefined)
@@ -160,6 +160,7 @@ export const useGetSalesStatistics = (params?: {
       );
       return data;
     },
+    enabled: options?.enabled ?? true,
   });
 };
 

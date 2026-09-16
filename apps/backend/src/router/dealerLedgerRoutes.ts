@@ -10,7 +10,8 @@ import {
   addDealerPayment,
   deleteDealerManualGeneralPayment,
 } from "../controller/dealerLedgerController";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, requireOperationalLedgerScope, requireStaffPermission } from "../middelware/middelware";
+import { StaffPermission } from "@prisma/client";
 
 const router = express.Router();
 
@@ -21,19 +22,19 @@ router.use((req, res, next) => {
 
 // ==================== DEALER LEDGER ROUTES ====================
 // Get ledger entries with filters
-router.get("/", getLedgerEntries);
+router.get("/", requireOperationalLedgerScope, getLedgerEntries);
 
 // Get current balance
-router.get("/balance", getCurrentBalance);
+router.get("/balance", requireStaffPermission(StaffPermission.DEALER_VIEW_FINANCIAL_SUMMARIES), getCurrentBalance);
 
 // Get ledger summary
-router.get("/summary", getLedgerSummary);
+router.get("/summary", requireStaffPermission(StaffPermission.DEALER_VIEW_FINANCIAL_SUMMARIES), getLedgerSummary);
 
 // Get parties (customers/farmers) with balances
 router.get("/parties", getDealerLedgerParties);
 
 // Export ledger
-router.get("/export", exportLedger);
+router.get("/export", requireStaffPermission(StaffPermission.DEALER_VIEW_FINANCIAL_SUMMARIES), exportLedger);
 
 // Get party-specific ledger
 router.get("/party/:partyId", getPartyLedger);
@@ -48,4 +49,3 @@ router.delete("/payments/:ledgerEntryId", deleteDealerManualGeneralPayment);
 router.post("/adjustment", createAdjustment);
 
 export default router;
-

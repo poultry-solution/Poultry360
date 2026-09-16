@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma, StaffPermission } from "@prisma/client";
 
 // ==================== CREATE DEALER PRODUCT ====================
 export const createDealerProduct = async (
@@ -521,14 +521,14 @@ export const getInventorySummary = async (
       },
     });
 
-    // Get total inventory value
-    const products = await prisma.dealerProduct.findMany({
-      where: { dealerId: dealer.id },
-    });
-
-    const totalInventoryValue = products.reduce((sum, product) => {
-      return sum + Number(product.currentStock) * Number(product.costPrice);
-    }, 0);
+    const canViewFinancialSummaries =
+      req.actorType !== "STAFF" || req.staffPermissions?.includes(StaffPermission.DEALER_VIEW_FINANCIAL_SUMMARIES);
+    const totalInventoryValue = canViewFinancialSummaries
+      ? (await prisma.dealerProduct.findMany({ where: { dealerId: dealer.id } })).reduce(
+          (sum, product) => sum + Number(product.currentStock) * Number(product.costPrice),
+          0
+        )
+      : undefined;
 
     // Get products by type
     const productsByType = await prisma.dealerProduct.groupBy({
@@ -543,7 +543,7 @@ export const getInventorySummary = async (
         totalProducts,
         lowStockProducts,
         outOfStockProducts,
-        totalInventoryValue,
+        ...(canViewFinancialSummaries ? { totalInventoryValue } : {}),
         productsByType,
       },
     });
@@ -638,4 +638,3 @@ export const adjustProductStock = async (
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-

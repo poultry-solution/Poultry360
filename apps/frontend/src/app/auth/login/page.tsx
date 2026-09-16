@@ -12,7 +12,7 @@ import { useI18n } from "@/i18n/useI18n";
 import { SignupChooserDialog } from "@/common/components/auth/SignupChooserDialog";
 
 export default function LoginPage() {
-  const { login, isLoading, error, clearError } = useAuth();
+  const { login, staffLogin, isLoading, error, clearError } = useAuth();
   const { isRedirecting, handleLoginRedirect } = useLoginRedirect();
   const { t } = useI18n();
   const { isAuthenticated, isInitialized } = useAuthStore();
@@ -26,6 +26,7 @@ export default function LoginPage() {
   }, [isInitialized, isAuthenticated, handleLoginRedirect]);
 
   const [showPassword, setShowPassword] = useState(false);
+  const [isStaffLogin, setIsStaffLogin] = useState(false);
   const [formData, setFormData] = useState({
     // emailOrPhone will hold ONLY the 10 local digits; +977 is shown separately
     emailOrPhone: "",
@@ -62,7 +63,7 @@ export default function LoginPage() {
       }
       const normalizedPhone = `+977${localDigits}`;
 
-      await login({
+      await (isStaffLogin ? staffLogin : login)({
         emailOrPhone: normalizedPhone,
         password: formData.password,
       });
@@ -104,6 +105,23 @@ export default function LoginPage() {
           </p>
         </div>
 
+        <div className="mb-5 grid grid-cols-2 rounded-lg bg-muted p-1 text-sm">
+          <button
+            type="button"
+            onClick={() => setIsStaffLogin(false)}
+            className={`rounded-md px-3 py-2 ${!isStaffLogin ? "bg-background font-medium shadow-sm" : "text-muted-foreground"}`}
+          >
+            Owner login
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsStaffLogin(true)}
+            className={`rounded-md px-3 py-2 ${isStaffLogin ? "bg-background font-medium shadow-sm" : "text-muted-foreground"}`}
+          >
+            Staff login
+          </button>
+        </div>
+
         {(error || validationError) && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
             <p className="text-sm text-red-600">{error || validationError}</p>
@@ -131,7 +149,7 @@ export default function LoginPage() {
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              {t("auth.login.phoneHelp")}
+              {isStaffLogin ? "Use the phone number assigned by your Feed Dealer owner." : t("auth.login.phoneHelp")}
             </p>
           </div>
           <div className="space-y-2">

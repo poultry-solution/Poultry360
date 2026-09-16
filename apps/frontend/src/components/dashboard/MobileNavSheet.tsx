@@ -13,6 +13,7 @@ import {
     SheetTitle,
 } from "@/common/components/ui/sheet";
 import { NavigationItem } from "@/components/dashboard/Sidebar";
+import { useAuthStore } from "@/common/store/store";
 import { useI18n } from "@/i18n/useI18n";
 import {
     useGetAccountFeatures,
@@ -30,6 +31,7 @@ export function MobileNavSheet({
     const [isOpen, setIsOpen] = useState(false);
     const pathname = usePathname();
     const { t } = useI18n();
+    const user = useAuthStore((state) => state.user);
     const hasFeatureGatedNavigation = navigation.some(
         (item) => item.requiredFeature
     );
@@ -43,7 +45,9 @@ export function MobileNavSheet({
     );
     const visibleNavigation = navigation.filter(
         (item) =>
-            !item.requiredFeature || enabledFeatures.has(item.requiredFeature)
+            (!item.requiredFeature || enabledFeatures.has(item.requiredFeature)) &&
+            (!item.ownerOnly || !user?.isStaff) &&
+            (!item.requiredStaffPermission || !user?.isStaff || user.permissions?.includes(item.requiredStaffPermission))
     );
     return (
         <>

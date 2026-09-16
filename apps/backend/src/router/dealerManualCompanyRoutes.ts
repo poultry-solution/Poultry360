@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
+import { StaffPermission } from "@prisma/client";
 import {
     createManualCompany,
     getManualCompanies,
@@ -40,6 +41,6 @@ router.post("/:id/opening-balance", setManualCompanyOpeningBalance);
 router.get("/:id/statement", getManualCompanyStatement);
 
 // Profit
-router.get("/profit/summary", getDealerProfitSummary);
+router.get("/profit/summary", requireStaffPermission(StaffPermission.DEALER_VIEW_FINANCIAL_SUMMARIES), getDealerProfitSummary);
 
 export default router;

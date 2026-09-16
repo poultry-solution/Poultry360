@@ -1,5 +1,6 @@
 import express from "express";
 import authRoutes from "./authRoutes";
+import staffAuthRoutes from "./staffAuthRoutes";
 import userRoutes from "./userRoutes";
 import farmRoutes from "./farmRoutes";
 import batchRoutes from "./batchRoutes";
@@ -71,6 +72,7 @@ if (process.env.NODE_ENV === 'test') {
 const router = express.Router();
 
 router.use("/auth", authRoutes);
+router.use("/staff-auth", staffAuthRoutes);
 router.use("/users", userRoutes);
 router.use("/account-features", accountFeatureRoutes);
 router.use("/farms", farmRoutes);

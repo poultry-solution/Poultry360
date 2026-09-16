@@ -30,6 +30,7 @@ import {
 import { useI18n } from "@/i18n/useI18n";
 import { toast } from "sonner";
 import BulkReorderDialog from "./BulkReorderDialog";
+import { useAuthStore } from "@/common/store/store";
 
 // Inline editable price cell component
 function EditablePriceCell({ value, productId }: { value: number; productId: string }) {
@@ -116,6 +117,8 @@ function EditablePriceCell({ value, productId }: { value: number; productId: str
 
 export default function DealerInventoryPage() {
   const { t } = useI18n();
+  const user = useAuthStore((state) => state.user);
+  const canViewFinancialSummaries = !user?.isStaff || user.permissions?.includes("DEALER_VIEW_FINANCIAL_SUMMARIES");
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("");
@@ -169,7 +172,7 @@ export default function DealerInventoryPage() {
           </CardContent>
         </Card>
 
-        <Card className="p-0">
+        {canViewFinancialSummaries && <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
             <CardTitle className="text-xs md:text-sm font-medium">
               {t("dealer.inventory.stats.value")}
@@ -184,7 +187,7 @@ export default function DealerInventoryPage() {
               {t("dealer.inventory.stats.totalCost")}
             </p>
           </CardContent>
-        </Card>
+        </Card>}
 
         <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
@@ -458,4 +461,3 @@ export default function DealerInventoryPage() {
     </div>
   );
 }
-

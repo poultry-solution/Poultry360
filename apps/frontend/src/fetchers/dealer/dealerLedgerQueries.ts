@@ -104,7 +104,7 @@ export const useGetCurrentBalance = () => {
 export const useGetLedgerSummary = (params?: {
   startDate?: string;
   endDate?: string;
-}) => {
+}, options?: { enabled?: boolean }) => {
   const queryString = new URLSearchParams(
     Object.entries(params || {})
       .filter(([_, v]) => v !== undefined)
@@ -119,6 +119,7 @@ export const useGetLedgerSummary = (params?: {
       );
       return data;
     },
+    enabled: options?.enabled ?? true,
   });
 };
 
