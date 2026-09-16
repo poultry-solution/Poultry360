@@ -417,7 +417,17 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   // ==================== SOCKET SETUP ====================
 
   useEffect(() => {
-    if (!accessToken || !user) return;
+    // Socket.IO is reserved for the Farmer–Doctor chat. This provider is
+    // mounted for all protected pages, so explicitly opt out Dealer, Company,
+    // Hatchery, Super Admin, and all Staff sessions before opening a socket.
+    const canUseChat =
+      user?.isStaff !== true &&
+      (user?.role === "OWNER" || user?.role === "MANAGER" || user?.role === "DOCTOR");
+    if (!accessToken || !user || !canUseChat) {
+      socketService.current.disconnect();
+      setIsConnected(false);
+      return;
+    }
 
     const connectSocket = async () => {
       try {

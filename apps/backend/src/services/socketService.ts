@@ -6,6 +6,8 @@ import { getRoomService } from './roomService';
 import { getMessageService } from './messageService';
 const messageService = getMessageService();
 
+const CHAT_ROLES = new Set(['OWNER', 'MANAGER', 'DOCTOR']);
+
 interface AuthenticatedSocket extends Socket {
   userId?: string;
   userRole?: string;
@@ -40,7 +42,16 @@ export class SocketService {
           return next(new Error('Authentication error: No token provided'));
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as {
+          userId?: string;
+          actorType?: string;
+        };
+
+        // Staff tokens have no normal User id and neither staff nor business
+        // accounts participate in the Farmer–Doctor chat.
+        if (decoded.actorType === 'STAFF' || !decoded.userId) {
+          return next(new Error('Socket access is not available for this account'));
+        }
 
         // Verify user exists and is active
         const user = await prisma.user.findUnique({
@@ -51,14 +62,16 @@ export class SocketService {
         if (!user || user.status !== 'ACTIVE') {
           return next(new Error('Authentication error: User not found or inactive'));
         }
+        if (!CHAT_ROLES.has(user.role)) {
+          return next(new Error('Socket access is not available for this account'));
+        }
 
         socket.userId = user.id;
         socket.userRole = user.role;
         socket.userName = user.name;
 
         next();
-      } catch (error) {
-        console.error('Socket authentication error:', error);
+      } catch {
         next(new Error('Authentication error: Invalid token'));
       }
     });
@@ -334,4 +347,3 @@ export const getSocketService = (server?: HTTPServer): SocketService => {
 
   return socketServiceInstance;
 };
-
