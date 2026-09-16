@@ -46,8 +46,8 @@ export function MobileNavSheet({
     const visibleNavigation = navigation.filter(
         (item) =>
             (!item.requiredFeature || enabledFeatures.has(item.requiredFeature)) &&
-            (!item.ownerOnly || !user?.isStaff) &&
-            (!item.requiredStaffPermission || !user?.isStaff || user.permissions?.includes(item.requiredStaffPermission))
+            (!item.ownerOnly || user?.isStaff !== true) &&
+            (!item.requiredStaffPermission || user?.isStaff !== true || user.permissions?.includes(item.requiredStaffPermission))
     );
     return (
         <>

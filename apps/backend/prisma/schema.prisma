@@ -3306,11 +3306,12 @@ model HatcheryPartyPayment {
 model PasswordResetOtp {
   id        String   @id @default(cuid())
   phone     String
-  otp       String // 6-digit OTP
+  otp       String // bcrypt hash of the 6-digit OTP
+  attempts  Int      @default(0)
   used      Boolean  @default(false)
   expiresAt DateTime // OTP expires after 30 minutes
   createdAt DateTime @default(now())
 
-  @@index([phone, otp, used])
+  @@index([phone, used])
   @@index([createdAt])
 }
