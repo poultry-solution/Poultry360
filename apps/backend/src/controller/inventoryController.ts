@@ -16,6 +16,10 @@ import {
   ensureFarmerInventoryCategory,
   getFarmerInventoryUnitCosts,
 } from "../services/farmerInventoryDomain";
+import {
+  ACCOUNT_FEATURE_KEYS,
+  isAccountFeatureEnabled,
+} from "../services/accountFeatureService";
 
 // ==================== GET ALL INVENTORY ITEMS ====================
 export const getAllInventoryItems = async (
@@ -261,6 +265,19 @@ export const createInventoryItem = async (
     }
 
     const itemType = data.itemType || InventoryItemType.OTHER;
+    if (
+      itemType === InventoryItemType.RAW_MATERIAL &&
+      !(await isAccountFeatureEnabled(
+        currentUserId,
+        ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION
+      ))
+    ) {
+      return res.status(403).json({
+        code: "ACCOUNT_FEATURE_DISABLED",
+        featureKey: ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION,
+        message: "Self-Feed Production is not enabled for this account",
+      });
+    }
 
     // Create inventory item with initial transaction if stock > 0
     const item = await prisma.$transaction(async (tx) => {

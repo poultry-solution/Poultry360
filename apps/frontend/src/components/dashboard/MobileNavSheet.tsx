@@ -14,6 +14,9 @@ import {
 } from "@/common/components/ui/sheet";
 import { NavigationItem } from "@/components/dashboard/Sidebar";
 import { useI18n } from "@/i18n/useI18n";
+import {
+    useGetAccountFeatures,
+} from "@/fetchers/accountFeatureQueries";
 
 
 
@@ -27,6 +30,21 @@ export function MobileNavSheet({
     const [isOpen, setIsOpen] = useState(false);
     const pathname = usePathname();
     const { t } = useI18n();
+    const hasFeatureGatedNavigation = navigation.some(
+        (item) => item.requiredFeature
+    );
+    const { data: accountFeaturesData } = useGetAccountFeatures(
+        { enabled: hasFeatureGatedNavigation }
+    );
+    const enabledFeatures = new Set(
+        accountFeaturesData?.data
+            .filter((feature) => feature.enabled)
+            .map((feature) => feature.key) ?? []
+    );
+    const visibleNavigation = navigation.filter(
+        (item) =>
+            !item.requiredFeature || enabledFeatures.has(item.requiredFeature)
+    );
     return (
         <>
             {/* Floating Action Button - Bottom Right */}
@@ -47,7 +65,7 @@ export function MobileNavSheet({
                     </SheetHeader>
 
                     <nav className="min-h-0 flex-1 flex flex-col gap-1 overflow-y-auto">
-                        {navigation.map((item) => {
+                        {visibleNavigation.map((item) => {
                             const isActive = pathname === item.href;
                             const Icon = item.icon;
 

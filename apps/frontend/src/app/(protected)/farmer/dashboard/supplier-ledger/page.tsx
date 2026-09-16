@@ -61,6 +61,10 @@ import {
 } from "@/common/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/common/components/ui/tabs";
 import { useI18n } from "@/i18n/useI18n";
+import {
+  ACCOUNT_FEATURE_KEYS,
+  useAccountFeature,
+} from "@/fetchers/accountFeatureQueries";
 
 const PURCHASE_CATEGORY_VALUES = [
   "FEED",
@@ -98,6 +102,9 @@ function getCategoryBadgeColor(category: string | null | undefined) {
 
 export default function SupplierLedgerPage() {
   const { t } = useI18n();
+  const { isEnabled: isSelfFeedEnabled } = useAccountFeature(
+    ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION
+  );
   const router = useRouter();
   const [activeSupplierId, setActiveSupplierId] = useState<string>("");
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
@@ -141,6 +148,16 @@ export default function SupplierLedgerPage() {
     note: "",
     receiptImageUrl: "",
   });
+
+  useEffect(() => {
+    if (!isSelfFeedEnabled && newEntry.category === "RAW_MATERIAL") {
+      setNewEntry((current) => ({
+        ...current,
+        category: "FEED",
+        unit: "KG",
+      }));
+    }
+  }, [isSelfFeedEnabled, newEntry.category]);
 
   // API Queries
   const {
@@ -1062,7 +1079,9 @@ export default function SupplierLedgerPage() {
                     <SelectValue placeholder={t("farmer.supplierLedger.addEntry.categoryPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent className="bg-white">
-                    {PURCHASE_CATEGORY_VALUES.map((value) => (
+                    {PURCHASE_CATEGORY_VALUES.filter(
+                      (value) => isSelfFeedEnabled || value !== "RAW_MATERIAL"
+                    ).map((value) => (
                       <SelectItem key={value} value={value}>
                         {t(CATEGORY_I18N_KEYS[value])}
                       </SelectItem>

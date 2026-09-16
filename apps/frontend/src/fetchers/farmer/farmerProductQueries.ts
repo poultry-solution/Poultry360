@@ -38,7 +38,8 @@ export const farmerProductKeys = {
 };
 
 export function useGetFarmerProducts(
-  params: { search?: string; page?: number; limit?: number } = {}
+  params: { search?: string; page?: number; limit?: number } = {},
+  options?: { enabled?: boolean }
 ) {
   return useQuery({
     queryKey: farmerProductKeys.list(params),
@@ -55,6 +56,7 @@ export function useGetFarmerProducts(
         };
       };
     },
+    enabled: options?.enabled ?? true,
   });
 }
 

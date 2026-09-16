@@ -10,6 +10,16 @@ import {
 import { getNepalBsTodayString, prevBsDate } from "../utils/nepalBsDate";
 
 export const DEMO_ACCOUNTS = {
+  superAdmin: {
+    id: "p360-demo-user-super-admin-v1",
+    phone: "+9779800360000",
+    role: UserRole.SUPER_ADMIN,
+    name: "Poultry360 Demo Admin",
+    businessName: "Poultry360 Administration",
+    location: "Kathmandu, Nepal",
+    passwordEnv: "P360_DEMO_SUPER_ADMIN_PASSWORD",
+    requiresExplicitPassword: true,
+  },
   farmer: {
     id: "p360-demo-user-farmer-v1",
     phone: "+9779800360001",
@@ -68,10 +78,21 @@ export const daysFromNow = (days: number, hour = 9): Date => {
   return date;
 };
 
-export const demoPassword = (account: DemoAccount): string =>
-  process.env[account.passwordEnv] ||
-  process.env.P360_DEMO_PASSWORD ||
-  DEFAULT_DEMO_PASSWORD;
+export const demoPassword = (account: DemoAccount): string => {
+  const accountPassword = process.env[account.passwordEnv];
+  if (accountPassword) return accountPassword;
+
+  if (
+    "requiresExplicitPassword" in account &&
+    account.requiresExplicitPassword
+  ) {
+    throw new Error(
+      `${account.passwordEnv} is required when seeding the Super Admin account.`,
+    );
+  }
+
+  return process.env.P360_DEMO_PASSWORD || DEFAULT_DEMO_PASSWORD;
+};
 
 export const hashDemoPassword = async (account: DemoAccount): Promise<string> =>
   bcrypt.hash(demoPassword(account), 12);
@@ -152,25 +173,27 @@ export async function upsertDemoUser(
     },
   });
 
-  await tx.userOnboardingPayment.upsert({
-    where: { userId: user.id },
-    create: {
-      userId: user.id,
-      state: UserOnboardingPaymentState.PAYMENT_APPROVED,
-      lockedUntilApproved: false,
-      approvedAt: daysAgo(120),
-      approvedBy: "DEMO_SEED",
-    },
-    update: {
-      state: UserOnboardingPaymentState.PAYMENT_APPROVED,
-      lockedUntilApproved: false,
-      approvedAt: daysAgo(120),
-      approvedBy: "DEMO_SEED",
-      rejectedAt: null,
-      rejectedBy: null,
-      rejectionReason: null,
-    },
-  });
+  if (account.role !== UserRole.SUPER_ADMIN) {
+    await tx.userOnboardingPayment.upsert({
+      where: { userId: user.id },
+      create: {
+        userId: user.id,
+        state: UserOnboardingPaymentState.PAYMENT_APPROVED,
+        lockedUntilApproved: false,
+        approvedAt: daysAgo(120),
+        approvedBy: "DEMO_SEED",
+      },
+      update: {
+        state: UserOnboardingPaymentState.PAYMENT_APPROVED,
+        lockedUntilApproved: false,
+        approvedAt: daysAgo(120),
+        approvedBy: "DEMO_SEED",
+        rejectedAt: null,
+        rejectedBy: null,
+        rejectionReason: null,
+      },
+    });
+  }
 
   return user;
 }

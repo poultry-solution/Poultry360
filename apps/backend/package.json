@@ -11,6 +11,7 @@
     "seed": "pnpm run seed:demo:all",
     "seed:demo": "pnpm run seed:demo:all",
     "seed:demo:all": "ts-node src/scripts/seedDemoFarmer.ts && ts-node src/scripts/seedDemoDealer.ts && ts-node src/scripts/seedDemoCompany.ts && ts-node src/scripts/seedDemoHatchery.ts",
+    "seed:demo:super-admin": "ts-node src/scripts/seedDemoSuperAdmin.ts",
     "seed:demo:farmer": "ts-node src/scripts/seedDemoFarmer.ts",
     "seed:demo:dealer": "ts-node src/scripts/seedDemoDealer.ts",
     "seed:demo:company": "ts-node src/scripts/seedDemoCompany.ts",

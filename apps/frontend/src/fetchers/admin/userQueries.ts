@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
+import type {
+  AccountFeature,
+  AccountFeatureKey,
+} from "@/fetchers/accountFeatureQueries";
 
 // ==================== QUERY KEYS ====================
 export const adminUserKeys = {
@@ -37,7 +41,7 @@ export interface AdminUserFilters {
   limit?: number;
   search?: string;
   status?: "ACTIVE" | "INACTIVE" | "PENDING_VERIFICATION";
-  role?: "OWNER" | "MANAGER" | "DOCTOR" | "DEALER" | "COMPANY";
+  role?: "OWNER" | "MANAGER" | "DOCTOR" | "DEALER" | "COMPANY" | "HATCHERY";
 }
 
 export interface AdminUsersResponse {
@@ -97,6 +101,7 @@ export interface AdminUserDetail {
   calendarType: string;
   createdAt: string;
   updatedAt: string;
+  accountFeatures: AccountFeature[];
   ownedFarms: Array<{
     id: string;
     name: string;
@@ -152,6 +157,12 @@ export interface HardDeleteAdminUserInput {
   password: string;
 }
 
+export interface UpdateAdminUserFeatureInput {
+  accountId: string;
+  featureKey: AccountFeatureKey;
+  enabled: boolean;
+}
+
 // Get user by ID
 export const useGetAdminUserById = (id: string) => {
   return useQuery<AdminUserDetailResponse>({
@@ -179,6 +190,29 @@ export const useHardDeleteAdminUser = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: adminUserKeys.lists() });
       queryClient.removeQueries({ queryKey: adminUserKeys.detail(variables.id) });
+    },
+  });
+};
+
+export const useUpdateAdminUserFeature = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      accountId,
+      featureKey,
+      enabled,
+    }: UpdateAdminUserFeatureInput) => {
+      const { data } = await axiosInstance.put(
+        `/admin/users/${accountId}/features/${featureKey}`,
+        { enabled }
+      );
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: adminUserKeys.detail(variables.accountId),
+      });
     },
   });
 };

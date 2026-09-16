@@ -13,8 +13,21 @@ import {
   type HatcheryManufacturedProduct,
 } from "@/fetchers/hatchery/hatcheryProductQueries";
 import { useCreateHatcheryProduction } from "@/fetchers/hatchery/hatcheryProductionQueries";
+import { AccountFeatureGuard } from "@/components/features/AccountFeatureGuard";
+import { ACCOUNT_FEATURE_KEYS } from "@/fetchers/accountFeatureQueries";
 
 export default function NewHatcheryProductionPage() {
+  return (
+    <AccountFeatureGuard
+      featureKey={ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION}
+      fallbackHref="/hatchery/dashboard/home"
+    >
+      <NewHatcheryProductionContent />
+    </AccountFeatureGuard>
+  );
+}
+
+function NewHatcheryProductionContent() {
   const router = useRouter();
   const createProduction = useCreateHatcheryProduction();
   const [materialSearch, setMaterialSearch] = useState("");

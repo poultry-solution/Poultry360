@@ -60,6 +60,7 @@ import hatcheryProductRoutes from "./hatcheryProductRoutes";
 import hatcheryProductionRoutes from "./hatcheryProductionRoutes";
 import farmerProductRoutes from "./farmerProductRoutes";
 import farmerProductionRoutes from "./farmerProductionRoutes";
+import accountFeatureRoutes from "./accountFeatureRoutes";
 
 // Test routes (only in test environment)
 let testRoutes: express.Router | null = null;
@@ -71,6 +72,7 @@ const router = express.Router();
 
 router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
+router.use("/account-features", accountFeatureRoutes);
 router.use("/farms", farmRoutes);
 router.use("/batches", batchRoutes);
 router.use("/dealers", dealerRoutes);

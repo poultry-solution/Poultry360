@@ -7,8 +7,21 @@ import {
   useDeleteFarmerProduction,
   useGetFarmerProduction,
 } from "@/fetchers/farmer/farmerProductionQueries";
+import { AccountFeatureGuard } from "@/components/features/AccountFeatureGuard";
+import { ACCOUNT_FEATURE_KEYS } from "@/fetchers/accountFeatureQueries";
 
 export default function FarmerProductionPage() {
+  return (
+    <AccountFeatureGuard
+      featureKey={ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION}
+      fallbackHref="/farmer/dashboard/home"
+    >
+      <FarmerProductionContent />
+    </AccountFeatureGuard>
+  );
+}
+
+function FarmerProductionContent() {
   const [search, setSearch] = useState("");
   const { data, isLoading } = useGetFarmerProduction({
     limit: 100,

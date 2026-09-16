@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -38,6 +38,10 @@ import {
   useUpdateHatcheryProduct,
   type HatcheryManufacturedProduct,
 } from "@/fetchers/hatchery/hatcheryProductQueries";
+import {
+  ACCOUNT_FEATURE_KEYS,
+  useAccountFeature,
+} from "@/fetchers/accountFeatureQueries";
 
 // ==================== HELPERS ====================
 
@@ -86,6 +90,9 @@ export default function HatcheryInventoryPage() {
   const [reorderForm, setReorderForm] = useState({ quantity: "", date: "" });
   const [editForm, setEditForm] = useState({ name: "", unit: "", minStock: "" });
   const [productForm, setProductForm] = useState({ name: "", unit: "kg", minStock: "" });
+  const { isEnabled: isSelfFeedEnabled } = useAccountFeature(
+    ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION
+  );
 
   // Queries
   const { data: tableRes, isLoading } = useGetHatcheryInventoryTable(
@@ -93,7 +100,22 @@ export default function HatcheryInventoryPage() {
   );
   const { data: statsRes } = useGetHatcheryInventoryStatistics();
   const { data: lowStockRes } = useGetHatcheryLowStock();
-  const { data: productsRes, isLoading: productsLoading } = useGetHatcheryProducts({ limit: 100 });
+  const { data: productsRes, isLoading: productsLoading } =
+    useGetHatcheryProducts(
+      { limit: 100 },
+      { enabled: isSelfFeedEnabled }
+    );
+
+  useEffect(() => {
+    if (!isSelfFeedEnabled) {
+      if (activeTab === "RAW_MATERIAL" || activeTab === "SELF_MADE") {
+        setActiveTab("ALL");
+      }
+      setIsProductOpen(false);
+      setEditingProduct(null);
+      setProductForm({ name: "", unit: "kg", minStock: "" });
+    }
+  }, [activeTab, isSelfFeedEnabled]);
 
   // Mutations
   const updateItem = useUpdateHatcheryInventoryItem();
@@ -103,10 +125,22 @@ export default function HatcheryInventoryPage() {
   const updateProduct = useUpdateHatcheryProduct();
   const archiveProduct = useArchiveHatcheryProduct();
 
-  const items: HatcheryInventoryItem[] = tableRes?.data || [];
+  const items: HatcheryInventoryItem[] = (tableRes?.data || []).filter(
+    (item: HatcheryInventoryItem) =>
+      isSelfFeedEnabled || item.itemType !== "RAW_MATERIAL"
+  );
   const stats = statsRes?.data || {};
-  const lowStockItems: HatcheryInventoryItem[] = lowStockRes?.data || [];
+  const lowStockItems: HatcheryInventoryItem[] = (lowStockRes?.data || []).filter(
+    (item: HatcheryInventoryItem) =>
+      isSelfFeedEnabled || item.itemType !== "RAW_MATERIAL"
+  );
   const manufacturedProducts: HatcheryManufacturedProduct[] = productsRes?.data || [];
+  const visibleTotalItems = Math.max(
+    0,
+    Number(stats.totalItems ?? 0) -
+      (isSelfFeedEnabled ? 0 : Number(stats.rawMaterialCount ?? 0))
+  );
+  const visibleLowStockCount = lowStockItems.length;
 
   const openReorder = (item: HatcheryInventoryItem) => {
     setSelectedItem(item);
@@ -355,7 +389,9 @@ export default function HatcheryInventoryPage() {
           <div>
           <h1 className="text-2xl font-bold">Inventory</h1>
           <p className="text-sm text-muted-foreground">
-            Purchased stock, raw materials, and Self Feed products
+            {isSelfFeedEnabled
+              ? "Purchased stock, raw materials, and Self Feed products"
+              : "Purchased inventory and current stock"}
           </p>
           </div>
         </div>
@@ -365,16 +401,20 @@ export default function HatcheryInventoryPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
-          { label: "Total Items", value: stats.totalItems ?? 0 },
+          { label: "Total Items", value: visibleTotalItems },
           { label: "Feed", value: stats.feedCount ?? 0, color: "text-amber-600" },
           { label: "Medicine", value: stats.medicineCount ?? 0, color: "text-blue-600" },
           { label: "Chicks", value: stats.chicksCount ?? 0, color: "text-yellow-600" },
-          { label: "Raw Material", value: stats.rawMaterialCount ?? 0, color: "text-teal-600" },
-          { label: "Self Feed", value: manufacturedProducts.length, color: "text-emerald-600" },
+          ...(isSelfFeedEnabled
+            ? [
+                { label: "Raw Material", value: stats.rawMaterialCount ?? 0, color: "text-teal-600" },
+                { label: "Self Feed", value: manufacturedProducts.length, color: "text-emerald-600" },
+              ]
+            : []),
           {
             label: "Low Stock",
-            value: stats.lowStockCount ?? 0,
-            color: stats.lowStockCount > 0 ? "text-red-600" : "text-green-600",
+            value: visibleLowStockCount,
+            color: visibleLowStockCount > 0 ? "text-red-600" : "text-green-600",
           },
         ].map((s) => (
           <Card key={s.label}>
@@ -414,7 +454,11 @@ export default function HatcheryInventoryPage() {
 
       {/* Tabs */}
       <div className="flex border-b gap-1">
-        {TABS.map((tab) => (
+        {TABS.filter(
+          (tab) =>
+            isSelfFeedEnabled ||
+            (tab.type !== "RAW_MATERIAL" && tab.type !== "SELF_MADE")
+        ).map((tab) => (
           <button
             key={tab.type}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${

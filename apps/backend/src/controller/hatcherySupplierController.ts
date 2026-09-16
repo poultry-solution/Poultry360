@@ -3,6 +3,10 @@ import prisma from "../utils/prisma";
 import { HatcherySupplierTxnType, HatcheryPurchaseCategory } from "@prisma/client";
 import { HatcherySupplierService } from "../services/hatcherySupplierService";
 import bcrypt from "bcrypt";
+import {
+  ACCOUNT_FEATURE_KEYS,
+  isAccountFeatureEnabled,
+} from "../services/accountFeatureService";
 
 // ==================== LIST SUPPLIERS ====================
 export const listHatcherySuppliers = async (
@@ -291,6 +295,20 @@ export const addHatcherySupplierTransaction = async (
         return res
           .status(400)
           .json({ message: "Valid category is required for purchase" });
+
+      if (
+        category === HatcheryPurchaseCategory.RAW_MATERIAL &&
+        !(await isAccountFeatureEnabled(
+          userId,
+          ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION
+        ))
+      ) {
+        return res.status(403).json({
+          code: "ACCOUNT_FEATURE_DISABLED",
+          featureKey: ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION,
+          message: "Self-Feed Production is not enabled for this account",
+        });
+      }
 
       if (!Array.isArray(items) || items.length === 0)
         return res

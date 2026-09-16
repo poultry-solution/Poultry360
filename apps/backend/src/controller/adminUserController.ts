@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { UserRole, UserStatus } from "@prisma/client";
 import bcrypt from "bcrypt";
+import { getResolvedAccountFeatures } from "../services/accountFeatureService";
 
 // ==================== GET ALL USERS ====================
 export const getAllUsers = async (
@@ -209,8 +210,10 @@ export const getUserById = async (
       });
     }
 
+    const accountFeatures = await getResolvedAccountFeatures(user.id, user.role);
     const normalizedUser = {
       ...user,
+      accountFeatures,
       dealerAccounts: user.farmerAccounts.map((account: any) => ({
         accountCreatedAt: account.createdAt,
         dealer: account.dealer,

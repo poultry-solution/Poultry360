@@ -32,12 +32,18 @@ import { Button } from "@/common/components/ui/button";
 import { useAuth } from "@/common/store/store";
 import { LucideIcon } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
+import {
+  ACCOUNT_FEATURE_KEYS,
+  useGetAccountFeatures,
+  type AccountFeatureKey,
+} from "@/fetchers/accountFeatureQueries";
 
 // Navigation item type
 export interface NavigationItem {
   nameKey: string;
   href: string;
   icon: LucideIcon;
+  requiredFeature?: AccountFeatureKey;
 }
 
 // Role-based navigation configurations
@@ -73,6 +79,7 @@ export const farmerNavigation: NavigationItem[] = [
     nameKey: "sidebar.nav.production",
     href: "/farmer/dashboard/production",
     icon: Factory,
+    requiredFeature: ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION,
   },
   {
     nameKey: "sidebar.nav.listForSale",
@@ -210,6 +217,7 @@ export const hatcheryNavigation: NavigationItem[] = [
     nameKey: "sidebar.nav.production",
     href: "/hatchery/dashboard/production",
     icon: Factory,
+    requiredFeature: ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION,
   },
   {
     nameKey: "sidebar.nav.hatcheryBatches",
@@ -324,7 +332,21 @@ export default function Sidebar({
     return farmerNavigation; // Default to farmer navigation
   };
 
-  const navigation = getNavigation();
+  const unfilteredNavigation = getNavigation();
+  const hasFeatureGatedNavigation = unfilteredNavigation.some(
+    (item) => item.requiredFeature
+  );
+  const { data: accountFeaturesData } = useGetAccountFeatures({
+    enabled: hasFeatureGatedNavigation,
+  });
+  const enabledFeatures = new Set(
+    accountFeaturesData?.data
+      .filter((feature) => feature.enabled)
+      .map((feature) => feature.key) ?? []
+  );
+  const navigation = unfilteredNavigation.filter(
+    (item) => !item.requiredFeature || enabledFeatures.has(item.requiredFeature)
+  );
 
   // Get role display info
   const getRoleInfo = () => {
