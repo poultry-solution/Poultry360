@@ -98,28 +98,13 @@ export default function LoginPage() {
       <div className="w-full max-w-md mx-auto bg-card border rounded-xl p-6 shadow-sm mt-10">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-semibold text-foreground">
-            {t("auth.login.welcomeBack")}
+            {isStaffLogin ? "Staff sign in" : t("auth.login.welcomeBack")}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {t("auth.login.subtitle")}
+            {isStaffLogin
+              ? "Sign in with the phone number assigned to your staff account."
+              : t("auth.login.subtitle")}
           </p>
-        </div>
-
-        <div className="mb-5 grid grid-cols-2 rounded-lg bg-muted p-1 text-sm">
-          <button
-            type="button"
-            onClick={() => setIsStaffLogin(false)}
-            className={`rounded-md px-3 py-2 ${!isStaffLogin ? "bg-background font-medium shadow-sm" : "text-muted-foreground"}`}
-          >
-            Owner login
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsStaffLogin(true)}
-            className={`rounded-md px-3 py-2 ${isStaffLogin ? "bg-background font-medium shadow-sm" : "text-muted-foreground"}`}
-          >
-            Staff login
-          </button>
         </div>
 
         {(error || validationError) && (
@@ -149,7 +134,7 @@ export default function LoginPage() {
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              {isStaffLogin ? "Use the phone number assigned by your Feed Dealer owner." : t("auth.login.phoneHelp")}
+              {isStaffLogin ? "Use the phone number assigned to your staff account." : t("auth.login.phoneHelp")}
             </p>
           </div>
           <div className="space-y-2">
@@ -186,13 +171,31 @@ export default function LoginPage() {
             {isLoading ? t("auth.login.submitting") : t("auth.login.submit")}
           </Button>
         </form>
-        <div className="mt-3 text-center">
-          <Link
-            href="/auth/forgot-password"
-            className="text-sm text-primary hover:underline"
+        {!isStaffLogin && (
+          <div className="mt-3 text-center">
+            <Link
+              href="/auth/forgot-password"
+              className="text-sm text-primary hover:underline"
+            >
+              Forgot Password?
+            </Link>
+          </div>
+        )}
+        <div className="mt-4 border-t pt-4 text-center">
+          <button
+            type="button"
+            onClick={() => {
+              setIsStaffLogin((current) => !current);
+              setFormData({ emailOrPhone: "", password: "" });
+              clearError();
+              setValidationError(null);
+            }}
+            className="text-sm text-muted-foreground hover:text-primary hover:underline"
           >
-            Forgot Password?
-          </Link>
+            {isStaffLogin
+              ? "Use a regular account instead"
+              : "Staff? Sign in here"}
+          </button>
         </div>
         <p className="text-sm text-muted-foreground mt-3 text-center">
           {t("auth.login.newTo")}{" "}

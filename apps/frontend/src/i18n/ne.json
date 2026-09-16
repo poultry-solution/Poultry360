@@ -198,7 +198,6 @@
       "verifyTitle": "खाता प्रमाणीकरण गर्नुहोस्",
       "verifySubtitle": "हामीले प्रमाणीकरण कोड पठाएका छौं",
       "verificationCodeLabel": "प्रमाणीकरण कोड *",
-      "otpTestHint": "टेस्टका लागि: कोड {code} प्रयोग गर्नुहोस्",
       "verifyCreate": "पुष्टि गरेर खाता बनाउनुहोस्",
       "backToForm": "फारममा फर्कनुहोस्",
       "alreadyHaveAccount": "पहिले नै खाता छ?",
@@ -214,7 +213,7 @@
         "passwordTooShort": "पासवर्ड कम्तिमा 6 अक्षरको हुनुपर्छ!",
         "phoneRequired": "कृपया फोन नम्बर दिनुहोस्!",
         "phoneInvalid": "वैध १० अंकको फोन नम्बर प्रविष्ट गर्नुहोस्।",
-        "invalidOtp": "अवैध OTP! टेस्टका लागि 11111 प्रविष्ट गर्नुहोस्।"
+        "invalidOtp": "अवैध प्रमाणीकरण कोड।"
       }
     },
     "companySignup": {

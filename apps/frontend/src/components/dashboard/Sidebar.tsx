@@ -280,11 +280,6 @@ const adminNavigation: NavigationItem[] = [
   },
   { nameKey: "sidebar.nav.users", href: "/admin/dashboard/users", icon: Users },
   {
-    nameKey: "sidebar.nav.passwordResets",
-    href: "/admin/dashboard/password-resets",
-    icon: KeyRound,
-  },
-  {
     nameKey: "sidebar.nav.paymentApprovals",
     href: "/admin/dashboard/payment-approvals",
     icon: CreditCard,
@@ -358,8 +353,8 @@ export default function Sidebar({
   const navigation = unfilteredNavigation.filter(
     (item) =>
       (!item.requiredFeature || enabledFeatures.has(item.requiredFeature)) &&
-      (!item.ownerOnly || !user?.isStaff) &&
-      (!item.requiredStaffPermission || !user?.isStaff || user.permissions?.includes(item.requiredStaffPermission))
+      (!item.ownerOnly || user?.isStaff !== true) &&
+      (!item.requiredStaffPermission || user?.isStaff !== true || user.permissions?.includes(item.requiredStaffPermission))
   );
 
   // Get role display info

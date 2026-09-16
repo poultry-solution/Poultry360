@@ -26,7 +26,6 @@ export const authMiddleware = async (
   next: NextFunction,
   allowedRoles: UserRole[] = []
 ): Promise<any> => {
-  console.log("authMiddleware");
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: "No token provided" });
 
@@ -35,8 +34,7 @@ export const authMiddleware = async (
   let decoded: any;
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET || "mysupersecretkey");
-  } catch (err) {
-    console.log("error", err);
+  } catch {
     return res.status(401).json({ error: "Invalid or expired token" });
   }
 
@@ -76,8 +74,6 @@ export const authMiddleware = async (
   //@ts-ignore
   req.role = role;
   req.actorType = "USER";
-
-  console.log("authMiddleware", req.userId, req.role, allowedRoles);
 
   // if nothing is passed then allow all roles
   if (allowedRoles.length === 0) {

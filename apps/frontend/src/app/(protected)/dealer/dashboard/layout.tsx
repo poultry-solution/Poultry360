@@ -15,7 +15,6 @@ export default function DealerDashboardLayout({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const pathname = usePathname();
   const { user } = useAuthStore();
-
   const role = user?.role as "DEALER";
   const isPrintRoute = pathname?.startsWith("/dealer/dashboard/sales/print/");
 

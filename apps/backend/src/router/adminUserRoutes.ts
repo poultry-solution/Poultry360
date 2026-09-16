@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { getAllUsers, getUserById, hardDeleteUser } from "../controller/adminUserController";
-import { getPendingOtps } from "../controller/passwordResetController";
 import { authMiddleware } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
 import { updateAdminAccountFeature } from "../controller/accountFeatureController";
@@ -16,9 +15,6 @@ router.use((req, res, next) => {
 
 // Get all users with pagination, search, and filtering
 router.get("/", getAllUsers);
-
-// Get pending password reset OTPs
-router.get("/password-reset/otps", getPendingOtps);
 
 // Get user by ID with full details
 router.get("/:id", getUserById);

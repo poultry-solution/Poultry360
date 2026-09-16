@@ -199,7 +199,6 @@
       "verifyTitle": "Verify your account",
       "verifySubtitle": "We've sent a verification code to",
       "verificationCodeLabel": "Verification Code *",
-      "otpTestHint": "For testing: use code {code}",
       "verifyCreate": "Verify & Create Account",
       "backToForm": "Back to form",
       "alreadyHaveAccount": "Already have an account?",
@@ -215,7 +214,7 @@
         "passwordTooShort": "Password must be at least 6 characters long!",
         "phoneRequired": "Please provide a phone number!",
         "phoneInvalid": "Enter a valid 10-digit phone number.",
-        "invalidOtp": "Invalid OTP! Please enter 11111 for testing."
+        "invalidOtp": "Invalid verification code."
       }
     },
     "companySignup": {

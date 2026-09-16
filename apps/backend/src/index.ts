@@ -9,6 +9,17 @@ import { startReminderDispatcher } from "./services/reminderDispatcher";
 
 
 const PORT = process.env.PORT || 8081;
+
+// Never allow production to fall back to the development JWT defaults. The
+// password-reset proof intentionally has its own signing secret as well.
+if (process.env.NODE_ENV === "production") {
+  const missingSecrets = ["JWT_SECRET", "JWT_REFRESH_SECRET", "PASSWORD_RESET_SECRET"]
+    .filter((name) => !process.env[name]);
+  if (missingSecrets.length > 0) {
+    throw new Error(`Missing required production secret(s): ${missingSecrets.join(", ")}`);
+  }
+}
+
 const app = express();
 const server = createServer(app);
 app.use(express.json());
