@@ -7,6 +7,10 @@ import {
 } from "@myapp/shared-types";
 import { InventoryService } from "../services/inventoryService";
 import { parseDealerDateRange } from "../utils/dealerSaleDateRange";
+import {
+  ACCOUNT_FEATURE_KEYS,
+  isAccountFeatureEnabled,
+} from "../services/accountFeatureService";
 
 // ==================== GET ALL DEALERS ====================
 export const getAllDealers = async (
@@ -749,6 +753,20 @@ export const addDealerTransaction = async (
         !Object.values(PurchaseCategory).includes(purchaseCategory)
       ) {
         return res.status(400).json({ message: "Invalid purchase category" });
+      }
+      if (
+        req.role === UserRole.OWNER &&
+        purchaseCategory === PurchaseCategory.RAW_MATERIAL &&
+        !(await isAccountFeatureEnabled(
+          currentUserId,
+          ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION
+        ))
+      ) {
+        return res.status(403).json({
+          code: "ACCOUNT_FEATURE_DISABLED",
+          featureKey: ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION,
+          message: "Self-Feed Production is not enabled for this account",
+        });
       }
       // Feed bags, medicine packs, and chicks retain their whole-unit behavior.
       // Raw materials may be purchased in fractional weight/volume quantities.

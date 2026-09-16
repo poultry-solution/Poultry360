@@ -57,6 +57,7 @@ const ROLE_OPTIONS = [
   { value: "DOCTOR", label: "Doctor" },
   { value: "DEALER", label: "Dealer" },
   { value: "COMPANY", label: "Company" },
+  { value: "HATCHERY", label: "Hatchery" },
 ];
 
 const STATUS_OPTIONS = [
@@ -71,6 +72,7 @@ const ROLE_COLORS: Record<string, string> = {
   DOCTOR: "bg-green-100 text-green-800",
   DEALER: "bg-orange-100 text-orange-800",
   COMPANY: "bg-indigo-100 text-indigo-800",
+  HATCHERY: "bg-amber-100 text-amber-800",
 };
 
 const STATUS_COLORS: Record<string, string> = {

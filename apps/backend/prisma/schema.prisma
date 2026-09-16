@@ -293,11 +293,30 @@ model User {
   pushSubscriptions PushSubscription[]
   notifications     Notification[]
 
+  // Independently controlled, admin-managed feature access for this account.
+  accountFeatures AccountFeature[] @relation("UserAccountFeatures")
+
   // Admin-gated onboarding approval (new users only)
   onboarding UserOnboardingPayment?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model AccountFeature {
+  accountId String
+  account   User   @relation("UserAccountFeatures", fields: [accountId], references: [id], onDelete: Cascade)
+
+  // String key keeps this table reusable for future independently gated features.
+  featureKey  String
+  enabled     Boolean @default(false)
+  updatedById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([accountId, featureKey])
+  @@index([featureKey])
 }
 
 // Account approval gate for new signups. Pricing is handled offline by the admin;

@@ -52,6 +52,10 @@ import {
   type HatcheryPurchaseCategory,
   type AddPurchaseItem,
 } from "@/fetchers/hatchery/hatcherySupplierQueries";
+import {
+  ACCOUNT_FEATURE_KEYS,
+  useAccountFeature,
+} from "@/fetchers/accountFeatureQueries";
 
 // ==================== HELPERS ====================
 
@@ -109,6 +113,9 @@ const emptyLineItem = (category: HatcheryPurchaseCategory): AddPurchaseItem & {
 export default function HatcherySupplierLedgerPage() {
   const SUPPLIER_PAGE_LIMIT = 5;
   const TRANSACTION_PAGE_LIMIT = 10;
+  const { isEnabled: isSelfFeedEnabled } = useAccountFeature(
+    ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION
+  );
 
   const [activeSupplierId, setActiveSupplierId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"purchases" | "payments">(
@@ -162,6 +169,16 @@ export default function HatcherySupplierLedgerPage() {
   });
   const [deleteTxnPassword, setDeleteTxnPassword] = useState("");
   const [deleteSupplierPassword, setDeleteSupplierPassword] = useState("");
+
+  useEffect(() => {
+    if (!isSelfFeedEnabled && purchaseForm.category === "RAW_MATERIAL") {
+      setPurchaseForm((current) => ({
+        ...current,
+        category: "FEED",
+        lineItems: [emptyLineItem("FEED")],
+      }));
+    }
+  }, [isSelfFeedEnabled, purchaseForm.category]);
   // Queries
   const { data: suppliersRes, isLoading: suppliersLoading } =
     useGetHatcherySuppliers({ page: supplierPage, limit: SUPPLIER_PAGE_LIMIT });
@@ -904,7 +921,9 @@ export default function HatcherySupplierLedgerPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map((cat) => (
+                  {CATEGORIES.filter(
+                    (cat) => isSelfFeedEnabled || cat !== "RAW_MATERIAL"
+                  ).map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {CATEGORY_LABELS[cat]}
                     </SelectItem>

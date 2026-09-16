@@ -7,8 +7,21 @@ import {
   useDeleteHatcheryProduction,
   useGetHatcheryProduction,
 } from "@/fetchers/hatchery/hatcheryProductionQueries";
+import { AccountFeatureGuard } from "@/components/features/AccountFeatureGuard";
+import { ACCOUNT_FEATURE_KEYS } from "@/fetchers/accountFeatureQueries";
 
 export default function HatcheryProductionPage() {
+  return (
+    <AccountFeatureGuard
+      featureKey={ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION}
+      fallbackHref="/hatchery/dashboard/home"
+    >
+      <HatcheryProductionContent />
+    </AccountFeatureGuard>
+  );
+}
+
+function HatcheryProductionContent() {
   const [search, setSearch] = useState("");
   const { data, isLoading } = useGetHatcheryProduction({
     limit: 100,

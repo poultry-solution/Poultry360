@@ -3,6 +3,7 @@ import { getAllUsers, getUserById, hardDeleteUser } from "../controller/adminUse
 import { getPendingOtps } from "../controller/passwordResetController";
 import { authMiddleware } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
+import { updateAdminAccountFeature } from "../controller/accountFeatureController";
 
 const router = Router();
 
@@ -21,6 +22,9 @@ router.get("/password-reset/otps", getPendingOtps);
 
 // Get user by ID with full details
 router.get("/:id", getUserById);
+
+// Independently grant or revoke a feature for one account
+router.put("/:id/features/:featureKey", updateAdminAccountFeature);
 
 // Hard delete user with super admin password confirmation
 router.delete("/:id", hardDeleteUser);

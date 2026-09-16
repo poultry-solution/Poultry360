@@ -10,6 +10,8 @@ import {
   type FarmerManufacturedProduct,
 } from "@/fetchers/farmer/farmerProductQueries";
 import { useCreateFarmerProduction } from "@/fetchers/farmer/farmerProductionQueries";
+import { AccountFeatureGuard } from "@/components/features/AccountFeatureGuard";
+import { ACCOUNT_FEATURE_KEYS } from "@/fetchers/accountFeatureQueries";
 
 interface FarmerRawMaterial {
   id: string;
@@ -23,6 +25,17 @@ interface FarmerRawMaterial {
 }
 
 export default function NewFarmerProductionPage() {
+  return (
+    <AccountFeatureGuard
+      featureKey={ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION}
+      fallbackHref="/farmer/dashboard/home"
+    >
+      <NewFarmerProductionContent />
+    </AccountFeatureGuard>
+  );
+}
+
+function NewFarmerProductionContent() {
   const router = useRouter();
   const createProduction = useCreateFarmerProduction();
   const [materialSearch, setMaterialSearch] = useState("");

@@ -56,6 +56,10 @@ import {
   type FarmerManufacturedProduct,
   type FarmerProductOutputType,
 } from "@/fetchers/farmer/farmerProductQueries";
+import {
+  ACCOUNT_FEATURE_KEYS,
+  useAccountFeature,
+} from "@/fetchers/accountFeatureQueries";
 
 const PRODUCT_TYPES: Array<{
   value: FarmerProductOutputType;
@@ -99,6 +103,9 @@ export default function InventoryPage() {
   const updateProduct = useUpdateFarmerProduct();
   const archiveProduct = useArchiveFarmerProduct();
   const queryClient = useQueryClient();
+  const { isEnabled: isSelfFeedEnabled } = useAccountFeature(
+    ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION
+  );
 
   // Use TanStack Query hooks
   const {
@@ -128,8 +135,22 @@ export default function InventoryPage() {
     enabled: hasLayerBatch && (activeTab !== "eggs" || !!selectedEggBatchId),
   });
   const { data: productsData, isLoading: productsLoading } =
-    useGetFarmerProducts({ limit: 100 });
+    useGetFarmerProducts(
+      { limit: 100 },
+      { enabled: isSelfFeedEnabled }
+    );
   const manufacturedProducts = productsData?.data ?? [];
+
+  useEffect(() => {
+    if (!isSelfFeedEnabled) {
+      if (activeTab === "raw-material" || activeTab === "self-made") {
+        setActiveTab("feed");
+      }
+      setIsProductOpen(false);
+      setEditingProduct(null);
+      setProductForm(emptyProductForm);
+    }
+  }, [activeTab, isSelfFeedEnabled]);
 
   // Filter table data based on active tab
   const getFilteredInventory = () => {
@@ -756,16 +777,20 @@ export default function InventoryPage() {
               label: t("farmer.inventory.tabs.medicine"),
               icon: <Pill className="h-4 w-4" />,
             },
-            {
-              key: "raw-material",
-              label: "Raw Material",
-              icon: <FlaskConical className="h-4 w-4" />,
-            },
-            {
-              key: "self-made",
-              label: "Self Feed",
-              icon: <Factory className="h-4 w-4" />,
-            },
+            ...(isSelfFeedEnabled
+              ? [
+                  {
+                    key: "raw-material",
+                    label: "Raw Material",
+                    icon: <FlaskConical className="h-4 w-4" />,
+                  },
+                  {
+                    key: "self-made",
+                    label: "Self Feed",
+                    icon: <Factory className="h-4 w-4" />,
+                  },
+                ]
+              : []),
             { key: "other", label: t("farmer.inventory.tabs.other"), icon: <Box className="h-4 w-4" /> },
           ].map((tab) => {
             const getTabCount = () => {

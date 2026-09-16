@@ -30,9 +30,11 @@ import {
   Clock,
   CircleDot,
   Layers,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   useGetAdminUserById,
+  useUpdateAdminUserFeature,
   type AdminUserDetail,
 } from "@/fetchers/admin/userQueries";
 import {
@@ -43,6 +45,7 @@ import {
   useGetAdminCompanyById,
   type AdminCompanyDetail,
 } from "@/fetchers/admin/companyQueries";
+import { toast } from "sonner";
 
 const ROLE_COLORS: Record<string, string> = {
   OWNER: "bg-blue-100 text-blue-800",
@@ -50,6 +53,7 @@ const ROLE_COLORS: Record<string, string> = {
   DOCTOR: "bg-green-100 text-green-800",
   DEALER: "bg-orange-100 text-orange-800",
   COMPANY: "bg-indigo-100 text-indigo-800",
+  HATCHERY: "bg-amber-100 text-amber-800",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -350,6 +354,86 @@ function DoctorConversationsSection({ conversations }: {
   );
 }
 
+function AccountFeaturesSection({
+  accountId,
+  features,
+}: {
+  accountId: string;
+  features: AdminUserDetail["accountFeatures"];
+}) {
+  const updateFeature = useUpdateAdminUserFeature();
+  if (features.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <SlidersHorizontal className="size-4" />
+          Account Features
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {features.map((feature) => {
+          const isUpdating =
+            updateFeature.isPending &&
+            updateFeature.variables?.featureKey === feature.key;
+          return (
+            <div
+              key={feature.key}
+              className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium">{feature.name}</p>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      feature.enabled
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {feature.enabled ? "ON" : "OFF"}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {feature.description}
+                </p>
+              </div>
+              <Button
+                variant={feature.enabled ? "outline" : "default"}
+                disabled={isUpdating}
+                onClick={async () => {
+                  try {
+                    await updateFeature.mutateAsync({
+                      accountId,
+                      featureKey: feature.key,
+                      enabled: !feature.enabled,
+                    });
+                    toast.success(
+                      `${feature.name} turned ${feature.enabled ? "off" : "on"}`
+                    );
+                  } catch (error: any) {
+                    toast.error(
+                      error?.response?.data?.message ||
+                        "Failed to update feature access"
+                    );
+                  }
+                }}
+              >
+                {isUpdating
+                  ? "Updating..."
+                  : feature.enabled
+                    ? "Turn Off"
+                    : "Turn On"}
+              </Button>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminUserDetailPage({
   params,
 }: {
@@ -473,6 +557,7 @@ export default function AdminUserDetailPage({
               DOCTOR: "bg-green-500",
               DEALER: "bg-orange-500",
               COMPANY: "bg-indigo-500",
+              HATCHERY: "bg-amber-500",
             }[user.role] ?? "bg-gray-500"
           }`}
         />
@@ -586,6 +671,11 @@ export default function AdminUserDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      <AccountFeaturesSection
+        accountId={user.id}
+        features={user.accountFeatures}
+      />
 
       {/* Stat Cards Row */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

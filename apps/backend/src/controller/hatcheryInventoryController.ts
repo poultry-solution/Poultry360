@@ -9,6 +9,10 @@ import {
   excludeProducedChickInventoryLots,
   PRODUCED_CHICK_LOT_KEY_PREFIX,
 } from "../utils/hatcheryInventoryScope";
+import {
+  ACCOUNT_FEATURE_KEYS,
+  isAccountFeatureEnabled,
+} from "../services/accountFeatureService";
 
 const VALID_TYPES = Object.values(HatcheryInventoryItemType);
 
@@ -270,6 +274,19 @@ export const createHatcheryInventoryItem = async (
     if (itemType === HatcheryInventoryItemType.SELF_MADE) {
       return res.status(400).json({ message: "Create Self Feed products from the Self Feed inventory tab" });
     }
+    if (
+      itemType === HatcheryInventoryItemType.RAW_MATERIAL &&
+      !(await isAccountFeatureEnabled(
+        userId,
+        ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION
+      ))
+    ) {
+      return res.status(403).json({
+        code: "ACCOUNT_FEATURE_DISABLED",
+        featureKey: ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION,
+        message: "Self-Feed Production is not enabled for this account",
+      });
+    }
 
     const item = await prisma.hatcheryInventoryItem.create({
       data: {
@@ -402,6 +419,19 @@ export const reorderHatcheryInventoryItem = async (
     // Map item type to purchase category
     if (item.itemType === HatcheryInventoryItemType.SELF_MADE) {
       return res.status(400).json({ message: "Self Feed stock can only be added through production" });
+    }
+    if (
+      item.itemType === HatcheryInventoryItemType.RAW_MATERIAL &&
+      !(await isAccountFeatureEnabled(
+        userId,
+        ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION
+      ))
+    ) {
+      return res.status(403).json({
+        code: "ACCOUNT_FEATURE_DISABLED",
+        featureKey: ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION,
+        message: "Self-Feed Production is not enabled for this account",
+      });
     }
 
     const typeToCat: Partial<Record<HatcheryInventoryItemType, HatcheryPurchaseCategory>> = {

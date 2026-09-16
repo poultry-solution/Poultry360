@@ -21,13 +21,17 @@ export const hatcheryProductKeys = {
   list: (params: Record<string, unknown>) => ["hatcheryProducts", "list", params] as const,
 };
 
-export function useGetHatcheryProducts(params: { search?: string; page?: number; limit?: number } = {}) {
+export function useGetHatcheryProducts(
+  params: { search?: string; page?: number; limit?: number } = {},
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: hatcheryProductKeys.list(params),
     queryFn: async () => {
       const { data } = await axiosInstance.get("/hatchery/products", { params });
       return data as { success: boolean; data: HatcheryManufacturedProduct[]; pagination: { page: number; limit: number; total: number; totalPages: number } };
     },
+    enabled: options?.enabled ?? true,
   });
 }
 
