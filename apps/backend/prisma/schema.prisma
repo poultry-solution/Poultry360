@@ -288,6 +288,7 @@ model User {
 
   // Staff (farmer/dealer staff salary tracking)
   staffOwned Staff[] @relation("StaffOwner")
+  staffUsers StaffUser[] @relation("StaffUserOwner")
 
   // Push subscriptions & notifications
   pushSubscriptions PushSubscription[]
@@ -1035,6 +1036,7 @@ model Dealer {
   cashSettings    DealerCashSettings?
   cashMovements   DealerCashMovement[]
   cashDayCloses   DealerCashDayClose[]
+  staffUsers      StaffUser[] @relation("DealerStaffUsers")
 
   @@unique([userId, name])
   @@index([ownerId])
@@ -2480,6 +2482,13 @@ enum StaffStatus {
   ARCHIVED // Finalized record; read-only after balance reaches zero
 }
 
+// Login-capable staff are separate from payroll Staff records.
+enum StaffPermission {
+  DEALER_VIEW_FINANCIAL_SUMMARIES
+  DEALER_VIEW_CASH_HISTORY
+  DEALER_VIEW_STAFF_MANAGEMENT
+}
+
 model Staff {
   id        String      @id @default(cuid())
   ownerId   String
@@ -2496,6 +2505,26 @@ model Staff {
 
   @@index([ownerId])
   @@index([status])
+}
+
+model StaffUser {
+  id             String            @id @default(cuid())
+  ownerId        String
+  owner          User              @relation("StaffUserOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  dealerId       String
+  dealer         Dealer            @relation("DealerStaffUsers", fields: [dealerId], references: [id], onDelete: Cascade)
+  name           String
+  phone          String            @unique
+  passwordHash   String
+  isActive       Boolean           @default(true)
+  permissions    StaffPermission[] @default([])
+  sessionVersion Int               @default(1)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([ownerId])
+  @@index([dealerId])
+  @@index([dealerId, isActive])
 }
 
 // ==================== PUSH SUBSCRIPTIONS ====================

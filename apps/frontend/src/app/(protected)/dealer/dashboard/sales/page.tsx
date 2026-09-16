@@ -31,17 +31,20 @@ import {
   type DealerSale,
 } from "@/fetchers/dealer/dealerSaleQueries";
 import { useI18n } from "@/i18n/useI18n";
+import { useAuthStore } from "@/common/store/store";
 
 export default function DealerSalesPage() {
   const router = useRouter();
   const { t } = useI18n();
+  const user = useAuthStore((state) => state.user);
+  const canViewFinancialSummaries = !user?.isStaff || user.permissions?.includes("DEALER_VIEW_FINANCIAL_SUMMARIES");
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [deleteSaleId, setDeleteSaleId] = useState<string | null>(null);
   const [deletePassword, setDeletePassword] = useState("");
   const deleteSaleMutation = useDeleteDealerSale();
-  const { data: salesStatsData, isLoading: salesStatsLoading } = useGetSalesStatistics();
+  const { data: salesStatsData, isLoading: salesStatsLoading } = useGetSalesStatistics(undefined, { enabled: canViewFinancialSummaries });
 
   // Get sales
   const { data: salesData, isLoading } = useGetDealerSales(
@@ -124,10 +127,7 @@ export default function DealerSalesPage() {
               {t("dealer.sales.table.description", {
                 count: pagination?.total ?? 0,
               })}
-              <span className="mx-2">,</span>
-              <span className="font-medium text-foreground">
-                Total sales: {salesStatsLoading ? "..." : formatCurrency(lifetimeSalesAmount)}
-              </span>
+              {canViewFinancialSummaries && <><span className="mx-2">,</span><span className="font-medium text-foreground">Total sales: {salesStatsLoading ? "..." : formatCurrency(lifetimeSalesAmount)}</span></>}
             </CardDescription>
           </CardHeader>
         <CardContent className="p-0">

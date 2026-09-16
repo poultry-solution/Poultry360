@@ -1,5 +1,6 @@
 import express from "express";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
+import { StaffPermission } from "@prisma/client";
 import {
   getToday,
   setup,
@@ -32,9 +33,9 @@ router.delete("/movements/:id", deleteMovement);
 router.post("/close-day", closeDay);
 
 // GET  /dealer/cash-in-hand/history
-router.get("/history", getHistory);
+router.get("/history", requireStaffPermission(StaffPermission.DEALER_VIEW_CASH_HISTORY), getHistory);
 
 // GET  /dealer/cash-in-hand/closed-day/:bsDate
-router.get("/closed-day/:bsDate", getClosedDayDetail);
+router.get("/closed-day/:bsDate", requireStaffPermission(StaffPermission.DEALER_VIEW_CASH_HISTORY), getClosedDayDetail);
 
 export default router;

@@ -19,15 +19,18 @@ import { useGetDealerProducts } from "@/fetchers/dealer/dealerProductQueries";
 import { useGetLedgerSummary } from "@/fetchers/dealer/dealerLedgerQueries";
 import { useI18n } from "@/i18n/useI18n";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { useAuthStore } from "@/common/store/store";
 
 export default function DealerHomePage() {
   const { t } = useI18n();
+  const user = useAuthStore((state) => state.user);
+  const canViewFinancialSummaries = !user?.isStaff || user.permissions?.includes("DEALER_VIEW_FINANCIAL_SUMMARIES");
 
   const formatCurrency = (amount: number) => `रू ${Number(amount || 0).toFixed(2)}`;
 
   // Fetch real data
   const { data: inventoryData, isLoading: inventoryLoading } = useGetInventorySummary();
-  const { data: salesStatsData, isLoading: salesStatsLoading } = useGetSalesStatistics();
+  const { data: salesStatsData, isLoading: salesStatsLoading } = useGetSalesStatistics(undefined, { enabled: canViewFinancialSummaries });
   const { data: recentSalesData, isLoading: recentSalesLoading } = useGetDealerSales({
     limit: 5,
   });
@@ -40,15 +43,15 @@ export default function DealerHomePage() {
     lowStock: true,
     limit: 10,
   });
-  const { data: ledgerSummaryData, isLoading: ledgerLoading } = useGetLedgerSummary();
+  const { data: ledgerSummaryData, isLoading: ledgerLoading } = useGetLedgerSummary(undefined, { enabled: canViewFinancialSummaries });
 
   // Combine loading states
   const isLoading =
     inventoryLoading ||
-    salesStatsLoading ||
+    (canViewFinancialSummaries && salesStatsLoading) ||
     recentSalesLoading ||
     lowStockLoading ||
-    ledgerLoading ||
+    (canViewFinancialSummaries && ledgerLoading) ||
     dealerCustomersLoading;
 
   // Extract data
@@ -134,7 +137,7 @@ export default function DealerHomePage() {
           </CardContent>
         </Card>
 
-        <Card className="p-0">
+        {canViewFinancialSummaries && <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
             <CardTitle className="text-xs md:text-sm font-medium">{t("dealer.dashboard.stats.totalSales")}</CardTitle>
             <Receipt className="h-4 w-4 text-muted-foreground" />
@@ -147,10 +150,10 @@ export default function DealerHomePage() {
             )}
             <p className="text-[10px] md:text-xs text-muted-foreground">Lifetime sales</p>
           </CardContent>
-        </Card>
+        </Card>}
 
         {/* Money position - From Customer (net) */}
-        <Card className="p-0">
+        {canViewFinancialSummaries && <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
             <CardTitle className="text-xs md:text-sm font-medium">
               {fromCustomerDirection === "receive"
@@ -171,10 +174,10 @@ export default function DealerHomePage() {
               From Customer
             </p>
           </CardContent>
-        </Card>
+        </Card>}
 
         {/* Money position - To Company (net) */}
-        <Card className="p-0">
+        {canViewFinancialSummaries && <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
             <CardTitle className="text-xs md:text-sm font-medium">
               {toCompanyDirection === "give"
@@ -195,7 +198,7 @@ export default function DealerHomePage() {
               To Company
             </p>
           </CardContent>
-        </Card>
+        </Card>}
       </div>
 
       {/* Recent Activity */}

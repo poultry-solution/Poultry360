@@ -35,6 +35,7 @@ import { useGetInventorySummary, useGetDealerProducts } from "@/fetchers/dealer/
 import { useGetSalesStatistics, useGetDealerCustomers } from "@/fetchers/dealer/dealerSaleQueries";
 import { useGetLedgerSummary } from "@/fetchers/dealer/dealerLedgerQueries";
 import { useGetManualCompanies, useGetDealerProfitSummary } from "@/fetchers/dealer/dealerManualCompanyQueries";
+import { useAuthStore } from "@/common/store/store";
 
 const quickRanges = [
   { value: "7d", label: "Last 7 days" },
@@ -175,6 +176,15 @@ function MetricCard({
 }
 
 export default function DealerAnalyticsPage() {
+  const user = useAuthStore((state) => state.user);
+  const allowed = !user?.isStaff || user.permissions?.includes("DEALER_VIEW_FINANCIAL_SUMMARIES");
+  if (!allowed) {
+    return <Card className="mx-auto mt-10 max-w-lg"><CardHeader><CardTitle>Analytics restricted</CardTitle><CardDescription>Your owner has not enabled financial summaries for this staff account.</CardDescription></CardHeader><CardContent><Link href="/dealer/dashboard/home"><Button>Back to dashboard</Button></Link></CardContent></Card>;
+  }
+  return <DealerAnalyticsContent />;
+}
+
+function DealerAnalyticsContent() {
   const queryClient = useQueryClient();
   const [rangePreset, setRangePreset] = useState<(typeof quickRanges)[number]["value"]>("30d");
   const [startDate, setStartDate] = useState("");

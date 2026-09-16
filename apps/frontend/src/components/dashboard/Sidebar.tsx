@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { useAuth } from "@/common/store/store";
+import type { StaffPermission } from "@/common/store/store";
 import { LucideIcon } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
 import {
@@ -44,6 +45,8 @@ export interface NavigationItem {
   href: string;
   icon: LucideIcon;
   requiredFeature?: AccountFeatureKey;
+  requiredStaffPermission?: StaffPermission;
+  ownerOnly?: boolean;
 }
 
 // Role-based navigation configurations
@@ -143,11 +146,19 @@ export const dealerNavigation: NavigationItem[] = [
     nameKey: "sidebar.nav.analytics",
     href: "/dealer/dashboard/analytics",
     icon: BarChart3,
+    requiredStaffPermission: "DEALER_VIEW_FINANCIAL_SUMMARIES",
+  },
+  {
+    nameKey: "sidebar.nav.staffAccess",
+    href: "/dealer/dashboard/staff-access",
+    icon: KeyRound,
+    ownerOnly: true,
   },
   {
     nameKey: "sidebar.nav.staffManagement",
     href: "/dealer/dashboard/staff",
     icon: Users,
+    requiredStaffPermission: "DEALER_VIEW_STAFF_MANAGEMENT",
   },
   {
     nameKey: "sidebar.nav.cashInHand",
@@ -345,7 +356,10 @@ export default function Sidebar({
       .map((feature) => feature.key) ?? []
   );
   const navigation = unfilteredNavigation.filter(
-    (item) => !item.requiredFeature || enabledFeatures.has(item.requiredFeature)
+    (item) =>
+      (!item.requiredFeature || enabledFeatures.has(item.requiredFeature)) &&
+      (!item.ownerOnly || !user?.isStaff) &&
+      (!item.requiredStaffPermission || !user?.isStaff || user.permissions?.includes(item.requiredStaffPermission))
   );
 
   // Get role display info
@@ -428,7 +442,9 @@ export default function Sidebar({
       {/* User Info Display */}
       <div className="px-6 py-4 border-b min-w-0">
         <p className="text-sm font-medium text-foreground">
-          {user?.companyName || user?.name}
+          {user?.isStaff && user.dealer?.name
+            ? user.dealer.name
+            : user?.companyName || user?.name}
         </p>
         <p className="text-xs text-muted-foreground">{roleInfo.userTitle}</p>
       </div>

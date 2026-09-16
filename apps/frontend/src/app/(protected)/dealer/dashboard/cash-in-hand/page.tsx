@@ -43,6 +43,7 @@ import {
   type TodayLedger,
 } from "@/fetchers/dealer/dealerCashInHandQueries";
 import { useI18n } from "@/i18n/useI18n";
+import { useAuthStore } from "@/common/store/store";
 import { toast } from "sonner";
 import { HistoryDayDetailDialog } from "@/components/cash-in-hand/HistoryDayDetailDialog";
 
@@ -452,7 +453,9 @@ function TodayLedgerView({ data }: { data: TodayLedger }) {
 
 function HistoryView() {
   const { t } = useI18n();
-  const { data: history, isLoading } = useGetCashHistory();
+  const user = useAuthStore((state) => state.user);
+  const canViewCashHistory = !user?.isStaff || user.permissions?.includes("DEALER_VIEW_CASH_HISTORY");
+  const { data: history, isLoading } = useGetCashHistory({ enabled: canViewCashHistory });
   const [detailBsDate, setDetailBsDate] = useState<string | null>(null);
 
   if (isLoading) {
@@ -522,6 +525,8 @@ function HistoryView() {
 
 export default function CashInHandPage() {
   const { t } = useI18n();
+  const user = useAuthStore((state) => state.user);
+  const canViewCashHistory = !user?.isStaff || user.permissions?.includes("DEALER_VIEW_CASH_HISTORY");
   const { data, isLoading, error } = useGetCashToday();
 
   if (isLoading) {
@@ -575,16 +580,16 @@ export default function CashInHandPage() {
           <TabsTrigger value="today" className="gap-1.5">
             <Plus className="h-3.5 w-3.5" /> Today
           </TabsTrigger>
-          <TabsTrigger value="history" className="gap-1.5">
+          {canViewCashHistory && <TabsTrigger value="history" className="gap-1.5">
             <History className="h-3.5 w-3.5" /> {t("cashInHand.history")}
-          </TabsTrigger>
+          </TabsTrigger>}
         </TabsList>
         <TabsContent value="today" className="mt-4">
           <TodayLedgerView data={ledger} />
         </TabsContent>
-        <TabsContent value="history" className="mt-4">
+        {canViewCashHistory && <TabsContent value="history" className="mt-4">
           <HistoryView />
-        </TabsContent>
+        </TabsContent>}
       </Tabs>
     </div>
   );

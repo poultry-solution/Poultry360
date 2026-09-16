@@ -66,13 +66,14 @@ export function useGetCashToday() {
   });
 }
 
-export function useGetCashHistory() {
+export function useGetCashHistory(options?: { enabled?: boolean }) {
   return useQuery<HistoryDay[]>({
     queryKey: cashInHandKeys.history(),
     queryFn: async () => {
       const res = await axiosInstance.get("/dealer/cash-in-hand/history");
       return res.data.data;
     },
+    enabled: options?.enabled ?? true,
   });
 }
 

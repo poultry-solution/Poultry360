@@ -58,7 +58,14 @@ export interface User {
   dealer?: DealerBusiness | null; // Dealer business info if user owns a dealer
   company?: CompanyBusiness | null; // Company business info if user owns a company
   hatchery?: HatcheryBusiness | null; // Hatchery business info if user owns a hatchery
+  isStaff?: boolean;
+  permissions?: StaffPermission[];
 }
+
+export type StaffPermission =
+  | "DEALER_VIEW_FINANCIAL_SUMMARIES"
+  | "DEALER_VIEW_CASH_HISTORY"
+  | "DEALER_VIEW_STAFF_MANAGEMENT";
 
 export interface LoginCredentials {
   emailOrPhone: string;
@@ -85,9 +92,11 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   isInitialized: boolean;
+  authMode: "user" | "staff" | null;
 
   // Actions
   login: (credentials: LoginCredentials) => Promise<void>;
+  staffLogin: (credentials: LoginCredentials) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<string>;
@@ -156,6 +165,7 @@ export const useAuthStore = create<AuthState>()(
         isLoading: false,
         error: null,
         isInitialized: false,
+        authMode: null,
 
         // Actions
         login: async (credentials: LoginCredentials) => {
@@ -201,6 +211,7 @@ export const useAuthStore = create<AuthState>()(
               isLoading: false,
               isInitialized: true,
               error: null,
+              authMode: "user",
             });
           } catch (error) {
             set({
@@ -210,6 +221,38 @@ export const useAuthStore = create<AuthState>()(
               isLoading: false,
               error: error instanceof Error ? error.message : "Login failed",
             });
+            throw error;
+          }
+        },
+
+        staffLogin: async (credentials: LoginCredentials) => {
+          set({ isLoading: true, error: null });
+          try {
+            const response = await apiCall("/staff-auth/login", {
+              method: "POST",
+              body: JSON.stringify(credentials),
+            });
+            const { accessToken, user } = response;
+            set({
+              user: {
+                id: user.id,
+                name: user.name,
+                phone: user.phone,
+                role: "DEALER",
+                status: user.status || "ACTIVE",
+                dealer: user.dealer || null,
+                isStaff: true,
+                permissions: user.permissions || [],
+              },
+              accessToken,
+              isAuthenticated: true,
+              isLoading: false,
+              isInitialized: true,
+              error: null,
+              authMode: "staff",
+            });
+          } catch (error) {
+            set({ user: null, accessToken: null, isAuthenticated: false, isLoading: false, error: error instanceof Error ? error.message : "Staff login failed", authMode: null });
             throw error;
           }
         },
@@ -256,6 +299,7 @@ export const useAuthStore = create<AuthState>()(
               isLoading: false,
               isInitialized: true,
               error: null,
+              authMode: "user",
             });
           } catch (error) {
             set({
@@ -274,7 +318,7 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: true });
 
           try {
-            await apiCall("/auth/logout", {
+            await apiCall(get().authMode === "staff" ? "/staff-auth/logout" : "/auth/logout", {
               method: "POST",
             });
           } catch (error) {
@@ -286,6 +330,7 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: false,
               isLoading: false,
               error: null,
+              authMode: null,
             });
 
             // Clear localStorage
@@ -295,7 +340,7 @@ export const useAuthStore = create<AuthState>()(
 
         refreshToken: async () => {
           try {
-            const response = await apiCall("/auth/refresh-token", {
+            const response = await apiCall(get().authMode === "staff" ? "/staff-auth/refresh-token" : "/auth/refresh-token", {
               method: "POST",
             });
             console.log("🔄 Refresh token response:", response);
@@ -323,6 +368,28 @@ export const useAuthStore = create<AuthState>()(
           }
 
           try {
+            if (get().authMode === "staff") {
+              const response = await apiCall("/staff-auth/validate", {
+                method: "GET",
+                headers: { Authorization: `Bearer ${accessToken}` },
+              });
+              if (!response.isValid || !response.user) return false;
+              set({
+                user: {
+                  id: response.user.id,
+                  name: response.user.name,
+                  phone: response.user.phone,
+                  role: "DEALER",
+                  status: response.user.status || "ACTIVE",
+                  dealer: response.user.dealer || null,
+                  isStaff: true,
+                  permissions: response.user.permissions || [],
+                },
+                isAuthenticated: true,
+                error: null,
+              });
+              return true;
+            }
             const response = await apiCall("/auth/validate", {
               method: "GET",
               headers: {
@@ -380,6 +447,26 @@ export const useAuthStore = create<AuthState>()(
           }
 
           try {
+            if (get().authMode === "staff") {
+              const userData = await apiCall("/staff-auth/@me", {
+                method: "GET",
+                headers: { Authorization: `Bearer ${accessToken}` },
+              });
+              set({
+                user: {
+                  id: userData.id,
+                  name: userData.name,
+                  phone: userData.phone,
+                  role: "DEALER",
+                  status: userData.status || "ACTIVE",
+                  dealer: userData.dealer || null,
+                  isStaff: true,
+                  permissions: userData.permissions || [],
+                },
+                error: null,
+              });
+              return;
+            }
             const userData = await apiCall("/auth/@me", {
               method: "GET",
               headers: {
@@ -503,6 +590,7 @@ export const useAuthStore = create<AuthState>()(
           user: state.user,
           accessToken: state.accessToken,
           isAuthenticated: state.isAuthenticated,
+          authMode: state.authMode,
         }),
       }
     ),
@@ -520,6 +608,7 @@ export const useAuth = () => {
     isLoading,
     error,
     login,
+    staffLogin,
     register,
     logout,
     clearError,
@@ -531,6 +620,7 @@ export const useAuth = () => {
     isLoading,
     error,
     login,
+    staffLogin,
     register,
     logout,
     clearError,

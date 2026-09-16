@@ -15,7 +15,8 @@ import {
   deleteDealerSale,
 } from "../controller/dealerSaleController";
 
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
+import { StaffPermission } from "@prisma/client";
 
 const router = express.Router();
 
@@ -32,7 +33,7 @@ router.post("/", createDealerSale);
 router.get("/", getDealerSales);
 
 // Get sales statistics
-router.get("/statistics", getSalesStatistics);
+router.get("/statistics", requireStaffPermission(StaffPermission.DEALER_VIEW_FINANCIAL_SUMMARIES), getSalesStatistics);
 
 // Get dealer customers
 router.get("/customers", getDealerCustomers);
