@@ -1,16 +1,36 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { randomInt } from "crypto";
 import prisma from "../utils/prisma";
 import { UserRole } from "@prisma/client";
 import { sendPasswordResetOtpSms } from "../services/smsPasalService";
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000;
 const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
-const PASSWORD_RESET_SECRET = process.env.PASSWORD_RESET_SECRET || process.env.JWT_SECRET || "mysupersecretkey";
+const RESET_REQUEST_WINDOW_MS = 15 * 60 * 1000;
+const MAX_RESET_REQUESTS_PER_IP = 10;
+const PASSWORD_RESET_SECRET = process.env.PASSWORD_RESET_SECRET;
+const resetRequestCounts = new Map<string, { count: number; resetAt: number }>();
 
 function generateOtp(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return randomInt(100000, 1_000_000).toString();
+}
+
+function takeResetRequestSlot(req: Request): number | null {
+  const now = Date.now();
+  const key = req.ip || req.socket.remoteAddress || "unknown";
+  const current = resetRequestCounts.get(key);
+
+  if (!current || current.resetAt <= now) {
+    resetRequestCounts.set(key, { count: 1, resetAt: now + RESET_REQUEST_WINDOW_MS });
+    return null;
+  }
+  if (current.count >= MAX_RESET_REQUESTS_PER_IP) {
+    return Math.ceil((current.resetAt - now) / 1000);
+  }
+  current.count += 1;
+  return null;
 }
 
 function normalizeNepalPhone(value: unknown): string | null {
@@ -31,6 +51,16 @@ export const generateResetOtp = async (req: Request, res: Response): Promise<any
   try {
     const phone = normalizeNepalPhone(req.body?.phone);
     if (!phone) return res.status(400).json({ success: false, message: "Enter a valid 10-digit Nepal phone number" });
+    if (!PASSWORD_RESET_SECRET) return res.status(503).json({ success: false, message: "Password reset is not configured" });
+
+    const retryAfterSeconds = takeResetRequestSlot(req);
+    if (retryAfterSeconds !== null) {
+      return res.status(429).json({
+        success: false,
+        message: "Too many password-reset requests. Please try again later.",
+        retryAfterSeconds,
+      });
+    }
 
     const user = await prisma.user.findUnique({
       where: { phone },
@@ -84,6 +114,7 @@ export const generateResetOtp = async (req: Request, res: Response): Promise<any
 // Validates an SMS OTP and returns a short-lived proof required by the reset endpoint.
 export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
   try {
+    if (!PASSWORD_RESET_SECRET) return res.status(503).json({ success: false, message: "Password reset is not configured" });
     const phone = normalizeNepalPhone(req.body?.phone);
     const otp = typeof req.body?.otp === "string" ? req.body.otp.trim() : "";
     if (!phone || !/^\d{6}$/.test(otp)) {
@@ -109,7 +140,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
     }
 
     const resetToken = jwt.sign(
-      { purpose: "PASSWORD_RESET", otpId: otpRecord.id, phone },
+      { purpose: "PASSWORD_RESET", otpId: otpRecord.id },
       PASSWORD_RESET_SECRET,
       { expiresIn: "10m" }
     );
@@ -122,6 +153,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
 
 export const verifyOtpAndResetPassword = async (req: Request, res: Response): Promise<any> => {
   try {
+    if (!PASSWORD_RESET_SECRET) return res.status(503).json({ success: false, message: "Password reset is not configured" });
     const resetToken = typeof req.body?.resetToken === "string" ? req.body.resetToken : "";
     const newPassword = typeof req.body?.newPassword === "string" ? req.body.newPassword : "";
     if (!resetToken || !newPassword) {
@@ -131,37 +163,51 @@ export const verifyOtpAndResetPassword = async (req: Request, res: Response): Pr
       return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
     }
 
-    let proof: { purpose?: string; otpId?: string; phone?: string };
+    let proof: { purpose?: string; otpId?: string };
     try {
       proof = jwt.verify(resetToken, PASSWORD_RESET_SECRET) as typeof proof;
     } catch {
       return res.status(400).json({ success: false, message: "Your reset verification has expired. Request a new code." });
     }
-    if (proof.purpose !== "PASSWORD_RESET" || !proof.otpId || !proof.phone) {
+    if (proof.purpose !== "PASSWORD_RESET" || !proof.otpId) {
       return res.status(400).json({ success: false, message: "Invalid reset verification" });
     }
 
     const otpRecord = await prisma.passwordResetOtp.findFirst({
-      where: { id: proof.otpId, phone: proof.phone, used: false, expiresAt: { gt: new Date() } },
-      select: { id: true },
+      where: { id: proof.otpId, used: false, expiresAt: { gt: new Date() } },
+      select: { id: true, phone: true },
     });
     if (!otpRecord) return res.status(400).json({ success: false, message: "Your reset code has expired. Request a new code." });
 
-    const user = await prisma.user.findUnique({
-      where: { phone: proof.phone },
-      select: { id: true, role: true },
-    });
-    if (!user || user.role === UserRole.SUPER_ADMIN) {
-      return res.status(400).json({ success: false, message: "Password reset is not available for this account" });
-    }
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const resetSucceeded = await prisma.$transaction(async (tx) => {
+      // Claim the code first. The conditional update makes concurrent reset
+      // attempts fail safely after one request has consumed the OTP.
+      const claimed = await tx.passwordResetOtp.updateMany({
+        where: { id: otpRecord.id, used: false, expiresAt: { gt: new Date() } },
+        data: { used: true },
+      });
+      if (claimed.count !== 1) return false;
 
-    await prisma.$transaction([
-      prisma.user.update({ where: { id: user.id }, data: { password: await bcrypt.hash(newPassword, 10) } }),
-      prisma.passwordResetOtp.update({ where: { id: otpRecord.id }, data: { used: true } }),
-    ]);
+      const user = await tx.user.findUnique({
+        where: { phone: otpRecord.phone },
+        select: { id: true, role: true },
+      });
+      if (!user || user.role === UserRole.SUPER_ADMIN) {
+        throw new Error("RESET_ACCOUNT_UNAVAILABLE");
+      }
+      await tx.user.update({ where: { id: user.id }, data: { password: passwordHash } });
+      return true;
+    });
+    if (!resetSucceeded) {
+      return res.status(400).json({ success: false, message: "Your reset code has expired. Request a new code." });
+    }
 
     return res.json({ success: true, message: "Password reset successful. You can now log in with your new password." });
   } catch (error) {
+    if (error instanceof Error && error.message === "RESET_ACCOUNT_UNAVAILABLE") {
+      return res.status(400).json({ success: false, message: "Password reset is not available for this account" });
+    }
     console.error("Reset password error", error);
     return res.status(500).json({ success: false, message: "Unable to reset password" });
   }

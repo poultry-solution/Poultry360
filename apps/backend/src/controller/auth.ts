@@ -43,8 +43,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     }
     const { emailOrPhone, password } = data;
 
-    console.log("emailOrPhone", emailOrPhone);
-
     // Find user by phone
     const user = await prisma.user.findFirst({
       where: {
@@ -57,10 +55,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         company: true,
       },
     });
-
-    console.log("user", user);
-    console.log("user.dealer", user?.dealer);
-    console.log("user.company", user?.company);
 
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
@@ -109,13 +103,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
           }
         : null,
     };
-
-    console.log("userWithFarms", userWithFarms);
-
-    // Return access token and user data
-
-    console.log("tokens", tokens);
-    console.log("userWithFarms", userWithFarms);
 
     return res.json({
       accessToken: tokens.accessToken,
@@ -258,10 +245,6 @@ export const refreshToken = async (
   res: Response
 ): Promise<any> => {
   try {
-    console.log("🔄 Refresh token request headers:", req.headers.cookie);
-    console.log("🔄 Refresh token parsed cookies:", req.cookies);
-    console.log("🔄 Refresh token value:", req.cookies?.refreshToken);
-
     const refreshToken = req.cookies?.refreshToken;
 
     if (!refreshToken) {

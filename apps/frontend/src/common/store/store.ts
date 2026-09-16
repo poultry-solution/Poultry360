@@ -106,7 +106,6 @@ interface AuthState {
   initialize: () => Promise<void>;
   setUser: (user: User) => void;
   setAccessToken: (token: string) => void;
-  testRefreshToken: () => Promise<any>;
   // navigateToDoctorApp: () => void; // TODO: Implement when unified architecture is ready
 }
 
@@ -343,8 +342,6 @@ export const useAuthStore = create<AuthState>()(
             const response = await apiCall(get().authMode === "staff" ? "/staff-auth/refresh-token" : "/auth/refresh-token", {
               method: "POST",
             });
-            console.log("🔄 Refresh token response:", response);
-
             const { accessToken } = response;
 
             set({
@@ -521,13 +518,10 @@ export const useAuthStore = create<AuthState>()(
             const { accessToken } = get();
 
             if (accessToken) {
-              console.log("🔄 Found persisted access token, validating...");
               const isValid = await get().validateToken();
               if (isValid) {
-                console.log("✅ Persisted access token is valid");
                 return;
               }
-              console.log("⚠️ Persisted access token expired, trying cookie refresh...");
             }
 
             // Step 2: Access token missing or expired — try httpOnly cookie refresh
@@ -535,14 +529,12 @@ export const useAuthStore = create<AuthState>()(
             if (newAccessToken) {
               const isValid = await get().validateToken();
               if (isValid) {
-                console.log("✅ Auth initialized via refresh token cookie");
                 return;
               }
             }
 
             throw new Error("All authentication methods failed");
           } catch (error) {
-            console.log("❌ Auth initialization failed:", error);
             set({
               user: null,
               accessToken: null,
@@ -564,21 +556,6 @@ export const useAuthStore = create<AuthState>()(
 
         setAccessToken: (token: string) => {
           set({ accessToken: token });
-        },
-
-        // Debug function to test refresh token
-        testRefreshToken: async () => {
-          try {
-            console.log("🧪 Testing refresh token...");
-            const response = await apiCall("/auth/refresh-token", {
-              method: "POST",
-            });
-            console.log("🧪 Refresh token test response:", response);
-            return response;
-          } catch (error) {
-            console.error("🧪 Refresh token test failed:", error);
-            throw error;
-          }
         },
 
   
