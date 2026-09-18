@@ -54,7 +54,16 @@ export interface StaffDetail extends StaffItem {
 }
 
 export type TransactionItem =
-  | { type: "accrual"; bsYear: number; bsMonth: number; amount: number; monthStartAD: string }
+  | {
+      type: "accrual";
+      bsYear: number;
+      bsMonth: number;
+      amount: number;
+      monthStartAD: string;
+      workedDays: number;
+      daysInMonth: number;
+      dailyRate: number;
+    }
   | { type: "payment"; id: string; amount: number; paidAt: string; note: string | null; receiptImageUrl: string | null };
 
 // ==================== QUERY KEYS ====================
@@ -188,13 +197,14 @@ export function useUpdateStaff(owner: "farmer" | "dealer" | "hatchery") {
 export function useStopStaff(owner: "farmer" | "dealer" | "hatchery") {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, endDate }: { id: string; endDate: string }) => {
       const { data } = await axiosInstance.patch<{ success: boolean; data: StaffDetail }>(
-        `${staffPath(owner)}/${id}/stop`
+        `${staffPath(owner)}/${id}/stop`,
+        { endDate }
       );
       return data;
     },
-    onSuccess: (_, id) => {
+    onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: staffKeys.all(owner) });
       qc.invalidateQueries({ queryKey: staffKeys.summary(owner) });
       qc.invalidateQueries({ queryKey: staffKeys.detail(owner, id) });
