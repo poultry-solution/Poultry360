@@ -21,6 +21,10 @@ function parseDate(val: unknown): Date | null {
   return null;
 }
 
+function normalizeDateOnlyUTC(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
+}
+
 function parseDecimal(val: unknown): number | null {
   if (val == null || val === "") return null;
   const n = Number(val);
@@ -105,13 +109,15 @@ export const createStaff = async (req: Request, res: Response): Promise<void> =>
       res.status(400).json({ success: false, message: "Valid monthly salary is required" });
       return;
     }
-    // Normalize to first day of start BS month so accrual and initial salary align (first month gets salary)
+    const normalizedStartDate = normalizeDateOnlyUTC(start);
+    // Initial salary is effective from the first day of the joining BS month;
+    // accrual itself uses the exact joining date for proration.
     const firstDayOfStartMonth = getFirstDayOfStartBSMonth(start);
     const staff = await prisma.staff.create({
       data: {
         ownerId,
         name: name.trim(),
-        startDate: firstDayOfStartMonth,
+        startDate: normalizedStartDate,
         status: StaffStatus.ACTIVE,
       },
     });
@@ -208,7 +214,13 @@ export const stopStaff = async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({ success: false, message: "Staff is already stopped" });
       return;
     }
-    const endDate = new Date();
+    const parsedEndDate = parseDate(req.body?.endDate);
+    const endDate = normalizeDateOnlyUTC(parsedEndDate ?? new Date());
+    const startDate = normalizeDateOnlyUTC(new Date(staff.startDate));
+    if (endDate.getTime() < startDate.getTime()) {
+      res.status(400).json({ success: false, message: "End date cannot be before start date" });
+      return;
+    }
     await prisma.staff.update({
       where: { id },
       data: { status: StaffStatus.STOPPED, endDate },

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Archive, DollarSign, Eye, Loader2, Plus, Pencil, Trash2, Users } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
 import { getTodayLocalDate } from "@/common/lib/utils";
-import { formatBSMonthYear, getBSYearMonthFromAD, getFirstDayOfBSMonthAD } from "@/common/lib/nepali-date";
+import { formatBSLong } from "@/common/lib/nepali-date";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
@@ -49,11 +49,6 @@ function formatCurrency(amount: number): string {
   return `रू ${Math.abs(amount).toFixed(0)}`;
 }
 
-function getDefaultStartMonthAD(): string {
-  const { year, month } = getBSYearMonthFromAD(new Date());
-  return getFirstDayOfBSMonthAD(year, month);
-}
-
 function isZeroBalance(balance: number): boolean {
   return Math.abs(balance) < 0.0001;
 }
@@ -74,9 +69,10 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
   const [archiveStaffId, setArchiveStaffId] = useState<string | null>(null);
   const [detailsStaffId, setDetailsStaffId] = useState<string | null>(null);
 
-  const [addForm, setAddForm] = useState({ name: "", startDate: getDefaultStartMonthAD(), monthlySalary: "" });
+  const [addForm, setAddForm] = useState({ name: "", startDate: getTodayLocalDate(), monthlySalary: "" });
   const [payForm, setPayForm] = useState({ amount: "", paidAt: getTodayLocalDate(), note: "", receiptImageUrl: "" });
   const [editSalaryForm, setEditSalaryForm] = useState({ monthlySalary: "", effectiveFrom: getTodayLocalDate() });
+  const [stopForm, setStopForm] = useState({ endDate: getTodayLocalDate() });
 
   const statusFilter = useMemo((): StaffStatusFilter => {
     if (activeTab === "all") return "ALL";
@@ -119,7 +115,7 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
       monthlySalary: salary,
     });
     setAddOpen(false);
-    setAddForm({ name: "", startDate: getDefaultStartMonthAD(), monthlySalary: "" });
+    setAddForm({ name: "", startDate: getTodayLocalDate(), monthlySalary: "" });
   };
 
   const handlePay = async () => {
@@ -157,8 +153,10 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
   };
 
   const handleStop = async (id: string) => {
-    await stopMutation.mutateAsync(id);
+    const endDate = stopForm.endDate.includes("T") ? stopForm.endDate : `${stopForm.endDate}T00:00:00.000Z`;
+    await stopMutation.mutateAsync({ id, endDate });
     setStopStaffId(null);
+    setStopForm({ endDate: getTodayLocalDate() });
   };
 
   const handleArchive = async (id: string) => {
@@ -267,7 +265,7 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                           </Badge>
                           <span className="font-medium">{s.name}</span>
                           <span className="text-sm text-muted-foreground">
-                            {formatBSMonthYear(s.startDate)} · {text("currentSalary", "Current salary")} रू {s.currentMonthlySalary.toFixed(0)}
+                            {formatBSLong(s.startDate)} · {text("currentSalary", "Current salary")} रू {s.currentMonthlySalary.toFixed(0)}
                           </span>
                           <span
                             className={
@@ -313,7 +311,10 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                               variant="ghost"
                               size="sm"
                               className="text-destructive"
-                              onClick={() => setStopStaffId(s.id)}
+                              onClick={() => {
+                                setStopStaffId(s.id);
+                                setStopForm({ endDate: getTodayLocalDate() });
+                              }}
                               title={text("stop", "Stop")}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -357,9 +358,9 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                 placeholder={text("name", "Name")}
               />
             </div>
-            <BSMonthPicker
-              label={text("startMonth", "Start month")}
-              value={addForm.startDate?.split("T")[0] ?? getDefaultStartMonthAD()}
+            <DateInput
+              label={text("joiningDate", "Joining date")}
+              value={addForm.startDate?.split("T")[0] ?? getTodayLocalDate()}
               onChange={(v) => setAddForm((f) => ({ ...f, startDate: v }))}
             />
             <div>
@@ -483,7 +484,14 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
 
       <Modal isOpen={!!stopStaffId} onClose={() => setStopStaffId(null)} title={text("stopConfirmTitle", "Stop staff?")}>
         <ModalContent>
-          <p className="text-muted-foreground">{text("stopConfirmMessage", "Salary will no longer accrue. Remaining balance will stay.")}</p>
+          <div className="space-y-4">
+            <p className="text-muted-foreground">{text("stopConfirmMessage", "Salary will accrue until the selected last working date. Remaining balance will stay.")}</p>
+            <DateInput
+              label={text("lastWorkingDate", "Last working date")}
+              value={stopForm.endDate}
+              onChange={(v) => setStopForm({ endDate: v })}
+            />
+          </div>
         </ModalContent>
         <ModalFooter>
           <Button variant="outline" onClick={() => setStopStaffId(null)}>
@@ -492,7 +500,7 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
           <Button
             variant="destructive"
             className="bg-destructive text-white"
-            disabled={stopMutation.isPending}
+            disabled={stopMutation.isPending || !stopForm.endDate}
             onClick={() => stopStaffId && handleStop(stopStaffId)}
           >
             {stopMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -539,7 +547,7 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                 {tx.type === "accrual" ? (
                   <>
                     <span>
-                      {text("accrual", "Accrual")} – {tx.bsYear}/{tx.bsMonth}
+                      {text("accrual", "Accrual")} – {tx.bsYear}/{tx.bsMonth} · {tx.workedDays}/{tx.daysInMonth} days
                     </span>
                     <span className="font-medium">+{formatCurrency(tx.amount)}</span>
                   </>

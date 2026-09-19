@@ -1,6 +1,6 @@
 /**
  * Staff management service.
- * Accrual is computed by Nepali (BS) month: each BS month adds one month's salary.
+ * Accrual is computed by Nepali (BS) month with day-wise proration.
  * All dates stored in DB are AD; we use nepali-date-converter to iterate BS months.
  */
 
@@ -14,6 +14,37 @@ function firstDayOfBSMonthAD(bsYear: number, bsMonth: number): Date {
   const nd = new NepaliDate(bsYear, bsMonth - 1, 1);
   const d = nd.toJsDate();
   return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0));
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function normalizeDateOnlyUTC(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
+}
+
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * DAY_MS);
+}
+
+function maxDate(a: Date, b: Date): Date {
+  return a.getTime() >= b.getTime() ? a : b;
+}
+
+function minDate(a: Date, b: Date): Date {
+  return a.getTime() <= b.getTime() ? a : b;
+}
+
+function inclusiveDays(start: Date, end: Date): number {
+  if (end.getTime() < start.getTime()) return 0;
+  return Math.floor((end.getTime() - start.getTime()) / DAY_MS) + 1;
+}
+
+function getDaysInBSMonth(bsYear: number, bsMonth: number): number {
+  const monthStart = firstDayOfBSMonthAD(bsYear, bsMonth);
+  const nextMonthStart = bsMonth === 12
+    ? firstDayOfBSMonthAD(bsYear + 1, 1)
+    : firstDayOfBSMonthAD(bsYear, bsMonth + 1);
+  return Math.round((nextMonthStart.getTime() - monthStart.getTime()) / DAY_MS);
 }
 
 /** Get BS year and month from an AD date. */
@@ -64,21 +95,22 @@ function getSalaryForMonth(salaries: StaffSalary[], monthStartAD: Date): number 
   return 0;
 }
 
-/** Current moment in Nepal (UTC+5:45) so "today" in BS is correct regardless of server TZ. */
-function getTodayInNepal(): Date {
+/** Current date in Nepal (UTC+5:45) so "today" in BS is correct regardless of server TZ. */
+function getTodayInNepalDateOnly(): Date {
   const nepalOffsetMs = 5.75 * 60 * 60 * 1000;
-  return new Date(Date.now() + nepalOffsetMs);
+  const inNepal = new Date(Date.now() + nepalOffsetMs);
+  return new Date(Date.UTC(inNepal.getUTCFullYear(), inNepal.getUTCMonth(), inNepal.getUTCDate(), 0, 0, 0, 0));
 }
 
 /**
  * Compute total accrued salary for a staff up to "today" (or endDate if stopped).
- * Uses BS month iteration: each BS month adds the salary effective that month.
+ * Uses BS month iteration and prorates joining/stopping months by actual BS month days.
  */
 export function computeAccruedSalary(staff: Staff, salaries: StaffSalary[]): number {
-  const startDate = new Date(staff.startDate);
+  const startDate = normalizeDateOnlyUTC(new Date(staff.startDate));
   const endDate = staff.status !== StaffStatus.ACTIVE && staff.endDate
-    ? new Date(staff.endDate)
-    : getTodayInNepal();
+    ? normalizeDateOnlyUTC(new Date(staff.endDate))
+    : getTodayInNepalDateOnly();
 
   const startBS = getBSYearMonth(startDate);
   const endBS = getBSYearMonth(endDate);
@@ -86,7 +118,19 @@ export function computeAccruedSalary(staff: Staff, salaries: StaffSalary[]): num
   let total = 0;
   for (const { year, month } of iterateBSMonths(startBS.year, startBS.month, endBS.year, endBS.month)) {
     const monthStartAD = firstDayOfBSMonthAD(year, month);
-    total += getSalaryForMonth(salaries, monthStartAD);
+    const nextMonthStartAD = month === 12
+      ? firstDayOfBSMonthAD(year + 1, 1)
+      : firstDayOfBSMonthAD(year, month + 1);
+    const monthEndAD = addDays(nextMonthStartAD, -1);
+    const workedStart = maxDate(startDate, monthStartAD);
+    const workedEnd = minDate(endDate, monthEndAD);
+    const workedDays = inclusiveDays(workedStart, workedEnd);
+
+    if (workedDays <= 0) continue;
+
+    const monthlySalary = getSalaryForMonth(salaries, monthStartAD);
+    const daysInMonth = getDaysInBSMonth(year, month);
+    total += (monthlySalary / daysInMonth) * workedDays;
   }
   return total;
 }
@@ -255,26 +299,47 @@ export async function getStaffById(staffId: string, ownerId: string) {
 }
 
 export type TransactionItem =
-  | { type: "accrual"; bsYear: number; bsMonth: number; amount: number; monthStartAD: Date }
+  | {
+      type: "accrual";
+      bsYear: number;
+      bsMonth: number;
+      amount: number;
+      monthStartAD: Date;
+      workedDays: number;
+      daysInMonth: number;
+      dailyRate: number;
+    }
   | { type: "payment"; id: string; amount: number; paidAt: Date; note: string | null; receiptImageUrl: string | null };
 
 /**
  * Get merged transaction list for details view: accrual entries (per BS month) + payments, sorted by date.
  */
 export function getStaffTransactions(staff: Staff, salaries: StaffSalary[], payments: StaffPayment[]): TransactionItem[] {
-  const startDate = new Date(staff.startDate);
+  const startDate = normalizeDateOnlyUTC(new Date(staff.startDate));
   const endDate = staff.status !== StaffStatus.ACTIVE && staff.endDate
-    ? new Date(staff.endDate)
-    : new Date();
+    ? normalizeDateOnlyUTC(new Date(staff.endDate))
+    : getTodayInNepalDateOnly();
   const startBS = getBSYearMonth(startDate);
   const endBS = getBSYearMonth(endDate);
 
   const accruals: TransactionItem[] = [];
   for (const { year, month } of iterateBSMonths(startBS.year, startBS.month, endBS.year, endBS.month)) {
     const monthStartAD = firstDayOfBSMonthAD(year, month);
-    const amount = getSalaryForMonth(salaries, monthStartAD);
+    const nextMonthStartAD = month === 12
+      ? firstDayOfBSMonthAD(year + 1, 1)
+      : firstDayOfBSMonthAD(year, month + 1);
+    const monthEndAD = addDays(nextMonthStartAD, -1);
+    const workedStart = maxDate(startDate, monthStartAD);
+    const workedEnd = minDate(endDate, monthEndAD);
+    const workedDays = inclusiveDays(workedStart, workedEnd);
+    if (workedDays <= 0) continue;
+
+    const daysInMonth = getDaysInBSMonth(year, month);
+    const monthlySalary = getSalaryForMonth(salaries, monthStartAD);
+    const dailyRate = monthlySalary / daysInMonth;
+    const amount = dailyRate * workedDays;
     if (amount > 0) {
-      accruals.push({ type: "accrual", bsYear: year, bsMonth: month, amount, monthStartAD });
+      accruals.push({ type: "accrual", bsYear: year, bsMonth: month, amount, monthStartAD, workedDays, daysInMonth, dailyRate });
     }
   }
 
