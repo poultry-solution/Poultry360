@@ -159,11 +159,14 @@ export const requireDealerOwner = (req: Request, res: Response, next: NextFuncti
 };
 
 // A staff member may work a customer's account, but a business-wide ledger
-// listing is a financial-history view and is reserved for the owner.
+// listing is a financial-history view and is reserved for the owner. The
+// dealer ledger endpoint identifies the focused account with `partyId`;
+// `customerId` is accepted as a compatibility alias for older callers.
 export const requireOperationalLedgerScope = (req: Request, res: Response, next: NextFunction) => {
   if (req.actorType === "STAFF" && !req.staffPermissions?.includes(StaffPermission.DEALER_VIEW_FINANCIAL_SUMMARIES)) {
+    const partyId = typeof req.query.partyId === "string" ? req.query.partyId : "";
     const customerId = typeof req.query.customerId === "string" ? req.query.customerId : "";
-    if (!customerId) {
+    if (!partyId && !customerId) {
       return res.status(403).json({
         code: "STAFF_PERMISSION_DENIED",
         permission: StaffPermission.DEALER_VIEW_FINANCIAL_SUMMARIES,
