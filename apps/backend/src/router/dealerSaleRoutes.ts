@@ -9,6 +9,7 @@ import {
   createCustomer,
   getDealerCustomers,
   getSalesStatistics,
+  getChickenSalesByFarmer,
   archiveDealerCustomer,
   unarchiveDealerCustomer,
   deleteDealerCustomer,
@@ -34,6 +35,9 @@ router.get("/", getDealerSales);
 
 // Get sales statistics
 router.get("/statistics", requireStaffPermission(StaffPermission.DEALER_VIEW_FINANCIAL_SUMMARIES), getSalesStatistics);
+
+// Tentative chicken-sale revenue grouped by the farmer that supplied the birds.
+router.get("/chicken-by-farmer", getChickenSalesByFarmer);
 
 // Get dealer customers
 router.get("/customers", getDealerCustomers);

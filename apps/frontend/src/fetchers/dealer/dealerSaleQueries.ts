@@ -10,6 +10,8 @@ export const dealerSaleKeys = {
   detail: (id: string) => [...dealerSaleKeys.details(), id] as const,
   statistics: (filters?: string) =>
     filters ? [...dealerSaleKeys.all, "statistics", { filters }] as const : [...dealerSaleKeys.all, "statistics"] as const,
+  chickenByFarmer: (sourceFarmerId?: string) =>
+    [...dealerSaleKeys.all, "chicken-by-farmer", { sourceFarmerId }] as const,
 };
 
 // Types
@@ -22,13 +24,16 @@ export interface DealerSale {
   paidAmount: number;
   dueAmount?: number;
   isCredit: boolean;
+  isChickenSale: boolean;
   paymentMethod?: string;
   notes?: string;
   dealerId: string;
   customerId?: string;
+  sourceFarmerId?: string | null;
   farmerId?: string;
   accountId?: string;
   customer?: any;
+  sourceFarmer?: any;
   farmer?: any;
   items: DealerSaleItem[];
   payments: DealerSalePayment[];
@@ -42,7 +47,7 @@ export interface DealerSaleItem {
   quantity: number;
   unitPrice: number;
   totalAmount: number;
-  productId: string;
+  productId?: string | null;
   dealerProduct?: any;
   product?: any;
 }
@@ -59,7 +64,7 @@ export interface DealerSalePayment {
 export interface CreateDealerSaleInput {
   customerId: string;
   items: Array<{
-    productId: string;
+    productId?: string;
     quantity: number;
     unitPrice: number;
     unit?: string;
@@ -70,6 +75,23 @@ export interface CreateDealerSaleInput {
   date?: Date;
   discount?: { type: "PERCENT" | "FLAT"; value: number };
   invoiceNumber?: string;
+  isChickenSale?: boolean;
+  sourceFarmerId?: string;
+}
+
+export interface ChickenSalesByFarmerRow {
+  sourceFarmerId: string;
+  sourceFarmer: {
+    id: string;
+    name: string;
+    phone?: string | null;
+    address?: string | null;
+    balance: number;
+  };
+  saleCount: number;
+  tentativeRevenue: number;
+  latestSaleDate?: string | null;
+  existingDueAmount: number;
 }
 
 export interface AddSalePaymentInput {
@@ -110,6 +132,8 @@ export const useGetDealerSales = (
     isPaid?: boolean;
     customerId?: string;
     farmerId?: string;
+    isChickenSale?: boolean;
+    sourceFarmerId?: string;
   },
   options?: { enabled?: boolean }
 ) => {
@@ -164,6 +188,18 @@ export const useGetSalesStatistics = (params?: {
   });
 };
 
+export const useGetChickenSalesByFarmer = (sourceFarmerId?: string) => {
+  return useQuery({
+    queryKey: dealerSaleKeys.chickenByFarmer(sourceFarmerId),
+    queryFn: async () => {
+      const { data } = await axiosInstance.get("/dealer/sales/chicken-by-farmer", {
+        params: sourceFarmerId ? { sourceFarmerId } : undefined,
+      });
+      return data as { success: boolean; data: ChickenSalesByFarmerRow[] };
+    },
+  });
+};
+
 // Search customers/farmers
 export const useSearchCustomers = (search: string) => {
   return useQuery({
@@ -193,6 +229,7 @@ export const useCreateDealerSale = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.lists() });
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.statistics() });
+      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.chickenByFarmer() });
       queryClient.invalidateQueries({ queryKey: ["dealerProducts"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
     },

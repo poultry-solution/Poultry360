@@ -21,6 +21,8 @@ export const createDealerSale = async (
       date,
       discount,
       invoiceNumber,
+      isChickenSale = false,
+      sourceFarmerId,
     } = req.body;
 
     // Validation
@@ -40,6 +42,18 @@ export const createDealerSale = async (
       return res.status(400).json({
         message: "Paid amount cannot be negative",
       });
+    }
+
+    if (typeof isChickenSale !== "boolean") {
+      return res.status(400).json({ message: "Chicken sale flag must be a boolean" });
+    }
+
+    if (isChickenSale && !sourceFarmerId) {
+      return res.status(400).json({ message: "Source farmer is required for chicken sales" });
+    }
+
+    if (isChickenSale && sourceFarmerId === customerId) {
+      return res.status(400).json({ message: "Source farmer and buyer must be different customers" });
     }
 
     // Get the dealer record
@@ -65,6 +79,21 @@ export const createDealerSale = async (
       return res.status(404).json({ message: "Customer not found" });
     }
 
+    if (isChickenSale) {
+      const sourceFarmer = await prisma.customer.findFirst({
+        where: {
+          id: sourceFarmerId,
+          userId: userId as string,
+          farmerId: null,
+        },
+        select: { id: true },
+      });
+
+      if (!sourceFarmer) {
+        return res.status(404).json({ message: "Source farmer not found" });
+      }
+    }
+
     const sale = await DealerService.createDealerSale({
       dealerId: dealer.id,
       customerId,
@@ -78,6 +107,8 @@ export const createDealerSale = async (
           ? { type: discount.type, value: Number(discount.value) }
           : undefined,
       invoiceNumber: invoiceNumber?.trim() || undefined,
+      isChickenSale,
+      sourceFarmerId: isChickenSale ? sourceFarmerId : undefined,
     });
 
     return res.status(201).json({
@@ -104,6 +135,8 @@ export const getDealerSales = async (
       search,
       isPaid,
       customerId,
+      isChickenSale,
+      sourceFarmerId,
     } = req.query;
 
     // Get the dealer record
@@ -143,6 +176,16 @@ export const getDealerSales = async (
       where.customerId = customerId;
     }
 
+    if (isChickenSale === "true") {
+      where.isChickenSale = true;
+    } else if (isChickenSale === "false") {
+      where.isChickenSale = false;
+    }
+
+    if (sourceFarmerId) {
+      where.sourceFarmerId = sourceFarmerId;
+    }
+
     const [sales, total] = await Promise.all([
       prisma.dealerSale.findMany({
         where,
@@ -151,6 +194,7 @@ export const getDealerSales = async (
         orderBy: { date: "desc" },
         include: {
           customer: true,
+          sourceFarmer: true,
           discount: true,
           items: {
             include: {
@@ -206,6 +250,7 @@ export const getDealerSaleById = async (
       },
       include: {
         customer: true,
+        sourceFarmer: true,
         discount: true,
         items: {
           include: {
@@ -450,16 +495,20 @@ export const getDealerCustomers = async (
 
     if (dealerId && customerIds.length > 0) {
       const dealerSalesGrouped = await prisma.dealerSale.groupBy({
-        by: ["customerId"],
+        by: ["customerId", "sourceFarmerId"],
         where: {
           dealerId,
-          customerId: { in: customerIds },
+          OR: [
+            { customerId: { in: customerIds } },
+            { sourceFarmerId: { in: customerIds } },
+          ],
         },
         _count: { _all: true },
       });
 
       dealerSalesGrouped.forEach((r: any) => {
         if (r.customerId) dealerSalesByCustomerId.set(r.customerId, r._count._all);
+        if (r.sourceFarmerId) dealerSalesByCustomerId.set(r.sourceFarmerId, r._count._all);
       });
 
       const paymentsGrouped = await prisma.dealerLedgerEntry.groupBy({
@@ -527,7 +576,10 @@ export const archiveDealerCustomer = async (
     if (!customer) return res.status(404).json({ message: "Customer not found" });
 
     const hasDealerSales = await prisma.dealerSale.count({
-      where: { dealerId: dealer.id, customerId: id },
+      where: {
+        dealerId: dealer.id,
+        OR: [{ customerId: id }, { sourceFarmerId: id }],
+      },
     });
 
     const ledgerPayments = await prisma.dealerLedgerEntry.count({
@@ -630,7 +682,10 @@ export const deleteDealerCustomer = async (
     if (!customer) return res.status(404).json({ message: "Customer not found" });
 
     const hasDealerSales = await prisma.dealerSale.count({
-      where: { dealerId: dealer.id, customerId: id },
+      where: {
+        dealerId: dealer.id,
+        OR: [{ customerId: id }, { sourceFarmerId: id }],
+      },
     });
 
     const ledgerPayments = await prisma.dealerLedgerEntry.count({
@@ -837,6 +892,80 @@ export const getSalesStatistics = async (
     });
   } catch (error: any) {
     console.error("Get sales statistics error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== CHICKEN SALES BY SOURCE FARMER ====================
+export const getChickenSalesByFarmer = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { sourceFarmerId } = req.query;
+
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    if (sourceFarmerId) {
+      const sourceFarmer = await prisma.customer.findFirst({
+        where: { id: sourceFarmerId as string, userId: userId as string, farmerId: null },
+        select: { id: true },
+      });
+      if (!sourceFarmer) {
+        return res.status(404).json({ message: "Source farmer not found" });
+      }
+    }
+
+    const groupedSales = await prisma.dealerSale.groupBy({
+      by: ["sourceFarmerId"],
+      where: {
+        dealerId: dealer.id,
+        farmerId: null,
+        accountId: null,
+        isChickenSale: true,
+        sourceFarmerId: sourceFarmerId
+          ? (sourceFarmerId as string)
+          : { not: null },
+      },
+      _sum: { totalAmount: true },
+      _count: { _all: true },
+      _max: { date: true },
+      orderBy: { _sum: { totalAmount: "desc" } },
+    });
+
+    const sourceFarmerIds = groupedSales
+      .map((sale) => sale.sourceFarmerId)
+      .filter((id): id is string => Boolean(id));
+    const sourceFarmers = await prisma.customer.findMany({
+      where: { id: { in: sourceFarmerIds }, userId: userId as string },
+      select: { id: true, name: true, phone: true, address: true, balance: true },
+    });
+    const farmersById = new Map(sourceFarmers.map((farmer) => [farmer.id, farmer]));
+
+    const data = groupedSales.flatMap((group) => {
+      if (!group.sourceFarmerId) return [];
+      const farmer = farmersById.get(group.sourceFarmerId);
+      if (!farmer) return [];
+      return [{
+        sourceFarmerId: farmer.id,
+        sourceFarmer: farmer,
+        saleCount: group._count._all,
+        tentativeRevenue: Number(group._sum.totalAmount || 0),
+        latestSaleDate: group._max.date,
+        existingDueAmount: Number(farmer.balance || 0),
+      }];
+    });
+
+    return res.status(200).json({ success: true, data });
+  } catch (error: any) {
+    console.error("Get chicken sales by farmer error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

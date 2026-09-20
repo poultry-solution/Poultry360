@@ -446,3 +446,77 @@ DealerSale
 - **Auth store:** `apps/frontend/src/common/store/store.ts`
 - **Socket service:** `apps/backend/src/services/socketService.ts`
 - **Consignment service:** `apps/backend/src/services/consignmentService.ts`
+
+
+
+  # Chicken Sale Tracking (Farmer-Sourced)
+
+  ## Summary
+
+  Add chicken-sale metadata to the existing dealer-sale workflow. A chicken sale retains normal buyer accounting, while its source
+  farmer is recorded only for tentative reconciliation reporting and is never affected financially.
+
+  ## Implementation Changes
+
+  - Extend DealerSale with isChickenSale (default false) and nullable sourceFarmerId, with a named relation to Customer, indexes for
+    dealer/source-farmer reporting, and a migration that preserves all existing sales as non-chicken sales.
+
+  - Update sale creation input and validation:
+      - When isChickenSale is true, require a source farmer from the dealer’s existing manual-customer pool and require it to differ
+        from the buyer.
+
+      - When false or omitted, persist sourceFarmerId as null and preserve the feed-sale flow exactly.
+      - Validate buyer and source farmer ownership before creating the sale.
+
+  - Keep buyer accounting unchanged for chicken sales: inventory, sale/payment records, buyer Customer.balance, buyer totals, and
+    dealer-ledger entries continue to use customerId.
+      - Never use sourceFarmerId in balance updates, dueAmount, payments, customer transactions, or ledger entries.
+      - Existing payment and deletion behavior continues to operate only on the buyer; deleting a chicken sale never changes the
+        source farmer’s account.
+
+  - Include chicken-sale/source-farmer data in dealer sale reads and frontend types; show a Chicken Sale indicator and source farmer
+    in sale list/detail/print contexts.
+
+  - Prevent a customer used as a source farmer from being hard-deleted, while retaining existing archive behavior and historical
+    report visibility.
+
+  - Add GET /dealer/sales/chicken-by-farmer before the /:id route. It returns chicken sales grouped by sourceFarmerId, with optional
+    source-farmer filtering, sale count, tentative total (sum(totalAmount)), latest sale date, and that customer’s current balance.
+
+  - Add a dedicated “Chicken Sales by Farmer” page, reached from a clearly labeled action beside “New Sale” on the Sales page:
+      - Optional source-farmer filter.
+      - One row/card per farmer showing “Existing feed/credit due” separately from “Tentative chicken-sale revenue — not yet
+        settled.”
+
+      - Explicit explanatory copy that tentative revenue is neither a customer balance nor an automatic settlement.
+
+  - Add the Chicken Sale checkbox and conditional Source Farmer picker to the existing new-sale form. Reuse the existing buyer/
+    customer selection behavior; hide and clear the source-farmer value when unchecked.
+
+  - Add English and Nepali labels/messages for the new form, report, status badges, validation, and tentative-settlement disclaimer.
+
+  ## Test Plan
+
+  - Migration/schema verification: legacy sales default to non-chicken sales and the source-farmer relation is queryable.
+  - Dealer-sale API tests:
+      - Standard feed sale remains unchanged when the new fields are absent.
+      - Chicken sale requires a valid, dealer-owned, distinct source farmer.
+      - Chicken sale updates inventory and the buyer account exactly as a normal sale.
+      - Source farmer balance, totals, transactions, sale due handling, and ledger entries remain unchanged.
+      - Deleting the chicken sale reverses buyer/inventory effects only.
+
+  - Report API tests: grouping, per-farmer totals, optional farmer filter, and current balance returned separately from tentative
+    revenue.
+
+  - Frontend verification: conditional field validation, correct submitted payload, report labels/separation, and no sidebar
+    addition.
+
+  ## Assumptions
+
+  - “Existing feed/credit due” uses the current Customer.balance, since the present model has no separate feed/chick-only liability
+    ledger.
+
+  - Chicken-sale buyer credit/payment handling remains normal, per the selected preference; only the source farmer is informational
+    and isolated from accounting.
+
+  - Settlement, margin, transport costs, offsets, and manual reconciliation remain out of scope.
