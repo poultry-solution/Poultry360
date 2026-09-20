@@ -15,7 +15,7 @@ export class DealerService {
     dealerId: string;
     customerId: string;
     items: Array<{
-      productId: string;
+      productId?: string;
       quantity: number;
       unitPrice: number;
       unit?: string;
@@ -26,6 +26,8 @@ export class DealerService {
     date: Date;
     discount?: { type: DiscountType; value: number };
     invoiceNumber?: string;
+    isChickenSale?: boolean;
+    sourceFarmerId?: string;
   }) {
     const {
       dealerId,
@@ -37,11 +39,20 @@ export class DealerService {
       date,
       discount: discountInput,
       invoiceNumber: customInvoiceNumber,
+      isChickenSale = false,
+      sourceFarmerId,
     } = data;
 
     // Validate that customerId is provided
     if (!customerId) {
       throw new Error("Customer ID is required");
+    }
+
+    if (isChickenSale && items.some((item) => item.productId)) {
+      throw new Error("Chicken sale items must not be linked to inventory products");
+    }
+    if (!isChickenSale && items.some((item) => !item.productId)) {
+      throw new Error("Product ID is required for regular sales");
     }
 
     const subtotal = items.reduce(
@@ -80,14 +91,15 @@ export class DealerService {
       // 1. Validate stock availability for all items in parallel
       const productChecks = await Promise.all(
         items.map((item) =>
-          tx.dealerProduct.findUnique({
-            where: { id: item.productId },
-          })
+          item.productId
+            ? tx.dealerProduct.findUnique({ where: { id: item.productId } })
+            : Promise.resolve(null)
         )
       );
 
       for (let i = 0; i < items.length; i++) {
         const product = productChecks[i];
+        if (!items[i].productId && isChickenSale) continue;
         if (!product) {
           throw new Error(`Product ${items[i].productId} not found`);
         }
@@ -117,6 +129,8 @@ export class DealerService {
           notes,
           dealerId,
           customerId,
+          isChickenSale,
+          sourceFarmerId: isChickenSale ? sourceFarmerId : null,
         },
       });
 
@@ -134,8 +148,8 @@ export class DealerService {
       // 3. Prepare bulk operations — compute baseQuantity for unit conversions
       const saleItemsData = await Promise.all(items.map(async (item, i) => {
         let baseQuantity: number | null = null;
-        const product = productChecks[i]!;
-        if (item.unit && item.unit !== product.unit) {
+        const product = productChecks[i];
+        if (product && item.productId && item.unit && item.unit !== product.unit) {
           const conversions = await tx.dealerProductUnitConversion.findMany({ where: { dealerProductId: item.productId } });
           const companyConversions = product.companyProductId
             ? await tx.productUnitConversion.findMany({ where: { productId: product.companyProductId } })
@@ -148,7 +162,7 @@ export class DealerService {
         }
         return {
           saleId: sale.id,
-          productId: item.productId,
+          productId: item.productId || null,
           quantity: new Prisma.Decimal(item.quantity),
           unitPrice: new Prisma.Decimal(item.unitPrice),
           totalAmount: new Prisma.Decimal(itemTotals[i]),
@@ -157,18 +171,22 @@ export class DealerService {
         };
       }));
 
-      const productTransactionsData = items.map((item, i) => ({
-        type: "SALE" as const,
-        quantity: new Prisma.Decimal(item.quantity),
-        unitPrice: new Prisma.Decimal(item.unitPrice),
-        totalAmount: new Prisma.Decimal(itemTotals[i]),
-        date,
-        description: `Sale - Invoice ${invoiceNumber}`,
-        reference: invoiceNumber,
-        productId: item.productId,
-        dealerSaleId: sale.id,
-        unit: item.unit || null,
-      }));
+      const productTransactionsData = items.flatMap((item, i) =>
+        item.productId
+          ? [{
+              type: "SALE" as const,
+              quantity: new Prisma.Decimal(item.quantity),
+              unitPrice: new Prisma.Decimal(item.unitPrice),
+              totalAmount: new Prisma.Decimal(itemTotals[i]),
+              date,
+              description: `Sale - Invoice ${invoiceNumber}`,
+              reference: invoiceNumber,
+              productId: item.productId,
+              dealerSaleId: sale.id,
+              unit: item.unit || null,
+            }]
+          : []
+      );
 
       // 4. Execute bulk operations in parallel
       await Promise.all([
@@ -178,15 +196,17 @@ export class DealerService {
         ),
         // Update all product stocks — use baseQuantity (in base unit) when available
         Promise.all(
-          saleItemsData.map((saleItem, i) =>
-            tx.dealerProduct.update({
-              where: { id: items[i].productId },
+          saleItemsData.flatMap((saleItem, i) =>
+            saleItem.productId
+              ? [tx.dealerProduct.update({
+              where: { id: saleItem.productId },
               data: {
                 currentStock: {
                   decrement: saleItem.baseQuantity ?? new Prisma.Decimal(items[i].quantity),
                 },
               },
-            })
+            })]
+              : []
           )
         ),
         // Create all product transactions
@@ -290,6 +310,7 @@ export class DealerService {
         },
         payments: true,
         customer: true,
+        sourceFarmer: true,
       },
     });
   }
@@ -542,6 +563,7 @@ export class DealerService {
 
       // 2. Revert product stock (increment back)
       for (const item of sale.items) {
+        if (!item.productId) continue;
         const qty = item.baseQuantity ?? item.quantity;
         await tx.dealerProduct.update({
           where: { id: item.productId },

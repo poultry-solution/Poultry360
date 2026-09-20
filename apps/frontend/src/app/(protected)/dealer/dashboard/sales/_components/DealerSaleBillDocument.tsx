@@ -46,7 +46,7 @@ export function DealerSaleBillDocument({
           const rate = Number(line.unitPrice ?? 0);
           return {
             id: line.id,
-            name: line.product?.name || line.dealerProduct?.name || "Product",
+            name: line.product?.name || line.dealerProduct?.name || (sale?.isChickenSale ? "Chicken Meat" : "Product"),
             quantity,
             rate,
             total: Number(line.totalAmount ?? quantity * rate),
@@ -107,7 +107,7 @@ export function DealerSaleBillDocument({
             ].join(" ")}
           >
             <div>
-              <span className="font-medium">Customer: </span>
+              <span className="font-medium">{sale?.isChickenSale ? "Buyer" : "Customer"}: </span>
               {sale?.customer?.name || "Walk-in"}
             </div>
             <div>
@@ -122,6 +122,12 @@ export function DealerSaleBillDocument({
               <span className="font-medium">Address: </span>
               {sale?.customer?.address || "—"}
             </div>
+            {sale?.isChickenSale ? (
+              <div className="sm:col-span-2 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-amber-900">
+                <span className="font-medium">Source farmer (tentative, not settled): </span>
+                {sale?.sourceFarmer?.name || "—"}
+              </div>
+            ) : null}
           </div>
         </div>
 

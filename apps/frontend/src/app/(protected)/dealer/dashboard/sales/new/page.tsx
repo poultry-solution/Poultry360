@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
 import {
   ArrowLeft,
+  Bird,
   Package,
   Printer,
   XCircle,
@@ -68,6 +69,8 @@ export default function NewSalePage() {
   // Form state
   const [saleDateAd, setSaleDateAd] = useState(getTodayLocalDate());
   const [customerId, setCustomerId] = useState("");
+  const [isChickenSale, setIsChickenSale] = useState(false);
+  const [sourceFarmerId, setSourceFarmerId] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [items, setItems] = useState<SaleItem[]>([]);
   const [notes, setNotes] = useState("");
@@ -90,6 +93,7 @@ export default function NewSalePage() {
 
   // Searchable selects
   const customerSelect = useSearchableCustomerSelect();
+  const sourceFarmerSelect = useSearchableCustomerSelect();
   const productSelect = useSearchableDealerProductSelect();
 
   const createSaleMutation = useCreateDealerSale();
@@ -205,9 +209,19 @@ export default function NewSalePage() {
       return;
     }
 
+    if (isChickenSale && !sourceFarmerId) {
+      toast.error("Select the source farmer for this chicken sale");
+      return;
+    }
+
+    if (isChickenSale && sourceFarmerId === customerId) {
+      toast.error("The source farmer and buyer must be different customers");
+      return;
+    }
+
     // Validate items
     for (const item of items) {
-      if (!item.productId || item.quantity <= 0 || item.unitPrice <= 0) {
+      if ((!isChickenSale && !item.productId) || item.quantity <= 0 || item.unitPrice <= 0) {
         toast.error(t("dealer.newSale.messages.productInvalid"));
         return;
       }
@@ -222,7 +236,7 @@ export default function NewSalePage() {
       const result = await createSaleMutation.mutateAsync({
         customerId,
         items: items.map((item) => ({
-          productId: item.productId,
+          productId: item.productId || undefined,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           unit: item.unit || undefined,
@@ -236,6 +250,8 @@ export default function NewSalePage() {
             ? { type: discountType, value: discountValue }
             : undefined,
         invoiceNumber: invoiceNumber.trim() || undefined,
+        isChickenSale,
+        sourceFarmerId: isChickenSale ? sourceFarmerId : undefined,
       });
 
       toast.success(t("dealer.newSale.messages.success"));
@@ -309,7 +325,7 @@ export default function NewSalePage() {
                 />
               </div>
               <div>
-                <Label>{t("dealer.newSale.customer.label")}</Label>
+                <Label>{isChickenSale ? "Buyer" : t("dealer.newSale.customer.label")}</Label>
                 <SearchableSelect
                   value={customerId}
                   onValueChange={handleCustomerChange}
@@ -321,6 +337,52 @@ export default function NewSalePage() {
                   onSearch={customerSelect.onSearch}
                 />
               </div>
+
+              <button
+                type="button"
+                className={`flex w-full items-center gap-3 rounded-md border p-3 text-left transition-colors ${
+                  isChickenSale
+                    ? "border-amber-300 bg-amber-50 text-amber-950"
+                    : "border-dashed border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50"
+                }`}
+                onClick={() => {
+                  const nextIsChickenSale = !isChickenSale;
+                  setIsChickenSale(nextIsChickenSale);
+                  setSourceFarmerId("");
+                  setSelectedProductId("");
+                  setItems(nextIsChickenSale
+                    ? [{ productId: "", quantity: 0, unitPrice: 0, unit: "kg", baseUnitPrice: 0 }]
+                    : []);
+                }}
+              >
+                <span className={`flex h-4 w-4 items-center justify-center rounded-sm border ${isChickenSale ? "border-amber-600 bg-amber-600 text-white" : "border-muted-foreground/50"}`}>
+                  {isChickenSale && <span className="text-xs leading-none">✓</span>}
+                </span>
+                <Bird className="h-4 w-4" />
+                <span>
+                  <span className="block font-medium">Chicken Sale</span>
+                  <span className="block text-xs opacity-80">Record the farmer that supplied the chickens for later manual settlement.</span>
+                </span>
+              </button>
+
+              {isChickenSale && (
+                <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+                  <Label>Source Farmer</Label>
+                  <SearchableSelect
+                    value={sourceFarmerId}
+                    onValueChange={setSourceFarmerId}
+                    options={sourceFarmerSelect.options}
+                    placeholder="Select source farmer"
+                    searchPlaceholder="Search farmers..."
+                    emptyText="No matching farmers found"
+                    isLoading={sourceFarmerSelect.isLoading}
+                    onSearch={sourceFarmerSelect.onSearch}
+                  />
+                  <p className="text-xs text-amber-900">
+                    This is tentative reconciliation information only. It does not change this farmer&apos;s balance or due amount.
+                  </p>
+                </div>
+              )}
 
               {/* Customer Info Display */}
               {selectedCustomer && (
@@ -385,31 +447,33 @@ export default function NewSalePage() {
           {/* Products Section */}
           <Card>
             <CardHeader>
-              <CardTitle>{t("dealer.newSale.products.title")}</CardTitle>
-              <CardDescription>{t("dealer.newSale.products.description")}</CardDescription>
+              <CardTitle>{isChickenSale ? "Chicken Meat" : t("dealer.newSale.products.title")}</CardTitle>
+              <CardDescription>{isChickenSale ? "Enter the actual sale weight and rate. This does not use or deduct inventory." : t("dealer.newSale.products.description")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Product Search & Add */}
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <SearchableSelect
-                    value={selectedProductId}
-                    onValueChange={(value, option) => handleAddProduct(value, option)}
-                    options={productSelect.options}
-                    placeholder={t("dealer.newSale.products.placeholder")}
-                    searchPlaceholder={t("dealer.newSale.products.searchPlaceholder")}
-                    emptyText={t("dealer.newSale.products.empty")}
-                    isLoading={productSelect.isLoading}
-                    onSearch={productSelect.onSearch}
-                  />
+              {!isChickenSale && (
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <SearchableSelect
+                      value={selectedProductId}
+                      onValueChange={(value, option) => handleAddProduct(value, option)}
+                      options={productSelect.options}
+                      placeholder={t("dealer.newSale.products.placeholder")}
+                      searchPlaceholder={t("dealer.newSale.products.searchPlaceholder")}
+                      emptyText={t("dealer.newSale.products.empty")}
+                      isLoading={productSelect.isLoading}
+                      onSearch={productSelect.onSearch}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Added Products List */}
               {items.length > 0 ? (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <Label className="text-base">{t("dealer.newSale.products.added", { 0: items.length })}</Label>
+                    <Label className="text-base">{isChickenSale ? "Chicken meat sale" : t("dealer.newSale.products.added", { 0: items.length })}</Label>
                   </div>
 
                   {items.map((item, index) => {
@@ -423,10 +487,14 @@ export default function NewSalePage() {
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <h4 className="font-medium">{product?.name || t("dealer.newSale.products.unknown")}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              {t("dealer.newSale.products.stock", { stock: product?.currentStock || 0, unit: product?.unit || "" })}
-                            </p>
+                            <h4 className="font-medium">{isChickenSale ? "Chicken Meat" : product?.name || t("dealer.newSale.products.unknown")}</h4>
+                            {isChickenSale ? (
+                              <p className="text-sm text-muted-foreground">Variable weight — not tracked in dealer inventory</p>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">
+                                {t("dealer.newSale.products.stock", { stock: product?.currentStock || 0, unit: product?.unit || "" })}
+                              </p>
+                            )}
                           </div>
                           <Button
                             type="button"
@@ -463,7 +531,7 @@ export default function NewSalePage() {
                           )}
 
                           <div>
-                            <Label htmlFor={`quantity-${index}`} className="text-xs">{t("dealer.newSale.products.quantity")}</Label>
+                            <Label htmlFor={`quantity-${index}`} className="text-xs">{isChickenSale ? "Weight (kg)" : t("dealer.newSale.products.quantity")}</Label>
                             <Input
                               id={`quantity-${index}`}
                               type="number"
@@ -707,7 +775,7 @@ export default function NewSalePage() {
                 <div className="pt-4 space-y-2">
                   <Button
                     onClick={handleSubmit}
-                    disabled={createSaleMutation.isPending || !customerId || items.length === 0}
+                    disabled={createSaleMutation.isPending || !customerId || items.length === 0 || (isChickenSale && !sourceFarmerId)}
                     className="w-full"
                   >
                     {createSaleMutation.isPending ? t("dealer.newSale.summary.creating") : t("dealer.newSale.summary.create")}

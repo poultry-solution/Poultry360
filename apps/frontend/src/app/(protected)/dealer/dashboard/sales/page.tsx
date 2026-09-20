@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Eye, Calendar as CalendarIcon, User, Phone, Package, FileText, Trash2 } from "lucide-react";
+import { Plus, Search, Eye, Calendar as CalendarIcon, User, Phone, Package, FileText, Trash2, Bird } from "lucide-react";
 import { toast } from "sonner";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import {
@@ -90,7 +90,15 @@ export default function DealerSalesPage() {
             {t("dealer.sales.subtitle")}
           </p>
         </div>
-        <div className="flex flex-col items-start sm:items-end gap-1">
+        <div className="flex flex-col items-start sm:items-end gap-2 sm:flex-row">
+          <Button
+            onClick={() => router.push("/dealer/dashboard/sales/chicken-by-farmer")}
+            variant="outline"
+            className="w-full sm:w-auto"
+          >
+            <Bird className="mr-2 h-4 w-4" />
+            Chicken Sales by Farmer
+          </Button>
           <Button
             onClick={() => router.push("/dealer/dashboard/sales/new")}
             variant="outline"
@@ -169,6 +177,19 @@ export default function DealerSalesPage() {
                     </div>
                   ) : '-'
                 )
+              },
+              {
+                key: 'sourceFarmer',
+                label: 'Sale type',
+                width: '150px',
+                render: (_val, row) => row.isChickenSale ? (
+                  <div>
+                    <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">Chicken sale</Badge>
+                    <div className="mt-1 truncate text-xs text-muted-foreground max-w-[140px]">
+                      Source: {row.sourceFarmer?.name || '—'}
+                    </div>
+                  </div>
+                ) : <span className="text-xs text-muted-foreground">Feed / regular</span>
               },
               {
                 key: 'totalAmount',
@@ -377,7 +398,7 @@ export default function DealerSalesPage() {
               {/* Customer & Payment Info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 border rounded-lg space-y-2">
-                  <h4 className="font-semibold text-sm">Customer Information</h4>
+                  <h4 className="font-semibold text-sm">{sale.isChickenSale ? "Buyer Information" : "Customer Information"}</h4>
                   <div className="flex items-center gap-2 text-sm">
                     <User className="h-3.5 w-3.5 text-muted-foreground" />
                     <span>{sale.customer?.name || "N/A"}</span>
@@ -393,6 +414,16 @@ export default function DealerSalesPage() {
                     </div>
                   )}
                 </div>
+                {sale.isChickenSale && (
+                  <div className="p-4 border border-amber-200 bg-amber-50 rounded-lg space-y-2">
+                    <h4 className="font-semibold text-sm text-amber-900">Source Farmer</h4>
+                    <div className="flex items-center gap-2 text-sm text-amber-900">
+                      <User className="h-3.5 w-3.5" />
+                      <span>{sale.sourceFarmer?.name || "N/A"}</span>
+                    </div>
+                    <p className="text-xs text-amber-800">Tentative only — no farmer balance or settlement has been applied.</p>
+                  </div>
+                )}
                 <div className="p-4 border rounded-lg space-y-2">
                   <h4 className="font-semibold text-sm">Payment Information</h4>
                   <div className="flex justify-between text-sm">
@@ -439,7 +470,7 @@ export default function DealerSalesPage() {
                     <tbody>
                       {(sale.items || []).map((item: any, idx: number) => (
                         <tr key={item.id || idx} className="border-b last:border-0">
-                          <td className="p-2 pl-3 font-medium">{item.dealerProduct?.name || item.product?.name || "Product"}</td>
+                          <td className="p-2 pl-3 font-medium">{item.dealerProduct?.name || item.product?.name || (sale.isChickenSale ? "Chicken Meat" : "Product")}</td>
                           <td className="p-2 text-right">{formatCurrency(Number(item.unitPrice))}</td>
                           <td className="p-2 text-right">{Number(item.quantity).toFixed(2)}</td>
                           <td className="p-2 pr-3 text-right font-medium">{formatCurrency(Number(item.totalAmount))}</td>

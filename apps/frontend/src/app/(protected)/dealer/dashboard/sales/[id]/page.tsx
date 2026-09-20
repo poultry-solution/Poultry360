@@ -166,7 +166,7 @@ export default function SaleDetailPage() {
           {/* Customer Information */}
           <Card>
             <CardHeader>
-              <CardTitle>Customer Information</CardTitle>
+              <CardTitle>{sale.isChickenSale ? "Buyer Information" : "Customer Information"}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center gap-2">
@@ -189,6 +189,22 @@ export default function SaleDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {sale.isChickenSale && (
+            <Card className="border-amber-200 bg-amber-50/50">
+              <CardHeader>
+                <CardTitle>Source Farmer</CardTitle>
+                <CardDescription>Tentative only — this does not alter the farmer&apos;s balance or settle their account.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">{sale.sourceFarmer?.name || "N/A"}</span>
+                </div>
+                {sale.sourceFarmer?.phone && <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" />{sale.sourceFarmer.phone}</div>}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
