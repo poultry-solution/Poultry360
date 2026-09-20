@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Calendar from "@sbmdkl/nepali-datepicker-reactjs";
-import "@sbmdkl/nepali-datepicker-reactjs/dist/index.css";
+import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
 import {
     Plus,
     Search,
@@ -602,7 +601,7 @@ export default function DealerCompanyPage() {
                     <div className="space-y-4 py-2">
                         <div className="space-y-2">
                             <label className="text-xs text-muted-foreground">Date</label>
-                            <Calendar
+                            <NepaliDatePicker
                                 onChange={({
                                     adDate,
                                 }: {
@@ -614,7 +613,7 @@ export default function DealerCompanyPage() {
                                 }}
                                 defaultDate={defaultBsDateForPicker(purchaseDateAd) as any}
                                 className="w-full rounded-md border border-input"
-                                theme="dark"
+                                theme="light"
                                 language="en"
                             />
                         </div>
@@ -819,7 +818,7 @@ export default function DealerCompanyPage() {
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
                             <label className="text-xs text-muted-foreground">Date</label>
-                            <Calendar
+                            <NepaliDatePicker
                                 onChange={({
                                     adDate,
                                 }: {
@@ -831,7 +830,7 @@ export default function DealerCompanyPage() {
                                 }}
                                 defaultDate={defaultBsDateForPicker(paymentDateAd) as any}
                                 className="w-full rounded-md border border-input"
-                                theme="dark"
+                                theme="light"
                                 language="en"
                             />
                         </div>
