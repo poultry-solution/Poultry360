@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Calendar from "@sbmdkl/nepali-datepicker-reactjs";
-import "@sbmdkl/nepali-datepicker-reactjs/dist/index.css";
+import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
 import { X } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
@@ -318,14 +317,14 @@ export default function BulkReorderDialog({ open, onOpenChange }: BulkReorderDia
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Date</Label>
-                <Calendar
+                <NepaliDatePicker
                   onChange={({ adDate }: { bsDate: string; adDate: string }) => {
                     const ymd = adDate.includes("T") ? adDate.split("T")[0] : adDate;
                     setDateAd(ymd);
                   }}
                   defaultDate={defaultBsDate() as any}
                   className="w-full rounded-md border border-input"
-                  theme="dark"
+                  theme="light"
                   language="en"
                 />
               </div>

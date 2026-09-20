@@ -4,9 +4,7 @@ import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { useCalendar } from "@/common/hooks/useCalendar";
 import { convertADtoBS } from "@/common/lib/nepali-date";
-// @ts-ignore - Type definitions not available for this package
-import Calendar from "@sbmdkl/nepali-datepicker-reactjs";
-import "@sbmdkl/nepali-datepicker-reactjs/dist/index.css";
+import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
 
 interface DateInputProps {
   label?: string;
@@ -106,12 +104,12 @@ export function DateInput({
       {label && <Label className="mb-2 block">{label}</Label>}
 
       {useBSInput ? (
-        <Calendar
+        <NepaliDatePicker
           key={adValue || "empty"}
           onChange={handleBSPickerChange}
           defaultDate={getDefaultDateForPicker() as any}
           className="w-full rounded-md border border-input"
-          theme="dark"
+          theme="light"
           language="en"
         />
       ) : (

@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Calendar from "@sbmdkl/nepali-datepicker-reactjs";
-import "@sbmdkl/nepali-datepicker-reactjs/dist/index.css";
+import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
 import {
   ArrowLeft,
   Package,
@@ -293,7 +292,7 @@ export default function NewSalePage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>Date</Label>
-                <Calendar
+                <NepaliDatePicker
                   onChange={({
                     adDate,
                   }: {
@@ -305,7 +304,7 @@ export default function NewSalePage() {
                   }}
                   defaultDate={defaultBsDateForPicker(saleDateAd) as any}
                   className="w-full rounded-md border border-input"
-                  theme="dark"
+                  theme="light"
                   language="en"
                 />
               </div>
