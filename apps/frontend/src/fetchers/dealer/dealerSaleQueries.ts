@@ -45,6 +45,7 @@ export interface DealerSale {
 export interface DealerSaleItem {
   id: string;
   quantity: number;
+  broilerCount?: number | null;
   unitPrice: number;
   totalAmount: number;
   productId?: string | null;
@@ -68,6 +69,7 @@ export interface CreateDealerSaleInput {
     quantity: number;
     unitPrice: number;
     unit?: string;
+    broilerCount?: number;
   }>;
   paidAmount: number;
   paymentMethod?: string;

@@ -56,6 +56,7 @@ export function SearchableSelect<T = unknown>({
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [inputValue, setInputValue] = useState("");
+  const [cachedSelection, setCachedSelection] = useState<{ value: string; label: string } | null>(null);
 
   // Debounced search
   useEffect(() => {
@@ -69,6 +70,9 @@ export function SearchableSelect<T = unknown>({
   }, [searchQuery, onSearch]);
 
   const selectedOption = options.find((option) => option.value === value);
+  const selectedLabel = selectedOption?.label ?? (
+    cachedSelection?.value === value ? cachedSelection.label : displayValue ?? ""
+  );
 
   // Filter options locally if no backend search
   const filteredOptions = onSearch 
@@ -78,17 +82,28 @@ export function SearchableSelect<T = unknown>({
         option.subtitle?.toLowerCase().includes(searchQuery.toLowerCase())
       );
 
-  // Sync display value
+  // Keep remote-search selections visible after their result list is replaced.
+  useEffect(() => {
+    if (selectedOption) {
+      setCachedSelection({ value: selectedOption.value, label: selectedOption.label });
+    }
+  }, [selectedOption]);
+
+  useEffect(() => {
+    if (!value) {
+      setCachedSelection(null);
+    }
+  }, [value]);
+
   useEffect(() => {
     if (!open) {
-      setInputValue(selectedOption ? selectedOption.label : displayValue ?? "");
+      setInputValue(selectedLabel);
       setSearchQuery("");
     }
-  }, [open, selectedOption, displayValue]);
+  }, [open, selectedLabel]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
-    const selectedLabel = selectedOption?.label ?? displayValue ?? "";
     if (!onInputValueChange && value && newValue !== selectedLabel) {
       onValueChange("");
     }
@@ -154,6 +169,8 @@ export function SearchableSelect<T = unknown>({
                     )}
                     onMouseDown={(e) => {
                       e.preventDefault(); // Prevent input blur
+                      setCachedSelection({ value: option.value, label: option.label });
+                      setInputValue(option.label);
                       onValueChange(option.value, option);
                       setOpen(false);
                     }}

@@ -28,9 +28,9 @@ export default function ChickenSalesByFarmerPage() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Chicken Sales by Farmer</h1>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Broiler Sales by Farmer</h1>
             <p className="text-sm md:text-base text-muted-foreground">
-              Tentative chicken-sale revenue to review before manual farmer settlement.
+              Tentative broiler-sale revenue to review before manual farmer settlement.
             </p>
           </div>
         </div>
@@ -41,7 +41,7 @@ export default function ChickenSalesByFarmerPage() {
           <Bird className="mt-0.5 h-5 w-5 shrink-0" />
           <p>
             <span className="font-semibold">Tentative — not yet settled.</span>{" "}
-            Chicken-sale revenue is shown for reconciliation only. It is not a farmer balance or due amount, and no settlement is applied automatically.
+            Broiler-sale revenue is shown for reconciliation only. It is not a farmer balance or due amount, and no settlement is applied automatically.
           </p>
         </CardContent>
       </Card>
@@ -49,7 +49,7 @@ export default function ChickenSalesByFarmerPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Filter by source farmer</CardTitle>
-          <CardDescription>Choose a farmer to view only their tentative chicken sales.</CardDescription>
+          <CardDescription>Choose a farmer to view only their tentative broiler sales.</CardDescription>
         </CardHeader>
         <CardContent className="max-w-xl space-y-2">
           <Label>Source Farmer</Label>
@@ -75,14 +75,14 @@ export default function ChickenSalesByFarmerPage() {
         <CardHeader>
           <CardTitle>Farmer reconciliation overview</CardTitle>
           <CardDescription>
-            Existing feed/credit due and chicken revenue are deliberately displayed as separate values.
+            Existing feed/credit due and broiler revenue are deliberately displayed as separate values.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="py-10 text-center text-muted-foreground">Loading chicken sales…</div>
+            <div className="py-10 text-center text-muted-foreground">Loading broiler sales…</div>
           ) : rows.length === 0 ? (
-            <div className="py-10 text-center text-muted-foreground">No chicken sales recorded for this farmer.</div>
+            <div className="py-10 text-center text-muted-foreground">No broiler sales recorded for this farmer.</div>
           ) : (
             <div className="space-y-3">
               {rows.map((row) => {
@@ -96,7 +96,7 @@ export default function ChickenSalesByFarmerPage() {
                           <span className="truncate">{row.sourceFarmer.name}</span>
                         </div>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          {row.saleCount} chicken sale{row.saleCount === 1 ? "" : "s"}
+                          {row.saleCount} broiler sale{row.saleCount === 1 ? "" : "s"}
                           {row.latestSaleDate && <> · latest <DateDisplay date={row.latestSaleDate} /></>}
                         </p>
                       </div>
@@ -112,7 +112,7 @@ export default function ChickenSalesByFarmerPage() {
                         </div>
                         <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
                           <div className="flex items-center gap-1 text-xs font-medium text-amber-900">
-                            <CircleDollarSign className="h-3.5 w-3.5" /> Tentative chicken-sale revenue
+                            <CircleDollarSign className="h-3.5 w-3.5" /> Tentative broiler-sale revenue
                           </div>
                           <div className="mt-1 text-lg font-bold text-amber-800">{formatCurrency(row.tentativeRevenue)}</div>
                           <div className="text-xs text-amber-800">Not yet settled</div>

@@ -19,6 +19,7 @@ export class DealerService {
       quantity: number;
       unitPrice: number;
       unit?: string;
+      broilerCount?: number | null;
     }>;
     paidAmount: number;
     paymentMethod?: string;
@@ -49,10 +50,17 @@ export class DealerService {
     }
 
     if (isChickenSale && items.some((item) => item.productId)) {
-      throw new Error("Chicken sale items must not be linked to inventory products");
+      throw new Error("Broiler sale items must not be linked to inventory products");
     }
     if (!isChickenSale && items.some((item) => !item.productId)) {
       throw new Error("Product ID is required for regular sales");
+    }
+
+    if (isChickenSale && items.some((item) =>
+      item.broilerCount != null &&
+      (!Number.isSafeInteger(item.broilerCount) || item.broilerCount <= 0)
+    )) {
+      throw new Error("Broiler count must be a positive whole number");
     }
 
     const subtotal = items.reduce(
@@ -167,6 +175,9 @@ export class DealerService {
           unitPrice: new Prisma.Decimal(item.unitPrice),
           totalAmount: new Prisma.Decimal(itemTotals[i]),
           unit: item.unit || null,
+          broilerCount: isChickenSale && item.broilerCount != null
+            ? item.broilerCount
+            : null,
           baseQuantity: baseQuantity !== null ? new Prisma.Decimal(baseQuantity) : null,
         };
       }));

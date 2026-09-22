@@ -97,7 +97,7 @@ export default function DealerSalesPage() {
             className="w-full sm:w-auto"
           >
             <Bird className="mr-2 h-4 w-4" />
-            Chicken Sales by Farmer
+            Broiler Sales by Farmer
           </Button>
           <Button
             onClick={() => router.push("/dealer/dashboard/sales/new")}
@@ -184,7 +184,7 @@ export default function DealerSalesPage() {
                 width: '150px',
                 render: (_val, row) => row.isChickenSale ? (
                   <div>
-                    <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">Chicken sale</Badge>
+                    <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">Broiler sale</Badge>
                     <div className="mt-1 truncate text-xs text-muted-foreground max-w-[140px]">
                       Source: {row.sourceFarmer?.name || '—'}
                     </div>
@@ -464,15 +464,25 @@ export default function DealerSalesPage() {
                         <th className="text-left p-2 pl-3 font-medium">Product</th>
                         <th className="text-right p-2 font-medium">Unit Price</th>
                         <th className="text-right p-2 font-medium">Qty</th>
+                        {sale.isChickenSale && <th className="text-right p-2 font-medium">Broiler Count</th>}
+                        {sale.isChickenSale && <th className="text-right p-2 font-medium">Avg. Wt./Broiler</th>}
                         <th className="text-right p-2 pr-3 font-medium">Total</th>
                       </tr>
                     </thead>
                     <tbody>
                       {(sale.items || []).map((item: any, idx: number) => (
                         <tr key={item.id || idx} className="border-b last:border-0">
-                          <td className="p-2 pl-3 font-medium">{item.dealerProduct?.name || item.product?.name || (sale.isChickenSale ? "Chicken Meat" : "Product")}</td>
+                          <td className="p-2 pl-3 font-medium">{item.dealerProduct?.name || item.product?.name || (sale.isChickenSale ? "Broiler" : "Product")}</td>
                           <td className="p-2 text-right">{formatCurrency(Number(item.unitPrice))}</td>
                           <td className="p-2 text-right">{Number(item.quantity).toFixed(2)}</td>
+                          {sale.isChickenSale && <td className="p-2 text-right">{item.broilerCount == null ? "—" : Number(item.broilerCount).toLocaleString()}</td>}
+                          {sale.isChickenSale && (
+                            <td className="p-2 text-right">
+                              {Number(item.broilerCount) > 0
+                                ? `${(Number(item.quantity) / Number(item.broilerCount)).toFixed(3)} kg`
+                                : "—"}
+                            </td>
+                          )}
                           <td className="p-2 pr-3 text-right font-medium">{formatCurrency(Number(item.totalAmount))}</td>
                         </tr>
                       ))}

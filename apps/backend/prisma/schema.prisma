@@ -1669,6 +1669,7 @@ model DealerSale {
 model DealerSaleItem {
   id           String   @id @default(cuid())
   quantity     Decimal  @db.Decimal(10, 2)
+  broilerCount Int?
   unitPrice    Decimal  @db.Decimal(10, 2)
   totalAmount  Decimal  @db.Decimal(10, 2)
   unit         String?
@@ -1677,7 +1678,7 @@ model DealerSaleItem {
   saleId String
   sale   DealerSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
-  // Chicken sales can record a variable-weight meat line without a stock item.
+  // Broiler sales can record a variable-weight line without a stock item.
   productId String?
   product   DealerProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
 

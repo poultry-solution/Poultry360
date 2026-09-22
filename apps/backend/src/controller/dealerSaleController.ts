@@ -45,15 +45,23 @@ export const createDealerSale = async (
     }
 
     if (typeof isChickenSale !== "boolean") {
-      return res.status(400).json({ message: "Chicken sale flag must be a boolean" });
+      return res.status(400).json({ message: "Broiler sale flag must be a boolean" });
     }
 
     if (isChickenSale && !sourceFarmerId) {
-      return res.status(400).json({ message: "Source farmer is required for chicken sales" });
+      return res.status(400).json({ message: "Source farmer is required for broiler sales" });
     }
 
     if (isChickenSale && sourceFarmerId === customerId) {
       return res.status(400).json({ message: "Source farmer and buyer must be different customers" });
+    }
+
+    if (isChickenSale && items.some((item: any) =>
+      item.broilerCount !== undefined &&
+      item.broilerCount !== null &&
+      (!Number.isSafeInteger(Number(item.broilerCount)) || Number(item.broilerCount) <= 0)
+    )) {
+      return res.status(400).json({ message: "Broiler count must be a positive whole number" });
     }
 
     // Get the dealer record
