@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { UserRole } from "@prisma/client";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, auditSuccessfulAdminMutation } from "../middelware/middelware";
 import {
   createAdminBlogPost,
   deleteAdminBlogPost,
@@ -16,6 +16,7 @@ const router = Router();
 router.use((req, res, next) => {
   authMiddleware(req, res, next, [UserRole.SUPER_ADMIN]);
 });
+router.use(auditSuccessfulAdminMutation("BlogPost"));
 
 router.get("/", getAdminBlogPosts);
 router.get("/:id", getAdminBlogPostById);

@@ -4,6 +4,7 @@ import prisma from "../utils/prisma";
 import { parseDealerSaleDateRange } from "../utils/dealerSaleDateRange";
 import { DealerService } from "../services/dealerService";
 import bcrypt from "bcrypt";
+import { writeBusinessAudit } from "../services/businessAuditService";
 
 // ==================== CREATE DEALER SALE ====================
 export const createDealerSale = async (
@@ -118,6 +119,17 @@ export const createDealerSale = async (
       invoiceNumber: invoiceNumber?.trim() || undefined,
       isChickenSale,
       sourceFarmerId: isChickenSale ? sourceFarmerId : undefined,
+    });
+    if (!sale) throw new Error("Sale was not created");
+
+    await writeBusinessAudit(req, {
+      action: isChickenSale ? "dealer.broiler_sale.created" : "dealer.sale.created",
+      targetType: "DealerSale",
+      targetId: sale.id,
+      description: isChickenSale ? "Recorded a Broiler sale" : "Recorded a product sale",
+      businessType: "DEALER",
+      businessId: dealer.id,
+      metadata: { totalAmount: Number(sale.totalAmount), paidAmount: Number(sale.paidAmount), itemCount: items.length },
     });
 
     return res.status(201).json({
@@ -1106,6 +1118,16 @@ export const settleBroilerSales = async (
         });
       }
 
+      await writeBusinessAudit(req, {
+        action: "dealer.broiler_settlement.completed",
+        targetType: "BroilerSaleSettlement",
+        targetId: created.id,
+        description: `Settled Broiler sales for ${farmer.name}`,
+        businessType: "DEALER",
+        businessId: dealer.id,
+        metadata: { totalProceeds, marginAmount: margin, creditRecovered, farmerPayout, saleCount: unsettledSales.length },
+      }, tx);
+
       return tx.broilerSaleSettlement.findUnique({
         where: { id: created.id },
         include: { farmer: { select: { id: true, name: true, balance: true } }, sales: true },
@@ -1248,6 +1270,16 @@ export const deleteDealerSale = async (
     await DealerService.deleteDealerSale({
       saleId: id,
       dealerId: dealer.id,
+    });
+
+    await writeBusinessAudit(req, {
+      action: "dealer.sale.deleted",
+      targetType: "DealerSale",
+      targetId: id,
+      description: "Deleted a sale and returned its stock",
+      businessType: "DEALER",
+      businessId: dealer.id,
+      metadata: { totalAmount: Number(sale.totalAmount) },
     });
 
     return res.status(200).json({

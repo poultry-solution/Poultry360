@@ -6,6 +6,7 @@ import { createServer } from "http";
 import routes from "./router/index";
 import { getSocketService } from "./services/socketService";
 import { startReminderDispatcher } from "./services/reminderDispatcher";
+import { startBusinessAuditArchiver } from "./services/businessAuditService";
 
 
 const PORT = process.env.PORT || 8081;
@@ -80,6 +81,7 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Socket.IO server initialized`);
     startReminderDispatcher(60_000);
+    startBusinessAuditArchiver();
   });
 
   // Graceful shutdown

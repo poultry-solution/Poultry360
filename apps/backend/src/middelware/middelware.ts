@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
 import prisma from "../utils/prisma";
 import { isOnboardingApprovalBlocking } from "../config/onboardingGate";
+import { writeBusinessAudit } from "../services/businessAuditService";
 
 declare global {
   namespace Express {
@@ -155,6 +156,35 @@ export const requireDealerOwner = (req: Request, res: Response, next: NextFuncti
       message: "Only the Feed Dealer owner can manage staff access.",
     });
   }
+  return next();
+};
+
+// Covers small Super Admin management endpoints that do not have specialised
+// audit metadata. It records only the successful mutation and response ID.
+export const auditSuccessfulAdminMutation = (targetType: string) => (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) return next();
+  // Account approvals and feature changes add richer, account-scoped records
+  // directly in their controllers.
+  if (req.originalUrl.includes("/payment-approvals/") || req.originalUrl.includes("/features/")) return next();
+  let responseBody: any;
+  const originalJson = res.json.bind(res);
+  res.json = ((body: any) => { responseBody = body; return originalJson(body); }) as typeof res.json;
+  res.on("finish", () => {
+    if (res.statusCode < 200 || res.statusCode >= 300) return;
+    const targetId = responseBody?.data?.id || Object.values(req.params)[0] || req.originalUrl.split("?")[0].split("/").filter(Boolean).pop() || "record";
+    const verb = req.method === "POST" ? "created" : req.method === "DELETE" ? "deleted" : "updated";
+    void writeBusinessAudit(req, {
+      action: `admin.${targetType.toLowerCase()}.${verb}`,
+      targetType,
+      targetId,
+      description: `Admin ${verb} ${targetType}`,
+      businessType: "ADMIN",
+    }).catch((error) => console.error("Admin audit write error:", error));
+  });
   return next();
 };
 

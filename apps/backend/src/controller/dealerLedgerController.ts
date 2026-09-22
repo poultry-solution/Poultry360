@@ -3,6 +3,7 @@ import prisma from "../utils/prisma";
 import { Prisma } from "@prisma/client";
 import { DealerService } from "../services/dealerService";
 import { parseDealerDateRange } from "../utils/dealerSaleDateRange";
+import { writeBusinessAudit } from "../services/businessAuditService";
 
 // ==================== GET LEDGER ENTRIES ====================
 export const getLedgerEntries = async (
@@ -215,6 +216,16 @@ export const createAdjustment = async (
         reference,
         dealerId: dealer.id,
       },
+    });
+
+    await writeBusinessAudit(req, {
+      action: "dealer.balance.adjusted",
+      targetType: "DealerLedgerEntry",
+      targetId: adjustment.id,
+      description: "Recorded a balance adjustment",
+      businessType: "DEALER",
+      businessId: dealer.id,
+      metadata: { amount: Number(amount), reference: reference || null },
     });
 
     return res.status(201).json({
@@ -597,6 +608,16 @@ export const addDealerPayment = async (
       receiptUrl: receiptImageUrl,
       reference,
       direction,
+    });
+
+    await writeBusinessAudit(req, {
+      action: direction === "MADE" ? "dealer.payment.made" : "dealer.payment.received",
+      targetType: "Customer",
+      targetId: resolvedCustomerId,
+      description: direction === "MADE" ? "Recorded a payment to a customer" : "Recorded a customer payment",
+      businessType: "DEALER",
+      businessId: dealer.id,
+      metadata: { amount: Number(amount), paymentMethod: paymentMethod || "CASH", customerId: resolvedCustomerId },
     });
 
     return res.status(200).json({
