@@ -37,15 +37,24 @@ function buildWhere(query: Request["query"], accountOwnerId?: string, includeAut
   return where;
 }
 
-async function sendLogs(req: Request, res: Response, accountOwnerId?: string, includeAuthentication = true) {
+function withoutExpiredSecurityMetadata(rows: any[]) {
+  const now = new Date();
+  return rows.map(({ securityMetadata, ...row }) => (
+    securityMetadata && securityMetadata.expiresAt > now ? { ...row, securityMetadata } : row
+  ));
+}
+
+async function sendLogs(req: Request, res: Response, accountOwnerId?: string, includeAuthentication = true, includeSecurityMetadata = false) {
   const page = parsePage(req.query.page, 1);
   const limit = Math.min(parsePage(req.query.limit, 25), 100);
   const where = buildWhere(req.query, accountOwnerId, includeAuthentication);
   const [total, rows] = await Promise.all([
     prisma.businessAuditLog.count({ where }),
-    prisma.businessAuditLog.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * limit, take: limit }),
+    includeSecurityMetadata
+      ? prisma.businessAuditLog.findMany({ where, include: { securityMetadata: true }, orderBy: { createdAt: "desc" }, skip: (page - 1) * limit, take: limit })
+      : prisma.businessAuditLog.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * limit, take: limit }),
   ]);
-  return res.json({ success: true, data: rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+  return res.json({ success: true, data: includeSecurityMetadata ? withoutExpiredSecurityMetadata(rows) : rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
 }
 
 export async function getDealerBusinessAuditLogs(req: Request, res: Response): Promise<any> {
@@ -55,7 +64,7 @@ export async function getDealerBusinessAuditLogs(req: Request, res: Response): P
 
 export async function getAdminBusinessAuditLogs(req: Request, res: Response): Promise<any> {
   if (req.role !== UserRole.SUPER_ADMIN) return res.status(403).json({ message: "Super Admin access required" });
-  return sendLogs(req, res);
+  return sendLogs(req, res, undefined, true, true);
 }
 
 export async function exportDealerBusinessAuditLogs(req: Request, res: Response): Promise<any> {
@@ -66,6 +75,6 @@ export async function exportDealerBusinessAuditLogs(req: Request, res: Response)
 
 export async function exportAdminBusinessAuditLogs(req: Request, res: Response): Promise<any> {
   if (req.role !== UserRole.SUPER_ADMIN) return res.status(403).json({ message: "Super Admin access required" });
-  const rows = await prisma.businessAuditLog.findMany({ where: buildWhere(req.query), orderBy: { createdAt: "desc" }, take: 10000 });
-  return res.json({ success: true, data: rows });
+  const rows = await prisma.businessAuditLog.findMany({ where: buildWhere(req.query), include: { securityMetadata: true }, orderBy: { createdAt: "desc" }, take: 10000 });
+  return res.json({ success: true, data: withoutExpiredSecurityMetadata(rows) });
 }

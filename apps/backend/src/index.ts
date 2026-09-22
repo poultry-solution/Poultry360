@@ -7,6 +7,7 @@ import routes from "./router/index";
 import { getSocketService } from "./services/socketService";
 import { startReminderDispatcher } from "./services/reminderDispatcher";
 import { startBusinessAuditArchiver } from "./services/businessAuditService";
+import { trustedGeoHeaderSource, trustedProxyHops } from "./config/auditSecurity";
 
 
 const PORT = process.env.PORT || 8081;
@@ -23,6 +24,13 @@ if (process.env.NODE_ENV === "production") {
 
 const app = express();
 const server = createServer(app);
+if (trustedProxyHops > 0) {
+  app.set("trust proxy", trustedProxyHops);
+  console.log(`Trusted proxy hops enabled for sign-in security metadata: ${trustedProxyHops}`);
+}
+if (trustedGeoHeaderSource !== "none" && trustedProxyHops === 0) {
+  console.warn("Trusted location headers are disabled until TRUST_PROXY_HOPS is configured.");
+}
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { AuditActorType, StaffPermission } from "@prisma/client";
 import prisma from "../utils/prisma";
-import { writeAuthenticationAudit, writeBusinessAudit } from "../services/businessAuditService";
+import { getSignInSecurityMetadata, writeAuthenticationAudit, writeBusinessAudit } from "../services/businessAuditService";
 
 const STAFF_REFRESH_COOKIE = "staffRefreshToken";
 const cookieOptions = {
@@ -67,7 +67,7 @@ export const staffLogin = async (req: Request, res: Response): Promise<any> => {
     actorType: AuditActorType.STAFF,
     action: "LOGIN",
     businessId: staff.dealerId,
-  });
+  }, getSignInSecurityMetadata(req));
   const tokens = makeTokens(staff);
   res.cookie(STAFF_REFRESH_COOKIE, tokens.refreshToken, cookieOptions);
   return res.json({ accessToken: tokens.accessToken, user: publicStaff(staff) });

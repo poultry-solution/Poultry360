@@ -210,6 +210,9 @@ export default function LoginPage() {
             }
           />
         </p>
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          <Link href="/privacy" className="hover:text-primary hover:underline">Privacy</Link>
+        </p>
       </div>
     </div>
   );

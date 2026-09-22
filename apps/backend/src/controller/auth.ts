@@ -4,7 +4,7 @@ import bcrypt from "bcrypt";
 import prisma from "../utils/prisma";
 import { AuditActorType, UserOnboardingPaymentState, UserRole, UserStatus } from "@prisma/client";
 import { LoginSchema, SignupSchema } from "@myapp/shared-types";
-import { writeAuthenticationAudit } from "../services/businessAuditService";
+import { getSignInSecurityMetadata, writeAuthenticationAudit } from "../services/businessAuditService";
 
 const generateTokens = (userId: string, role: UserRole) => {
   const accessToken = jwt.sign(
@@ -80,7 +80,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       actorId: user.id,
       actorType: AuditActorType.USER,
       action: "LOGIN",
-    });
+    }, getSignInSecurityMetadata(req));
 
     res.cookie("refreshToken", tokens.refreshToken, {
       httpOnly: true,
