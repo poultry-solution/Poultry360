@@ -1423,6 +1423,42 @@ model AuditLog {
   createdAt DateTime @default(now())
 }
 
+// Account-scoped business activity. This is intentionally separate from the
+// historical AuditLog model: it supports staff actors and does not depend on a
+// user row remaining present after an account is removed.
+model BusinessAuditLog {
+  id             String    @id @default(cuid())
+  accountOwnerId String
+  businessType   String?
+  businessId     String?
+
+  actorId        String
+  actorType      AuditActorType
+  actorName      String
+  actorRole      String?
+
+  action         String
+  targetType     String
+  targetId       String
+  description    String
+  metadata       Json?
+
+  createdAt      DateTime  @default(now())
+  archivedAt     DateTime?
+
+  @@index([accountOwnerId, createdAt])
+  @@index([businessType, businessId, createdAt])
+  @@index([actorType, actorId, createdAt])
+  @@index([targetType, targetId, createdAt])
+  @@index([action, createdAt])
+  @@index([archivedAt, createdAt])
+}
+
+enum AuditActorType {
+  USER
+  STAFF
+}
+
 // ==================== COMPUTED ANALYTICS (REMOVED STORED MODELS) ====================
 // BatchAnalytics and FarmAnalytics models removed - compute on demand
 // LifetimeData model removed - compute on demand

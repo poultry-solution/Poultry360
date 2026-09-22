@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { Prisma, UserOnboardingPaymentState } from "@prisma/client";
+import { writeBusinessAudit } from "../services/businessAuditService";
 
 /**
  * List account-approval requests. Backed by UserOnboardingPayment rows so the
@@ -121,6 +122,14 @@ export const approveAccount = async (req: Request, res: Response) => {
         data: { status: "ACTIVE" },
       });
     });
+    await writeBusinessAudit(req, {
+      action: "admin.account_approved",
+      targetType: "User",
+      targetId: userId,
+      description: "Approved an account",
+      accountOwnerId: userId,
+      businessType: "ADMIN",
+    });
 
     return res.json({ success: true, message: "Account approved" });
   } catch (error) {
@@ -158,6 +167,14 @@ export const rejectAccount = async (req: Request, res: Response) => {
         approvedAt: null,
         approvedBy: null,
       },
+    });
+    await writeBusinessAudit(req, {
+      action: "admin.account_rejected",
+      targetType: "User",
+      targetId: userId,
+      description: "Rejected an account",
+      accountOwnerId: userId,
+      businessType: "ADMIN",
     });
 
     return res.json({ success: true, message: "Account rejected" });

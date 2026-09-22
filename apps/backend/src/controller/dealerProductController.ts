@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { Prisma, StaffPermission } from "@prisma/client";
+import { writeBusinessAudit } from "../services/businessAuditService";
 
 // ==================== CREATE DEALER PRODUCT ====================
 export const createDealerProduct = async (
@@ -624,6 +625,16 @@ export const adjustProductStock = async (
           productId: id,
         },
       });
+
+      await writeBusinessAudit(req, {
+        action: "dealer.inventory.adjusted",
+        targetType: "DealerProduct",
+        targetId: id,
+        description: `Adjusted stock for ${product.name}`,
+        businessType: "DEALER",
+        businessId: dealer.id,
+        metadata: { quantity: Number(quantity), adjustmentType: type },
+      }, tx);
 
       return updatedProduct;
     });

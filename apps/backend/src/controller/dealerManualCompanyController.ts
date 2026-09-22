@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { Prisma } from "@prisma/client";
+import { writeBusinessAudit } from "../services/businessAuditService";
 
 // ==================== CREATE MANUAL COMPANY ====================
 export const createManualCompany = async (
@@ -539,6 +540,16 @@ export const recordManualPurchase = async (
             return purchase;
         });
 
+        await writeBusinessAudit(req, {
+            action: "dealer.purchase.recorded",
+            targetType: "DealerManualPurchase",
+            targetId: result.id,
+            description: "Recorded a supplier purchase",
+            businessType: "DEALER",
+            businessId: dealer.id,
+            metadata: { amount: Number(result.totalAmount), itemCount: result.items.length, supplierId: id },
+        });
+
         return res.status(201).json({
             success: true,
             data: result,
@@ -621,6 +632,15 @@ export const recordManualCompanyPayment = async (
             return payment;
         });
 
+        await writeBusinessAudit(req, {
+            action: "dealer.supplier_payment.recorded",
+            targetType: "DealerManualCompanyPayment",
+            targetId: result.id,
+            description: "Recorded a supplier payment",
+            businessType: "DEALER",
+            businessId: dealer.id,
+            metadata: { amount: Number(result.amount), paymentMethod: result.paymentMethod, supplierId: id },
+        });
         return res.status(201).json({
             success: true,
             data: result,

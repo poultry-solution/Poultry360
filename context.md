@@ -494,6 +494,24 @@ Dealer staff logins are separate from normal `User` accounts and from payroll st
 
 ---
 
+## Business Activity Audit (Phase 1)
+
+- `BusinessAuditLog` is the immutable, account-scoped business trail. It is separate from the
+  legacy `AuditLog` model and stores only safe actor, target, action, amount/quantity-style
+  metadata, description, timestamp, and archive state—never credentials or full snapshots.
+- Phase 1 covers Dealer sales and payments, inventory adjustments, supplier purchases/payments,
+  Broiler settlements, staff-login changes, and Super Admin account, Dealer, Company, blog, and
+  landing-review changes. Account approval/rejection and feature changes include richer scope
+  metadata.
+- Dealer owners view their account at `/dealer/dashboard/activity`; staff cannot view activity.
+  Super Admin views all records at `/admin/dashboard/activity`.
+- Both pages have server-scoped filtering and CSV, Excel, and PDF export. Records older than 10
+  days receive `archivedAt` via the backend audit archiver and are hidden by default, not deleted.
+- Chat, login/logout, and device/location auditing are later phases. Do not audit page views,
+  exports, failed actions, token refreshes, or notifications.
+
+---
+
 ## Quick Reference
 
 - **Run dev:** `pnpm dev` from repo root

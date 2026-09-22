@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getAllUsers, getUserById, hardDeleteUser } from "../controller/adminUserController";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, auditSuccessfulAdminMutation } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
 import { updateAdminAccountFeature } from "../controller/accountFeatureController";
 
@@ -10,6 +10,7 @@ const router = Router();
 router.use((req, res, next) => {
   authMiddleware(req, res, next, [UserRole.SUPER_ADMIN]);
 });
+router.use(auditSuccessfulAdminMutation("User"));
 
 // ==================== ADMIN USER ROUTES ====================
 

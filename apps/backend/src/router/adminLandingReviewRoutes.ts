@@ -6,13 +6,14 @@ import {
   rejectLandingReview,
   returnLandingReviewToPending,
 } from "../controller/adminLandingReviewController";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, auditSuccessfulAdminMutation } from "../middelware/middelware";
 
 const router = Router();
 
 router.use((req, res, next) => {
   authMiddleware(req, res, next, [UserRole.SUPER_ADMIN]);
 });
+router.use(auditSuccessfulAdminMutation("LandingReview"));
 
 router.get("/", getLandingReviewsForAdmin);
 router.post("/:reviewId/approve", approveLandingReview);

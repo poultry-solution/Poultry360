@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { StaffPermission } from "@prisma/client";
 import prisma from "../utils/prisma";
+import { writeBusinessAudit } from "../services/businessAuditService";
 
 const STAFF_REFRESH_COOKIE = "staffRefreshToken";
 const cookieOptions = {
@@ -146,6 +147,15 @@ export const createStaffUser = async (req: Request, res: Response): Promise<any>
     data: { ownerId: req.userId!, dealerId: dealer.id, name, phone, passwordHash: await bcrypt.hash(password, 10), permissions },
     select: { id: true, name: true, phone: true, isActive: true, permissions: true, createdAt: true, updatedAt: true },
   });
+  await writeBusinessAudit(req, {
+    action: "dealer.staff_login.created",
+    targetType: "StaffUser",
+    targetId: staff.id,
+    description: `Created staff login for ${staff.name}`,
+    businessType: "DEALER",
+    businessId: dealer.id,
+    metadata: { permissions: staff.permissions },
+  });
   return res.status(201).json({ success: true, data: staff });
 };
 
@@ -182,5 +192,21 @@ export const updateStaffUser = async (req: Request, res: Response): Promise<any>
     data.sessionVersion = { increment: 1 };
   }
   const staff = await prisma.staffUser.update({ where: { id: existing.id }, data, select: { id: true, name: true, phone: true, isActive: true, permissions: true, createdAt: true, updatedAt: true } });
+  const changes = [
+    ...(req.body?.name !== undefined ? ["name"] : []),
+    ...(req.body?.phone !== undefined ? ["phone"] : []),
+    ...(req.body?.password !== undefined ? ["password_reset"] : []),
+    ...(req.body?.isActive !== undefined ? [req.body.isActive ? "activated" : "deactivated"] : []),
+    ...(req.body?.permissions !== undefined ? ["permissions"] : []),
+  ];
+  await writeBusinessAudit(req, {
+    action: req.body?.permissions !== undefined ? "dealer.staff_login.permissions_changed" : "dealer.staff_login.updated",
+    targetType: "StaffUser",
+    targetId: staff.id,
+    description: `Updated staff login for ${staff.name}`,
+    businessType: "DEALER",
+    businessId: dealer.id,
+    metadata: { changedFields: changes, ...(req.body?.permissions !== undefined ? { permissions: staff.permissions } : {}) },
+  });
   return res.json({ success: true, data: staff });
 };

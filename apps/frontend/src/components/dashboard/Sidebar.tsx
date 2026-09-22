@@ -155,6 +155,12 @@ export const dealerNavigation: NavigationItem[] = [
     ownerOnly: true,
   },
   {
+    nameKey: "sidebar.nav.activity",
+    href: "/dealer/dashboard/activity",
+    icon: FileText,
+    ownerOnly: true,
+  },
+  {
     nameKey: "sidebar.nav.staffManagement",
     href: "/dealer/dashboard/staff",
     icon: Users,
@@ -281,6 +287,7 @@ const adminNavigation: NavigationItem[] = [
     icon: BarChart3,
   },
   { nameKey: "sidebar.nav.users", href: "/admin/dashboard/users", icon: Users },
+  { nameKey: "sidebar.nav.activity", href: "/admin/dashboard/activity", icon: FileText },
   {
     nameKey: "sidebar.nav.paymentApprovals",
     href: "/admin/dashboard/payment-approvals",

@@ -62,6 +62,7 @@ import hatcheryProductionRoutes from "./hatcheryProductionRoutes";
 import farmerProductRoutes from "./farmerProductRoutes";
 import farmerProductionRoutes from "./farmerProductionRoutes";
 import accountFeatureRoutes from "./accountFeatureRoutes";
+import { adminBusinessAuditRoutes, dealerBusinessAuditRoutes } from "./businessAuditRoutes";
 
 // Test routes (only in test environment)
 let testRoutes: express.Router | null = null;
@@ -83,6 +84,7 @@ router.use("/dealer/sales", dealerSaleRoutes);
 router.use("/", companyDealerAccountRoutes); // Account routes for both company and dealer
 router.use("/dealer/ledger", dealerLedgerRoutes);
 router.use("/dealer/cash-in-hand", dealerCashInHandRoutes);
+router.use("/dealer/activity", dealerBusinessAuditRoutes);
 router.use("/farmer/cash-in-hand", farmerCashInHandRoutes);
 router.use("/farmer/products", farmerProductRoutes);
 router.use("/farmer/production", farmerProductionRoutes);
@@ -113,6 +115,7 @@ router.use("/account", accountRoutes);
 router.use("/admin/companies", adminCompanyRoutes);
 router.use("/admin/dealers", adminDealerRoutes);
 router.use("/admin/users", adminUserRoutes);
+router.use("/admin/activity", adminBusinessAuditRoutes);
 router.use("/admin/blog-posts", adminBlogPostRoutes);
 router.use("/admin/payment-approvals", adminPaymentApprovalsRoutes);
 router.use("/admin/demo-enquiries", adminDemoEnquiryRoutes);
