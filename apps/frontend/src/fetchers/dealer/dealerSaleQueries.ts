@@ -12,6 +12,8 @@ export const dealerSaleKeys = {
     filters ? [...dealerSaleKeys.all, "statistics", { filters }] as const : [...dealerSaleKeys.all, "statistics"] as const,
   chickenByFarmer: (sourceFarmerId?: string) =>
     [...dealerSaleKeys.all, "chicken-by-farmer", { sourceFarmerId }] as const,
+  broilerSettlements: (sourceFarmerId?: string) =>
+    [...dealerSaleKeys.all, "broiler-settlements", { sourceFarmerId }] as const,
 };
 
 // Types
@@ -30,6 +32,7 @@ export interface DealerSale {
   dealerId: string;
   customerId?: string;
   sourceFarmerId?: string | null;
+  settlementId?: string | null;
   farmerId?: string;
   accountId?: string;
   customer?: any;
@@ -94,6 +97,34 @@ export interface ChickenSalesByFarmerRow {
   tentativeRevenue: number;
   latestSaleDate?: string | null;
   existingDueAmount: number;
+}
+
+export interface CreateBroilerSettlementInput {
+  sourceFarmerId: string;
+  marginAmount: number;
+  paymentMethod?: string;
+  date?: string;
+  notes?: string;
+  reference?: string;
+  receiptImageUrl?: string;
+}
+
+export interface BroilerSettlement {
+  id: string;
+  farmer: {
+    id: string;
+    name: string;
+    phone?: string | null;
+  };
+  saleCount: number;
+  totalProceeds: number;
+  marginAmount: number;
+  creditRecovered: number;
+  farmerPayout: number;
+  paymentMethod: string;
+  date: string;
+  notes?: string | null;
+  reference?: string | null;
 }
 
 export interface AddSalePaymentInput {
@@ -198,6 +229,34 @@ export const useGetChickenSalesByFarmer = (sourceFarmerId?: string) => {
         params: sourceFarmerId ? { sourceFarmerId } : undefined,
       });
       return data as { success: boolean; data: ChickenSalesByFarmerRow[] };
+    },
+  });
+};
+
+export const useGetBroilerSettlements = (sourceFarmerId?: string) => {
+  return useQuery({
+    queryKey: dealerSaleKeys.broilerSettlements(sourceFarmerId),
+    queryFn: async () => {
+      const { data } = await axiosInstance.get("/dealer/sales/broiler-settlements", {
+        params: sourceFarmerId ? { sourceFarmerId } : undefined,
+      });
+      return data as { success: boolean; data: BroilerSettlement[] };
+    },
+  });
+};
+
+export const useCreateBroilerSettlement = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: CreateBroilerSettlementInput) => {
+      const { data } = await axiosInstance.post("/dealer/sales/broiler-settlements", input);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
+      queryClient.invalidateQueries({ queryKey: ["dealer-customer"] });
     },
   });
 };

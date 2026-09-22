@@ -149,6 +149,8 @@ enum DiscountScope {
 
 enum LedgerEntryType {
   SALE
+  BROILER_SALE_PROCEEDS
+  BROILER_SALE_MARGIN
   PURCHASE
   PAYMENT_RECEIVED
   PAYMENT_MADE
@@ -1037,6 +1039,7 @@ model Dealer {
   cashMovements   DealerCashMovement[]
   cashDayCloses   DealerCashDayClose[]
   staffUsers      StaffUser[] @relation("DealerStaffUsers")
+  broilerSaleSettlements BroilerSaleSettlement[]
 
   @@unique([userId, name])
   @@index([ownerId])
@@ -1156,6 +1159,7 @@ model Customer {
   // Dealer sales relationships
   dealerSales DealerSale[]
   sourceChickenSales DealerSale[] @relation("DealerChickenSaleSourceFarmer")
+  broilerSaleSettlements BroilerSaleSettlement[] @relation("BroilerSettlementFarmer")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1647,6 +1651,9 @@ model DealerSale {
   accountId String?
   account   DealerFarmerAccount? @relation(fields: [accountId], references: [id])
 
+  settlementId String?
+  settlement   BroilerSaleSettlement? @relation(fields: [settlementId], references: [id], onDelete: Restrict)
+
   discount      SaleDiscount?
   items         DealerSaleItem[]
   transactions  DealerProductTransaction[]
@@ -1664,6 +1671,32 @@ model DealerSale {
   @@index([farmerId])
   @@index([invoiceNumber])
   @@index([accountId])
+  @@index([settlementId])
+}
+
+model BroilerSaleSettlement {
+  id              String   @id @default(cuid())
+  totalProceeds   Decimal  @db.Decimal(10, 2)
+  marginAmount    Decimal  @db.Decimal(10, 2)
+  creditRecovered Decimal  @db.Decimal(10, 2)
+  farmerPayout    Decimal  @db.Decimal(10, 2)
+  paymentMethod   String   @default("CASH")
+  date            DateTime
+  notes           String?
+  reference       String?
+  receiptUrl      String?
+  settledAt       DateTime @default(now())
+
+  dealerId String
+  dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
+  farmerId String
+  farmer   Customer @relation("BroilerSettlementFarmer", fields: [farmerId], references: [id], onDelete: Restrict)
+
+  sales DealerSale[]
+
+  @@index([dealerId, farmerId, date])
+  @@index([farmerId])
 }
 
 model DealerSaleItem {

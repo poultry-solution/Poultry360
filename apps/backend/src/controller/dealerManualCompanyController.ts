@@ -981,14 +981,26 @@ export const getDealerProfitSummary = async (
             _sum: { totalAmount: true },
         });
 
-        // Total sales: sum of all DealerSale totalAmount
+        // Broiler proceeds belong to the farmer. Only the settled margin is dealer income.
         const saleAggregate = await prisma.dealerSale.aggregate({
-            where: { dealerId: dealer.id },
+            where: {
+                dealerId: dealer.id,
+                farmerId: null,
+                accountId: null,
+                isChickenSale: false,
+            },
             _sum: { totalAmount: true },
         });
 
+        const marginAggregate = await prisma.dealerLedgerEntry.aggregate({
+            where: { dealerId: dealer.id, type: "BROILER_SALE_MARGIN" },
+            _sum: { amount: true },
+        });
+
         const totalPurchases = Number(purchaseAggregate._sum.totalAmount || 0);
-        const totalSales = Number(saleAggregate._sum.totalAmount || 0);
+        const normalSales = Number(saleAggregate._sum.totalAmount || 0);
+        const broilerMargin = Number(marginAggregate._sum.amount || 0);
+        const totalSales = normalSales + broilerMargin;
         const profit = totalSales - totalPurchases;
 
         return res.status(200).json({
@@ -996,6 +1008,8 @@ export const getDealerProfitSummary = async (
             data: {
                 totalPurchases,
                 totalSales,
+                normalSales,
+                broilerMargin,
                 profit,
             },
         });

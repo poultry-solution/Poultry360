@@ -44,6 +44,7 @@ export interface LedgerSummaryResponse {
   data: {
     currentBalance: number;
     totalSales: number;
+    totalBroilerMargin?: number;
     totalPaidAmount: number;
     totalDueAmount: number;
     totalAdvances: number;

@@ -256,7 +256,7 @@ export class DealerService {
       const ledgerEntries = [
         tx.dealerLedgerEntry.create({
           data: {
-            type: "SALE",
+            type: isChickenSale ? "BROILER_SALE_PROCEEDS" : "SALE",
             amount: new Prisma.Decimal(totalAmount),
             balance: new Prisma.Decimal(newBalance),
             date,
@@ -491,22 +491,58 @@ export class DealerService {
     paymentMethod?: string;
     receiptUrl?: string;
     reference?: string;
+    direction?: "RECEIVED" | "MADE";
   }) {
-    const { customerId, dealerId, amount, date, description, paymentMethod, receiptUrl, reference } = data;
+    return await prisma.$transaction((tx) => this.recordAccountPayment(tx, data));
+  }
 
-    return await prisma.$transaction(async (tx) => {
-      // 1. Get customer
-      const customer = await tx.customer.findUnique({
-        where: { id: customerId },
-        select: { id: true, name: true, balance: true },
-      });
+  /**
+   * Write a manual-customer payment inside an existing transaction.
+   * Outbound payments are historical payout records: they do not create an
+   * advance or alter the customer's feed/credit balance.
+   */
+  static async recordAccountPayment(
+    tx: Prisma.TransactionClient,
+    data: {
+      customerId: string;
+      dealerId: string;
+      amount: number;
+      date: Date;
+      description?: string;
+      paymentMethod?: string;
+      receiptUrl?: string;
+      reference?: string;
+      direction?: "RECEIVED" | "MADE";
+    }
+  ) {
+    const {
+      customerId,
+      dealerId,
+      amount,
+      date,
+      description,
+      paymentMethod,
+      receiptUrl,
+      reference,
+      direction = "RECEIVED",
+    } = data;
 
-      if (!customer) {
-        throw new Error("Customer not found");
-      }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new Error("Payment amount must be greater than zero");
+    }
 
-      // 2. Update customer balance and totalPayments (account-level)
-      const newBalance = Number(customer.balance) - amount;
+    const customer = await tx.customer.findUnique({
+      where: { id: customerId },
+      select: { id: true, name: true, balance: true },
+    });
+
+    if (!customer) {
+      throw new Error("Customer not found");
+    }
+
+    const isReceived = direction === "RECEIVED";
+    const newBalance = isReceived ? Number(customer.balance) - amount : Number(customer.balance);
+    if (isReceived) {
       await tx.customer.update({
         where: { id: customerId },
         data: {
@@ -514,37 +550,36 @@ export class DealerService {
           totalPayments: { increment: new Prisma.Decimal(amount) },
         },
       });
+    }
 
-      // 3. Get current ledger balance
-      const lastLedgerEntry = await tx.dealerLedgerEntry.findFirst({
-        where: { dealerId },
-        orderBy: { createdAt: "desc" },
-      });
-      const currentLedgerBalance = lastLedgerEntry ? Number(lastLedgerEntry.balance) : 0;
-      const newLedgerBalance = currentLedgerBalance - amount;
-
-      // 4. Create ledger entry (no saleId — account-level payment)
-      await tx.dealerLedgerEntry.create({
-        data: {
-          type: "PAYMENT_RECEIVED",
-          amount: new Prisma.Decimal(amount),
-          balance: new Prisma.Decimal(newLedgerBalance),
-          date,
-          description: description || `Payment from ${customer.name}`,
-          reference: reference || undefined,
-          dealerId,
-          partyId: customerId,
-          partyType: "CUSTOMER",
-          imageUrl: receiptUrl,
-        },
-      });
-
-      return {
-        success: true,
-        totalAmount: amount,
-        newCustomerBalance: newBalance,
-      };
+    const lastLedgerEntry = await tx.dealerLedgerEntry.findFirst({
+      where: { dealerId },
+      orderBy: { createdAt: "desc" },
     });
+    const currentLedgerBalance = lastLedgerEntry ? Number(lastLedgerEntry.balance) : 0;
+    const newLedgerBalance = isReceived ? currentLedgerBalance - amount : currentLedgerBalance;
+
+    await tx.dealerLedgerEntry.create({
+      data: {
+        type: isReceived ? "PAYMENT_RECEIVED" : "PAYMENT_MADE",
+        amount: new Prisma.Decimal(amount),
+        balance: new Prisma.Decimal(newLedgerBalance),
+        date,
+        description: description || (isReceived ? `Payment from ${customer.name}` : `Payment to ${customer.name}`),
+        reference: reference || undefined,
+        dealerId,
+        partyId: customerId,
+        partyType: "CUSTOMER",
+        imageUrl: receiptUrl,
+      },
+    });
+
+    return {
+      success: true,
+      totalAmount: amount,
+      direction,
+      newCustomerBalance: newBalance,
+    };
   }
 
   /**
@@ -567,6 +602,7 @@ export class DealerService {
       if (!sale) throw new Error("Sale not found");
       if (sale.dealerId !== data.dealerId) throw new Error("Unauthorized");
       if (sale.customer?.farmerId) throw new Error("Cannot delete connected farmer sales");
+      if (sale.settlementId) throw new Error("Settled Broiler sales cannot be deleted");
 
       const totalAmount = Number(sale.totalAmount);
       const initialPaidAmount = Number(sale.paidAmount);
@@ -600,10 +636,10 @@ export class DealerService {
         orderBy: { createdAt: "asc" },
       });
 
-      // Net effect: SALE adds to balance, PAYMENT_RECEIVED subtracts
+      // Net effect: sale proceeds add to balance, received payments subtract.
       let netLedgerEffect = 0;
       for (const entry of saleLedgerEntries) {
-        if (entry.type === "SALE") netLedgerEffect += Number(entry.amount);
+        if (entry.type === "SALE" || entry.type === "BROILER_SALE_PROCEEDS") netLedgerEffect += Number(entry.amount);
         else if (entry.type === "PAYMENT_RECEIVED") netLedgerEffect -= Number(entry.amount);
       }
 
@@ -666,7 +702,7 @@ export class DealerService {
    */
   static async getLedgerEntries(params: {
     dealerId: string;
-    type?: string;
+    type?: string | string[];
     partyId?: string;
     startDate?: Date;
     endDate?: Date;
@@ -686,7 +722,7 @@ export class DealerService {
     const where: any = { dealerId };
 
     if (type) {
-      where.type = type;
+      where.type = Array.isArray(type) ? { in: type } : type;
     }
 
     if (partyId) {

@@ -35,9 +35,12 @@ export const getLedgerEntries = async (
       return res.status(400).json({ message: dateRange.message });
     }
 
+    const typeFilters = typeof type === "string" && type.includes(",")
+      ? type.split(",").map((entryType) => entryType.trim()).filter(Boolean)
+      : undefined;
     const result = await DealerService.getLedgerEntries({
       dealerId: dealer.id,
-      type: type as string,
+      type: typeFilters || (type as string),
       partyId: partyId as string,
       startDate: dateRange.range?.gte,
       endDate: dateRange.range?.lte,
@@ -248,6 +251,7 @@ export const getLedgerSummary = async (
       dealerId: dealer.id,
       farmerId: null,
       accountId: null,
+      isChickenSale: false,
     };
 
     const dateRange = parseDealerDateRange(startDate, endDate);
@@ -271,6 +275,15 @@ export const getLedgerSummary = async (
 
     const totalSalesAmount = Number(salesSummary._sum.totalAmount || 0);
     const totalPaidAmount = Number(salesSummary._sum.paidAmount || 0);
+    const marginWhere: any = { dealerId: dealer.id, type: "BROILER_SALE_MARGIN" };
+    if (dateRange.range) {
+      marginWhere.date = { gte: dateRange.range.gte, lte: dateRange.range.lte };
+    }
+    const marginRevenue = await prisma.dealerLedgerEntry.aggregate({
+      where: marginWhere,
+      _sum: { amount: true },
+    });
+    const totalBroilerMargin = Number(marginRevenue._sum.amount || 0);
 
     // Manual customers only. Connection-based dealer/farmer and dealer/company
     // account flows were removed from the dealer module.
@@ -340,14 +353,19 @@ export const getLedgerSummary = async (
       return sum + Number(customer.totalPayments || 0);
     }, 0);
     const totalPurchases = Number(manualCompanyAgg._sum.totalPurchases || 0);
-    const totalPaymentsMade = Number(manualCompanyAgg._sum.totalPayments || 0);
+    const customerPayouts = await prisma.dealerLedgerEntry.aggregate({
+      where: { dealerId: dealer.id, type: "PAYMENT_MADE" },
+      _sum: { amount: true },
+    });
+    const totalPaymentsMade = Number(manualCompanyAgg._sum.totalPayments || 0) + Number(customerPayouts._sum.amount || 0);
     const currentBalance = netCustomerBalance - netCompanyBalance;
 
     return res.status(200).json({
       success: true,
       data: {
         currentBalance,
-        totalSales: totalSalesAmount,
+        totalSales: totalSalesAmount + totalBroilerMargin,
+        totalBroilerMargin,
         totalPaidAmount,
         totalDueAmount, // Only positive balances (customers owe dealer)
         totalAdvances, // Negative balances (dealer owes customers)
@@ -507,10 +525,14 @@ export const addDealerPayment = async (
   try {
     const userId = req.userId;
     const { saleId, customerId, amount, paymentMethod, date, notes, receiptImageUrl, reference } = req.body;
+    const direction = req.body.direction || "RECEIVED";
 
     // Validation
     if (!amount || amount <= 0) {
       return res.status(400).json({ message: "Valid amount is required" });
+    }
+    if (direction !== "RECEIVED" && direction !== "MADE") {
+      return res.status(400).json({ message: "Payment direction must be RECEIVED or MADE" });
     }
 
     // Either saleId OR customerId must be provided
@@ -571,14 +593,15 @@ export const addDealerPayment = async (
       amount: Number(amount),
       paymentMethod: paymentMethod || "CASH",
       date: date ? new Date(date) : new Date(),
-      description: notes || `Payment received`,
+      description: notes || (direction === "MADE" ? "Payout made" : "Payment received"),
       receiptUrl: receiptImageUrl,
       reference,
+      direction,
     });
 
     return res.status(200).json({
       success: true,
-      message: "Payment added successfully",
+      message: direction === "MADE" ? "Payout added successfully" : "Payment added successfully",
       data: result,
     });
   } catch (error: any) {

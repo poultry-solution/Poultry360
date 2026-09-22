@@ -10,6 +10,8 @@ import {
   getDealerCustomers,
   getSalesStatistics,
   getChickenSalesByFarmer,
+  getBroilerSaleSettlements,
+  settleBroilerSales,
   archiveDealerCustomer,
   unarchiveDealerCustomer,
   deleteDealerCustomer,
@@ -38,6 +40,8 @@ router.get("/statistics", requireStaffPermission(StaffPermission.DEALER_VIEW_FIN
 
 // Tentative chicken-sale revenue grouped by the farmer that supplied the birds.
 router.get("/chicken-by-farmer", getChickenSalesByFarmer);
+router.get("/broiler-settlements", getBroilerSaleSettlements);
+router.post("/broiler-settlements", settleBroilerSales);
 
 // Get dealer customers
 router.get("/customers", getDealerCustomers);

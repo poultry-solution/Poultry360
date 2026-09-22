@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Prisma } from "@prisma/client";
 import prisma from "../utils/prisma";
 import { parseDealerSaleDateRange } from "../utils/dealerSaleDateRange";
 import { DealerService } from "../services/dealerService";
@@ -830,6 +831,7 @@ export const getSalesStatistics = async (
       dealerId: dealer.id,
       farmerId: null,
       accountId: null,
+      isChickenSale: false,
     };
 
     const statsRange = parseDealerSaleDateRange(startDate, endDate);
@@ -849,7 +851,10 @@ export const getSalesStatistics = async (
     });
 
     const totalSales = sales.length;
-    const totalRevenue = sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0);
+    const normalSaleRevenue = sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0);
+    // This card is for normal product sales only. A Broiler settlement margin is
+    // income, but is shown in the settlement history rather than as a product sale.
+    const totalRevenue = normalSaleRevenue;
     // paidAmount/dueAmount on DealerSale reflect only the initial payment at sale time
     const totalPaidAtSale = sales.reduce((sum, sale) => sum + Number(sale.paidAmount), 0);
     const creditSales = sales.filter((sale) => Number(sale.paidAmount) < Number(sale.totalAmount)).length;
@@ -904,6 +909,216 @@ export const getSalesStatistics = async (
   }
 };
 
+// ==================== BROILER SETTLEMENT HISTORY ====================
+export const getBroilerSaleSettlements = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId as string;
+    const { sourceFarmerId } = req.query;
+
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    const settlements = await prisma.broilerSaleSettlement.findMany({
+      where: {
+        dealerId: dealer.id,
+        ...(typeof sourceFarmerId === "string" && sourceFarmerId
+          ? { farmerId: sourceFarmerId }
+          : {}),
+      },
+      include: {
+        farmer: { select: { id: true, name: true, phone: true } },
+        sales: { select: { id: true } },
+      },
+      orderBy: [{ date: "desc" }, { settledAt: "desc" }],
+      take: 50,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: settlements.map((settlement) => ({
+        id: settlement.id,
+        farmer: settlement.farmer,
+        saleCount: settlement.sales.length,
+        totalProceeds: Number(settlement.totalProceeds),
+        marginAmount: Number(settlement.marginAmount),
+        creditRecovered: Number(settlement.creditRecovered),
+        farmerPayout: Number(settlement.farmerPayout),
+        paymentMethod: settlement.paymentMethod,
+        date: settlement.date,
+        notes: settlement.notes,
+        reference: settlement.reference,
+      })),
+    });
+  } catch (error: any) {
+    console.error("Get Broiler settlements error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== BROILER SALE SETTLEMENT ====================
+export const settleBroilerSales = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId as string;
+    const {
+      sourceFarmerId,
+      marginAmount,
+      paymentMethod = "CASH",
+      date,
+      notes,
+      reference,
+      receiptImageUrl,
+    } = req.body;
+    const margin = Number(marginAmount);
+
+    if (!sourceFarmerId) {
+      return res.status(400).json({ message: "Source farmer is required" });
+    }
+    if (!Number.isFinite(margin) || margin < 0) {
+      return res.status(400).json({ message: "Margin must be a non-negative number" });
+    }
+
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    const settlement = await prisma.$transaction(async (tx) => {
+      const farmer = await tx.customer.findFirst({
+        where: { id: sourceFarmerId, userId, farmerId: null },
+        select: { id: true, name: true, balance: true },
+      });
+      if (!farmer) throw new Error("Source farmer not found");
+
+      const unsettledSales = await tx.dealerSale.findMany({
+        where: {
+          dealerId: dealer.id,
+          farmerId: null,
+          accountId: null,
+          isChickenSale: true,
+          sourceFarmerId: farmer.id,
+          settlementId: null,
+        },
+        select: { id: true, totalAmount: true },
+      });
+      if (unsettledSales.length === 0) {
+        throw new Error("No unsettled Broiler sales found for this farmer");
+      }
+
+      const totalProceeds = unsettledSales.reduce(
+        (sum, sale) => sum + Number(sale.totalAmount),
+        0
+      );
+      if (margin > totalProceeds) {
+        throw new Error("Margin cannot exceed unsettled Broiler proceeds");
+      }
+
+      const availableProceeds = totalProceeds - margin;
+      const currentFarmerDue = Math.max(Number(farmer.balance), 0);
+      const creditRecovered = Math.min(currentFarmerDue, availableProceeds);
+      const farmerPayout = availableProceeds - creditRecovered;
+      const settlementDate = date ? new Date(date) : new Date();
+      if (Number.isNaN(settlementDate.getTime())) {
+        throw new Error("Settlement date is invalid");
+      }
+
+      const created = await tx.broilerSaleSettlement.create({
+        data: {
+          dealerId: dealer.id,
+          farmerId: farmer.id,
+          totalProceeds: new Prisma.Decimal(totalProceeds),
+          marginAmount: new Prisma.Decimal(margin),
+          creditRecovered: new Prisma.Decimal(creditRecovered),
+          farmerPayout: new Prisma.Decimal(farmerPayout),
+          paymentMethod,
+          date: settlementDate,
+          notes: notes?.trim() || null,
+          reference: reference?.trim() || null,
+          receiptUrl: receiptImageUrl || null,
+        },
+      });
+
+      const linkedSales = await tx.dealerSale.updateMany({
+        where: { id: { in: unsettledSales.map((sale) => sale.id) }, settlementId: null },
+        data: { settlementId: created.id },
+      });
+      if (linkedSales.count !== unsettledSales.length) {
+        throw new Error("One or more Broiler sales were already settled. Please refresh and try again.");
+      }
+
+      const settlementReference = reference?.trim() || `BROILER-SETTLEMENT-${created.id.slice(-8).toUpperCase()}`;
+      if (creditRecovered > 0) {
+        await DealerService.recordAccountPayment(tx, {
+          customerId: farmer.id,
+          dealerId: dealer.id,
+          amount: creditRecovered,
+          date: settlementDate,
+          direction: "RECEIVED",
+          paymentMethod,
+          receiptUrl: receiptImageUrl,
+          reference: settlementReference,
+          description: `Broiler settlement credit recovery from ${farmer.name}`,
+        });
+      }
+      if (farmerPayout > 0) {
+        await DealerService.recordAccountPayment(tx, {
+          customerId: farmer.id,
+          dealerId: dealer.id,
+          amount: farmerPayout,
+          date: settlementDate,
+          direction: "MADE",
+          paymentMethod,
+          receiptUrl: receiptImageUrl,
+          reference: settlementReference,
+          description: `Broiler settlement payout to ${farmer.name}`,
+        });
+      }
+      if (margin > 0) {
+        const lastLedgerEntry = await tx.dealerLedgerEntry.findFirst({
+          where: { dealerId: dealer.id },
+          orderBy: { createdAt: "desc" },
+        });
+        await tx.dealerLedgerEntry.create({
+          data: {
+            type: "BROILER_SALE_MARGIN",
+            amount: new Prisma.Decimal(margin),
+            balance: new Prisma.Decimal(lastLedgerEntry ? Number(lastLedgerEntry.balance) : 0),
+            date: settlementDate,
+            description: `Broiler settlement margin from ${farmer.name}`,
+            reference: settlementReference,
+            dealerId: dealer.id,
+            partyId: farmer.id,
+            partyType: "CUSTOMER",
+          },
+        });
+      }
+
+      return tx.broilerSaleSettlement.findUnique({
+        where: { id: created.id },
+        include: { farmer: { select: { id: true, name: true, balance: true } }, sales: true },
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    return res.status(201).json({ success: true, data: settlement });
+  } catch (error: any) {
+    console.error("Settle Broiler sales error:", error);
+    return res.status(400).json({ message: error.message || "Unable to settle Broiler sales" });
+  }
+};
+
 // ==================== CHICKEN SALES BY SOURCE FARMER ====================
 export const getChickenSalesByFarmer = async (
   req: Request,
@@ -938,6 +1153,7 @@ export const getChickenSalesByFarmer = async (
         farmerId: null,
         accountId: null,
         isChickenSale: true,
+        settlementId: null,
         sourceFarmerId: sourceFarmerId
           ? (sourceFarmerId as string)
           : { not: null },
