@@ -15,6 +15,60 @@ export type BusinessAuditEvent = {
   businessId?: string;
 };
 
+type AuthenticationAuditAction = "LOGIN" | "LOGOUT";
+
+type AuthenticationAuditInput = {
+  accountOwnerId: string;
+  actorId: string;
+  actorType: AuditActorType;
+  action: AuthenticationAuditAction;
+  businessId?: string;
+};
+
+/**
+ * Records a completed, authenticated sign-in or sign-out without retaining
+ * credentials, tokens, cookies, or session identifiers.
+ */
+export async function writeAuthenticationAudit({
+  accountOwnerId,
+  actorId,
+  actorType,
+  action,
+  businessId,
+}: AuthenticationAuditInput) {
+  const isStaff = actorType === AuditActorType.STAFF;
+  let actorName: string;
+  let actorRole: string;
+  if (isStaff) {
+    const staff = await prisma.staffUser.findUnique({ where: { id: actorId }, select: { name: true } });
+    if (!staff) throw new Error("Authentication audit actor was not found");
+    actorName = staff.name;
+    actorRole = "DEALER_STAFF";
+  } else {
+    const user = await prisma.user.findUnique({ where: { id: actorId }, select: { name: true, role: true } });
+    if (!user) throw new Error("Authentication audit actor was not found");
+    actorName = user.name;
+    actorRole = user.role;
+  }
+
+  const isLogin = action === "LOGIN";
+  return prisma.businessAuditLog.create({
+    data: {
+      accountOwnerId,
+      businessType: "AUTHENTICATION",
+      businessId,
+      actorId,
+      actorType,
+      actorName,
+      actorRole,
+      action: isLogin ? "auth.login.succeeded" : "auth.logout.succeeded",
+      targetType: isStaff ? "StaffUser" : "User",
+      targetId: actorId,
+      description: isLogin ? "Logged in" : "Logged out",
+    },
+  });
+}
+
 /** Writes only safe, explicitly supplied business activity. */
 export async function writeBusinessAudit(
   req: Request,

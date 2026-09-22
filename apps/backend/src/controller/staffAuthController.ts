@@ -1,9 +1,9 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { StaffPermission } from "@prisma/client";
+import { AuditActorType, StaffPermission } from "@prisma/client";
 import prisma from "../utils/prisma";
-import { writeBusinessAudit } from "../services/businessAuditService";
+import { writeAuthenticationAudit, writeBusinessAudit } from "../services/businessAuditService";
 
 const STAFF_REFRESH_COOKIE = "staffRefreshToken";
 const cookieOptions = {
@@ -61,6 +61,13 @@ export const staffLogin = async (req: Request, res: Response): Promise<any> => {
   if (!staff || !staff.isActive || !(await bcrypt.compare(password, staff.passwordHash))) {
     return res.status(401).json({ message: "Invalid credentials" });
   }
+  await writeAuthenticationAudit({
+    accountOwnerId: staff.ownerId,
+    actorId: staff.id,
+    actorType: AuditActorType.STAFF,
+    action: "LOGIN",
+    businessId: staff.dealerId,
+  });
   const tokens = makeTokens(staff);
   res.cookie(STAFF_REFRESH_COOKIE, tokens.refreshToken, cookieOptions);
   return res.json({ accessToken: tokens.accessToken, user: publicStaff(staff) });
@@ -101,7 +108,14 @@ export const validateStaffToken = async (req: Request, res: Response): Promise<a
   }
 };
 
-export const staffLogout = (_req: Request, res: Response) => {
+export const staffLogout = async (req: Request, res: Response): Promise<any> => {
+  await writeAuthenticationAudit({
+    accountOwnerId: req.userId!,
+    actorId: req.staffUserId!,
+    actorType: AuditActorType.STAFF,
+    action: "LOGOUT",
+    businessId: req.dealerId,
+  });
   res.clearCookie(STAFF_REFRESH_COOKIE, { ...cookieOptions, maxAge: undefined });
   return res.json({ message: "Logged out successfully" });
 };

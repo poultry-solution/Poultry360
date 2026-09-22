@@ -7,8 +7,9 @@ function parsePage(value: unknown, fallback: number) {
   return Number.isFinite(number) ? Math.max(1, Math.floor(number)) : fallback;
 }
 
-function buildWhere(query: Request["query"], accountOwnerId?: string): Prisma.BusinessAuditLogWhereInput {
+function buildWhere(query: Request["query"], accountOwnerId?: string, includeAuthentication = true): Prisma.BusinessAuditLogWhereInput {
   const where: Prisma.BusinessAuditLogWhereInput = accountOwnerId ? { accountOwnerId } : {};
+  if (!includeAuthentication) where.NOT = { action: { startsWith: "auth." } };
   const archived = query.archived === "true" ? true : query.archived === "all" ? "all" : false;
   if (archived !== "all") where.archivedAt = archived ? { not: null } : null;
   if (typeof query.actorType === "string") where.actorType = query.actorType as any;
@@ -36,10 +37,10 @@ function buildWhere(query: Request["query"], accountOwnerId?: string): Prisma.Bu
   return where;
 }
 
-async function sendLogs(req: Request, res: Response, accountOwnerId?: string) {
+async function sendLogs(req: Request, res: Response, accountOwnerId?: string, includeAuthentication = true) {
   const page = parsePage(req.query.page, 1);
   const limit = Math.min(parsePage(req.query.limit, 25), 100);
-  const where = buildWhere(req.query, accountOwnerId);
+  const where = buildWhere(req.query, accountOwnerId, includeAuthentication);
   const [total, rows] = await Promise.all([
     prisma.businessAuditLog.count({ where }),
     prisma.businessAuditLog.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * limit, take: limit }),
@@ -49,7 +50,7 @@ async function sendLogs(req: Request, res: Response, accountOwnerId?: string) {
 
 export async function getDealerBusinessAuditLogs(req: Request, res: Response): Promise<any> {
   if (req.actorType === "STAFF") return res.status(403).json({ message: "Staff accounts cannot view activity history." });
-  return sendLogs(req, res, req.userId!);
+  return sendLogs(req, res, req.userId!, false);
 }
 
 export async function getAdminBusinessAuditLogs(req: Request, res: Response): Promise<any> {
@@ -59,7 +60,7 @@ export async function getAdminBusinessAuditLogs(req: Request, res: Response): Pr
 
 export async function exportDealerBusinessAuditLogs(req: Request, res: Response): Promise<any> {
   if (req.actorType === "STAFF") return res.status(403).json({ message: "Staff accounts cannot export activity history." });
-  const rows = await prisma.businessAuditLog.findMany({ where: buildWhere(req.query, req.userId!), orderBy: { createdAt: "desc" }, take: 10000 });
+  const rows = await prisma.businessAuditLog.findMany({ where: buildWhere(req.query, req.userId!, false), orderBy: { createdAt: "desc" }, take: 10000 });
   return res.json({ success: true, data: rows });
 }
 

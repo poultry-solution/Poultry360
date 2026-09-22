@@ -48,12 +48,13 @@ const recordLabels: Record<string, string> = {
   DealerManualPurchase: "Supplier purchase",
   DealerManualCompanyPayment: "Supplier payment",
   StaffUser: "Staff login",
-  User: "Account",
+  User: "Account login",
   AccountFeature: "Account setting",
   Company: "Company",
   Dealer: "Feed Dealer",
   BlogPost: "Blog post",
   LandingReview: "Review",
+  Authentication: "Login activity",
 };
 
 const detailLabels: Record<string, string> = {

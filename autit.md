@@ -82,3 +82,22 @@ message delete. Do not change chat behaviour or add a separate chat-audit screen
 - Audit rows contain the correct actor, conversation ID, message ID, action, and timestamp, but
   contain no message content or attachment reference.
 - Run backend build and a focused message-controller/API test after implementation.
+
+---
+
+## Phase 3 — Authentication Audit Implementation Plan
+
+**Goal:** Record only completed normal-user and Dealer-staff logins and authenticated logouts in
+the existing immutable audit trail.
+
+- Reuse `BusinessAuditLog`; do not add a new table or store passwords, tokens, refresh cookies,
+  session IDs, IP addresses, browser data, or location data.
+- Write `auth.login.succeeded` only after valid normal-user or staff credentials. Write
+  `auth.logout.succeeded` only after a valid bearer token identifies the normal user or staff
+  member. Do not audit registration, refreshes, expired sessions, failed authentication, or
+  unauthenticated logout requests.
+- Login and logout events identify the actor and use `User` or `StaffUser` as the target. Staff
+  events retain the owning Dealer account scope.
+- Authentication events are available only through the Super Admin Activity page and its exports.
+  Dealer-owner activity queries and exports permanently exclude `auth.*` events; staff remains
+  unable to access activity history.

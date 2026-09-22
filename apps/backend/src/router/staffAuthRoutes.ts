@@ -14,7 +14,10 @@ import {
 const router = Router();
 router.post("/login", staffLogin);
 router.post("/refresh-token", staffRefreshToken);
-router.post("/logout", staffLogout);
+router.post("/logout", authMiddleware, (req, res, next) => {
+  if (req.actorType !== "STAFF") return res.status(403).json({ error: "Use the account logout route" });
+  next();
+}, staffLogout);
 router.get("/@me", getStaffInfo);
 router.get("/validate", validateStaffToken);
 

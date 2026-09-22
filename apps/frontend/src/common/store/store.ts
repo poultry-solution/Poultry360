@@ -317,8 +317,10 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: true });
 
           try {
-            await apiCall(get().authMode === "staff" ? "/staff-auth/logout" : "/auth/logout", {
+            const { accessToken, authMode } = get();
+            await apiCall(authMode === "staff" ? "/staff-auth/logout" : "/auth/logout", {
               method: "POST",
+              headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
             });
           } catch (error) {
             console.error("Logout error:", error);
