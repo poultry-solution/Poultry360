@@ -526,8 +526,21 @@ function HistoryView() {
 export default function CashInHandPage() {
   const { t } = useI18n();
   const user = useAuthStore((state) => state.user);
-  const canViewCashHistory = !user?.isStaff || user.permissions?.includes("DEALER_VIEW_CASH_HISTORY");
-  const { data, isLoading, error } = useGetCashToday();
+  const canUseCashInHand = !user?.isStaff || user.permissions?.includes("DEALER_VIEW_CASH_HISTORY");
+  const { data, isLoading, error } = useGetCashToday({ enabled: canUseCashInHand });
+
+  if (!canUseCashInHand) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Cash in hand is hidden</CardTitle>
+            <CardDescription>Ask the Feed Dealer owner to turn on Cash in hand for your staff login.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -580,14 +593,14 @@ export default function CashInHandPage() {
           <TabsTrigger value="today" className="gap-1.5">
             <Plus className="h-3.5 w-3.5" /> Today
           </TabsTrigger>
-          {canViewCashHistory && <TabsTrigger value="history" className="gap-1.5">
+          {canUseCashInHand && <TabsTrigger value="history" className="gap-1.5">
             <History className="h-3.5 w-3.5" /> {t("cashInHand.history")}
           </TabsTrigger>}
         </TabsList>
         <TabsContent value="today" className="mt-4">
           <TodayLedgerView data={ledger} />
         </TabsContent>
-        {canViewCashHistory && <TabsContent value="history" className="mt-4">
+        {canUseCashInHand && <TabsContent value="history" className="mt-4">
           <HistoryView />
         </TabsContent>}
       </Tabs>

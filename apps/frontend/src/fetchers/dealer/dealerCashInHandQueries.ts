@@ -55,7 +55,7 @@ export interface AddMovementInput {
 
 // ── Hooks ─────────────────────────────────────────────────────────────────────
 
-export function useGetCashToday() {
+export function useGetCashToday(options?: { enabled?: boolean }) {
   return useQuery<TodayResponse>({
     queryKey: cashInHandKeys.today(),
     queryFn: async () => {
@@ -63,6 +63,7 @@ export function useGetCashToday() {
       return res.data.data;
     },
     staleTime: 30_000,
+    enabled: options?.enabled ?? true,
   });
 }
 
