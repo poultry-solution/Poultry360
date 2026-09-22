@@ -1445,6 +1445,7 @@ model BusinessAuditLog {
 
   createdAt      DateTime  @default(now())
   archivedAt     DateTime?
+  securityMetadata AuditSecurityMetadata?
 
   @@index([accountOwnerId, createdAt])
   @@index([businessType, businessId, createdAt])
@@ -1452,6 +1453,28 @@ model BusinessAuditLog {
   @@index([targetType, targetId, createdAt])
   @@index([action, createdAt])
   @@index([archivedAt, createdAt])
+}
+
+// Identifiable sign-in metadata is intentionally separate from the immutable
+// business audit row. It has a short retention period and can be deleted
+// without altering the audit trail itself.
+model AuditSecurityMetadata {
+  id              String   @id @default(cuid())
+  auditLogId      String   @unique
+  auditLog        BusinessAuditLog @relation(fields: [auditLogId], references: [id], onDelete: Cascade)
+
+  ipAddress       String?
+  browserFamily   String
+  operatingSystem String
+  deviceType      String
+  countryCode     String?
+  region          String?
+  locationSource  String?
+
+  createdAt       DateTime @default(now())
+  expiresAt       DateTime
+
+  @@index([expiresAt])
 }
 
 enum AuditActorType {

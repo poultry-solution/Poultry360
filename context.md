@@ -510,7 +510,14 @@ Dealer staff logins are separate from normal `User` accounts and from payroll st
 - Chat auditing now records only successful sends and soft deletes as `chat.message.sent` and
   `chat.message.deleted`, scoped to the sender and conversation. It stores message type and
   yes/no text/attachment metadata only—never chat content, filenames, URLs, or storage keys.
-  Login/logout and device/location auditing are later phases. Do not audit page views, exports,
+  Login/logout auditing records only successful normal-user and staff sign-ins/sign-outs as
+  `auth.login.succeeded` and `auth.logout.succeeded`. These records are visible and exportable
+  only to Super Admin; normal users and staff never receive them. Successful sign-ins also have
+  a separate `AuditSecurityMetadata` row containing only IP address, browser family, operating
+  system family, device type, and an optional trusted-header country/region. It is visible only to
+  Super Admin, expires after 30 days, and is deleted without changing the immutable audit event.
+  Never store credentials, tokens, cookies, session IDs, raw user-agent strings, browser versions,
+  precise location, or data from an external geo-IP provider. Do not audit page views, exports,
   failed actions, token refreshes, or notifications.
 
 ---

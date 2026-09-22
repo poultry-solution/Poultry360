@@ -73,6 +73,9 @@ For auth to work across subdomains, the refresh-token cookie must be set with a 
 | `JWT_REFRESH_SECRET` | Refresh token signing            | Required in production                               |
 | `FRONTEND_URLS`      | CORS and Socket.IO allowed origins | Comma-separated, e.g. `https://farmer.p360.com,https://dealer.p360.com,...` |
 | `FRONTEND_URL`       | Fallback if `FRONTEND_URLS` unset| Single origin                                        |
+| `TRUST_PROXY_HOPS`   | Trusted proxy hops for sign-in IP capture | Keep `0` unless the API origin is protected by a trusted proxy |
+| `TRUSTED_GEO_HEADER_SOURCE` | Trusted approximate-location header source | `none` (default), `cloudflare`, or `vercel`; requires proxy trust |
+| `AUDIT_SECURITY_RETENTION_DAYS` | Sign-in IP/device retention | Defaults to `30`; security metadata is deleted after this period |
 | `VAPID_PUBLIC_KEY`   | Web Push (notifications)         | Optional; required for push                          |
 | `VAPID_PRIVATE_KEY`  | Web Push (notifications)         | Optional; required for push                          |
 | `R2_BUCKET`          | R2 bucket name (e.g. uploads)    | Optional                                             |
@@ -81,6 +84,11 @@ For auth to work across subdomains, the refresh-token cookie must be set with a 
 | `R2_ACCESS_KEY_SECRET` | R2 secret key                  | Optional                                             |
 
 Production cookie domain for refresh tokens should be set in auth code (e.g. `.p360.com`) when `NODE_ENV === 'production'` (or via a dedicated env var like `COOKIE_DOMAIN`).
+
+When `TRUST_PROXY_HOPS` is enabled, keep the backend origin private (for example, bind Docker to
+`127.0.0.1` and place a trusted reverse proxy in front of it). Otherwise a direct client could
+forge forwarded IP or location headers. Do not enable a trusted location source until that proxy
+is configured to overwrite those headers.
 
 ### 3.2 Frontend (`apps/frontend`)
 

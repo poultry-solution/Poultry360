@@ -24,8 +24,10 @@ services:
   backend:
     image: siddjuugi/poultry360-backend:latest
     container_name: poultry360-backend
+    # Bind locally when a reverse proxy fronts the API. Do not expose the
+    # origin publicly when TRUST_PROXY_HOPS is enabled.
     ports:
-      - "8081:8081"
+      - "127.0.0.1:8081:8081"
     env_file:
       - .env
     environment:

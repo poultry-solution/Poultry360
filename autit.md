@@ -82,3 +82,42 @@ message delete. Do not change chat behaviour or add a separate chat-audit screen
 - Audit rows contain the correct actor, conversation ID, message ID, action, and timestamp, but
   contain no message content or attachment reference.
 - Run backend build and a focused message-controller/API test after implementation.
+
+---
+
+## Phase 3 — Authentication Audit Implementation Plan
+
+**Goal:** Record only completed normal-user and Dealer-staff logins and authenticated logouts in
+the existing immutable audit trail.
+
+- Reuse `BusinessAuditLog`; do not add a new table or store passwords, tokens, refresh cookies,
+  session IDs, IP addresses, browser data, or location data.
+- Write `auth.login.succeeded` only after valid normal-user or staff credentials. Write
+  `auth.logout.succeeded` only after a valid bearer token identifies the normal user or staff
+  member. Do not audit registration, refreshes, expired sessions, failed authentication, or
+  unauthenticated logout requests.
+- Login and logout events identify the actor and use `User` or `StaffUser` as the target. Staff
+  events retain the owning Dealer account scope.
+- Authentication events are available only through the Super Admin Activity page and its exports.
+  Dealer-owner activity queries and exports permanently exclude `auth.*` events; staff remains
+  unable to access activity history.
+
+---
+
+## Phase 4 — Sign-in Security Metadata
+
+- Successful normal-user and Dealer-staff sign-ins store only IP address, browser family,
+  operating-system family, device type, and optional country/region from explicitly trusted
+  infrastructure headers. No logout or ordinary business action stores this metadata.
+- Security metadata is a separate one-to-one record for the immutable authentication audit event.
+  It is available only to Super Admin, is exportable from the existing Admin Activity page, and is
+  permanently deleted after 30 days while the audit event remains.
+- No raw user-agent, device ID, browser version, precise location, client geolocation, or external
+  geo-IP lookup is used. Trusted location headers are ignored unless `TRUST_PROXY_HOPS` is enabled.
+
+
+  Phase 4 — Device and location metadata:
+- Add automatically available metadata such as IP address, browser/device information, and estimated location where practical.
+- This is intended for future misuse investigation and operational features such as finding nearby dealers.
+- No user-entered device/location information is required.
+- This phase is postponed until the earlier audit phases are complete.

@@ -2,8 +2,9 @@ import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import prisma from "../utils/prisma";
-import { UserOnboardingPaymentState, UserRole, UserStatus } from "@prisma/client";
+import { AuditActorType, UserOnboardingPaymentState, UserRole, UserStatus } from "@prisma/client";
 import { LoginSchema, SignupSchema } from "@myapp/shared-types";
+import { getSignInSecurityMetadata, writeAuthenticationAudit } from "../services/businessAuditService";
 
 const generateTokens = (userId: string, role: UserRole) => {
   const accessToken = jwt.sign(
@@ -73,6 +74,13 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       where: { userId: user.id },
       select: { state: true, lockedUntilApproved: true },
     });
+
+    await writeAuthenticationAudit({
+      accountOwnerId: user.id,
+      actorId: user.id,
+      actorType: AuditActorType.USER,
+      action: "LOGIN",
+    }, getSignInSecurityMetadata(req));
 
     res.cookie("refreshToken", tokens.refreshToken, {
       httpOnly: true,
@@ -287,7 +295,14 @@ export const refreshToken = async (
   }
 };
 
-export const logout = (req: Request, res: Response): any => {
+export const logout = async (req: Request, res: Response): Promise<any> => {
+  await writeAuthenticationAudit({
+    accountOwnerId: req.userId!,
+    actorId: req.userId!,
+    actorType: AuditActorType.USER,
+    action: "LOGOUT",
+  });
+
   // Clear refresh token cookie
   res.clearCookie("refreshToken", {
     httpOnly: true,

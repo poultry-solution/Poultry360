@@ -24,7 +24,10 @@ const authRouter = Router();
 authRouter.post("/login", login);
 authRouter.post("/register", register);
 authRouter.post("/register-entity", registerEntity);
-authRouter.post("/logout", logout);
+authRouter.post("/logout", authMiddleware, (req, res, next) => {
+  if (req.actorType !== "USER") return res.status(403).json({ error: "Use the staff logout route" });
+  next();
+}, logout);
 authRouter.post("/refresh-token", refreshToken);
 authRouter.get("/@me", getUserInfo);
 authRouter.get("/validate", validateToken);

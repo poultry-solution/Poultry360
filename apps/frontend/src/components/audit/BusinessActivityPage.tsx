@@ -16,7 +16,7 @@ function download(content: BlobPart | BlobPart[], type: string, filename: string
 }
 const escapeCsv = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
 function rows(logs: BusinessAuditLog[]) {
-  return logs.map((log) => [new Date(log.createdAt).toLocaleString(), log.actorName, log.actorType === "STAFF" ? "Staff" : log.actorRole === "DEALER" ? "Owner" : log.actorRole || "User", log.description, recordLabels[log.targetType] || "Business record", readableDetails(log.metadata)]);
+  return logs.map((log) => [new Date(log.createdAt).toLocaleString(), log.actorName, log.actorType === "STAFF" ? "Staff" : log.actorRole === "DEALER" ? "Owner" : log.actorRole || "User", log.description, recordLabels[log.targetType] || "Business record", readableDetails(log.metadata, log.securityMetadata)]);
 }
 function exportCsv(logs: BusinessAuditLog[]) {
   download([[["Time", "Actor", "Role", "Action", "Related to", "Details"], ...rows(logs)].map((row) => row.map(escapeCsv).join(",")).join("\n")], "text/csv;charset=utf-8", "activity.csv");
@@ -48,12 +48,13 @@ const recordLabels: Record<string, string> = {
   DealerManualPurchase: "Supplier purchase",
   DealerManualCompanyPayment: "Supplier payment",
   StaffUser: "Staff login",
-  User: "Account",
+  User: "Account login",
   AccountFeature: "Account setting",
   Company: "Company",
   Dealer: "Feed Dealer",
   BlogPost: "Blog post",
   LandingReview: "Review",
+  Authentication: "Login activity",
 };
 
 const detailLabels: Record<string, string> = {
@@ -83,9 +84,8 @@ function formatMoney(value: unknown) {
   return new Intl.NumberFormat("en-NP", { style: "currency", currency: "NPR", minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(value));
 }
 
-function readableDetails(metadata: BusinessAuditLog["metadata"]) {
-  if (!metadata) return "—";
-  return Object.entries(metadata)
+function readableDetails(metadata: BusinessAuditLog["metadata"], securityMetadata?: BusinessAuditLog["securityMetadata"]) {
+  const details = metadata ? Object.entries(metadata)
     .filter(([key]) => !key.endsWith("Id"))
     .map(([key, value]) => {
       const label = detailLabels[key] || key.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase());
@@ -100,7 +100,18 @@ function readableDetails(metadata: BusinessAuditLog["metadata"]) {
         : String(value ?? "");
       return `${label}: ${display}`;
     })
-    .join(" · ") || "—";
+    : [];
+  if (securityMetadata) {
+    details.push(
+      `IP address: ${securityMetadata.ipAddress || "Not available"}`,
+      `Browser: ${securityMetadata.browserFamily}`,
+      `System: ${securityMetadata.operatingSystem}`,
+      `Device: ${securityMetadata.deviceType}`,
+    );
+    const area = [securityMetadata.region, securityMetadata.countryCode].filter(Boolean).join(", ");
+    if (area) details.push(`Estimated area: ${area}`);
+  }
+  return details.join(" · ") || "—";
 }
 
 export function BusinessActivityPage({ scope }: { scope: "dealer" | "admin" }) {
@@ -115,10 +126,10 @@ export function BusinessActivityPage({ scope }: { scope: "dealer" | "admin" }) {
     } catch { toast.error("Could not export activity"); }
   };
   return <div className="container max-w-7xl space-y-6 py-6">
-    <div><h1 className="text-2xl font-bold">Activity</h1><p className="text-sm text-muted-foreground">See important business actions. Staff cannot view this page.</p></div>
+    <div><h1 className="text-2xl font-bold">Activity</h1><p className="text-sm text-muted-foreground">{scope === "admin" ? "See important account and security actions." : "See important business actions. Staff cannot view this page."}</p></div>
     <Card><CardHeader className="gap-3 sm:flex-row sm:items-center sm:justify-between"><div><CardTitle>Business activity</CardTitle><CardDescription>New records are kept here for 10 days. Older records can still be included when needed.</CardDescription></div><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => doExport("csv")}><Download className="mr-1 h-4 w-4" /> CSV</Button><Button size="sm" variant="outline" onClick={() => doExport("excel")}><FileSpreadsheet className="mr-1 h-4 w-4" /> Excel</Button><Button size="sm" variant="outline" onClick={() => doExport("pdf")}><FileText className="mr-1 h-4 w-4" /> PDF</Button></div></CardHeader><CardContent className="space-y-4">
       <div className="grid gap-2 md:grid-cols-4"><div className="relative"><Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-8" placeholder="Search activity" value={filters.search || ""} onChange={(event) => update({ search: event.target.value })} /></div><select className="rounded-md border bg-background px-3 text-sm" value={filters.actorType || ""} onChange={(event) => update({ actorType: event.target.value || undefined })}><option value="">All people</option><option value="USER">Owners / users</option><option value="STAFF">Staff</option></select><select className="rounded-md border bg-background px-3 text-sm" value={filters.archived || "false"} onChange={(event) => update({ archived: event.target.value as AuditFilters["archived"] })}><option value="false">Last 10 days</option><option value="all">All records</option><option value="true">Older records</option></select><Input type="date" value={filters.startDate || ""} onChange={(event) => update({ startDate: event.target.value || undefined })} /></div>
-      {query.isLoading ? <p className="text-sm text-muted-foreground">Loading activity…</p> : <Table><TableHeader><TableRow><TableHead>When</TableHead><TableHead>Who</TableHead><TableHead>What happened</TableHead><TableHead>Related to</TableHead><TableHead>Details</TableHead></TableRow></TableHeader><TableBody>{logs.length === 0 ? <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No activity found.</TableCell></TableRow> : logs.map((log) => <TableRow key={log.id}><TableCell className="whitespace-nowrap text-xs">{new Date(log.createdAt).toLocaleString()}</TableCell><TableCell>{log.actorName}<span className="block text-xs text-muted-foreground">{log.actorType === "STAFF" ? "Staff" : log.actorRole === "DEALER" ? "Owner" : log.actorRole || "User"}</span></TableCell><TableCell>{log.description}</TableCell><TableCell>{recordLabels[log.targetType] || "Business record"}</TableCell><TableCell className="max-w-72 text-xs text-muted-foreground">{readableDetails(log.metadata)}</TableCell></TableRow>)}</TableBody></Table>}
+      {query.isLoading ? <p className="text-sm text-muted-foreground">Loading activity…</p> : <Table><TableHeader><TableRow><TableHead>When</TableHead><TableHead>Who</TableHead><TableHead>What happened</TableHead><TableHead>Related to</TableHead><TableHead>Details</TableHead></TableRow></TableHeader><TableBody>{logs.length === 0 ? <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No activity found.</TableCell></TableRow> : logs.map((log) => <TableRow key={log.id}><TableCell className="whitespace-nowrap text-xs">{new Date(log.createdAt).toLocaleString()}</TableCell><TableCell>{log.actorName}<span className="block text-xs text-muted-foreground">{log.actorType === "STAFF" ? "Staff" : log.actorRole === "DEALER" ? "Owner" : log.actorRole || "User"}</span></TableCell><TableCell>{log.description}</TableCell><TableCell>{recordLabels[log.targetType] || "Business record"}</TableCell><TableCell className="max-w-72 text-xs text-muted-foreground">{readableDetails(log.metadata, log.securityMetadata)}</TableCell></TableRow>)}</TableBody></Table>}
       <div className="flex items-center justify-between text-sm"><span>{query.data?.pagination.total || 0} records</span><div className="flex gap-2"><Button size="sm" variant="outline" disabled={!filters.page || filters.page <= 1} onClick={() => setFilters((current) => ({ ...current, page: (current.page || 1) - 1 }))}>Previous</Button><Button size="sm" variant="outline" disabled={!query.data?.pagination.totalPages || (filters.page || 1) >= query.data.pagination.totalPages} onClick={() => setFilters((current) => ({ ...current, page: (current.page || 1) + 1 }))}>Next</Button></div></div>
     </CardContent></Card>
   </div>;

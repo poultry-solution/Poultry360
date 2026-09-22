@@ -6,6 +6,11 @@ export type BusinessAuditLog = {
   actorId: string; actorType: "USER" | "STAFF"; actorName: string; actorRole: string | null;
   action: string; targetType: string; targetId: string; description: string;
   metadata: Record<string, unknown> | null; createdAt: string; archivedAt: string | null;
+  securityMetadata?: {
+    ipAddress: string | null; browserFamily: string; operatingSystem: string; deviceType: string;
+    countryCode: string | null; region: string | null; locationSource: string | null;
+    createdAt: string; expiresAt: string;
+  };
 };
 
 export type AuditFilters = { page?: number; limit?: number; search?: string; actorType?: string; action?: string; targetType?: string; startDate?: string; endDate?: string; archived?: "true" | "false" | "all"; accountOwnerId?: string };

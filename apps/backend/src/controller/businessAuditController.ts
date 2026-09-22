@@ -7,8 +7,9 @@ function parsePage(value: unknown, fallback: number) {
   return Number.isFinite(number) ? Math.max(1, Math.floor(number)) : fallback;
 }
 
-function buildWhere(query: Request["query"], accountOwnerId?: string): Prisma.BusinessAuditLogWhereInput {
+function buildWhere(query: Request["query"], accountOwnerId?: string, includeAuthentication = true): Prisma.BusinessAuditLogWhereInput {
   const where: Prisma.BusinessAuditLogWhereInput = accountOwnerId ? { accountOwnerId } : {};
+  if (!includeAuthentication) where.NOT = { action: { startsWith: "auth." } };
   const archived = query.archived === "true" ? true : query.archived === "all" ? "all" : false;
   if (archived !== "all") where.archivedAt = archived ? { not: null } : null;
   if (typeof query.actorType === "string") where.actorType = query.actorType as any;
@@ -36,35 +37,44 @@ function buildWhere(query: Request["query"], accountOwnerId?: string): Prisma.Bu
   return where;
 }
 
-async function sendLogs(req: Request, res: Response, accountOwnerId?: string) {
+function withoutExpiredSecurityMetadata(rows: any[]) {
+  const now = new Date();
+  return rows.map(({ securityMetadata, ...row }) => (
+    securityMetadata && securityMetadata.expiresAt > now ? { ...row, securityMetadata } : row
+  ));
+}
+
+async function sendLogs(req: Request, res: Response, accountOwnerId?: string, includeAuthentication = true, includeSecurityMetadata = false) {
   const page = parsePage(req.query.page, 1);
   const limit = Math.min(parsePage(req.query.limit, 25), 100);
-  const where = buildWhere(req.query, accountOwnerId);
+  const where = buildWhere(req.query, accountOwnerId, includeAuthentication);
   const [total, rows] = await Promise.all([
     prisma.businessAuditLog.count({ where }),
-    prisma.businessAuditLog.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * limit, take: limit }),
+    includeSecurityMetadata
+      ? prisma.businessAuditLog.findMany({ where, include: { securityMetadata: true }, orderBy: { createdAt: "desc" }, skip: (page - 1) * limit, take: limit })
+      : prisma.businessAuditLog.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * limit, take: limit }),
   ]);
-  return res.json({ success: true, data: rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+  return res.json({ success: true, data: includeSecurityMetadata ? withoutExpiredSecurityMetadata(rows) : rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
 }
 
 export async function getDealerBusinessAuditLogs(req: Request, res: Response): Promise<any> {
   if (req.actorType === "STAFF") return res.status(403).json({ message: "Staff accounts cannot view activity history." });
-  return sendLogs(req, res, req.userId!);
+  return sendLogs(req, res, req.userId!, false);
 }
 
 export async function getAdminBusinessAuditLogs(req: Request, res: Response): Promise<any> {
   if (req.role !== UserRole.SUPER_ADMIN) return res.status(403).json({ message: "Super Admin access required" });
-  return sendLogs(req, res);
+  return sendLogs(req, res, undefined, true, true);
 }
 
 export async function exportDealerBusinessAuditLogs(req: Request, res: Response): Promise<any> {
   if (req.actorType === "STAFF") return res.status(403).json({ message: "Staff accounts cannot export activity history." });
-  const rows = await prisma.businessAuditLog.findMany({ where: buildWhere(req.query, req.userId!), orderBy: { createdAt: "desc" }, take: 10000 });
+  const rows = await prisma.businessAuditLog.findMany({ where: buildWhere(req.query, req.userId!, false), orderBy: { createdAt: "desc" }, take: 10000 });
   return res.json({ success: true, data: rows });
 }
 
 export async function exportAdminBusinessAuditLogs(req: Request, res: Response): Promise<any> {
   if (req.role !== UserRole.SUPER_ADMIN) return res.status(403).json({ message: "Super Admin access required" });
-  const rows = await prisma.businessAuditLog.findMany({ where: buildWhere(req.query), orderBy: { createdAt: "desc" }, take: 10000 });
-  return res.json({ success: true, data: rows });
+  const rows = await prisma.businessAuditLog.findMany({ where: buildWhere(req.query), include: { securityMetadata: true }, orderBy: { createdAt: "desc" }, take: 10000 });
+  return res.json({ success: true, data: withoutExpiredSecurityMetadata(rows) });
 }
