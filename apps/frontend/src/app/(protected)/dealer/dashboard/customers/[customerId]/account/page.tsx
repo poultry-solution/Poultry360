@@ -99,7 +99,7 @@ export default function CustomerAccountPage() {
   // Payments
   const { data: paymentsData, isLoading: paymentsLoading } = useGetLedgerEntries({
     partyId,
-    type: "PAYMENT_RECEIVED",
+    type: "PAYMENT_RECEIVED,PAYMENT_MADE",
     page: paymentsPage,
     limit: PAGE_SIZE,
   });
@@ -500,7 +500,7 @@ export default function CustomerAccountPage() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <p className="font-medium">Payment</p>
+                            <p className="font-medium">{payment.type === "PAYMENT_MADE" ? "Payout" : "Payment"}</p>
                             {payment.reference && (
                               <Badge variant="outline" className="text-xs">
                                 {payment.reference}
@@ -523,8 +523,8 @@ export default function CustomerAccountPage() {
                         </div>
                       </div>
                       <div className="text-right flex flex-col items-end gap-2">
-                        <p className="text-lg font-bold text-green-600">
-                          -{formatCurrency(Number(payment.amount))}
+                        <p className={`text-lg font-bold ${payment.type === "PAYMENT_MADE" ? "text-amber-600" : "text-green-600"}`}>
+                          {payment.type === "PAYMENT_MADE" ? "+" : "-"}{formatCurrency(Number(payment.amount))}
                         </p>
                         {(payment.balance !== undefined || payment.balanceAfter !== undefined) && (
                           <p className="text-xs text-muted-foreground">

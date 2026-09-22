@@ -330,7 +330,7 @@ export default function SaleDetailPage() {
                 key: 'dealerProduct',
                 label: 'Product',
                 width: '150px',
-                render: (val) => <span className="font-medium">{val?.name || "Product"}</span>
+                render: (val) => <span className="font-medium">{val?.name || (sale.isChickenSale ? "Broiler" : "Product")}</span>
               },
               {
                 key: 'unitPrice',
@@ -346,6 +346,27 @@ export default function SaleDetailPage() {
                 width: '80px',
                 render: (val) => Number(val).toFixed(2)
               },
+              ...(sale.isChickenSale ? [
+                {
+                  key: 'broilerCount',
+                  label: 'Broiler Count',
+                  align: 'right' as const,
+                  width: '110px',
+                  render: (val: unknown) => val == null ? '—' : Number(val).toLocaleString(),
+                },
+                {
+                  key: 'averageWeight',
+                  label: 'Avg. Wt./Broiler',
+                  align: 'right' as const,
+                  width: '130px',
+                  render: (_val: unknown, row: any) => {
+                    const broilerCount = Number(row.broilerCount);
+                    return Number.isFinite(broilerCount) && broilerCount > 0
+                      ? `${(Number(row.quantity) / broilerCount).toFixed(3)} kg`
+                      : '—';
+                  },
+                },
+              ] : []),
               {
                 key: 'totalAmount',
                 label: 'Total',

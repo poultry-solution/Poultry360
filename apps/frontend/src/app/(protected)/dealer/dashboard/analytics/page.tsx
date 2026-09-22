@@ -382,31 +382,31 @@ function DealerAnalyticsContent() {
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="space-y-1">
-            <div className="text-sm font-semibold">Selected range</div>
+            <div className="text-sm font-semibold">This date range</div>
             <div className="text-xs text-muted-foreground">
-              These cards change with the date filter.
+              These numbers change when you change the dates.
             </div>
           </div>
-          <Badge variant="secondary">Range-based</Badge>
+          <Badge variant="secondary">Selected dates</Badge>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
           <MetricCard
             title="Sales"
             value={salesStatsQuery.isLoading ? "..." : formatMoney(salesTotal)}
-            description="Revenue in the selected range"
+            description="Product sales in these dates"
             icon={ReceiptText}
             tone="text-green-600"
             scopeBadge="Selected range"
             badge={`${formatNumber(salesStats?.totalSales || 0)} sales`}
           />
           <MetricCard
-            title="Collections"
+            title="Paid when sold"
             value={salesStatsQuery.isLoading ? "..." : formatMoney(paidAtSale)}
-            description="Cash collected at sale time"
+            description="Money received when products were sold"
             icon={Wallet}
             tone="text-blue-600"
             scopeBadge="Selected range"
-            badge={`${formatMoney(dueAtSale)} due`}
+            badge={`${formatMoney(dueAtSale)} sold on credit`}
           />
         </div>
       </div>
@@ -414,45 +414,45 @@ function DealerAnalyticsContent() {
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="space-y-1">
-            <div className="text-sm font-semibold">Lifetime snapshot</div>
+            <div className="text-sm font-semibold">Current position</div>
             <div className="text-xs text-muted-foreground">
-              These cards reflect current dealer exposure and inventory pressure.
+              Your current money, stock, and customer situation.
             </div>
           </div>
-          <Badge variant="outline">Lifetime</Badge>
+          <Badge variant="outline">Current</Badge>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
-            title="Profit"
+            title="Estimated profit"
             value={profitSummaryQuery.isLoading ? "..." : formatMoney(profit)}
-            description="Purchase cost versus sales"
+            description="Sales income minus purchase cost"
             icon={TrendingUp}
             tone="text-emerald-600"
             scopeBadge="Lifetime"
             badge={`${formatMoney(totalPurchases)} purchases`}
           />
           <MetricCard
-            title="Customer balance"
+            title="Customers owe you"
             value={lifetimeLedgerSummaryQuery.isLoading ? "..." : formatMoney(netCustomerBalance)}
-            description="Net manual customer exposure"
+            description="Current unpaid customer amount"
             icon={Users}
             tone="text-violet-600"
             scopeBadge="Lifetime"
             badge={`${formatNumber(overdueCustomers.length)} overdue`}
           />
           <MetricCard
-            title="Company balance"
+            title="You owe suppliers"
             value={lifetimeLedgerSummaryQuery.isLoading ? "..." : formatMoney(netCompanyBalance)}
-            description="Net manual company exposure"
+            description="Current unpaid supplier amount"
             icon={Building2}
             tone="text-amber-600"
             scopeBadge="Lifetime"
             badge={`${manualCompanies.length} suppliers`}
           />
           <MetricCard
-            title="Alerts"
+            title="Things to check"
             value={inventorySummaryQuery.isLoading ? "..." : formatNumber(alertCount)}
-            description="Low stock, out of stock, overdue"
+            description="Low stock, no stock, or unpaid money"
             icon={AlertTriangle}
             tone="text-red-600"
             scopeBadge="Lifetime"

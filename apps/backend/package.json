@@ -16,6 +16,7 @@
     "seed:demo:dealer": "ts-node src/scripts/seedDemoDealer.ts",
     "seed:demo:company": "ts-node src/scripts/seedDemoCompany.ts",
     "seed:demo:hatchery": "ts-node src/scripts/seedDemoHatchery.ts",
+    "seed:clean:dealer": "ts-node src/scripts/seedCleanAccountingDealer.ts",
     "seed:blog": "ts-node src/scripts/seedBlogPosts.ts",
     "build": "tsc"
   },

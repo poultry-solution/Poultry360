@@ -11,6 +11,7 @@ type DealerSaleBillLine = {
   rate: number;
   total: number;
   note?: string;
+  broilerCount?: number | null;
 };
 
 type DealerSaleBillDocumentProps = {
@@ -46,11 +47,12 @@ export function DealerSaleBillDocument({
           const rate = Number(line.unitPrice ?? 0);
           return {
             id: line.id,
-            name: line.product?.name || line.dealerProduct?.name || (sale?.isChickenSale ? "Chicken Meat" : "Product"),
+            name: line.product?.name || line.dealerProduct?.name || (sale?.isChickenSale ? "Broiler" : "Product"),
             quantity,
             rate,
             total: Number(line.totalAmount ?? quantity * rate),
             note: line.unit || line.product?.unit || undefined,
+            broilerCount: line.broilerCount ?? null,
           };
         })
       : [
@@ -138,6 +140,8 @@ export function DealerSaleBillDocument({
                 <tr>
                   <th className={["text-left font-semibold", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>Item</th>
                   <th className={["text-right font-semibold", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>Qty</th>
+                  {sale?.isChickenSale ? <th className={["text-right font-semibold", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>Broilers</th> : null}
+                  {sale?.isChickenSale ? <th className={["text-right font-semibold", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>Avg. Wt.</th> : null}
                   <th className={["text-right font-semibold", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>Rate</th>
                   <th className={["text-right font-semibold", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>Total</th>
                 </tr>
@@ -154,6 +158,16 @@ export function DealerSaleBillDocument({
                     <td className={["text-right align-top", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>
                       {Number.isFinite(line.quantity) ? line.quantity.toLocaleString() : "0"}
                     </td>
+                    {sale?.isChickenSale ? (
+                      <td className={["text-right align-top", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>
+                        {line.broilerCount == null ? "—" : Number(line.broilerCount).toLocaleString()}
+                      </td>
+                    ) : null}
+                    {sale?.isChickenSale ? (
+                      <td className={["text-right align-top", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>
+                        {Number(line.broilerCount) > 0 ? `${(line.quantity / Number(line.broilerCount)).toFixed(3)} kg` : "—"}
+                      </td>
+                    ) : null}
                     <td className={["text-right align-top", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>
                       ₹{formatCurrency(line.rate)}
                     </td>

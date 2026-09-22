@@ -78,11 +78,6 @@ export default function DealerHomePage() {
   const fromCustomerDirection = netCustomerBalance >= 0 ? "receive" : "give";
   const toCompanyDirection = netCompanyBalance >= 0 ? "give" : "receive";
 
-  // We reuse existing i18n keys from the farmer dashboard to avoid touching blocked dealer i18n JSON.
-  const moneyToReceiveLabel = t("farmer.dashboard.moneyToReceive");
-  const moneyToPayLabel = t("farmer.dashboard.moneyToPay");
-  const moneyToGiveLabel = moneyToPayLabel; // "Money to give" ~= "Money to pay" in this context
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -109,7 +104,7 @@ export default function DealerHomePage() {
       <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3">
         <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm font-medium">{t("dealer.dashboard.stats.totalInventory")}</CardTitle>
+            <CardTitle className="text-xs md:text-sm font-medium">Products</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="p-3 md:p-4 pt-0">
@@ -118,13 +113,13 @@ export default function DealerHomePage() {
             ) : (
               <div className="text-xl md:text-2xl font-bold">{stats.totalInventory}</div>
             )}
-            <p className="text-[10px] md:text-xs text-muted-foreground">{t("dealer.dashboard.stats.itemsInStock")}</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Product types you sell</p>
           </CardContent>
         </Card>
 
         <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm font-medium">{t("dealer.dashboard.stats.totalCustomers")}</CardTitle>
+            <CardTitle className="text-xs md:text-sm font-medium">Customers</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="p-3 md:p-4 pt-0">
@@ -133,13 +128,13 @@ export default function DealerHomePage() {
             ) : (
               <div className="text-xl md:text-2xl font-bold">{stats.totalCustomers}</div>
             )}
-            <p className="text-[10px] md:text-xs text-muted-foreground">{t("dealer.dashboard.stats.activeCustomers")}</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Customer records</p>
           </CardContent>
         </Card>
 
         {canViewFinancialSummaries && <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm font-medium">{t("dealer.dashboard.stats.totalSales")}</CardTitle>
+            <CardTitle className="text-xs md:text-sm font-medium">Product sales</CardTitle>
             <Receipt className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="p-3 md:p-4 pt-0">
@@ -148,7 +143,7 @@ export default function DealerHomePage() {
             ) : (
               <div className="text-xl md:text-2xl font-bold">{formatCurrency(stats.totalSalesAmount)}</div>
             )}
-            <p className="text-[10px] md:text-xs text-muted-foreground">Lifetime sales</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Does not include Broiler money</p>
           </CardContent>
         </Card>}
 
@@ -156,9 +151,7 @@ export default function DealerHomePage() {
         {canViewFinancialSummaries && <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
             <CardTitle className="text-xs md:text-sm font-medium">
-              {fromCustomerDirection === "receive"
-                ? moneyToReceiveLabel
-                : moneyToGiveLabel}
+              {fromCustomerDirection === "receive" ? "Customers owe you" : "You owe customers"}
             </CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -167,11 +160,11 @@ export default function DealerHomePage() {
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
               <div className="text-xl md:text-2xl font-bold text-green-600">
-                {formatCurrency(netCustomerBalance)}
+                {formatCurrency(Math.abs(netCustomerBalance))}
               </div>
             )}
             <p className="text-[10px] md:text-xs text-muted-foreground">
-              From Customer
+              Current unpaid amount
             </p>
           </CardContent>
         </Card>}
@@ -180,9 +173,7 @@ export default function DealerHomePage() {
         {canViewFinancialSummaries && <Card className="p-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
             <CardTitle className="text-xs md:text-sm font-medium">
-              {toCompanyDirection === "give"
-                ? moneyToGiveLabel
-                : moneyToReceiveLabel}
+              {toCompanyDirection === "give" ? "You owe suppliers" : "Suppliers owe you"}
             </CardTitle>
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -191,11 +182,11 @@ export default function DealerHomePage() {
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
               <div className="text-xl md:text-2xl font-bold text-red-600">
-                {formatCurrency(netCompanyBalance)}
+                {formatCurrency(Math.abs(netCompanyBalance))}
               </div>
             )}
             <p className="text-[10px] md:text-xs text-muted-foreground">
-              To Company
+              Current unpaid amount
             </p>
           </CardContent>
         </Card>}

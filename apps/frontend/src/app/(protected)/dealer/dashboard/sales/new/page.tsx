@@ -57,6 +57,7 @@ interface UnitConversion {
 interface SaleItem {
   productId: string;
   quantity: number;
+  broilerCount?: number;
   unitPrice: number;
   unit?: string;
   baseUnitPrice: number; // original price per base unit, used for recalculation
@@ -210,7 +211,7 @@ export default function NewSalePage() {
     }
 
     if (isChickenSale && !sourceFarmerId) {
-      toast.error("Select the source farmer for this chicken sale");
+      toast.error("Select the source farmer for this broiler sale");
       return;
     }
 
@@ -240,6 +241,7 @@ export default function NewSalePage() {
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           unit: item.unit || undefined,
+          broilerCount: isChickenSale ? item.broilerCount : undefined,
         })),
         paidAmount,
         paymentMethod,
@@ -360,8 +362,8 @@ export default function NewSalePage() {
                 </span>
                 <Bird className="h-4 w-4" />
                 <span>
-                  <span className="block font-medium">Chicken Sale</span>
-                  <span className="block text-xs opacity-80">Record the farmer that supplied the chickens for later manual settlement.</span>
+                  <span className="block font-medium">Broiler Sale</span>
+                  <span className="block text-xs opacity-80">Record the farmer that supplied the broilers for later manual settlement.</span>
                 </span>
               </button>
 
@@ -447,7 +449,7 @@ export default function NewSalePage() {
           {/* Products Section */}
           <Card>
             <CardHeader>
-              <CardTitle>{isChickenSale ? "Chicken Meat" : t("dealer.newSale.products.title")}</CardTitle>
+              <CardTitle>{isChickenSale ? "Broiler" : t("dealer.newSale.products.title")}</CardTitle>
               <CardDescription>{isChickenSale ? "Enter the actual sale weight and rate. This does not use or deduct inventory." : t("dealer.newSale.products.description")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -473,7 +475,7 @@ export default function NewSalePage() {
               {items.length > 0 ? (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <Label className="text-base">{isChickenSale ? "Chicken meat sale" : t("dealer.newSale.products.added", { 0: items.length })}</Label>
+                    <Label className="text-base">{isChickenSale ? "Broiler sale" : t("dealer.newSale.products.added", { 0: items.length })}</Label>
                   </div>
 
                   {items.map((item, index) => {
@@ -487,7 +489,7 @@ export default function NewSalePage() {
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <h4 className="font-medium">{isChickenSale ? "Chicken Meat" : product?.name || t("dealer.newSale.products.unknown")}</h4>
+                            <h4 className="font-medium">{isChickenSale ? "Broiler" : product?.name || t("dealer.newSale.products.unknown")}</h4>
                             {isChickenSale ? (
                               <p className="text-sm text-muted-foreground">Variable weight — not tracked in dealer inventory</p>
                             ) : (
@@ -507,7 +509,7 @@ export default function NewSalePage() {
                           </Button>
                         </div>
 
-                        <div className={`grid gap-3 ${hasAlternateUnits ? "grid-cols-4" : "grid-cols-3"}`}>
+                        <div className={`grid gap-3 ${isChickenSale ? "grid-cols-2 md:grid-cols-4" : hasAlternateUnits ? "grid-cols-4" : "grid-cols-3"}`}>
                           {/* Unit selector - only shown when alternate units exist */}
                           {hasAlternateUnits && (
                             <div>
@@ -544,6 +546,25 @@ export default function NewSalePage() {
                               className="h-9"
                             />
                           </div>
+
+                          {isChickenSale && (
+                            <div>
+                              <Label htmlFor={`broilerCount-${index}`} className="text-xs">Number of Broilers</Label>
+                              <Input
+                                id={`broilerCount-${index}`}
+                                type="number"
+                                min="1"
+                                step="1"
+                                value={item.broilerCount ?? ""}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  updateItem(index, "broilerCount", value === "" ? undefined : Number(value));
+                                }}
+                                placeholder="Optional"
+                                className="h-9"
+                              />
+                            </div>
+                          )}
 
                           <div>
                             <Label htmlFor={`unitPrice-${index}`} className="text-xs">
